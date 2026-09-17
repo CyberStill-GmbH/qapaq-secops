@@ -1,0 +1,23 @@
+flowchart TB
+    SOURCE["Fuente"]
+    COL["Collector y cursor no adelantado"]
+    ING["Ingestion - validacion y limites"]
+    RAW[("Raw durable y digest")]
+    MAN["Manifiesto de lote + outbox PostgreSQL"]
+    ACK["Recibo - checkpoint de fuente"]
+    QUEUE["Dispatcher - BullMQ"]
+    PARSE["Parser"]
+    NORM["Normalizer - schema versionado"]
+    ENR["Enrichment con calidad y procedencia"]
+    ANA["Deteccion y correlacion"]
+    IDX["Indexacion independiente"]
+    SOC["Alerta y workflow SOC"]
+    BAD["Cuarentena y replay autorizado"]
+    SOURCE --> COL --> ING --> RAW --> MAN
+    MAN --> ACK
+    MAN --> QUEUE --> PARSE --> NORM --> ENR
+    ENR --> ANA --> SOC
+    ENR --> IDX
+    PARSE -->|fallo permanente| BAD
+    NORM -->|schema invalido| BAD
+    QUEUE -->|intentos agotados| BAD

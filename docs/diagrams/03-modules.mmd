@@ -1,0 +1,23 @@
+flowchart LR
+    ACCESS["access - identidad y capacidades"]
+    ASSETS["assets - contexto de activos"]
+    CONNECT["connectors - fuentes"]
+    TEL["telemetry - ingesta y ciclo de datos"]
+    DET["detection - reglas y correlacion"]
+    SOC["soc - alertas incidentes casos"]
+    AUDIT["audit - registro durable"]
+    WORK["workspace - vistas reportes avisos"]
+    CONNECT -->|lotes| TEL
+    ASSETS -->|contexto publico| TEL
+    TEL -->|SecurityEvent versionado| DET
+    DET -->|resultados| SOC
+    SOC -->|hechos para proyecciones| WORK
+    ACCESS -.->|politica de acceso| SOC
+    ACCESS -.->|politica de acceso| TEL
+    ACCESS -.->|politica de acceso| CONNECT
+    SOC -.->|auditoria| AUDIT
+    CONNECT -.->|auditoria| AUDIT
+    DET -.->|auditoria| AUDIT
+    TEL -.->|auditoria| AUDIT
+    WORK -.->|auditoria| AUDIT
+    ACCESS -.->|auditoria| AUDIT

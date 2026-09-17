@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor U as Operador
+    participant W as React
+    participant I as IdP corporativo
+    participant A as API NestJS
+    participant P as Access y politica
+    participant D as Caso de uso
+    participant DB as PostgreSQL
+    U->>W: Accion SOC
+    W->>I: Federacion propuesta
+    I-->>A: Identidad validable por flujo estandar
+    A-->>W: Sesion segura propuesta
+    W->>A: Request y proteccion CSRF si cookie
+    A->>P: Identidad vigente y capabilities
+    alt No autorizado
+        P-->>A: Deny
+        A-->>W: Error seguro
+    else Capabilities permitidas
+        A->>D: Entrada validada y actor
+        D->>P: Scope y recurso real
+        alt Recurso fuera de alcance
+            P-->>D: Deny
+            D-->>A: Error de acceso
+            A-->>W: Respuesta sin revelar evidencia
+        else Recurso autorizado
+            D->>DB: Estado + AuditEvent + outbox
+            DB-->>D: Commit o rollback
+            D-->>A: Resultado
+            A-->>W: DTO seguro y correlationId
+        end
+    end

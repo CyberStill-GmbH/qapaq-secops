@@ -1,0 +1,34 @@
+# Índice de Architecture Decision Records
+
+Todos los ADR están Proposed. Los requisitos explícitos no necesitan ser
+reinventados, pero su realización técnica y aprobación organizacional aún no
+están acreditadas. No confundir una recomendación escrita con software desplegado.
+Para Accepted registrar responsable, fecha y evidencia de aprobación; cambios
+posteriores se documentan con Superseded y enlace a la decisión nueva.
+
+- [ADR-001 — Modular Monolith](001-modular-monolith.md).
+- [ADR-002 — NestJS + TypeScript](002-backend-stack.md).
+- [ADR-003 — Hexagonal Architecture](003-hexagonal-architecture.md).
+- [ADR-004 — PostgreSQL for operational data](004-postgresql-operational-data.md).
+- [ADR-005 — OpenSearch/Wazuh for telemetry](005-opensearch-wazuh-telemetry.md).
+- [ADR-006 — Redis/BullMQ for asynchronous jobs](006-redis-bullmq.md).
+- [ADR-007 — Python workers for analytics](007-python-analytics.md).
+- [ADR-008 — Hot/Warm/Cold retention](008-hot-warm-cold-retention.md).
+- [ADR-009 — RBAC capability-based permissions](009-capability-rbac.md).
+- [ADR-010 — Vendor integrations through adapters](010-vendor-adapters.md).
+- [ADR-011 — SecurityEvent normalization strategy](011-security-event-normalization.md).
+- [ADR-012 — Audit trail strategy](012-audit-trail.md).
+- [ADR-013 — Secret management abstraction](013-secret-management.md).
+- [ADR-014 — Event-driven internal communication strategy](014-internal-communication.md).
+
+## Compatibilidad con los archivos anteriores
+
+001-modular-monolith y 002-backend-stack conservan sus nombres. Los antiguos
+003-event-storage, 004-authentication-authorization y 005-observability-strategy
+eran archivos vacíos, sin decisiones aceptadas: quedan como notas de traslado.
+No son ADR adicionales ni conservan la numeración semántica anterior.
+
+La numeración nueva cumple el adjunto actual. Las skills fuera de docs/ no se
+modificaron; resolver referencias antiguas por tema/título, usando este índice.
+No hay ADR específico nuevo de observabilidad: su diseño propuesto vive en
+[observabilidad](../architecture/observability.md); proveedor y SLO siguen pendientes.

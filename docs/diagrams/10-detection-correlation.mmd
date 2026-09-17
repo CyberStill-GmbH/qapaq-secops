@@ -1,0 +1,16 @@
+flowchart LR
+    EVENT["SecurityEvent normalizado"]
+    CTX["Contexto con version y calidad"]
+    SIMPLE["Deteccion simple"]
+    CAND["Candidatos"]
+    CORR["Correlacion temporal"]
+    COMP["Deteccion compuesta"]
+    RESULT["DetectionResult validado"]
+    ALERT["Alert idempotente"]
+    SOC["Triage / Incident / Case"]
+    EVENT --> SIMPLE --> CAND --> CORR --> COMP
+    EVENT --> CORR
+    CTX --> SIMPLE
+    CTX --> CORR
+    SIMPLE -->|regla directa| RESULT
+    COMP --> RESULT --> ALERT --> SOC

@@ -1,0 +1,10 @@
+stateDiagram-v2
+    [*] --> NEW: Crear con permiso
+    NEW --> TRIAGED: Clasificar y asignar
+    TRIAGED --> INVESTIGATING: Investigar
+    TRIAGED --> RESOLVED: Disposicion sin contencion justificada
+    INVESTIGATING --> CONTAINED: Contencion acreditada
+    INVESTIGATING --> RESOLVED: Resolucion sin contencion necesaria
+    CONTAINED --> RESOLVED: Resolver y documentar
+    RESOLVED --> CLOSED: Cierre autorizado con razon y evidencia
+    CLOSED --> INVESTIGATING: Reapertura autorizada y auditada

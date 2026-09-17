@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant C as Caso de uso autorizado
+    participant DB as PostgreSQL
+    participant O as Dispatcher
+    participant S as Archivo protegido
+    participant V as Verificador
+    C->>DB: BEGIN
+    C->>DB: Mutacion + AuditEvent redactado + outbox
+    alt Escritura local falla
+        C->>DB: ROLLBACK
+        C-->>C: No confirmar exito
+    else Escritura local durable
+        C->>DB: COMMIT
+        C-->>C: Confirmar resultado operacional
+        O->>DB: Leer outbox pendiente
+        O->>S: Lote con manifiesto y digest
+        alt Archivo confirmado
+            S-->>O: Confirmacion verificable
+            O->>DB: Marcar entrega
+        else Archivo no disponible
+            O->>DB: Mantener pendiente y reintentar acotado
+            O-->>V: Alertar atraso y capacidad
+        end
+        V->>S: Verificar integridad y cobertura
+    end

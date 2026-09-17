@@ -1,0 +1,26 @@
+flowchart TB
+    WEB["React - navegador"]
+    subgraph PRODUCT["Mismo producto y release - monolito modular"]
+        API["NestJS API y modulos"]
+        RUNNER["Runner Node - entrypoint aislable"]
+        PY["Python opcional - proceso acotado"]
+        API -->|contratos publicos| RUNNER
+        RUNNER -.->|JSON validado - sin shell| PY
+        PY -.->|resultado validado| RUNNER
+    end
+    PG[("PostgreSQL operacional")]
+    REDIS[("Redis / BullMQ")]
+    IDX[("Wazuh Indexer o OpenSearch compatible")]
+    OBJ[("Object storage abstraido")]
+    SEC["SecretProvider - backend por elegir"]
+    EXT["Proveedores externos"]
+    WEB -->|HTTPS y autorizacion| API
+    API --> PG
+    API -->|consultas autorizadas| IDX
+    API -->|evidencia autorizada| OBJ
+    RUNNER --> PG
+    RUNNER --> REDIS
+    RUNNER --> IDX
+    RUNNER --> OBJ
+    RUNNER --> SEC
+    RUNNER --> EXT
