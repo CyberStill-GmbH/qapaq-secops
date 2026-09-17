@@ -1,0 +1,49 @@
+# Requerimientos y alcance documental
+
+Fuente: solicitud de arquitectura de qapaq-secops del 2026-09-17 y restricción
+posterior «solo crea ahora la documentación en docs/». Esta última excluye crear
+el skeleton ejecutable. Estado: requisitos de entrada; implementación pendiente.
+
+## Requisitos trazables
+
+- R-01: plataforma SOC interna para Financiera Qapaq; mantenible por equipo pequeño, monolito modular sin microservicios iniciales. [Diseño](architecture/overview.md), ADR-001.
+- R-02: TypeScript/Node/NestJS; React/TypeScript; hexagonal, SOLID y DDD pragmático. [Dependencias](architecture/dependency-rules.md), ADR-002/003.
+- R-03: control plane y data plane separados lógicamente, módulos extraíbles por necesidad real. [Módulos](architecture/modules.md).
+- R-04: PostgreSQL para datos operacionales, no telemetría masiva. [Storage](architecture/storage.md), ADR-004.
+- R-05: Wazuh como pieza central; usar sus capacidades y evitar un SIEM sustituto. Indexación OpenSearch/Wazuh Indexer. ADR-005.
+- R-06: Redis/BullMQ, backpressure, reintentos acotados, idempotencia, replay y fallos aislados; sin Kafka inicial. [Flujos](architecture/data-flow.md), ADR-006/014.
+- R-07: Python para procesamiento justificado, sin reemplazar NestJS. Contratos Node/Python. [Modelo](architecture/event-model.md), ADR-007.
+- R-08: conservar raw, normalizar SecurityEvent, analizar ECS/OCSF. [Modelo](architecture/event-model.md), ADR-011.
+- R-09: hot/warm/cold, retención gobernada y consulta histórica sin acoplar al consumidor al tier. ADR-008.
+- R-10: AD, Microsoft 365/Graph, Cato, Sophos, Wazuh, firewalls, IDS/IPS, servidores/endpoints; MISP futuro. [Integraciones](architecture/integrations.md), ADR-010.
+- R-11: roles dinámicos y capabilities, política por API, scopes y controles de objeto/campo. [RBAC](architecture/rbac.md), ADR-009.
+- R-12: distinguir eventos, logs y auditoría; acciones críticas auditables y protección frente a manipulación. ADR-012.
+- R-13: SecretProvider y referencias a secretos, sin passwords/tokens/API keys en PostgreSQL. ADR-013.
+- R-14: distinguir Event, Alert, Incident, Case; ciclo de investigación y evidencia. [Módulos](architecture/modules.md).
+- R-15: preparación conceptual SOAR con permiso, aprobación, razón y auditoría; no SOAR completo. [Seguridad](architecture/security.md).
+- R-16: vistas SOC y permisos frontend sin sustituir backend. [Contexto](architecture/system-context.md).
+- R-17: logs estructurados, métricas, health y correlación entre request/jobs. [Observabilidad](architecture/observability.md).
+- R-18: unit, integration, contract y E2E; fakes sin infraestructura real de Qapaq. [Pruebas](testing-strategy.md).
+- R-19: GitHub Actions con SAST/dependencias/secret scanning y contenedores si aplican; no Terraform. [Despliegue](deployment.md).
+- R-20: solo datos sintéticos, sin empleados, secretos, IP internas, dominios privados ni configuraciones reales.
+
+## Calidad y restricciones
+
+Seguridad y trazabilidad no se posponen al final. Cada límite externo debe tener
+autorización, validación, límites de consumo, timeouts, comportamiento degradado y
+evidencia de pruebas. Rendimiento, disponibilidad, RPO/RTO, volumen y plazos de
+retención son UNKNOWN: no se prometen valores. Ver [preguntas](decisions/unresolved.md).
+
+No se construyen ML complejo, Kubernetes, Kafka, microservicios, motor de base de
+datos, IdP propio, infraestructura cloud ni integraciones simuladas presentadas
+como funcionales. Ninguna política aquí se presenta como certificación regulatoria.
+
+## Aceptación de esta entrega
+
+- Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
+- Catorce ADR con Context, Decision, Alternatives, Consequences y Trade-offs, estado y condición de revisión.
+- Diez diagramas Mermaid coherentes con la propuesta.
+- Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
+- Stack exigido diferenciado de elecciones propuestas; ninguna integración declarada probada.
+- Cambios confinados a docs/; sin código de aplicación ni infraestructura.
+- Enlaces locales y sintaxis de diagramas comprobados; limitaciones de verificación registradas.

@@ -1,0 +1,72 @@
+# Estrategia de pruebas
+
+Estado: diseño; no tests de aplicación ejecutados porque todavía no hay aplicación.
+
+## Unit
+
+Invariantes de Incident/Case/Alert, transiciones y concurrencia; cálculo de permisos
+con scopes y revocación; detección/correlación determinista con reloj controlable;
+parsers/normalizadores con entradas malformadas; mapping de errores y redacción.
+Fakes de ports, sin red ni servicios de Qapaq. No tests que solo repitan propiedades
+de una clase sin comprobar comportamiento.
+
+## Integration
+
+Con instancias desechables de versiones elegidas: transacciones PostgreSQL
+estado+audit+outbox; claves únicas/inbox; Redis/BullMQ retries/locks y recuperación;
+mappings/queries del indexador; object store/manifiestos. Probar rollback,
+restricciones append-only con cuenta runtime, migraciones y restore. Emulador
+S3/Azure no certifica WORM ni semántica exacta de producción.
+
+## Contract
+
+Schemas JSON compartidos Node/Python y fixtures de cada adapter. Productores y
+consumidores validan el mismo corpus: opcionales/null, enteros grandes, UTC,
+versiones desconocidas, campos extra, límites y raw refs. Fixtures de vendor
+sintéticos con casos válidos, 401/403/429/timeout, paginación, cursor vencido y
+payload incompatible. No usar SDK mock como prueba de contrato real.
+
+Prueba autorizada separada contra sandbox confirma API/version/licencia y scopes;
+no es requisito para que tests locales corran sin acceso a Qapaq. Registrar qué
+parte quedó sin verificar y no llamar «integración funcional» al fake.
+
+## E2E
+
+Identidad de prueba → política → fuente fake → raw/manifiesto → normalización →
+detección → alerta → incidente/case → exportación autorizada y auditoría.
+Añadir rutas deny, object-level access y revocación. UI ocultando botones no cuenta
+como prueba de autorización. Las rutas exactas nacerán del contrato de cada feature.
+
+## Fallos, seguridad y rendimiento
+
+Inyectar caída en cada frontera descrita en data-flow: object write/manifest,
+outbox publish/mark, effect/ack; perder Redis y reconciliar; fuente desconectada;
+índice caído; duplicados concurrentes; reloj desviado/evento tardío; poison payload;
+backpressure/disco lleno; auditoría no disponible; replay con versión nueva.
+
+Probar SSRF por URL/redirección, stored XSS en raw, query/command injection,
+deserialización y decompression bombs en entornos acotados. Sin explotación
+contra producción. SAST y scanners complementan, no sustituyen flujo/evidencia.
+
+Cargas sintéticas con EPS y tamaños representativos acordados; medir ingreso,
+drenaje, lag, memoria, búsquedas y restores. No fijar «soporta X EPS» sin experimento
+reproducible con hardware/configuración documentados.
+
+## Gates futuros
+
+PR: formatter/lint/typecheck, unit y contract relevantes; integración si toca
+persistencia/cola/index/adapters; E2E de verticales críticas; import boundaries;
+SAST, secret/dependency scanning. Releases: migraciones/rollback compatible,
+restore, inventario de dependencias, permisos y pruebas operacionales.
+
+Severidades/bloqueos/excepciones de CI se acuerdan con Seguridad; excepción con
+dueño y vencimiento, no silenciamiento permanente. Cobertura numérica no sustituye
+tests de autorización y fallos. [Verificación existente](verification.md) mantiene
+checks sin configurar; no inventar PASS.
+
+## Evidencia de entrega
+
+Guardar commit/scope, entorno/versiones, comandos, resultados, fallos conocidos y
+pruebas no realizadas. No guardar secretos/raw real en reportes. Diferenciar
+validación documental, test simulado, test local con dependencias y prueba de
+proveedor. [Validación de esta entrega](validation.md).
