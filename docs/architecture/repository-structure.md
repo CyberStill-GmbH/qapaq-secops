@@ -33,7 +33,8 @@ qapaq-secops/
     web/
       src/
         features/               # vistas y flujos SOC, no copias de entidades ORM
-    analytics/                  # Python analytics
+  research/
+    analytics/                  # experimentos Python no desplegados
   packages/
     contracts/                  # contratos internos versionados
     database/                   # Prisma client y migraciones
@@ -47,7 +48,8 @@ qapaq-secops/
 
 API y worker son entrypoints del mismo monolito modular, no servicios de negocio
 independientes. El proceso separado protege la API de carga asíncrona y escala por
-cola. API/web/worker comparten pnpm workspace/lockfile; Python usa pyproject/uv.lock.
+cola. API/web/worker comparten pnpm workspace/lockfile. `pyproject.toml`, `uv.lock` y
+`apps/analytics` solo se incorporan al runtime después del gate de U-007.
 Versiones y herramientas están fijadas en [toolchain](toolchain-and-capacity.md).
 
 ## Interior de un módulo
@@ -84,9 +86,10 @@ haga lógica de negocio. Evitar packages/shared; extraer security/observability
 solo cuando dos consumidores reales justifiquen compartir implementación.
 No distribuir un paquete gigante que haga depender todos los contextos de todos.
 
-Python consume contratos y fixtures, no importa paquetes TypeScript ni escribe
-tablas del backend. Sus dependencias se fijan en uv.lock; una instalación Node
-verde no valida Python.
+La investigación Python usa datos sintéticos o sanitizados y no constituye runtime.
+Tras una activación aprobada, Python consume contratos y fixtures, no importa
+paquetes TypeScript ni escribe tablas del backend; sus dependencias se fijan en
+`uv.lock` y se validan por separado.
 
 ## Documentación canónica
 

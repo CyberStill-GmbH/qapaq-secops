@@ -39,6 +39,7 @@ Decisiones que gobiernan esta vista:
 - U-001/ADR-015: alcance, actores, módulos y ownership.
 - U-003/ADR-017: Entra ID single-tenant y BFF.
 - U-005/ADR-019: QAPAQ como producto central y fuentes independientes.
+- U-007/ADR-007: Python es capacidad futura y no un contenedor del runtime MVP.
 - U-009/ADR-020: Infraestructura opera dependencias; QAPAQ observa su estado.
 - U-012/ADR-022: Teams Workflows es el canal primario de alertas críticas.
 
@@ -62,10 +63,12 @@ Node/NestJS ejecuta collectors, pipeline, detección y jobs recuperables, inclui
 la entrega asíncrona de notificaciones. Comparte
 release y módulos con la API; es separación de carga/entrypoint, no microservicio.
 
-### Analytics
+### Analytics futura
 
-Python es opcional y acotado a analítica justificada. Recibe y devuelve JSON
-versionado; no accede directamente a tablas ni controla el dominio.
+U-007 elimina Python del runtime MVP, por lo que no aparece como contenedor en la
+vista vigente. La frontera futura está documentada, pero `apps/analytics` solo se
+incorpora al C4 después de aprobar caso, benchmark, contratos, aislamiento y
+despliegue. [Detalle](python-analytics.md).
 
 ### Stores
 

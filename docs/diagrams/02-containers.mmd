@@ -11,7 +11,6 @@ C4Container
         Container(web, "Web SOC", "React + TypeScript", "Interfaz para operaciones autorizadas")
         Container(api, "API / BFF", "NestJS + Fastify", "Sesión, autorización y casos de uso síncronos")
         Container(worker, "Worker / scheduler", "NestJS + BullMQ", "Collectors, pipeline, detección y jobs recuperables")
-        Container(analytics, "Analytics", "Python", "Analítica especializada opcional por contrato")
         ContainerDb(pg, "Operational Store", "PostgreSQL", "Estado, configuración, checkpoints, auditoría y outbox/inbox")
         ContainerDb(queue, "Job Queue", "Redis + BullMQ", "Entrega de jobs recuperables")
         ContainerDb(search, "Telemetry Search", "OpenSearch / Wazuh Indexer", "Índices derivados para investigación")
@@ -29,5 +28,4 @@ C4Container
     Rel_D(worker, objects, "Preserva raw y evidencia")
     Rel_U(worker, sources, "Recolecta datasets")
     Rel_U(worker, secrets, "Resuelve secretRef")
-    Rel_R(worker, analytics, "Solicita análisis")
     Rel_L(worker, teams, "Entrega notificaciones críticas", "HTTPS")

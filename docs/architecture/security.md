@@ -79,6 +79,15 @@ se trata como secreto, el payload usa allowlist y el enlace profundo revalida
 sesión, capability, scope y recurso en QAPAQ. Teams no acusa alertas ni recibe raw,
 evidencia, secretos, información financiera completa o PII innecesaria.
 
+## Analítica Python futura
+
+U-007 mantiene Python fuera del runtime MVP. Si se activa, recibe artifacts
+mínimos por contratos versionados, sin acceso directo a stores, secretos, shell o
+egress por defecto. Ejecuta sin privilegios, con filesystem read-only, temporal y
+recursos acotados, dependencias bloqueadas y algoritmo allowlisted. TypeScript
+trata cada resultado como input no confiable y lo revalida antes de cualquier
+promoción.
+
 ## Auditoría y degradación
 
 Mutaciones críticas fallan si no se puede persistir su auditoría local. Caída del

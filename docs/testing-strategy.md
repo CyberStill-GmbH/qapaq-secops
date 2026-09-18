@@ -24,7 +24,8 @@ S3/Azure no certifica WORM ni semántica exacta de producción.
 
 ## Contract
 
-Schemas JSON compartidos Node/Python y fixtures de cada adapter. Productores y
+Los schemas Node/Python se prueban solo en investigación o al activar U-007; el MVP
+no necesita levantar un runtime Python. Mantener fixtures de cada adapter. Productores y
 consumidores validan el mismo corpus: opcionales/null, enteros grandes, UTC,
 versiones desconocidas, campos extra, límites y raw refs. Fixtures de vendor
 sintéticos con casos válidos, 401/403/429/timeout, paginación, cursor vencido y
@@ -131,6 +132,14 @@ Guardar commit/scope, entorno/versiones, comandos, resultados, fallos conocidos 
 pruebas no realizadas. No guardar secretos/raw real en reportes. Diferenciar
 validación documental, test simulado, test local con dependencias y prueba de
 proveedor. [Validación de esta entrega](validation.md).
+
+## Gate ADR-007 — capacidad Python dormante
+
+El MVP verifica que ningún build, despliegue o flujo operativo dependa de Python.
+La investigación puede probar schemas y benchmarks offline sin publicarse como
+feature. La activación futura exige las 18 pruebas de
+[analítica Python](architecture/python-analytics.md#pruebas-de-aceptación), además
+de comparación contra baseline determinística, presupuesto, aislamiento y rollback.
 
 ## Gate ADR-022 — notificación crítica por Teams
 

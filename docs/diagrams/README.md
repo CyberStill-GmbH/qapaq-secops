@@ -9,7 +9,7 @@ representan flujo/interacción; punteadas representan relación transversal u op
 futura según etiqueta. Los módulos no son microservicios.
 
 1. [C4 nivel 1 — System Context](01-system-context.mmd): QAPAQ SecOps como sistema de interés.
-2. [C4 nivel 2 — Containers](02-containers.mmd): unidades ejecutables/stores conceptuales, no compromiso con Docker/Kubernetes.
+2. [C4 nivel 2 — Containers](02-containers.mmd): runtime MVP sin Python; unidades ejecutables/stores conceptuales, no compromiso con Docker/Kubernetes.
 3. [C4 nivel 3 — Components](03-modules.mmd): módulos y capacidades, no imports de internals.
 4. [Pipeline de ingesta](04-ingestion.mmd): aceptación durable distinta de procesamiento.
 5. [Autenticación/autorización](05-authentication-authorization.mmd): flujo Entra/BFF aceptado; configuración real pendiente del gate.

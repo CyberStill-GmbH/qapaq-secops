@@ -76,9 +76,9 @@ logs, fixtures públicos ni índices generales. Si contiene secretos, aislar y
 rotar el secreto comprometido; conservar evidencia restringida conforme a política,
 sin difundirlo en derivados.
 
-## JSON Node/Python
+## JSON Node/Python futuro
 
-Antes de habilitar Python, materializar schemas JSON versionados para SecurityEvent,
+U-007 mantiene Python fuera del MVP. Antes de habilitarlo, materializar schemas JSON versionados para SecurityEvent,
 AnalysisRequest y DetectionResult en el paquete de contratos, validarlos en ambos
 extremos y probar corpus compartido. No usar pickle, eval ni objetos Python/ORM
 como contrato. Versiones desconocidas se rechazan o ponen en cuarentena.

@@ -43,7 +43,8 @@ no decide unilateralmente plazos regulatorios. No eleva una observación a incid
 Reglas de detección/correlación, ventanas, secuencias, thresholds, coincidencia IOC,
 severidad/confianza, contexto MITRE ATT&CK y versionado/pruebas de reglas. Consume
 eventos normalizados e indicadores del módulo de inteligencia; no posee su catálogo.
-NestJS mantiene dominio/estado. Python devuelve resultados versionados; no modifica
+NestJS mantiene dominio/estado. En el MVP no existe runtime Python. Si U-007
+supera su gate futuro, Python devolverá candidates versionados y no modificará
 tablas de aplicación. Distinguir reglas locales de reglas Wazuh de origen.
 
 ### 5. Threat Intelligence — threat-intelligence

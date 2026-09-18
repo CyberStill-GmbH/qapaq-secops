@@ -61,7 +61,8 @@ fixtures o configuración; debe superar inventario y los 15 escenarios de ADR-01
 4. Respuestas con aprobación explícita.
 5. Ticketing y notificaciones adicionales a la alerta crítica ya incluida en MVP.
 6. Capacidades antifraude con permisos, entidades y scoring explicable propios.
-7. Análisis especializado Python con contratos versionados y estado controlado por NestJS.
+7. Después del MVP, evaluar el primer caso Python offline; activarlo solo si supera
+   baseline, benchmark, presupuesto, aislamiento, rollback y 18 pruebas.
 
 Cada vertical incorpora tests/operación/retención pertinentes. Dry-run debe
 demostrar ausencia de efectos externos; aprobación se vincula a versión, targets,
@@ -72,7 +73,8 @@ parámetros y permiso vigente. No simular éxito de una remediación no ejecutad
 Archivo/restore, cuotas, legal hold, deletion ledger y los 20 escenarios de ADR-018
 se prueban antes de habilitar purga automática. SOAR y Antifraude son alcance aceptado,
 no ampliaciones pendientes de justificar; sus contratos e implementación sí son
-incrementales. Kafka, Kubernetes, microservicios y ML complejo siguen fuera de
+incrementales. El runtime Python y ML quedan fuera del MVP por U-007; investigación y benchmarks
+no desplegados sí están permitidos. Kafka, Kubernetes, microservicios y ML complejo siguen fuera de
 implementación inicial; cualquier nueva necesidad técnica requiere evidencia y ADR.
 
 Antes de producción: restore de PostgreSQL/búsqueda, replay, drenaje, revocación,

@@ -14,14 +14,14 @@ aportada: 2026-09-18. La capacidad numérica está pendiente de medición.
 | Fastify | 5.12.1 | Adaptador HTTP de NestJS |
 | React | 19.3.0 | Frontend |
 | Vite | 8.3.0 | Build y desarrollo frontend |
-| Python | 3.14.7 | Analítica especializada |
+| Python | 3.14.7 | Capacidad analítica futura; no runtime MVP |
 | PostgreSQL | 18.6 | Estado transaccional |
 | Redis | 8.10.1 | Cache y backend de colas |
 | BullMQ | 5.81.5 | Jobs, SOAR y tareas operacionales |
 | Prisma ORM | 7.10.0 | ORM y migraciones PostgreSQL |
 | OpenSearch | 3.7.x | Telemetría, búsqueda y agregaciones |
 | pnpm | 12.4.2 | Paquetes y workspaces JavaScript |
-| uv | 0.12.15 | Dependencias y lockfile Python |
+| uv | 0.12.15 | Investigación reproducible y futura activación Python |
 
 Las versiones patch exactas deberán constar en manifests, lockfiles, imágenes y
 CI. No usar `latest`. Actualizar dentro de la línea fijada por seguridad después
@@ -64,8 +64,7 @@ qapaq-secops/
 ├── apps/
 │   ├── api/                    # NestJS HTTP
 │   ├── worker/                 # BullMQ consumers/schedulers
-│   ├── web/                    # React + Vite
-│   └── analytics/              # Python analytics
+│   └── web/                    # React + Vite
 ├── packages/
 │   ├── contracts/              # contratos internos versionados
 │   ├── database/               # Prisma client y migraciones
@@ -77,15 +76,17 @@ qapaq-secops/
 ├── pnpm-workspace.yaml
 ├── package.json
 ├── pnpm-lock.yaml
-├── pyproject.toml
-└── uv.lock
+└── research/
+    └── analytics/              # no desplegado
 ```
 
 Los módulos de negocio permanecen dentro de `apps/api` o paquetes internos con
 límites explícitos; el monorepo no los convierte en aplicaciones independientes.
 
-Python usa uv/uv.lock, Ruff, mypy o Pyright y pytest. Intercambia contratos
-JSON/Protobuf versionados y no accede a tablas propiedad de NestJS.
+Las versiones Python/uv están fijadas para investigación reproducible y futura
+activación, no obligan a crear runtime, manifests o imagen en el MVP. Cuando se
+active, usa uv/uv.lock, Ruff, mypy o Pyright y pytest, intercambia contratos
+versionados y no accede a tablas propiedad de NestJS.
 
 ## Toolchain de calidad
 
@@ -151,7 +152,7 @@ evidencia de espera por conexión.
 | Deterministic detection | 8 |
 | Notifications | 10 |
 | SOAR action | 2 |
-| Python analytics | 2 |
+| Python analytics | No habilitado en MVP |
 
 Son puntos de partida, no capacidad aceptada. Cada cola tiene límite independiente;
 SOAR usa menor concurrencia por sus efectos externos.
@@ -174,7 +175,8 @@ recuperación, stalled jobs, reconexión y actualización del ADR correspondient
 
 - Core: 4 vCPU, 16 GiB RAM y 50 GiB SSD para API, web, PostgreSQL y Redis.
 - Full integration: 12 vCPU, 32 GiB RAM y 200 GiB NVMe/SSD para API, workers,
-  web, PostgreSQL, Redis, OpenSearch, Python y servicios de prueba.
+  web, PostgreSQL, Redis, OpenSearch y servicios de prueba. Python solo se añade a
+  un perfil futuro aprobado por U-007.
 
 Son máquinas de referencia para reproducir benchmarks, no sizing productivo.
 Wazuh completo puede ejecutarse aparte si impide reproducibilidad.

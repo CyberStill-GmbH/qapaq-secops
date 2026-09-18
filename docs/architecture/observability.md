@@ -83,6 +83,11 @@ observability_dropped_records_total
 observability_export_failed_total
 ```
 
+Si U-007 se activa, añadir `analytics_jobs_total`, `analytics_jobs_failed_total`,
+`analytics_job_duration_seconds`, conteos de input/output/rechazo, fallos de
+contrato, límites de recursos y timeouts. Estas métricas no justifican desplegar
+Python en el MVP.
+
 No usar como labels: user/email/IP, incident/alert/event/request/session ID,
 hostname individual, texto libre de error ni URL con parámetros. Fuente, entorno,
 versión y código de error usan vocabularios acotados. Dashboards muestran cobertura,

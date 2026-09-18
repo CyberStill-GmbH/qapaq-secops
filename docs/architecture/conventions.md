@@ -33,9 +33,10 @@ una interfaz vacía por cada clase. Transacciones cortas sin requests a vendors
 dentro. Concurrencia optimista para edición de casos/reglas y claves únicas para
 efectos idempotentes. Evitar catch silencioso y retries infinitos.
 
-## Python y React
+## Python futuro y React
 
-Python 3.14.7 con uv/uv.lock, Ruff, mypy o Pyright y pytest. Tipos y validación
+U-007 mantiene Python fuera del runtime MVP. Para investigación reproducible o
+una activación aprobada: Python 3.14.7 con uv/uv.lock, Ruff, mypy o Pyright y pytest. Tipos y validación
 de contratos; librerías analíticas no deciden permisos del SOC.
 Sin pickle ni comandos construidos con texto de eventos. Versionar reglas y
 dependencias para reproducibilidad.

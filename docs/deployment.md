@@ -12,7 +12,7 @@ políticas; SOC acuerda prioridades y continuidad. No Terraform en este repo aho
 
 La unidad de producto es el monolito modular. API y runner pueden ejecutarse
 separados con el mismo release para aislar carga; número de instancias y HA dependen
-de volumen/RPO/RTO. Python opcional no introduce servicio autónomo inicial. U-001 asigna a Desarrollo
+de volumen/RPO/RTO. U-007 excluye Python del runtime y despliegue del MVP. U-001 asigna a Desarrollo
 la entrega de aplicación local, contenedores y contratos de despliegue; tecnología
 y configuración concreta siguen pendientes. Infraestructura decide producción;
 Kubernetes y su administración están fuera del alcance de la aplicación.
@@ -38,6 +38,8 @@ declarar `LIMITED PRODUCTION / 8x5`.
 ADR-021 añade Collector OTLP, storage WORM, signing service, custodia de llaves,
 dos destinos de alerta y 24 pruebas como dependencias del gate; QAPAQ consume sus
 contratos, pero Infraestructura/Security los provisionan y operan.
+ADR-007 exige caso medible, benchmark, contratos, aislamiento, rollback y 18
+pruebas antes de desplegar un worker Python.
 ADR-022 añade Team/canal restringido, Teams Workflow, propietarios alternos,
 retención, licencia, `secretRef`, rotación y canal secundario. La notificación
 productiva permanece bloqueada hasta superar sus veinte escenarios.

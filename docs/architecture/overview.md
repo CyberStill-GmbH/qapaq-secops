@@ -31,7 +31,8 @@ Usar BullMQ como ejecución recuperable, no como único registro de evidencia.
 
 U-002 acepta el [toolchain, límites y método de capacidad](toolchain-and-capacity.md):
 Node/NestJS/Fastify para API, React/Vite para web, PostgreSQL/Prisma para estado,
-Redis/BullMQ para jobs y Python/uv para analítica justificada. Los perfiles de carga
+Redis/BullMQ para jobs. Python/uv queda fijado para una capacidad analítica futura,
+no desplegada en el MVP. Los perfiles de carga
 son escenarios de medición; ninguna cifra de EPS está aceptada todavía.
 
 U-003 acepta Entra ID single-tenant, BFF con sesión opaca, RBAC con scopes y
@@ -62,7 +63,7 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 - Consultar hot/warm/cold mediante un contrato común no significa igual latencia. Cold puede requerir un job de restauración y resultados parciales explícitos.
 - Wazuh no es la frontera obligatoria para Microsoft, Sophos o Cato. Si un dataset llega directo y por Wazuh, se define una ruta canónica o relación causal.
 - Wazuh Indexer y OpenSearch no implican dos clusters obligatorios. Se evalúa reutilización compatible antes de agregar otro motor.
-- Monolito no equivale a un único proceso Node. Un worker del mismo release puede aislar jobs; Python será opcional y subordinado a contratos, sin servicio autónomo inicial.
+- Monolito no equivale a un único proceso Node. Un worker del mismo release puede aislar jobs. U-007 excluye Python del runtime MVP; su frontera futura permanece subordinada a contratos y benchmark.
 - Auditoría al final de una request no asegura atomicidad. Las mutaciones críticas requieren registro local durable en la misma transacción antes de confirmar éxito.
 
 ### Riesgos y preguntas
@@ -105,8 +106,9 @@ añade vistas de comportamiento, contratos y ownership.
 
 ## REPOSITORY STRUCTURE
 
-Monorepo pnpm aceptado con `apps/api`, `apps/worker`, `apps/web` y
-`apps/analytics`; esta última solo ejecutará analítica Python justificada.
+Monorepo pnpm aceptado con `apps/api`, `apps/worker` y `apps/web`.
+`research/analytics` puede conservar experimentos no desplegados; `apps/analytics`
+solo aparece después del gate de U-007.
 `packages/contracts`, `database`, `observability`, `configuration` y `testing`
 mantienen límites explícitos. [Árbol y convenciones](repository-structure.md).
 
@@ -115,11 +117,11 @@ Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 ## IMPLEMENTATION PLAN
 
 1. Completar gates de identidad, retención, fuentes y continuidad; U-001…005/U-009 ya tienen decisión documental.
-2. Materializar el monorepo, lockfiles, baseline NestJS/React/Python y gates de calidad en una tarea posterior.
+2. Materializar el monorepo, lockfiles, baseline NestJS/React y gates de calidad en una tarea posterior; no crear runtime Python en el MVP.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
 4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.
 5. Ejecutar Pilot B Microsoft; después incorporar Sophos, Cato, MISP y playbooks dry-run.
-6. Incorporar ticketing/notificaciones, antifraude y análisis Python en ese orden; los detalles técnicos se validan sin reducir el alcance aceptado.
+6. Incorporar ticketing/notificaciones y antifraude; evaluar Python después del MVP solo si su caso supera el gate aceptado.
 
 Cada etapa tiene condiciones de salida en [roadmap](../roadmap.md). La extracción
 futura exige saturación medida o aislamiento necesario, contratos estables, dueño

@@ -41,6 +41,11 @@ frontera suficiente para confiar.
   SecretProvider, egress, payload allowlist, co-owner, deep link autenticado,
   `notificationId`, outbox y fallback reducen el riesgo. Residual: aceptación del
   endpoint no demuestra lectura y el proveedor puede permanecer indisponible.
+- T-14 — Analítica futura: artifact, algoritmo o dependencia maliciosos permiten
+  ejecución, exfiltración, poisoning o consumo excesivo. U-007 exige algoritmo
+  allowlisted, checksums, schemas, sin secretos/egress/shell, límites, lockfile,
+  resultado no confiable y revisión humana. Residual: supply chain y sesgo del
+  dataset; Python permanece deshabilitado hasta superar el gate.
 
 ## Prioridad y límites
 
@@ -48,6 +53,8 @@ Antes de la primera vertical: T-01/02/05/06/08 y límites de T-07. Antes de coll
 reales: T-03/04/12. Antes de retención/exports productivos: T-09. CI requiere T-10;
 respuesta automatizada futura requiere T-11. Esta prioridad es propuesta cualitativa,
 no evaluación formal de probabilidad/impacto de Qapaq.
+Antes de activar Python se revisa T-14 y se superan aislamiento, supply chain,
+privacidad, reproducibilidad y límites de recursos de U-007.
 
 Responsables sugeridos: Desarrollo implementa y demuestra; Seguridad valida
 políticas/threat model; SOC valida comportamiento y evidencia; Infraestructura
