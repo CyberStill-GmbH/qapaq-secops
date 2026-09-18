@@ -1,10 +1,10 @@
 # Índice de Architecture Decision Records
 
-ADR-015 y ADR-016 están Accepted por resolución explícita del usuario, con fecha
-aportada 2026-09-18. ADR-015 fija alcance/ownership; ADR-016 fija toolchain, límites
-y metodología de capacidad. ADR-001…014 mantienen Proposed salvo los aspectos
+ADR-015, ADR-016 y ADR-017 están Accepted por resolución explícita del usuario,
+con fecha aportada 2026-09-18. Fijan alcance/ownership, baseline técnica e
+identidad/autorización respectivamente. ADR-001…014 mantienen Proposed salvo aspectos
 explícitamente sustituidos por decisiones aceptadas. Aceptación documental no
-equivale a software desplegado ni benchmark aprobado.
+equivale a software desplegado, benchmark aprobado ni federación comprobada.
 
 - [ADR-001 — Modular Monolith](001-modular-monolith.md).
 - [ADR-002 — NestJS + TypeScript](002-backend-stack.md).
@@ -23,6 +23,7 @@ equivale a software desplegado ni benchmark aprobado.
 
 - [ADR-015 — Alcance operacional, módulos y ownership](015-operational-scope-and-ownership.md), Accepted.
 - [ADR-016 — Baseline de toolchain, límites y medición de capacidad](016-toolchain-and-capacity-baseline.md), Accepted.
+- [ADR-017 — Identidad, sesión y autorización](017-identity-and-authorization.md), Accepted; operación bloqueada hasta pruebas de federación.
 
 ## Compatibilidad con los archivos anteriores
 

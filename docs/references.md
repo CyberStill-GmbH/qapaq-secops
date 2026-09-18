@@ -1,7 +1,7 @@
 # Fuentes y alcance de investigación
 
 Consultadas el 2026-09-17. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001/U-002; las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001/U-002/U-003; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
 
@@ -33,6 +33,16 @@ El registro npm se consultó para TypeScript 6.0.3, `@nestjs/core` 12.x, Fastify
 5.12.1, React 19.3.0, Vite 8.3.0, BullMQ 5.81.5, Prisma 7.10.0 y pnpm 12.4.2.
 La disponibilidad individual de esos paquetes no demuestra que la matriz completa
 compile ni pase pruebas; esa verificación corresponde a la implementación.
+
+## Identidad y autorización de U-003
+
+- [Microsoft identity platform: authorization code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow): OIDC, Authorization Code, PKCE, `state`, `nonce`, tenant y coincidencia exacta de redirect URI.
+- [Microsoft Entra Privileged Identity Management](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure): acceso elegible/temporal, aprobación, MFA y justificación para privilegios corporativos.
+- [NIST SP 800-63B](https://pages.nist.gov/800-63-4/sp800-63b.html): sesiones, reautenticación, timeouts y autenticadores resistentes a phishing.
+
+Estas fuentes fundamentan controles del protocolo y autenticación. No prueban que
+QAPAQ disponga de licencias, PIM, Conditional Access, authentication strengths,
+device compliance o configuración conforme; esas son condiciones del gate operativo.
 
 La restricción de datos y el stack vienen de la solicitud, no de estas páginas.
 U-002 fija las versiones documentales; manifests, lockfiles, imágenes y CI deberán

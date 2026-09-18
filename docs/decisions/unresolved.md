@@ -428,13 +428,46 @@ Evidencia de aceptación: instrucción explícita del usuario y texto de resoluc
 aportado en esta tarea. La aceptación documental no demuestra instalación,
 compatibilidad end-to-end ni capacidad productiva.
 
-## U-003 — identidad y autorización
+## U-003 — Identidad y autorización
 
-UNKNOWN / UNRESOLVED. ¿IdP/MFA y modelo de sesión? ¿Una entidad o ámbitos por
-unidad/equipo/filial? ¿Quién puede asignar qué capabilities, exportar raw y aprobar
-operaciones críticas? Seguridad/SOC/Identity deben validar matriz y revocación.
-Cierre: política de acceso y federación comprobable. Bloquea endpoints productivos,
-no diseño/fakes. Roles del documento son bundles propuestos.
+**Decision status:** ACCEPTED
+
+**Operational status:** BLOCKED UNTIL FEDERATION TESTS PASS
+
+**Decision owners:** Security + SOC + Identity
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+### Decision
+
+QAPAQ SecOps será una aplicación interna single-tenant federada con Microsoft
+Entra ID como único IdP humano ordinario. Filiales, agencias, unidades, áreas y
+equipos serán scopes, no tenants. La identidad estable será `tid + oid`.
+
+Se adopta OIDC Authorization Code con PKCE S256 y BFF NestJS con sesiones opacas
+server-side. React no recibe ni almacena tokens de Entra. MFA será obligatorio en
+producción; privilegios críticos requieren autenticación resistente a phishing,
+JIT, step-up, justificación, vigencia, separación de funciones y doble aprobación.
+
+QAPAQ SecOps administra RBAC con capabilities, scopes y políticas por recurso y
+contexto, deny-by-default. Roles son bundles sin privilegio universal. Raw,
+exports, administración de acceso, publicación de reglas y SOAR crítico tienen
+capabilities separadas. Las identidades de servicio no usan roles humanos.
+
+La decisión completa, valores iniciales, roles, autoridad, revocación y pruebas
+se encuentran en [ADR-017](../adr/017-identity-and-authorization.md) y
+[identidad y autorización](../architecture/identity-and-authorization.md).
+
+### Operational gate
+
+La decisión cierra U-003 sin afirmar que la federación funciona. Los endpoints
+productivos permanecen bloqueados hasta que Identity, Security y SOC validen
+tenant/app registration, redirects, credenciales, grupo de admisión, Conditional
+Access, MFA/authentication strength, matriz/scopes, Graph sync, revocación,
+step-up, break-glass y los 27 escenarios mínimos aceptados.
+
+Evidencia de aceptación: instrucción explícita del usuario y texto de resolución
+aportado en esta tarea. El diseño, mocks y pruebas sintéticas pueden continuar.
 
 ## U-004 — retención, privacidad y custodia
 
@@ -471,7 +504,7 @@ presupuesto y validación de proceso acotado; otro transporte requiere revisar A
 PROPOSAL / UNRESOLVED, alcance reducido tras U-001. Los lifecycles principales,
 el ownership SOAR/Antifraude y la aprobación explícita de acciones de alto impacto
 están aceptados. Faltan cardinalidades concretas, guardas por transición,
-evidencias de cierre, excepciones/reapertura, grants L1/L2, catálogo de acciones,
+evidencias de cierre, excepciones/reapertura, capabilities por transición, catálogo de acciones,
 idempotencia externa y mecanismos de aprobación. Resolverlos mediante contratos
 y ADR independientes sin reabrir el alcance aprobado ni asumir transiciones extra.
 
