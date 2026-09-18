@@ -1,0 +1,172 @@
+name: CI Security
+
+on:
+  push:
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 9 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      languages: ${{ steps.inputs.outputs.languages }}
+      containers: ${{ steps.inputs.outputs.containers }}
+      has_pnpm: ${{ steps.inputs.outputs.has_pnpm }}
+      has_containers: ${{ steps.inputs.outputs.has_containers }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test input discovery
+        working-directory: .github/ci
+        run: python3 -m unittest --verbose test_discover.py
+      - id: inputs
+        run: python3 .github/ci/discover.py
+
+  codeql:
+    needs: discover
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.discover.outputs.languages) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+        with:
+          category: /language:${{ matrix.language }}
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: bash .github/ci/install-scanner.sh gitleaks
+      - name: Scan full fetched history with redaction
+        run: gitleaks git --redact=100 --exit-code=1 --log-opts="--all" .
+
+  filesystem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash .github/ci/install-scanner.sh trivy
+      - name: Scan filesystem vulnerabilities and misconfigurations
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --no-progress .
+
+  pnpm-audit:
+    needs: discover
+    if: needs.discover.outputs.has_pnpm == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Enable the package manager pinned by package.json
+        run: corepack enable
+      - name: Audit locked production and development dependencies
+        run: pnpm audit --audit-level high
+
+  quality:
+    needs: discover
+    if: needs.discover.outputs.has_pnpm == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require an explicit application runtime
+        run: test -s .nvmrc || { echo 'NOT_CONFIGURED - add .nvmrc for the application'; exit 1; }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Enable the package manager pinned by package.json
+        run: corepack enable
+      - name: Install locked dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Run configured project checks (missing checks fail)
+        shell: pwsh
+        run: ./.codex/skills/implementation-verifier/scripts/verify.ps1
+
+  containers:
+    needs: discover
+    if: needs.discover.outputs.has_containers == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.discover.outputs.containers) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash .github/ci/install-scanner.sh trivy
+      - name: Build local image without publishing
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          BUILD_CONTEXT: ${{ matrix.context }}
+        run: docker build --file "$DOCKERFILE" --tag qapaq-ci:scan "$BUILD_CONTEXT"
+      - name: Scan built image
+        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:scan
+
+  gate:
+    name: CI gate
+    if: always()
+    needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, containers]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Enforce all applicable checks
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          jobs = json.loads(os.environ['RESULTS'])
+          required = ['discover', 'codeql', 'secrets', 'filesystem']
+          outputs = jobs['discover']['outputs']
+          if outputs.get('has_pnpm') == 'true':
+              required += ['pnpm-audit', 'quality']
+          if outputs.get('has_containers') == 'true':
+              required += ['containers']
+          failed = [name for name in required if jobs[name]['result'] != 'success']
+          if failed:
+              raise SystemExit('Failed or missing required checks: ' + ', '.join(failed))
+          print('All applicable checks passed. See discovery summary for missing coverage.')
+          PY
