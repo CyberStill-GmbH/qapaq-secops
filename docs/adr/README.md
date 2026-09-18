@@ -1,8 +1,8 @@
 # Índice de Architecture Decision Records
 
-ADR-015, ADR-016 y ADR-017 están Accepted; ADR-018 y ADR-019 están Conditionally Accepted por
+ADR-015, ADR-016 y ADR-017 están Accepted; ADR-018, ADR-019 y ADR-020 están Conditionally Accepted por
 resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
-baseline técnica, identidad, retención/custodia y fronteras de fuentes. ADR-001…014 mantienen
+baseline técnica, identidad, retención/custodia, fuentes y continuidad. ADR-001…014 mantienen
 Proposed salvo aspectos sustituidos. Aceptación documental no equivale a software
 desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 
@@ -26,6 +26,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-017 — Identidad, sesión y autorización](017-identity-and-authorization.md), Accepted; operación bloqueada hasta pruebas de federación.
 - [ADR-018 — Retención, privacidad y custodia](018-retention-privacy-custody.md), Conditionally Accepted; eliminación automática bloqueada hasta aprobar matriz y pruebas.
 - [ADR-019 — Fronteras de fuentes y pilotos autorizados](019-source-boundaries-and-authorized-pilots.md), Conditionally Accepted; ingesta productiva bloqueada hasta pilotos autorizados.
+- [ADR-020 — Operación y continuidad](020-operations-and-continuity.md), Conditionally Accepted; producción bloqueada hasta restore y recovery demostrados.
 
 ## Compatibilidad con los archivos anteriores
 
@@ -37,4 +38,4 @@ No son ADR adicionales ni conservan la numeración semántica anterior.
 La numeración nueva cumple el adjunto actual. Las skills fuera de docs/ no se
 modificaron; resolver referencias antiguas por tema/título, usando este índice.
 No hay ADR específico nuevo de observabilidad: su diseño propuesto vive en
-[observabilidad](../architecture/observability.md); proveedor y SLO siguen pendientes.
+[observabilidad](../architecture/observability.md); proveedor sigue pendiente y los objetivos de ADR-020 requieren medición.

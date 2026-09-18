@@ -547,10 +547,25 @@ y ADR independientes sin reabrir el alcance aprobado ni asumir transiciones extr
 
 ## U-009 — operación y continuidad
 
-UNKNOWN / UNRESOLVED. ¿RPO/RTO, SLO, ventanas de mantenimiento, backups,
-capacidad de drenaje, propietarios y soporte fuera de horario?
-Infraestructura/Platform/SOC acuerdan servicio y ensayan restore. Bloquea
-producción, no desarrollo aislado. No introducir Terraform ni cloud concreto.
+**Decision status:** CONDITIONALLY ACCEPTED
+
+**Production status:** BLOCKED UNTIL RESTORE AND RECOVERY TESTS PASS
+
+**Decision owners:** Infraestructura, Platform, SOC y Security Management
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+QAPAQ SecOps se diseña para ingesta/detección automatizada 24x7, degradación,
+checkpoints, idempotencia, replay, backups verificables y drenaje medido. Se aceptan
+condicionalmente criticidad, RPO/RTO/SLO provisionales, error budgets, modos,
+mantenimiento, restore, severidad, soporte, ownership, runbooks y 25 pruebas en
+[ADR-020](../adr/020-operations-and-continuity.md) y la
+[política canónica](../architecture/operations-and-continuity.md).
+
+Software 24x7 no equivale a SOC humano 24x7. Sin guardia SEV1 formal, escalamiento
+y autoridad, producción debe declararse `LIMITED PRODUCTION / 8x5`. U-009 queda
+resuelta en diseño; producción sigue bloqueada hasta aprobar objetivos/owners,
+demostrar restore/replay/drenaje y ejecutar runbooks críticos. No decide cloud ni IaC.
 
 ## U-010 — contrato SecurityEvent
 
@@ -586,3 +601,6 @@ ratificación legal, operacional y las pruebas de lifecycle.
 U-005 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-019: QAPAQ SecOps es el
 producto central y cada proveedor tiene adapter independiente. Los datos reales y
 la ingesta productiva permanecen bloqueados hasta pilotos autorizados.
+U-009 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-020: fija continuidad,
+recovery y soporte, pero los objetivos solo dejan de ser provisionales después de
+aprobación y ejercicios medidos.

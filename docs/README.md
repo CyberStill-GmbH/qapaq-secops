@@ -1,8 +1,8 @@
 # qapaq-secops — arquitectura inicial
 
 Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados;
-U-004/ADR-018 y U-005/ADR-019 aceptados condicionalmente, con fecha aportada
-2026-09-18. Capacidad pendiente de medición; identidad, eliminación e ingesta conservan gates
+U-004/ADR-018, U-005/ADR-019 y U-009/ADR-020 aceptados condicionalmente, con fecha
+aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación, ingesta y continuidad conservan gates
 operacionales. Sin implementación.
 
 Esta entrega modifica únicamente `docs/`. Las decisiones aceptadas y propuestas
@@ -24,6 +24,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 7. [Identidad, sesiones y autorización](architecture/identity-and-authorization.md).
 8. [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
 9. [Fuentes y pilotos autorizados](architecture/source-integration-strategy.md).
+10. [Operación y continuidad](architecture/operations-and-continuity.md).
 
 ## Diseño
 
@@ -36,6 +37,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Identidad y autorización aceptadas](architecture/identity-and-authorization.md).
 - [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
 - [Fuentes y pilotos autorizados](architecture/source-integration-strategy.md) e [inventario](integrations/source-inventory.yaml).
+- [Operación y continuidad](architecture/operations-and-continuity.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
 - [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
@@ -71,8 +73,11 @@ continuar; el borrado automático productivo requiere ratificación y pruebas.
 DECISION: U-005 y [ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
 aceptan QAPAQ SecOps como producto SOC central, adapters independientes y pilotos
 Wazuh/Microsoft. La ingesta productiva requiere inventario y pilotos autorizados.
+DECISION: U-009 y [ADR-020](adr/020-operations-and-continuity.md) aceptan
+condicionalmente objetivos de continuidad, degradación y soporte. Producción exige
+restore/recovery medidos; sin guardia SEV1 se declara servicio 8x5 limitado.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
-ADR-015/016/017/018/019. ADR-001…014 no se aceptan en bloque.
+ADR-015/016/017/018/019/020. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 
@@ -89,6 +94,6 @@ canónicas; no mantener dos versiones de un mismo diseño.
 ## Reglas de uso
 
 Leer solo documentos pertinentes y ADR asociados. No inferir endpoints desplegados,
-obligaciones legales no validadas, SLO ni capacidad de este diseño. Los ejemplos son
+obligaciones legales no validadas ni capacidad medida. Los SLO de ADR-020 son targets, no resultados. Los ejemplos son
 sintéticos. Las skills siguen en `.codex/skills/`, enrutadas por el AGENTS.md
 existente; no se modifican reglas ni configuración en esta entrega.
