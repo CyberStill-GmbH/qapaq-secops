@@ -1,6 +1,6 @@
 # ADR-006 — Redis/BullMQ for asynchronous jobs
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-016 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -10,7 +10,11 @@ R-06 prescribe Redis/BullMQ y resiliencia inicial sin Kafka.
 
 ## Decision
 
-Usar JobQueuePort implementado con BullMQ para trabajos acotados con referencias, no raw enorme. Asumir entrega al menos una vez; persistir admisión/manifiestos y outbox para reconciliar. Consumidores y efectos idempotentes; jobs fallidos/cuarentena con replay controlado.
+Usar JobQueuePort implementado con BullMQ para trabajos acotados con referencias,
+no raw enorme. ADR-016 acepta Redis 8.10.1 y BullMQ 5.81.5 para jobs operacionales,
+límites/concurrencia/retries iniciales y at-least-once idempotente. No acepta
+BullMQ como backbone de telemetría. Persistir admisión/manifiestos/outbox para
+reconciliar; jobs terminales quedan en dead-letter o cuarentena.
 
 ## Alternatives
 

@@ -382,13 +382,51 @@ Evidencia de aceptación: instrucción explícita del usuario y texto de resoluc
 aportado en esta tarea. Se conserva la fecha de decisión indicada por el usuario.
 Registro arquitectónico: [ADR-015](../adr/015-operational-scope-and-ownership.md).
 
-## U-002 — versiones, tooling y capacidad
+## U-002 — Versiones, tooling y capacidad
 
-UNKNOWN / UNRESOLVED. NestJS/React/PostgreSQL/Redis/BullMQ son ahora requisitos,
-no candidatos; faltan versiones, ORM, gestor workspace, runtimes, recursos y carga.
-Desarrollo/Platform deben aportar compatibilidad, EPS/pico, tamaños y concurrencia.
-Cierre: toolchain fijado, benchmark y límites de payload/query/lotes acordados.
-No prometer capacidad ni crear comandos de calidad ficticios.
+**Status:** ACCEPTED
+
+**Decision owners:** Development + Platform
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+### Decision
+
+Se acepta una baseline reproducible para desarrollo, pruebas y benchmarking:
+Node.js 24.21.0 LTS, TypeScript 6.0.3, NestJS 12.x con Fastify 5.12.1,
+React 19.3.0 con Vite 8.3.0, Python 3.14.7, PostgreSQL 18.6, Redis 8.10.1,
+BullMQ 5.81.5, Prisma ORM 7.10.0, OpenSearch 3.7.x, pnpm 12.4.2 y uv 0.12.15.
+
+Se aceptan pnpm workspaces, ESM para el nuevo backend NestJS, Prisma restringido
+a infrastructure/persistence, toolchain de calidad, límites iniciales de HTTP,
+ingesta, consultas, pools y concurrencia, política at-least-once con consumidores
+idempotentes, entornos locales de referencia y metodología/gates de benchmark.
+
+La decisión completa, límites y evidencia se encuentran en
+[ADR-016](../adr/016-toolchain-and-capacity-baseline.md) y
+[toolchain y capacidad](../architecture/toolchain-and-capacity.md).
+
+### Capacity status
+
+La capacidad numérica continúa **PENDING MEASUREMENT**. Los perfiles L1/L2/L3 son
+escenarios de benchmark, no capacidad soportada. Solo podrá publicarse el mayor
+perfil que supere todos los gates en hardware/configuración registrados y conserve
+al menos 30% de margen respecto al punto de saturación observado.
+
+Los resultados se registrarán en `docs/performance/baseline-YYYY-MM-DD.md` con
+EPS sostenido/burst, tamaños, duración, reglas, volumen, concurrencia, hardware,
+configuración, versiones, commit y fecha. Una cifra sin ese contexto no es válida.
+
+### Closure
+
+U-002 queda resuelta respecto a runtimes, frameworks, ORM, workspace, tooling,
+version pinning, límites, paginación, batches, conexiones, concurrencia inicial,
+resiliencia, benchmark y regla de publicación. Fallar un benchmark no reabre la
+decisión: identifica el cuello de botella o reduce el perfil oficialmente soportado.
+
+Evidencia de aceptación: instrucción explícita del usuario y texto de resolución
+aportado en esta tarea. La aceptación documental no demuestra instalación,
+compatibilidad end-to-end ni capacidad productiva.
 
 ## U-003 — identidad y autorización
 

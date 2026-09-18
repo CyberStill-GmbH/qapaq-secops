@@ -1,6 +1,6 @@
 # ADR-007 — Python workers for analytics
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-016 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -10,7 +10,10 @@ R-07 contempla analítica/parsers/enrichment, sin sustituir el backend principal
 
 ## Decision
 
-Preparar contratos JSON versionados. Activar Python solo para carga justificada; propuesta inicial de ejecución como proceso hijo acotado del runner Node, stdin/stdout JSON y referencias seguras, sin shell ni endpoint público. Node mantiene scheduling, permisos y persistencia. Si no satisface volumen, revisar este ADR antes de otro transporte.
+Preparar contratos versionados. ADR-016 acepta Python 3.14.7, uv 0.12.15,
+Ruff, mypy o Pyright y pytest, además del límite de concurrencia inicial para
+benchmark. El transporte/proceso hijo de este ADR permanece Proposed. NestJS
+mantiene scheduling, permisos y persistencia; Python no escribe tablas operacionales.
 
 ## Alternatives
 

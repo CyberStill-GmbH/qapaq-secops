@@ -1,10 +1,10 @@
 # Índice de Architecture Decision Records
 
-ADR-015 está Accepted por resolución explícita del usuario de U-001, con fecha
-2026-09-18 y owners SOC, Arquitectura y Security Engineering. Sustituye la agrupación
-operacional previa donde discrepe; ADR-001…014 mantienen Proposed para sus detalles
-técnicos. Aceptación documental no equivale a software desplegado. Registrar
-responsable, fecha y evidencia; cambios posteriores requieren decisión sucesora.
+ADR-015 y ADR-016 están Accepted por resolución explícita del usuario, con fecha
+aportada 2026-09-18. ADR-015 fija alcance/ownership; ADR-016 fija toolchain, límites
+y metodología de capacidad. ADR-001…014 mantienen Proposed salvo los aspectos
+explícitamente sustituidos por decisiones aceptadas. Aceptación documental no
+equivale a software desplegado ni benchmark aprobado.
 
 - [ADR-001 — Modular Monolith](001-modular-monolith.md).
 - [ADR-002 — NestJS + TypeScript](002-backend-stack.md).
@@ -22,6 +22,7 @@ responsable, fecha y evidencia; cambios posteriores requieren decisión sucesora
 - [ADR-014 — Event-driven internal communication strategy](014-internal-communication.md).
 
 - [ADR-015 — Alcance operacional, módulos y ownership](015-operational-scope-and-ownership.md), Accepted.
+- [ADR-016 — Baseline de toolchain, límites y medición de capacidad](016-toolchain-and-capacity-baseline.md), Accepted.
 
 ## Compatibilidad con los archivos anteriores
 

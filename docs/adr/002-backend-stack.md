@@ -1,6 +1,6 @@
 # ADR-002 — NestJS + TypeScript
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-016 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -10,7 +10,10 @@ R-02 prescribe Node.js/TypeScript/NestJS, React/TypeScript y un backend estructu
 
 ## Decision
 
-Usar NestJS para composición, presentation y adapters; dominio TypeScript puro. React consume contratos de API. Versiones, gestor de paquetes y ORM siguen sin seleccionar. Esta tarea no genera proyecto.
+Usar NestJS para composición, presentation y adapters; dominio TypeScript puro.
+React consume contratos de API. [ADR-016](016-toolchain-and-capacity-baseline.md)
+acepta versiones, ESM, Fastify, pnpm y Prisma. Este ADR conserva Proposed para
+otros detalles de realización y no afirma que el proyecto ya exista.
 
 ## Alternatives
 
@@ -26,6 +29,7 @@ Convenciones y tooling compartidos a cambio de aprendizaje y riesgo de acoplamie
 
 ## Validación y revisión
 
-Elegir versiones mantenidas y tooling compatible mediante una decisión posterior; demostrar boot, validación y boundaries.
+Materializar la baseline aceptada con manifests/lockfiles; demostrar boot,
+validación, tests y boundaries antes de declarar el toolchain operativo.
 
 [Diseño relacionado](../architecture/repository-structure.md) · [Preguntas abiertas](../decisions/unresolved.md).
