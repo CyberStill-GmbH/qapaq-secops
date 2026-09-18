@@ -2,12 +2,12 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001…U-006, U-009 y U-012 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-007, U-009 y U-012 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Veintidós ADR canónicos identificados por encabezado ADR-001…022. ADR-015,
-  ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021,
+- Veintidós ADR canónicos identificados por encabezado ADR-001…022. ADR-007,
+  ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021,
   Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
@@ -161,8 +161,24 @@ payload sensible, enlace profundo, owner huérfano, duplicados y falsa semántic
 `SENT`. La activación sigue bloqueada hasta cerrar cuatro datos operacionales y
 ejecutar los veinte escenarios; no se probó un tenant de Microsoft 365.
 
-La comprobación final encontró 70 archivos Markdown, 13 fuentes Mermaid y 22 ADR
-canónicos. Los enlaces locales, fences, estructura de ADR-022 y `git diff --check
+La comprobación final encontró 71 archivos Markdown, 13 fuentes Mermaid y 22 ADR
+canónicos. Los enlaces locales, fences, estructura de ADR-007/022 y `git diff --check
 -- docs` aprobaron. El verificador devolvió código 2 porque los seis checks de
 aplicación siguen `NOT_CONFIGURED`, resultado esperado para una entrega solo
 documental.
+
+## Actualización por resolución de U-007
+
+U-007/ADR-007 acepta Python como capacidad dormante y lo elimina del runtime MVP.
+La revisión comprobó consistencia con ADR-016: las versiones continúan fijadas
+para investigación reproducible o activación futura, pero no obligan a crear
+`apps/analytics`, manifests, imagen o proceso productivo.
+
+El C4 de contenedores ya no muestra Analytics dentro del runtime inicial. La
+documentación conserva una frontera de artifacts y JSON versionado, un primer caso
+candidato offline, presupuesto experimental, controles de seguridad, métricas y
+18 pruebas de activación. Wazuh, TypeScript y OpenSearch cubren el MVP; Python no
+crea alertas, incidentes ni SOAR directamente. La vista 02 se renderizó con
+Mermaid CLI y se inspeccionó después de retirar el contenedor. La revisión de
+seguridad cubrió ejecución arbitraria, egress, secretos, poisoning, supply chain,
+recursos y resultados no confiables.
