@@ -1,6 +1,7 @@
 # Estrategia de pruebas
 
-Estado: diseño; no tests de aplicación ejecutados porque todavía no hay aplicación.
+Estrategia funcional: diseño. Toolchain/metodología de capacidad: ACCEPTED por
+[ADR-016](adr/016-toolchain-and-capacity-baseline.md). No hay tests de aplicación ejecutados.
 
 U-001 está aceptada sin depender de ejecutar estas pruebas. Las pruebas posteriores
 validan implementación contra sus módulos, ownership y lifecycles canónicos.
@@ -51,15 +52,17 @@ Probar SSRF por URL/redirección, stored XSS en raw, query/command injection,
 deserialización y decompression bombs en entornos acotados. Sin explotación
 contra producción. SAST y scanners complementan, no sustituyen flujo/evidencia.
 
-Cargas sintéticas con EPS y tamaños representativos acordados; medir ingreso,
-drenaje, lag, memoria, búsquedas y restores. No fijar «soporta X EPS» sin experimento
-reproducible con hardware/configuración documentados.
+Cargas sintéticas siguen L1/L2/L3 y gates de
+[toolchain y capacidad](architecture/toolchain-and-capacity.md). Medir ingreso,
+drenaje, lag, memoria, búsquedas y restores. No fijar «soporta X EPS» sin
+experimento reproducible con hardware/configuración documentados.
 
 ## Gates futuros
 
-PR: formatter/lint/typecheck, unit y contract relevantes; integración si toca
+PR: oxlint/Prettier/typecheck, unit y contract relevantes; integración si toca
 persistencia/cola/index/adapters; E2E de verticales críticas; import boundaries;
-SAST, secret/dependency scanning. Releases: migraciones/rollback compatible,
+SAST, secret/dependency scanning. Vitest cubre unit/integration, Playwright E2E,
+Testcontainers dependencias y k6 capacidad. Releases: migraciones/rollback compatible,
 restore, inventario de dependencias, permisos y pruebas operacionales.
 
 Severidades/bloqueos/excepciones de CI se acuerdan con Seguridad; excepción con

@@ -16,7 +16,8 @@ futuro, sin tablas vacías ahora.
 También admite catálogo de lotes/archivos, restauraciones, outbox/inbox de efectos
 operacionales y checkpoints. Dimensionar escrituras de control por lote: guardar
 cada SecurityEvent como JSONB en PostgreSQL contradice el objetivo del diseño.
-El ORM, esquema físico, particionado e índices transaccionales siguen pendientes.
+ADR-016 acepta Prisma 7.10.0 y migraciones; el schema físico, particionado e
+índices transaccionales siguen pendientes.
 
 Wazuh conserva su telemetría según sus mecanismos. Qapaq consulta mediante port;
 una proyección normalizada propia solo se crea en índices/namespace compatibles
@@ -81,7 +82,9 @@ Medir EPS medio/pico, tamaño de raw y normalizado, expansión del índice, repl
 días por tier y porcentaje de relecturas. Estimación de partida:
 bytes/día = EPS × 86400 × bytes/evento; añadir separadamente índice, replicas,
 raw, archivo, restore temporal, backup y margen de crecimiento. No dar cifras sin
-mediciones; reservar capacidad de drenaje superior al ingreso sostenido.
+mediciones; reservar capacidad de drenaje superior al ingreso sostenido. Los
+perfiles y gates aceptados están en
+[toolchain y capacidad](toolchain-and-capacity.md).
 
 Backups no son archivo ni alta disponibilidad. Ensayar restauración de PostgreSQL,
 catálogo, raw y referencias; verificar consistencia con índices reconstruibles y

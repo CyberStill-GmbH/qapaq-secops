@@ -7,11 +7,14 @@ el skeleton ejecutable. Estado: requisitos de entrada; implementación pendiente
 La resolución posterior [U-001/ADR-015](adr/015-operational-scope-and-ownership.md)
 aprueba alcance objetivo integral SOC/respuesta/antifraude, módulos y ownership.
 Prevalece sobre la agrupación y vocabulario propuestos inicialmente.
+La resolución [U-002/ADR-016](adr/016-toolchain-and-capacity-baseline.md) acepta
+versiones, workspace, ORM, herramientas, límites iniciales y metodología de
+capacidad. No acredita todavía instalación, compatibilidad ni rendimiento.
 
 ## Requisitos trazables
 
 - R-01: plataforma SOC interna para Financiera Qapaq; mantenible por equipo pequeño, monolito modular sin microservicios iniciales. [Diseño](architecture/overview.md), ADR-001.
-- R-02: TypeScript/Node/NestJS; React/TypeScript; hexagonal, SOLID y DDD pragmático. [Dependencias](architecture/dependency-rules.md), ADR-002/003.
+- R-02: TypeScript/Node/NestJS; React/TypeScript; hexagonal, SOLID y DDD pragmático. Versiones y toolchain aceptados por ADR-016. [Dependencias](architecture/dependency-rules.md), ADR-002/003.
 - R-03: control plane y data plane separados lógicamente, módulos extraíbles por necesidad real. [Módulos](architecture/modules.md).
 - R-04: PostgreSQL para datos operacionales, no telemetría masiva. [Storage](architecture/storage.md), ADR-004.
 - R-05: Wazuh como pieza central; usar sus capacidades y evitar un SIEM sustituto. Indexación OpenSearch/Wazuh Indexer. ADR-005.
@@ -38,8 +41,10 @@ Prevalece sobre la agrupación y vocabulario propuestos inicialmente.
 
 Seguridad y trazabilidad no se posponen al final. Cada límite externo debe tener
 autorización, validación, límites de consumo, timeouts, comportamiento degradado y
-evidencia de pruebas. Rendimiento, disponibilidad, RPO/RTO, volumen y plazos de
-retención son UNKNOWN: no se prometen valores. Ver [preguntas](decisions/unresolved.md).
+evidencia de pruebas. La metodología y los gates de rendimiento están aceptados;
+la capacidad numérica permanece PENDING MEASUREMENT. Disponibilidad, RPO/RTO,
+volumen real y plazos de retención son UNKNOWN: no se prometen valores. Ver
+[preguntas](decisions/unresolved.md).
 
 No se construyen ML complejo, Kubernetes, Kafka, microservicios, motor de base de
 datos, IdP propio, infraestructura cloud ni integraciones simuladas presentadas
@@ -48,9 +53,9 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Catorce ADR con Context, Decision, Alternatives, Consequences y Trade-offs, estado y condición de revisión.
-- Diez diagramas Mermaid coherentes con la propuesta.
+- Dieciséis ADR con Context, Decision, Alternatives, Consequences y Trade-offs, estado y condición de revisión; ADR-015 y ADR-016 Accepted.
+- Once diagramas Mermaid coherentes con las decisiones y propuestas documentadas.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
-- Stack exigido diferenciado de elecciones propuestas; ninguna integración declarada probada.
+- Baseline aceptada diferenciada de tooling instalado, compatibilidad comprobada y capacidad medida; ninguna integración declarada probada.
 - Cambios confinados a docs/; sin código de aplicación ni infraestructura.
 - Enlaces locales y sintaxis de diagramas comprobados; limitaciones de verificación registradas.

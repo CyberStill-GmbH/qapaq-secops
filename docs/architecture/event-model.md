@@ -42,7 +42,9 @@ mapear debe fijarse al implementar.
 Los campos opcionales ausentes se omiten; null solo donde el contrato lo permita
 explícitamente. Prohibir claves extra en envoltura y entidades; extensiones pasan
 por metadata validada. Limitar longitud, profundidad y número de elementos antes
-de parsear. Límites concretos quedan en U-002/U-005, no se inventan.
+de parsear. ADR-016 fija 256 KiB por evento normalizado, 500 eventos/5 MiB
+descomprimidos por batch y 256 KiB por payload BullMQ. La semántica de cada fuente
+sigue U-005.
 
 ## Identidad y preservación
 

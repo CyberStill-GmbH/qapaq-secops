@@ -12,8 +12,9 @@ para cerrar U-001. Las etapas siguientes ordenan construcción, no reducen alcan
 
 ## Preparación técnica
 
-Resolver detalles que bloqueen la primera vertical: identidad/scopes, versiones,
-contratos Wazuh/Windows, schema, permisos, auditoría y capacidad. Retención/hold y
+Resolver detalles que bloqueen la primera vertical: identidad/scopes, contratos
+Wazuh/Windows, schema, permisos y auditoría. Versiones/toolchain/límites ya están
+aceptados por U-002; la capacidad sigue pendiente de benchmark. Retención/hold y
 RPO/RTO se acuerdan con los responsables. La primera fuente ya está elegida;
 su licencia/configuración/cobertura real permanecen U-005.
 

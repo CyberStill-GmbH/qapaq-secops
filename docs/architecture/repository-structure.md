@@ -1,8 +1,9 @@
 # Estructura propuesta del repositorio
 
-Estructura técnica PROPOSAL, alineada con los ocho módulos aprobados en
-[ADR-015](../adr/015-operational-scope-and-ownership.md). No se crean carpetas de
-aplicación en esta tarea.
+Estructura del workspace ACCEPTED por
+[ADR-016](../adr/016-toolchain-and-capacity-baseline.md), alineada con los módulos
+aprobados en ADR-015. La distribución interna fina sigue evolutiva. No se crean
+carpetas de aplicación en esta tarea.
 
 ```text
 qapaq-secops/
@@ -22,23 +23,28 @@ qapaq-secops/
           soar/
           antifraud/
         platform/               # capacidades transversales, no dominio compartido
-        bootstrap/              # composición, HTTP y ciclo de vida de workers
+        bootstrap/              # composición y HTTP
       test/
+    worker/                     # BullMQ consumers y schedulers
     web/
       src/
         features/               # vistas y flujos SOC, no copias de entidades ORM
-    analytics-worker/           # futuro, solo con caso Python justificado
+    analytics/                  # Python analytics
   packages/
-    contracts/                  # schemas JSON y DTO de fronteras estables
+    contracts/                  # contratos internos versionados
+    database/                   # Prisma client y migraciones
+    observability/              # logging, métricas y tracing
+    configuration/              # configuración tipada
+    testing/                    # fixtures sintéticos
   scripts/                      # cuando exista automatización ejecutable necesaria
   .github/
     workflows/                  # CI gestionado aparte; no creado por esta tarea
 ```
 
-La API y el runner de jobs pueden usar el mismo artefacto/release con distintos
-entrypoints; no requiere otro servicio de negocio. Separar proceso solo para
-proteger API de cargas asíncronas, con capacidad acordada. API y web tienen
-toolchains distintos; gestor workspace, versiones y bundler se deciden después.
+API y worker son entrypoints del mismo monolito modular, no servicios de negocio
+independientes. El proceso separado protege la API de carga asíncrona y escala por
+cola. API/web/worker comparten pnpm workspace/lockfile; Python usa pyproject/uv.lock.
+Versiones y herramientas están fijadas en [toolchain](toolchain-and-capacity.md).
 
 ## Interior de un módulo
 
@@ -72,8 +78,8 @@ haga lógica de negocio. Evitar packages/shared; extraer security/observability
 solo cuando dos consumidores reales justifiquen compartir implementación.
 No distribuir un paquete gigante que haga depender todos los contextos de todos.
 
-Python consume JSON/schema y fixtures, no importa paquetes TypeScript. Dependencias
-Python se fijan por su propio lockfile cuando se active; una instalación Node
+Python consume contratos y fixtures, no importa paquetes TypeScript ni escribe
+tablas del backend. Sus dependencias se fijan en uv.lock; una instalación Node
 verde no valida Python.
 
 ## Documentación canónica

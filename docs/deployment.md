@@ -18,14 +18,16 @@ Kubernetes y su administración están fuera del alcance de la aplicación.
 
 ## Dependencias mínimas y contratos operacionales
 
-Versiones soportadas de PostgreSQL, Redis/BullMQ y Wazuh/Indexer; object storage con
+Las versiones aceptadas están en ADR-016: Node 24.21.0, PostgreSQL 18.6,
+Redis 8.10.1, BullMQ 5.81.5 y OpenSearch 3.7.x. Object storage con
 permisos, durabilidad y capacidades documentadas; SecretProvider; conectividad a
 fuentes autorizadas. No asumir URLs, redes ni cuentas concretas.
 
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis
 de colas no comparte eviction imprevisible con cache general. Hot/warm/cold son
-políticas antes de ser tres infraestructuras distintas.
+políticas antes de ser tres infraestructuras distintas. Los perfiles locales
+aceptados no constituyen sizing productivo.
 
 ## GitHub Actions
 

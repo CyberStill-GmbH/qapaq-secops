@@ -35,6 +35,12 @@ Umbrales quedan pendientes de medición. Secure headers y CORS de orígenes apro
 si hay cookies, CSRF en mutaciones. Escapar salida en contexto, no «sanitizar»
 destructivamente el raw original.
 
+ADR-016 acepta estos límites iniciales: body JSON 1 MiB, URL 8 KiB, headers
+16 KiB, página 50/máximo 200, request síncrona 15 s, búsqueda interactiva 10 s
+y rango por defecto/máximo 24 h/30 días. Usar cursor pagination; operaciones que
+excedan tiempo/rango pasan a jobs. Validar los valores con pruebas y cambiarlos
+solo mediante decisión/evidencia explícita.
+
 Errores con code estable, mensaje seguro y correlationId, sin stack trace, tokens,
 secrets, consultas ni connection strings. 401 para identidad ausente/inválida;
 403 o 404 consistente para evitar enumeración según política; 409 para versión/

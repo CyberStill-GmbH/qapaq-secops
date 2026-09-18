@@ -2,7 +2,7 @@
 
 Estado: registro propuesto; prioridad cualitativa, sin aceptación de riesgos.
 
-- A-01 — Alta: volumen/desconocido satura Node, Redis o indexador y afecta control plane. Mitigar con lote/backpressure, runner aislable y carga representativa. Dueños propuestos: Platform/SOC. Cierre: capacidad y drenaje demostrados para objetivo acordado. U-002.
+- A-01 — Alta: capacidad todavía no medida; Node, Redis o indexador pueden saturarse y afectar control plane. U-002 acepta límites, perfiles y gates, no una cifra de EPS. Mitigar con batches/backpressure, workers aislables y benchmarks reproducibles. Development/Platform. Cierre: publicar el mayor perfil aprobado con 30% de headroom y drenaje demostrado.
 - A-02 — Alta: roles dinámicos sin política de grants producen escalada. Mitigar scopes, objeto/campo, revocación y segregación. Seguridad/SOC. Cierre: matriz aprobada y pruebas deny. U-003.
 - A-03 — Alta: raw recibido no durable o checkpoint adelantado causa pérdida. Mitigar recibos, manifiestos, outbox y reconciliación. Desarrollo/Platform. Cierre: fault injection y replay; documentar límites de fuentes sin ACK. U-005/U-009.
 - A-04 — Alta: retención inventada, purga o hold incorrecto elimina evidencia. Mitigar políticas aprobadas y prueba de restore antes de purga. Legal/Compliance/SOC. Cierre: matriz de retención y custodios confirmados. U-004.

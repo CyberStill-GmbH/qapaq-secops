@@ -1,8 +1,10 @@
 # Arquitectura inicial de qapaq-secops
 
-Alcance operacional ACCEPTED por [ADR-015](../adr/015-operational-scope-and-ownership.md),
-fecha de decisión aportada 2026-09-18. Realización técnica restante PROPOSAL.
-Fuente: [requerimientos](../requirements.md).
+Alcance operacional ACCEPTED por [ADR-015](../adr/015-operational-scope-and-ownership.md)
+y baseline técnica ACCEPTED por
+[ADR-016](../adr/016-toolchain-and-capacity-baseline.md), con fecha de decisión
+aportada 2026-09-18. Implementación pendiente. Fuente:
+[requerimientos](../requirements.md).
 
 ## ARCHITECTURE ASSESSMENT
 
@@ -22,6 +24,11 @@ transversales, no módulos de negocio. Separar control/data plane por casos de u
 presupuestos de recursos, no por una malla de servicios. Mantener PostgreSQL para
 estado operacional, Wazuh/Indexer para telemetría y object storage para raw/archivo.
 Usar BullMQ como ejecución recuperable, no como único registro de evidencia.
+
+U-002 acepta el [toolchain, límites y método de capacidad](toolchain-and-capacity.md):
+Node/NestJS/Fastify para API, React/Vite para web, PostgreSQL/Prisma para estado,
+Redis/BullMQ para jobs y Python/uv para analítica justificada. Los perfiles de carga
+son escenarios de medición; ninguna cifra de EPS está aceptada todavía.
 
 Proponer SecurityEvent propio, pequeño y versionado, con semántica inspirada en
 ECS y un mapeo explícito evaluable hacia OCSF. No afirmar conformidad con ninguno.
@@ -76,17 +83,17 @@ El [contexto](system-context.md), [módulos](modules.md), [flujos](data-flow.md)
 
 ## REPOSITORY STRUCTURE
 
-Monorepo propuesto con apps/api y apps/web primero; apps/analytics-worker solo
-cuando una carga Python esté justificada. packages/contracts se limita a contratos
-de frontera; paquetes de seguridad/observabilidad se extraen cuando exista uso
-compartido real. [Árbol y convenciones](repository-structure.md).
+Monorepo pnpm aceptado con `apps/api`, `apps/worker`, `apps/web` y
+`apps/analytics`; esta última solo ejecutará analítica Python justificada.
+`packages/contracts`, `database`, `observability`, `configuration` y `testing`
+mantienen límites explícitos. [Árbol y convenciones](repository-structure.md).
 
 Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 
 ## IMPLEMENTATION PLAN
 
-1. Resolver detalles técnicos de identidad, permisos, retención y Wazuh/Windows; U-001 ya está aceptada y no depende de un piloto.
-2. Crear base NestJS/React y gates de calidad en una tarea posterior.
+1. Resolver detalles técnicos de identidad, permisos, retención y Wazuh/Windows; U-001 y U-002 ya están aceptadas.
+2. Materializar el monorepo, lockfiles, baseline NestJS/React/Python y gates de calidad en una tarea posterior.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
 4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.
 5. Continuar con MISP, nuevas fuentes, playbooks dry-run y respuestas aprobadas.

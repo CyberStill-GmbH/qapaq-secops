@@ -1,7 +1,8 @@
 # qapaq-secops — arquitectura inicial
 
-Arquitectura documental: U-001/ADR-015 aceptados con fecha de decisión aportada
-2026-09-18; los detalles técnicos restantes siguen en revisión. Sin implementación.
+Arquitectura documental: U-001/ADR-015 y U-002/ADR-016 aceptados con fecha de
+decisión aportada 2026-09-18. La capacidad numérica sigue pendiente de medición.
+Sin implementación.
 
 Esta entrega modifica únicamente `docs/`. La estructura de aplicaciones,
 contratos y controles descritos es propuesta, no software existente. No se han
@@ -18,6 +19,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 3. [Módulos y vocabulario](architecture/modules.md).
 4. [ADRs y estado de decisiones](adr/README.md).
 5. [Preguntas abiertas](decisions/unresolved.md) y [riesgos](architecture/risks.md).
+6. [Toolchain, límites y capacidad](architecture/toolchain-and-capacity.md).
 
 ## Diseño
 
@@ -50,8 +52,11 @@ DECISION: U-001 y [ADR-015](adr/015-operational-scope-and-ownership.md) aceptan
 alcance, ocho módulos, ownership, vocabulario, lifecycles y orden inicial por
 instrucción explícita del usuario. SOC, SOAR y Antifraude integran el alcance
 objetivo; la primera vertical no lo limita ni condiciona esta aceptación.
-PROPOSAL: schemas, transportes, sesiones, retención y demás detalles técnicos de
-ADR-001…014. No se aceptan en bloque por resolver U-001.
+DECISION: U-002 y [ADR-016](adr/016-toolchain-and-capacity-baseline.md) fijan
+versiones, workspace, ORM, herramientas, límites y benchmark. No demuestran que
+el toolchain esté instalado ni aceptan una cifra de EPS.
+PROPOSAL: schemas, transportes, sesiones, retención y demás detalles técnicos no
+cubiertos por ADR-015/016. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 
