@@ -31,8 +31,9 @@ El almacén de sesiones debe soportar revocación, expiración y cifrado de toke
 Ningún endpoint productivo se habilita antes del gate operacional de ADR-017.
 Ningún lifecycle destructivo se habilita antes del gate de ADR-018: matriz
 ratificada, regiones/backups/holds aprobados y 20 escenarios demostrados.
-Ningún conector productivo pasa a `enabled` antes del gate ADR-019: inventario
-real, scopes/secretRef autorizados y 15 escenarios de pilotos A/B demostrados.
+Ninguna ingesta productiva pasa a `enabled` antes del gate ADR-019/024: inventario
+real, scopes/secretRef autorizados y los 15 escenarios de fuentes adaptados a la
+vertical Microsoft 365 → Wazuh → QAPAQ demostrados en el entorno autorizado.
 Producción completa permanece bloqueada por ADR-020 hasta aprobar targets y owners,
 demostrar restore/replay/drenaje y ejecutar runbooks críticos. Sin guardia SEV1,
 declarar `LIMITED PRODUCTION / 8x5`.

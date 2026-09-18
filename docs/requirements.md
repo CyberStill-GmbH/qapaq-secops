@@ -17,8 +17,10 @@ La resolución [U-004/ADR-018](adr/018-retention-privacy-custody.md) acepta
 condicionalmente clasificación, baseline de retención, custodia y gate de purga.
 No acredita ratificación legal ni lifecycle implementado.
 La resolución [U-005/ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
-acepta QAPAQ SecOps como SOC central, adapters independientes y pilotos A/B. No
-acredita ediciones, licencias, APIs, permisos ni conectividad.
+acepta QAPAQ SecOps como SOC central y adapters independientes. El orden inicial
+fue sustituido por [ADR-024](adr/024-microsoft-365-wazuh-mvp-vertical.md): Microsoft
+365 es la única fuente empresarial del MVP y Wazuh su motor base de recolección,
+ruleset y alertas. No acredita ediciones, licencias, APIs, permisos ni conectividad.
 La resolución [U-006/ADR-021](adr/021-observability-and-audit-separation.md)
 acepta la separación de observabilidad, auditoría y telemetría, OpenTelemetry como
 contrato neutral y archivo de auditoría firmado. No acredita backends, llaves,
