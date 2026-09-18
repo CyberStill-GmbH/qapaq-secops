@@ -1,16 +1,17 @@
-flowchart LR
-    SOC["Analistas y administradores SOC"]
-    AUD["Auditores autorizados"]
-    OPS["Equipo de Infraestructura"]
-    APP["qapaq-secops - limite de aplicacion"]
-    IDP["IdP corporativo por confirmar"]
-    SOURCES["AD / Microsoft 365 / Cato / Sophos"]
-    SIEM["Wazuh y fuentes de seguridad"]
-    FUTURE["MISP - futuro"]
-    SOC -->|operacion autorizada| APP
-    AUD -->|consulta y export controlado| APP
-    OPS -->|provision y operacion| APP
-    APP -->|OIDC BFF aceptado; configuracion pendiente| IDP
-    SOURCES -->|datos no confiables| APP
-    SIEM -->|telemetria y senales| APP
-    FUTURE -.->|indicadores autorizados| APP
+C4Context
+    title C4 Nivel 1 — Contexto de QAPAQ SecOps
+
+    Person(soc, "Operación SOC", "Analistas y administradores autorizados")
+    Person(governance, "Gobierno y soporte", "Auditoría, riesgos, antifraude e infraestructura")
+
+    System(qapaq, "QAPAQ SecOps", "Plataforma SOC central para telemetría, detección, investigación, respuesta, auditoría y reporting")
+
+    System_Ext(entra, "Microsoft Entra ID", "Identidad humana corporativa single-tenant")
+    System_Ext(sources, "Fuentes de seguridad", "Wazuh, Microsoft, Sophos, Cato y futuras fuentes autorizadas")
+    System_Ext(misp, "MISP", "Threat intelligence futura")
+
+    Rel(soc, qapaq, "Opera e investiga", "HTTPS")
+    Rel(governance, qapaq, "Gobierna, audita y soporta", "HTTPS")
+    Rel(qapaq, entra, "Autentica usuarios", "OIDC + PKCE")
+    Rel(sources, qapaq, "Entrega telemetría autorizada")
+    Rel(misp, qapaq, "Provee indicadores", "Futuro")

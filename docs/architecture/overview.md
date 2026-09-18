@@ -100,7 +100,8 @@ diferidos que requieran recuperación. Un evento interno no crea una promesa
 exactly-once. Los consumidores y efectos deben ser idempotentes.
 
 El [contexto](system-context.md), [módulos](modules.md), [flujos](data-flow.md) y
-[diagramas](../diagrams/README.md) detallan contratos y ownership.
+[modelo C4](c4-model.md) detallan estructura; [diagramas](../diagrams/README.md)
+añade vistas de comportamiento, contratos y ownership.
 
 ## REPOSITORY STRUCTURE
 

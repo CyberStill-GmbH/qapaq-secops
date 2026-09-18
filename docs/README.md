@@ -25,10 +25,12 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 8. [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
 9. [Fuentes y pilotos autorizados](architecture/source-integration-strategy.md).
 10. [Operación y continuidad](architecture/operations-and-continuity.md).
+11. [Modelo C4](architecture/c4-model.md).
 
 ## Diseño
 
 - [Contexto y fronteras de confianza](architecture/system-context.md).
+- [Modelo C4: contexto, contenedores, componentes y código](architecture/c4-model.md).
 - [Flujos y resiliencia](architecture/data-flow.md).
 - [SecurityEvent y contratos](architecture/event-model.md).
 - [Almacenamiento y búsqueda histórica](architecture/storage.md).

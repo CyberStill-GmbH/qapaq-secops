@@ -65,6 +65,8 @@ modules/soc/
 Los nombres son ejemplos de organización. Crear subcarpetas solo al existir
 contenido; separar commands/queries si aporta legibilidad, no por exigir CQRS.
 No repositorio genérico BaseRepository ni entity base llena de dependencias.
+La relación entre estas capas se muestra como C4 nivel 4 propuesto en el
+[modelo C4](c4-model.md); no prueba que las clases o carpetas estén creadas.
 
 Repositorios y ports viven en application por defecto; una interfaz de dominio
 solo si expresa una necesidad puramente de dominio. NestJS module y wiring van en

@@ -1,0 +1,49 @@
+flowchart TB
+    subgraph COMPOSITION["Composition root — wiring NestJS"]
+        WIRE["SocModule wiring"]
+    end
+
+    subgraph PRESENTATION["presentation/http"]
+        HTTP["Controllers / DTO mapping / policy declaration"]
+    end
+
+    subgraph APPLICATION["application"]
+        USECASES["Use cases — commands and queries"]
+        INPORTS["Input contracts"]
+        OUTPORTS["Output ports — persistence, evidence, authorization, audit"]
+    end
+
+    subgraph DOMAIN["domain — sin NestJS, Prisma ni SDK"]
+        MODEL["Alert / Incident / Case"]
+        RULES["Invariantes y transiciones"]
+        EVENTS["Eventos de dominio explícitos"]
+    end
+
+    subgraph INFRASTRUCTURE["infrastructure"]
+        REPO["Prisma repositories"]
+        EVIDENCE["Evidence adapter"]
+        PUBLISH["Outbox / job adapters"]
+    end
+
+    subgraph PUBLIC["public"]
+        CONTRACTS["Contratos de aplicación para otros módulos"]
+    end
+
+    HTTP -->|invoca| INPORTS
+    INPORTS --> USECASES
+    USECASES --> MODEL
+    USECASES --> RULES
+    MODEL --> EVENTS
+    USECASES --> OUTPORTS
+    REPO -.->|implementa| OUTPORTS
+    EVIDENCE -.->|implementa| OUTPORTS
+    PUBLISH -.->|implementa| OUTPORTS
+    CONTRACTS --> INPORTS
+    WIRE -.-> HTTP
+    WIRE -.-> USECASES
+    WIRE -.-> REPO
+    WIRE -.-> EVIDENCE
+    WIRE -.-> PUBLISH
+
+    NOTE["Vista propuesta: no afirma clases ni archivos implementados"]
+    NOTE -.-> DOMAIN

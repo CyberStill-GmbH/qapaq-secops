@@ -1,27 +1,28 @@
-flowchart LR
-    ACCESS["Identity Access and Policy"]
-    CONNECT["Integrations and Collectors"]
-    TEL["Telemetry Ingestion and Processing"]
-    DET["Detection and Correlation"]
-    TI["Threat Intelligence"]
-    SOC["Alerts Incidents and Cases"]
-    SOAR["SOAR Playbooks and Ticketing"]
-    FRAUD["Antifraud Intelligence"]
-    CROSS["Capacidades transversales - audit y observabilidad"]
-    CONNECT -->|lotes autorizados| TEL
-    TI -->|contexto e indicadores| TEL
-    TI -->|IOC vigentes| DET
-    TEL -->|eventos normalizados| DET
-    DET -->|Detection y Alert Candidate| SOC
-    SOC -->|respuesta solicitada| SOAR
-    SOAR -->|resultado por contrato publico| SOC
-    TEL -->|senales permitidas| FRAUD
-    FRAUD -->|capacidades compartidas| DET
-    FRAUD -->|alertas y casos autorizados| SOC
-    ACCESS -.->|politica| TEL
-    ACCESS -.->|politica| SOC
-    ACCESS -.->|politica| SOAR
-    ACCESS -.->|politica| FRAUD
-    SOC -.-> CROSS
-    SOAR -.-> CROSS
-    FRAUD -.-> CROSS
+C4Component
+    title C4 Nivel 3 — Componentes del backend modular
+
+    Container(web, "Web SOC", "React", "Opera capacidades autorizadas")
+    System_Ext(sources, "Fuentes", "Wazuh, Microsoft, Sophos y Cato")
+
+    Container_Boundary(backend, "Backend QAPAQ SecOps — API y worker") {
+        Component(access, "Identity, Access & Policy", "NestJS", "Sesiones, RBAC, scopes y políticas")
+        Component(connectors, "Integrations & Collectors", "NestJS", "Adapters, salud, cursores y checkpoints")
+        Component(telemetry, "Telemetry Ingestion & Processing", "NestJS", "Admisión, validación y normalización")
+        Component(intel, "Threat Intelligence", "NestJS", "IOC, procedencia, vigencia y contexto")
+        Component(detection, "Detection & Correlation", "NestJS", "Reglas, ventanas y correlación")
+        Component(soc, "Alerts, Incidents & Cases", "NestJS", "Triaje, investigación, casos y evidencia")
+        Component(soar, "SOAR, Playbooks & Ticketing", "NestJS", "Planes, aprobaciones, acciones y tickets")
+        Component(antifraud, "Antifraud Intelligence", "NestJS", "Señales, scoring explicable y casos")
+        Component(audit, "Audit & Archive", "Capacidad transversal", "Auditoría atómica, outbox y archivo protegido")
+        Component(ops, "Operations & Observability", "Capacidad transversal", "Health, métricas, modos y recovery")
+    }
+
+    Rel_D(web, access, "Inicia sesión")
+    Rel_D(web, soc, "Opera investigación", "HTTPS")
+    Rel_U(connectors, sources, "Consume datasets")
+    Rel_L(connectors, telemetry, "Entrega lotes")
+    Rel_D(intel, detection, "Aporta IOC")
+    Rel_D(telemetry, detection, "Entrega eventos")
+    Rel_L(detection, soc, "Genera candidatos")
+    Rel_U(antifraud, soc, "Gestiona casos")
+    Rel_D(soc, soar, "Solicita ejecución")

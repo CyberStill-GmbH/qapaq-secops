@@ -1,26 +1,31 @@
-flowchart TB
-    WEB["React - navegador"]
-    subgraph PRODUCT["Mismo producto y release - monolito modular"]
-        API["NestJS API y modulos"]
-        RUNNER["Runner Node - entrypoint aislable"]
-        PY["Python opcional - proceso acotado"]
-        API -->|contratos publicos| RUNNER
-        RUNNER -.->|JSON validado - sin shell| PY
-        PY -.->|resultado validado| RUNNER
-    end
-    PG[("PostgreSQL operacional")]
-    REDIS[("Redis / BullMQ")]
-    IDX[("Wazuh Indexer o OpenSearch compatible")]
-    OBJ[("Object storage abstraido")]
-    SEC["SecretProvider - backend por elegir"]
-    EXT["Proveedores externos"]
-    WEB -->|HTTPS y autorizacion| API
-    API --> PG
-    API -->|consultas autorizadas| IDX
-    API -->|evidencia autorizada| OBJ
-    RUNNER --> PG
-    RUNNER --> REDIS
-    RUNNER --> IDX
-    RUNNER --> OBJ
-    RUNNER --> SEC
-    RUNNER --> EXT
+C4Container
+    title C4 Nivel 2 — Contenedores conceptuales de QAPAQ SecOps
+
+    Person(user, "Usuario autorizado", "SOC, auditoría, antifraude o administración")
+    System_Ext(entra, "Microsoft Entra ID", "IdP humano")
+    System_Ext(sources, "Fuentes de seguridad", "Wazuh, Microsoft, Sophos y Cato")
+    System_Ext(secrets, "SecretProvider", "Resuelve referencias bajo identidad técnica")
+
+    System_Boundary(qapaq, "QAPAQ SecOps — monolito modular") {
+        Container(web, "Web SOC", "React + TypeScript", "Interfaz para operaciones autorizadas")
+        Container(api, "API / BFF", "NestJS + Fastify", "Sesión, autorización y casos de uso síncronos")
+        Container(worker, "Worker / scheduler", "NestJS + BullMQ", "Collectors, pipeline, detección y jobs recuperables")
+        Container(analytics, "Analytics", "Python", "Analítica especializada opcional por contrato")
+        ContainerDb(pg, "Operational Store", "PostgreSQL", "Estado, configuración, checkpoints, auditoría y outbox/inbox")
+        ContainerDb(queue, "Job Queue", "Redis + BullMQ", "Entrega de jobs recuperables")
+        ContainerDb(search, "Telemetry Search", "OpenSearch / Wazuh Indexer", "Índices derivados para investigación")
+        ContainerDb(objects, "Object Storage", "Azure Blob / S3-compatible", "Raw, evidencia, manifests y exports")
+    }
+
+    Rel_D(user, web, "Usa", "HTTPS")
+    Rel_R(web, api, "Invoca", "HTTPS/JSON")
+    Rel_U(api, entra, "Autentica", "OIDC")
+    Rel_D(api, pg, "Gestiona estado")
+    Rel_D(api, queue, "Encola trabajos")
+    Rel_D(worker, queue, "Consume trabajos")
+    Rel_D(worker, pg, "Persiste progreso")
+    Rel_D(worker, search, "Indexa telemetría")
+    Rel_D(worker, objects, "Preserva raw y evidencia")
+    Rel_U(worker, sources, "Recolecta datasets")
+    Rel_U(worker, secrets, "Resuelve secretRef")
+    Rel_R(worker, analytics, "Solicita análisis")
