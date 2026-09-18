@@ -1,8 +1,8 @@
 # Índice de Architecture Decision Records
 
-ADR-015, ADR-016 y ADR-017 están Accepted; ADR-018 está Conditionally Accepted por
+ADR-015, ADR-016 y ADR-017 están Accepted; ADR-018 y ADR-019 están Conditionally Accepted por
 resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
-baseline técnica, identidad y retención/privacidad/custodia. ADR-001…014 mantienen
+baseline técnica, identidad, retención/custodia y fronteras de fuentes. ADR-001…014 mantienen
 Proposed salvo aspectos sustituidos. Aceptación documental no equivale a software
 desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 
@@ -25,6 +25,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-016 — Baseline de toolchain, límites y medición de capacidad](016-toolchain-and-capacity-baseline.md), Accepted.
 - [ADR-017 — Identidad, sesión y autorización](017-identity-and-authorization.md), Accepted; operación bloqueada hasta pruebas de federación.
 - [ADR-018 — Retención, privacidad y custodia](018-retention-privacy-custody.md), Conditionally Accepted; eliminación automática bloqueada hasta aprobar matriz y pruebas.
+- [ADR-019 — Fronteras de fuentes y pilotos autorizados](019-source-boundaries-and-authorized-pilots.md), Conditionally Accepted; ingesta productiva bloqueada hasta pilotos autorizados.
 
 ## Compatibilidad con los archivos anteriores
 

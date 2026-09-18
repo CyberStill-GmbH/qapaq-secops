@@ -497,11 +497,30 @@ pendiente ni como evidencia de capacidades implementadas.
 
 ## U-005 — fuentes piloto e inventario real
 
-UNKNOWN / UNRESOLVED. Microsoft 365/Cato/Sophos son uso informado, Wazuh es componente
-central requerido; faltan ediciones, datasets, APIs, licencias, scopes, cuotas,
-cursores, destinos y versiones Indexer/Manager. SOC/dueños de fuentes aportan
-inventario sin secretos al repo. Cierre: ficha y prueba autorizada del piloto,
-incluida semántica de raw/ACK/replay y fuentes que no pueden garantizar cero pérdida.
+**Decision status:** CONDITIONALLY ACCEPTED
+
+**Production ingestion status:** BLOCKED UNTIL AUTHORIZED PILOTS PASS
+
+**Decision owners:** SOC Development, Infraestructura y dueños de cada fuente
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+QAPAQ SecOps es la plataforma SOC central. Wazuh es un componente para agentes,
+HIDS, FIM, configuración, inventario, vulnerabilidades y sus propias alertas; no
+es la aplicación completa, la única correlación ni la única ruta de ingesta.
+Microsoft 365/Entra, Sophos y Cato se integran directamente mediante adapters
+independientes cuando inventario, licencia, acceso y prueba real estén aprobados.
+
+Infraestructura opera productos, cuentas, conectividad y secretos. SOC Development
+implementa conectores y lógica de plataforma. Pilot A valida Wazuh; Pilot B valida
+un dataset Microsoft directo y correlación multifuente. La decisión completa está
+en [ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md), la
+[estrategia canónica](../architecture/source-integration-strategy.md) y el
+[inventario](../integrations/source-inventory.yaml).
+
+U-005 queda resuelta en diseño respecto a fronteras, ownership, orden, raw,
+procedencia, ACK, checkpoints, replay y duplicidad. La ingesta productiva sigue
+bloqueada hasta completar valores reales y superar los 15 escenarios autorizados.
 
 ## U-006 — auditoría y observabilidad
 
@@ -564,3 +583,6 @@ La primera vertical ordena construcción y no condiciona el cierre de U-001.
 U-004 se resolvió después como CONDITIONALLY ACCEPTED mediante ADR-018: su baseline
 permite continuar el diseño, pero el borrado automático queda bloqueado hasta la
 ratificación legal, operacional y las pruebas de lifecycle.
+U-005 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-019: QAPAQ SecOps es el
+producto central y cada proveedor tiene adapter independiente. Los datos reales y
+la ingesta productiva permanecen bloqueados hasta pilotos autorizados.

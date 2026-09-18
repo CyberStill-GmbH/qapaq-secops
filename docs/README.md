@@ -1,8 +1,8 @@
 # qapaq-secops — arquitectura inicial
 
 Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados;
-U-004/ADR-018 aceptado condicionalmente, con fecha aportada 2026-09-18. Capacidad
-pendiente de medición; identidad y eliminación automática conservan gates
+U-004/ADR-018 y U-005/ADR-019 aceptados condicionalmente, con fecha aportada
+2026-09-18. Capacidad pendiente de medición; identidad, eliminación e ingesta conservan gates
 operacionales. Sin implementación.
 
 Esta entrega modifica únicamente `docs/`. Las decisiones aceptadas y propuestas
@@ -23,6 +23,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 6. [Toolchain, límites y capacidad](architecture/toolchain-and-capacity.md).
 7. [Identidad, sesiones y autorización](architecture/identity-and-authorization.md).
 8. [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
+9. [Fuentes y pilotos autorizados](architecture/source-integration-strategy.md).
 
 ## Diseño
 
@@ -34,6 +35,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Seguridad](architecture/security.md), [RBAC](architecture/rbac.md), [auditoría](architecture/audit.md).
 - [Identidad y autorización aceptadas](architecture/identity-and-authorization.md).
 - [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
+- [Fuentes y pilotos autorizados](architecture/source-integration-strategy.md) e [inventario](integrations/source-inventory.yaml).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
 - [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
@@ -66,8 +68,11 @@ bloqueada hasta completar el gate de federación/autorización.
 DECISION: U-004 y [ADR-018](adr/018-retention-privacy-custody.md) aceptan
 condicionalmente la baseline de retención, privacidad y custodia. El diseño puede
 continuar; el borrado automático productivo requiere ratificación y pruebas.
+DECISION: U-005 y [ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
+aceptan QAPAQ SecOps como producto SOC central, adapters independientes y pilotos
+Wazuh/Microsoft. La ingesta productiva requiere inventario y pilotos autorizados.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
-ADR-015/016/017/018. ADR-001…014 no se aceptan en bloque.
+ADR-015/016/017/018/019. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 
