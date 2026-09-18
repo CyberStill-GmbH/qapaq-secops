@@ -3,7 +3,9 @@
 Fronteras, ownership, adapters independientes y orden de pilotos: CONDITIONALLY
 ACCEPTED por [ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md).
 Entra como IdP humano: ACCEPTED por ADR-017. Contratos concretos de proveedor:
-PROPOSAL hasta prueba autorizada. Producto mencionado no equivale a conexión.
+Microsoft 365/Wazuh ACCEPTED / IMPLEMENTATION REQUIRED por ADR-024; detalle físico
+permanece pendiente de prueba autorizada. Otros proveedores son PROPOSAL/post-MVP.
+Producto mencionado no equivale a conexión.
 
 ## Ports mínimos por necesidad
 
@@ -48,7 +50,7 @@ para el MVP: Microsoft Teams Workflows. El adapter resuelve
 no expone la URL. El contrato de aceptación de Teams no se interpreta como lectura
 o acuse. Office 365/Microsoft 365 Connectors heredados quedan prohibidos.
 
-### MicrosoftGraphAdapter
+### MicrosoftGraphAdapter — post-MVP para telemetría directa
 
 Usuarios/grupos, identidad, sign-ins y actividad según API, permisos y licencia
 verificados. Graph no representa automáticamente toda la auditoría de Microsoft 365;
@@ -90,6 +92,11 @@ permisos de Manager/Indexer son independientes.
 QAPAQ SecOps continúa siendo propietario de correlación, casos, RBAC, dashboards,
 auditoría, reporting y SOAR. `wazuh-alerts-*` produce `WAZUH_ALERT`, no raw original.
 
+ADR-024 lo convierte en el adapter operativo del MVP: Wazuh recolecta Office 365,
+aplica decoders/ruleset y genera alertas; QAPAQ consulta Indexer read-only y
+normaliza. Un cliente Graph directo de telemetría no se implementa en paralelo.
+Entra OIDC para login humano sigue siendo una frontera distinta y obligatoria.
+
 ### Firewalls, IDS/IPS, servidores y endpoints
 
 Adapters específicos bajo NetworkSecurityProvider o SecurityEventProvider. Syslog,
@@ -120,15 +127,17 @@ El dueño de la fuente aprueba su mapping a SecurityEvent y conserva valor/escal
 originales. El mapping Wazuh inicial es `wazuh.alerts.severity/1.0.0`; requiere
 corpus aprobado y no se reutiliza para Microsoft, Cato o Sophos.
 
-Pilot A valida Wazuh; Pilot B valida un dataset directo Microsoft y correlación
-multifuente. Sophos y Cato se incorporan después de demostrar el contrato común.
+El MVP valida una única vertical: Microsoft 365 recolectado/analizado por Wazuh y
+consumido por QAPAQ desde el Indexer. No implementa un conector Graph paralelo.
+Sophos, Cato y correlación multifuente se incorporan después de demostrar el
+contrato común.
 
 Configurar timeouts, tamaño máximo y circuit breaker si aporta aislamiento.
 No permitir URL arbitraria con credenciales: validar esquema, hostname, puerto,
 resolución y redirecciones frente al allowlist específico, incluso para destinos
 internos aprobados. Un collector comprometido no debe alcanzar metadata services.
 
-Los tests unitarios/contract con fakes no prueban acceso real. Reportar aparte
+El corpus de parser y las specs de contrato no prueban acceso real. Reportar aparte
 conectividad, alcance y observación de cursor/replay en el entorno autorizado.
 
 [Diagrama de adapters](../diagrams/08-integrations.mmd).

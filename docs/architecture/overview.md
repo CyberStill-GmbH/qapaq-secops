@@ -58,10 +58,14 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 ### Inconsistencias resueltas y trade-offs
 
 - U-001 fija el lifecycle normalización → enriquecimiento → Detection → Alert Candidate → Alert → Incident or Case → Response → Resolution → Closure. Detección/correlación producen resultados; promoción de candidatos aplica enrichment/deduplicación. No todo resultado llega a alerta o incidente ni se realimenta automáticamente como evento nuevo.
-- La primera vertical aceptada indexa en OpenSearch antes de correlación determinista. Si el índice no está disponible, ese análisis espera mientras se preserva ingesta durable. Paralelismo posterior entre indexación/análisis es una opción técnica a decidir, no comportamiento inicial aprobado.
+- La primera vertical revisada usa Microsoft 365 como única fuente empresarial y
+  Wazuh como motor base de recolección, reglas y alertas. QAPAQ consume el Indexer,
+  normaliza y gobierna el lifecycle SOC; Cato/Sophos son post-MVP. ADR-024.
 - Preservar raw no significa exponerlo dentro de toda respuesta ni conservarlo para siempre. Se conserva evidencia original restringida durante la retención aprobada; derivados pueden estar redactados.
 - Consultar hot/warm/cold mediante un contrato común no significa igual latencia. Cold puede requerir un job de restauración y resultados parciales explícitos.
-- Wazuh no es la frontera obligatoria para Microsoft, Sophos o Cato. Si un dataset llega directo y por Wazuh, se define una ruta canónica o relación causal.
+- Wazuh es la frontera obligatoria para Microsoft 365 en el MVP. Post-MVP, Sophos,
+  Cato o una ruta Microsoft directa usan adapters independientes; si un dataset
+  llega por dos caminos se define una ruta canónica o relación causal.
 - Wazuh Indexer y OpenSearch no implican dos clusters obligatorios. Se evalúa reutilización compatible antes de agregar otro motor.
 - Monolito no equivale a un único proceso Node. Un worker del mismo release puede aislar jobs. U-007 excluye Python del runtime MVP; su frontera futura permanece subordinada a contratos y benchmark.
 - Auditoría al final de una request no asegura atomicidad. Las mutaciones críticas requieren registro local durable en la misma transacción antes de confirmar éxito.
@@ -119,8 +123,8 @@ Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 1. Completar gates de identidad, retención, fuentes y continuidad; U-001…005/U-009 ya tienen decisión documental.
 2. Materializar el monorepo, lockfiles, baseline NestJS/React y gates de calidad en una tarea posterior; no crear runtime Python en el MVP.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
-4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.
-5. Ejecutar Pilot B Microsoft; después incorporar Sophos, Cato, MISP y playbooks dry-run.
+4. Primera vertical: Microsoft 365 → Wazuh → SecurityEvent → alerta → triaje → incidente → auditoría/Teams.
+5. Después del MVP, incorporar Sophos, Cato, MISP y playbooks dry-run según valor y acceso real.
 6. Incorporar ticketing/notificaciones y antifraude; evaluar Python después del MVP solo si su caso supera el gate aceptado.
 
 Cada etapa tiene condiciones de salida en [roadmap](../roadmap.md). La extracción

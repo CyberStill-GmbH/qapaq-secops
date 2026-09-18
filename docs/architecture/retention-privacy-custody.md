@@ -161,7 +161,7 @@ copias/backups y evidenciar residuos y eliminación.
 ## Gate y aceptación productiva
 
 Pueden desarrollarse interfaces, metadata, manifests, holds, WORM, deletion
-ledger, fakes, tests y restore tooling. La eliminación automática requiere aprobar
+ledger, specs con stores reales aislados y restore tooling. La eliminación automática requiere aprobar
 inventario, clasificación, matriz normativa, periodos/triggers, regiones,
 transferencias, backups, holds, sanitización y custodia, y superar:
 

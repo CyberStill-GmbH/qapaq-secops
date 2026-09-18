@@ -216,7 +216,7 @@ manejo y no certifica por sí sola admisibilidad legal.
 ## Gate productivo
 
 Puede continuar el desarrollo de schema, writer, outbox, hash chain, manifests,
-reconciler, exporters, alert rules, fakes y contract tests. Producción permanece
+reconciler, exporters, alert rules y specs contra componentes reales aislados. Producción permanece
 bloqueada hasta registrar storage WORM, custodios, signing service, llaves,
 buffers, canales y runbooks, y superar los 24 escenarios de ADR-021.
 

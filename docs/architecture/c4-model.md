@@ -28,8 +28,10 @@ administradores operan alertas, incidentes, reglas y respuesta; Auditoría consu
 evidencia; Riesgos/Antifraude gobierna su dominio; Infraestructura opera productos,
 dependencias, conectividad y secretos.
 
-Microsoft Entra ID autentica humanos. Wazuh, Microsoft 365/Entra logs, Sophos y
-Cato son sistemas externos independientes. Microsoft Teams Workflows recibe una
+Microsoft Entra ID autentica humanos. En el primer MVP, Microsoft 365 es la única
+fuente empresarial y Wazuh recolecta esa actividad, aplica ruleset y entrega alertas
+base a QAPAQ mediante acceso read-only al Indexer. Sophos, Cato y adapters directos
+adicionales son post-MVP. Microsoft Teams Workflows recibe una
 proyección minimizada de alertas críticas; QAPAQ conserva estado y acuse. MISP es una integración futura. Una
 flecha de fuente a QAPAQ representa un dataset autorizado, no disponibilidad real,
 licencia, credencial ni garantía de replay.
@@ -38,7 +40,8 @@ Decisiones que gobiernan esta vista:
 
 - U-001/ADR-015: alcance, actores, módulos y ownership.
 - U-003/ADR-017: Entra ID single-tenant y BFF.
-- U-005/ADR-019: QAPAQ como producto central y fuentes independientes.
+- U-005/ADR-019: QAPAQ como producto central y fronteras independientes.
+- ADR-024: Microsoft 365 como fuente MVP y Wazuh como motor base de alertas.
 - U-007/ADR-007: Python es capacidad futura y no un contenedor del runtime MVP.
 - U-009/ADR-020: Infraestructura opera dependencias; QAPAQ observa su estado.
 - U-012/ADR-022: Teams Workflows es el canal primario de alertas críticas.
@@ -59,7 +62,8 @@ síncronos y consulta estado. Las mutaciones críticas persisten auditoría loca
 
 ### Worker / scheduler
 
-Node/NestJS ejecuta collectors, pipeline, detección y jobs recuperables, incluida
+Node/NestJS consume alertas Wazuh, ejecuta pipeline, priorización/correlación
+complementaria y jobs recuperables, incluida
 la entrega asíncrona de notificaciones. Comparte
 release y módulos con la API; es separación de carga/entrypoint, no microservicio.
 
@@ -75,8 +79,8 @@ despliegue. [Detalle](python-analytics.md).
 - PostgreSQL: estado operacional, políticas, checkpoints, audit local, commands,
   outbox/inbox y metadatos.
 - Redis/BullMQ: entrega de jobs; no es registro único de evidencia o acciones.
-- OpenSearch/Wazuh Indexer compatible: búsqueda e índices derivados; no fuente de
-  verdad transaccional.
+- OpenSearch QAPAQ: proyección SecurityEvent derivada para búsqueda; no fuente de
+  verdad transaccional. Wazuh Indexer permanece externo y se consulta read-only.
 - Object storage: raw, archivo, evidencia, manifests y exports temporales con
   retención, custodia y holds.
 
@@ -107,7 +111,9 @@ Auditoría y Operations & Observability son capacidades transversales, no módul
 negocio adicionales. Cada módulo conserva estado e interfaces públicas. Se prohíben
 imports arbitrarios de internals, tablas ajenas y entidades ORM compartidas.
 
-El flujo principal es connectors → telemetry → detection → soc → soar. Para una
+El flujo MVP es Microsoft 365 → Wazuh → connectors → telemetry → detection → soc
+→ soar. Wazuh produce la alerta base; Detection & Correlation de QAPAQ prioriza y
+puede añadir lógica complementaria sin duplicar el ruleset. Para una
 alerta crítica, `soc` confirma la alerta y publica una salida; `soar` entrega
 después por worker hacia Teams. [Flujo detallado](critical-alert-notifications.md).
 Threat

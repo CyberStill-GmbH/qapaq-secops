@@ -1,9 +1,10 @@
 # Estrategia de fuentes y pilotos autorizados
 
 Estado de diseño: **CONDITIONALLY ACCEPTED** por
-[U-005/ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md). Fecha
+[U-005/ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md), con orden
+revisado por [ADR-024](../adr/024-microsoft-365-wazuh-mvp-vertical.md). Fecha
 aportada por el usuario: 2026-09-18. La ingesta productiva está **BLOCKED UNTIL
-AUTHORIZED PILOTS PASS**.
+THE AUTHORIZED MICROSOFT 365/WAZUH VERTICAL PASSES**.
 
 ## Frontera de producto
 
@@ -25,10 +26,9 @@ directos. Microsoft, Cato y Sophos no están obligados a pasar primero por Wazuh
 
 ```mermaid
 flowchart TD
-    M["Microsoft 365 / Entra"] --> Q["QAPAQ SecOps"]
-    C["Cato"] --> Q
-    S["Sophos"] --> Q
-    W["Wazuh"] --> Q
+    M["Microsoft 365"] --> W["Wazuh - collector rules alert"] --> Q["QAPAQ SecOps"]
+    C["Cato - post MVP"] -.-> Q
+    S["Sophos - post MVP"] -.-> Q
     Q --> O["Normalización y correlación"]
     O --> I["Alertas, incidentes y SOAR"]
 ```
@@ -47,7 +47,7 @@ alertas/casos, RBAC, dashboards, reporting, workflows/SOAR y salud. Recibe
 
 ## Slices de integración
 
-Dentro de `Integrations & Collectors` se separan cuatro slices/adapters:
+La arquitectura objetivo reserva slices independientes por proveedor:
 
 ```text
 integrations/wazuh
@@ -60,27 +60,27 @@ No son cuatro módulos funcionales adicionales. Implementan el contrato común d
 admisión y conservan diferencias de autenticación, API, cursor, límites, replay,
 errores y semántica. No se crea un adapter universal con condicionales.
 
-## Orden de pilotos
+El MVP materializa únicamente `integrations/wazuh`. Microsoft 365 se configura en
+Wazuh y no crea `integrations/microsoft`; ese slice solo nace si una decisión
+post-MVP aprueba una API directa. Cato y Sophos permanecen como rutas documentales,
+sin carpetas o código vacío.
 
-### Pilot A — Wazuh
+## Vertical de fuente del MVP
 
-Valida el pipeline y el contrato común con una alerta sintética autorizada. Datasets
-candidatos: `wazuh-alerts-*`, inventario de agentes y estado de vulnerabilidades.
-`wazuh-archives-*` solo se usa si Infraestructura confirma que está habilitado,
-dimensionado y autorizado. Un documento de `wazuh-alerts-*` es `WAZUH_ALERT`, no
-el evento raw original.
+[ADR-024](../adr/024-microsoft-365-wazuh-mvp-vertical.md) sustituye los pilotos
+anteriores. Microsoft 365 es la única fuente empresarial; Wazuh es el motor base
+que recolecta Office 365, aplica decoders/ruleset y genera alertas. QAPAQ consulta
+`wazuh-alerts-*` con mínimo privilegio, preserva la regla/procedencia y normaliza a
+SecurityEvent. No implementa un conector Graph paralelo en el MVP.
 
-### Pilot B — Microsoft
+Infraestructura confirma la edición/versión Wazuh y selecciona un dataset Office
+365 soportado según licencia, permisos, retención y valor. `wazuh-archives-*` solo
+se habilita si está dimensionado y autorizado. Un documento de `wazuh-alerts-*` es
+`WAZUH_ALERT`, no el raw previo de Microsoft; esa diferencia queda en lineage.
 
-Demuestra que una fuente cloud directa se correlaciona con Wazuh sin depender de
-su recolección. Infraestructura elige y habilita uno entre Entra audit logs, Entra
-sign-in logs o Microsoft 365 unified audit events, según licencia, API, permisos,
-retención y valor del caso de uso.
-
-El caso propuesto combina un inicio de sesión anómalo o fallos repetidos en Entra
-con actividad sospechosa Wazuh del endpoint asociado y produce una alerta de QAPAQ
-que referencia ambos eventos. Sophos sigue en prioridad 3 y Cato en prioridad 4;
-el orden reduce riesgo y no expresa menor importancia.
+Sophos, Cato, una segunda ruta Microsoft y correlación multifuente son post-MVP.
+Cada incorporación añade un adapter aislado y supera la misma suite de conformidad;
+no modifica el dominio ni los consumidores de SecurityEvent.
 
 ## Inventario y habilitación
 
@@ -139,22 +139,23 @@ prueban por sí solos identidad semántica.
 
 ## Gate productivo
 
-U-005 queda resuelta en diseño. Ediciones, versiones, licencias, datasets, APIs,
-scopes, cuotas, cursores, retención, endpoints y autorizaciones reales siguen
-pendientes de Infraestructura y los dueños de fuente. Antes de `enabled` deben pasar:
+U-005 queda resuelta en diseño. Ediciones, versiones, licencia, dataset, permisos,
+retención, endpoints y autorizaciones reales siguen pendientes de Infraestructura
+y los dueños. Antes de `enabled` deben pasar:
 
-1. Wazuh entrega una alerta sintética autorizada.
-2. Microsoft entrega un evento sintético autorizado.
-3. Ambos eventos se normalizan.
-4. Se conserva la procedencia.
-5. Reiniciar un worker no duplica efectos.
-6. El replay funciona dentro de la ventana comprobada.
-7. Un cursor inválido produce `GAP_DETECTED`.
-8. La expiración de una API queda visible.
-9. Ambos eventos pueden correlacionarse.
-10. La alerta correlacionada referencia sus eventos fuente.
-11. Ningún secreto aparece en repositorio o logs.
-12. Revocar una credencial detiene solo su conector.
-13. Caer Wazuh no impide procesar Microsoft.
-14. Caer Microsoft no impide procesar Wazuh.
-15. El dashboard distingue fuente, evento, alerta derivada e incidente.
+1. Microsoft 365 genera actividad sintética autorizada.
+2. La integración Office 365 real de Wazuh la recolecta.
+3. El ruleset Wazuh produce la alerta esperada.
+4. QAPAQ accede al Indexer con mínimo privilegio.
+5. La alerta se normaliza a SecurityEvent válido.
+6. Se conservan procedencia, ruleId, tiempos y raw ref/hash disponibles.
+7. Reiniciar un worker no duplica efectos.
+8. Replay/checkpoint funciona dentro de la ventana comprobada.
+9. Un checkpoint inválido produce gap explícito.
+10. Permiso expirado o denegado queda visible sin filtrar secretos.
+11. Una alerta inválida entra en cuarentena y puede reprocesarse.
+12. Ningún secreto aparece en repositorio, logs o evidencia.
+13. Revocar la credencial detiene solo la frontera afectada.
+14. Caer Wazuh marca cobertura degradada y conserva trabajo durable.
+15. La interfaz distingue actividad Microsoft, alerta Wazuh, SecurityEvent, alerta
+    QAPAQ e incidente.

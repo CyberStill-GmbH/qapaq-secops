@@ -11,18 +11,24 @@ Estado: registro propuesto; prioridad cualitativa, sin aceptación de riesgos.
   reconciliación y fail-closed. Seguridad/Infraestructura. Cierre: superar los 24
   escenarios U-006 y registrar custodios, WORM, firma, canales y runbooks.
 - A-06 — Media/alta: compatibilidad Wazuh Indexer/carga compartida obliga duplicación de infraestructura. Inventariar versiones, capacidad y soporte; read-only primero. Platform. Cierre: prueba del port y presupuesto de carga. U-005.
-- A-07 — Media/alta: APIs/licencias/rate limits impiden fuentes prometidas. Inventario `TO_BE_PROVIDED` y Pilot A/B; no marcar enabled sin validar. Dueño de proveedor/SOC. Cierre: 15 escenarios ADR-019 y evidencia de cursor/cobertura.
+- A-07 — Media/alta: licencia, permisos, retención o conectividad impiden la ruta
+  Microsoft 365/Wazuh. Inventario `TO_BE_PROVIDED`; no marcar enabled sin prueba
+  real. Dueño de proveedor/SOC. Cierre: gate ADR-024 y evidencia de cobertura,
+  checkpoint y degradación.
 - A-08 — Media: el contrato propio se implementa distinto entre productores,
   consumidores o mappings. ADR-011 fija JSON Schema 2020-12, SemVer, corpus,
   cuarentena, identidad prudente y perfiles ECS 9.5.0/OCSF 1.9.0. Desarrollo/SOC.
-  Cierre: completar los doce criterios de U-010, incluido mapping Wazuh y otro
-  piloto, replay, integridad raw y reporte de cobertura.
+  Cierre: completar los doce criterios de U-010, incluido mapping de alertas Wazuh
+  derivadas de Microsoft 365, replay, integridad raw y reporte de cobertura.
 - A-09 — Media: ocho módulos derivan en monolito acoplado o en burocracia de ports. Ownership e imports comprobados; extraer solo por necesidad. Arquitectura. Cierre: vertical sin imports internos cruzados y revisión de límites.
 - A-10 — Media: activar Python sin valor probado introduce segundo runtime y contratos incompatibles. U-007 lo mantiene dormante hasta caso real, baseline, schemas, fixtures, benchmark y 18 pruebas. Desarrollo/Platform. Cierre: valor medido frente a TypeScript/Wazuh/OpenSearch.
 - A-11 — Alta: consultas cold/exports se usan para exfiltrar o agotar recursos. ADR-017 acepta capability/scope/step-up y ADR-018 manifest, cifrado, expiración y custodia. Seguridad/Platform. Cierre: pruebas de acceso/revocación/cancelación/coste y expiración.
 - A-12 — Media/alta: equipo pequeño no opera cola, stores, IdP y fuentes de forma fiable. ADR-020 exige modos, runbooks ejecutados, Service Owner y cobertura honesta 8x5/24x7. Cierre: 25 pruebas y recovery medido.
 - A-13 — Media: references numéricas de skills antiguas apuntan ahora a otro ADR. Mitigar consultando índice y título; esta entrega solo modifica docs/. Dueño: mantenimiento del harness. Cierre: actualización futura autorizada de referencias fuera de docs/.
-- A-14 — Alta: un mismo hecho directo y vía Wazuh duplica alertas o correlación. Política por dataset, nivel semántico, IDs estables y `relatedEventIds`; nunca deduplicar solo por timestamp/texto. Cierre: fixture de doble ruta en piloto.
+- A-14 — Alta: una futura ruta directa y Wazuh duplican el mismo hecho. El MVP usa
+  una sola ruta Microsoft 365 → Wazuh. Antes de habilitar otra, definir política
+  por dataset, IDs estables y `relatedEventIds`, y probar ambas rutas reales; nunca
+  deduplicar solo por timestamp/texto.
 - A-15 — Alta: publicar SOC 24x7 sin guardia ni escalamiento deja SEV1 sin respuesta. Declarar `LIMITED PRODUCTION / 8x5` hasta aprobar calendario, contactos, autoridad, handoff y política laboral.
 - A-17 — Alta: mezclar CI no confiable con publicación o despliegue expone secretos
   y cadena de suministro. ADR-023 separa pipelines, permisos, artifacts y ambientes;

@@ -11,8 +11,8 @@ validan implementación contra sus módulos, ownership y lifecycles canónicos.
 Invariantes de Incident/Case/Alert, transiciones y concurrencia; cálculo de permisos
 con scopes y revocación; detección/correlación determinista con reloj controlable;
 parsers/normalizadores con entradas malformadas; mapping de errores y redacción.
-Fakes de ports, sin red ni servicios de Qapaq. No tests que solo repitan propiedades
-de una clase sin comprobar comportamiento.
+Las unit specs ejercitan dominio puro y funciones deterministas, sin sustituir
+ports externos con fakes. No tests que solo repitan propiedades de una clase.
 
 ## Integration
 
@@ -25,20 +25,19 @@ S3/Azure no certifica WORM ni semántica exacta de producción.
 ## Contract
 
 Los schemas Node/Python se prueban solo en investigación o al activar U-007; el MVP
-no necesita levantar un runtime Python. Mantener fixtures de cada adapter. Productores y
+no necesita levantar un runtime Python. Productores y
 consumidores validan el mismo corpus: opcionales/null, enteros grandes, UTC,
 versiones desconocidas, campos extra, límites y raw refs. Fixtures de vendor
 sintéticos con casos válidos, 401/403/429/timeout, paginación, cursor vencido y
-payload incompatible. No usar SDK mock como prueba de contrato real.
+payload incompatible se limitan a validación del parser; no prueban el adapter.
 
-Prueba autorizada separada contra sandbox confirma API/version/licencia y scopes;
-no es requisito para que tests locales corran sin acceso a Qapaq. Registrar qué
-parte quedó sin verificar y no llamar «integración funcional» al fake.
-Los pilotos A/B son ese gate autorizado; los tests con fakes no los sustituyen.
+Provider specs contra Microsoft 365/Wazuh autorizados confirman API, versión,
+licencia, scopes, paginación y errores. Si no hay acceso, quedan `BLOCKED`; el
+corpus de parser no permite llamarlas «integración funcional».
 
 ## E2E
 
-Identidad de prueba → política → fuente fake → raw/manifiesto → normalización →
+Identidad Entra autorizada → política → Microsoft 365/Wazuh reales → raw/manifiesto → normalización →
 detección → alerta → incidente/case → exportación autorizada y auditoría.
 Añadir rutas deny, object-level access y revocación. UI ocultando botones no cuenta
 como prueba de autorización. Las rutas exactas nacerán del contrato de cada feature.
@@ -133,8 +132,9 @@ U-010 se cierra técnicamente cuando la implementación demuestra sus doce crite
 
 1. JSON Schema Draft 2020-12 ejecutable para `qapaq.security-event` 1.0.0.
 2. Diccionario de campos y taxonomía versionados.
-3. Mapping `wazuh.alerts.severity/1.0.0` probado con corpus autorizado.
-4. Un mapping piloto adicional probado sin reutilizar escalas de otro proveedor.
+3. Mapping `wazuh.alerts.severity/1.0.0` probado con alertas autorizadas derivadas
+   de actividad Microsoft 365.
+4. Suite de conformidad reusable que no filtra documentos Wazuh al dominio.
 5. Corpus sintético con los escenarios canónicos de ADR-011.
 6. Contract tests de productores y consumidores en CI.
 7. Replay que conserva `eventUid`, renueva `recordId` y no duplica efectos.
@@ -162,8 +162,8 @@ score. No se asumen fuentes transaccionales ni datos de clientes disponibles.
 
 Guardar commit/scope, entorno/versiones, comandos, resultados, fallos conocidos y
 pruebas no realizadas. No guardar secretos/raw real en reportes. Diferenciar
-validación documental, test simulado, test local con dependencias y prueba de
-proveedor. [Validación de esta entrega](validation.md).
+validación documental, spec pura, integration spec con dependencias reales y
+provider spec autorizada. [Validación de esta entrega](validation.md).
 
 ## Gate ADR-007 — capacidad Python dormante
 
@@ -177,6 +177,6 @@ de comparación contra baseline determinística, presupuesto, aislamiento y roll
 
 Los contract tests validan payload allowlisted, adapter, códigos de error,
 timeouts, cinco intentos, jitter e idempotencia. Integración cubre transacción
-alerta/outbox, recuperación, estados y auditoría. E2E usa workflow o fake autorizado
+alerta/outbox, recuperación, estados y auditoría. E2E usa un Workflow autorizado
 para demostrar deep link con RBAC, acuse, escalamiento, fallback y p95. Los veinte
 escenarios canónicos están en [notificaciones críticas](architecture/critical-alert-notifications.md#pruebas-de-aceptación). No se prueba contra un tenant real sin autorización.

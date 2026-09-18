@@ -1,8 +1,9 @@
-flowchart LR
+flowchart TB
+    WAZUH["Wazuh - ruleset y alerta base"]
     EVENT["SecurityEvent 1.0.0 validado"]
     CTX["Threat Intelligence y contexto versionado"]
     ENR["Enriched Event"]
-    ENGINE["Deteccion y correlacion"]
+    ENGINE["Priorizacion y correlacion QAPAQ"]
     RESULT["Detection - resultado validado"]
     CAND["Alert Candidate"]
     QUALIFY["Enrichment y deduplicacion"]
@@ -10,7 +11,7 @@ flowchart LR
     SOC["Incident or Case"]
     RESPONSE["Response - SOAR autorizado"]
     CLOSE["Resolution y Closure"]
-    EVENT --> ENR
+    WAZUH --> EVENT --> ENR
     CTX --> ENR
     ENR --> ENGINE --> RESULT --> CAND --> QUALIFY
     QUALIFY -->|si corresponde| ALERT

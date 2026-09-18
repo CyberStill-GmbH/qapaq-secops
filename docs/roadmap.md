@@ -4,6 +4,10 @@ Alcance y orden inicial aceptados por [U-001](decisions/unresolved.md) y
 [ADR-015](adr/015-operational-scope-and-ownership.md). Gates técnicos propuestos,
 sin fechas ni estimaciones inventadas. La documentación no implementa funcionalidades.
 
+El timebox ejecutable de 2026-09-19 a 2026-10-30, sus Sprint Goals y Product
+Backlog están en el [plan Scrum](project-management/README.md). ADR-024 sustituye
+el orden inicial de fuentes sin reducir el alcance objetivo post-MVP.
+
 ## Base operacional aceptada
 
 Los ocho módulos, ownership y lenguaje común están definidos para la plataforma
@@ -13,26 +17,27 @@ para cerrar U-001. Las etapas siguientes ordenan construcción, no reducen alcan
 ## Preparación técnica
 
 Materializar `qapaq.security-event` 1.0.0, su JSON Schema Draft 2020-12, catálogos,
-mapping Wazuh probado y corpus mínimo aplicable según U-010. Identidad/scopes están aceptados por U-003, pero su gate de
+mapping Wazuh/Microsoft 365 probado y corpus mínimo aplicable según U-010. Identidad/scopes están aceptados por U-003, pero su gate de
 federación sigue bloqueando endpoints productivos. Versiones/toolchain/límites ya
 están aceptados por U-002; la capacidad sigue pendiente de benchmark. U-004 acepta
 la baseline de retención, pero Legal/Compliance deben ratificarla antes del TTL
-productivo; ADR-020 fija targets provisionales y gate de recovery. ADR-019 fija Pilot A Wazuh y Pilot B Microsoft;
-sus licencias, configuración, datasets y cobertura real permanecen como gate.
+productivo; ADR-020 fija targets provisionales y gate de recovery. ADR-024 sustituye
+los pilotos A/B por una única vertical Microsoft 365 → Wazuh → QAPAQ; licencia,
+configuración, dataset y cobertura real permanecen como gate.
 
 Habilitar CI de PR y construcción de candidatos según ADR-023. Migrar el scanner
 de dependencias de npm a pnpm junto con el workspace; no crear un lockfile npm
 artificial. Publicación y despliegue esperan el contrato de Infraestructura.
 
-Crear base NestJS/React, fakes, configuración, gates de calidad, dependencias hacia
+Crear base NestJS/React, servicios reales aislados, configuración, gates de calidad, dependencias hacia
 adentro y auditoría/autorización verificables. Contenedores y contratos de
 despliegue serán entregables de software; Infraestructura administra producción.
 No generar ocho módulos vacíos por completar el árbol.
 
 ## Primera vertical aceptada
 
-Wazuh/Windows authentication event → ingestion → SecurityEvent 1.0.0 validado → OpenSearch →
-deterministic correlation → alert → notificación crítica por Teams → triage →
+Microsoft 365 → Wazuh collection/rules/alert → QAPAQ read-only ingestion →
+SecurityEvent 1.0.0 validado → priorización → alert → notificación crítica por Teams → triage →
 incident → audit.
 
 La auditoría transversal acompaña también acceso/configuración/transiciones; no
@@ -49,13 +54,13 @@ Salida técnica propuesta: trazabilidad de origen a incidente, pruebas de permis
 estados y auditoría, replay sin efectos duplicados, recuperación de fallos y carga
 medida. No convierte el alcance objetivo en un experimento.
 
-## Pilotos de fuentes
+## Vertical de fuente del MVP
 
-Pilot A demuestra admisión durable, checkpoint, replay y aislamiento con una
-alerta sintética Wazuh autorizada. Pilot B incorpora un dataset Microsoft directo
-y demuestra correlación multifuente sin enrutarlo obligatoriamente por Wazuh.
-Sophos y Cato siguen después. Ninguna fuente pasa a `enabled` por completar solo
-fixtures o configuración; debe superar inventario y los 15 escenarios de ADR-019.
+Microsoft 365 es la única fuente empresarial y Wazuh el motor base de recolección,
+ruleset y alertas. QAPAQ consume el Indexer, normaliza y gestiona el lifecycle SOC.
+Sophos, Cato, conectores Microsoft directos y correlación multifuente siguen después.
+La vertical no pasa a `enabled` por configuración: debe recorrer sistemas reales,
+superar ADR-024 y conservar procedencia, checkpoint, replay y aislamiento.
 
 ## Verticales siguientes, en orden
 
@@ -82,5 +87,5 @@ no desplegados sí están permitidos. Kafka, Kubernetes, microservicios y ML com
 implementación inicial; cualquier nueva necesidad técnica requiere evidencia y ADR.
 
 Antes de producción: restore de PostgreSQL/búsqueda, replay, drenaje, revocación,
-SOAR simulado, ownership y soporte 8x5/24x7 explícitos. Los 25 escenarios de ADR-020
+SOAR en dry-run contra adapter autorizado, ownership y soporte 8x5/24x7 explícitos. Los 25 escenarios de ADR-020
 son gate; no basta que la aplicación arranque o que exista un backup.

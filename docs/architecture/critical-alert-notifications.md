@@ -186,7 +186,8 @@ Antes de producción se demuestra:
 Registrar Team/canal final, membresía, propietarios principal y alterno, retención,
 licencias, workflow, `secretRef`, rotación, máximo de acuse y canal secundario.
 Ejecutar los veinte escenarios en entorno autorizado. Hasta entonces la capacidad
-puede desarrollarse con fakes y contract tests, pero no se declara operativa.
+puede desarrollarse por capas, pero solo specs contra un Workflow autorizado
+permiten declararla operativa.
 
 [Flujo](../diagrams/13-critical-alert-notification.mmd) ·
 [Operación](operations-and-continuity.md) · [Seguridad](security.md)

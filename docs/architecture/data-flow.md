@@ -43,8 +43,9 @@ la limitación y medir gaps. No introducir ese collector sin decisión operacion
 
 ## Indexación y análisis de la primera vertical
 
-En la primera vertical aceptada por ADR-015, el evento normalizado se indexa en
-OpenSearch antes de correlación determinista. Las tareas conservan estado
+En la primera vertical revisada por ADR-024, Wazuh recolecta Microsoft 365 y genera
+la alerta base. QAPAQ la normaliza e indexa como SecurityEvent antes de priorización
+o correlación complementaria. Las tareas conservan estado
 recuperable por lote/stage; si el índice falla, ese análisis espera sin perder raw.
 Desacoplar ambas rutas después es propuesta técnica que necesita decisión explícita. Enrichment
 no esencial puede degradar con estado incomplete y versión de contexto; reglas que

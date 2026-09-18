@@ -176,7 +176,7 @@ reconciliado al final.
 Ejercicios trimestrales: PostgreSQL, índices/snapshot, replay y evidencia.
 Semestrales: recuperación integral y tabletop mayor. Anual: ejercicio con equipos.
 Repetir después de cambios importantes. Antes de producción: restore de base e
-índice, replay, drenaje, revocación y reconciliación SOAR simulada.
+índice, replay, drenaje, revocación y reconciliación SOAR en dry-run contra adapter autorizado.
 
 ## Severidad, soporte y ownership
 
@@ -256,7 +256,7 @@ responsables, el dashboard no constituye monitoreo.
 ## Gate productivo
 
 Puede continuar desarrollo aislado de APIs, workers, conectores, UI, dashboards,
-detecciones, fakes, pruebas y runbooks. Producción requiere objetivos aprobados,
+detecciones, specs con componentes reales, pruebas y runbooks. Producción requiere objetivos aprobados,
 Service Owner, modelo horario aceptado, backups y restore demostrados, replay/drenaje
 medidos, runbooks ejecutados, dependencias y escalaciones registradas, y estas pruebas:
 
@@ -277,7 +277,7 @@ medidos, runbooks ejecutados, dependencias y escalaciones registradas, y estas p
 15. Conservación de legal holds.
 16. Verificación de audit trail.
 17. Evidencia recuperada con checksum válido.
-18. SOAR simulado sin doble ejecución.
+18. SOAR en dry-run contra adapter autorizado sin doble ejecución.
 19. Modo read-only.
 20. Modo ingest-only.
 21. Rollback de versión.

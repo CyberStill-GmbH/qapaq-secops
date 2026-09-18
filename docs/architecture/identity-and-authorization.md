@@ -268,7 +268,7 @@ La federación/autorización queda operacionalmente comprobada solo cuando pasen
 
 ## Gate de producción
 
-Se pueden diseñar endpoints, guards, policies, mocks y pruebas sintéticas. No se
+Se pueden diseñar endpoints, guards, policies y specs de dominio. No se
 habilitan endpoints productivos hasta que Identity, Security y SOC validen tenant
 ID, app registration, redirect URIs, certificados/credenciales, grupo, Conditional
 Access, MFA, authentication strength, scopes/matriz, Graph sync, revocación,

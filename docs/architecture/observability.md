@@ -197,7 +197,8 @@ retención del proveedor operacional nunca determina la del audit trail.
 
 ## Gate productivo
 
-Puede continuar instrumentación, dashboards, alert rules, fakes y contract tests.
+Puede continuar instrumentación, dashboards, alert rules y specs con componentes
+reales aislados.
 Producción requiere endpoint OTLP, backends, retención, cuotas, canales, guardia y
 runbooks registrados, además de las pruebas de caída, pérdida contabilizada,
 redacción, cardinalidad y propagación definidas por ADR-021.

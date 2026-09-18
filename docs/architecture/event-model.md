@@ -133,9 +133,9 @@ legítimos parecidos; timestamp sin zona; llegada tardía o fuera de orden; camp
 vendor desconocido; evento sobredimensionado; secreto/token; JSON malformado; hash
 raw inválido; y cambio de versión de API/producto.
 
-Para el MVP son obligatorios el schema 1.0.0, el mapping Wazuh probado y el corpus
-mínimo aplicable. Los perfiles completos de Microsoft 365, Cato y Sophos requieren
-muestras autorizadas posteriores.
+Para el MVP son obligatorios el schema 1.0.0, el mapping de alertas Wazuh derivadas
+de Microsoft 365 y el corpus mínimo aplicable. Cato, Sophos y adapters directos
+adicionales requieren contratos y muestras autorizadas post-MVP.
 
 ## Frontera Node/Python futura
 

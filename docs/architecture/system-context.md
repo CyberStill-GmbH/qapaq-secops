@@ -1,7 +1,7 @@
 # Contexto del sistema
 
 Actores/identidad: ACCEPTED por ADR-015/017; fronteras de fuentes: CONDITIONALLY
-ACCEPTED por ADR-019; capacidades concretas de proveedor: PROPOSAL.
+ACCEPTED por ADR-019; vertical MVP ACCEPTED / IMPLEMENTATION REQUIRED por ADR-024.
 
 ## Actores
 
@@ -19,13 +19,15 @@ documentos.
 
 ## Sistemas fuera del límite de la aplicación
 
-Microsoft 365/Entra, Cato, Sophos y Wazuh son sistemas externos con adapters
-independientes. MISP y otros proveedores son futuros. La disponibilidad pública de
-una API no prueba edición, licencia, dataset, permiso, cuota ni conectividad QAPAQ.
+Microsoft 365 y Wazuh son los sistemas externos de la vertical MVP: Wazuh recolecta
+la actividad Microsoft, aplica ruleset y expone alertas; QAPAQ consume el Indexer
+read-only. Cato, Sophos, MISP y rutas directas son post-MVP. La disponibilidad
+pública de una API no prueba edición, licencia, dataset, permiso, cuota ni conectividad.
 
 Wazuh sigue siendo responsable de agentes, HIDS, FIM, SCA, inventario,
 vulnerabilidades, decoders y detecciones propias. QAPAQ SecOps es la plataforma
-central y añade ingesta multifuente, correlación, casos, RBAC, reporting, SOAR y auditoría. No configura
+central y añade contrato canónico, priorización/correlación complementaria, casos,
+RBAC, reporting, SOAR y auditoría. No configura
 automáticamente Active Response ni administra endpoints de fabricantes.
 
 PostgreSQL, Redis, indexador y object storage son dependencias provisionadas por

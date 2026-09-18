@@ -25,9 +25,10 @@ salud de fuentes y sincronización externa. Adapters para Wazuh, AD, Graph/Micro
 desde la aplicación, no infraestructura de ejecución ni productos corporativos.
 Posee configuración/checkpoints y capacidades del adapter; entrega datos mediante
 contrato de admisión de telemetry.
-ADR-019 acepta slices separados `wazuh`, `microsoft`, `sophos` y `cato` dentro de
-este módulo. No son módulos adicionales ni comparten un adapter condicional genérico.
-Infraestructura opera productos/secretos; SOC Development implementa los adapters.
+ADR-024 materializa solo el slice `wazuh` en el MVP. `microsoft`, `sophos` y `cato`
+son extensiones post-MVP sujetas a contrato real; no se crean carpetas vacías ni un
+adapter condicional genérico. Infraestructura opera productos/secretos; SOC
+Development implementa los adapters.
 
 ### 3. Telemetry Ingestion & Processing — telemetry
 
@@ -40,12 +41,13 @@ no decide unilateralmente plazos regulatorios. No eleva una observación a incid
 
 ### 4. Detection & Correlation — detection
 
-Reglas de detección/correlación, ventanas, secuencias, thresholds, coincidencia IOC,
+Priorización y correlación complementaria, ventanas, secuencias, thresholds, coincidencia IOC,
 severidad/confianza, contexto MITRE ATT&CK y versionado/pruebas de reglas. Consume
 eventos normalizados e indicadores del módulo de inteligencia; no posee su catálogo.
 NestJS mantiene dominio/estado. En el MVP no existe runtime Python. Si U-007
 supera su gate futuro, Python devolverá candidates versionados y no modificará
-tablas de aplicación. Distinguir reglas locales de reglas Wazuh de origen.
+tablas de aplicación. En la primera vertical Wazuh ejecuta el ruleset y genera la
+alerta base; QAPAQ no lo duplica.
 
 ### 5. Threat Intelligence — threat-intelligence
 
