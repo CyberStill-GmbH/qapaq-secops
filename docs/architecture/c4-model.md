@@ -75,7 +75,10 @@ versionado; no accede directamente a tablas ni controla el dominio.
   retención, custodia y holds.
 
 SecretProvider y fuentes permanecen externos. La selección/topología productiva de
-proveedores continúa sujeta a gates; el diagrama no crea recursos cloud.
+proveedores continúa sujeta a gates; el diagrama no crea recursos cloud. El
+OpenTelemetry Collector y el signing service también son servicios corporativos
+externos administrados por Infraestructura/Security: QAPAQ exporta OTLP y solicita
+firmas, pero no administra backends ni obtiene llaves privadas.
 
 ## Nivel 3 — Componentes
 

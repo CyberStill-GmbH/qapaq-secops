@@ -17,6 +17,11 @@ checkpoints, OpenSearch, detección/correlación, auditoría, exports, SOAR e
 integraciones. Infraestructura opera Wazuh y productos fuente; QAPAQ observa su
 disponibilidad como dependencia.
 
+ADR-021 separa observabilidad operacional del audit trail. La pérdida del
+Collector no detiene operaciones ordinarias; la imposibilidad de insertar audit
+crítico revierte la mutación. El atraso de archive aplica thresholds y fail-closed
+propios antes de agotar PostgreSQL.
+
 ## Criticidad y objetivos de recuperación
 
 | Clase | Capacidades |
@@ -227,6 +232,9 @@ certificate-expiration.md
 deployment-rollback.md
 soar-reconciliation.md
 security-incident.md
+audit-archive-recovery.md
+audit-reconciliation.md
+observability-outage.md
 ```
 
 Cada runbook declara trigger, precondiciones,

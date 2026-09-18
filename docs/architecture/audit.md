@@ -1,81 +1,219 @@
-# Auditoría y cadena de custodia
+# Auditoría de seguridad y cadena de custodia
 
-Auditoría transversal aceptada en [ADR-015](../adr/015-operational-scope-and-ownership.md);
-la estrategia técnica permanece PROPOSAL en [ADR-012](../adr/012-audit-trail.md),
-con custodia, WORM y retención aceptados condicionalmente por
-[ADR-018](../adr/018-retention-privacy-custody.md).
-No es un módulo de negocio independiente; cada módulo produce sus registros.
+Estado: **CONDITIONALLY ACCEPTED** por
+[U-006/ADR-021](../adr/021-observability-and-audit-separation.md). Retención,
+WORM y holds siguen [ADR-018](../adr/018-retention-privacy-custody.md); restore y
+recovery siguen [ADR-020](../adr/020-operations-and-continuity.md).
 
-## Tres conceptos
+Auditoría es una capacidad transversal, no un módulo de negocio. Cada módulo
+produce sus eventos mediante contratos comunes. No se almacena en la cola de
+observabilidad ni se reemplaza con logs, traces, SecurityEvent u OpenSearch.
 
-SecurityEvent representa telemetría externa; ApplicationLog sirve a diagnóstico;
-AuditEvent demuestra acciones dentro de la plataforma. No se reemplazan entre sí.
-Los logs pueden muestrearse; la auditoría crítica no se descarta por sampling.
+## Ownership y separación de funciones
 
-AuditEvent propuesto: id, actorId/actorType (human, service o system), action,
-resourceType/resourceId, timestamp UTC, sourceIp validada según proxies confiables,
-userAgent acotado, sessionId de referencia no bearer, correlationId, reason,
-outcome y metadata permitida. previousState/newState son diffs allowlisted
-redactados, nunca volcado íntegro de entidad. Guardar policyVersion y delegación
-para jobs cuando aplique; una denegación puede no tener actor autenticado.
+| Responsabilidad | Owner |
+| --- | --- |
+| Data owner del audit trail | Security / Compliance |
+| Definición de eventos | Security + Platform |
+| Producción correcta | QAPAQ SecOps |
+| Custodia técnica y archivo WORM | Infraestructura |
+| Llaves y certificados | Infraestructura + Security |
+| Reconciliación | Platform + Security |
+| Revisión de accesos | Compliance / Auditoría |
+| Investigación de inconsistencias | Security |
 
-ADR-017 acepta para decisiones de acceso sensibles: actor, subject, capability,
-resource, scope, decision, reason, policyVersion, authorizationVersion, requestId,
-hash de sessionId, timestamp y outcome. Auditar login/logout/rechazo, sesiones,
-grants/scopes, JIT, aprobaciones, step-up, raw, export, SOAR y break-glass, sin
-tokens, cookies ni secretos.
+Un administrador de aplicación no elimina audit records. Un custodio de
+Infraestructura no aprueba por sí mismo eliminación ni liberación de legal hold.
 
-## Acciones y atomicidad
+## Contrato de AuditEvent
 
-Auditar RBAC/usuarios, configuración, reglas y su activación, conectores, exportación
-de evidencia, políticas/retención, hold/purga, administración, cierre/reapertura de
-incidentes y cambios críticos de casos. También denegaciones relevantes y acceso
-a raw/evidencia, según política de privacidad y volumen.
+Todo evento contiene, según aplique:
 
-Mutación operacional y AuditEvent local se insertan en la misma transacción
-PostgreSQL, a través de un writer de auditoría con la unidad de trabajo. Si no
-puede persistirse la auditoría crítica, rollback y respuesta de fallo. Outbox
-transaccional envía posteriormente al archivo protegido; no usar solo un evento
-en memoria posterior al commit.
+```text
+auditEventId
+occurredAt
+recordedAt
+actorType
+actorId
+subjectId
+sessionIdHash
+authenticationContext
+capability
+action
+resourceType
+resourceId
+scope
+decision
+reasonCode
+policyVersion
+authorizationVersion
+requestId
+traceId
+sourceIpClassification
+beforeReference
+afterReference
+outcome
+errorCode
+partition
+sequence
+previousHash
+eventHash
+schemaVersion
+```
 
-Un fallo/denegación sin commit de negocio usa transacción de auditoría separada;
-nunca queda borrado por el rollback del negocio. Acciones externas registran
-intención y resultado/unknown sin fingir atomicidad con el proveedor. Exportación
-se audita al solicitar, autorizar y entregar, incluyendo hash/manifiesto.
+No guardar snapshots completos por defecto. Conservar campos modificados
+allowlisted, referencias, valores no sensibles y hashes cuando corresponda. Un
+secreto siempre se representa como `REDACTED`. `sourceIpClassification` deriva de
+proxies confiables; request/session/trace IDs son referencias opacas, no bearer.
 
-## Resistencia a manipulación
+## Eventos requeridos
 
-Rol de runtime permite append, no UPDATE/DELETE de registros auditables. Lectura y
-exportación requieren capabilities independientes. Mantenimiento/purga requieren
-cuenta separada, política de retención/hold y trazabilidad; no triggers que el mismo
-superusuario pueda desactivar como única defensa.
+Auditar individualmente:
 
-Exportar lotes con digest/manifiesto y encadenamiento o firma a object storage con
-controles inmutables cuando el proveedor lo soporte. Separar administración de
-llaves y datos; verificar regularmente conteos, secuencia, manifests y entregas.
-Un hash en la misma base no protege frente al administrador que modifica ambos.
-ADR-018 acepta WORM selectivo para evidencia, auditoría privilegiada, manifests,
-holds, purge receipts y acciones críticas. La capacidad del proveedor, su modo
-desbloqueado/bloqueado y la separación de llaves deben probarse; no están desplegados.
+- login, logout, rechazo, creación y revocación de sesión;
+- roles, scopes, capabilities, suspensión, JIT y step-up;
+- acceso a raw, evidencia, auditoría y exports;
+- reglas, publicación, integraciones y secretRefs;
+- retención, legal hold, purga y configuración;
+- creación/cierre de incidentes críticos y cambios sensibles de casos;
+- solicitud, aprobación, ejecución y resultado `UNKNOWN` de SOAR;
+- emergencias y denegaciones de operaciones privilegiadas.
 
-PostgreSQL guarda auditoría operacional acotada por política y particionamiento
-futuro; archivo conserva el horizonte aprobado. No retener sin límite hasta
-saturar el control plane. Al retrasarse archivo, alertar, aplicar backpressure
-y bloquear nuevas mutaciones críticas antes de agotar el buffer durable acordado.
+Lecturas ordinarias no sensibles pueden agregarse. Raw telemetry, evidencia,
+accesos y auditoría siempre se registran individualmente.
 
-## Evidencia y privacidad
+## Atomicidad y append-only
 
-Mantener origen, colector/parser/versiones, tiempos observados, digests y cada
-exportación/restauración. Referencias no permiten saltar controles del store.
-Acceso a evidencias de otro case se verifica aunque se conozca el ID. Un legal hold
-abarca originales y derivados relevantes. La cadena de custodia describe el manejo,
-no certifica admisibilidad legal por sí sola.
+```text
+BEGIN
+  change domain state
+  INSERT audit_event
+  INSERT audit_outbox
+COMMIT
+```
 
-La [política de custodia](retention-privacy-custody.md) fija metadata SHA-256,
-original inmutable, análisis sobre copia, revisión de hold y purge receipts. No
-registrar secretos, tokens, contraseñas ni PII innecesaria. Si la evidencia raw
-los contiene, restringirla; su digest/ID es suficiente para auditoría general.
-Usar actor técnico persistente para procesos automáticos y actor humano originador
-cuando exista, sin impersonación silenciosa.
+Si falla el `audit_event`, se revierte toda la operación y no se informa éxito.
+Denegaciones o fallos sin commit de negocio usan un writer durable separado.
+Acciones externas registran intención y resultado observado sin fingir atomicidad
+con el proveedor.
+
+El rol runtime solo tiene `INSERT` y `SELECT` limitado sobre auditoría. No posee
+`UPDATE`, `DELETE` ni `TRUNCATE`. Correcciones crean un nuevo
+`AUDIT_CORRECTION` que referencia el evento original. Mantenimiento y purga usan
+cuenta separada, política U-004, hold y auditoría propia.
+
+## Cadena de hashes
+
+Antes del hash se canonicaliza el evento con algoritmo y versión explícitos:
+
+```text
+eventHash = SHA-256(previousHash + canonicalAuditEvent)
+```
+
+Cada partición conserva secuencia monotónica, `previousHash`, `eventHash` y
+`schemaVersion`. La estrategia exacta de partición y coordinación de concurrencia
+se fija antes de implementar; `partition + day` es una opción, no un valor
+inventado. La cadena permite detectar modificación, eliminación, inserción fuera
+de secuencia, rollback parcial y truncamiento.
+
+Un hash guardado solo en PostgreSQL no protege contra una reescritura total. Por
+eso el archivo independiente y firmado es obligatorio.
+
+## Archivo inmutable y firma
+
+El archive worker procesa `audit_outbox`, verifica la cadena y escribe batches en
+object storage con capacidad WORM. Cada manifest contiene:
+
+```text
+manifestId
+partition
+firstSequence
+lastSequence
+eventCount
+firstHash
+lastHash
+contentHash
+createdAt
+schemaVersion
+signingKeyVersion
+signature
+```
+
+El objeto usa cifrado, versionado, retención, legal hold, acceso restringido,
+checksum, inventario y audit trail propio. Solo se marca `ARCHIVED` después de
+leer el objeto almacenado y validar su checksum.
+
+QAPAQ solicita la firma a un servicio administrado por Infraestructura/Security y
+nunca obtiene la llave privada. Las llaves no se guardan en repositorio, base de
+datos, Redis, configuración, imágenes, GitHub Actions ni logs. Rotación y
+revocación conservan metadata para verificar manifests históricos.
+
+## Reconciliación y detección de rollback
+
+La reconciliación continua tiene baseline de cinco minutos y comprueba secuencia,
+primer/último hash, conteo, gaps, duplicados, atraso, batches pendientes y firma.
+La reconciliación completa diaria compara PostgreSQL, outbox, objetos, manifests,
+hashes, secuencias, tamaños y fechas por partición.
+
+Una diferencia crea `AUDIT_RECONCILIATION_MISMATCH` y un incidente; preserva
+material, bloquea purga y no se corrige silenciosamente.
+
+Después de restaurar PostgreSQL:
+
+1. Verificar el último manifest válido.
+2. Comparar su secuencia/hash con PostgreSQL.
+3. Identificar eventos archivados ausentes en la base.
+4. Entrar en `RECOVERY` y bloquear operaciones privilegiadas.
+5. Reconstruir la proyección consultable desde el archive.
+6. Abrir incidente y reconciliar el estado de dominio por separado.
+
+Recuperar AuditEvent no demuestra que el dominio haya sido restaurado al mismo
+punto; esa divergencia exige investigación.
+
+## Buffer y fallo seguro
+
+El audit confirmado permanece en PostgreSQL y outbox cuando archive o firma están
+indisponibles. Baseline inicial: máximo de 24 horas o 10 GiB, lo primero que
+ocurra.
+
+| Estado | Condición |
+| --- | --- |
+| Warning | atraso ≥ 5 min |
+| Degraded | atraso ≥ 15 min |
+| SEV2 | atraso ≥ 30 min o buffer ≥ 70% |
+| SEV1 | atraso ≥ 60 min o buffer ≥ 85% |
+| Fail-closed | buffer ≥ 95% o riesgo de agotar PostgreSQL |
+
+Los límites se ajustan con volumen medido, pero nunca quedan ilimitados. Cerca del
+límite se bloquean administración de permisos, publicación de reglas, exports
+sensibles, configuración, holds, SOAR y acceso raw privilegiado. Pueden continuar,
+si es seguro, consultas ordinarias, dashboards, health, recuperación e ingesta
+necesaria para no perder telemetría.
+
+Si falla firma, no se crea manifest sin firma ni se marca archived. Si falla el
+insert local, la mutación revierte inmediatamente.
+
+## Alertas, privacidad y retención
+
+Alertas mínimas: `AuditOutboxLagHigh`, `AuditArchiveFailed`,
+`AuditReconciliationMismatch`, `AuditHashChainBroken`,
+`AuditSigningUnavailable` y `AuditBufferNearCapacity`. Se enrutan fuera de QAPAQ
+a Platform/Security/Compliance/Infraestructura según impacto y a dos destinos
+independientes para SEV1.
+
+Audit trail: Security, Compliance y auditor autorizado. Raw archive: custodios
+expresamente autorizados. Evidencia: personal asociado al incidente. Logs y traces
+no abren una vía alternativa de acceso.
+
+U-004 determina plazo, holds y purga. El archivo conserva horizonte aprobado; la
+base mantiene la ventana operacional necesaria. Cadena de custodia describe el
+manejo y no certifica por sí sola admisibilidad legal.
+
+## Gate productivo
+
+Puede continuar el desarrollo de schema, writer, outbox, hash chain, manifests,
+reconciler, exporters, alert rules, fakes y contract tests. Producción permanece
+bloqueada hasta registrar storage WORM, custodios, signing service, llaves,
+buffers, canales y runbooks, y superar los 24 escenarios de ADR-021.
 
 [Flujo de auditoría](../diagrams/09-audit.mmd).

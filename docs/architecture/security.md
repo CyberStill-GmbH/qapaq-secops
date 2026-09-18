@@ -1,7 +1,8 @@
 # Seguridad de la arquitectura
 
 Identidad/autorización: ACCEPTED por ADR-017. Retención, privacidad y custodia:
-CONDITIONALLY ACCEPTED por ADR-018. Los demás controles permanecen PROPOSAL. No
+CONDITIONALLY ACCEPTED por ADR-018. Auditoría y observabilidad: CONDITIONALLY
+ACCEPTED por ADR-021. Los demás controles permanecen PROPOSAL. No
 constituye certificación de cumplimiento.
 [Threat model](../threat-model.md), [RBAC](rbac.md), [API](../api-guidelines.md).
 
@@ -77,7 +78,9 @@ significar resultado UNKNOWN; no reintentar una acción destructiva ciegamente.
 
 Mutaciones críticas fallan si no se puede persistir su auditoría local. Caída del
 archivo remoto no obliga a tumbar lecturas si hay buffer durable, controles y
-alertas de atraso. Límites del buffer y política fail-closed deben acordarse.
+alertas de atraso. ADR-021 fija baseline de 24 horas/10 GiB, warning a 5 minutos,
+SEV2 a 30 minutos o 70%, y fail-closed a 95% o ante riesgo de agotar PostgreSQL; se ajustan
+con volumen medido, pero nunca quedan ilimitados.
 Raw y AuditEvent no son ApplicationLog. Ver [auditoría](audit.md).
 Durante caída del IdP se bloquean logins nuevos, no se extienden sesiones
 privilegiadas y solo se usa el mecanismo de emergencia aprobado. Los modos

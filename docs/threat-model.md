@@ -21,8 +21,15 @@ frontera suficiente para confiar.
 - T-02 — Elevación: usuario cambia ID de case, campo de rol o asignaciones para leer/exportar o autoescalar. Capabilities + scope + objeto/campo + JIT, step-up y doble control privilegiado. Residual: implementación o matriz defectuosa; gate ADR-017 pendiente.
 - T-03 — Tampering: payload vendor modifica reglas, ejecuta comandos o inyecta HTML/SQL. Validación runtime, normalización, escape, consultas parametrizadas y sin eval/shell interpolado. Probar fixtures maliciosos; residual: parser/SDK vulnerable.
 - T-04 — SSRF/exfiltración: conector o nextLink apunta a destino no autorizado y arrastra token. Allowlist por proveedor, validar redirect/DNS y egress, no URLs arbitrarias. Probar destino alternativo; residual: host permitido comprometido.
-- T-05 — Disclosure: raw/token/PII en logs, API, export o métrica. DTO allowlist, SecretProvider, redacción y permisos separados; probar errores/logs/download. Residual: raw forense sensible requiere custodia estricta.
-- T-06 — Repudiation: estado se confirma sin audit o un operador lo elimina. Transacción local, append-only runtime, archivo protegido y verificación externa. Probar rollback y discrepancia; residual: administrador con control de datos y llaves.
+- T-05 — Disclosure: raw/token/PII en logs, API, export o métrica. DTO allowlist,
+  SecretProvider, redacción, métricas sin labels de alta cardinalidad y permisos
+  separados; probar errores/logs/download. Residual: raw forense sensible requiere
+  custodia estricta.
+- T-06 — Repudiation: estado se confirma sin audit, un operador elimina eventos o
+  un restore retrocede la cadena. ADR-021 exige transacción local, append-only,
+  secuencia/hash, manifest firmado, WORM, llaves separadas y reconciliación.
+  Probar los 24 escenarios; residual: colusión o compromiso simultáneo de datos,
+  archive y signing service.
 - T-07 — DoS: búsqueda amplia, restore cold, payload comprimido o fuente ruidosa agota recursos. ADR-020 añade modos, backpressure GREEN…RED, 2× carga y drenaje medido; residual: targets provisionales hasta benchmark.
 - T-08 — Integridad: retries/replay generan alertas o respuestas duplicadas; mensajes se pierden entre stores. IDs estables, outbox/inbox, manifiestos y reconciliación; inyectar caídas. Residual: origen sin replay/ACK fiable.
 - T-09 — Retención: TTL provisional, restore o hold incompleto elimina o revive evidencia. ADR-018 bloquea borrado automático y exige manifests, WORM selectivo, dry-run, deletion ledger, purge receipts y 20 pruebas. Residual: matriz legal y capacidades del proveedor sin ratificar.

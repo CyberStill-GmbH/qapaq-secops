@@ -6,7 +6,10 @@ Estado: registro propuesto; prioridad cualitativa, sin aceptación de riesgos.
 - A-02 — Alta: la política de grants aceptada se implementa mal o la federación queda incompleta, causando escalada. Mitigar con scopes, objeto/campo, versionado, JIT, doble aprobación y segregación de ADR-017. Seguridad/SOC/Identity. Cierre: matriz y 27 pruebas productivas aprobadas; estado operacional bloqueado.
 - A-03 — Alta: raw recibido no durable o checkpoint adelantado causa pérdida. ADR-019 fija avance tras DURABLE, replay por dataset y garantía desde adquisición. Desarrollo/Platform. Cierre: fault injection y pilotos autorizados.
 - A-04 — Alta: una baseline provisional se activa sin ratificación o una purga/hold elimina evidencia. ADR-018 bloquea TTL productivo y exige matriz, dry-run, restore, deletion ledger y purge receipts. Legal/Compliance/SOC/Infraestructura. Cierre: 20 pruebas y gate aprobados.
-- A-05 — Alta: auditoría local editable o archivo atrasado. Mitigar cuentas separadas, atomicidad, manifiestos y verificación externa. Seguridad/Infraestructura. Cierre: comportamiento ante caída y manipulación demostrado. U-006.
+- A-05 — Alta: auditoría local editable, hash chain manipulada o archivo atrasado.
+  ADR-021 acepta cuentas separadas, atomicidad, append-only, manifests firmados,
+  reconciliación y fail-closed. Seguridad/Infraestructura. Cierre: superar los 24
+  escenarios U-006 y registrar custodios, WORM, firma, canales y runbooks.
 - A-06 — Media/alta: compatibilidad Wazuh Indexer/carga compartida obliga duplicación de infraestructura. Inventariar versiones, capacidad y soporte; read-only primero. Platform. Cierre: prueba del port y presupuesto de carga. U-005.
 - A-07 — Media/alta: APIs/licencias/rate limits impiden fuentes prometidas. Inventario `TO_BE_PROVIDED` y Pilot A/B; no marcar enabled sin validar. Dueño de proveedor/SOC. Cierre: 15 escenarios ADR-019 y evidencia de cursor/cobertura.
 - A-08 — Media: modelo propio deriva en schema ad hoc y mappings rotos. Mantener núcleo, diccionario/versionado y corpus ECS/OCSF. Desarrollo/SOC. Cierre: fixtures de tres clases representativas y estrategia de evolución. U-010.

@@ -35,6 +35,9 @@ real, scopes/secretRef autorizados y 15 escenarios de pilotos A/B demostrados.
 Producción completa permanece bloqueada por ADR-020 hasta aprobar targets y owners,
 demostrar restore/replay/drenaje y ejecutar runbooks críticos. Sin guardia SEV1,
 declarar `LIMITED PRODUCTION / 8x5`.
+ADR-021 añade Collector OTLP, storage WORM, signing service, custodia de llaves,
+dos destinos de alerta y 24 pruebas como dependencias del gate; QAPAQ consume sus
+contratos, pero Infraestructura/Security los provisionan y operan.
 
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis

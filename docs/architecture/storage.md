@@ -1,7 +1,8 @@
 # Datos operacionales, telemetría y retención
 
-Estado: diseño de tiers PROPOSAL; política de lifecycle CONDITIONALLY ACCEPTED por
-[ADR-018](../adr/018-retention-privacy-custody.md). [ADR-004](../adr/004-postgresql-operational-data.md),
+Estado: diseño de tiers PROPOSAL; lifecycle y auditoría CONDITIONALLY ACCEPTED por
+[ADR-018](../adr/018-retention-privacy-custody.md) y
+[ADR-021](../adr/021-observability-and-audit-separation.md). [ADR-004](../adr/004-postgresql-operational-data.md),
 [ADR-005](../adr/005-opensearch-wazuh-telemetry.md),
 [ADR-008](../adr/008-hot-warm-cold-retention.md).
 
@@ -30,6 +31,11 @@ Object storage: raw recibido, archivo normalizado, evidencias y exportaciones
 temporales, con permisos y ciclos de vida separados. Azure Blob y S3 compatible
 son adapters posibles; capacidades de WORM, versionado, cifrado y restore no se
 asumen iguales entre proveedores.
+
+ADR-021 exige para audit batches un destino separado con WORM, manifests firmados,
+checksum verificado después de lectura y custodia de llaves externa a QAPAQ. La
+marca `ARCHIVED` solo aparece tras verificar el objeto; el producto/proveedor sigue
+pendiente de Infraestructura y del gate productivo.
 
 ## Hot / warm / cold
 
