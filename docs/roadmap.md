@@ -17,7 +17,7 @@ schema y auditoría. Identidad/scopes están aceptados por U-003, pero su gate d
 federación sigue bloqueando endpoints productivos. Versiones/toolchain/límites ya
 están aceptados por U-002; la capacidad sigue pendiente de benchmark. U-004 acepta
 la baseline de retención, pero Legal/Compliance deben ratificarla antes del TTL
-productivo; RPO/RTO siguen U-009. ADR-019 fija Pilot A Wazuh y Pilot B Microsoft;
+productivo; ADR-020 fija targets provisionales y gate de recovery. ADR-019 fija Pilot A Wazuh y Pilot B Microsoft;
 sus licencias, configuración, datasets y cobertura real permanecen como gate.
 
 Crear base NestJS/React, fakes, configuración, gates de calidad, dependencias hacia
@@ -69,3 +69,7 @@ se prueban antes de habilitar purga automática. SOAR y Antifraude son alcance a
 no ampliaciones pendientes de justificar; sus contratos e implementación sí son
 incrementales. Kafka, Kubernetes, microservicios y ML complejo siguen fuera de
 implementación inicial; cualquier nueva necesidad técnica requiere evidencia y ADR.
+
+Antes de producción: restore de PostgreSQL/búsqueda, replay, drenaje, revocación,
+SOAR simulado, ownership y soporte 8x5/24x7 explícitos. Los 25 escenarios de ADR-020
+son gate; no basta que la aplicación arranque o que exista un backup.

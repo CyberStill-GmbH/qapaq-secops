@@ -1,8 +1,15 @@
 # Runbooks iniciales
 
-Estado: procedimientos de diseño para convertir en operación tras conocer entorno.
+Estado: catálogo/procedimientos de diseño; requisitos CONDITIONALLY ACCEPTED por ADR-020.
 No ejecutar comandos reales ni alterar proveedores a partir de estos documentos.
 Cada runbook requiere dueño, señales, autorización, límites y evidencia del entorno.
+
+Catálogo mínimo pendiente de materializar: startup/shutdown, restore PostgreSQL y
+búsqueda, checkpoint replay, backlog drain, source/identity outage, queue recovery,
+credential revocation, disk capacity, certificate expiration, deployment rollback,
+SOAR reconciliation y security incident. Cada uno declara trigger, precondiciones,
+permisos, pasos, validación, aborto, rollback, owner, escalamiento y evidencia.
+Otra persona distinta del autor ejecuta cada runbook crítico antes de producción.
 
 ## Conector degradado o sin eventos
 
@@ -71,3 +78,16 @@ y registrar discrepancias frente al objetivo.
 Reaplicar el deletion ledger antes de habilitar acceso para impedir que reaparezcan
 usuarios, exports u objetos purgados. Registrar propósito, aprobador, integridad y
 objetos restaurados; deshabilitar notificaciones, playbooks y efectos externos.
+
+## Backlog y cambio de modo
+
+Medir ingreso, procesamiento, profundidad, edad máxima y drain time. Si processing
+no supera ingreso, declarar `DEGRADED`; YELLOW reduce baja prioridad, ORANGE activa
+`INGEST_ONLY` y RED protege capacidad durable con rechazo explícito o aislamiento.
+Registrar rango afectado y replay. No descartar silenciosamente.
+
+## Reconciliación SOAR
+
+Tras timeout o recovery, listar commands con resultado `UNKNOWN`, consultar el
+proveedor cuando sea seguro y registrar el efecto observado. No reintentar hasta
+confirmar que no duplicará una acción. SOAR se reanuda después de datos y detección.

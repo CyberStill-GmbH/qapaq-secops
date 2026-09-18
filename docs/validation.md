@@ -2,16 +2,16 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001…U-005 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-005 y U-009 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Diecinueve ADR canónicos identificados por encabezado ADR-001…019. ADR-015,
-  ADR-016 y ADR-017 están Accepted; ADR-018/019, Conditionally Accepted;
+- Veinte ADR canónicos identificados por encabezado ADR-001…020. ADR-015,
+  ADR-016 y ADR-017 están Accepted; ADR-018/019/020, Conditionally Accepted;
   ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los diecinueve ADR contienen Context, Decision, Alternatives, Consequences y
+- Los veinte ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
@@ -54,7 +54,7 @@ UNTIL FEDERATION TESTS PASS; la documentación no afirma tenant, licencias, app
 registration, Conditional Access, PIM o federación configurados.
 
 Se contrastaron Authorization Code/PKCE, PIM y criterios de sesión/autenticadores
-con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, diecinueve
+con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, veinte
 ADRs y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
 deployment, roadmap e integraciones.
 
@@ -82,6 +82,17 @@ Se verificó coherencia con U-001: los cuatro providers son slices de
 15 escenarios para procedencia, replay, gaps, aislamiento, correlación y secretos.
 No se ejecutó una API real ni se afirmó licencia, dataset o conectividad disponible.
 
+## Actualización por aceptación condicional de U-009
+
+U-009/ADR-020 acepta criticidad C1…C4, RPO/RTO/SLO y latencia provisionales,
+error budgets, modos operacionales, backpressure, mantenimiento, restore/recovery,
+severidad, soporte, ownership, catálogo de runbooks y 25 pruebas productivas.
+
+Se comprobó coherencia con U-002 (capacidad aún medida por benchmark), U-003
+(emergencia de identidad), U-004 (retención/deletion ledger/holds) y U-005
+(aislamiento/replay por fuente). No se presenta ningún target como resultado real.
+Sin guardia SEV1 formal, la documentación exige `LIMITED PRODUCTION / 8x5`.
+
 ## Límites
 
 No se ejecutaron tests de aplicación, SAST, pruebas de proveedores, carga, restore
@@ -96,6 +107,8 @@ capacidades de retención tienen decisión condicional, pero carecen de matriz
 ratificada y pruebas de restore/hold/purga. Las
 capacidades concretas de Sophos/Cato permanecen pendientes; consultar
 [references.md](references.md).
+Continuidad tiene objetivos condicionales, pero aún carece de owners nominales,
+guardia aprobada y evidencia de las 25 pruebas.
 
 Los cambios concurrentes de CI y `.github/ci/discover.py` quedan fuera del alcance
 y de los commits documentales de esta actualización.

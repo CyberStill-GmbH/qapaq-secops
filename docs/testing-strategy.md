@@ -52,6 +52,10 @@ Para fuentes, ejecutar los 15 escenarios de ADR-019 con entornos autorizados:
 Wazuh/Microsoft sintéticos, normalización/procedencia, restart idempotente, replay,
 `GAP_DETECTED`, expiración, correlación, lineage, ausencia de secretos, revocación
 aislada, fallos independientes y distinción de evento/alerta/incidente.
+Antes de producción ejecutar además las 25 pruebas de ADR-020: reinicios/fallos por
+dependencia, backlog y drenaje con tráfico, restores, checkpoint/deletion ledger/
+holds/audit/evidencia, SOAR sin doble efecto, modos read-only/ingest-only, rollback,
+runbook cruzado, RPO/RTO medidos e informe de gaps.
 
 ## Fallos, seguridad y rendimiento
 

@@ -1,6 +1,7 @@
 # Operación y entrega de software
 
-Estado: requisitos/propuesta, no infraestructura provisionada ni manifests.
+Estado: infraestructura PROPOSAL; continuidad CONDITIONALLY ACCEPTED por ADR-020.
+No hay infraestructura provisionada ni manifests.
 
 ## Responsabilidades
 
@@ -31,6 +32,9 @@ Ningún lifecycle destructivo se habilita antes del gate de ADR-018: matriz
 ratificada, regiones/backups/holds aprobados y 20 escenarios demostrados.
 Ningún conector productivo pasa a `enabled` antes del gate ADR-019: inventario
 real, scopes/secretRef autorizados y 15 escenarios de pilotos A/B demostrados.
+Producción completa permanece bloqueada por ADR-020 hasta aprobar targets y owners,
+demostrar restore/replay/drenaje y ejecutar runbooks críticos. Sin guardia SEV1,
+declarar `LIMITED PRODUCTION / 8x5`.
 
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis
@@ -65,5 +69,10 @@ catálogo, raw y llaves requieren backup coherente; pérdida de llaves puede hac
 inútil el archivo cifrado. No reejecutar acciones externas peligrosas durante restore.
 
 Ensayar restauración aislada, reconciliar rangos/cursors, revalidar acceso y reabrir
-ingesta por fuente. RPO/RTO, frecuencia de backup y responsables siguen U-009.
+ingesta por fuente. ADR-020 fija orden C1…C4, RPO/RTO provisionales, ejercicios y
+25 pruebas; publicar solo resultados medidos.
 Ver [runbooks](runbooks.md).
+
+Despliegue productivo registra owner, ventana, impacto, pruebas, migración compatible,
+health/smoke, aborto, rollback y observación. Una migración irreversible requiere
+backup verificado, restore ensayado, aprobación y roll-forward.

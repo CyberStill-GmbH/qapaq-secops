@@ -1,7 +1,7 @@
 # Fuentes y alcance de investigación
 
 Consultadas el 2026-09-17. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-005; las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-005 y U-009; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
 
