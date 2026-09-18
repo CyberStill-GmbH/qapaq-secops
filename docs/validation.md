@@ -6,20 +6,21 @@ Las fechas de decisión 2026-09-18 de U-001…U-007 y U-009…U-012 fueron aport
 
 ## Comprobaciones vigentes
 
-- Veintitrés ADR canónicos identificados por encabezado ADR-001…023. ADR-007,
-  ADR-011, ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021/023,
+- Veinticuatro ADR canónicos identificados por encabezado ADR-001…024. ADR-007,
+  ADR-011, ADR-015, ADR-016, ADR-017, ADR-022 y ADR-024 están Accepted; ADR-018/019/020/021/023,
   Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los veintitrés ADR contienen Context, Decision, Alternatives, Consequences y
+- Los veinticuatro ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
   `docs/verification-checks.json` comprobados. `git diff --check -- docs` no
   reportó errores.
 - Trece fuentes Mermaid constan en el repositorio. Las vistas C4 01…03 incorporan
-  Teams y la vista 13 detalla outbox, worker, secreto, workflow y acuse. Las cuatro
-  fuentes afectadas se renderizaron con Mermaid CLI y se inspeccionaron visualmente;
+  Microsoft 365/Wazuh y Teams; las vistas 04/10 reflejan la vertical revisada y la
+  vista 13 detalla outbox, worker, secreto, workflow y acuse. Las fuentes afectadas
+  se renderizaron con Mermaid CLI y se inspeccionaron visualmente;
   no se añadió una dependencia al repositorio.
 - Revisión manual de coherencia entre U-002, ADR-016, requisitos, convenciones,
   estructura, API, ingesta, storage, deployment, testing, roadmap y CI/CD.
@@ -161,7 +162,7 @@ payload sensible, enlace profundo, owner huérfano, duplicados y falsa semántic
 `SENT`. La activación sigue bloqueada hasta cerrar cuatro datos operacionales y
 ejecutar los veinte escenarios; no se probó un tenant de Microsoft 365.
 
-La comprobación final encontró 72 archivos Markdown, 13 fuentes Mermaid y 23 ADR
+La comprobación vigente encontró 79 archivos Markdown, 13 fuentes Mermaid y 24 ADR
 canónicos. Los enlaces locales, fences, estructura de ADR-007/022 y `git diff --check
 -- docs` aprobaron. El verificador devolvió código 2 porque los seis checks de
 aplicación siguen `NOT_CONFIGURED`, resultado esperado para una entrega solo
@@ -213,3 +214,24 @@ observabilidad, seguridad, threat model, pruebas, roadmap y CI/CD quedó alinead
 Las vistas Mermaid 04 y 10 se actualizaron para mostrar SecurityEvent 1.0.0.
 La aceptación es documental: schema, mappings, corpus, pruebas de contrato,
 cuarentena/reproceso y reporte de cobertura siguen pendientes de implementación.
+
+## Actualización por ADR-024 y plan Scrum
+
+La decisión vigente usa Microsoft 365 como única fuente empresarial del MVP y
+Wazuh como sistema base para recolección Office 365, ruleset y alertas. QAPAQ lee el
+Indexer con mínimo privilegio, normaliza SecurityEvent y gobierna priorización,
+casos, RBAC, auditoría y notificaciones. ADR-024 sustituye el orden previo de
+ADR-015/019 sin reducir el alcance post-MVP.
+
+Se documentó un plan de seis semanas, del 2026-09-19 al 2026-10-30, con Product
+Goal, accountabilities nominales, Product Backlog único de 25 PBI, Definition of
+Done y tres Sprint Backlogs. No se inventó velocidad ni disponibilidad: cada
+Planning declara capacidad real. Las integraciones y dependencias solo se consideran
+Done mediante specs contra componentes reales y entornos autorizados; falta de
+acceso produce estado `BLOCKED`, no una sustitución por fake.
+
+La revisión de seguridad comprobó separación Microsoft/Wazuh/QAPAQ, credenciales
+por secretRef, acceso read-only al Indexer, prohibición de DTOs externos en dominio,
+raw/hash, autorización, auditoría y gates de provider specs. Las vistas C4 01…03 y
+los flujos 04/10 se actualizaron y renderizaron. Las fuentes oficiales de Scrum,
+GitHub, Wazuh y Microsoft se registraron en `references.md`.

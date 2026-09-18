@@ -2,7 +2,8 @@
 
 Arquitectura documental: U-001/ADR-015, U-002/ADR-016, U-003/ADR-017 y
 U-010/ADR-011 aceptados; U-004/ADR-018, U-005/ADR-019, U-006/ADR-021,
-U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007 y U-012/ADR-022 aceptados, con fecha
+U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007,
+U-012/ADR-022 y la revisión de vertical ADR-024 aceptados, con fecha
 aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. Sin implementación.
@@ -29,6 +30,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 10. [Operación y continuidad](architecture/operations-and-continuity.md).
 11. [Modelo C4](architecture/c4-model.md).
 12. [Separación de observabilidad y auditoría](adr/021-observability-and-audit-separation.md).
+13. [Plan Scrum del MVP](project-management/README.md).
 
 ## Diseño
 
@@ -55,6 +57,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Fuentes primarias consultadas](references.md).
 - [Verificador existente](verification.md) y [validación documental](validation.md).
 - [CI de seguridad y preparación de CD](ci-cd.md).
+- [Plan Scrum, backlog, Definition of Done y Sprints](project-management/README.md).
 
 ## Autoridad y trazabilidad
 
@@ -86,6 +89,10 @@ DECISION: U-010 y [ADR-011](adr/011-security-event-normalization.md) aceptan
 `qapaq.security-event` 1.0.0, JSON Schema Draft 2020-12 como fuente normativa y
 ECS 9.5.0/OCSF 1.9.0 solo como perfiles validados. La implementación permanece
 pendiente del gate de schema, mappings, corpus, replay, cuarentena e integridad raw.
+DECISION: [ADR-024](adr/024-microsoft-365-wazuh-mvp-vertical.md) revisa el orden
+inicial: Microsoft 365 es la única fuente empresarial del MVP; Wazuh es el sistema
+base de recolección, ruleset y alertas; QAPAQ gobierna SecurityEvent y el lifecycle
+SOC. Cato, Sophos y nuevas APIs quedan post-MVP.
 DECISION: U-006 y [ADR-021](adr/021-observability-and-audit-separation.md)
 separan observabilidad, auditoría y telemetría; aceptan OpenTelemetry como contrato
 neutral y auditoría transaccional con archivo firmado. Producción exige pruebas de
