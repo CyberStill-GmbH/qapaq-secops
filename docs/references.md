@@ -85,3 +85,13 @@ La restricción de datos y el stack vienen de la solicitud, no de estas páginas
 U-002 fija las versiones documentales; manifests, lockfiles, imágenes y CI deberán
 materializarlas y validarlas. No se adopta automáticamente la versión `current`.
 No se infieren plazos regulatorios fuera de la decisión provisional documentada.
+
+## CI, release y despliegue de U-011
+
+- [GitHub Actions: uso seguro](https://docs.github.com/en/actions/reference/security/secure-use): permisos mínimos, tratamiento de input no confiable, riesgos de workflows privilegiados, pinning por SHA y CODEOWNERS.
+- [GitHub Actions: OIDC](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-cloud-providers): intercambio federado por credenciales temporales y protección de ambientes.
+- [GitHub Environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments): aprobaciones, ramas/tags, secretos y reglas de protección, sujetos al plan contratado.
+- [pnpm audit](https://pnpm.io/cli/audit): auditoría de vulnerabilidades para el package manager y lockfile aceptados.
+
+Las fuentes sustentan los mecanismos. No prueban que el plan de GitHub, registro,
+identidades, ambientes o conectividad de QAPAQ estén configurados.

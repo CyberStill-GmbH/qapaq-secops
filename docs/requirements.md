@@ -23,6 +23,9 @@ La resolución [U-006/ADR-021](adr/021-observability-and-audit-separation.md)
 acepta la separación de observabilidad, auditoría y telemetría, OpenTelemetry como
 contrato neutral y archivo de auditoría firmado. No acredita backends, llaves,
 storage WORM, canales ni pruebas productivas.
+La resolución [U-011/ADR-023](adr/023-ci-release-deployment-separation.md)
+separa CI, candidatos, publicación y despliegue; habilita las dos primeras y
+bloquea las restantes hasta recibir el contrato de Infraestructura.
 La resolución [U-009/ADR-020](adr/020-operations-and-continuity.md) acepta
 condicionalmente criticidad, objetivos, modos, recovery y soporte. No acredita
 RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
@@ -56,7 +59,7 @@ acuse exclusivo en QAPAQ y fallback independiente obligatorio.
   health y contexto entre request/jobs, con backend administrado por
   Infraestructura. [Observabilidad](architecture/observability.md), ADR-021.
 - R-18: unit, integration, contract y E2E; fakes sin infraestructura real de Qapaq. [Pruebas](testing-strategy.md).
-- R-19: GitHub Actions con SAST/dependencias/secret scanning y contenedores si aplican; no Terraform. [Despliegue](deployment.md).
+- R-19: GitHub Actions separa CI, candidato, publicación y despliegue; usa pnpm, build-once, digest, SBOM, attestation, gates y evidencia. Publicación/CD esperan contrato de Infraestructura; no Terraform. [CI/CD](ci-cd.md), ADR-023.
 - R-20: solo datos sintéticos, sin empleados, secretos, IP internas, dominios privados ni configuraciones reales.
 
 - R-21: Antifraud Intelligence aprobado, con reglas, permisos, entidades y vocabulario propios; reutiliza contratos de ingesta, correlación y casos. [U-001](decisions/unresolved.md).
@@ -65,6 +68,10 @@ acuse exclusivo en QAPAQ y fallback independiente obligatorio.
   outbox/worker después del commit, con payload minimizado, reintentos, deduplicación,
   auditoría, acuse en QAPAQ, escalamiento y canal secundario probado. Requerimiento
   confirmado por la Jefatura de Riesgos No Financieros. [ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md).
+- R-24: separar CI, construcción certificada, publicación y despliegue; usar pnpm,
+  promover el mismo digest y conservar evidencia. CI/candidatos son responsabilidad
+  de SOC/Development; publicación/CD esperan el contrato de Infraestructura.
+  [ADR-023](adr/023-ci-release-deployment-separation.md).
 
 ## Calidad y restricciones
 
@@ -82,7 +89,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Veintidós ADR canónicos; ADR-007/015/016/017/022 Accepted y ADR-018/019/020/021 Conditionally Accepted.
+- Veintitrés ADR canónicos; ADR-007/015/016/017/022 Accepted y ADR-018/019/020/021 Conditionally Accepted.
 - Trece diagramas Mermaid coherentes; los niveles C4 1…4 distinguen arquitectura objetivo de implementación existente.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.

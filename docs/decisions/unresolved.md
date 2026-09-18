@@ -1,6 +1,6 @@
 # Preguntas y decisiones pendientes
 
-Registro actualizado con U-001…U-007, U-009 y U-012 resueltas en diseño mediante ADR
+Registro actualizado con U-001…U-007, U-009, U-011 y U-012 resueltas total o parcialmente mediante ADR
 aceptados o aceptados condicionalmente, con fecha aportada 2026-09-18. Los gates
 productivos y valores de configuración pendientes no se presentan como software
 desplegado. Las demás preguntas conservan responsables y criterio de cierre.
@@ -618,15 +618,30 @@ schemas ejecutables y contract tests, sin autoafirmar compatibilidad.
 
 ## U-011 — CI y política de releases
 
-UNKNOWN / UNRESOLVED. La solicitud de CI/CD concreta CodeQL, Dependabot, npm audit,
-Trivy y Gitleaks; el flujo local usa runners hospedados de GitHub. Ver
-[implementación y activación](../ci-cd.md). Faltan registro y destino de publicación,
-ambientes, identidad de despliegue, aprobaciones, health checks, migraciones,
-rollback y criterios de excepción. No existe evidencia de infraestructura provisionada.
-Impacto: no habilitar publicación o despliegue con contratos/credenciales supuestos;
-puede continuar CI. Desarrollo/Seguridad/Infraestructura acuerdan esos contratos.
-Cierre: destino y política documentados y aceptados, pipeline probado sin secretos
-en PR no confiable y evidencia de release y rollback.
+**Decision status:** CONDITIONALLY ACCEPTED / PARTIALLY RESOLVED
+
+**CI status:** ENABLED FOR MVP
+
+**Release candidate status:** ENABLED
+
+**Publish/deployment status:** BLOCKED UNTIL INFRASTRUCTURE CONTRACT
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+[ADR-023](../adr/023-ci-release-deployment-separation.md) separa CI de PR,
+construcción/certificación de candidatos y publicación/despliegue. SOC/Development
+puede implementar las dos primeras; Infrastructure debe entregar registro,
+ambientes, identidad, conectividad, mecanismo, aprobadores, health checks y soporte
+antes de las dos últimas.
+
+El workspace usa `pnpm install --frozen-lockfile` y `pnpm audit`; no se crea un
+`package-lock.json` artificial para ejecutar npm. El workflow observado todavía
+usa descubrimiento npm y debe migrarse al implementar el workspace. No se crea CD
+con valores o credenciales ficticios.
+
+U-011 permanece parcialmente resuelta hasta demostrar los ocho escenarios de
+cierre: aislamiento de PR, CI completa, candidato certificado, contrato aceptado,
+promoción del mismo digest a staging, detección por health, rollback y evidencia.
 
 ## U-012 — notificación de alertas críticas en Microsoft Teams
 
@@ -668,6 +683,9 @@ queda fuera del runtime MVP y solo se activa por caso medible, benchmark y gate.
 U-009 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-020: fija continuidad,
 recovery y soporte, pero los objetivos solo dejan de ser provisionales después de
 aprobación y ejercicios medidos.
+U-011 se resolvió parcialmente mediante ADR-023: CI y candidatos están
+habilitados; publicación y despliegue quedan bloqueados por el contrato de
+Infraestructura y ocho pruebas.
 U-012 se resolvió como ACCEPTED mediante ADR-022 por requerimiento de la Jefatura
 de Riesgos No Financieros: Teams Workflows es el canal primario para alertas
 críticas, con outbox, worker, acuse en QAPAQ y fallback obligatorio.
