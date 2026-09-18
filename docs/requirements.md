@@ -19,6 +19,10 @@ No acredita ratificación legal ni lifecycle implementado.
 La resolución [U-005/ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
 acepta QAPAQ SecOps como SOC central, adapters independientes y pilotos A/B. No
 acredita ediciones, licencias, APIs, permisos ni conectividad.
+La resolución [U-006/ADR-021](adr/021-observability-and-audit-separation.md)
+acepta la separación de observabilidad, auditoría y telemetría, OpenTelemetry como
+contrato neutral y archivo de auditoría firmado. No acredita backends, llaves,
+storage WORM, canales ni pruebas productivas.
 La resolución [U-009/ADR-020](adr/020-operations-and-continuity.md) acepta
 condicionalmente criticidad, objetivos, modos, recovery y soporte. No acredita
 RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
@@ -36,12 +40,15 @@ RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
 - R-09: hot/cold/evidence, retención por dataset, hold, purga verificable y consulta histórica sin acoplar al consumidor al tier. ADR-008/018.
 - R-10: adapters independientes para Wazuh, Microsoft, Sophos y Cato; inventario y prueba autorizada antes de producción. AD/firewalls/IDS/IPS y MISP según vertical. [Integraciones](architecture/integrations.md), ADR-010/019.
 - R-11: Entra ID humano, BFF con sesión opaca y roles dinámicos/capabilities con scopes, controles de objeto/campo, JIT y separación de funciones. [Identidad](architecture/identity-and-authorization.md), ADR-009/017.
-- R-12: distinguir eventos, logs y auditoría; acciones críticas auditables, custodia y WORM selectivo. ADR-012/018.
+- R-12: distinguir eventos, logs y auditoría; auditoría transaccional append-only,
+  hash chain, archivo firmado, custodia y WORM selectivo. ADR-012/018/021.
 - R-13: SecretProvider y referencias a secretos, sin passwords/tokens/API keys en PostgreSQL. ADR-013.
 - R-14: distinguir Event, Alert, Incident, Case; ciclo de investigación y evidencia. [Módulos](architecture/modules.md).
 - R-15: SOAR, Playbooks & Ticketing como módulo aprobado de entrega incremental, con permiso, aprobación explícita para alto impacto, razón y auditoría; no SOAR completo en esta tarea. [Seguridad](architecture/security.md).
 - R-16: vistas SOC y permisos frontend sin sustituir backend. [Contexto](architecture/system-context.md).
-- R-17: logs estructurados, métricas, health y correlación entre request/jobs. [Observabilidad](architecture/observability.md).
+- R-17: OpenTelemetry/OTLP, logs estructurados, métricas de cardinalidad acotada,
+  health y contexto entre request/jobs, con backend administrado por
+  Infraestructura. [Observabilidad](architecture/observability.md), ADR-021.
 - R-18: unit, integration, contract y E2E; fakes sin infraestructura real de Qapaq. [Pruebas](testing-strategy.md).
 - R-19: GitHub Actions con SAST/dependencias/secret scanning y contenedores si aplican; no Terraform. [Despliegue](deployment.md).
 - R-20: solo datos sintéticos, sin empleados, secretos, IP internas, dominios privados ni configuraciones reales.
@@ -65,7 +72,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Veinte ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019/020 Conditionally Accepted.
+- Veintiún ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019/020/021 Conditionally Accepted.
 - Doce diagramas Mermaid coherentes; los niveles C4 1…4 distinguen arquitectura objetivo de implementación existente.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.

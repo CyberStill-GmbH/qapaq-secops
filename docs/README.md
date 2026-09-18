@@ -1,8 +1,9 @@
 # qapaq-secops — arquitectura inicial
 
 Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados;
-U-004/ADR-018, U-005/ADR-019 y U-009/ADR-020 aceptados condicionalmente, con fecha
-aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación, ingesta y continuidad conservan gates
+U-004/ADR-018, U-005/ADR-019, U-006/ADR-021 y U-009/ADR-020 aceptados condicionalmente, con fecha
+aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
+ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. Sin implementación.
 
 Esta entrega modifica únicamente `docs/`. Las decisiones aceptadas y propuestas
@@ -26,6 +27,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 9. [Fuentes y pilotos autorizados](architecture/source-integration-strategy.md).
 10. [Operación y continuidad](architecture/operations-and-continuity.md).
 11. [Modelo C4](architecture/c4-model.md).
+12. [Separación de observabilidad y auditoría](adr/021-observability-and-audit-separation.md).
 
 ## Diseño
 
@@ -75,11 +77,15 @@ continuar; el borrado automático productivo requiere ratificación y pruebas.
 DECISION: U-005 y [ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
 aceptan QAPAQ SecOps como producto SOC central, adapters independientes y pilotos
 Wazuh/Microsoft. La ingesta productiva requiere inventario y pilotos autorizados.
+DECISION: U-006 y [ADR-021](adr/021-observability-and-audit-separation.md)
+separan observabilidad, auditoría y telemetría; aceptan OpenTelemetry como contrato
+neutral y auditoría transaccional con archivo firmado. Producción exige pruebas de
+rollback, archivo, reconciliación y alertas.
 DECISION: U-009 y [ADR-020](adr/020-operations-and-continuity.md) aceptan
 condicionalmente objetivos de continuidad, degradación y soporte. Producción exige
 restore/recovery medidos; sin guardia SEV1 se declara servicio 8x5 limitado.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
-ADR-015/016/017/018/019/020. ADR-001…014 no se aceptan en bloque.
+ADR-015/016/017/018/019/020/021. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 

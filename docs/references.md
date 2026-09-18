@@ -1,7 +1,7 @@
 # Fuentes y alcance de investigación
 
 Consultadas el 2026-09-17. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-005 y U-009; las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-006 y U-009; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
 
@@ -18,6 +18,19 @@ sistema. No se consultaron sistemas internos de Financiera Qapaq.
 U-005 fija fronteras, ownership, orden de pilotos y semántica de procedencia. Estas
 referencias no prueban que QAPAQ disponga de edición, licencia, dataset, scopes,
 cuotas, cursor, retención o conectividad; esos valores siguen en el inventario.
+
+## Contratos de observabilidad de U-006
+
+- [OTLP Specification](https://opentelemetry.io/docs/specs/otlp/): contrato para
+  transportar traces, métricas y logs entre fuentes, Collectors y backends; no
+  selecciona el backend corporativo.
+- [W3C Trace Context](https://www.w3.org/TR/trace-context/): formato estándar para
+  propagar contexto de tracing distribuido; no convierte el trace en auditoría.
+- [Prometheus metric and label naming](https://prometheus.io/docs/practices/naming/):
+  recomienda evitar dimensiones de alta cardinalidad como user IDs y emails.
+
+Estas referencias sustentan interoperabilidad y cardinalidad. La resolución del
+usuario fija la separación, ownership, buffers, auditoría y gate productivo.
 
 ## Baseline de U-002
 

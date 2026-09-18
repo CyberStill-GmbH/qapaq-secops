@@ -1,9 +1,9 @@
 # Preguntas y decisiones pendientes
 
-Registro actualizado con U-001 ACCEPTED, cuya fecha de decisión aportada es
-2026-09-18. U-001 asigna ownership funcional; los responsables técnicos y datos
-faltantes de las demás preguntas no se infieren. Las preguntas abiertas no
-bloquean la aceptación del alcance operacional ni esta entrega documental.
+Registro actualizado con U-001…U-006 y U-009 resueltas en diseño mediante ADR
+aceptados o aceptados condicionalmente, con fecha aportada 2026-09-18. Los gates
+productivos y valores de configuración pendientes no se presentan como software
+desplegado. Las demás preguntas conservan responsables y criterio de cierre.
 
 ## U-001 — Límites y aceptación operacional
 
@@ -524,10 +524,35 @@ bloqueada hasta completar valores reales y superar los 15 escenarios autorizados
 
 ## U-006 — auditoría y observabilidad
 
-UNKNOWN / UNRESOLVED. ¿Proveedor de métricas/logs/traces, custodio de audit,
-capacidad de archivo inmutable, llaves, buffer máximo y destino de alertas?
-Seguridad/Infraestructura definen comportamiento de fallo y soporte.
-Cierre: prueba de audit rollback, archivo/reconciliación y alertas ante atraso.
+**Decision status:** CONDITIONALLY ACCEPTED
+
+**Production status:** BLOCKED UNTIL ROLLBACK, ARCHIVE AND ALERT TESTS PASS
+
+**Decision owners:** Security, Compliance, Infraestructura y Platform
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+QAPAQ separa observabilidad operacional, audit trail de seguridad y telemetría
+externa. API y workers usan OpenTelemetry/OTLP, W3C Trace Context, logs JSON y
+métricas compatibles con Prometheus hacia un Collector administrado por
+Infraestructura; el backend concreto no forma parte del dominio.
+
+La auditoría crítica es transaccional en PostgreSQL, append-only para el rol
+runtime y se archiva mediante outbox en storage WORM con cadena SHA-256,
+manifests firmados, custodia externa de llaves y reconciliación. No admite
+sampling ni depende de logs, traces, OpenSearch o stdout.
+
+Se aceptan los buffers y thresholds iniciales, el comportamiento fail-closed,
+la detección de rollback, el routing a dos destinos independientes y los 24
+escenarios del gate definidos en
+[ADR-021](../adr/021-observability-and-audit-separation.md),
+[observabilidad](../architecture/observability.md) y
+[auditoría](../architecture/audit.md).
+
+U-006 queda resuelta en diseño. Endpoint OTLP, productos backend, storage WORM,
+custodios nominales, signing service, llaves, canales y guardia son configuración
+productiva que Infraestructura/Security debe registrar antes de superar el gate;
+su ausencia no reabre la separación arquitectónica ni autoriza producción.
 
 ## U-007 — analítica Python
 
@@ -601,6 +626,10 @@ ratificación legal, operacional y las pruebas de lifecycle.
 U-005 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-019: QAPAQ SecOps es el
 producto central y cada proveedor tiene adapter independiente. Los datos reales y
 la ingesta productiva permanecen bloqueados hasta pilotos autorizados.
+U-006 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-021: OpenTelemetry
+desacopla observabilidad del proveedor y el audit trail usa PostgreSQL
+transaccional más archivo WORM firmado. Producción permanece bloqueada hasta
+configurar dependencias y superar las 24 pruebas.
 U-009 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-020: fija continuidad,
 recovery y soporte, pero los objetivos solo dejan de ser provisionales después de
 aprobación y ejercicios medidos.
