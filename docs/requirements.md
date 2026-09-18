@@ -26,6 +26,10 @@ storage WORM, canales ni pruebas productivas.
 La resolución [U-009/ADR-020](adr/020-operations-and-continuity.md) acepta
 condicionalmente criticidad, objetivos, modos, recovery y soporte. No acredita
 RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
+El requerimiento confirmado por la Jefatura de Riesgos No Financieros se registra
+en [U-012/ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md): Teams
+Workflows es el canal primario para alertas `CRITICAL`, con entrega asíncrona,
+acuse exclusivo en QAPAQ y fallback independiente obligatorio.
 
 ## Requisitos trazables
 
@@ -55,6 +59,10 @@ RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
 
 - R-21: Antifraud Intelligence aprobado, con reglas, permisos, entidades y vocabulario propios; reutiliza contratos de ingesta, correlación y casos. [U-001](decisions/unresolved.md).
 - R-22: primera vertical Wazuh/Windows authentication → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría; orden de construcción, no límite del alcance.
+- R-23: notificar toda alerta `CRITICAL` mediante Microsoft Teams Workflows desde
+  outbox/worker después del commit, con payload minimizado, reintentos, deduplicación,
+  auditoría, acuse en QAPAQ, escalamiento y canal secundario probado. Requerimiento
+  confirmado por la Jefatura de Riesgos No Financieros. [ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md).
 
 ## Calidad y restricciones
 
@@ -72,8 +80,8 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Veintiún ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019/020/021 Conditionally Accepted.
-- Doce diagramas Mermaid coherentes; los niveles C4 1…4 distinguen arquitectura objetivo de implementación existente.
+- Veintidós ADR canónicos; ADR-015/016/017/022 Accepted y ADR-018/019/020/021 Conditionally Accepted.
+- Trece diagramas Mermaid coherentes; los niveles C4 1…4 distinguen arquitectura objetivo de implementación existente.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.
 - Cambios confinados a docs/; sin código de aplicación ni infraestructura.

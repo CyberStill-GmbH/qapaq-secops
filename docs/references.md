@@ -1,9 +1,18 @@
 # Fuentes y alcance de investigación
 
-Consultadas el 2026-09-17. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-006 y U-009; las
+Consultadas el 2026-09-17 y 2026-09-18. Referencias primarias para hechos técnicos. Las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-006, U-009 y U-012; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
+
+## Microsoft Teams Workflows para alertas críticas
+
+- [Enviar mensajes en Teams mediante webhooks de Workflows](https://support.microsoft.com/en-us/workflows/send-messages-in-teams-using-incoming-webhooks): creación del workflow, selección del Team/canal y URL de webhook.
+- [Retiro de Office 365 Connectors en Microsoft Teams](https://devblogs.microsoft.com/microsoft365dev/retirement-of-office-365-connectors-within-microsoft-teams/): exige migrar los webhooks heredados a Workflows.
+- [Crear un Incoming Webhook con Workflows](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook): describe propiedad del workflow y recomienda co-owner para evitar workflows huérfanos.
+
+Estas fuentes verifican el mecanismo externo. No prueban licencia, configuración,
+canal, propietarios, retención ni disponibilidad del tenant QAPAQ.
 
 - [Elastic Common Schema](https://www.elastic.co/docs/reference/ecs): esquema de campos y tipos. Fundamenta evaluación ECS; no impone Elasticsearch ni conformidad.
 - [OCSF schema oficial](https://github.com/ocsf/ocsf-schema): categorías, clases y diccionario de normalización de seguridad. Fundamenta comparación, no mapping implementado.

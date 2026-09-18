@@ -2,7 +2,7 @@
 
 Límites/lifecycles aceptados por U-001/ADR-015, identidad por U-003/ADR-017 y
 fronteras de fuentes por U-005/ADR-019 y separación audit/observabilidad por
-U-006/ADR-021;
+U-006/ADR-021; notificación crítica por U-012/ADR-022;
 topología técnica restante propuesta,
 no inventario ni software desplegado. Flechas sólidas
 representan flujo/interacción; punteadas representan relación transversal u opción
@@ -20,6 +20,7 @@ futura según etiqueta. Los módulos no son microservicios.
 10. [Detección/correlación](10-detection-correlation.mmd): promoción explícita Detection → Alert Candidate → Alert; en la primera vertical se indexa antes del análisis.
 11. [Ciclo de alerta](11-alert-lifecycle.mmd): secuencia aceptada por U-001, distinta del ciclo de incidente.
 12. [C4 nivel 4 — código representativo](12-c4-code-soc-module.mmd): capas hexagonales propuestas del módulo SOC; no clases implementadas.
+13. [Notificación de alerta crítica](13-critical-alert-notification.mmd): outbox, worker, SecretProvider, Teams Workflow y acuse en QAPAQ.
 
 Las fuentes .mmd son canónicas. Para cambiar un diagrama, contrastar
 [flujos](../architecture/data-flow.md), [seguridad](../architecture/security.md) y

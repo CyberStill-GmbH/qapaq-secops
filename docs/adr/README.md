@@ -1,6 +1,6 @@
 # Índice de Architecture Decision Records
 
-ADR-015, ADR-016 y ADR-017 están Accepted; ADR-018…ADR-021 están Conditionally Accepted por
+ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018…ADR-021 están Conditionally Accepted por
 resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad y separación
 de observabilidad/auditoría. ADR-001…014 mantienen
@@ -29,6 +29,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-019 — Fronteras de fuentes y pilotos autorizados](019-source-boundaries-and-authorized-pilots.md), Conditionally Accepted; ingesta productiva bloqueada hasta pilotos autorizados.
 - [ADR-020 — Operación y continuidad](020-operations-and-continuity.md), Conditionally Accepted; producción bloqueada hasta restore y recovery demostrados.
 - [ADR-021 — Separación de observabilidad y auditoría](021-observability-and-audit-separation.md), Conditionally Accepted; producción bloqueada hasta pruebas de rollback, archivo y alertas.
+- [ADR-022 — Notificación de alertas críticas mediante Microsoft Teams](022-microsoft-teams-critical-alert-notifications.md), Accepted; activación bloqueada hasta configurar la operación y superar 20 pruebas.
 
 ## Compatibilidad con los archivos anteriores
 

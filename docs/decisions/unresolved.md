@@ -1,6 +1,6 @@
 # Preguntas y decisiones pendientes
 
-Registro actualizado con U-001…U-006 y U-009 resueltas en diseño mediante ADR
+Registro actualizado con U-001…U-006, U-009 y U-012 resueltas en diseño mediante ADR
 aceptados o aceptados condicionalmente, con fecha aportada 2026-09-18. Los gates
 productivos y valores de configuración pendientes no se presentan como software
 desplegado. Las demás preguntas conservan responsables y criterio de cierre.
@@ -611,6 +611,22 @@ puede continuar CI. Desarrollo/Seguridad/Infraestructura acuerdan esos contratos
 Cierre: destino y política documentados y aceptados, pipeline probado sin secretos
 en PR no confiable y evidencia de release y rollback.
 
+## U-012 — notificación de alertas críticas en Microsoft Teams
+
+Estado: **RESOLVED / ACCEPTED** por [ADR-022](../adr/022-microsoft-teams-critical-alert-notifications.md),
+2026-09-18. Fuente: requerimiento confirmado por la Jefatura de Riesgos No Financieros.
+
+Microsoft Teams Workflows es el canal corporativo primario para alertas
+`CRITICAL`; QAPAQ conserva la fuente de verdad, el acuse y el lifecycle. La alerta
+se confirma antes de crear la salida transaccional; un worker de la capacidad de
+notificaciones de `soar` entrega después mediante adapter y `secretRef`. No se
+usan Connectors heredados ni llamadas al webhook desde Detection.
+
+La arquitectura queda cerrada. Para habilitar producción permanecen pendientes
+el nombre final de Team/canal, membresía y propietarios, ratificación del máximo
+de acuse, canal secundario y evidencia de las veinte pruebas. Son datos del gate,
+no una decisión arquitectónica abierta.
+
 ## Historial
 
 El registro inicial solo tenía U-001…007 y trataba tecnologías como candidatos.
@@ -633,3 +649,6 @@ configurar dependencias y superar las 24 pruebas.
 U-009 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-020: fija continuidad,
 recovery y soporte, pero los objetivos solo dejan de ser provisionales después de
 aprobación y ejercicios medidos.
+U-012 se resolvió como ACCEPTED mediante ADR-022 por requerimiento de la Jefatura
+de Riesgos No Financieros: Teams Workflows es el canal primario para alertas
+críticas, con outbox, worker, acuse en QAPAQ y fallback obligatorio.
