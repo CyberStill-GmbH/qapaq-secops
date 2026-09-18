@@ -19,6 +19,11 @@ Una referencia a raw no confirmado nunca obtiene recibo de éxito. Si no hay sto
 pausar polling antes de avanzar cursor; para push rechazar/reintentar según protocolo.
 No usar el ACK del transporte como promesa de procesamiento terminado.
 
+ADR-019 acepta checkpoints independientes por conector y estados `FETCHED`,
+`DURABLE`, `NORMALIZED`, `PROCESSED`, `CHECKPOINTED`. Pull no implica ACK al
+proveedor. Un webhook recibe 2xx solo tras validación y persistencia/cola durable.
+Cada dataset declara FULL_REPLAY, BOUNDED_REPLAY, BEST_EFFORT o NO_REPLAY.
+
 Fuentes sin replay ni ACK fiable, como Syslog UDP, no permiten prometer cero pérdida:
 priorizar un transporte fiable o collector con spool durable gestionado; registrar
 la limitación y medir gaps. No introducir ese collector sin decisión operacional.

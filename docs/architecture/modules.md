@@ -25,6 +25,9 @@ salud de fuentes y sincronización externa. Adapters para Wazuh, AD, Graph/Micro
 desde la aplicación, no infraestructura de ejecución ni productos corporativos.
 Posee configuración/checkpoints y capacidades del adapter; entrega datos mediante
 contrato de admisión de telemetry.
+ADR-019 acepta slices separados `wazuh`, `microsoft`, `sophos` y `cato` dentro de
+este módulo. No son módulos adicionales ni comparten un adapter condicional genérico.
+Infraestructura opera productos/secretos; SOC Development implementa los adapters.
 
 ### 3. Telemetry Ingestion & Processing — telemetry
 

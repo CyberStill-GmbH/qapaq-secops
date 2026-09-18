@@ -25,7 +25,8 @@ U-001 acepta ocho módulos para SOC, respuesta e inteligencia antifraude, con
 ownership y vocabulario canónicos. Auditoría y observabilidad son capacidades
 transversales, no módulos de negocio. Separar control/data plane por casos de uso, permisos, jobs y
 presupuestos de recursos, no por una malla de servicios. Mantener PostgreSQL para
-estado operacional, Wazuh/Indexer para telemetría y object storage para raw/archivo.
+estado operacional, OpenSearch/Indexer autorizado para búsqueda y object storage
+para raw/archivo; Wazuh es una fuente y puede aportar su Indexer.
 Usar BullMQ como ejecución recuperable, no como único registro de evidencia.
 
 U-002 acepta el [toolchain, límites y método de capacidad](toolchain-and-capacity.md):
@@ -41,6 +42,10 @@ U-004 acepta una baseline provisional por dataset, tiers HOT/COLD/EVIDENCE,
 privacidad desde ingesta, holds, custodia, backups y purga verificable. Legal y
 Compliance deben ratificar la matriz antes del borrado automático productivo.
 
+U-005 acepta QAPAQ SecOps como plataforma SOC central. Wazuh, Microsoft, Sophos y
+Cato son fuentes/adapters independientes; la ingesta productiva queda bloqueada
+hasta inventario y pilotos Wazuh/Microsoft autorizados.
+
 Proponer SecurityEvent propio, pequeño y versionado, con semántica inspirada en
 ECS y un mapeo explícito evaluable hacia OCSF. No afirmar conformidad con ninguno.
 Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de diseño.
@@ -51,6 +56,7 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 - La primera vertical aceptada indexa en OpenSearch antes de correlación determinista. Si el índice no está disponible, ese análisis espera mientras se preserva ingesta durable. Paralelismo posterior entre indexación/análisis es una opción técnica a decidir, no comportamiento inicial aprobado.
 - Preservar raw no significa exponerlo dentro de toda respuesta ni conservarlo para siempre. Se conserva evidencia original restringida durante la retención aprobada; derivados pueden estar redactados.
 - Consultar hot/warm/cold mediante un contrato común no significa igual latencia. Cold puede requerir un job de restauración y resultados parciales explícitos.
+- Wazuh no es la frontera obligatoria para Microsoft, Sophos o Cato. Si un dataset llega directo y por Wazuh, se define una ruta canónica o relación causal.
 - Wazuh Indexer y OpenSearch no implican dos clusters obligatorios. Se evalúa reutilización compatible antes de agregar otro motor.
 - Monolito no equivale a un único proceso Node. Un worker del mismo release puede aislar jobs; Python será opcional y subordinado a contratos, sin servicio autónomo inicial.
 - Auditoría al final de una request no asegura atomicidad. Las mutaciones críticas requieren registro local durable en la misma transacción antes de confirmar éxito.
@@ -103,11 +109,11 @@ Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 
 ## IMPLEMENTATION PLAN
 
-1. Completar los gates de identidad y retención, y resolver contratos Wazuh/Windows; U-001…004 ya tienen decisión documental.
+1. Completar gates de identidad/retención e inventario/pilotos de fuentes; U-001…005 ya tienen decisión documental.
 2. Materializar el monorepo, lockfiles, baseline NestJS/React/Python y gates de calidad en una tarea posterior.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
 4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.
-5. Continuar con MISP, nuevas fuentes, playbooks dry-run y respuestas aprobadas.
+5. Ejecutar Pilot B Microsoft; después incorporar Sophos, Cato, MISP y playbooks dry-run.
 6. Incorporar ticketing/notificaciones, antifraude y análisis Python en ese orden; los detalles técnicos se validan sin reducir el alcance aceptado.
 
 Cada etapa tiene condiciones de salida en [roadmap](../roadmap.md). La extracción

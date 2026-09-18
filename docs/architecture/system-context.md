@@ -1,6 +1,7 @@
 # Contexto del sistema
 
-Actores/identidad: ACCEPTED por ADR-015/017; dependencias restantes: PROPOSAL.
+Actores/identidad: ACCEPTED por ADR-015/017; fronteras de fuentes: CONDITIONALLY
+ACCEPTED por ADR-019; capacidades concretas de proveedor: PROPOSAL.
 
 ## Actores
 
@@ -18,13 +19,13 @@ documentos.
 
 ## Sistemas fuera del límite de la aplicación
 
-Microsoft 365, Cato y Sophos son productos informados por la solicitud. AD, Wazuh,
-firewalls, IDS/IPS y fuentes Windows/Linux/cloud se contemplan con alcance por
-confirmar. MISP y otros proveedores son futuros. La disponibilidad de una API o
-un producto no prueba que la cuenta disponga de licencia, permisos o conectividad.
+Microsoft 365/Entra, Cato, Sophos y Wazuh son sistemas externos con adapters
+independientes. MISP y otros proveedores son futuros. La disponibilidad pública de
+una API no prueba edición, licencia, dataset, permiso, cuota ni conectividad QAPAQ.
 
-Wazuh sigue siendo responsable de sus agentes, decoders y detecciones propias.
-Qapaq añade gestión transversal, contextualización, casos y auditoría. No configura
+Wazuh sigue siendo responsable de agentes, HIDS, FIM, SCA, inventario,
+vulnerabilidades, decoders y detecciones propias. QAPAQ SecOps es la plataforma
+central y añade ingesta multifuente, correlación, casos, RBAC, reporting, SOAR y auditoría. No configura
 automáticamente Active Response ni administra endpoints de fabricantes.
 
 PostgreSQL, Redis, indexador y object storage son dependencias provisionadas por

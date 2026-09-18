@@ -44,7 +44,16 @@ explícitamente. Prohibir claves extra en envoltura y entidades; extensiones pas
 por metadata validada. Limitar longitud, profundidad y número de elementos antes
 de parsear. ADR-016 fija 256 KiB por evento normalizado, 500 eventos/5 MiB
 descomprimidos por batch y 256 KiB por payload BullMQ. La semántica de cada fuente
-sigue U-005.
+sigue [U-005/ADR-019](source-integration-strategy.md).
+
+La procedencia aceptada añade `sourceId`, `datasetId`, `vendor`, `sourceRecordId`,
+`sourceEventTime`, `sourceIngestTime`, `platformReceivedAt`, `semanticLevel`,
+`contentHash`, `cursorReference` y `rawReference`. El schema ejecutable sigue U-010;
+esta lista fija intención y lineage, no tipos físicos adicionales sin versión.
+
+Niveles semánticos: `VENDOR_RAW`, `WAZUH_ARCHIVED_EVENT`, `WAZUH_ALERT`,
+`NORMALIZED_EVENT`, `CORRELATED_ALERT` e `INCIDENT`. Una alerta Wazuh es resultado
+derivado y no reemplaza el evento del producto original.
 
 ## Identidad y preservación
 
@@ -52,7 +61,9 @@ Distinguir admisión duplicada de dos eventos legítimos iguales. Si el proveedo
 garantiza ID estable, deduplicar con sourceInstance + native ID + discriminador
 de stream/documento; si no, usar identidad de lote/cursor y posición estable.
 Un hash de payload solo detecta bytes iguales, no prueba mismo evento. La
-estrategia de cada fuente es parte de su contrato.
+estrategia de cada fuente es parte de su contrato. Si el mismo hecho llega directo
+y por Wazuh, se aplica la política por dataset de ADR-019 y se conserva
+`relatedEventIds`; no se deduplica solo por tiempo o texto.
 
 Mantener receiptId y digest original. Si una API entrega objetos ya transformados,
 conservar la respuesta recibida o el registro tal como fue transportado y

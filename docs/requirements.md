@@ -16,6 +16,9 @@ No acredita federación ni licenciamiento configurados.
 La resolución [U-004/ADR-018](adr/018-retention-privacy-custody.md) acepta
 condicionalmente clasificación, baseline de retención, custodia y gate de purga.
 No acredita ratificación legal ni lifecycle implementado.
+La resolución [U-005/ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
+acepta QAPAQ SecOps como SOC central, adapters independientes y pilotos A/B. No
+acredita ediciones, licencias, APIs, permisos ni conectividad.
 
 ## Requisitos trazables
 
@@ -23,12 +26,12 @@ No acredita ratificación legal ni lifecycle implementado.
 - R-02: TypeScript/Node/NestJS; React/TypeScript; hexagonal, SOLID y DDD pragmático. Versiones y toolchain aceptados por ADR-016. [Dependencias](architecture/dependency-rules.md), ADR-002/003.
 - R-03: control plane y data plane separados lógicamente, módulos extraíbles por necesidad real. [Módulos](architecture/modules.md).
 - R-04: PostgreSQL para datos operacionales, no telemetría masiva. [Storage](architecture/storage.md), ADR-004.
-- R-05: Wazuh como pieza central; usar sus capacidades y evitar un SIEM sustituto. Indexación OpenSearch/Wazuh Indexer. ADR-005.
+- R-05: Wazuh como componente/fuente de endpoint dentro de QAPAQ SecOps, sin convertirlo en frontera única ni reimplementar sus capacidades. ADR-005/019.
 - R-06: Redis/BullMQ, backpressure, reintentos acotados, idempotencia, replay y fallos aislados; sin Kafka inicial. [Flujos](architecture/data-flow.md), ADR-006/014.
 - R-07: Python para procesamiento justificado, sin reemplazar NestJS. Contratos Node/Python. [Modelo](architecture/event-model.md), ADR-007.
 - R-08: conservar raw, normalizar SecurityEvent, analizar ECS/OCSF. [Modelo](architecture/event-model.md), ADR-011.
 - R-09: hot/cold/evidence, retención por dataset, hold, purga verificable y consulta histórica sin acoplar al consumidor al tier. ADR-008/018.
-- R-10: AD, Microsoft 365/Graph, Cato, Sophos, Wazuh, firewalls, IDS/IPS, servidores/endpoints; MISP futuro. [Integraciones](architecture/integrations.md), ADR-010.
+- R-10: adapters independientes para Wazuh, Microsoft, Sophos y Cato; inventario y prueba autorizada antes de producción. AD/firewalls/IDS/IPS y MISP según vertical. [Integraciones](architecture/integrations.md), ADR-010/019.
 - R-11: Entra ID humano, BFF con sesión opaca y roles dinámicos/capabilities con scopes, controles de objeto/campo, JIT y separación de funciones. [Identidad](architecture/identity-and-authorization.md), ADR-009/017.
 - R-12: distinguir eventos, logs y auditoría; acciones críticas auditables, custodia y WORM selectivo. ADR-012/018.
 - R-13: SecretProvider y referencias a secretos, sin passwords/tokens/API keys en PostgreSQL. ADR-013.
@@ -59,7 +62,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Dieciocho ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018 Conditionally Accepted.
+- Diecinueve ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019 Conditionally Accepted.
 - Once diagramas Mermaid coherentes con las decisiones y propuestas documentadas.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.

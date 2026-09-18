@@ -1,8 +1,9 @@
 # Integraciones y adapters
 
-Adapters de fuentes: PROPOSAL. Entra como IdP humano: ACCEPTED por ADR-017.
-Producto mencionado no equivale a conexión verificada.
-[ADR-010](../adr/010-vendor-adapters.md), [preguntas U-005](../decisions/unresolved.md).
+Fronteras, ownership, adapters independientes y orden de pilotos: CONDITIONALLY
+ACCEPTED por [ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md).
+Entra como IdP humano: ACCEPTED por ADR-017. Contratos concretos de proveedor:
+PROPOSAL hasta prueba autorizada. Producto mencionado no equivale a conexión.
 
 ## Ports mínimos por necesidad
 
@@ -26,6 +27,12 @@ aplicación. Infrastructure implementa; composition root conecta. Ningún port
 expone SDK, connection string, cliente ORM ni un objeto vendor genérico.
 
 ## Proveedores
+
+Wazuh, Microsoft, Sophos y Cato son slices independientes dentro del único módulo
+`Integrations & Collectors`, no nuevos módulos de negocio. Comparten admisión, pero
+no un adapter genérico. La [estrategia de fuentes](source-integration-strategy.md)
+define pilotos, semántica, checkpoints, replay, duplicidad y gate; el
+[inventario](../integrations/source-inventory.yaml) conserva valores reales pendientes.
 
 ### ActiveDirectoryAdapter
 
@@ -74,6 +81,8 @@ telemetría en Indexer. Agents son parte del ecosistema Wazuh, no módulos dentr
 del backend. Consumir alertas existentes y preservar ruleId/origen; no reimplementar
 decoders, inventario o capacidades SIEM sin necesidad demostrada. Credenciales y
 permisos de Manager/Indexer son independientes.
+QAPAQ SecOps continúa siendo propietario de correlación, casos, RBAC, dashboards,
+auditoría, reporting y SOAR. `wazuh-alerts-*` produce `WAZUH_ALERT`, no raw original.
 
 ### Firewalls, IDS/IPS, servidores y endpoints
 
@@ -98,6 +107,9 @@ retención del origen, raw y clasificación, health, retry/replay, mapping versi
 pruebas sintéticas y prueba autorizada controlada. Estado: planned → configured →
 validated → enabled; degradado/paused con motivo y auditoría. Nunca enabled solo
 porque el SDK importa.
+
+Pilot A valida Wazuh; Pilot B valida un dataset directo Microsoft y correlación
+multifuente. Sophos y Cato se incorporan después de demostrar el contrato común.
 
 Configurar timeouts, tamaño máximo y circuit breaker si aporta aislamiento.
 No permitir URL arbitraria con credenciales: validar esquema, hostname, puerto,

@@ -1,6 +1,6 @@
 # ADR-010 — Vendor integrations through adapters
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-019 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -10,7 +10,10 @@ R-10: proveedores heterogéneos y cambios futuros sin contaminar el dominio.
 
 ## Decision
 
-Ports por capacidad y consumidor; Graph/AD/Cato/Sophos/Wazuh como adapters de infraestructura; MISP futuro. Separar IdentityProvider de lectura de directorio y secretos. Read-only inicial; respuesta/remediación necesita contrato/autorización separados.
+Ports por capacidad y consumidor; Graph/AD/Cato/Sophos/Wazuh como adapters de
+infraestructura; MISP futuro. ADR-019 acepta slices independientes para Wazuh,
+Microsoft, Sophos y Cato dentro de Integrations & Collectors. Separar IdentityProvider
+de directorio/secretos. Read-only inicial; remediación requiere contrato separado.
 
 ## Alternatives
 
@@ -26,6 +29,6 @@ Traducción y mantenimiento de mappings a cambio de aislamiento. No ocultar dife
 
 ## Validación y revisión
 
-Validar ficha del piloto y contrato con fuente autorizada; no registrar fuentes como enabled solo por tener configuración.
+Validar inventario y los 15 escenarios de ADR-019; no registrar `enabled` solo por configuración.
 
 [Diseño relacionado](../architecture/integrations.md) · [Preguntas abiertas](../decisions/unresolved.md).

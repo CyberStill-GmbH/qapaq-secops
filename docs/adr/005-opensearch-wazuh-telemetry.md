@@ -1,16 +1,18 @@
 # ADR-005 — OpenSearch/Wazuh for telemetry
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-019 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
 ## Context
 
-R-05 sitúa Wazuh en el centro y requiere búsqueda de telemetría sin construir un SIEM sustituto.
+R-05 requiere integrar Wazuh sin confundirlo con la plataforma SOC completa.
 
 ## Decision
 
-Consumir Wazuh mediante adapters, separando Manager y Indexer. Evaluar reutilizar Indexer compatible para consultas/proyecciones permitidas; no desplegar otro OpenSearch por defecto ni alterar índices administrados por Wazuh.
+Consumir Wazuh mediante adapters, separando Manager e Indexer. ADR-019 fija QAPAQ
+SecOps como producto central y Wazuh como fuente/componente independiente. Evaluar
+reutilizar Indexer compatible para consultas permitidas sin alterar índices gestionados.
 
 ## Alternatives
 
