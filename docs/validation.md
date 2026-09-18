@@ -1,6 +1,6 @@
 # Validación de la entrega documental
 
-Fecha: 2026-09-17. Alcance: arquitectura creada en docs/, sin implementación de
+Validación inicial: 2026-09-17, anterior a la aceptación de U-001. Alcance: arquitectura creada en docs/, sin implementación de
 features ni acceso a servicios de Financiera Qapaq.
 
 ## Comprobaciones
@@ -21,9 +21,28 @@ de esta validación; consultar su documentación específica.
 
 Renderizar Mermaid no demuestra corrección operacional de la arquitectura. Los
 contratos son propuestas; faltan schemas ejecutables, pruebas de conformidad y
-aprobación de políticas. No se han aprobado ADR ni riesgos en nombre de Qapaq.
+aprobación de las políticas técnicas pendientes. La entrega inicial no aprobó ADR
+ni riesgos; la resolución posterior de U-001 acepta únicamente el alcance registrado
+en ADR-015 por instrucción explícita del usuario, no sus restantes decisiones técnicas.
 
 Las páginas de Sophos/Cato no pudieron leerse íntegramente; sus capacidades
 detalladas quedan pendientes. Las fuentes de referencia disponibles se documentan
 en [references.md](references.md). Retención, identidad, capacidad y continuidad
 se resolverán mediante [preguntas abiertas](decisions/unresolved.md).
+
+## Actualización por aceptación de U-001
+
+Se incorporó el texto aportado por el usuario con Status ACCEPTED, owners y fecha
+de decisión 2026-09-18. ADR-015 registra esa aceptación; ADR-001…014 conservan
+Proposed para sus detalles técnicos. Los límites operacionales aceptados prevalecen
+sobre la agrupación inicial, sin exigir implementación de un piloto.
+
+Comprobaciones ejecutadas sobre la actualización:
+
+- Enlaces locales, fences Markdown, ejemplos JSON y cinco secciones de cada ADR.
+- Quince ADR canónicos y estados correctos; ocho módulos y lifecycle de incidente del texto aceptado.
+- Parseo y renderizado de los cuatro diagramas modificados y del nuevo ciclo de alerta con Mermaid 12.0.0; once fuentes Mermaid en total. Revisión visual de los ciclos de incidente y alerta.
+- git diff --check limitado a docs/, sin errores de whitespace.
+
+Sin implementación ni pruebas de aplicación nuevas. Los cambios concurrentes de
+CI quedan fuera del alcance y de los commits documentales de esta actualización.

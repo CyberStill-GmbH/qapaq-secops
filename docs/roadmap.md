@@ -1,53 +1,60 @@
 # Plan de implementación posterior
 
-Estado: PROPOSAL por gates, sin fechas ni estimaciones inventadas.
-Esta tarea termina en documentación; ninguna etapa ejecutable se crea ahora.
+Alcance y orden inicial aceptados por [U-001](decisions/unresolved.md) y
+[ADR-015](adr/015-operational-scope-and-ownership.md). Gates técnicos propuestos,
+sin fechas ni estimaciones inventadas. La documentación no implementa funcionalidades.
 
-## Etapa 0 — acordar la primera vertical
+## Base operacional aceptada
 
-Revisar ADRs/módulos, scopes e IdP, fuente piloto, retención, auditoría y SLO.
-No es necesario decidir todas las integraciones futuras. Salida: una fuente de
-lectura, un caso de detección/triage y criterios de aceptación medibles; dueños
-operacionales confirmados y preguntas bloqueantes identificadas.
+Los ocho módulos, ownership y lenguaje común están definidos para la plataforma
+completa SOC/respuesta/antifraude. No hace falta construir ni definir un piloto
+para cerrar U-001. Las etapas siguientes ordenan construcción, no reducen alcance.
 
-## Etapa 1 — base de ingeniería
+## Preparación técnica
 
-Crear API/web mínimos, toolchain versionado, validación de configuración,
-dependencias hacia adentro, CI GitHub Actions y fakes de ports. Health seguro y
-redacción desde el inicio. No crear todas las carpetas/módulos vacíos.
-Salida: gates reales, tests de límites y ejecución local reproducible sin Qapaq.
+Resolver detalles que bloqueen la primera vertical: identidad/scopes, versiones,
+contratos Wazuh/Windows, schema, permisos, auditoría y capacidad. Retención/hold y
+RPO/RTO se acuerdan con los responsables. La primera fuente ya está elegida;
+su licencia/configuración/cobertura real permanecen U-005.
 
-## Etapa 2 — acceso, autorización y auditoría
+Crear base NestJS/React, fakes, configuración, gates de calidad, dependencias hacia
+adentro y auditoría/autorización verificables. Contenedores y contratos de
+despliegue serán entregables de software; Infraestructura administra producción.
+No generar ocho módulos vacíos por completar el árbol.
 
-Federación/session, capabilities/scopes y auditoría transaccional. Vistas mínimas
-de operación con estados de acceso/degradación. Salida: pruebas deny/revocación/
-autoescalada, rollback de audit, grants revisados y acceso a evidencia separado.
-No habilitar datos reales antes de estos controles.
+## Primera vertical aceptada
 
-## Etapa 3 — vertical de fuente piloto
+Wazuh/Windows authentication event → ingestion → normalization → OpenSearch →
+deterministic correlation → alert → triage → incident → audit.
 
-Collector read-only autorizado, raw/manifiesto, BullMQ, parser/normalizer,
-búsqueda, detección simple/alerta y un incidente/case. Reusar señales Wazuh si
-cumplen el caso; no reescribir su motor.
-Salida: origen→evidencia→alerta trazable, fallos/retries/replay probados,
-capacidad de drenaje y prueba de fuente real claramente separada de fakes.
+La auditoría transversal acompaña también acceso/configuración/transiciones; no
+se pospone por figurar al final. Persistencia raw, aceptación durable, reintentos y
+evidencia siguen siendo controles de la implementación. En esta vertical se
+indexa antes de la correlación; una topología posterior diferente requiere
+documentar el contrato técnico sin alterar el alcance aprobado.
 
-## Etapa 4 — ciclo de datos y operación
+Salida técnica propuesta: trazabilidad de origen a incidente, pruebas de permisos,
+estados y auditoría, replay sin efectos duplicados, recuperación de fallos y carga
+medida. No convierte el alcance objetivo en un experimento.
 
-Archivo, restore selectivo, catálogo de cobertura, retención/hold aprobados,
-auditoría archivada y runbooks. Salida: restore desde backup/archivo, purga segura,
-quotas de queries/exports y simulacro de conector/cola/index caídos.
+## Verticales siguientes, en orden
 
-## Etapa 5 — expansión basada en evidencia
+1. Enrichment con MISP mediante Threat Intelligence.
+2. Nuevas fuentes e integraciones.
+3. Playbooks en modo dry-run.
+4. Respuestas con aprobación explícita.
+5. Ticketing y notificaciones.
+6. Capacidades antifraude con permisos, entidades y scoring explicable propios.
+7. Análisis especializado Python con contratos versionados y estado controlado por NestJS.
 
-Más fuentes, contexto de activos, MISP y correlación transversal por prioridades
-SOC. Python solo tras caso/benchmark y contrato interoperable. Reporting y
-dashboards sobre proyecciones autorizadas, no acoplamiento a tablas.
-Salida: beneficios operacionales medidos y coste soportable.
+Cada vertical incorpora tests/operación/retención pertinentes. Dry-run debe
+demostrar ausencia de efectos externos; aprobación se vincula a versión, targets,
+parámetros y permiso vigente. No simular éxito de una remediación no ejecutada.
 
-## Futuro condicionado
+## Evolución técnica
 
-SOAR con aprobaciones/catálogo de acciones, analítica avanzada y extracción de
-módulos solo por necesidad demostrada. No Kafka/Kubernetes/microservicios/ML
-complejo por completar una lista. Cada ampliación debe reabrir threat model,
-contratos, operación y ADR afectado.
+Archivo/restore, cuotas, legal hold y continuidad se prueban antes de habilitar
+purga y uso productivo correspondiente. SOAR y Antifraude son alcance aceptado,
+no ampliaciones pendientes de justificar; sus contratos e implementación sí son
+incrementales. Kafka, Kubernetes, microservicios y ML complejo siguen fuera de
+implementación inicial; cualquier nueva necesidad técnica requiere evidencia y ADR.

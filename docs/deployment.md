@@ -11,8 +11,10 @@ políticas; SOC acuerda prioridades y continuidad. No Terraform en este repo aho
 
 La unidad de producto es el monolito modular. API y runner pueden ejecutarse
 separados con el mismo release para aislar carga; número de instancias y HA dependen
-de volumen/RPO/RTO. Python opcional no introduce servicio autónomo inicial. Docker
-puede evaluarse para empaquetar; Kubernetes está fuera de alcance.
+de volumen/RPO/RTO. Python opcional no introduce servicio autónomo inicial. U-001 asigna a Desarrollo
+la entrega de aplicación local, contenedores y contratos de despliegue; tecnología
+y configuración concreta siguen pendientes. Infraestructura decide producción;
+Kubernetes y su administración están fuera del alcance de la aplicación.
 
 ## Dependencias mínimas y contratos operacionales
 

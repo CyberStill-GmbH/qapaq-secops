@@ -23,7 +23,7 @@ efectos antes de reencolar; no ejecutar replay ilimitado ni duplicar notificacio
 ## Indexador caído
 
 Marcar búsqueda parcial/degradada y preservar backlog idempotente de indexación;
-análisis puede seguir si sus dependencias lo permiten. Reducir carga y coordinar
+la correlación de la primera vertical espera la indexación conforme a U-001. Reducir carga y coordinar
 con el dueño Wazuh/Indexer sin modificar índices gestionados a ciegas.
 Al recuperar, validar conteos/cobertura y mappings antes de restituir consultas.
 

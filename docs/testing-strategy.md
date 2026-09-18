@@ -2,6 +2,9 @@
 
 Estado: diseño; no tests de aplicación ejecutados porque todavía no hay aplicación.
 
+U-001 está aceptada sin depender de ejecutar estas pruebas. Las pruebas posteriores
+validan implementación contra sus módulos, ownership y lifecycles canónicos.
+
 ## Unit
 
 Invariantes de Incident/Case/Alert, transiciones y concurrencia; cálculo de permisos
@@ -63,6 +66,14 @@ Severidades/bloqueos/excepciones de CI se acuerdan con Seguridad; excepción con
 dueño y vencimiento, no silenciamiento permanente. Cobertura numérica no sustituye
 tests de autorización y fallos. [Verificación existente](verification.md) mantiene
 checks sin configurar; no inventar PASS.
+
+## SOAR y Antifraude
+
+Probar dry-run sin efectos externos, aprobación ligada a versión/targets/parámetros,
+permiso vigente y trazabilidad de ejecución/ticket. Reintentos no deben duplicar
+respuestas. Antifraude conserva permisos/reglas/entidades propios al reutilizar
+casos y correlación; probar denegaciones cruzadas y explicación reproducible del
+score. No se asumen fuentes transaccionales ni datos de clientes disponibles.
 
 ## Evidencia de entrega
 
