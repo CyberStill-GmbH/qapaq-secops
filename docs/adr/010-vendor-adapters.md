@@ -21,7 +21,9 @@ SDK directo en dominio acelera un prototipo pero dificulta cambios/pruebas. Un m
 
 ## Consequences
 
-Ficha por dataset con alcance, licencia, versión, mapping, raw, cursor y fallos. Tests con fakes no equivalen a conectividad probada.
+Ficha por dataset con alcance, licencia, versión, mapping, raw, cursor y fallos.
+Specs de integración usan servicios reales aislados y la conectividad externa se
+prueba en ambiente autorizado; no se incorporan fakes como evidencia.
 
 ## Trade-offs
 

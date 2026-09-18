@@ -4,6 +4,7 @@ schema_version: "1.0"
 sources:
   - source_id: wazuh-to-be-provided
     product: Wazuh
+    mvp_role: detection_engine_and_alert_source
     edition: TO_BE_PROVIDED
     owner_team: infrastructure
     business_owner: security
@@ -28,6 +29,7 @@ sources:
 
   - source_id: microsoft-to-be-provided
     product: Microsoft Entra ID or Microsoft 365
+    mvp_role: sole_business_source_via_wazuh
     edition: TO_BE_PROVIDED
     owner_team: infrastructure
     business_owner: security
@@ -52,6 +54,7 @@ sources:
 
   - source_id: sophos-to-be-provided
     product: Sophos product TO_BE_PROVIDED
+    mvp_role: post_mvp
     edition: TO_BE_PROVIDED
     owner_team: infrastructure
     business_owner: security
@@ -76,6 +79,7 @@ sources:
 
   - source_id: cato-to-be-provided
     product: Cato
+    mvp_role: post_mvp
     edition: TO_BE_PROVIDED
     owner_team: infrastructure
     business_owner: security

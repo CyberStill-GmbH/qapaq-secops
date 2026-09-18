@@ -2,6 +2,10 @@
 
 Estado: Conditionally Accepted · Fecha de decisión aportada: 2026-09-18.
 
+Enmienda: [ADR-024](024-microsoft-365-wazuh-mvp-vertical.md) sustituye el orden de
+pilotos. El primer MVP usa Microsoft 365 como única fuente empresarial y Wazuh como
+motor base de análisis/alertas. Cato, Sophos y fuentes adicionales son post-MVP.
+
 Responsables: SOC Development, Infraestructura y dueños de cada fuente.
 
 Estado operacional: ingesta productiva bloqueada hasta superar pilotos autorizados.
@@ -32,9 +36,10 @@ Development implementa conectores, checkpoints, normalización, deduplicación,
 gap detection, correlación, salud e integración con la plataforma. El código solo
 recibe referencias a secretos administrados.
 
-Pilot A valida Wazuh con datasets autorizados. Pilot B valida un dataset directo de
-Microsoft y una correlación con Wazuh. Sophos y Cato siguen después. El inventario
-versionado en `docs/integrations/source-inventory.yaml` no habilita una fuente:
+La primera vertical valida actividad Microsoft 365 recolectada y analizada por
+Wazuh, seguida por consumo read-only del Indexer y normalización QAPAQ. No implementa
+un conector Graph paralelo. Sophos y Cato siguen después del MVP. El inventario
+versionado en `docs/integrations/source-inventory.yaml` no habilita componentes:
 los valores reales y las pruebas autorizadas son un gate productivo.
 
 ## Alternatives
@@ -65,8 +70,8 @@ idempotentes. No cubre eventos que el producto o API nunca entregó.
 
 Adapters independientes aumentan contratos y pruebas, pero contienen fallos,
 preservan procedencia y permiten revocar una credencial sin detener otras fuentes.
-El orden A/B retrasa Cato y Sophos, a cambio de demostrar primero el pipeline y una
-correlación multifuente sin comprometer cuatro integraciones simultáneas.
+El orden revisado retrasa Cato, Sophos y correlación multifuente, a cambio de
+demostrar profundamente Microsoft 365/Wazuh sin comprometer varias APIs.
 
 ## Validación y revisión
 

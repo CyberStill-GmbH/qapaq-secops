@@ -68,8 +68,8 @@ versión.
 ## Validación y revisión
 
 U-010 queda aceptada y requiere implementación. Se cierra técnicamente cuando
-existan: schema ejecutable; diccionario y taxonomía; mapping Wazuh probado y un
-mapping piloto adicional; corpus sintético; pruebas de contrato en CI; pruebas de
+existan: schema ejecutable; diccionario y taxonomía; mapping de alertas Wazuh
+derivadas de Microsoft 365 probado; corpus; pruebas de contrato en CI; pruebas de
 replay/idempotencia; cuarentena y reproceso; verificación de hash raw; reporte de
 cobertura ECS/OCSF; bloqueo de declaraciones de compatibilidad no probadas; y
 aprobación SOC/Desarrollo y Seguridad. Cambios incompatibles requieren versión

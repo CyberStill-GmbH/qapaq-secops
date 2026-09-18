@@ -1,7 +1,8 @@
 # Fuentes y alcance de investigación
 
 Consultadas el 2026-09-17 y 2026-09-18. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-007 y U-009…U-012; las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-007,
+U-009…U-012 y la revisión de vertical registrada en ADR-024; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
 
@@ -99,3 +100,36 @@ No se infieren plazos regulatorios fuera de la decisión provisional documentada
 
 Las fuentes sustentan los mecanismos. No prueban que el plan de GitHub, registro,
 identidades, ambientes o conectividad de QAPAQ estén configurados.
+
+## Scrum y gestión del trabajo
+
+- [Scrum Guide 2020](https://scrumguides.org/scrum-guide.html): define Product Goal,
+  Sprint Goal, Product Backlog, Sprint Backlog, Increment y Definition of Done.
+- [Scrum.org — Product Backlog](https://www.scrum.org/resources/introduction-product-backlog):
+  sustenta un único backlog ordenado y emergente.
+- [Scrum.org — Definition of Done](https://www.scrum.org/resources/definition-done):
+  fundamenta el estándar compartido de calidad del incremento.
+- [GitHub Projects: campos e iteraciones](https://docs.github.com/en/issues/planning-and-tracking-with-projects/understanding-fields):
+  referencia para Status, Iteration y metadata estructurada.
+- [GitHub milestones](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/about-milestones):
+  seguimiento de issues y PR por Sprint.
+
+Estas fuentes fundamentan la estructura del plan. No proporcionan velocidad,
+capacidad ni disponibilidad del equipo; esos valores se declaran en Planning.
+
+## Vertical Microsoft 365/Wazuh
+
+- [Wazuh — Monitoring Office 365](https://documentation.wazuh.com/current/cloud-security/office365/index.html):
+  integración soportada para monitorizar actividad Office 365.
+- [Wazuh — Office 365 audit logs](https://documentation.wazuh.com/current/cloud-security/office365/monitoring-office365-activity.html):
+  actividades y alertas visibles en el módulo Office 365.
+- [Wazuh rules syntax](https://documentation.wazuh.com/current/user-manual/ruleset/ruleset-xml-syntax/rules.html):
+  ruleset, condiciones, frecuencia y niveles que generan alertas.
+- [Wazuh Indexer API](https://documentation.wazuh.com/current/user-manual/indexer-api/index.html):
+  consulta y gestión de datos/alertas del Indexer; el acceso QAPAQ será read-only.
+- [Microsoft Graph sign-ins v1.0](https://learn.microsoft.com/en-us/graph/api/signin-list?view=graph-rest-1.0):
+  referencia para una posible ruta futura directa, no implementada en el primer MVP.
+
+Las páginas oficiales demuestran mecanismos disponibles. No prueban edición,
+licencia, permisos, versión o configuración del entorno QAPAQ; PBI-006 debe
+confirmarlos mediante acceso autorizado.

@@ -1,6 +1,7 @@
 # ADR-015 — Alcance operacional, módulos y ownership
 
 Estado: Accepted · Fecha de decisión: 2026-09-18, indicada por el usuario.
+Enmienda: ADR-024 sustituye únicamente el orden de la primera vertical.
 Decision owners: SOC, Arquitectura y Security Engineering.
 Evidencia: el usuario aportó la resolución de U-001 y ordenó incorporarla como
 resuelta. [Texto íntegro aceptado](../decisions/unresolved.md).
@@ -26,8 +27,9 @@ devuelve resultados analíticos y no escribe tablas operacionales. Infraestructu
 decide/opera producción; Desarrollo entrega aplicación local, contenedores y
 contratos de despliegue en etapas posteriores, no como parte de esta tarea documental.
 
-Primera vertical: autenticación Windows desde Wazuh → ingesta → normalización →
-OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.
+Primera vertical vigente: Microsoft 365 → recolección/ruleset/alerta Wazuh →
+adapter QAPAQ → SecurityEvent → priorización → alerta → triaje → incidente →
+auditoría/Teams, conforme a ADR-024.
 No reduce el alcance completo. La auditoría sigue aplicándose también a las
 acciones anteriores que la requieren; su posición en la lista no posterga controles.
 

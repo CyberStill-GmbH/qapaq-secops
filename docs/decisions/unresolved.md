@@ -323,18 +323,20 @@ Antifraud puede definir un lifecycle especializado dentro de su bounded context.
 
 ### Implementation order
 
-La primera vertical de implementación será:
+La primera vertical fue revisada por [ADR-024](../adr/024-microsoft-365-wazuh-mvp-vertical.md)
+y será:
 
 ```text
-Wazuh/Windows authentication event
-    -> ingestion
-    -> normalization
-    -> OpenSearch
-    -> deterministic correlation
+Microsoft 365 authorized activity
+    -> Wazuh Office 365 integration
+    -> Wazuh rules and alert
+    -> QAPAQ read-only adapter
+    -> SecurityEvent normalization
+    -> prioritization
     -> alert
     -> triage
     -> incident
-    -> audit
+    -> audit and critical notification
 ```
 
 Esta vertical solo determina el orden inicial de construcción. No reduce ni
@@ -467,7 +469,8 @@ Access, MFA/authentication strength, matriz/scopes, Graph sync, revocación,
 step-up, break-glass y los 27 escenarios mínimos aceptados.
 
 Evidencia de aceptación: instrucción explícita del usuario y texto de resolución
-aportado en esta tarea. El diseño, mocks y pruebas sintéticas pueden continuar.
+aportado en esta tarea. El diseño y specs puras pueden continuar; federación solo
+se prueba contra Entra autorizado, sin mocks como evidencia.
 
 ## U-004 — retención, privacidad y custodia
 
@@ -508,19 +511,23 @@ pendiente ni como evidencia de capacidades implementadas.
 QAPAQ SecOps es la plataforma SOC central. Wazuh es un componente para agentes,
 HIDS, FIM, configuración, inventario, vulnerabilidades y sus propias alertas; no
 es la aplicación completa, la única correlación ni la única ruta de ingesta.
-Microsoft 365/Entra, Sophos y Cato se integran directamente mediante adapters
+Sophos, Cato y futuras rutas directas se integran post-MVP mediante adapters
 independientes cuando inventario, licencia, acceso y prueba real estén aprobados.
+En el MVP, Microsoft 365 llega mediante la integración soportada de Wazuh.
 
 Infraestructura opera productos, cuentas, conectividad y secretos. SOC Development
-implementa conectores y lógica de plataforma. Pilot A valida Wazuh; Pilot B valida
-un dataset Microsoft directo y correlación multifuente. La decisión completa está
-en [ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md), la
+implementa adapters y lógica de plataforma. ADR-024 sustituye el orden anterior:
+Microsoft 365 es la única fuente empresarial del MVP y Wazuh es su motor base de
+recolección, reglas y alertas; QAPAQ consume el Indexer y gobierna SecurityEvent,
+casos, RBAC, auditoría y notificaciones. La decisión completa está en
+[ADR-019](../adr/019-source-boundaries-and-authorized-pilots.md),
+[ADR-024](../adr/024-microsoft-365-wazuh-mvp-vertical.md), la
 [estrategia canónica](../architecture/source-integration-strategy.md) y el
 [inventario](../integrations/source-inventory.yaml).
 
-U-005 queda resuelta en diseño respecto a fronteras, ownership, orden, raw,
-procedencia, ACK, checkpoints, replay y duplicidad. La ingesta productiva sigue
-bloqueada hasta completar valores reales y superar los 15 escenarios autorizados.
+U-005 queda resuelta en diseño respecto a fronteras, ownership, orden revisado,
+raw, procedencia, checkpoints, replay y duplicidad. La ingesta productiva sigue
+bloqueada hasta completar valores reales y superar el gate Microsoft 365/Wazuh.
 
 ## U-006 — auditoría y observabilidad
 
@@ -628,7 +635,7 @@ No se declara compatibilidad sin proyección y corpus validados. El mapping cand
 críticas. La clasificación permanece `UNASSIGNED` hasta completar U-004.
 
 U-010 queda resuelta como decisión y pendiente de implementación. Su gate exige
-schema ejecutable, diccionario/taxonomía, mapping Wazuh y otro piloto probados,
+schema ejecutable, diccionario/taxonomía y mapping Wazuh/Microsoft 365 probados,
 corpus sintético, contract tests en CI, replay/idempotencia, cuarentena/reproceso,
 hash raw, cobertura ECS/OCSF y aprobación SOC/Desarrollo y Seguridad.
 

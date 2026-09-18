@@ -1,6 +1,6 @@
 # Índice de Architecture Decision Records
 
-ADR-007, ADR-011, ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por
+ADR-007, ADR-011, ADR-015, ADR-016, ADR-017, ADR-022 y ADR-024 están Accepted; ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por
 resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad, separación
 de observabilidad/auditoría y CI/release/despliegue. ADR-001…014 mantienen
@@ -31,6 +31,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-021 — Separación de observabilidad y auditoría](021-observability-and-audit-separation.md), Conditionally Accepted; producción bloqueada hasta pruebas de rollback, archivo y alertas.
 - [ADR-022 — Notificación de alertas críticas mediante Microsoft Teams](022-microsoft-teams-critical-alert-notifications.md), Accepted; activación bloqueada hasta configurar la operación y superar 20 pruebas.
 - [ADR-023 — Separación de CI, release y despliegue](023-ci-release-deployment-separation.md), Conditionally Accepted; CI/candidatos habilitados y publicación/despliegue bloqueados.
+- [ADR-024 — Microsoft 365 y Wazuh como vertical del primer MVP](024-microsoft-365-wazuh-mvp-vertical.md), Accepted / Implementation Required; sustituye el orden de pilotos de ADR-015/019.
 
 ## Compatibilidad con los archivos anteriores
 
