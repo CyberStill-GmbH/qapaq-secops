@@ -2,15 +2,16 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001…U-004 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-005 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Dieciocho ADR canónicos identificados por encabezado ADR-001…018. ADR-015,
-  ADR-016 y ADR-017 están Accepted; ADR-018, Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
+- Diecinueve ADR canónicos identificados por encabezado ADR-001…019. ADR-015,
+  ADR-016 y ADR-017 están Accepted; ADR-018/019, Conditionally Accepted;
+  ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los dieciocho ADR contienen Context, Decision, Alternatives, Consequences y
+- Los diecinueve ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
@@ -53,7 +54,7 @@ UNTIL FEDERATION TESTS PASS; la documentación no afirma tenant, licencias, app
 registration, Conditional Access, PIM o federación configurados.
 
 Se contrastaron Authorization Code/PKCE, PIM y criterios de sesión/autenticadores
-con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, dieciocho
+con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, diecinueve
 ADRs y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
 deployment, roadmap e integraciones.
 
@@ -69,6 +70,18 @@ Resolución SBS N.° 504-2021, el marco peruano de datos personales, legal holds
 inmutabilidad de Azure Blob y la revisión vigente de NIST SP 800-88. La eliminación
 automática permanece bloqueada hasta la ratificación y las 20 pruebas productivas.
 
+## Actualización por aceptación condicional de U-005
+
+U-005/ADR-019 acepta QAPAQ SecOps como plataforma SOC central, Wazuh como
+componente/fuente y adapters independientes para Microsoft, Sophos y Cato. Se
+crearon la estrategia canónica y un inventario YAML con cuatro entradas `planned`;
+todos los datos no aportados permanecen `TO_BE_PROVIDED` y no contienen secretos.
+
+Se verificó coherencia con U-001: los cuatro providers son slices de
+`Integrations & Collectors`, no módulos funcionales adicionales. El gate registra
+15 escenarios para procedencia, replay, gaps, aislamiento, correlación y secretos.
+No se ejecutó una API real ni se afirmó licencia, dataset o conectividad disponible.
+
 ## Límites
 
 No se ejecutaron tests de aplicación, SAST, pruebas de proveedores, carga, restore
@@ -81,8 +94,8 @@ pruebas de conformidad y decisiones sobre transporte y continuidad.
 La identidad tiene decisión aceptada, pero carece de pruebas de federación. Las
 capacidades de retención tienen decisión condicional, pero carecen de matriz
 ratificada y pruebas de restore/hold/purga. Las
-capacidades de Sophos/Cato permanecen pendientes porque sus páginas
-no pudieron leerse íntegramente; consultar [references.md](references.md).
+capacidades concretas de Sophos/Cato permanecen pendientes; consultar
+[references.md](references.md).
 
 Los cambios concurrentes de CI y `.github/ci/discover.py` quedan fuera del alcance
 y de los commits documentales de esta actualización.

@@ -33,6 +33,7 @@ payload incompatible. No usar SDK mock como prueba de contrato real.
 Prueba autorizada separada contra sandbox confirma API/version/licencia y scopes;
 no es requisito para que tests locales corran sin acceso a Qapaq. Registrar qué
 parte quedó sin verificar y no llamar «integración funcional» al fake.
+Los pilotos A/B son ese gate autorizado; los tests con fakes no los sustituyen.
 
 ## E2E
 
@@ -47,6 +48,10 @@ Ejecutar además los 20 escenarios de lifecycle de
 [ADR-018](architecture/retention-privacy-custody.md): clasificación, cuarentena,
 expiración aislada, hold, WORM, SHA-256/custodia, export, purga parcial, restore,
 deletion ledger, residencia, aprobación y reconciliación.
+Para fuentes, ejecutar los 15 escenarios de ADR-019 con entornos autorizados:
+Wazuh/Microsoft sintéticos, normalización/procedencia, restart idempotente, replay,
+`GAP_DETECTED`, expiración, correlación, lineage, ausencia de secretos, revocación
+aislada, fallos independientes y distinción de evento/alerta/incidente.
 
 ## Fallos, seguridad y rendimiento
 

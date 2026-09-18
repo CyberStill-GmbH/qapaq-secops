@@ -29,6 +29,8 @@ El almacén de sesiones debe soportar revocación, expiración y cifrado de toke
 Ningún endpoint productivo se habilita antes del gate operacional de ADR-017.
 Ningún lifecycle destructivo se habilita antes del gate de ADR-018: matriz
 ratificada, regiones/backups/holds aprobados y 20 escenarios demostrados.
+Ningún conector productivo pasa a `enabled` antes del gate ADR-019: inventario
+real, scopes/secretRef autorizados y 15 escenarios de pilotos A/B demostrados.
 
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis

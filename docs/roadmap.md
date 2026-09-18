@@ -17,8 +17,8 @@ schema y auditoría. Identidad/scopes están aceptados por U-003, pero su gate d
 federación sigue bloqueando endpoints productivos. Versiones/toolchain/límites ya
 están aceptados por U-002; la capacidad sigue pendiente de benchmark. U-004 acepta
 la baseline de retención, pero Legal/Compliance deben ratificarla antes del TTL
-productivo; RPO/RTO siguen U-009. La primera fuente ya está elegida;
-su licencia/configuración/cobertura real permanecen U-005.
+productivo; RPO/RTO siguen U-009. ADR-019 fija Pilot A Wazuh y Pilot B Microsoft;
+sus licencias, configuración, datasets y cobertura real permanecen como gate.
 
 Crear base NestJS/React, fakes, configuración, gates de calidad, dependencias hacia
 adentro y auditoría/autorización verificables. Contenedores y contratos de
@@ -39,6 +39,14 @@ documentar el contrato técnico sin alterar el alcance aprobado.
 Salida técnica propuesta: trazabilidad de origen a incidente, pruebas de permisos,
 estados y auditoría, replay sin efectos duplicados, recuperación de fallos y carga
 medida. No convierte el alcance objetivo en un experimento.
+
+## Pilotos de fuentes
+
+Pilot A demuestra admisión durable, checkpoint, replay y aislamiento con una
+alerta sintética Wazuh autorizada. Pilot B incorpora un dataset Microsoft directo
+y demuestra correlación multifuente sin enrutarlo obligatoriamente por Wazuh.
+Sophos y Cato siguen después. Ninguna fuente pasa a `enabled` por completar solo
+fixtures o configuración; debe superar inventario y los 15 escenarios de ADR-019.
 
 ## Verticales siguientes, en orden
 

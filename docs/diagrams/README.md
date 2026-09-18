@@ -1,6 +1,7 @@
 # Diagramas Mermaid
 
-Límites/lifecycles aceptados por U-001/ADR-015 e identidad por U-003/ADR-017;
+Límites/lifecycles aceptados por U-001/ADR-015, identidad por U-003/ADR-017 y
+fronteras de fuentes por U-005/ADR-019;
 topología técnica restante propuesta,
 no inventario ni software desplegado. Flechas sólidas
 representan flujo/interacción; punteadas representan relación transversal u opción

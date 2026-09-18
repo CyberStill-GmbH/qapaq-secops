@@ -11,6 +11,9 @@ Distinguir 401/403, throttling, indisponibilidad y «sin actividad». Pausar pol
 si continuar empeora fallo; no adelantar cursor. Corregir secreto/permisos mediante
 su custodio. Reanudar desde checkpoint con ventana/dedup documentadas.
 Éxito: datos frescos, backlog drena y gaps se explican; no basta health HTTP verde.
+Un cursor inválido cambia el dataset a `GAP_DETECTED`, conserva el último checkpoint
+durable y requiere reconciliar cobertura antes de reanudar. La caída o revocación
+de una fuente no debe pausar conectores independientes.
 
 ## Backlog, jobs fallidos o Redis perdido
 
