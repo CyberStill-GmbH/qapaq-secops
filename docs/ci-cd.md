@@ -13,8 +13,9 @@ npm ni Dockerfiles. El destino de despliegue sigue UNRESOLVED en U-011.
   Las entradas npm/Docker están preparadas para futuros manifiestos; GitHub puede
   indicar que no encontró archivos mientras no existan. No hay automerge.
 - npm audit revisa cada package-lock.json, incluyendo dependencias de desarrollo.
-  Falla con HIGH/CRITICAL o errores del servicio. Node 24 es el runtime del scanner,
-  no una decisión sobre la versión de la aplicación.
+  Falla con HIGH/CRITICAL o errores del servicio. Node 24 es el runtime actual del
+  scanner y U-002 fija Node 24.21.0 para la aplicación; el workflow todavía no fija
+  ese patch ni implementa el workspace pnpm aceptado.
 - Trivy revisa vulnerabilidades y configuraciones del filesystem y las imágenes
   construidas localmente. HIGH/CRITICAL bloquean, incluso sin fix disponible.
   Los errores de descarga de bases también fallan.
@@ -52,16 +53,16 @@ ejecutable de confianza y protegerlos mediante revisión obligatoria de ramas.
 
 ## Activación al incorporar software
 
-Versionar `.nvmrc`, package.json y package-lock.json. Workspaces pueden compartir
-lockfile de raíz; proyectos independientes necesitan el suyo. El descubrimiento
-falla si hay un manifiesto sin lockfile ancestro o un workspace ausente de ese
-lockfile. `npm ci` valida coherencia y se
-ejecuta sin lifecycle scripts. Agregar generación/compilación de dependencias
-como pasos explícitos revisados cuando sean necesarios.
+Materializar `.nvmrc`, `package.json`, `pnpm-workspace.yaml` y `pnpm-lock.yaml`
+según ADR-016. La instalación debe usar pnpm 12.4.2 con lockfile congelado y sin
+scripts de instalación no aprobados. El descubrimiento y auditoría actuales solo
+entienden `package-lock.json`/npm: deben ampliarse o sustituirse antes de considerar
+cubierto el workspace aceptado. Mantener ese hueco visible y agregar generación o
+compilación como pasos explícitos revisados cuando sean necesarios.
 
 Configurar comandos reales en `docs/verification-checks.json` para formato, lint,
 unit, integración, typecheck y boundaries. `quality` usa el verificador existente;
-checks sin configurar fallan con exit 2. No se inventan scripts npm ni se usa
+checks sin configurar fallan con exit 2. No se inventan scripts pnpm ni se usa
 `--if-present`. Añadir el build real cuando exista, antes de habilitar releases.
 
 Registrar cada imagen en `.github/ci/containers.json` con `dockerfile` y `context`

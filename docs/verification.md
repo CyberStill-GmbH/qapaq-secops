@@ -16,11 +16,16 @@ configurados aprobaron o tienen N/A explícito; 1 = fallo de check/configuració
 checks pendientes. La revisión manual de aceptación, diff, límites y seguridad
 es obligatoria fuera del script; exit 0 no certifica una feature completa.
 
+U-002 acepta como interfaz de repositorio `format`, `format:check`, `lint`,
+`typecheck`, `test`, `test:unit`, `test:integration`, `test:e2e`, `build` y
+`bench`. En el estado documental siguen sin estar materializados. Aceptar sus
+nombres no permite reemplazar los `null` ni reportar PASS.
+
 Al existir comandos reales, reemplazar cada null por un objeto con executable y
 arguments (array de strings). Ejemplo de formato, NO configuración aprobada:
 
 ```json
-{"executable": "npm", "arguments": ["run", "lint"]}
+{"executable": "pnpm", "arguments": ["run", "lint"]}
 ```
 
 Se ejecutan desde la raíz, secuencialmente: format, lint, unit, integration,
