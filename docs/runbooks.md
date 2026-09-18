@@ -1,6 +1,7 @@
 # Runbooks iniciales
 
-Estado: catálogo/procedimientos de diseño; requisitos CONDITIONALLY ACCEPTED por ADR-020.
+Estado: catálogo/procedimientos de diseño; requisitos CONDITIONALLY ACCEPTED por
+ADR-020 y ADR-021.
 No ejecutar comandos reales ni alterar proveedores a partir de estos documentos.
 Cada runbook requiere dueño, señales, autorización, límites y evidencia del entorno.
 
@@ -40,10 +41,31 @@ Al recuperar, validar conteos/cobertura y mappings antes de restituir consultas.
 ## Auditoría no disponible o atrasada
 
 Si falla append local de acción crítica, no confirmar mutación. Si falla archivo,
-mantener buffer durable y alertar atraso/capacidad; bloquear nuevas acciones
-críticas según límite acordado antes de agotarlo. Verificar manifiestos y
-continuidad tras recuperación. No rellenar auditoría perdida como si se hubiera
-observado; registrar incidente de integridad y reconstrucción con procedencia.
+mantener PostgreSQL/outbox y alertar atraso/capacidad. Aplicar Warning a 5 min,
+degraded a 15 min, SEV2 a 30 min o 70%, SEV1 a 60 min o 85%, y fail-closed a 95%
+o ante riesgo de agotar PostgreSQL. En fail-closed bloquear permisos, reglas,
+exports sensibles, configuración, holds, SOAR y raw privilegiado.
+
+Al recuperar, verificar cadena, secuencia, firma, objeto leído y checksum antes de
+marcar `ARCHIVED`; drenar el outbox y ejecutar reconciliación completa. No rellenar
+auditoría perdida como si se hubiera observado. Una diferencia crea incidente,
+bloquea purga y conserva el material afectado.
+
+## Rollback y reconstrucción de auditoría
+
+Después de un restore, obtener el último manifest válido y comparar secuencia/hash
+con PostgreSQL. Si divergen, entrar en `RECOVERY`, bloquear operaciones
+privilegiadas, identificar eventos archivados ausentes y reconstruir la proyección
+consultable desde el archive. Reconciliar por separado el dominio; restaurar audit
+no demuestra que el estado de negocio tenga el mismo punto temporal.
+
+## Caída de observabilidad
+
+Confirmar alcance del Collector y de cada backend sin usar el dashboard QAPAQ como
+única señal. La aplicación continúa; el buffer se limita a 6 horas o 10 GiB y el
+descarte sigue DEBUG, INFO, traces exitosos sampled y observabilidad no crítica.
+Verificar que los contadores de pérdida aumenten y que la alerta alcance un canal
+externo. Nunca reenviar audit trail por esta cola como workaround.
 
 ## Consulta cold / restauración
 

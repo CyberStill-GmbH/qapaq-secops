@@ -2,16 +2,16 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001…U-005 y U-009 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-006 y U-009 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Veinte ADR canónicos identificados por encabezado ADR-001…020. ADR-015,
-  ADR-016 y ADR-017 están Accepted; ADR-018/019/020, Conditionally Accepted;
+- Veintiún ADR canónicos identificados por encabezado ADR-001…021. ADR-015,
+  ADR-016 y ADR-017 están Accepted; ADR-018/019/020/021, Conditionally Accepted;
   ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los veinte ADR contienen Context, Decision, Alternatives, Consequences y
+- Los veintiún ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
@@ -54,7 +54,7 @@ UNTIL FEDERATION TESTS PASS; la documentación no afirma tenant, licencias, app
 registration, Conditional Access, PIM o federación configurados.
 
 Se contrastaron Authorization Code/PKCE, PIM y criterios de sesión/autenticadores
-con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, veinte
+con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, veintiún
 ADRs y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
 deployment, roadmap e integraciones.
 
@@ -81,6 +81,26 @@ Se verificó coherencia con U-001: los cuatro providers son slices de
 `Integrations & Collectors`, no módulos funcionales adicionales. El gate registra
 15 escenarios para procedencia, replay, gaps, aislamiento, correlación y secretos.
 No se ejecutó una API real ni se afirmó licencia, dataset o conectividad disponible.
+
+## Actualización por aceptación condicional de U-006
+
+U-006/ADR-021 separa observabilidad operacional, audit trail de seguridad y
+telemetría externa. Acepta OpenTelemetry/OTLP como contrato neutral, auditoría
+transaccional append-only, hash chain, archivo WORM con manifest firmado,
+reconciliación, detección de rollback, buffers acotados, fail-closed y routing
+independiente de alertas.
+
+Se contrastó la decisión con ADR-012, ADR-018 y ADR-020. No hay conflicto: ADR-021
+concreta la estrategia de auditoría, delega retención/holds a U-004 y conserva
+restore, severidad y cobertura 8x5/24x7 de U-009. Backend, endpoint, storage,
+custodios, signing service, llaves y canales concretos permanecen como
+configuración productiva; no como decisión arquitectónica abierta.
+
+El gate añade 24 escenarios para atomicidad, redacción, contexto, cardinalidad,
+fallos, integridad, firma, rotación, rollback, reconciliación, fail-closed, alertas,
+recovery, holds y RPO/RTO. No se ejecutaron ni se afirmó infraestructura disponible.
+La vista C4 de contenedores y el diagrama de auditoría se renderizaron a SVG/PNG y se
+inspeccionaron visualmente después de alinear las fronteras de U-006.
 
 ## Actualización por aceptación condicional de U-009
 
@@ -113,7 +133,7 @@ verificar en esta tarea. Tampoco hay evidencia para publicar EPS, sizing product
 o compatibilidad de la matriz completa.
 
 Renderizar Mermaid no demuestra corrección operacional. Faltan schemas ejecutables,
-pruebas de conformidad y decisiones sobre transporte y continuidad.
+pruebas de conformidad y configuración productiva de backends y transporte.
 La identidad tiene decisión aceptada, pero carece de pruebas de federación. Las
 capacidades de retención tienen decisión condicional, pero carecen de matriz
 ratificada y pruebas de restore/hold/purga. Las
@@ -121,6 +141,8 @@ capacidades concretas de Sophos/Cato permanecen pendientes; consultar
 [references.md](references.md).
 Continuidad tiene objetivos condicionales, pero aún carece de owners nominales,
 guardia aprobada y evidencia de las 25 pruebas.
+Auditoría/observabilidad tienen decisión condicional, pero carecen de Collector,
+backends, WORM, firma, llaves, canales y evidencia de las 24 pruebas.
 
 Los cambios concurrentes de CI y `.github/ci/discover.py` quedan fuera del alcance
 y de los commits documentales de esta actualización.

@@ -57,6 +57,35 @@ dependencia, backlog y drenaje con tráfico, restores, checkpoint/deletion ledge
 holds/audit/evidencia, SOAR sin doble efecto, modos read-only/ingest-only, rollback,
 runbook cruzado, RPO/RTO medidos e informe de gaps.
 
+### Gate U-006 — observabilidad y auditoría
+
+Antes de producción ejecutar los 24 escenarios de ADR-021:
+
+1. Mutación, estado y audit event quedan en una transacción.
+2. Fallar el audit insert revierte la mutación.
+3. El rol runtime no actualiza ni elimina audit events.
+4. Secretos quedan redactados en logs y traces.
+5. Jobs conservan `traceId` y `requestId`.
+6. Métricas no contienen labels de alta cardinalidad.
+7. La caída del Collector no detiene la aplicación.
+8. La pérdida operacional incrementa sus contadores.
+9. La caída del archive acumula outbox durable.
+10. El atraso alerta antes del límite.
+11. Recuperar archive drena completamente el outbox.
+12. Se verifica el checksum del objeto almacenado.
+13. Alterar un evento rompe la cadena de hashes.
+14. Eliminar un evento produce gap de secuencia.
+15. Duplicar un evento se detecta.
+16. Un manifest con firma inválida se rechaza.
+17. La rotación permite verificar manifests antiguos y nuevos.
+18. Restaurar PostgreSQL anterior detecta rollback.
+19. Reconciliación detecta eventos archivados ausentes en base.
+20. Operaciones privilegiadas fallan cerrado al 95% del buffer.
+21. Una alerta SEV1 llega a un canal externo a QAPAQ.
+22. El runbook reconstruye la proyección de auditoría.
+23. Un legal hold impide eliminar el archive afectado.
+24. La evidencia registra RPO/RTO observado.
+
 ## Fallos, seguridad y rendimiento
 
 Inyectar caída en cada frontera descrita en data-flow: object write/manifest,
