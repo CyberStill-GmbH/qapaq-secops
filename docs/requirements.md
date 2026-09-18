@@ -19,6 +19,9 @@ No acredita ratificación legal ni lifecycle implementado.
 La resolución [U-005/ADR-019](adr/019-source-boundaries-and-authorized-pilots.md)
 acepta QAPAQ SecOps como SOC central, adapters independientes y pilotos A/B. No
 acredita ediciones, licencias, APIs, permisos ni conectividad.
+La resolución [U-009/ADR-020](adr/020-operations-and-continuity.md) acepta
+condicionalmente criticidad, objetivos, modos, recovery y soporte. No acredita
+RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
 
 ## Requisitos trazables
 
@@ -51,8 +54,8 @@ acredita ediciones, licencias, APIs, permisos ni conectividad.
 Seguridad y trazabilidad no se posponen al final. Cada límite externo debe tener
 autorización, validación, límites de consumo, timeouts, comportamiento degradado y
 evidencia de pruebas. La metodología y los gates de rendimiento están aceptados;
-la capacidad numérica permanece PENDING MEASUREMENT. Disponibilidad, RPO/RTO,
-volumen real, RPO/RTO y ratificación de los plazos provisionales siguen pendientes; no se promete capacidad. Ver
+la capacidad numérica permanece PENDING MEASUREMENT. RPO/RTO/SLO son targets
+provisionales pendientes de ejercicios; volumen y capacidad siguen sin demostrarse. Ver
 [preguntas](decisions/unresolved.md).
 
 No se construyen ML complejo, Kubernetes, Kafka, microservicios, motor de base de
@@ -62,7 +65,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Diecinueve ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019 Conditionally Accepted.
+- Veinte ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019/020 Conditionally Accepted.
 - Once diagramas Mermaid coherentes con las decisiones y propuestas documentadas.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.

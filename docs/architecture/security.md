@@ -79,6 +79,9 @@ Mutaciones críticas fallan si no se puede persistir su auditoría local. Caída
 archivo remoto no obliga a tumbar lecturas si hay buffer durable, controles y
 alertas de atraso. Límites del buffer y política fail-closed deben acordarse.
 Raw y AuditEvent no son ApplicationLog. Ver [auditoría](audit.md).
+Durante caída del IdP se bloquean logins nuevos, no se extienden sesiones
+privilegiadas y solo se usa el mecanismo de emergencia aprobado. Los modos
+`READ_ONLY` e `INGEST_ONLY` nunca relajan autorización ni auditoría.
 
 ## Desarrollo y controles operacionales
 

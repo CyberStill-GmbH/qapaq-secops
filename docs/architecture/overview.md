@@ -46,6 +46,10 @@ U-005 acepta QAPAQ SecOps como plataforma SOC central. Wazuh, Microsoft, Sophos 
 Cato son fuentes/adapters independientes; la ingesta productiva queda bloqueada
 hasta inventario y pilotos Wazuh/Microsoft autorizados.
 
+U-009 acepta objetivos provisionales de continuidad, clases C1…C4, modos
+degradados, recovery, error budgets y soporte. El software puede operar 24x7; sin
+guardia SEV1 formal, el servicio humano se declara `LIMITED PRODUCTION / 8x5`.
+
 Proponer SecurityEvent propio, pequeño y versionado, con semántica inspirada en
 ECS y un mapeo explícito evaluable hacia OCSF. No afirmar conformidad con ninguno.
 Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de diseño.
@@ -66,7 +70,7 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 Prioritarios: pérdida de telemetría por ACK prematuro; abuso de permisos/exports;
 manipulación de auditoría; saturación compartida; pérdida de raw por retención
 inadecuada; incompatibilidad con APIs/ediciones reales. No se conocen volumen,
-licencias/configuración de Entra, matriz de retención ratificada, RPO/RTO ni capacidad del equipo.
+licencias/configuración de Entra, matriz ratificada, RPO/RTO demostrados ni capacidad del equipo.
 Cada riesgo tiene tratamiento en [riesgos](risks.md) y [preguntas](../decisions/unresolved.md).
 
 ### Simplificaciones
@@ -109,7 +113,7 @@ Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 
 ## IMPLEMENTATION PLAN
 
-1. Completar gates de identidad/retención e inventario/pilotos de fuentes; U-001…005 ya tienen decisión documental.
+1. Completar gates de identidad, retención, fuentes y continuidad; U-001…005/U-009 ya tienen decisión documental.
 2. Materializar el monorepo, lockfiles, baseline NestJS/React/Python y gates de calidad en una tarea posterior.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
 4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.

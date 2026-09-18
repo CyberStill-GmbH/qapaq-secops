@@ -1,6 +1,7 @@
 # Observabilidad de la plataforma
 
-Estado: PROPOSAL. Proveedor y objetivos numéricos pendientes en U-006/U-009.
+Estado: proveedor PROPOSAL por U-006; SLI/SLO, modos y continuidad CONDITIONALLY
+ACCEPTED por [ADR-020](../adr/020-operations-and-continuity.md).
 
 ## Señales y ownership
 
@@ -46,14 +47,19 @@ porque el propio backend no puede notificarse estando detenido.
 
 ## SLI, SLO y alertas
 
-Medir latencia admisión→normalización, evento→alerta, consulta por tier, éxito de
-API, frescura por dataset y durabilidad/reconciliación. SLO/RPO/RTO serán acordados
-con SOC/Infraestructura tras mediciones; ningún valor propuesto equivale a SLA.
+ADR-020 fija targets iniciales y fórmulas: progreso de checkpoint sobre intervalos
+con fuente disponible; eventos terminados/rechazados sobre adquisición durable;
+freshness desde `platformReceivedAt`; y requests válidos satisfechos. Separar SLO
+interno de dependencias y latencia de proveedor de procesamiento QAPAQ.
 
 Alertas accionables: backlog crece sin drenar, checkpoint estancado, secretos por
 expirar, cuarentena anómala, archivo/auditoría retrasado, storage cerca del límite,
-restore fallido y pérdida de cobertura. Umbrales según piloto, dueño y runbook;
-evitar una notificación por cada retry. Destinos aprobados y datos mínimos.
+restore fallido y pérdida de cobertura. Error budget mensual: 50% revisión, 75%
+limita releases y 100% congela cambios no críticos. Evitar una notificación por retry.
+
+Mostrar `NORMAL`, `DEGRADED`, `INGEST_ONLY`, `READ_ONLY`, `RECOVERY` o
+`MAINTENANCE`; estado por fuente/componente, checkpoint age, queue depth, oldest
+age, drain time, processing/error rate, backups/último restore, SLO, budget y versión.
 
 Pruebas: caída selectiva, redacción de excepciones, propagación de contexto,
 detección de fuente silenciosa y alerta externa de caída global.

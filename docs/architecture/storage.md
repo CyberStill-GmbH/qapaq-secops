@@ -90,7 +90,8 @@ perfiles y gates aceptados están en
 Backups no son archivo ni alta disponibilidad. ADR-018 acepta una baseline
 provisional y exige que el restore reaplique el deletion ledger antes de acceso.
 Ensayar PostgreSQL, catálogo, raw y referencias; verificar consistencia con índices
-reconstruibles y checkpoints. RPO/RTO y topología se acuerdan con Infraestructura. Redis puede
+reconstruibles y checkpoints. ADR-020 fija RPO/RTO provisionales y exige medirlos;
+la topología sigue con Infraestructura. Redis puede
 reconstruir pendientes desde manifiestos/outbox; eso requiere reconciliador probado.
 
 [Diagrama de tiers](../diagrams/07-storage-tiers.mmd).

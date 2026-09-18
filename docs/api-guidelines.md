@@ -53,6 +53,9 @@ redactados. No revelar existencia de recursos a quien carece de permiso.
 
 Para restores/reportes/exports, contrato de job con estado y cobertura; 202 significa
 aceptado para procesar, no completado. Estado/descarga requieren reautorización.
+API y UI exponen el modo operacional sin topología sensible. `READ_ONLY` rechaza
+mutaciones y SOAR; `INGEST_ONLY` suspende jobs no críticos; `RECOVERY` indica
+resultados parciales. Un health 200 no oculta dependencia degradada ni backlog.
 Idempotency key de mutaciones reintentables se vincula a actor, operación, scope
 y hash de payload; misma clave con payload diferente devuelve conflicto. Ventana
 y almacenamiento quedan definidos por operación antes de implementarla.

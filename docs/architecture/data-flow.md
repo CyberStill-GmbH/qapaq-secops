@@ -23,6 +23,9 @@ ADR-019 acepta checkpoints independientes por conector y estados `FETCHED`,
 `DURABLE`, `NORMALIZED`, `PROCESSED`, `CHECKPOINTED`. Pull no implica ACK al
 proveedor. Un webhook recibe 2xx solo tras validación y persistencia/cola durable.
 Cada dataset declara FULL_REPLAY, BOUNDED_REPLAY, BEST_EFFORT o NO_REPLAY.
+En recovery: partir del último checkpoint durable, calcular la ventana mínima
+recuperable, rewind, fetch, deduplicar, normalizar, procesar y reconciliar. Una
+fuente sin replay limita el RPO y registra un gap explícito.
 
 Fuentes sin replay ni ACK fiable, como Syslog UDP, no permiten prometer cero pérdida:
 priorizar un transporte fiable o collector con spool durable gestionado; registrar

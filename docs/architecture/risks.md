@@ -13,9 +13,10 @@ Estado: registro propuesto; prioridad cualitativa, sin aceptación de riesgos.
 - A-09 — Media: ocho módulos derivan en monolito acoplado o en burocracia de ports. Ownership e imports comprobados; extraer solo por necesidad. Arquitectura. Cierre: vertical sin imports internos cruzados y revisión de límites.
 - A-10 — Media: Python introduce segundo runtime y contratos incompatibles sin beneficio. Diferir hasta benchmark/caso real, schemas y fixtures comunes. Desarrollo/Platform. Cierre: valor medido frente a TypeScript/Wazuh. U-007.
 - A-11 — Alta: consultas cold/exports se usan para exfiltrar o agotar recursos. ADR-017 acepta capability/scope/step-up y ADR-018 manifest, cifrado, expiración y custodia. Seguridad/Platform. Cierre: pruebas de acceso/revocación/cancelación/coste y expiración.
-- A-12 — Media/alta: equipo pequeño no opera cola, stores, IdP y fuentes de forma fiable. Reusar servicios existentes, runbooks y responsabilidades claras. Líder técnico/Infraestructura. Cierre: simulacro operacional y soporte acordado. U-009.
+- A-12 — Media/alta: equipo pequeño no opera cola, stores, IdP y fuentes de forma fiable. ADR-020 exige modos, runbooks ejecutados, Service Owner y cobertura honesta 8x5/24x7. Cierre: 25 pruebas y recovery medido.
 - A-13 — Media: references numéricas de skills antiguas apuntan ahora a otro ADR. Mitigar consultando índice y título; esta entrega solo modifica docs/. Dueño: mantenimiento del harness. Cierre: actualización futura autorizada de referencias fuera de docs/.
 - A-14 — Alta: un mismo hecho directo y vía Wazuh duplica alertas o correlación. Política por dataset, nivel semántico, IDs estables y `relatedEventIds`; nunca deduplicar solo por timestamp/texto. Cierre: fixture de doble ruta en piloto.
+- A-15 — Alta: publicar SOC 24x7 sin guardia ni escalamiento deja SEV1 sin respuesta. Declarar `LIMITED PRODUCTION / 8x5` hasta aprobar calendario, contactos, autoridad, handoff y política laboral.
 
 No usar migración a microservicios como mitigación automática. Primero medir
 aislamiento, capacidad y fallos reales; añadir distribución puede agravar A-12.
