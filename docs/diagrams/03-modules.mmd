@@ -3,6 +3,7 @@ C4Component
 
     Container(web, "Web SOC", "React", "Opera capacidades autorizadas")
     System_Ext(sources, "Fuentes", "Wazuh, Microsoft, Sophos y Cato")
+    System_Ext(teams, "Microsoft Teams Workflow", "Canal SOC dedicado")
 
     Container_Boundary(backend, "Backend QAPAQ SecOps — API y worker") {
         Component(access, "Identity, Access & Policy", "NestJS", "Sesiones, RBAC, scopes y políticas")
@@ -11,7 +12,7 @@ C4Component
         Component(intel, "Threat Intelligence", "NestJS", "IOC, procedencia, vigencia y contexto")
         Component(detection, "Detection & Correlation", "NestJS", "Reglas, ventanas y correlación")
         Component(soc, "Alerts, Incidents & Cases", "NestJS", "Triaje, investigación, casos y evidencia")
-        Component(soar, "SOAR, Playbooks & Ticketing", "NestJS", "Planes, aprobaciones, acciones y tickets")
+        Component(soar, "SOAR, Playbooks & Ticketing", "NestJS", "Planes, aprobaciones, acciones, tickets y notificaciones")
         Component(antifraud, "Antifraud Intelligence", "NestJS", "Señales, scoring explicable y casos")
         Component(audit, "Audit & Archive", "Capacidad transversal", "Auditoría atómica, outbox y archivo protegido")
         Component(ops, "Operations & Observability", "Capacidad transversal", "Health, métricas, modos y recovery")
@@ -26,3 +27,4 @@ C4Component
     Rel_L(detection, soc, "Genera candidatos")
     Rel_U(antifraud, soc, "Gestiona casos")
     Rel_D(soc, soar, "Solicita ejecución")
+    Rel_L(soar, teams, "Entrega notificación crítica", "HTTPS")

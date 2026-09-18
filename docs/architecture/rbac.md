@@ -24,6 +24,8 @@ ni usar wildcard * persistente para administradores.
 ## Catálogo por concretar
 
 - alerts.read, alerts.acknowledge, alerts.close.
+- notifications.read, notifications.retry y notifications.manage; la entrega
+  técnica no concede permiso para acusar una alerta.
 - incidents.read, incidents.create, incidents.assign, incidents.close; incidents.reopen propuesto para reapertura.
 - cases.read, cases.create, cases.update.
 - rules.read, rules.create, rules.update, rules.enable, rules.disable.

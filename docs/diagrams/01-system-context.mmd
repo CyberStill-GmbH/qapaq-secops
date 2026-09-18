@@ -9,9 +9,11 @@ C4Context
     System_Ext(entra, "Microsoft Entra ID", "Identidad humana corporativa single-tenant")
     System_Ext(sources, "Fuentes de seguridad", "Wazuh, Microsoft, Sophos, Cato y futuras fuentes autorizadas")
     System_Ext(misp, "MISP", "Threat intelligence futura")
+    System_Ext(teams, "Microsoft Teams Workflow", "Canal corporativo primario para alertas críticas")
 
     Rel(soc, qapaq, "Opera e investiga", "HTTPS")
     Rel(governance, qapaq, "Gobierna, audita y soporta", "HTTPS")
     Rel(qapaq, entra, "Autentica usuarios", "OIDC + PKCE")
     Rel(sources, qapaq, "Entrega telemetría autorizada")
     Rel(misp, qapaq, "Provee indicadores", "Futuro")
+    Rel_R(qapaq, teams, "Publica notificaciones críticas minimizadas", "HTTPS")

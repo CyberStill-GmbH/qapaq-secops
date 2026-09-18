@@ -29,7 +29,8 @@ evidencia; Riesgos/Antifraude gobierna su dominio; Infraestructura opera product
 dependencias, conectividad y secretos.
 
 Microsoft Entra ID autentica humanos. Wazuh, Microsoft 365/Entra logs, Sophos y
-Cato son sistemas externos independientes. MISP es una integración futura. Una
+Cato son sistemas externos independientes. Microsoft Teams Workflows recibe una
+proyección minimizada de alertas críticas; QAPAQ conserva estado y acuse. MISP es una integración futura. Una
 flecha de fuente a QAPAQ representa un dataset autorizado, no disponibilidad real,
 licencia, credencial ni garantía de replay.
 
@@ -39,6 +40,7 @@ Decisiones que gobiernan esta vista:
 - U-003/ADR-017: Entra ID single-tenant y BFF.
 - U-005/ADR-019: QAPAQ como producto central y fuentes independientes.
 - U-009/ADR-020: Infraestructura opera dependencias; QAPAQ observa su estado.
+- U-012/ADR-022: Teams Workflows es el canal primario de alertas críticas.
 
 ## Nivel 2 — Contenedores
 
@@ -56,7 +58,8 @@ síncronos y consulta estado. Las mutaciones críticas persisten auditoría loca
 
 ### Worker / scheduler
 
-Node/NestJS ejecuta collectors, pipeline, detección y jobs recuperables. Comparte
+Node/NestJS ejecuta collectors, pipeline, detección y jobs recuperables, incluida
+la entrega asíncrona de notificaciones. Comparte
 release y módulos con la API; es separación de carga/entrypoint, no microservicio.
 
 ### Analytics
@@ -79,6 +82,8 @@ proveedores continúa sujeta a gates; el diagrama no crea recursos cloud. El
 OpenTelemetry Collector y el signing service también son servicios corporativos
 externos administrados por Infraestructura/Security: QAPAQ exporta OTLP y solicita
 firmas, pero no administra backends ni obtiene llaves privadas.
+Teams Workflow también es externo: Infraestructura/Microsoft 365 administra
+canal, workflow, propietarios y secreto; el worker solo consume su contrato.
 
 ## Nivel 3 — Componentes
 
@@ -99,7 +104,10 @@ Auditoría y Operations & Observability son capacidades transversales, no módul
 negocio adicionales. Cada módulo conserva estado e interfaces públicas. Se prohíben
 imports arbitrarios de internals, tablas ajenas y entidades ORM compartidas.
 
-El flujo principal es connectors → telemetry → detection → soc → soar. Threat
+El flujo principal es connectors → telemetry → detection → soc → soar. Para una
+alerta crítica, `soc` confirma la alerta y publica una salida; `soar` entrega
+después por worker hacia Teams. [Flujo detallado](critical-alert-notifications.md).
+Threat
 Intelligence aporta contexto; Antifraud reutiliza contratos manteniendo reglas y
 ownership propios. Access aplica autorización por capability, scope, recurso y
 contexto en cada entrada protegida.
@@ -142,6 +150,7 @@ diagramas separados:
 - [Auditoría](../diagrams/09-audit.mmd).
 - [Detección y correlación](../diagrams/10-detection-correlation.mmd).
 - [Ciclo de alerta](../diagrams/11-alert-lifecycle.mmd).
+- [Notificación de alerta crítica](../diagrams/13-critical-alert-notification.mmd).
 
 No existe una vista de deployment porque host, cloud, región, réplicas, HA y
 orquestador no están aprobados. ADR-020 define objetivos y recovery sin escoger esa

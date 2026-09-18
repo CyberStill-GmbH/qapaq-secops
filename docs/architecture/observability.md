@@ -71,6 +71,14 @@ soar_action_requested_total
 soar_action_executed_total
 soar_action_failed_total
 soar_action_unknown_total
+teams_notifications_requested_total
+teams_notifications_sent_total
+teams_notifications_failed_total
+teams_notification_duration_seconds
+teams_notification_queue_depth
+teams_notification_oldest_age_seconds
+critical_alert_acknowledgment_seconds
+critical_alert_unacknowledged_total
 observability_dropped_records_total
 observability_export_failed_total
 ```
@@ -84,7 +92,8 @@ gaps, freshness y última recolección exitosa; cero alertas no implica fuente s
 
 Los logs contienen timestamp UTC, nivel, service, environment, version, operación,
 outcome, duración, `errorCode`, `sourceId` acotado, `requestId` y `traceId` opacos
-cuando corresponda. Alertas y automatización usan códigos estables, no texto libre.
+cuando corresponda. Alertas y automatización usan códigos estables, no texto libre. La URL del workflow
+de Teams nunca aparece en logs, traces, métricas, auditoría ni errores.
 
 Nunca registrar tokens, cookies, passwords, API keys, client secrets,
 authorization headers, connection strings, cuerpos raw completos, evidencia, PII

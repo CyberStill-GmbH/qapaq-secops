@@ -5,6 +5,7 @@ C4Container
     System_Ext(entra, "Microsoft Entra ID", "IdP humano")
     System_Ext(sources, "Fuentes de seguridad", "Wazuh, Microsoft, Sophos y Cato")
     System_Ext(secrets, "SecretProvider", "Resuelve referencias bajo identidad técnica")
+    System_Ext(teams, "Microsoft Teams Workflow", "Publica en el canal SOC dedicado")
 
     System_Boundary(qapaq, "QAPAQ SecOps — monolito modular") {
         Container(web, "Web SOC", "React + TypeScript", "Interfaz para operaciones autorizadas")
@@ -29,3 +30,4 @@ C4Container
     Rel_U(worker, sources, "Recolecta datasets")
     Rel_U(worker, secrets, "Resuelve secretRef")
     Rel_R(worker, analytics, "Solicita análisis")
+    Rel_L(worker, teams, "Entrega notificaciones críticas", "HTTPS")

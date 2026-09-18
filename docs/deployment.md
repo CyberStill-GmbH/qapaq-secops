@@ -38,6 +38,9 @@ declarar `LIMITED PRODUCTION / 8x5`.
 ADR-021 añade Collector OTLP, storage WORM, signing service, custodia de llaves,
 dos destinos de alerta y 24 pruebas como dependencias del gate; QAPAQ consume sus
 contratos, pero Infraestructura/Security los provisionan y operan.
+ADR-022 añade Team/canal restringido, Teams Workflow, propietarios alternos,
+retención, licencia, `secretRef`, rotación y canal secundario. La notificación
+productiva permanece bloqueada hasta superar sus veinte escenarios.
 
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis

@@ -26,6 +26,10 @@ qapaq-secops/
         bootstrap/              # composición y HTTP
       test/
     worker/                     # BullMQ consumers y schedulers
+      notifications/           # capability de soar para entrega asíncrona
+        application/           # solicitar, entregar y escalar sin acuse
+        domain/                # notification, policy y attempt
+        infrastructure/        # adapter de Microsoft Teams Workflow
     web/
       src/
         features/               # vistas y flujos SOC, no copias de entidades ORM

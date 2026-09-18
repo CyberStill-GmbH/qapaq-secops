@@ -36,6 +36,11 @@ frontera suficiente para confiar.
 - T-10 — Supply chain: workflow de PR o dependencia roba secretos o publica artefacto. CI con permisos mínimos, acciones/dependencias fijadas, scanners y publicación restringida. Residual: compromiso de proveedor/toolchain.
 - T-11 — SOAR futuro: ejecución peligrosa se repite o aprobación se reutiliza con otros targets. Plan versionado y acotado, aprobación vinculada a parámetros, reautorización, idempotencia y resultado unknown. Residual: API externa sin garantías; no habilitar en MVP.
 - T-12 — Poisoning: IOC/contexto falso o timestamps manipulados alteran prioridad/correlación. Procedencia, vigencia, validación temporal, calidad y revisión de reglas. Probar datos tardíos/inconsistentes; residual: fuente legítima informa datos erróneos.
+- T-13 — Teams: fuga del webhook permite spam o exfiltración; una tarjeta falsa,
+  enlace manipulado, owner huérfano o timeout ambiguo oculta o duplica avisos.
+  SecretProvider, egress, payload allowlist, co-owner, deep link autenticado,
+  `notificationId`, outbox y fallback reducen el riesgo. Residual: aceptación del
+  endpoint no demuestra lectura y el proveedor puede permanecer indisponible.
 
 ## Prioridad y límites
 

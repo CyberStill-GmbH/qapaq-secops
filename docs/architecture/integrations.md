@@ -42,6 +42,12 @@ por mecanismos existentes Wazuh/forwarding. No asumir LDAP entrega security logs
 AD no sustituye el IdP web Entra aceptado. WinRM solo si se justifica y autoriza; no canal de
 ejecución remota genérico en el MVP.
 
+ADR-022 acepta una implementación concreta y acotada del `NotificationProvider`
+para el MVP: Microsoft Teams Workflows. El adapter resuelve
+`secret://qapaq/notifications/teams-critical`, envía solo el payload permitido y
+no expone la URL. El contrato de aceptación de Teams no se interpreta como lectura
+o acuse. Office 365/Microsoft 365 Connectors heredados quedan prohibidos.
+
 ### MicrosoftGraphAdapter
 
 Usuarios/grupos, identidad, sign-ins y actividad según API, permisos y licencia

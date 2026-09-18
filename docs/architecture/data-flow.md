@@ -3,6 +3,13 @@
 Estado: PROPOSAL. [ADR-006](../adr/006-redis-bullmq.md) y
 [ADR-014](../adr/014-internal-communication.md).
 
+La notificación `CRITICAL` es una excepción ya aceptada por
+[ADR-022](../adr/022-microsoft-teams-critical-alert-notifications.md): la misma
+transacción que persiste la alerta crea `NotificationRequested`; un dispatcher y
+worker idempotentes entregan a Teams después del commit. El fallo externo no
+revierte ni duplica la alerta. Detalle en
+[notificaciones críticas](critical-alert-notifications.md).
+
 ## Admisión durable y checkpoint
 
 1. Collector identifica fuente y permisos, obtiene un lote acotado y cursor sin adelantarlo.

@@ -28,13 +28,18 @@ No generar ocho módulos vacíos por completar el árbol.
 ## Primera vertical aceptada
 
 Wazuh/Windows authentication event → ingestion → normalization → OpenSearch →
-deterministic correlation → alert → triage → incident → audit.
+deterministic correlation → alert → notificación crítica por Teams → triage →
+incident → audit.
 
 La auditoría transversal acompaña también acceso/configuración/transiciones; no
 se pospone por figurar al final. Persistencia raw, aceptación durable, reintentos y
 evidencia siguen siendo controles de la implementación. En esta vertical se
 indexa antes de la correlación; una topología posterior diferente requiere
 documentar el contrato técnico sin alterar el alcance aprobado.
+
+Cuando la alerta sea `CRITICAL`, el MVP crea outbox después de persistirla y el
+worker entrega a Teams Workflows según ADR-022. El acuse permanece en QAPAQ y la
+salida productiva depende del canal secundario y de las veinte pruebas.
 
 Salida técnica propuesta: trazabilidad de origen a incidente, pruebas de permisos,
 estados y auditoría, replay sin efectos duplicados, recuperación de fallos y carga
@@ -54,7 +59,7 @@ fixtures o configuración; debe superar inventario y los 15 escenarios de ADR-01
 2. Nuevas fuentes e integraciones.
 3. Playbooks en modo dry-run.
 4. Respuestas con aprobación explícita.
-5. Ticketing y notificaciones.
+5. Ticketing y notificaciones adicionales a la alerta crítica ya incluida en MVP.
 6. Capacidades antifraude con permisos, entidades y scoring explicable propios.
 7. Análisis especializado Python con contratos versionados y estado controlado por NestJS.
 

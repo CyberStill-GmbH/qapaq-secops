@@ -185,6 +185,9 @@ Repetir después de cambios importantes. Antes de producción: restore de base e
   comprometida o RTO imposible. ACK 15 min, respuesta 30 min, update cada 30 min.
 - SEV2: fuente crítica caída, backlog sin drenaje, API parcial, búsqueda crítica o
   detección atrasada. ACK 1 h, respuesta 4 h, update cada 2 h.
+- Teams indisponible con notificaciones críticas pendientes: SEV1. Sin pendientes
+  críticas: SEV2 inicial. Mantener outbox, mostrar `TEAMS_DEGRADED` y activar el
+  canal secundario aprobado; no bloquear ingesta ni persistencia.
 - SEV3: dashboard/export/integración no crítica/job manual. ACK 1 día hábil,
   respuesta 2 días hábiles.
 - SEV4: consulta/mejora sin impacto. ACK 2 días hábiles; planificado.
@@ -207,6 +210,8 @@ emergencia, política laboral y handoff aprobados, declarar
 | Triaje/incidentes | SOC | SOC Manager |
 | RBAC | Access Administration | Security |
 | SOAR | Platform + SOC | Security Management |
+| Teams Workflow y canal | Infrastructure/Microsoft 365 | Infrastructure Owner |
+| Política, payload y entrega | Platform + SOC | SOC Manager |
 | Continuidad/ejercicios | Platform + Infrastructure | Service Owner |
 | Comunicación | Incident Commander | Security Management |
 
@@ -235,6 +240,8 @@ security-incident.md
 audit-archive-recovery.md
 audit-reconciliation.md
 observability-outage.md
+teams-notification-outage.md
+critical-alert-unacknowledged.md
 ```
 
 Cada runbook declara trigger, precondiciones,
@@ -278,3 +285,6 @@ medidos, runbooks ejecutados, dependencias y escalaciones registradas, y estas p
 23. Medición real del RPO.
 24. Medición real del RTO.
 25. Informe con gaps y acciones correctivas.
+
+La habilitación de notificaciones críticas añade, sin sustituir este gate, los
+veinte escenarios de [ADR-022](critical-alert-notifications.md#pruebas-de-aceptación).

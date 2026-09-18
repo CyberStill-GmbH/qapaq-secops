@@ -77,6 +77,8 @@ Auditar individualmente:
 - retención, legal hold, purga y configuración;
 - creación/cierre de incidentes críticos y cambios sensibles de casos;
 - solicitud, aprobación, ejecución y resultado `UNKNOWN` de SOAR;
+- solicitud, envío, fallo y reintento de Teams; acuse, escalamiento y supresión de
+  alertas críticas, con `notificationId` y alias de canal pero nunca la URL;
 - emergencias y denegaciones de operaciones privilegiadas.
 
 Lecturas ordinarias no sensibles pueden agregarse. Raw telemetry, evidencia,

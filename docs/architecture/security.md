@@ -74,6 +74,11 @@ capability, razón y aprobación con caducidad; se reautoriza antes de la acció
 Separar leer alertas de aislar un endpoint. Timeout tras acción externa puede
 significar resultado UNKNOWN; no reintentar una acción destructiva ciegamente.
 
+ADR-022 incorpora la notificación crítica por Teams al MVP. La URL del workflow
+se trata como secreto, el payload usa allowlist y el enlace profundo revalida
+sesión, capability, scope y recurso en QAPAQ. Teams no acusa alertas ni recibe raw,
+evidencia, secretos, información financiera completa o PII innecesaria.
+
 ## Auditoría y degradación
 
 Mutaciones críticas fallan si no se puede persistir su auditoría local. Caída del

@@ -113,3 +113,13 @@ Registrar rango afectado y replay. No descartar silenciosamente.
 Tras timeout o recovery, listar commands con resultado `UNKNOWN`, consultar el
 proveedor cuando sea seguro y registrar el efecto observado. No reintentar hasta
 confirmar que no duplicará una acción. SOAR se reanuda después de datos y detección.
+
+## Caída de Teams o alerta crítica sin acuse
+
+Trigger: `TEAMS_DEGRADED`, salida crítica pendiente, cinco intentos agotados o
+acuse vencido. Confirmar que alerta y outbox continúan durables sin revelar el
+webhook; clasificar SEV1 cuando exista una crítica pendiente y SEV2 en caso
+contrario. Activar el canal secundario aprobado, escalar al SOC Manager, revisar
+owner/licencia/workflow/secretRef y reconciliar por `notificationId`. No reenviar
+ciegamente ni marcar `SENT` como leído. Validar recuperación, drenar en orden y
+conservar auditoría de intentos, escalamiento y resolución.

@@ -131,3 +131,11 @@ Guardar commit/scope, entorno/versiones, comandos, resultados, fallos conocidos 
 pruebas no realizadas. No guardar secretos/raw real en reportes. Diferenciar
 validación documental, test simulado, test local con dependencias y prueba de
 proveedor. [Validación de esta entrega](validation.md).
+
+## Gate ADR-022 — notificación crítica por Teams
+
+Los contract tests validan payload allowlisted, adapter, códigos de error,
+timeouts, cinco intentos, jitter e idempotencia. Integración cubre transacción
+alerta/outbox, recuperación, estados y auditoría. E2E usa workflow o fake autorizado
+para demostrar deep link con RBAC, acuse, escalamiento, fallback y p95. Los veinte
+escenarios canónicos están en [notificaciones críticas](architecture/critical-alert-notifications.md#pruebas-de-aceptación). No se prueba contra un tenant real sin autorización.

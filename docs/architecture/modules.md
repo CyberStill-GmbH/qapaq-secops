@@ -69,6 +69,10 @@ sincronización ITSM, notificaciones y trazabilidad de ejecución. Acciones
 destructivas/de alto impacto requieren permisos específicos y aprobación explícita.
 Posee ejecuciones/aprobaciones/tickets; no modifica directamente incidentes ni
 configuración ajena. Su inclusión en alcance no habilita acciones reales ahora.
+ADR-022 incorpora al MVP la notificación `CRITICAL` por Teams como capacidad
+acotada: `soc` publica `NotificationRequested` después de persistir la alerta y
+el worker de `soar` aplica política y entrega. Esto no habilita el motor SOAR
+completo ni crea un módulo funcional adicional.
 
 ### 8. Antifraud Intelligence — antifraud
 

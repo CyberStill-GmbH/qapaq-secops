@@ -20,6 +20,10 @@ Estado: registro propuesto; prioridad cualitativa, sin aceptación de riesgos.
 - A-13 — Media: references numéricas de skills antiguas apuntan ahora a otro ADR. Mitigar consultando índice y título; esta entrega solo modifica docs/. Dueño: mantenimiento del harness. Cierre: actualización futura autorizada de referencias fuera de docs/.
 - A-14 — Alta: un mismo hecho directo y vía Wazuh duplica alertas o correlación. Política por dataset, nivel semántico, IDs estables y `relatedEventIds`; nunca deduplicar solo por timestamp/texto. Cierre: fixture de doble ruta en piloto.
 - A-15 — Alta: publicar SOC 24x7 sin guardia ni escalamiento deja SEV1 sin respuesta. Declarar `LIMITED PRODUCTION / 8x5` hasta aprobar calendario, contactos, autoridad, handoff y política laboral.
+- A-16 — Alta: Teams acepta, retrasa, duplica o pierde visibilidad de una tarjeta;
+  un secreto filtrado permite mensajes no autorizados. ADR-022 exige outbox,
+  idempotencia, payload minimizado, SecretProvider, owner alterno, métricas, acuse
+  en QAPAQ y fallback. Cierre: datos operacionales y 20 pruebas aprobadas.
 
 No usar migración a microservicios como mitigación automática. Primero medir
 aislamiento, capacidad y fallos reales; añadir distribución puede agravar A-12.
