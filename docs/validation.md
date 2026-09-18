@@ -7,7 +7,7 @@ Las fechas de decisión 2026-09-18 de U-001…U-007 y U-009…U-012 fueron aport
 ## Comprobaciones vigentes
 
 - Veintitrés ADR canónicos identificados por encabezado ADR-001…023. ADR-007,
-  ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021/023,
+  ADR-011, ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021/023,
   Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
@@ -197,3 +197,19 @@ secretos, CODEOWNERS, build-once, digest, SBOM, attestation, OIDC, aprobaciones,
 migraciones, health checks y rollback. CI/candidatos están autorizados; no se
 afirma que publicación o despliegue funcionen. Esas capacidades siguen bloqueadas
 hasta recibir el contrato de Infraestructura y superar los ocho escenarios.
+
+## Actualización por aceptación de U-010
+
+U-010/ADR-011 acepta `qapaq.security-event` 1.0.0 con JSON Schema Draft 2020-12
+como fuente normativa. La revisión confirmó separación entre `recordId` y
+`eventUid`, deduplicación conservadora, tiempos explícitos, taxonomía y severidad
+versionadas, raw separado con SHA-256, extensiones acotadas, cuarentena y evolución
+SemVer. ECS 9.5.0 y OCSF 1.9.0 se mantienen como perfiles de salida y no como
+afirmaciones automáticas de compatibilidad.
+
+Se contrastaron las versiones y mecanismos con fuentes oficiales de ECS, OCSF,
+JSON Schema, RFC 8785 y Wazuh. El flujo de ingesta, storage, integraciones,
+observabilidad, seguridad, threat model, pruebas, roadmap y CI/CD quedó alineado.
+Las vistas Mermaid 04 y 10 se actualizaron para mostrar SecurityEvent 1.0.0.
+La aceptación es documental: schema, mappings, corpus, pruebas de contrato,
+cuarentena/reproceso y reporte de cobertura siguen pendientes de implementación.
