@@ -2,16 +2,16 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001…U-007, U-009 y U-012 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-007 y U-009…U-012 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Veintidós ADR canónicos identificados por encabezado ADR-001…022. ADR-007,
-  ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021,
+- Veintitrés ADR canónicos identificados por encabezado ADR-001…023. ADR-007,
+  ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021/023,
   Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los veintidós ADR contienen Context, Decision, Alternatives, Consequences y
+- Los veintitrés ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
@@ -54,8 +54,8 @@ UNTIL FEDERATION TESTS PASS; la documentación no afirma tenant, licencias, app
 registration, Conditional Access, PIM o federación configurados.
 
 Se contrastaron Authorization Code/PKCE, PIM y criterios de sesión/autenticadores
-con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, veintiún
-ADRs y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
+con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, los ADR
+existentes en esa actualización y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
 deployment, roadmap e integraciones.
 
 ## Actualización por aceptación condicional de U-004
@@ -161,7 +161,7 @@ payload sensible, enlace profundo, owner huérfano, duplicados y falsa semántic
 `SENT`. La activación sigue bloqueada hasta cerrar cuatro datos operacionales y
 ejecutar los veinte escenarios; no se probó un tenant de Microsoft 365.
 
-La comprobación final encontró 71 archivos Markdown, 13 fuentes Mermaid y 22 ADR
+La comprobación final encontró 72 archivos Markdown, 13 fuentes Mermaid y 23 ADR
 canónicos. Los enlaces locales, fences, estructura de ADR-007/022 y `git diff --check
 -- docs` aprobaron. El verificador devolvió código 2 porque los seis checks de
 aplicación siguen `NOT_CONFIGURED`, resultado esperado para una entrega solo
@@ -182,3 +182,18 @@ crea alertas, incidentes ni SOAR directamente. La vista 02 se renderizó con
 Mermaid CLI y se inspeccionó después de retirar el contenedor. La revisión de
 seguridad cubrió ejecución arbitraria, egress, secretos, poisoning, supply chain,
 recursos y resultados no confiables.
+
+## Actualización por decisión parcial de U-011
+
+U-011/ADR-023 separa CI de PR, construcción de candidatos, publicación y
+despliegue. Se contrastó la decisión con el workflow observado: ya usa permisos
+base de lectura, `pull_request`, Actions por SHA, scanners y no publica; todavía
+descubre `package-lock.json`, instala con npm y ejecuta `npm audit`. Por ello la
+migración a `pnpm install --frozen-lockfile` y `pnpm audit` queda como trabajo de
+implementación junto con el workspace, sin crear un lockfile artificial.
+
+La revisión de seguridad cubrió PR no confiable, metadata, cachés, permisos,
+secretos, CODEOWNERS, build-once, digest, SBOM, attestation, OIDC, aprobaciones,
+migraciones, health checks y rollback. CI/candidatos están autorizados; no se
+afirma que publicación o despliegue funcionen. Esas capacidades siguen bloqueadas
+hasta recibir el contrato de Infraestructura y superar los ocho escenarios.
