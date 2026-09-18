@@ -1,16 +1,18 @@
 flowchart LR
-    EVENT["SecurityEvent normalizado"]
-    CTX["Contexto con version y calidad"]
-    SIMPLE["Deteccion simple"]
-    CAND["Candidatos"]
-    CORR["Correlacion temporal"]
-    COMP["Deteccion compuesta"]
-    RESULT["DetectionResult validado"]
-    ALERT["Alert idempotente"]
-    SOC["Triage / Incident / Case"]
-    EVENT --> SIMPLE --> CAND --> CORR --> COMP
-    EVENT --> CORR
-    CTX --> SIMPLE
-    CTX --> CORR
-    SIMPLE -->|regla directa| RESULT
-    COMP --> RESULT --> ALERT --> SOC
+    EVENT["Normalized Event"]
+    CTX["Threat Intelligence y contexto versionado"]
+    ENR["Enriched Event"]
+    ENGINE["Deteccion y correlacion"]
+    RESULT["Detection - resultado validado"]
+    CAND["Alert Candidate"]
+    QUALIFY["Enrichment y deduplicacion"]
+    ALERT["Alert"]
+    SOC["Incident or Case"]
+    RESPONSE["Response - SOAR autorizado"]
+    CLOSE["Resolution y Closure"]
+    EVENT --> ENR
+    CTX --> ENR
+    ENR --> ENGINE --> RESULT --> CAND --> QUALIFY
+    QUALIFY -->|si corresponde| ALERT
+    ALERT -->|si requiere investigacion| SOC
+    SOC --> RESPONSE --> CLOSE

@@ -1,6 +1,7 @@
 # Diagramas Mermaid
 
-Estado: diseño propuesto, no inventario ni topología desplegada. Flechas sólidas
+Límites y lifecycles aceptados por U-001/ADR-015; topología técnica propuesta,
+no inventario ni software desplegado. Flechas sólidas
 representan flujo/interacción; punteadas representan relación transversal u opción
 futura según etiqueta. Los módulos no son microservicios.
 
@@ -9,11 +10,12 @@ futura según etiqueta. Los módulos no son microservicios.
 3. [Arquitectura modular](03-modules.mmd): datos/contratos, no imports de internals; audit aplica también a acciones críticas no dibujadas.
 4. [Pipeline de ingesta](04-ingestion.mmd): aceptación durable distinta de procesamiento.
 5. [Autenticación/autorización](05-authentication-authorization.mmd): IdP/sesión propuestos, no configuración OIDC exacta.
-6. [Ciclo de incidente](06-incident-lifecycle.mmd): transiciones por validar con SOC.
+6. [Ciclo de incidente](06-incident-lifecycle.mmd): secuencia aceptada; guardas y excepciones siguen U-008.
 7. [Hot/Warm/Cold](07-storage-tiers.mmd): tiers lógicos; restore histórico puede ser asíncrono.
 8. [Adapters externos](08-integrations.mmd): puertos de aplicación, implementación en infraestructura.
 9. [Auditoría](09-audit.mmd): atomicidad local y archivo posterior.
-10. [Detección/correlación](10-detection-correlation.mmd): análisis e indexación independientes.
+10. [Detección/correlación](10-detection-correlation.mmd): promoción explícita Detection → Alert Candidate → Alert; en la primera vertical se indexa antes del análisis.
+11. [Ciclo de alerta](11-alert-lifecycle.mmd): secuencia aceptada por U-001, distinta del ciclo de incidente.
 
 Las fuentes .mmd son canónicas. Para cambiar un diagrama, contrastar
 [flujos](../architecture/data-flow.md), [seguridad](../architecture/security.md) y

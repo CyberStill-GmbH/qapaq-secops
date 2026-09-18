@@ -4,6 +4,10 @@ Fuente: solicitud de arquitectura de qapaq-secops del 2026-09-17 y restricción
 posterior «solo crea ahora la documentación en docs/». Esta última excluye crear
 el skeleton ejecutable. Estado: requisitos de entrada; implementación pendiente.
 
+La resolución posterior [U-001/ADR-015](adr/015-operational-scope-and-ownership.md)
+aprueba alcance objetivo integral SOC/respuesta/antifraude, módulos y ownership.
+Prevalece sobre la agrupación y vocabulario propuestos inicialmente.
+
 ## Requisitos trazables
 
 - R-01: plataforma SOC interna para Financiera Qapaq; mantenible por equipo pequeño, monolito modular sin microservicios iniciales. [Diseño](architecture/overview.md), ADR-001.
@@ -20,12 +24,15 @@ el skeleton ejecutable. Estado: requisitos de entrada; implementación pendiente
 - R-12: distinguir eventos, logs y auditoría; acciones críticas auditables y protección frente a manipulación. ADR-012.
 - R-13: SecretProvider y referencias a secretos, sin passwords/tokens/API keys en PostgreSQL. ADR-013.
 - R-14: distinguir Event, Alert, Incident, Case; ciclo de investigación y evidencia. [Módulos](architecture/modules.md).
-- R-15: preparación conceptual SOAR con permiso, aprobación, razón y auditoría; no SOAR completo. [Seguridad](architecture/security.md).
+- R-15: SOAR, Playbooks & Ticketing como módulo aprobado de entrega incremental, con permiso, aprobación explícita para alto impacto, razón y auditoría; no SOAR completo en esta tarea. [Seguridad](architecture/security.md).
 - R-16: vistas SOC y permisos frontend sin sustituir backend. [Contexto](architecture/system-context.md).
 - R-17: logs estructurados, métricas, health y correlación entre request/jobs. [Observabilidad](architecture/observability.md).
 - R-18: unit, integration, contract y E2E; fakes sin infraestructura real de Qapaq. [Pruebas](testing-strategy.md).
 - R-19: GitHub Actions con SAST/dependencias/secret scanning y contenedores si aplican; no Terraform. [Despliegue](deployment.md).
 - R-20: solo datos sintéticos, sin empleados, secretos, IP internas, dominios privados ni configuraciones reales.
+
+- R-21: Antifraud Intelligence aprobado, con reglas, permisos, entidades y vocabulario propios; reutiliza contratos de ingesta, correlación y casos. [U-001](decisions/unresolved.md).
+- R-22: primera vertical Wazuh/Windows authentication → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría; orden de construcción, no límite del alcance.
 
 ## Calidad y restricciones
 

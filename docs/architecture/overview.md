@@ -1,6 +1,8 @@
 # Arquitectura inicial de qapaq-secops
 
-Estado: PROPOSAL · Fecha: 2026-09-17 · Fuente: [requerimientos](../requirements.md).
+Alcance operacional ACCEPTED por [ADR-015](../adr/015-operational-scope-and-ownership.md),
+fecha de decisión aportada 2026-09-18. Realización técnica restante PROPOSAL.
+Fuente: [requerimientos](../requirements.md).
 
 ## ARCHITECTURE ASSESSMENT
 
@@ -12,10 +14,11 @@ representa infraestructura inventariada. ASSUMPTION: una organización operadora
 inicial, sin SaaS multitenant; se debe confirmar si hay segregación por equipos,
 filiales o unidades. No eliminar control por recurso aunque exista una sola entidad.
 
-### Decisiones propuestas
+### Base aceptada y decisiones técnicas propuestas
 
-Agrupar 24 responsabilidades en ocho módulos cohesivos y capacidades técnicas
-transversales. Separar control/data plane por casos de uso, permisos, jobs y
+U-001 acepta ocho módulos para SOC, respuesta e inteligencia antifraude, con
+ownership y vocabulario canónicos. Auditoría y observabilidad son capacidades
+transversales, no módulos de negocio. Separar control/data plane por casos de uso, permisos, jobs y
 presupuestos de recursos, no por una malla de servicios. Mantener PostgreSQL para
 estado operacional, Wazuh/Indexer para telemetría y object storage para raw/archivo.
 Usar BullMQ como ejecución recuperable, no como único registro de evidencia.
@@ -26,8 +29,8 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 
 ### Inconsistencias resueltas y trade-offs
 
-- Las dos pipelines del adjunto invierten detección/correlación. Se adopta normalización → enriquecimiento → detección de candidatos → correlación → detección compuesta → alertas; reglas simples pueden emitir alertas directamente. Sin ciclos automáticos de alertas hacia la misma ingesta.
-- Indexación ocurre en paralelo al análisis, con recuperación independiente. Que una alerta exista no garantiza que todos sus eventos ya sean buscables; la UI muestra cobertura/estado.
+- U-001 fija el lifecycle normalización → enriquecimiento → Detection → Alert Candidate → Alert → Incident or Case → Response → Resolution → Closure. Detección/correlación producen resultados; promoción de candidatos aplica enrichment/deduplicación. No todo resultado llega a alerta o incidente ni se realimenta automáticamente como evento nuevo.
+- La primera vertical aceptada indexa en OpenSearch antes de correlación determinista. Si el índice no está disponible, ese análisis espera mientras se preserva ingesta durable. Paralelismo posterior entre indexación/análisis es una opción técnica a decidir, no comportamiento inicial aprobado.
 - Preservar raw no significa exponerlo dentro de toda respuesta ni conservarlo para siempre. Se conserva evidencia original restringida durante la retención aprobada; derivados pueden estar redactados.
 - Consultar hot/warm/cold mediante un contrato común no significa igual latencia. Cold puede requerir un job de restauración y resultados parciales explícitos.
 - Wazuh Indexer y OpenSearch no implican dos clusters obligatorios. Se evalúa reutilización compatible antes de agregar otro motor.
@@ -44,18 +47,20 @@ Cada riesgo tiene tratamiento en [riesgos](risks.md) y [preguntas](../decisions/
 
 ### Simplificaciones
 
-No crear un módulo, cola o port por cada sustantivo. Un único ownership de reglas;
+Respetar los ocho módulos aceptados sin crear una cola o port por cada sustantivo.
+Reglas SOC y antifraude conservan sus propietarios explícitos;
 un solo catálogo de permisos; un solo contrato de eventos. Evitar paquete shared
 genérico, event sourcing global, CQRS framework obligatorio, bus distribuido,
 service mesh, data lake de consulta interactiva y SOAR completo.
 
 ## PROPOSED ARCHITECTURE
 
-React consume solo la API NestJS. Ocho módulos: access, assets, connectors,
-telemetry, detection, soc, audit y workspace. La composición conecta adapters
-con ports de aplicación. Dependencias de vendors viven fuera de dominio.
-Health/observability, SecretProvider y colas son capacidades técnicas, no dominios
-de negocio independientes.
+React consume solo la API NestJS. Ocho módulos aceptados: Identity, Access &
+Policy; Integrations & Collectors; Telemetry Ingestion & Processing; Detection &
+Correlation; Threat Intelligence; Alerts, Incidents & Cases; SOAR, Playbooks &
+Ticketing; Antifraud Intelligence. La composición conecta adapters con ports.
+Auditoría, health/observability, secretos y configuración son capacidades
+transversales, no dominios de negocio independientes.
 
 El control plane gestiona acceso, configuraciones, reglas, casos y auditoría. El
 data plane ingiere, normaliza, enriquece, detecta e indexa. PostgreSQL registra estado
@@ -80,12 +85,12 @@ Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 
 ## IMPLEMENTATION PLAN
 
-1. Validar preguntas que bloquean identidad, permisos, retención y fuente piloto.
+1. Resolver detalles técnicos de identidad, permisos, retención y Wazuh/Windows; U-001 ya está aceptada y no depende de un piloto.
 2. Crear base NestJS/React y gates de calidad en una tarea posterior.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
-4. Vertical pequeña: fuente piloto de lectura → raw durable → eventos normalizados → búsqueda/alerta → incidente.
-5. Incorporar restauración histórica, fuentes adicionales y correlación según evidencia.
-6. Evaluar Python y automatización controlada después de medir necesidades.
+4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.
+5. Continuar con MISP, nuevas fuentes, playbooks dry-run y respuestas aprobadas.
+6. Incorporar ticketing/notificaciones, antifraude y análisis Python en ese orden; los detalles técnicos se validan sin reducir el alcance aceptado.
 
 Cada etapa tiene condiciones de salida en [roadmap](../roadmap.md). La extracción
 futura exige saturación medida o aislamiento necesario, contratos estables, dueño

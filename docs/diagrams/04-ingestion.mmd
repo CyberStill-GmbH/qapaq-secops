@@ -1,23 +1,21 @@
 flowchart TB
-    SOURCE["Fuente"]
-    COL["Collector y cursor no adelantado"]
+    SOURCE["Primera fuente - autenticacion Windows via Wazuh"]
+    COL["Collector - checkpoint no adelantado"]
     ING["Ingestion - validacion y limites"]
     RAW[("Raw durable y digest")]
-    MAN["Manifiesto de lote + outbox PostgreSQL"]
-    ACK["Recibo - checkpoint de fuente"]
-    QUEUE["Dispatcher - BullMQ"]
-    PARSE["Parser"]
-    NORM["Normalizer - schema versionado"]
-    ENR["Enrichment con calidad y procedencia"]
-    ANA["Deteccion y correlacion"]
-    IDX["Indexacion independiente"]
-    SOC["Alerta y workflow SOC"]
+    MAN["Manifiesto de lote y outbox"]
+    ACK["Recibo durable y checkpoint"]
+    QUEUE["BullMQ - propuesta tecnica"]
+    NORM["Parsing y normalizacion"]
+    IDX["OpenSearch - primera vertical"]
+    ANA["Correlacion determinista y Detection"]
+    CAND["Alert Candidate - enrichment y deduplicacion"]
+    ALERT["Alert y triaje"]
+    SOC["Incident y auditoria"]
     BAD["Cuarentena y replay autorizado"]
     SOURCE --> COL --> ING --> RAW --> MAN
     MAN --> ACK
-    MAN --> QUEUE --> PARSE --> NORM --> ENR
-    ENR --> ANA --> SOC
-    ENR --> IDX
-    PARSE -->|fallo permanente| BAD
-    NORM -->|schema invalido| BAD
+    MAN --> QUEUE --> NORM --> IDX --> ANA --> CAND
+    CAND -->|promocion si corresponde| ALERT --> SOC
+    NORM -->|fallo permanente| BAD
     QUEUE -->|intentos agotados| BAD

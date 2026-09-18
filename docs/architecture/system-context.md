@@ -10,7 +10,9 @@ autorizada; administradores de plataforma operan dependencias sin obtener por
 defecto acceso a toda evidencia. Infraestructura provisiona redes, almacenamiento,
 identidad técnica y backups conforme a requisitos acordados.
 
-Los nombres de roles son plantillas de diseño, no usuarios ni asignaciones reales.
+Riesgos/Antifraude gobierna reglas, criterios, casos y decisiones antifraude según
+U-001; usa capacidades compartidas sin perder su ownership. Los nombres de roles
+son plantillas de diseño, no usuarios ni asignaciones reales.
 Financiera Qapaq es la organización destinataria; no hay datos personales en estos
 documentos.
 
@@ -41,7 +43,8 @@ es preferible a credenciales locales; su selección está pendiente.
 ## Frontend SOC
 
 Vistas previstas: resumen operativo, alertas, incidentes, casos, activos, usuarios,
-integraciones, detecciones/reglas, inteligencia, reportes, auditoría y configuración.
+integraciones, detecciones/reglas, inteligencia, playbooks/tickets, antifraude,
+reportes, auditoría y configuración.
 Las capacidades efectivas determinan navegación y acciones; backend revalida cada
 solicitud. Mostrar estados desactualizado, parcial, restaurando y degradado; nunca
 traducir «fuente desconectada» a «cero amenazas».

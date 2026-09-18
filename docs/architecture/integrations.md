@@ -11,9 +11,10 @@ login con importación de eventos. SecurityEventProvider entrega lotes/cursor y
 semántica de replay. EndpointSecurityProvider entrega inventario/estado/señales;
 NetworkSecurityProvider entrega señales de red. No incluyen remediación por defecto.
 
-ThreatIntelligenceProvider obtiene indicadores/contexto con procedencia y vigencia;
+ThreatIntelligenceProvider pertenece a Threat Intelligence y obtiene indicadores/
+contexto con procedencia y vigencia;
 SIEMProvider consulta señales/reglas referenciadas/salud disponibles. SecretProvider
-resuelve una referencia con privilegio técnico acotado. NotificationProvider envía
+resuelve una referencia con privilegio técnico acotado. NotificationProvider es consumido por SOAR, Playbooks & Ticketing y envía
 un mensaje mínimo a un destino previamente aprobado, sin incluir raw por defecto.
 Estos nombres representan contratos conceptuales; crear una interfaz ejecutable
 solo cuando exista consumidor y adapter concreto.
@@ -78,7 +79,7 @@ pérdida posible de UDP, framing, timestamps, autenticación y duplicación entr
 Wazuh y collector directo. Elegir una ruta primaria por dataset y registrar
 procedencia de duplicados, sin deduplicar señales distintas por parecido.
 
-### MISP futuro
+### MISP — siguiente vertical de Threat Intelligence
 
 ThreatIntelligenceProvider encapsula consulta/ingesta IOC, reputación y contexto.
 Mantener distribución, clasificación, expiración, confidence de origen y permisos

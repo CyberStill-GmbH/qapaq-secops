@@ -1,23 +1,27 @@
 flowchart LR
-    ACCESS["access - identidad y capacidades"]
-    ASSETS["assets - contexto de activos"]
-    CONNECT["connectors - fuentes"]
-    TEL["telemetry - ingesta y ciclo de datos"]
-    DET["detection - reglas y correlacion"]
-    SOC["soc - alertas incidentes casos"]
-    AUDIT["audit - registro durable"]
-    WORK["workspace - vistas reportes avisos"]
-    CONNECT -->|lotes| TEL
-    ASSETS -->|contexto publico| TEL
-    TEL -->|SecurityEvent versionado| DET
-    DET -->|resultados| SOC
-    SOC -->|hechos para proyecciones| WORK
-    ACCESS -.->|politica de acceso| SOC
-    ACCESS -.->|politica de acceso| TEL
-    ACCESS -.->|politica de acceso| CONNECT
-    SOC -.->|auditoria| AUDIT
-    CONNECT -.->|auditoria| AUDIT
-    DET -.->|auditoria| AUDIT
-    TEL -.->|auditoria| AUDIT
-    WORK -.->|auditoria| AUDIT
-    ACCESS -.->|auditoria| AUDIT
+    ACCESS["Identity Access and Policy"]
+    CONNECT["Integrations and Collectors"]
+    TEL["Telemetry Ingestion and Processing"]
+    DET["Detection and Correlation"]
+    TI["Threat Intelligence"]
+    SOC["Alerts Incidents and Cases"]
+    SOAR["SOAR Playbooks and Ticketing"]
+    FRAUD["Antifraud Intelligence"]
+    CROSS["Capacidades transversales - audit y observabilidad"]
+    CONNECT -->|lotes autorizados| TEL
+    TI -->|contexto e indicadores| TEL
+    TI -->|IOC vigentes| DET
+    TEL -->|eventos normalizados| DET
+    DET -->|Detection y Alert Candidate| SOC
+    SOC -->|respuesta solicitada| SOAR
+    SOAR -->|resultado por contrato publico| SOC
+    TEL -->|senales permitidas| FRAUD
+    FRAUD -->|capacidades compartidas| DET
+    FRAUD -->|alertas y casos autorizados| SOC
+    ACCESS -.->|politica| TEL
+    ACCESS -.->|politica| SOC
+    ACCESS -.->|politica| SOAR
+    ACCESS -.->|politica| FRAUD
+    SOC -.-> CROSS
+    SOAR -.-> CROSS
+    FRAUD -.-> CROSS

@@ -1,6 +1,7 @@
 # qapaq-secops — arquitectura inicial
 
-Fecha: 2026-09-17. Estado: diseño documental para revisión; no implementación.
+Arquitectura documental: U-001/ADR-015 aceptados con fecha de decisión aportada
+2026-09-18; los detalles técnicos restantes siguen en revisión. Sin implementación.
 
 Esta entrega modifica únicamente `docs/`. La estructura de aplicaciones,
 contratos y controles descritos es propuesta, no software existente. No se han
@@ -31,7 +32,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
 - [Threat model](threat-model.md).
-- [Diez diagramas Mermaid](diagrams/README.md).
+- [Diagramas Mermaid de arquitectura y lifecycles](diagrams/README.md).
 - [Plan por etapas](roadmap.md), [operación y despliegue](deployment.md), [runbooks](runbooks.md).
 - [Fuentes primarias consultadas](references.md).
 - [Verificador existente](verification.md) y [validación documental](validation.md).
@@ -45,10 +46,12 @@ justificada; object storage abstraído. Son requisitos aportados, no instalacion
 observadas. La solicitud informa uso de Microsoft 365, Cato y Sophos; no aporta
 inventario, ediciones, credenciales, licencias ni disponibilidad de APIs.
 
-PROPOSAL: límites concretos, flujos, schemas, agrupación de módulos, política de
-sesiones y estrategias de almacenamiento presentados aquí. Todos los ADR quedan
-`Proposed`: documentar una recomendación no equivale a aceptación organizacional.
-DECISION se reservará para un ADR Accepted con responsable y evidencia.
+DECISION: U-001 y [ADR-015](adr/015-operational-scope-and-ownership.md) aceptan
+alcance, ocho módulos, ownership, vocabulario, lifecycles y orden inicial por
+instrucción explícita del usuario. SOC, SOAR y Antifraude integran el alcance
+objetivo; la primera vertical no lo limita ni condiciona esta aceptación.
+PROPOSAL: schemas, transportes, sesiones, retención y demás detalles técnicos de
+ADR-001…014. No se aceptan en bloque por resolver U-001.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 

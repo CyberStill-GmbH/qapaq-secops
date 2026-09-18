@@ -1,6 +1,8 @@
 # Auditoría y cadena de custodia
 
-Estado: PROPOSAL · [ADR-012](../adr/012-audit-trail.md).
+Auditoría transversal aceptada en [ADR-015](../adr/015-operational-scope-and-ownership.md);
+la estrategia técnica permanece PROPOSAL en [ADR-012](../adr/012-audit-trail.md).
+No es un módulo de negocio independiente; cada módulo produce sus registros.
 
 ## Tres conceptos
 

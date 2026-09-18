@@ -1,6 +1,8 @@
 # Estructura propuesta del repositorio
 
-Estado: PROPOSAL; representación documental. No se crean estas carpetas en esta tarea.
+Estructura técnica PROPOSAL, alineada con los ocho módulos aprobados en
+[ADR-015](../adr/015-operational-scope-and-ownership.md). No se crean carpetas de
+aplicación en esta tarea.
 
 ```text
 qapaq-secops/
@@ -12,13 +14,14 @@ qapaq-secops/
       src/
         modules/
           access/
-          assets/
           connectors/
           telemetry/
           detection/
           soc/
-          audit/
-          workspace/
+          threat-intelligence/
+          soar/
+          antifraud/
+        platform/               # capacidades transversales, no dominio compartido
         bootstrap/              # composición, HTTP y ciclo de vida de workers
       test/
     web/

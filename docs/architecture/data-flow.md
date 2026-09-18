@@ -23,16 +23,19 @@ Fuentes sin replay ni ACK fiable, como Syslog UDP, no permiten prometer cero pé
 priorizar un transporte fiable o collector con spool durable gestionado; registrar
 la limitación y medir gaps. No introducir ese collector sin decisión operacional.
 
-## Indexación y análisis
+## Indexación y análisis de la primera vertical
 
-Evento normalizado válido genera tareas idempotentes de indexación y análisis,
-con estado recuperable por lote/stage. Análisis no espera al índice hot. Enrichment
+En la primera vertical aceptada por ADR-015, el evento normalizado se indexa en
+OpenSearch antes de correlación determinista. Las tareas conservan estado
+recuperable por lote/stage; si el índice falla, ese análisis espera sin perder raw.
+Desacoplar ambas rutas después es propuesta técnica que necesita decisión explícita. Enrichment
 no esencial puede degradar con estado incomplete y versión de contexto; reglas que
 requieren ese dato quedan pendientes o emiten cobertura insuficiente, no un negativo.
 
 Detection evalúa reglas simples y crea candidatos. Correlation agrupa eventos o
-candidatos por ventanas y claves autorizadas. Una detección compuesta produce una
-alerta; reglas simples también pueden hacerlo. soc persiste alertas idempotentes
+candidatos por ventanas y claves autorizadas. Tanto reglas simples como compuestas producen Detection; su
+Alert Candidate recibe enrichment/deduplicación antes de promoverse a Alert. No
+toda detección se promueve. soc persiste alertas idempotentes
 por origen, versión de regla y conjunto/ventana estable. No basar claves en tiempo
 de ejecución ni deduplicar eventos distintos con el mismo mensaje.
 
@@ -74,7 +77,7 @@ o mediante idempotency key, nunca repitiendo una remediación a ciegas.
 
 Caída entre raw/manifiesto, entre commit/publicación, entre efecto/ack; duplicados
 concurrentes; pérdida de Redis; schema venenoso; disco lleno; source cursor vencido;
-índice no disponible y alerta visible con evidencia pendiente; replay sin side
+índice no disponible con correlación de primera vertical pendiente; replay sin side
 effects no autorizados. [Estrategia](../testing-strategy.md).
 
 [Ingesta](../diagrams/04-ingestion.mmd) ·

@@ -24,8 +24,11 @@ cuentan. shared no permite evadir ownership.
 
 Contratos de colaboración evitan ciclos: access evalúa capabilities, no depende
 de soc; el caso de uso soc combina esa evaluación con sus reglas del recurso.
-audit recibe registros, no llama de vuelta a módulos para reconstruir snapshots.
-workspace consume consultas/proyecciones, no obliga a productores a depender de UI.
+La capacidad transversal de auditoría recibe registros y no llama de vuelta a
+módulos para reconstruir snapshots. Dashboards/reporting consumen consultas y
+proyecciones públicas. soar posee notificaciones/ticketing; antifraud comparte
+capacidades mediante contratos, no mediante repositorios internos de soc.
+threat-intelligence posee indicadores; detection consume su contexto público.
 
 Para consultas inmediatas, llamada síncrona tipada; para side effects recuperables,
 outbox con evento versionado. Eventos no cargan entidades ORM ni secretos. No usar

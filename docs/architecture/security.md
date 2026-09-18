@@ -58,15 +58,16 @@ Integraciones pueden necesitar direcciones privadas legítimas; la defensa SSRF
 es allowlist por destino/operación y control de egress, no bloquear toda IP privada.
 Bloquear destinos no autorizados y cambios por redirección/DNS que evadan política.
 
-## Operaciones críticas y SOAR futuro
+## Operaciones críticas y SOAR de implementación incremental
 
 Activar reglas, cambiar retención, exportar evidencia, cambiar RBAC y configuraciones
 requiere razón y auditoría durable. Proponer doble control para asignaciones
 privilegiadas, purga/hold y futuras acciones destructivas; el catálogo concreto
 queda pendiente, sin frenar acciones ordinarias ya autorizadas.
 
-Límite futuro: PlaybookVersion, Trigger, ActionDefinition, Execution y Approval.
-No motor de ejecución ahora. Una ejecución fija versión, targets, parámetros,
+SOAR, Playbooks & Ticketing es un módulo de alcance aceptado por ADR-015.
+PlaybookVersion, Trigger, ActionDefinition, Execution y Approval son contratos
+técnicos propuestos para ese límite; no se implementa motor en esta tarea. Una ejecución fija versión, targets, parámetros,
 capability, razón y aprobación con caducidad; se reautoriza antes de la acción.
 Separar leer alertas de aislar un endpoint. Timeout tras acción externa puede
 significar resultado UNKNOWN; no reintentar una acción destructiva ciegamente.
