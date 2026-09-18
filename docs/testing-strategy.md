@@ -127,6 +127,29 @@ Contract tests verifican manifest de release y migraciones; una prueba de stagin
 usa el destino real autorizado. Hasta entonces publicación y despliegue siguen
 bloqueados aunque CI y build funcionen.
 
+## Gate U-010 — SecurityEvent
+
+U-010 se cierra técnicamente cuando la implementación demuestra sus doce criterios:
+
+1. JSON Schema Draft 2020-12 ejecutable para `qapaq.security-event` 1.0.0.
+2. Diccionario de campos y taxonomía versionados.
+3. Mapping `wazuh.alerts.severity/1.0.0` probado con corpus autorizado.
+4. Un mapping piloto adicional probado sin reutilizar escalas de otro proveedor.
+5. Corpus sintético con los escenarios canónicos de ADR-011.
+6. Contract tests de productores y consumidores en CI.
+7. Replay que conserva `eventUid`, renueva `recordId` y no duplica efectos.
+8. Cuarentena/DLQ y reproceso con lineage y versiones.
+9. Verificación de existencia y SHA-256 del raw.
+10. Reporte de cobertura de perfiles ECS 9.5.0 y OCSF 1.9.0.
+11. Rechazo de declaraciones de compatibilidad sin validación del perfil.
+12. Aprobación conjunta de SOC/Desarrollo y Seguridad.
+
+El corpus incluye eventos válidos y límites: Wazuh alerta/raw, autenticación M365,
+alerta de identidad/correo, Cato, Sophos, finding, identidad sin ID nativo, replay,
+lookalikes legítimos, tiempo ambiguo/tardío, extensión desconocida, exceso de
+tamaño, secreto, JSON malformado, hash inválido y cambio de versión. Pruebas de
+ejemplo no sustituyen muestras autorizadas de los pilotos.
+
 ## SOAR y Antifraude
 
 Probar dry-run sin efectos externos, aprobación ligada a versión/targets/parámetros,

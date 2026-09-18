@@ -19,7 +19,7 @@ frontera suficiente para confiar.
 
 - T-01 — Spoofing: token mal validado o sesión revocada conserva acceso. ADR-017 fija tenant explícito, validación OIDC, sesión BFF, revocación/versionado y cuentas técnicas separadas. Probar los 27 escenarios antes de producción; residual: compromiso/configuración del IdP.
 - T-02 — Elevación: usuario cambia ID de case, campo de rol o asignaciones para leer/exportar o autoescalar. Capabilities + scope + objeto/campo + JIT, step-up y doble control privilegiado. Residual: implementación o matriz defectuosa; gate ADR-017 pendiente.
-- T-03 — Tampering: payload vendor modifica reglas, ejecuta comandos o inyecta HTML/SQL. Validación runtime, normalización, escape, consultas parametrizadas y sin eval/shell interpolado. Probar fixtures maliciosos; residual: parser/SDK vulnerable.
+- T-03 — Tampering: payload vendor modifica reglas, ejecuta comandos o inyecta HTML/SQL. JSON Schema normativo, extensiones acotadas, cuarentena, escape, consultas parametrizadas y sin eval/shell interpolado. Probar fixtures maliciosos y hashes raw inválidos; residual: parser/SDK vulnerable.
 - T-04 — SSRF/exfiltración: conector o nextLink apunta a destino no autorizado y arrastra token. Allowlist por proveedor, validar redirect/DNS y egress, no URLs arbitrarias. Probar destino alternativo; residual: host permitido comprometido.
 - T-05 — Disclosure: raw/token/PII en logs, API, export o métrica. DTO allowlist,
   SecretProvider, redacción, métricas sin labels de alta cardinalidad y permisos
@@ -31,7 +31,7 @@ frontera suficiente para confiar.
   Probar los 24 escenarios; residual: colusión o compromiso simultáneo de datos,
   archive y signing service.
 - T-07 — DoS: búsqueda amplia, restore cold, payload comprimido o fuente ruidosa agota recursos. ADR-020 añade modos, backpressure GREEN…RED, 2× carga y drenaje medido; residual: targets provisionales hasta benchmark.
-- T-08 — Integridad: retries/replay generan alertas o respuestas duplicadas; mensajes se pierden entre stores. IDs estables, outbox/inbox, manifiestos y reconciliación; inyectar caídas. Residual: origen sin replay/ACK fiable.
+- T-08 — Integridad: retries/replay generan alertas o respuestas duplicadas; mensajes se pierden entre stores. `eventUid` estable, `recordId` por recepción, descarte solo con identidad confiable, outbox/inbox, manifiestos y reconciliación; inyectar caídas. Residual: origen sin replay/ACK fiable o identidad derivada de baja confianza.
 - T-09 — Retención: TTL provisional, restore o hold incompleto elimina o revive evidencia. ADR-018 bloquea borrado automático y exige manifests, WORM selectivo, dry-run, deletion ledger, purge receipts y 20 pruebas. Residual: matriz legal y capacidades del proveedor sin ratificar.
 - T-10 — Supply chain: workflow de PR, metadata, caché o dependencia roba secretos, modifica el repo o publica un artifact. ADR-023 separa confianza: `pull_request`, permisos mínimos, sin secretos/publicación, Actions por SHA, CODEOWNERS, scanners, build-once, digest/SBOM/attestation y OIDC futuro acotado por ambiente. Residual: compromiso de proveedor/toolchain o configuración incorrecta; demostrar los ocho escenarios.
 - T-11 — SOAR futuro: ejecución peligrosa se repite o aprobación se reutiliza con otros targets. Plan versionado y acotado, aprobación vinculada a parámetros, reautorización, idempotencia y resultado unknown. Residual: API externa sin garantías; no habilitar en MVP.

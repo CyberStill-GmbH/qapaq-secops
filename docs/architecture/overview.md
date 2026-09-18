@@ -51,7 +51,7 @@ U-009 acepta objetivos provisionales de continuidad, clases C1…C4, modos
 degradados, recovery, error budgets y soporte. El software puede operar 24x7; sin
 guardia SEV1 formal, el servicio humano se declara `LIMITED PRODUCTION / 8x5`.
 
-Proponer SecurityEvent propio, pequeño y versionado, con semántica inspirada en
+Usar SecurityEvent propio, pequeño y versionado, con semántica contrastada con
 ECS y un mapeo explícito evaluable hacia OCSF. No afirmar conformidad con ninguno.
 Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de diseño.
 

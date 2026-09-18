@@ -12,7 +12,11 @@ Estado: registro propuesto; prioridad cualitativa, sin aceptación de riesgos.
   escenarios U-006 y registrar custodios, WORM, firma, canales y runbooks.
 - A-06 — Media/alta: compatibilidad Wazuh Indexer/carga compartida obliga duplicación de infraestructura. Inventariar versiones, capacidad y soporte; read-only primero. Platform. Cierre: prueba del port y presupuesto de carga. U-005.
 - A-07 — Media/alta: APIs/licencias/rate limits impiden fuentes prometidas. Inventario `TO_BE_PROVIDED` y Pilot A/B; no marcar enabled sin validar. Dueño de proveedor/SOC. Cierre: 15 escenarios ADR-019 y evidencia de cursor/cobertura.
-- A-08 — Media: modelo propio deriva en schema ad hoc y mappings rotos. Mantener núcleo, diccionario/versionado y corpus ECS/OCSF. Desarrollo/SOC. Cierre: fixtures de tres clases representativas y estrategia de evolución. U-010.
+- A-08 — Media: el contrato propio se implementa distinto entre productores,
+  consumidores o mappings. ADR-011 fija JSON Schema 2020-12, SemVer, corpus,
+  cuarentena, identidad prudente y perfiles ECS 9.5.0/OCSF 1.9.0. Desarrollo/SOC.
+  Cierre: completar los doce criterios de U-010, incluido mapping Wazuh y otro
+  piloto, replay, integridad raw y reporte de cobertura.
 - A-09 — Media: ocho módulos derivan en monolito acoplado o en burocracia de ports. Ownership e imports comprobados; extraer solo por necesidad. Arquitectura. Cierre: vertical sin imports internos cruzados y revisión de límites.
 - A-10 — Media: activar Python sin valor probado introduce segundo runtime y contratos incompatibles. U-007 lo mantiene dormante hasta caso real, baseline, schemas, fixtures, benchmark y 18 pruebas. Desarrollo/Platform. Cierre: valor medido frente a TypeScript/Wazuh/OpenSearch.
 - A-11 — Alta: consultas cold/exports se usan para exfiltrar o agotar recursos. ADR-017 acepta capability/scope/step-up y ADR-018 manifest, cifrado, expiración y custodia. Seguridad/Platform. Cierre: pruebas de acceso/revocación/cancelación/coste y expiración.

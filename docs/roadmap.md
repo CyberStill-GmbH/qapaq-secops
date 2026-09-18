@@ -12,8 +12,8 @@ para cerrar U-001. Las etapas siguientes ordenan construcción, no reducen alcan
 
 ## Preparación técnica
 
-Resolver detalles que bloqueen la primera vertical: contratos Wazuh/Windows,
-schema y auditoría. Identidad/scopes están aceptados por U-003, pero su gate de
+Materializar `qapaq.security-event` 1.0.0, su JSON Schema Draft 2020-12, catálogos,
+mapping Wazuh probado y corpus mínimo aplicable según U-010. Identidad/scopes están aceptados por U-003, pero su gate de
 federación sigue bloqueando endpoints productivos. Versiones/toolchain/límites ya
 están aceptados por U-002; la capacidad sigue pendiente de benchmark. U-004 acepta
 la baseline de retención, pero Legal/Compliance deben ratificarla antes del TTL
@@ -31,7 +31,7 @@ No generar ocho módulos vacíos por completar el árbol.
 
 ## Primera vertical aceptada
 
-Wazuh/Windows authentication event → ingestion → normalization → OpenSearch →
+Wazuh/Windows authentication event → ingestion → SecurityEvent 1.0.0 validado → OpenSearch →
 deterministic correlation → alert → notificación crítica por Teams → triage →
 incident → audit.
 

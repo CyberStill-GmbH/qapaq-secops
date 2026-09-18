@@ -52,6 +52,11 @@ Toda PR ejecutará, como mínimo:
 - dependency review y `pnpm audit`;
 - validación de migraciones y workflows.
 
+Cuando se implemente U-010, CI valida el JSON Schema 2020-12, ejemplos válidos e
+inválidos, corpus compartido, compatibilidad SemVer y mappings versionados. También
+impide declarar compatibilidad ECS/OCSF si el perfil y su reporte de cobertura no
+se validan. El schema normativo y sus artefactos derivados deben cambiar juntos.
+
 Los workflows de PR usan `pull_request`, `permissions: contents: read` como base,
 sin secretos ni identidades de despliegue. No publican ni despliegan, no comparten
 caché con procesos privilegiados y fijan Actions externas a SHA completo. Títulos,

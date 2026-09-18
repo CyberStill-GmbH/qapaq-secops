@@ -50,6 +50,11 @@ connector_records_duplicate_total
 connector_checkpoint_age_seconds
 connector_ingestion_lag_seconds
 connector_gap_detected_total
+security_events_normalized_total
+security_events_quarantined_total
+security_event_schema_validation_failed_total
+security_event_unclassified_total
+security_event_raw_integrity_failed_total
 queue_depth
 queue_oldest_job_age_seconds
 worker_job_duration_seconds
@@ -90,7 +95,7 @@ Python en el MVP.
 
 No usar como labels: user/email/IP, incident/alert/event/request/session ID,
 hostname individual, texto libre de error ni URL con parámetros. Fuente, entorno,
-versión y código de error usan vocabularios acotados. Dashboards muestran cobertura,
+versión de schema/mapping y código de error usan vocabularios acotados. Dashboards muestran cobertura,
 gaps, freshness y última recolección exitosa; cero alertas no implica fuente sana.
 
 ## Logs

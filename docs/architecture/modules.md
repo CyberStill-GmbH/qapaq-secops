@@ -113,7 +113,8 @@ define requisitos de conservación, acceso, evidencia y trazabilidad. Detalle en
 ## Vocabulario canónico aceptado
 
 - Raw Event: evento recibido sin normalizar.
-- Normalized Event: evento validado/adaptado al esquema canónico; SecurityEvent es el contrato técnico propuesto para representarlo.
+- Normalized Event: evento validado/adaptado al contrato canónico aceptado
+  `qapaq.security-event` 1.0.0; conserva referencia a raw y lineage.
 - Detection: resultado de una regla; DetectionResult es su contrato técnico propuesto.
 - Alert Candidate: detección pendiente de enrichment y deduplicación.
 - Alert: señal accionable disponible para triaje.

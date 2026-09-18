@@ -56,6 +56,12 @@ controlada, encoding contextual en UI. Prohibir eval, pickle y shell interpolado
 Raw se muestra como texto escapado o descarga segura; no ejecutar adjuntos.
 No incorporar datos reales a fixtures ni enviar payloads a servicios no autorizados.
 
+SecurityEvent se valida contra el schema normativo antes de indexar o exportar.
+Campos desconocidos solo entran en `extensions.<vendor>` con límites; secretos se
+redactan del derivado sin alterar raw bajo custodia. `raw.ref` y `raw.sha256` se
+verifican antes de afirmar integridad. Un fallo lleva a cuarentena reprocesable y
+queda auditable; nunca se interpreta el payload como instrucciones.
+
 Integraciones pueden necesitar direcciones privadas legítimas; la defensa SSRF
 es allowlist por destino/operación y control de egress, no bloquear toda IP privada.
 Bloquear destinos no autorizados y cambios por redirección/DNS que evadan política.

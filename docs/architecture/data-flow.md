@@ -17,7 +17,10 @@ revierte ni duplica la alerta. Detalle en
 3. Tras confirmar escritura durable según contrato del store, registra manifiesto de lote y outbox de procesamiento en PostgreSQL. Es metadata por lote, no telemetría masiva.
 4. Devuelve recibo de aceptación; connectors persiste el checkpoint. Si cae antes del checkpoint, se repite el lote y la clave de admisión evita duplicar efectos.
 5. Dispatcher publica referencias pequeñas en BullMQ y marca progreso. Si publica y cae antes de marcar, puede publicar otra vez; consumidor idempotente.
-6. Parser, normalizer y enrichment validan contratos; fallos permanentes se ponen en cuarentena conservando raw/reason. Un lote parcialmente inválido identifica registros fallidos, no descarta los válidos silenciosamente.
+6. Parser y normalizer producen `qapaq.security-event` 1.0.0 y validan su JSON
+   Schema; antes de indexar y exportar se vuelve a validar. Un fallo conserva raw,
+   código, conector y versión del parser en cuarentena/DLQ reprocesable. Un lote
+   parcialmente inválido identifica registros fallidos y no descarta los válidos.
 
 Object storage y PostgreSQL no tienen transacción distribuida: una escritura raw
 sin manifiesto queda huérfana. Un reconciliador la detecta por sesión de admisión,
@@ -54,8 +57,9 @@ toda detección se promueve. soc persiste alertas idempotentes
 por origen, versión de regla y conjunto/ventana estable. No basar claves en tiempo
 de ejecución ni deduplicar eventos distintos con el mismo mensaje.
 
-Raw y evento normalizado son inmutables por versión. Reprocesar con parser/regla
-nueva genera una versión derivada con lineage; replay tiene modo explícito para
+Raw y SecurityEvent son inmutables por versión. Reprocesar con parser/mapping/regla
+nueva genera una revisión derivada con lineage; conserva `eventUid` y crea un
+`recordId` UUIDv7 nuevo. Replay tiene modo explícito para
 evitar abrir incidentes o notificar masivamente sin autorización.
 
 ## Reintentos, cola y fallos

@@ -114,6 +114,12 @@ pruebas sintéticas y prueba autorizada controlada. Estado: planned → configur
 validated → enabled; degradado/paused con motivo y auditoría. Nunca enabled solo
 porque el SDK importa.
 
+Cada dataset documenta los componentes de `eventUid`, su `eventUidType` y
+`dedupConfidence`; solo un ID nativo o cursor estable permite descarte automático.
+El dueño de la fuente aprueba su mapping a SecurityEvent y conserva valor/escala
+originales. El mapping Wazuh inicial es `wazuh.alerts.severity/1.0.0`; requiere
+corpus aprobado y no se reutiliza para Microsoft, Cato o Sophos.
+
 Pilot A valida Wazuh; Pilot B valida un dataset directo Microsoft y correlación
 multifuente. Sophos y Cato se incorporan después de demostrar el contrato común.
 

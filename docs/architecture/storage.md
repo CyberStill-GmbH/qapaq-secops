@@ -32,6 +32,12 @@ temporales, con permisos y ciclos de vida separados. Azure Blob y S3 compatible
 son adapters posibles; capacidades de WORM, versionado, cifrado y restore no se
 asumen iguales entre proveedores.
 
+SecurityEvent contiene `raw.ref`, `raw.sha256`, `raw.mediaType` y `raw.sizeBytes`,
+no los bytes originales. Acceso/exportación de raw exige autorización y auditoría;
+hash inválido o objeto ausente impide afirmar integridad. Secretos se redactan del
+derivado antes de indexarlo sin alterar la evidencia restringida. Wazuh archives
+permanece deshabilitado por defecto hasta una decisión de Infraestructura/U-004.
+
 ADR-021 exige para audit batches un destino separado con WORM, manifests firmados,
 checksum verificado después de lectura y custodia de llaves externa a QAPAQ. La
 marca `ARCHIVED` solo aparece tras verificar el objeto; el producto/proveedor sigue
