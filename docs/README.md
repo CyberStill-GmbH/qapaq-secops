@@ -1,8 +1,9 @@
 # qapaq-secops — arquitectura inicial
 
-Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados
-con fecha de decisión aportada 2026-09-18. Capacidad pendiente de medición e
-identidad bloqueada operacionalmente hasta pruebas de federación. Sin implementación.
+Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados;
+U-004/ADR-018 aceptado condicionalmente, con fecha aportada 2026-09-18. Capacidad
+pendiente de medición; identidad y eliminación automática conservan gates
+operacionales. Sin implementación.
 
 Esta entrega modifica únicamente `docs/`. Las decisiones aceptadas y propuestas
 describen arquitectura, no software existente. No se han
@@ -21,6 +22,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 5. [Preguntas abiertas](decisions/unresolved.md) y [riesgos](architecture/risks.md).
 6. [Toolchain, límites y capacidad](architecture/toolchain-and-capacity.md).
 7. [Identidad, sesiones y autorización](architecture/identity-and-authorization.md).
+8. [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
 
 ## Diseño
 
@@ -31,6 +33,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Integraciones y ports](architecture/integrations.md).
 - [Seguridad](architecture/security.md), [RBAC](architecture/rbac.md), [auditoría](architecture/audit.md).
 - [Identidad y autorización aceptadas](architecture/identity-and-authorization.md).
+- [Retención, privacidad y custodia](architecture/retention-privacy-custody.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
 - [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
@@ -60,8 +63,11 @@ el toolchain esté instalado ni aceptan una cifra de EPS.
 DECISION: U-003 y [ADR-017](adr/017-identity-and-authorization.md) fijan Entra ID,
 single-tenant, BFF/sesiones, RBAC con scopes, JIT y segregación. Producción sigue
 bloqueada hasta completar el gate de federación/autorización.
-PROPOSAL: schemas, transportes, retención y demás detalles técnicos no
-cubiertos por ADR-015/016/017. ADR-001…014 no se aceptan en bloque.
+DECISION: U-004 y [ADR-018](adr/018-retention-privacy-custody.md) aceptan
+condicionalmente la baseline de retención, privacidad y custodia. El diseño puede
+continuar; el borrado automático productivo requiere ratificación y pruebas.
+PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
+ADR-015/016/017/018. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 
@@ -78,6 +84,6 @@ canónicas; no mantener dos versiones de un mismo diseño.
 ## Reglas de uso
 
 Leer solo documentos pertinentes y ADR asociados. No inferir endpoints desplegados,
-retención legal, SLO, versiones ni capacidad de este diseño. Los ejemplos son
+obligaciones legales no validadas, SLO ni capacidad de este diseño. Los ejemplos son
 sintéticos. Las skills siguen en `.codex/skills/`, enrutadas por el AGENTS.md
 existente; no se modifican reglas ni configuración en esta entrega.

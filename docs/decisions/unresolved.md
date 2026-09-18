@@ -471,11 +471,29 @@ aportado en esta tarea. El diseño, mocks y pruebas sintéticas pueden continuar
 
 ## U-004 — retención, privacidad y custodia
 
-UNKNOWN / UNRESOLVED. ¿Plazos por dataset/raw/audit/backups? ¿Requisitos aplicables,
-residencia, clasificación, holds, purga y export? Legal/Compliance/SOC e
-Infraestructura definen política y capacidades de object storage.
-Cierre: política aprobada y restauración/hold demostrados antes de borrado automático.
-No inferir obligaciones regulatorias por ser una entidad financiera.
+**Decision status:** CONDITIONALLY ACCEPTED
+
+**Automatic deletion status:** BLOCKED UNTIL RETENTION SCHEDULE IS APPROVED
+
+**Decision owners:** Legal, Compliance, Security, SOC e Infraestructura
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+QAPAQ SecOps adopta retención diferenciada por dataset, clasificación, finalidad,
+trigger y autoridad. Se aceptan como baseline técnica provisional la clasificación,
+los plazos, tiers HOT/COLD/EVIDENCE, privacidad en ingesta, holds, custodia, WORM,
+backups, restore, purge receipts, deletion ledger, exports y gobierno de residencia
+descritos en [ADR-018](../adr/018-retention-privacy-custody.md) y la
+[política canónica](../architecture/retention-privacy-custody.md).
+
+No existe un plazo universal atribuido a la SBS. Legal y Compliance deben ratificar
+o reemplazar cada fila mediante matriz normativa trazable. Hasta aprobar inventario,
+periodos/triggers, regiones, backups, holds, sanitización y custodia, y superar las
+20 pruebas de aceptación, la eliminación automática productiva permanece bloqueada.
+Solo se permite lifecycle sintético y purga productiva manual, aprobada y auditada.
+
+U-004 queda resuelta en diseño; el gate operacional no se interpreta como decisión
+pendiente ni como evidencia de capacidades implementadas.
 
 ## U-005 — fuentes piloto e inventario real
 
@@ -543,3 +561,6 @@ Posteriormente el usuario aportó la resolución explícita de U-001 con fecha
 2026-09-18: se registra ACCEPTED y ADR-015 Accepted; se reemplaza la agrupación
 propuesta anterior. Las decisiones técnicas ADR-001…014 no se aceptan en bloque.
 La primera vertical ordena construcción y no condiciona el cierre de U-001.
+U-004 se resolvió después como CONDITIONALLY ACCEPTED mediante ADR-018: su baseline
+permite continuar el diseño, pero el borrado automático queda bloqueado hasta la
+ratificación legal, operacional y las pruebas de lifecycle.
