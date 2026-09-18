@@ -2,25 +2,25 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001…U-006 y U-009 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-006, U-009 y U-012 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Veintiún ADR canónicos identificados por encabezado ADR-001…021. ADR-015,
-  ADR-016 y ADR-017 están Accepted; ADR-018/019/020/021, Conditionally Accepted;
-  ADR-001…014 conservan Proposed salvo aspectos
+- Veintidós ADR canónicos identificados por encabezado ADR-001…022. ADR-015,
+  ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018/019/020/021,
+  Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los veintiún ADR contienen Context, Decision, Alternatives, Consequences y
+- Los veintidós ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
   `docs/verification-checks.json` comprobados. `git diff --check -- docs` no
   reportó errores.
-- Doce fuentes Mermaid constan en el repositorio. Las vistas 01…03 se reformularon
-  con sintaxis C4 y se añadió el nivel 4 representativo. Las cuatro vistas se
-  renderizaron con Mermaid CLI y se inspeccionaron visualmente; no se añadió una
-  dependencia al repositorio.
+- Trece fuentes Mermaid constan en el repositorio. Las vistas C4 01…03 incorporan
+  Teams y la vista 13 detalla outbox, worker, secreto, workflow y acuse. Las cuatro
+  fuentes afectadas se renderizaron con Mermaid CLI y se inspeccionaron visualmente;
+  no se añadió una dependencia al repositorio.
 - Revisión manual de coherencia entre U-002, ADR-016, requisitos, convenciones,
   estructura, API, ingesta, storage, deployment, testing, roadmap y CI/CD.
 - El verificador de implementación se ejecutó y reportó `NOT_CONFIGURED` para
@@ -146,3 +146,23 @@ backends, WORM, firma, llaves, canales y evidencia de las 24 pruebas.
 
 Los cambios concurrentes de CI y `.github/ci/discover.py` quedan fuera del alcance
 y de los commits documentales de esta actualización.
+
+## Actualización por requerimiento de alertas críticas
+
+La Jefatura de Riesgos No Financieros confirmó Microsoft Teams Workflows como
+canal primario para alertas `CRITICAL`. ADR-022 registra la decisión aceptada y
+R-23 la hace obligatoria en el MVP. Se comprobó coherencia con U-001, U-006,
+U-008 y U-009: la capacidad pertenece a `soar`, se ejecuta por worker después del
+commit, conserva auditoría separada y aplica severidad/continuidad existentes.
+
+Se añadieron la vista de comportamiento y las relaciones C4 en contexto,
+contenedores y componentes. La revisión de seguridad cubrió fuga del webhook,
+payload sensible, enlace profundo, owner huérfano, duplicados y falsa semántica de
+`SENT`. La activación sigue bloqueada hasta cerrar cuatro datos operacionales y
+ejecutar los veinte escenarios; no se probó un tenant de Microsoft 365.
+
+La comprobación final encontró 70 archivos Markdown, 13 fuentes Mermaid y 22 ADR
+canónicos. Los enlaces locales, fences, estructura de ADR-022 y `git diff --check
+-- docs` aprobaron. El verificador devolvió código 2 porque los seis checks de
+aplicación siguen `NOT_CONFIGURED`, resultado esperado para una entrega solo
+documental.
