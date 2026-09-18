@@ -31,7 +31,8 @@ contrato de admisión de telemetry.
 Admisión, validación, schema canónico, normalización, deduplicación, enrichment,
 timestamps, trazabilidad, retries, backpressure, cuarentena y envío a almacenamiento/
 detección. Consume contexto e indicadores mediante interfaces públicas.
-La realización técnica de archivo, query y retención sigue propuesta en ADR-008;
+La consulta/restore sigue propuesta en ADR-008; ADR-018 acepta condicionalmente
+la política de retención, custodia y gate productivo;
 no decide unilateralmente plazos regulatorios. No eleva una observación a incidente.
 
 ### 4. Detection & Correlation — detection

@@ -1,6 +1,6 @@
 # ADR-012 — Audit trail strategy
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-018 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -22,10 +22,10 @@ Verificación de manifests/digests y acceso separado. Archivo remoto puede degra
 
 ## Trade-offs
 
-Atomicidad y trazabilidad frente a coste operacional, retención y custodia de llaves. WORM/firma requieren proveedor y aceptación, no son capacidades presumidas.
+Atomicidad y trazabilidad frente a coste operacional, retención y custodia de llaves. ADR-018 acepta WORM selectivo para auditoría privilegiada y evidencia, sujeto a proveedor y pruebas; no presume capacidades desplegadas.
 
 ## Validación y revisión
 
-Probar rollback, denegación, export y atraso de archivo; acordar custodios, retención, buffer y controles contra manipulación.
+Probar rollback, denegación, export y atraso de archivo; aplicar custodios, retención, holds y WORM de ADR-018. Buffer y comportamiento ante atraso siguen U-006.
 
 [Diseño relacionado](../architecture/audit.md) · [Preguntas abiertas](../decisions/unresolved.md).

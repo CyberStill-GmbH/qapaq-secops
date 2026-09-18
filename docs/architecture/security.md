@@ -1,7 +1,8 @@
 # Seguridad de la arquitectura
 
-Identidad/autorización: ACCEPTED por ADR-017. Los demás controles técnicos
-permanecen PROPOSAL. No constituye certificación de cumplimiento.
+Identidad/autorización: ACCEPTED por ADR-017. Retención, privacidad y custodia:
+CONDITIONALLY ACCEPTED por ADR-018. Los demás controles permanecen PROPOSAL. No
+constituye certificación de cumplimiento.
 [Threat model](../threat-model.md), [RBAC](rbac.md), [API](../api-guidelines.md).
 
 ## Identidad y sesión
@@ -62,7 +63,8 @@ Bloquear destinos no autorizados y cambios por redirección/DNS que evadan polí
 
 Activar reglas, cambiar retención, exportar evidencia, cambiar RBAC y configuraciones
 requiere razón y auditoría durable. ADR-017 exige doble control para grants
-privilegiados y SOAR alto/crítico; purga/hold continúa pendiente de U-004.
+privilegiados y SOAR alto/crítico. ADR-018 exige aprobación separada de hold/purga,
+dry-run, deletion ledger, purge receipt y bloqueo del borrado automático hasta el gate.
 
 SOAR, Playbooks & Ticketing es un módulo de alcance aceptado por ADR-015.
 PlaybookVersion, Trigger, ActionDefinition, Execution y Approval son contratos

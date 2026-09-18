@@ -3,8 +3,10 @@
 Alcance operacional ACCEPTED por [ADR-015](../adr/015-operational-scope-and-ownership.md)
 y baseline técnica ACCEPTED por
 [ADR-016](../adr/016-toolchain-and-capacity-baseline.md). Identidad/autorización
-ACCEPTED por [ADR-017](../adr/017-identity-and-authorization.md), con fecha de
-decisión aportada 2026-09-18. Implementación pendiente. Fuente:
+ACCEPTED por [ADR-017](../adr/017-identity-and-authorization.md). Retención,
+privacidad y custodia CONDITIONALLY ACCEPTED por
+[ADR-018](../adr/018-retention-privacy-custody.md), con fecha de decisión aportada
+2026-09-18. Implementación pendiente. Fuente:
 [requerimientos](../requirements.md).
 
 ## ARCHITECTURE ASSESSMENT
@@ -35,6 +37,10 @@ U-003 acepta Entra ID single-tenant, BFF con sesión opaca, RBAC con scopes y
 privilegios JIT con separación de funciones. La decisión permite diseñar; el gate
 de federación/autorización bloquea habilitar endpoints productivos.
 
+U-004 acepta una baseline provisional por dataset, tiers HOT/COLD/EVIDENCE,
+privacidad desde ingesta, holds, custodia, backups y purga verificable. Legal y
+Compliance deben ratificar la matriz antes del borrado automático productivo.
+
 Proponer SecurityEvent propio, pequeño y versionado, con semántica inspirada en
 ECS y un mapeo explícito evaluable hacia OCSF. No afirmar conformidad con ninguno.
 Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de diseño.
@@ -54,7 +60,7 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 Prioritarios: pérdida de telemetría por ACK prematuro; abuso de permisos/exports;
 manipulación de auditoría; saturación compartida; pérdida de raw por retención
 inadecuada; incompatibilidad con APIs/ediciones reales. No se conocen volumen,
-licencias/configuración de Entra, retención aprobada, RPO/RTO ni capacidad del equipo.
+licencias/configuración de Entra, matriz de retención ratificada, RPO/RTO ni capacidad del equipo.
 Cada riesgo tiene tratamiento en [riesgos](risks.md) y [preguntas](../decisions/unresolved.md).
 
 ### Simplificaciones
@@ -97,7 +103,7 @@ Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 
 ## IMPLEMENTATION PLAN
 
-1. Resolver detalles técnicos de identidad, permisos, retención y Wazuh/Windows; U-001 y U-002 ya están aceptadas.
+1. Completar los gates de identidad y retención, y resolver contratos Wazuh/Windows; U-001…004 ya tienen decisión documental.
 2. Materializar el monorepo, lockfiles, baseline NestJS/React/Python y gates de calidad en una tarea posterior.
 3. Implementar acceso, autorización y auditoría; probar denegaciones y fallos.
 4. Primera vertical: autenticación Windows vía Wazuh → ingesta → normalización → OpenSearch → correlación determinista → alerta → triaje → incidente → auditoría.

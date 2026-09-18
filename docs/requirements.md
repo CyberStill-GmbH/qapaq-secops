@@ -13,6 +13,9 @@ capacidad. No acredita todavía instalación, compatibilidad ni rendimiento.
 La resolución [U-003/ADR-017](adr/017-identity-and-authorization.md) acepta Entra
 ID, modelo single-tenant, sesión BFF, RBAC/scopes, privilegios y gate productivo.
 No acredita federación ni licenciamiento configurados.
+La resolución [U-004/ADR-018](adr/018-retention-privacy-custody.md) acepta
+condicionalmente clasificación, baseline de retención, custodia y gate de purga.
+No acredita ratificación legal ni lifecycle implementado.
 
 ## Requisitos trazables
 
@@ -24,10 +27,10 @@ No acredita federación ni licenciamiento configurados.
 - R-06: Redis/BullMQ, backpressure, reintentos acotados, idempotencia, replay y fallos aislados; sin Kafka inicial. [Flujos](architecture/data-flow.md), ADR-006/014.
 - R-07: Python para procesamiento justificado, sin reemplazar NestJS. Contratos Node/Python. [Modelo](architecture/event-model.md), ADR-007.
 - R-08: conservar raw, normalizar SecurityEvent, analizar ECS/OCSF. [Modelo](architecture/event-model.md), ADR-011.
-- R-09: hot/warm/cold, retención gobernada y consulta histórica sin acoplar al consumidor al tier. ADR-008.
+- R-09: hot/cold/evidence, retención por dataset, hold, purga verificable y consulta histórica sin acoplar al consumidor al tier. ADR-008/018.
 - R-10: AD, Microsoft 365/Graph, Cato, Sophos, Wazuh, firewalls, IDS/IPS, servidores/endpoints; MISP futuro. [Integraciones](architecture/integrations.md), ADR-010.
 - R-11: Entra ID humano, BFF con sesión opaca y roles dinámicos/capabilities con scopes, controles de objeto/campo, JIT y separación de funciones. [Identidad](architecture/identity-and-authorization.md), ADR-009/017.
-- R-12: distinguir eventos, logs y auditoría; acciones críticas auditables y protección frente a manipulación. ADR-012.
+- R-12: distinguir eventos, logs y auditoría; acciones críticas auditables, custodia y WORM selectivo. ADR-012/018.
 - R-13: SecretProvider y referencias a secretos, sin passwords/tokens/API keys en PostgreSQL. ADR-013.
 - R-14: distinguir Event, Alert, Incident, Case; ciclo de investigación y evidencia. [Módulos](architecture/modules.md).
 - R-15: SOAR, Playbooks & Ticketing como módulo aprobado de entrega incremental, con permiso, aprobación explícita para alto impacto, razón y auditoría; no SOAR completo en esta tarea. [Seguridad](architecture/security.md).
@@ -46,7 +49,7 @@ Seguridad y trazabilidad no se posponen al final. Cada límite externo debe tene
 autorización, validación, límites de consumo, timeouts, comportamiento degradado y
 evidencia de pruebas. La metodología y los gates de rendimiento están aceptados;
 la capacidad numérica permanece PENDING MEASUREMENT. Disponibilidad, RPO/RTO,
-volumen real y plazos de retención son UNKNOWN: no se prometen valores. Ver
+volumen real, RPO/RTO y ratificación de los plazos provisionales siguen pendientes; no se promete capacidad. Ver
 [preguntas](decisions/unresolved.md).
 
 No se construyen ML complejo, Kubernetes, Kafka, microservicios, motor de base de
@@ -56,9 +59,9 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Diecisiete ADR con Context, Decision, Alternatives, Consequences y Trade-offs, estado y condición de revisión; ADR-015, ADR-016 y ADR-017 Accepted.
+- Dieciocho ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018 Conditionally Accepted.
 - Once diagramas Mermaid coherentes con las decisiones y propuestas documentadas.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
-- Baseline aceptada diferenciada de tooling instalado, compatibilidad comprobada y capacidad medida; ninguna integración declarada probada.
+- Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.
 - Cambios confinados a docs/; sin código de aplicación ni infraestructura.
 - Enlaces locales y sintaxis de diagramas comprobados; limitaciones de verificación registradas.

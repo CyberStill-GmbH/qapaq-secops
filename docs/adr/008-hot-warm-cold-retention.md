@@ -1,6 +1,6 @@
 # ADR-008 — Hot/Warm/Cold retention
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed, parcialmente sustituido por ADR-018 · Fecha: 2026-09-17.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -10,7 +10,7 @@ R-09 exige histórico por auditoría/investigación sin costos ilimitados ni dep
 
 ## Decision
 
-Hot/warm como políticas de índices; cold en object storage con raw comprimido y derivados JSON/Parquet evaluados. HistoricalEventQueryService planea consulta/restore y devuelve cobertura, parcialidad y estado. Retención/hold deben aprobarse antes de purga.
+Hot/warm como políticas de índices; cold en object storage con raw comprimido y derivados JSON/Parquet evaluados. HistoricalEventQueryService planea consulta/restore y devuelve cobertura, parcialidad y estado. [ADR-018](018-retention-privacy-custody.md) acepta la baseline, holds y gate; esta ADR conserva el diseño de consulta histórica.
 
 ## Alternatives
 
@@ -26,6 +26,6 @@ Cold reduce coste a cambio de latencia/restauración y catálogo confiable. Un c
 
 ## Validación y revisión
 
-Acordar plazos, hold y permisos con responsables; ensayar restore y deduplicación de rangos solapados antes de expiración automática.
+Ratificar la matriz de ADR-018 y ensayar restore, holds y deduplicación de rangos solapados antes de expiración automática.
 
 [Diseño relacionado](../architecture/storage.md) · [Preguntas abiertas](../decisions/unresolved.md).

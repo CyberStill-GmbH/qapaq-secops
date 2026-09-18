@@ -1,7 +1,9 @@
 # Auditoría y cadena de custodia
 
 Auditoría transversal aceptada en [ADR-015](../adr/015-operational-scope-and-ownership.md);
-la estrategia técnica permanece PROPOSAL en [ADR-012](../adr/012-audit-trail.md).
+la estrategia técnica permanece PROPOSAL en [ADR-012](../adr/012-audit-trail.md),
+con custodia, WORM y retención aceptados condicionalmente por
+[ADR-018](../adr/018-retention-privacy-custody.md).
 No es un módulo de negocio independiente; cada módulo produce sus registros.
 
 ## Tres conceptos
@@ -52,7 +54,9 @@ Exportar lotes con digest/manifiesto y encadenamiento o firma a object storage c
 controles inmutables cuando el proveedor lo soporte. Separar administración de
 llaves y datos; verificar regularmente conteos, secuencia, manifests y entregas.
 Un hash en la misma base no protege frente al administrador que modifica ambos.
-WORM, firma y custodia de llaves son capacidades a confirmar, no existentes.
+ADR-018 acepta WORM selectivo para evidencia, auditoría privilegiada, manifests,
+holds, purge receipts y acciones críticas. La capacidad del proveedor, su modo
+desbloqueado/bloqueado y la separación de llaves deben probarse; no están desplegados.
 
 PostgreSQL guarda auditoría operacional acotada por política y particionamiento
 futuro; archivo conserva el horizonte aprobado. No retener sin límite hasta
@@ -67,7 +71,9 @@ Acceso a evidencias de otro case se verifica aunque se conozca el ID. Un legal h
 abarca originales y derivados relevantes. La cadena de custodia describe el manejo,
 no certifica admisibilidad legal por sí sola.
 
-No registrar secretos, tokens, contraseñas ni PII innecesaria. Si la evidencia raw
+La [política de custodia](retention-privacy-custody.md) fija metadata SHA-256,
+original inmutable, análisis sobre copia, revisión de hold y purge receipts. No
+registrar secretos, tokens, contraseñas ni PII innecesaria. Si la evidencia raw
 los contiene, restringirla; su digest/ID es suficiente para auditoría general.
 Usar actor técnico persistente para procesos automáticos y actor humano originador
 cuando exista, sin impersonación silenciosa.

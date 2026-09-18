@@ -1,6 +1,7 @@
 # Datos operacionales, telemetría y retención
 
-Estado: PROPOSAL. [ADR-004](../adr/004-postgresql-operational-data.md),
+Estado: diseño de tiers PROPOSAL; política de lifecycle CONDITIONALLY ACCEPTED por
+[ADR-018](../adr/018-retention-privacy-custody.md). [ADR-004](../adr/004-postgresql-operational-data.md),
 [ADR-005](../adr/005-opensearch-wazuh-telemetry.md),
 [ADR-008](../adr/008-hot-warm-cold-retention.md).
 
@@ -49,11 +50,11 @@ lectura → registrar catálogo → comprobar hold y cobertura → autorizar exp
 hot/warm según política. Hacer el proceso reanudable e idempotente. Si el índice
 fue eliminado antes de verificar archivo, hay riesgo de pérdida no reparable.
 
-La política define retención por categoría/fuente, motivo, responsable y aprobación.
-No fijar días/años de cumplimiento sin validación de Legal/Compliance. Raw, derivados,
-audit, backups y exportaciones tienen plazos distintos. Legal hold bloquea
-eliminación de todas las copias relevantes, con motivo, alcance y trazabilidad.
-Purga aprobada produce tombstone/metadatos permitidos, no borrado silencioso.
+La [política canónica](retention-privacy-custody.md) define inventario,
+clasificación, plazos provisionales y triggers por dataset. No presenta esos
+periodos como obligaciones legales. Raw, derivados, audit, backups y exports
+tienen ciclos distintos. Un hold granular bloquea todas las copias en su scope.
+La purga aprobada emite deletion ledger y purge receipt, nunca borrado silencioso.
 
 ## HistoricalEventQueryService
 
@@ -86,9 +87,10 @@ mediciones; reservar capacidad de drenaje superior al ingreso sostenido. Los
 perfiles y gates aceptados están en
 [toolchain y capacidad](toolchain-and-capacity.md).
 
-Backups no son archivo ni alta disponibilidad. Ensayar restauración de PostgreSQL,
-catálogo, raw y referencias; verificar consistencia con índices reconstruibles y
-checkpoints. RPO/RTO y topología se acuerdan con Infraestructura. Redis puede
+Backups no son archivo ni alta disponibilidad. ADR-018 acepta una baseline
+provisional y exige que el restore reaplique el deletion ledger antes de acceso.
+Ensayar PostgreSQL, catálogo, raw y referencias; verificar consistencia con índices
+reconstruibles y checkpoints. RPO/RTO y topología se acuerdan con Infraestructura. Redis puede
 reconstruir pendientes desde manifiestos/outbox; eso requiere reconciliador probado.
 
 [Diagrama de tiers](../diagrams/07-storage-tiers.mmd).
