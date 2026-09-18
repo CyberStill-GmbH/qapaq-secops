@@ -20,6 +20,10 @@ la baseline de retención, pero Legal/Compliance deben ratificarla antes del TTL
 productivo; ADR-020 fija targets provisionales y gate de recovery. ADR-019 fija Pilot A Wazuh y Pilot B Microsoft;
 sus licencias, configuración, datasets y cobertura real permanecen como gate.
 
+Habilitar CI de PR y construcción de candidatos según ADR-023. Migrar el scanner
+de dependencias de npm a pnpm junto con el workspace; no crear un lockfile npm
+artificial. Publicación y despliegue esperan el contrato de Infraestructura.
+
 Crear base NestJS/React, fakes, configuración, gates de calidad, dependencias hacia
 adentro y auditoría/autorización verificables. Contenedores y contratos de
 despliegue serán entregables de software; Infraestructura administra producción.

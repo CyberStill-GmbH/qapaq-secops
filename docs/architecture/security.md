@@ -103,7 +103,10 @@ privilegiadas y solo se usa el mecanismo de emergencia aprobado. Los modos
 ## Desarrollo y controles operacionales
 
 SAST, dependency/secret scanning, revisión de cambios, SBOM y container scanning
-si aplica. Dependencias y acciones CI fijadas/revisadas; PR no confiable sin secretos.
+si aplica. ADR-023 exige `pull_request`, permisos base `contents: read`, Actions
+fijadas a SHA, PR no confiable sin secretos/publicación, CODEOWNERS para cambios
+sensibles, build-once y evidencia. OIDC temporal y Environments protegidos solo
+se habilitan tras recibir el contrato real de Infraestructura.
 TLS, cuentas por función, backups probados, límites de recursos y observabilidad
 externa acordados con Infraestructura. No asumir acceso interno equivale a confianza.
 

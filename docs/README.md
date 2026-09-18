@@ -1,7 +1,7 @@
 # qapaq-secops — arquitectura inicial
 
 Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados;
-U-004/ADR-018, U-005/ADR-019, U-006/ADR-021 y U-009/ADR-020 aceptados condicionalmente; U-007/ADR-007 y U-012/ADR-022 aceptados, con fecha
+U-004/ADR-018, U-005/ADR-019, U-006/ADR-021, U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007 y U-012/ADR-022 aceptados, con fecha
 aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. Sin implementación.
@@ -88,11 +88,14 @@ rollback, archivo, reconciliación y alertas.
 DECISION: U-009 y [ADR-020](adr/020-operations-and-continuity.md) aceptan
 condicionalmente objetivos de continuidad, degradación y soporte. Producción exige
 restore/recovery medidos; sin guardia SEV1 se declara servicio 8x5 limitado.
+DECISION: U-011 y [ADR-023](adr/023-ci-release-deployment-separation.md)
+habilitan CI y candidatos de release, y bloquean publicación/despliegue hasta el
+contrato de Infraestructura.
 DECISION: U-012 y [ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md)
 incorporan al MVP la notificación `CRITICAL` por Teams Workflows mediante outbox y
 worker; QAPAQ conserva el acuse y exige fallback probado.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
-ADR-007/015/016/017/018/019/020/021/022. ADR-001…014 no se aceptan en bloque.
+ADR-007/015/016/017/018/019/020/021/022/023. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 

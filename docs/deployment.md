@@ -1,6 +1,7 @@
 # Operación y entrega de software
 
-Estado: infraestructura PROPOSAL; continuidad CONDITIONALLY ACCEPTED por ADR-020.
+Estado: infraestructura PROPOSAL; continuidad CONDITIONALLY ACCEPTED por ADR-020;
+CI/release/despliegue CONDITIONALLY ACCEPTED por ADR-023.
 No hay infraestructura provisionada ni manifests.
 
 ## Responsabilidades
@@ -50,19 +51,17 @@ de colas no comparte eviction imprevisible con cache general. HOT/COLD/EVIDENCE
 son políticas antes de ser infraestructuras desplegadas. Los perfiles locales
 aceptados no constituyen sizing productivo.
 
-## GitHub Actions
+## GitHub Actions, release y CD
 
-La [CI de seguridad](ci-cd.md) está configurada localmente; la ejecución remota y
-la CD siguen pendientes. Los siguientes requisitos de release se mantienen como propuesta.
+[ADR-023](adr/023-ci-release-deployment-separation.md) habilita CI y construcción
+certificable de candidatos. PR usa pnpm reproducible, pruebas y escaneos sin
+secretos ni permisos de publicación. Release construye una vez y conserva digest,
+SBOM, attestation, migraciones, rollback y evidencia.
 
-PR: checks de calidad/unit/contract, integración afectada, imports, SAST,
-dependency scanning y secret scanning. Container scanning si se generan imágenes.
-No secretos productivos para forks/PR no confiable; permisos mínimos por job,
-acciones fijadas a revisiones revisadas y dependencias con lockfiles.
-
-Release: construir una vez, identificar artefacto/commit, SBOM y evidencia de
-scans, aprobación según riesgo y mecanismo de publicación acordado. No elegir
-servicio de hosting ni desplegar desde esta documentación.
+Publicación y despliegue siguen bloqueados hasta que Infraestructura entregue
+registro, ambientes, mecanismo, identidad, conectividad, aprobadores, health checks
+y soporte. El mismo digest se promoverá; no se reconstruye por ambiente ni se usa
+`latest`. Detalle y estado observado en [CI/CD](ci-cd.md).
 
 Migraciones expand/contract y orden productor/consumidor compatible. Rollback de
 binario solo si schema/eventos siguen compatibles; evitar down migration destructiva

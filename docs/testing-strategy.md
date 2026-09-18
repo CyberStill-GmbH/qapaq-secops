@@ -118,6 +118,15 @@ dueño y vencimiento, no silenciamiento permanente. Cobertura numérica no susti
 tests de autorización y fallos. [Verificación existente](verification.md) mantiene
 checks sin configurar; no inventar PASS.
 
+## Gate ADR-023 — CI, release y despliegue
+
+Probar los ocho escenarios de cierre de U-011: PR no confiable sin privilegios,
+CI completa, candidato con digest/SBOM/attestation, aceptación del contrato, mismo
+digest en staging, health checks negativos, rollback y evidencia auditable.
+Contract tests verifican manifest de release y migraciones; una prueba de staging
+usa el destino real autorizado. Hasta entonces publicación y despliegue siguen
+bloqueados aunque CI y build funcionen.
+
 ## SOAR y Antifraude
 
 Probar dry-run sin efectos externos, aprobación ligada a versión/targets/parámetros,
