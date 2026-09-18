@@ -51,10 +51,12 @@ y reanudar con mínimo permiso. No borrar evidencia por limpiar logs sin políti
 
 ## Purga y legal hold
 
-Comprobar política aprobada, alcance, archivo verificado y ausencia de hold activo.
-Acción autorizada/auditada con previsualización de objetos afectados. Si existe
-conflicto de política/hold, detener la purga; no interpretar vencimiento como permiso
-incondicional. Registrar resultado/tombstones y verificación posterior.
+Mientras el gate de ADR-018 esté pendiente, no ejecutar TTL destructivo: toda purga
+productiva es manual, aprobada y auditada. Comprobar dataset, versión de política,
+trigger, alcance, copias, archivo y holds. Ejecutar dry-run, aprobar el plan y borrar
+en orden de dependencias. Si existe conflicto, detener; el vencimiento no es permiso.
+Emitir purge receipt con conteos, bytes, métodos, errores y copias pendientes;
+actualizar deletion ledger. Un resultado parcial alerta y no se declara exitoso.
 
 ## Recuperación del producto
 
@@ -63,3 +65,6 @@ raw/archivo, reconstruir índices/colas según contrato, revisar permisos y
 checkpoints. Arrancar fuentes controladamente y comparar cobertura. No ejecutar
 playbooks/acciones externas durante replay de recuperación. Medir RPO/RTO real
 y registrar discrepancias frente al objetivo.
+Reaplicar el deletion ledger antes de habilitar acceso para impedir que reaparezcan
+usuarios, exports u objetos purgados. Registrar propósito, aprobador, integridad y
+objetos restaurados; deshabilitar notificaciones, playbooks y efectos externos.

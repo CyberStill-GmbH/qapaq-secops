@@ -25,14 +25,14 @@ frontera suficiente para confiar.
 - T-06 — Repudiation: estado se confirma sin audit o un operador lo elimina. Transacción local, append-only runtime, archivo protegido y verificación externa. Probar rollback y discrepancia; residual: administrador con control de datos y llaves.
 - T-07 — DoS: búsqueda amplia, restore cold, payload comprimido o fuente ruidosa agota recursos. Cuotas, tamaño/expansión, aislamiento de concurrencia, backpressure y cancelación. Medir saturación; residual: capacidad insuficiente sin SLO/carga conocida.
 - T-08 — Integridad: retries/replay generan alertas o respuestas duplicadas; mensajes se pierden entre stores. IDs estables, outbox/inbox, manifiestos y reconciliación; inyectar caídas. Residual: origen sin replay/ACK fiable.
-- T-09 — Retención: borrado antes de archivo verificado o legal hold incompleto. Manifiestos, verificación, catálogo de cobertura y control de purga; restauración probada. Residual: capacidades WORM/hold del proveedor sin confirmar.
+- T-09 — Retención: TTL provisional, restore o hold incompleto elimina o revive evidencia. ADR-018 bloquea borrado automático y exige manifests, WORM selectivo, dry-run, deletion ledger, purge receipts y 20 pruebas. Residual: matriz legal y capacidades del proveedor sin ratificar.
 - T-10 — Supply chain: workflow de PR o dependencia roba secretos o publica artefacto. CI con permisos mínimos, acciones/dependencias fijadas, scanners y publicación restringida. Residual: compromiso de proveedor/toolchain.
 - T-11 — SOAR futuro: ejecución peligrosa se repite o aprobación se reutiliza con otros targets. Plan versionado y acotado, aprobación vinculada a parámetros, reautorización, idempotencia y resultado unknown. Residual: API externa sin garantías; no habilitar en MVP.
 - T-12 — Poisoning: IOC/contexto falso o timestamps manipulados alteran prioridad/correlación. Procedencia, vigencia, validación temporal, calidad y revisión de reglas. Probar datos tardíos/inconsistentes; residual: fuente legítima informa datos erróneos.
 
 ## Prioridad y límites
 
-Antes del primer piloto: T-01/02/05/06/08 y límites de T-07. Antes de collectors
+Antes de la primera vertical: T-01/02/05/06/08 y límites de T-07. Antes de collectors
 reales: T-03/04/12. Antes de retención/exports productivos: T-09. CI requiere T-10;
 respuesta automatizada futura requiere T-11. Esta prioridad es propuesta cualitativa,
 no evaluación formal de probabilidad/impacto de Qapaq.

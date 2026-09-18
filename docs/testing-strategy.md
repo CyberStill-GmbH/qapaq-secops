@@ -43,6 +43,10 @@ como prueba de autorización. Las rutas exactas nacerán del contrato de cada fe
 Antes de producción ejecutar los 27 escenarios de federación/autorización de
 [ADR-017](architecture/identity-and-authorization.md), incluyendo tenant/issuer/
 audience, PKCE/state/nonce, CSRF, scopes, SoD, step-up, revocación, raw y services.
+Ejecutar además los 20 escenarios de lifecycle de
+[ADR-018](architecture/retention-privacy-custody.md): clasificación, cuarentena,
+expiración aislada, hold, WORM, SHA-256/custodia, export, purga parcial, restore,
+deletion ledger, residencia, aprobación y reconciliación.
 
 ## Fallos, seguridad y rendimiento
 
@@ -67,6 +71,8 @@ persistencia/cola/index/adapters; E2E de verticales críticas; import boundaries
 SAST, secret/dependency scanning. Vitest cubre unit/integration, Playwright E2E,
 Testcontainers dependencias y k6 capacidad. Releases: migraciones/rollback compatible,
 restore, inventario de dependencias, permisos y pruebas operacionales.
+La aprobación de releases no habilita por sí sola la eliminación automática: el
+gate de ADR-018 requiere ratificación de Legal/Compliance y evidencia productiva.
 
 Severidades/bloqueos/excepciones de CI se acuerdan con Seguridad; excepción con
 dueño y vencimiento, no silenciamiento permanente. Cobertura numérica no sustituye

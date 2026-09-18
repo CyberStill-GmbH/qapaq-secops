@@ -27,11 +27,13 @@ Microsoft Entra ID requiere tenant/app registration, redirect URIs exactas,
 credencial backend, grupo de admisión y políticas MFA/Conditional Access validadas.
 El almacén de sesiones debe soportar revocación, expiración y cifrado de tokens.
 Ningún endpoint productivo se habilita antes del gate operacional de ADR-017.
+Ningún lifecycle destructivo se habilita antes del gate de ADR-018: matriz
+ratificada, regiones/backups/holds aprobados y 20 escenarios demostrados.
 
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis
-de colas no comparte eviction imprevisible con cache general. Hot/warm/cold son
-políticas antes de ser tres infraestructuras distintas. Los perfiles locales
+de colas no comparte eviction imprevisible con cache general. HOT/COLD/EVIDENCE
+son políticas antes de ser infraestructuras desplegadas. Los perfiles locales
 aceptados no constituyen sizing productivo.
 
 ## GitHub Actions

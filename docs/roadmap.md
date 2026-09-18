@@ -15,8 +15,9 @@ para cerrar U-001. Las etapas siguientes ordenan construcción, no reducen alcan
 Resolver detalles que bloqueen la primera vertical: contratos Wazuh/Windows,
 schema y auditoría. Identidad/scopes están aceptados por U-003, pero su gate de
 federación sigue bloqueando endpoints productivos. Versiones/toolchain/límites ya
-están aceptados por U-002; la capacidad sigue pendiente de benchmark. Retención/hold y
-RPO/RTO se acuerdan con los responsables. La primera fuente ya está elegida;
+están aceptados por U-002; la capacidad sigue pendiente de benchmark. U-004 acepta
+la baseline de retención, pero Legal/Compliance deben ratificarla antes del TTL
+productivo; RPO/RTO siguen U-009. La primera fuente ya está elegida;
 su licencia/configuración/cobertura real permanecen U-005.
 
 Crear base NestJS/React, fakes, configuración, gates de calidad, dependencias hacia
@@ -55,8 +56,8 @@ parámetros y permiso vigente. No simular éxito de una remediación no ejecutad
 
 ## Evolución técnica
 
-Archivo/restore, cuotas, legal hold y continuidad se prueban antes de habilitar
-purga y uso productivo correspondiente. SOAR y Antifraude son alcance aceptado,
+Archivo/restore, cuotas, legal hold, deletion ledger y los 20 escenarios de ADR-018
+se prueban antes de habilitar purga automática. SOAR y Antifraude son alcance aceptado,
 no ampliaciones pendientes de justificar; sus contratos e implementación sí son
 incrementales. Kafka, Kubernetes, microservicios y ML complejo siguen fuera de
 implementación inicial; cualquier nueva necesidad técnica requiere evidencia y ADR.

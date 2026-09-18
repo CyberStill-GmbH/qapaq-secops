@@ -2,15 +2,15 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001/U-002/U-003 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001…U-004 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Diecisiete ADR canónicos identificados por encabezado ADR-001…017. ADR-015,
-  ADR-016 y ADR-017 están Accepted; ADR-001…014 conservan Proposed salvo aspectos
+- Dieciocho ADR canónicos identificados por encabezado ADR-001…018. ADR-015,
+  ADR-016 y ADR-017 están Accepted; ADR-018, Conditionally Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los diecisiete ADR contienen Context, Decision, Alternatives, Consequences y
+- Los dieciocho ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
@@ -53,9 +53,21 @@ UNTIL FEDERATION TESTS PASS; la documentación no afirma tenant, licencias, app
 registration, Conditional Access, PIM o federación configurados.
 
 Se contrastaron Authorization Code/PKCE, PIM y criterios de sesión/autenticadores
-con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, diecisiete
+con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, dieciocho
 ADRs y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
 deployment, roadmap e integraciones.
+
+## Actualización por aceptación condicional de U-004
+
+U-004/ADR-018 acepta la arquitectura de inventario, clasificación, baseline por
+dataset, tiers, privacidad en ingesta, holds, custodia, WORM, backups, restore,
+purga, exports, residencia y salida. No atribuye un plazo universal a la SBS ni
+convierte los cinco años propuestos en obligación regulatoria.
+
+Se contrastaron la preservación forense y los requisitos a terceros de la
+Resolución SBS N.° 504-2021, el marco peruano de datos personales, legal holds e
+inmutabilidad de Azure Blob y la revisión vigente de NIST SP 800-88. La eliminación
+automática permanece bloqueada hasta la ratificación y las 20 pruebas productivas.
 
 ## Límites
 
@@ -65,8 +77,10 @@ verificar en esta tarea. Tampoco hay evidencia para publicar EPS, sizing product
 o compatibilidad de la matriz completa.
 
 Renderizar Mermaid no demuestra corrección operacional. Faltan schemas ejecutables,
-pruebas de conformidad y decisiones sobre retención, transporte y continuidad.
+pruebas de conformidad y decisiones sobre transporte y continuidad.
 La identidad tiene decisión aceptada, pero carece de pruebas de federación. Las
+capacidades de retención tienen decisión condicional, pero carecen de matriz
+ratificada y pruebas de restore/hold/purga. Las
 capacidades de Sophos/Cato permanecen pendientes porque sus páginas
 no pudieron leerse íntegramente; consultar [references.md](references.md).
 

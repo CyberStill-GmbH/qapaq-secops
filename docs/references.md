@@ -1,7 +1,7 @@
 # Fuentes y alcance de investigación
 
 Consultadas el 2026-09-17. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001/U-002/U-003; las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-004; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
 
@@ -44,7 +44,18 @@ Estas fuentes fundamentan controles del protocolo y autenticación. No prueban q
 QAPAQ disponga de licencias, PIM, Conditional Access, authentication strengths,
 device compliance o configuración conforme; esas son condiciones del gate operativo.
 
+## Retención, privacidad y custodia de U-004
+
+- [Resolución SBS N.° 504-2021](https://intranet2.sbs.gob.pe/dv_int_cn/2046/v2.0/Adjuntos/504-2021.R.pdf): preservación de evidencias para investigación forense; acceso para supervisión/auditoría, estrategia de salida y eliminación definitiva de información confidencial en servicios de terceros. El artículo 25 condiciona autorización previa a limitaciones para cumplir el artículo 24.2; no establece una prohibición general de cloud extranjero ni un plazo universal para logs SOC.
+- [Ley N.° 29733](https://www.gob.pe/institucion/congreso-de-la-republica/normas-legales/243470-29733): marco peruano de protección de datos personales.
+- [D.S. N.° 016-2024-JUS](https://www.gob.pe/institucion/anpd/normas-legales/6554453-n-016-2024-jus) y [vigencia informada por la ANPD](https://www.gob.pe/institucion/anpd/campa%C3%B1as/128319-nuevo-reglamento-de-proteccion-de-datos-personales): reglamento y entrada en vigencia. La evaluación de notificabilidad y plazo corresponde a Legal/Privacy.
+- [Azure Blob immutable storage](https://learn.microsoft.com/en-us/azure/storage/blobs/immutable-storage-overview): retención WORM y legal holds; las políticas deben probarse antes de bloquearse y una política bloqueada no puede acortarse.
+- [NIST SP 800-88 Rev. 2](https://csrc.nist.gov/pubs/sp/800/88/r2/final): revisión vigente para sanitización de medios y crypto-erasure.
+
+Estas fuentes delimitan controles y revisión jurídica; no ratifican la matriz
+provisional de QAPAQ ni demuestran capacidades configuradas en Azure.
+
 La restricción de datos y el stack vienen de la solicitud, no de estas páginas.
 U-002 fija las versiones documentales; manifests, lockfiles, imágenes y CI deberán
 materializarlas y validarlas. No se adopta automáticamente la versión `current`.
-No se infieren plazos de retención ni obligaciones regulatorias de estas fuentes.
+No se infieren plazos regulatorios fuera de la decisión provisional documentada.
