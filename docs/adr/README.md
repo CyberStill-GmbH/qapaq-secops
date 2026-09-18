@@ -1,10 +1,10 @@
 # Índice de Architecture Decision Records
 
-Todos los ADR están Proposed. Los requisitos explícitos no necesitan ser
-reinventados, pero su realización técnica y aprobación organizacional aún no
-están acreditadas. No confundir una recomendación escrita con software desplegado.
-Para Accepted registrar responsable, fecha y evidencia de aprobación; cambios
-posteriores se documentan con Superseded y enlace a la decisión nueva.
+ADR-015 está Accepted por resolución explícita del usuario de U-001, con fecha
+2026-09-18 y owners SOC, Arquitectura y Security Engineering. Sustituye la agrupación
+operacional previa donde discrepe; ADR-001…014 mantienen Proposed para sus detalles
+técnicos. Aceptación documental no equivale a software desplegado. Registrar
+responsable, fecha y evidencia; cambios posteriores requieren decisión sucesora.
 
 - [ADR-001 — Modular Monolith](001-modular-monolith.md).
 - [ADR-002 — NestJS + TypeScript](002-backend-stack.md).
@@ -20,6 +20,8 @@ posteriores se documentan con Superseded y enlace a la decisión nueva.
 - [ADR-012 — Audit trail strategy](012-audit-trail.md).
 - [ADR-013 — Secret management abstraction](013-secret-management.md).
 - [ADR-014 — Event-driven internal communication strategy](014-internal-communication.md).
+
+- [ADR-015 — Alcance operacional, módulos y ownership](015-operational-scope-and-ownership.md), Accepted.
 
 ## Compatibilidad con los archivos anteriores
 

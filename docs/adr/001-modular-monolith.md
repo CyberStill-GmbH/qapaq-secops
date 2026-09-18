@@ -10,7 +10,7 @@ R-01/R-03: equipo pequeño y evolución sin reescritura. La modularidad debe exi
 
 ## Decision
 
-Mantener un monolito modular con ocho módulos y ownership explícito. API y ejecución asíncrona pertenecen al mismo producto/release; separar un runner por carga no crea autonomía de servicio. La restricción sin microservicios es requisito; agrupación concreta es propuesta.
+Mantener un monolito modular con ocho módulos y ownership explícito. API y ejecución asíncrona pertenecen al mismo producto/release; separar un runner por carga no crea autonomía de servicio. La restricción sin microservicios es requisito; la agrupación funcional ahora está aceptada en [ADR-015](015-operational-scope-and-ownership.md). Este ADR conserva Proposed para los detalles de release/procesos y evolución.
 
 ## Alternatives
 
@@ -26,6 +26,6 @@ Menor coste operacional a cambio de release coordinado y escalado inicialmente c
 
 ## Validación y revisión
 
-Confirmar ownership y comprobar un vertical con límites; reevaluar tras medición de capacidad o necesidades de aislamiento.
+Ownership y límites operacionales aceptados por ADR-015. Comprobar una vertical valida implementación, no condiciona esa aceptación; reevaluar detalles técnicos tras medición de capacidad o necesidades de aislamiento.
 
 [Diseño relacionado](../architecture/modules.md) · [Preguntas abiertas](../decisions/unresolved.md).
