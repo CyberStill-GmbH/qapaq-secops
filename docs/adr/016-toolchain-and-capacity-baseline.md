@@ -29,6 +29,8 @@ La arquitectura escala mediante API stateless, workers por cola, procesamiento
 asíncrono, batches y payloads acotados, backpressure, idempotencia, separación de
 control/telemetry plane, PostgreSQL transaccional, OpenSearch para telemetría,
 Redis/BullMQ para jobs operacionales y contratos explícitos con Python.
+Por ADR-007, esos contratos y el runtime Python son futuros y no forman parte del
+MVP hasta superar el gate de activación.
 
 La capacidad aceptada será el mayor perfil que supere los gates en el hardware de
 referencia con el margen acordado. Ninguna cifra de EPS queda aceptada por este ADR.
@@ -42,8 +44,10 @@ benchmarks públicos ignora flujos, reglas, payloads y hardware de QAPAQ SecOps.
 
 ## Consequences
 
-El repositorio deberá materializar pnpm/uv lockfiles, scripts de calidad y perfiles
-de contenedor antes de afirmar que el toolchain funciona. Cambiar un major requiere
+El repositorio deberá materializar el lockfile pnpm, scripts de calidad y perfiles
+de contenedor antes de afirmar que el toolchain MVP funciona. `uv.lock` y el perfil
+Python se materializan únicamente para investigación reproducible o después del
+gate de ADR-007. Cambiar un major requiere
 PR separado, pruebas completas y registro de compatibilidad. Prisma no cruza el
 límite de infraestructura y BullMQ no se convierte automáticamente en backbone de
 telemetría. Los límites iniciales pueden ajustarse mediante decisión/evidencia.
@@ -54,8 +58,8 @@ comparables porque incluyen commit, configuración, versiones, hardware y datase
 ## Trade-offs
 
 Fijar versiones y límites reduce flexibilidad inmediata, pero evita deriva entre
-desarrollo, CI y benchmark. Fastify, pnpm, Prisma y el doble runtime agregan
-decisiones operativas; a cambio ofrecen una baseline explícita. El margen del 30%
+desarrollo, CI y benchmark. Fastify, pnpm y Prisma agregan decisiones operativas; el doble runtime solo las
+añade cuando Python se active; a cambio ofrecen una baseline explícita. El margen del 30%
 reduce la cifra publicable para conservar capacidad de recuperación y crecimiento.
 
 ## Validación y revisión

@@ -1,6 +1,6 @@
 # Preguntas y decisiones pendientes
 
-Registro actualizado con U-001…U-006, U-009 y U-012 resueltas en diseño mediante ADR
+Registro actualizado con U-001…U-007, U-009 y U-012 resueltas en diseño mediante ADR
 aceptados o aceptados condicionalmente, con fecha aportada 2026-09-18. Los gates
 productivos y valores de configuración pendientes no se presentan como software
 desplegado. Las demás preguntas conservan responsables y criterio de cierre.
@@ -556,10 +556,27 @@ su ausencia no reabre la separación arquitectónica ni autoriza producción.
 
 ## U-007 — analítica Python
 
-PROPOSAL / UNRESOLVED. Python queda permitido/requerido para cargas justificadas,
-no activo en MVP automáticamente. ¿Qué análisis aporta valor frente a Wazuh/TS?
-Desarrollo/SOC deben aportar caso y benchmark. Cierre: schemas conformes,
-presupuesto y validación de proceso acotado; otro transporte requiere revisar ADR-007.
+**Decision status:** ACCEPTED — DORMANT CAPABILITY
+
+**MVP runtime status:** NOT ENABLED
+
+**Activation status:** BLOCKED UNTIL USE CASE AND BENCHMARK PASS
+
+**Decision owners:** Development + SOC + Security
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+Python queda permitido exclusivamente para analítica especializada que demuestre
+valor frente a Wazuh, TypeScript y OpenSearch. No se despliega en el MVP. El primer
+candidato posterior es `Authentication Behavior Anomaly Scoring`, offline, batch y
+acotado; produce candidates explicables que TypeScript revalida y nunca ejecuta
+SOAR ni crea alertas directamente.
+
+U-007 queda resuelta en [ADR-007](../adr/007-python-analytics.md) y el
+[diseño canónico](../architecture/python-analytics.md). `apps/analytics` solo se
+crea después de dataset autorizado, baseline, aprobación SOC, benchmark, contratos,
+presupuesto, aislamiento, rollback y 18 pruebas. Antes solo se permite
+`research/analytics` no desplegado.
 
 ## U-008 — workflow SOC y SOAR
 
@@ -646,6 +663,8 @@ U-006 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-021: OpenTelemetry
 desacopla observabilidad del proveedor y el audit trail usa PostgreSQL
 transaccional más archivo WORM firmado. Producción permanece bloqueada hasta
 configurar dependencias y superar las 24 pruebas.
+U-007 se resolvió como ACCEPTED — DORMANT CAPABILITY mediante ADR-007: Python
+queda fuera del runtime MVP y solo se activa por caso medible, benchmark y gate.
 U-009 se resolvió como CONDITIONALLY ACCEPTED mediante ADR-020: fija continuidad,
 recovery y soporte, pero los objetivos solo dejan de ser provisionales después de
 aprobación y ejercicios medidos.

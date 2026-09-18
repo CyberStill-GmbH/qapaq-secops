@@ -1,10 +1,10 @@
 # Índice de Architecture Decision Records
 
-ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018…ADR-021 están Conditionally Accepted por
+ADR-007, ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018…ADR-021 están Conditionally Accepted por
 resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad y separación
 de observabilidad/auditoría. ADR-001…014 mantienen
-Proposed salvo aspectos sustituidos. Aceptación documental no equivale a software
+Proposed salvo ADR-007 y aspectos sustituidos. Aceptación documental no equivale a software
 desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 
 - [ADR-001 — Modular Monolith](001-modular-monolith.md).
@@ -13,7 +13,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-004 — PostgreSQL for operational data](004-postgresql-operational-data.md).
 - [ADR-005 — OpenSearch/Wazuh for telemetry](005-opensearch-wazuh-telemetry.md).
 - [ADR-006 — Redis/BullMQ for asynchronous jobs](006-redis-bullmq.md).
-- [ADR-007 — Python workers for analytics](007-python-analytics.md).
+- [ADR-007 — Analítica Python como capacidad dormante](007-python-analytics.md), Accepted; runtime MVP deshabilitado y activación sujeta a caso y benchmark.
 - [ADR-008 — Hot/Warm/Cold retention](008-hot-warm-cold-retention.md).
 - [ADR-009 — RBAC capability-based permissions](009-capability-rbac.md).
 - [ADR-010 — Vendor integrations through adapters](010-vendor-adapters.md).

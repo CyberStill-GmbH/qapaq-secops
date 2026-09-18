@@ -26,6 +26,8 @@ storage WORM, canales ni pruebas productivas.
 La resolución [U-009/ADR-020](adr/020-operations-and-continuity.md) acepta
 condicionalmente criticidad, objetivos, modos, recovery y soporte. No acredita
 RPO/RTO/SLO alcanzados ni cobertura humana 24x7.
+La resolución [U-007/ADR-007](adr/007-python-analytics.md) acepta Python como
+capacidad dormante y lo excluye del runtime MVP hasta superar su gate.
 El requerimiento confirmado por la Jefatura de Riesgos No Financieros se registra
 en [U-012/ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md): Teams
 Workflows es el canal primario para alertas `CRITICAL`, con entrega asíncrona,
@@ -39,7 +41,7 @@ acuse exclusivo en QAPAQ y fallback independiente obligatorio.
 - R-04: PostgreSQL para datos operacionales, no telemetría masiva. [Storage](architecture/storage.md), ADR-004.
 - R-05: Wazuh como componente/fuente de endpoint dentro de QAPAQ SecOps, sin convertirlo en frontera única ni reimplementar sus capacidades. ADR-005/019.
 - R-06: Redis/BullMQ, backpressure, reintentos acotados, idempotencia, replay y fallos aislados; sin Kafka inicial. [Flujos](architecture/data-flow.md), ADR-006/014.
-- R-07: Python para procesamiento justificado, sin reemplazar NestJS. Contratos Node/Python. [Modelo](architecture/event-model.md), ADR-007.
+- R-07: Python reservado como capacidad analítica dormante; no se despliega en el MVP y solo se activa con caso, benchmark, contratos y gate aprobados, sin reemplazar NestJS. [Analítica](architecture/python-analytics.md), ADR-007.
 - R-08: conservar raw, normalizar SecurityEvent, analizar ECS/OCSF. [Modelo](architecture/event-model.md), ADR-011.
 - R-09: hot/cold/evidence, retención por dataset, hold, purga verificable y consulta histórica sin acoplar al consumidor al tier. ADR-008/018.
 - R-10: adapters independientes para Wazuh, Microsoft, Sophos y Cato; inventario y prueba autorizada antes de producción. AD/firewalls/IDS/IPS y MISP según vertical. [Integraciones](architecture/integrations.md), ADR-010/019.
@@ -80,7 +82,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Veintidós ADR canónicos; ADR-015/016/017/022 Accepted y ADR-018/019/020/021 Conditionally Accepted.
+- Veintidós ADR canónicos; ADR-007/015/016/017/022 Accepted y ADR-018/019/020/021 Conditionally Accepted.
 - Trece diagramas Mermaid coherentes; los niveles C4 1…4 distinguen arquitectura objetivo de implementación existente.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.
