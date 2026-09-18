@@ -66,7 +66,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
 - Veinte ADR con Context, Decision, Alternatives, Consequences y Trade-offs; ADR-015/016/017 Accepted y ADR-018/019/020 Conditionally Accepted.
-- Once diagramas Mermaid coherentes con las decisiones y propuestas documentadas.
+- Doce diagramas Mermaid coherentes; los niveles C4 1…4 distinguen arquitectura objetivo de implementación existente.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baselines aceptadas diferenciadas de tooling instalado, capacidad medida, ratificación legal y lifecycle implementado; ninguna integración declarada probada.
 - Cambios confinados a docs/; sin código de aplicación ni infraestructura.

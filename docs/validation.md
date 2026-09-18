@@ -17,10 +17,10 @@ Las fechas de decisión 2026-09-18 de U-001…U-005 y U-009 fueron aportadas por
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
   `docs/verification-checks.json` comprobados. `git diff --check -- docs` no
   reportó errores.
-- Once fuentes Mermaid constan en el repositorio. La validación previa renderizó
-  las once; U-003 actualizó contexto y autenticación. Sus fuentes pasaron revisión
-  estructural, pero el render temporal no concluyó porque `mermaid-cli` no pudo
-  adquirirse dentro de la ventana acotada. No se añadió dependencia al repositorio.
+- Doce fuentes Mermaid constan en el repositorio. Las vistas 01…03 se reformularon
+  con sintaxis C4 y se añadió el nivel 4 representativo. Las cuatro vistas se
+  renderizaron con Mermaid CLI y se inspeccionaron visualmente; no se añadió una
+  dependencia al repositorio.
 - Revisión manual de coherencia entre U-002, ADR-016, requisitos, convenciones,
   estructura, API, ingesta, storage, deployment, testing, roadmap y CI/CD.
 - El verificador de implementación se ejecutó y reportó `NOT_CONFIGURED` para
@@ -92,6 +92,18 @@ Se comprobó coherencia con U-002 (capacidad aún medida por benchmark), U-003
 (emergencia de identidad), U-004 (retención/deletion ledger/holds) y U-005
 (aislamiento/replay por fuente). No se presenta ningún target como resultado real.
 Sin guardia SEV1 formal, la documentación exige `LIMITED PRODUCTION / 8x5`.
+
+## Actualización del modelo C4
+
+Se documentaron cuatro niveles enlazados: contexto del sistema, contenedores
+conceptuales, componentes del backend y una estructura de código representativa
+para el módulo SOC. Los tres primeros usan sintaxis C4 de Mermaid; el cuarto
+explicita una propuesta de capas hexagonales porque todavía no existe código de
+aplicación que permita documentar clases reales.
+
+Las cuatro fuentes se renderizaron a SVG y PNG con Mermaid CLI y se revisaron
+visualmente. No se añadió una vista de despliegue: la topología, los hosts y la
+distribución de alta disponibilidad aún no tienen una decisión aprobada.
 
 ## Límites
 
