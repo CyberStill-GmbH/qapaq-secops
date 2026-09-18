@@ -2,22 +2,24 @@
 
 Validación inicial y actualizaciones: 2026-09-17. Alcance: arquitectura creada en
 `docs/`, sin implementación de features ni acceso a servicios de Financiera Qapaq.
-Las fechas de decisión 2026-09-18 de U-001/U-002 fueron aportadas por el usuario.
+Las fechas de decisión 2026-09-18 de U-001/U-002/U-003 fueron aportadas por el usuario.
 
 ## Comprobaciones vigentes
 
-- Dieciséis ADR canónicos identificados por encabezado ADR-001…016. ADR-015 y
-  ADR-016 están Accepted; ADR-001…014 conservan Proposed salvo los aspectos
+- Diecisiete ADR canónicos identificados por encabezado ADR-001…017. ADR-015,
+  ADR-016 y ADR-017 están Accepted; ADR-001…014 conservan Proposed salvo aspectos
   explícitamente sustituidos. Las tres notas heredadas de temas renumerados no se
   cuentan como ADR adicionales.
-- Los dieciséis ADR contienen Context, Decision, Alternatives, Consequences y
+- Los diecisiete ADR contienen Context, Decision, Alternatives, Consequences y
   Trade-offs. U-002 fija las catorce entradas de versión aportadas y mantiene la
   capacidad numérica como PENDING MEASUREMENT.
 - Enlaces Markdown locales comprobados contra el filesystem; fences Markdown y
   `docs/verification-checks.json` comprobados. `git diff --check -- docs` no
   reportó errores.
 - Once fuentes Mermaid constan en el repositorio. La validación previa renderizó
-  las once con Mermaid 12.0.0; U-002 no modificó diagramas.
+  las once; U-003 actualizó contexto y autenticación. Sus fuentes pasaron revisión
+  estructural, pero el render temporal no concluyó porque `mermaid-cli` no pudo
+  adquirirse dentro de la ventana acotada. No se añadió dependencia al repositorio.
 - Revisión manual de coherencia entre U-002, ADR-016, requisitos, convenciones,
   estructura, API, ingesta, storage, deployment, testing, roadmap y CI/CD.
 - El verificador de implementación se ejecutó y reportó `NOT_CONFIGURED` para
@@ -42,6 +44,19 @@ La CI existente usa descubrimiento y auditoría npm. La documentación registra 
 gap su adaptación al workspace pnpm 12.4.2 aceptado. No se modificó el workflow ni
 se presentaron scripts, lockfiles o manifests como existentes.
 
+## Actualización por aceptación de U-003
+
+U-003/ADR-017 acepta Microsoft Entra ID single-tenant, OIDC Authorization Code con
+PKCE S256, BFF/sesión opaca, scopes, bundles, JIT, doble aprobación, revocación,
+raw/exports e identidades de servicio. El estado operacional permanece BLOCKED
+UNTIL FEDERATION TESTS PASS; la documentación no afirma tenant, licencias, app
+registration, Conditional Access, PIM o federación configurados.
+
+Se contrastaron Authorization Code/PKCE, PIM y criterios de sesión/autenticadores
+con Microsoft Learn y NIST SP 800-63B. Se comprobaron enlaces, fences, diecisiete
+ADRs y coherencia con seguridad, RBAC, API, auditoría, amenazas, riesgos, testing,
+deployment, roadmap e integraciones.
+
 ## Límites
 
 No se ejecutaron tests de aplicación, SAST, pruebas de proveedores, carga, restore
@@ -50,8 +65,9 @@ verificar en esta tarea. Tampoco hay evidencia para publicar EPS, sizing product
 o compatibilidad de la matriz completa.
 
 Renderizar Mermaid no demuestra corrección operacional. Faltan schemas ejecutables,
-pruebas de conformidad y decisiones sobre identidad, retención, transporte y
-continuidad. Las capacidades de Sophos/Cato permanecen pendientes porque sus páginas
+pruebas de conformidad y decisiones sobre retención, transporte y continuidad.
+La identidad tiene decisión aceptada, pero carece de pruebas de federación. Las
+capacidades de Sophos/Cato permanecen pendientes porque sus páginas
 no pudieron leerse íntegramente; consultar [references.md](references.md).
 
 Los cambios concurrentes de CI y `.github/ci/discover.py` quedan fuera del alcance
