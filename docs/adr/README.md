@@ -1,10 +1,10 @@
 # Índice de Architecture Decision Records
 
-ADR-007, ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por
+ADR-007, ADR-011, ADR-015, ADR-016, ADR-017 y ADR-022 están Accepted; ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por
 resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad, separación
 de observabilidad/auditoría y CI/release/despliegue. ADR-001…014 mantienen
-Proposed salvo ADR-007 y aspectos sustituidos. Aceptación documental no equivale a software
+Proposed salvo ADR-007, ADR-011 y aspectos sustituidos. Aceptación documental no equivale a software
 desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 
 - [ADR-001 — Modular Monolith](001-modular-monolith.md).
@@ -17,7 +17,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-008 — Hot/Warm/Cold retention](008-hot-warm-cold-retention.md).
 - [ADR-009 — RBAC capability-based permissions](009-capability-rbac.md).
 - [ADR-010 — Vendor integrations through adapters](010-vendor-adapters.md).
-- [ADR-011 — SecurityEvent normalization strategy](011-security-event-normalization.md).
+- [ADR-011 — Contrato canónico SecurityEvent](011-security-event-normalization.md), Accepted / Implementation Required.
 - [ADR-012 — Audit trail strategy](012-audit-trail.md).
 - [ADR-013 — Secret management abstraction](013-secret-management.md).
 - [ADR-014 — Event-driven internal communication strategy](014-internal-communication.md).

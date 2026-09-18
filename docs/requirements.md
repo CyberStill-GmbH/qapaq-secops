@@ -45,7 +45,9 @@ acuse exclusivo en QAPAQ y fallback independiente obligatorio.
 - R-05: Wazuh como componente/fuente de endpoint dentro de QAPAQ SecOps, sin convertirlo en frontera única ni reimplementar sus capacidades. ADR-005/019.
 - R-06: Redis/BullMQ, backpressure, reintentos acotados, idempotencia, replay y fallos aislados; sin Kafka inicial. [Flujos](architecture/data-flow.md), ADR-006/014.
 - R-07: Python reservado como capacidad analítica dormante; no se despliega en el MVP y solo se activa con caso, benchmark, contratos y gate aprobados, sin reemplazar NestJS. [Analítica](architecture/python-analytics.md), ADR-007.
-- R-08: conservar raw, normalizar SecurityEvent, analizar ECS/OCSF. [Modelo](architecture/event-model.md), ADR-011.
+- R-08: conservar raw separado con referencia y SHA-256; normalizar contra
+  `qapaq.security-event` 1.0.0; gobernar identidad, taxonomía y severidad; y usar
+  ECS 9.5.0/OCSF 1.9.0 solo mediante perfiles validados. [Modelo](architecture/event-model.md), ADR-011.
 - R-09: hot/cold/evidence, retención por dataset, hold, purga verificable y consulta histórica sin acoplar al consumidor al tier. ADR-008/018.
 - R-10: adapters independientes para Wazuh, Microsoft, Sophos y Cato; inventario y prueba autorizada antes de producción. AD/firewalls/IDS/IPS y MISP según vertical. [Integraciones](architecture/integrations.md), ADR-010/019.
 - R-11: Entra ID humano, BFF con sesión opaca y roles dinámicos/capabilities con scopes, controles de objeto/campo, JIT y separación de funciones. [Identidad](architecture/identity-and-authorization.md), ADR-009/017.

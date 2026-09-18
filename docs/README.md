@@ -1,7 +1,8 @@
 # qapaq-secops — arquitectura inicial
 
-Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados;
-U-004/ADR-018, U-005/ADR-019, U-006/ADR-021, U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007 y U-012/ADR-022 aceptados, con fecha
+Arquitectura documental: U-001/ADR-015, U-002/ADR-016, U-003/ADR-017 y
+U-010/ADR-011 aceptados; U-004/ADR-018, U-005/ADR-019, U-006/ADR-021,
+U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007 y U-012/ADR-022 aceptados, con fecha
 aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. Sin implementación.
@@ -81,6 +82,10 @@ aceptan QAPAQ SecOps como producto SOC central, adapters independientes y piloto
 Wazuh/Microsoft. La ingesta productiva requiere inventario y pilotos autorizados.
 DECISION: U-007 y [ADR-007](adr/007-python-analytics.md) excluyen Python del
 runtime MVP y conservan una capacidad futura sujeta a caso, benchmark y gate.
+DECISION: U-010 y [ADR-011](adr/011-security-event-normalization.md) aceptan
+`qapaq.security-event` 1.0.0, JSON Schema Draft 2020-12 como fuente normativa y
+ECS 9.5.0/OCSF 1.9.0 solo como perfiles validados. La implementación permanece
+pendiente del gate de schema, mappings, corpus, replay, cuarentena e integridad raw.
 DECISION: U-006 y [ADR-021](adr/021-observability-and-audit-separation.md)
 separan observabilidad, auditoría y telemetría; aceptan OpenTelemetry como contrato
 neutral y auditoría transaccional con archivo firmado. Producción exige pruebas de

@@ -1,6 +1,6 @@
 # Preguntas y decisiones pendientes
 
-Registro actualizado con U-001…U-007, U-009, U-011 y U-012 resueltas total o parcialmente mediante ADR
+Registro actualizado con U-001…U-007 y U-009…U-012 resueltas total o parcialmente mediante ADR
 aceptados o aceptados condicionalmente, con fecha aportada 2026-09-18. Los gates
 productivos y valores de configuración pendientes no se presentan como software
 desplegado. Las demás preguntas conservan responsables y criterio de cierre.
@@ -611,10 +611,26 @@ demostrar restore/replay/drenaje y ejecutar runbooks críticos. No decide cloud 
 
 ## U-010 — contrato SecurityEvent
 
-PROPOSAL / UNRESOLVED. Núcleo v1, categorías, mappings de severidad, identidad de
-eventos sin ID nativo y versiones ECS/OCSF deben contrastarse con corpus sintético
-representativo. Desarrollo/SOC son dueños sugeridos. Cierre: diccionario,
-schemas ejecutables y contract tests, sin autoafirmar compatibilidad.
+**Decision status:** ACCEPTED / IMPLEMENTATION REQUIRED
+
+**Decision date:** 2026-09-18, fecha aportada por el usuario
+
+[ADR-011](../adr/011-security-event-normalization.md) adopta
+`qapaq.security-event` 1.0.0 como contrato canónico interno, con JSON Schema Draft
+2020-12 normativo. Separa recepción física (`recordId`) de identidad lógica
+(`eventUid`), impide descarte automático con deduplicación heurística, versiona
+taxonomía y severidad, referencia raw separado mediante SHA-256 y pone entradas
+inválidas en cuarentena reprocesable.
+
+ECS 9.5.0 y OCSF 1.9.0 son perfiles de interoperabilidad, no el contrato interno.
+No se declara compatibilidad sin proyección y corpus validados. El mapping candidato
+`wazuh.alerts.severity/1.0.0` debe probarse antes de activar reglas o notificaciones
+críticas. La clasificación permanece `UNASSIGNED` hasta completar U-004.
+
+U-010 queda resuelta como decisión y pendiente de implementación. Su gate exige
+schema ejecutable, diccionario/taxonomía, mapping Wazuh y otro piloto probados,
+corpus sintético, contract tests en CI, replay/idempotencia, cuarentena/reproceso,
+hash raw, cobertura ECS/OCSF y aprobación SOC/Desarrollo y Seguridad.
 
 ## U-011 — CI y política de releases
 

@@ -1,125 +1,147 @@
 # SecurityEvent y contratos de frontera
 
-Estado: PROPOSAL v1; no schema desplegado ni interoperabilidad certificada.
-[ADR-011](../adr/011-security-event-normalization.md).
+Estado: DECISION aceptada; contrato `qapaq.security-event` 1.0.0 pendiente de implementación.
+[ADR-011](../adr/011-security-event-normalization.md) · [U-010](../decisions/unresolved.md).
 
-## ECS frente a OCSF
+## Autoridad y alcance
 
-ECS ofrece nombres, tipos y semántica de campos útiles para búsqueda; su referencia
-está orientada a indexación Elasticsearch. OCSF organiza eventos de ciberseguridad
-en categorías/clases con diccionario y extensiones. Son especificaciones, no
-sustitutos del ownership de Qapaq. [ECS](https://www.elastic.co/docs/reference/ecs) ·
-[OCSF](https://github.com/ocsf/ocsf-schema).
+JSON Schema Draft 2020-12 será la fuente normativa en
+`packages/contracts/security-event/1.0.0/security-event.schema.json`. Los tipos
+TypeScript, validadores, documentación y mappings de OpenSearch deben generarse o
+verificarse contra él. Ninguna interfaz TypeScript aislada constituye el contrato.
 
-Recomendación de diseño: núcleo interno acotado independiente del motor, con
-mapeos semánticos documentados. ECS inspira separación de tiempo de ocurrencia/
-ingesta y entidades host/user/source/destination; OCSF sirve para revisar categorías
-y futura interoperabilidad. No adoptar todo ECS ni clases OCSF hasta comparar
-fixtures de fuentes piloto, cobertura y coste de mantenimiento. No anunciar
-compatibilidad por usar nombres parecidos. La versión de ambos estándares a
-mapear debe fijarse al implementar.
+ECS 9.5.0 y OCSF 1.9.0 son referencias de interoperabilidad y perfiles de salida,
+no el modelo interno. No se añaden `ecs.version` ni una versión OCSF al evento
+canónico. Solo una proyección validada contra su perfil puede declarar
+compatibilidad. Cambiar esas versiones exige ADR, análisis de impacto, corpus de
+regresión y mapping versionado. La adopción no implica conformidad regulatoria.
 
-## Campos propuestos y semántica
+## Estructura canónica 1.0.0
 
-- schemaVersion: string de versión mayor/menor del contrato interno; obligatorio.
-- id: identificador interno string estable para una observación admitida; obligatorio, no numérico. Se conserva en reintentos del mismo registro.
-- eventId: identificador opaco nativo opcional. No equivale al código de tipo del evento; este último va en metadata.vendorEventCode. No usar eventId solo como unicidad global.
-- timestamp: instante de ocurrencia RFC 3339 UTC, o null si desconocido; nunca inventar hora del vendor. metadata.timeQuality señala origen, offset original y errores.
-- ingestionTimestamp: recepción de la plataforma en UTC, obligatoria; timestamps de procesamiento son metadata separada.
-- sourceType, sourceVendor, sourceProduct, sourceInstance: strings de catálogo/identidad de fuente. sourceInstance es ID de configuración validada, no valor confiado al payload. Tipo/vendor/producto desconocidos se explicitan.
-- host: objeto opcional con identificador local/externalIds y atributos permitidos; hostname: nombre observado opcional, no identidad única. Si difiere de inventario, preservar procedencia.
-- user: objeto opcional con ID de origen y referencia interna resuelta si existe; no inferir que coincide con un usuario de la plataforma.
-- srcIp, dstIp: IP validada opcional; srcPort, dstPort: enteros 0…65535, solo si aplican; protocol: valor de catálogo extensible. No rellenar ausencias con 0 ni direcciones ficticias.
-- action: acción normalizada; category: categoría interna versionada, inicialmente extensible con unknown. Diccionario y mapping de cada vendor deben aprobarse antes de reglas productivas.
-- severity: unknown, informational, low, medium, high o critical; mapeo por fuente/version. Conservar valor original en metadata. No comparar escalas de vendors por simple igualdad numérica.
-- ruleId, ruleName: referencia opcional a regla del origen, namespaced por fuente. No reemplazarla con ID de regla Qapaq; DetectionResult mantiene su propia regla/version.
-- message: resumen opcional acotado/redactado para búsqueda; no sustituye raw.
-- rawEvent: referencia obligatoria a evidencia original con objectId lógico, digest SHA-256, mediaType, encoding y byteLength. Bytes originales permanecen en storage restringido, no en cada job/documento de dominio. El port de evidencia resuelve la referencia con autorización.
-- metadata: campos namespaced de procedencia, parserVersion, normalizerVersion, tiempo, calidad y lineage. Tamaño/profundidad/keys limitados; no indexación dinámica ilimitada.
-- tags: strings de catálogo o namespace controlado, opcionales y acotados.
-- correlationId: ID interno de trazabilidad obligatorio; no es clave de deduplicación ni session token.
+- `specVersion`: versión SemVer obligatoria del contrato.
+- `recordId`: UUIDv7 nuevo para cada recepción física.
+- `eventUid`, `eventUidType`: identidad lógica y método `native`, `transport` o
+  `derived`; `dedupConfidence` indica `high`, `medium` o `low`.
+- `kind`: `event`, `alert`, `finding` o `state`.
+- `time`: `occurredAt`, `observedAt`, `ingestedAt`, `effectiveAt` y `timeBasis`.
+  No se inventan tiempos ausentes ni zonas horarias.
+- `producer`: `vendor`, `product`, `dataset`, `instanceId` validado y
+  `nativeEventId` opcional.
+- `classification`: `category`, `type`, `action` y `outcome`.
+- `severity`: `normalized`, `score`, `sourceValue`, `sourceLabel`, `sourceScale`,
+  `mappingId` y `mappingVersion`.
+- `detection`: `ruleId`, `ruleName` y `ruleVersion` del origen; no reemplazan la
+  identidad de una regla Qapaq.
+- Entidades opcionales: `user`, `host`, `device`, `process`, `file` y `network`,
+  con procedencia y límites explícitos.
+- `threat.techniques`: técnicas observadas o declaradas con fuente.
+- `raw`: `ref`, `sha256`, `mediaType` y `sizeBytes` de la evidencia separada.
+- `pipeline`: `connector`, `connectorVersion`, `parserVersion` y `mappingVersion`.
+- `handling`: `classificationCode` y `redactionState`.
+- `extensions.<vendor>`: campos no canónicos con namespace, tamaño y profundidad
+  limitados; sin indexación dinámica ilimitada.
 
-Los campos opcionales ausentes se omiten; null solo donde el contrato lo permita
-explícitamente. Prohibir claves extra en envoltura y entidades; extensiones pasan
-por metadata validada. Limitar longitud, profundidad y número de elementos antes
-de parsear. ADR-016 fija 256 KiB por evento normalizado, 500 eventos/5 MiB
-descomprimidos por batch y 256 KiB por payload BullMQ. La semántica de cada fuente
-sigue [U-005/ADR-019](source-integration-strategy.md).
+Los campos opcionales ausentes se omiten; `null` solo se admite donde lo permita
+el schema. Las claves extra se rechazan salvo dentro de extensiones controladas.
+ADR-016 fija 256 KiB por evento normalizado, 500 eventos/5 MiB descomprimidos por
+batch y 256 KiB por payload BullMQ.
 
-La procedencia aceptada añade `sourceId`, `datasetId`, `vendor`, `sourceRecordId`,
-`sourceEventTime`, `sourceIngestTime`, `platformReceivedAt`, `semanticLevel`,
-`contentHash`, `cursorReference` y `rawReference`. El schema ejecutable sigue U-010;
-esta lista fija intención y lineage, no tipos físicos adicionales sin versión.
+## Taxonomía inicial
 
-Niveles semánticos: `VENDOR_RAW`, `WAZUH_ARCHIVED_EVENT`, `WAZUH_ALERT`,
-`NORMALIZED_EVENT`, `CORRELATED_ALERT` e `INCIDENT`. Una alerta Wazuh es resultado
-derivado y no reemplaza el evento del producto original.
+`classification.category` admite `authentication`, `iam`, `network`,
+`intrusion_detection`, `malware`, `host`, `file`, `process`, `configuration`,
+`email`, `web`, `vulnerability`, `threat`, `api`, `database` y `unclassified`.
+`classification.type` admite `access`, `allowed`, `denied`, `change`, `creation`,
+`deletion`, `start`, `end`, `error` e `info`. `outcome` admite `success`, `failure`
+o `unknown`. Usar `unclassified` conserva el raw e incrementa una métrica de
+calidad. Casos e incidentes son agregados separados, no clases de SecurityEvent.
 
-## Identidad y preservación
+## Severidad
 
-Distinguir admisión duplicada de dos eventos legítimos iguales. Si el proveedor
-garantiza ID estable, deduplicar con sourceInstance + native ID + discriminador
-de stream/documento; si no, usar identidad de lote/cursor y posición estable.
-Un hash de payload solo detecta bytes iguales, no prueba mismo evento. La
-estrategia de cada fuente es parte de su contrato. Si el mismo hecho llega directo
-y por Wazuh, se aplica la política por dataset de ADR-019 y se conserva
-`relatedEventIds`; no se deduplica solo por tiempo o texto.
+La escala común es: `unknown` con score nulo; `informational` 0–19; `low` 20–39;
+`medium` 40–59; `high` 60–79; `critical` 80–100. Siempre se conserva la escala del
+origen y la versión del mapping.
 
-Mantener receiptId y digest original. Si una API entrega objetos ya transformados,
-conservar la respuesta recibida o el registro tal como fue transportado y
-declarar que no equivale al evento previo al proveedor. Un archivo comprimido
-puede preservar sus bytes originales y el digest del contenido descomprimido
-como dos evidencias diferentes.
+El candidato Wazuh `wazuh.alerts.severity/1.0.0` asigna nivel 0 a `unknown`
+suprimido; 1–4 a `informational`; 5–7 a `low`; 8–10 a `medium`; 11–13 a `high`;
+y 14–15 a `critical`. Debe validarse con el corpus autorizado antes de uso
+productivo y no puede reutilizarse para otras fuentes. La notificación crítica por
+Teams usa `normalized=critical` solo después de aprobar el mapping de la fuente.
 
-La preservación de raw está limitada por retención/hold y permisos. No ponerlo en
-logs, fixtures públicos ni índices generales. Si contiene secretos, aislar y
-rotar el secreto comprometido; conservar evidencia restringida conforme a política,
-sin difundirlo en derivados.
+## Identidad, duplicados y replay
 
-## JSON Node/Python futuro
+Con ID nativo estable, `eventUid` deriva de `instanceId + dataset + nativeEventId`.
+Sin él, deriva de la representación canónica JCS de `instanceId`, `dataset`,
+`occurredAt`, cursor o secuencia estables, campos semánticos seleccionados y
+`raw.sha256`. El contrato de cada dataset documenta exactamente los componentes.
 
-U-007 mantiene Python fuera del MVP. Antes de habilitarlo, materializar schemas JSON versionados para SecurityEvent,
-AnalysisRequest y DetectionResult en el paquete de contratos, validarlos en ambos
-extremos y probar corpus compartido. No usar pickle, eval ni objetos Python/ORM
-como contrato. Versiones desconocidas se rechazan o ponen en cuarentena.
+Solo `native` o un cursor de transporte estable permiten descartar automáticamente
+una recepción duplicada. Una identidad `derived` de confianza baja solo marca una
+sospecha para análisis; no elimina el registro. Dos eventos legítimos semejantes
+deben poder coexistir. Un replay mantiene `eventUid`, emite un `recordId` nuevo y
+registra lineage. Qapaq no declara exactly-once.
 
-AnalysisRequest propuesto: requestId, schemaVersion, analysisType, ruleVersion,
-eventRefs, contextRefs y correlationId. Contexto de permisos/scope viene del job
-autenticado; no se permite que el worker lo eleve en su respuesta. Artefactos
-grandes se referencian por ID interno, nunca URL arbitraria aportada por el evento.
+## Raw, privacidad y custodia
 
-DetectionResult propuesto: idempotencyKey, schemaVersion, ruleId/ruleVersion,
-eventIds, windowStart/windowEnd si aplica, severity, reasonCode, evidenceRefs,
-contextVersion y processingStatus. confidence es opcional y nunca «probabilidad»
-sin calibración documentada. El backend valida referencias y autorización antes
-de crear una alerta.
+Los bytes recibidos viven en almacenamiento restringido; SecurityEvent conserva
+referencia y SHA-256. Secretos y datos innecesarios se redactan antes de indexar la
+representación normalizada. La redacción del derivado no modifica el objeto bajo
+custodia. Acceso y exportación de raw se auditan. Hash inválido o raw ausente impide
+afirmar integridad y lleva el registro al flujo de excepción.
 
-IDs e enteros fuera del rango seguro de JavaScript se transportan como strings.
-No NaN/Infinity, timestamps locales ambiguos ni bytes binarios sin encoding.
-Campo requerido nuevo o cambio semántico exige versión mayor; cambios aditivos
-requieren schema lector compatible, no confiar en que todo consumidor ignore extras.
-Una tarea lleva versión fijada; actualizar productor/consumidor con fixtures de
-compatibilidad antes de cambiarla.
+`handling.classificationCode` usa `UNASSIGNED` hasta que U-004 apruebe el catálogo.
+Wazuh archives permanece deshabilitado por defecto; habilitarlo y retenerlo son
+decisiones de infraestructura y retención, no del contrato lógico.
 
-## Ejemplo sintético reducido
+## Validación y cuarentena
 
-Este fragmento ilustra semántica, no es un evento completo validable:
+Se valida al entrar al normalizador, antes de indexar y antes de exportar. Un evento
+inválido preserva raw, se envía a cuarentena/DLQ con código de error, conector y
+versión del parser, incrementa métricas y puede reprocesarse. Desconocer una versión
+mayor causa rechazo o cuarentena; nunca interpretación tolerante silenciosa.
 
-```json
-{
-  "schemaVersion": "1.0",
-  "id": "synthetic-event-001",
-  "timestamp": "2026-09-17T12:00:00Z",
-  "ingestionTimestamp": "2026-09-17T12:00:02Z",
-  "sourceInstance": "synthetic-source-01",
-  "hostname": "endpoint.example",
-  "srcIp": "192.0.2.10",
-  "action": "authentication-failed",
-  "category": "authentication",
-  "severity": "low",
-  "correlationId": "synthetic-trace-001"
-}
-```
+Validadores mínimos:
 
-No incluye rawEvent ni el resto de campos obligatorios deliberadamente; los
-fixtures de implementación deben ser completos, autocontenidos y sin datos reales.
+1. tipos, enums, formatos, límites y rechazo de propiedades no admitidas;
+2. coherencia temporal sin exigir llegada ordenada;
+3. rango de severidad y correspondencia con mapping aprobado;
+4. identidad reproducible e idempotencia en replay;
+5. existencia e integridad SHA-256 del raw cuando se reclame custodia;
+6. tamaño/profundidad de extensiones y redacción previa a indexación;
+7. compatibilidad de productores y consumidores con la versión soportada.
+
+## Evolución y artefactos
+
+El layout previsto dentro de `packages/contracts/security-event/` contiene el schema
+por versión, catálogos, mappings por vendor, perfiles `ecs-9.5.0` y `ocsf-1.9.0`,
+y ejemplos sintéticos. Los mappings tienen versión independiente. Un cambio
+incompatible eleva major; uno aditivo exige lectores compatibles. Renormalizar crea
+una revisión nueva y conserva lineage, sin reescribir silenciosamente la historia.
+
+Todo PR del contrato incluye razón, evidencia, antes/después, efecto en detecciones,
+dashboards y Teams, aprobación de SOC y versión. Desarrollo/SOC mantienen schema y
+taxonomía; el dueño de cada fuente aprueba su mapping; Infra valida indexación y
+capacidad; Seguridad revisa manejo y redacción; Legal/Compliance define retención y
+clasificación; Arquitectura gobierna incompatibilidades y perfiles.
+
+## Corpus mínimo de aceptación
+
+Debe cubrir: alerta Wazuh; raw Wazuh sin alerta; autenticación Microsoft 365 exitosa
+y fallida; alerta de identidad/correo; tráfico Cato permitido y bloqueado; malware
+Sophos; finding de vulnerabilidad; ausencia de ID nativo; replay; dos eventos
+legítimos parecidos; timestamp sin zona; llegada tardía o fuera de orden; campo de
+vendor desconocido; evento sobredimensionado; secreto/token; JSON malformado; hash
+raw inválido; y cambio de versión de API/producto.
+
+Para el MVP son obligatorios el schema 1.0.0, el mapping Wazuh probado y el corpus
+mínimo aplicable. Los perfiles completos de Microsoft 365, Cato y Sophos requieren
+muestras autorizadas posteriores.
+
+## Frontera Node/Python futura
+
+U-007 mantiene Python fuera del MVP. Si se habilita, `SecurityEvent`,
+`AnalysisRequest` y `DetectionResult` usarán schemas JSON compartidos y corpus de
+compatibilidad en ambos extremos. No se admiten pickle, `eval`, objetos ORM ni
+bytes sin encoding. IDs y enteros fuera del rango seguro de JavaScript se
+transportan como strings. El backend valida referencias y autorización antes de
+promover un resultado.

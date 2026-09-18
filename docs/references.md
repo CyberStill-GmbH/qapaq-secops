@@ -1,7 +1,7 @@
 # Fuentes y alcance de investigación
 
 Consultadas el 2026-09-17 y 2026-09-18. Referencias primarias para hechos técnicos. Las
-decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-006, U-009 y U-012; las
+decisiones aceptadas provienen de las resoluciones explícitas de U-001…U-007 y U-009…U-012; las
 fuentes externas comprueban disponibilidad o soporte, no compatibilidad del
 sistema. No se consultaron sistemas internos de Financiera Qapaq.
 
@@ -14,8 +14,12 @@ sistema. No se consultaron sistemas internos de Financiera Qapaq.
 Estas fuentes verifican el mecanismo externo. No prueban licencia, configuración,
 canal, propietarios, retención ni disponibilidad del tenant QAPAQ.
 
-- [Elastic Common Schema](https://www.elastic.co/docs/reference/ecs): esquema de campos y tipos. Fundamenta evaluación ECS; no impone Elasticsearch ni conformidad.
-- [OCSF schema oficial](https://github.com/ocsf/ocsf-schema): categorías, clases y diccionario de normalización de seguridad. Fundamenta comparación, no mapping implementado.
+- [Elastic Common Schema 9.5.0](https://www.elastic.co/docs/reference/ecs): esquema de campos y tipos fijado como referencia de perfil; no impone Elasticsearch ni conformidad.
+- [Campos event de ECS](https://www.elastic.co/docs/reference/ecs/ecs-event) y [notas de versión](https://www.elastic.co/docs/release-notes/ecs): semántica temporal/clasificación y trazabilidad de la versión fijada.
+- [OCSF schema 1.9.0](https://github.com/ocsf/ocsf-schema/releases/tag/v1.9.0): categorías, clases y diccionario fijados como referencia de perfil, no como mapping implementado.
+- [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12): dialecto normativo elegido para `qapaq.security-event` 1.0.0.
+- [RFC 8785 — JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785.html): representación determinista usada cuando la identidad lógica debe derivarse.
+- [Wazuh event logging](https://documentation.wazuh.com/current/user-manual/manager/event-logging.html): diferencia alertas y archives y documenta que archives está deshabilitado por defecto y aumenta almacenamiento.
 - [BullMQ idempotent jobs](https://docs.bullmq.io/patterns/idempotent-jobs): efectos idempotentes ante reintentos.
 - [BullMQ production](https://docs.bullmq.io/guide/going-to-production): configuración y riesgos operacionales de Redis/cola.
 - [Wazuh Indexer](https://documentation.wazuh.com/current/user-manual/wazuh-indexer/index.html): rol de indexación/búsqueda. No prueba compatibilidad del entorno Qapaq.
