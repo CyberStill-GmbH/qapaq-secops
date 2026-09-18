@@ -13,6 +13,9 @@ Usuarios, identidades de servicio, autenticación, sesiones, roles, permisos,
 RBAC, políticas contextuales y autorización por endpoint. Toda API protegida
 declara política explícita. Posee estado de acceso y asignaciones; no asume
 operación del directorio corporativo ni captura de sus eventos.
+Microsoft Entra ID autentica humanos; access posee sesión local, grants, scopes,
+JIT, aprobaciones y revocación según ADR-017. La organización es QAPAQ y sus
+unidades son scopes, no tenants.
 
 ### 2. Integrations & Collectors — connectors
 

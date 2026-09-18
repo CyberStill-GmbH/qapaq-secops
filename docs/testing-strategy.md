@@ -40,6 +40,9 @@ Identidad de prueba → política → fuente fake → raw/manifiesto → normali
 detección → alerta → incidente/case → exportación autorizada y auditoría.
 Añadir rutas deny, object-level access y revocación. UI ocultando botones no cuenta
 como prueba de autorización. Las rutas exactas nacerán del contrato de cada feature.
+Antes de producción ejecutar los 27 escenarios de federación/autorización de
+[ADR-017](architecture/identity-and-authorization.md), incluyendo tenant/issuer/
+audience, PKCE/state/nonce, CSRF, scopes, SoD, step-up, revocación, raw y services.
 
 ## Fallos, seguridad y rendimiento
 

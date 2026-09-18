@@ -1,11 +1,13 @@
 # Integraciones y adapters
 
-Estado: PROPOSAL. Producto mencionado no equivale a conexión verificada.
+Adapters de fuentes: PROPOSAL. Entra como IdP humano: ACCEPTED por ADR-017.
+Producto mencionado no equivale a conexión verificada.
 [ADR-010](../adr/010-vendor-adapters.md), [preguntas U-005](../decisions/unresolved.md).
 
 ## Ports mínimos por necesidad
 
-IdentityProvider en access autentica una identidad corporativa; DirectoryProvider
+Microsoft Entra ID mediante IdentityProvider en access autentica humanos;
+DirectoryProvider
 en connectors consulta usuarios/grupos/equipos para inventario/contexto. No mezclar
 login con importación de eventos. SecurityEventProvider entrega lotes/cursor y
 semántica de replay. EndpointSecurityProvider entrega inventario/estado/señales;
@@ -30,7 +32,7 @@ expone SDK, connection string, cliente ORM ni un objeto vendor genérico.
 Distinguir lectura de directorio de captura de Windows Event Log. Evaluar
 directorio con transporte cifrado y cuenta read-only; telemetría preferentemente
 por mecanismos existentes Wazuh/forwarding. No asumir LDAP entrega security logs.
-AD puede no ser el IdP web. WinRM solo si se justifica y autoriza; no canal de
+AD no sustituye el IdP web Entra aceptado. WinRM solo si se justifica y autoriza; no canal de
 ejecución remota genérico en el MVP.
 
 ### MicrosoftGraphAdapter
@@ -45,6 +47,8 @@ Registrar endpoints/versiones exactos solo en ficha aprobada del conector; usar
 permisos mínimos por operación, paginación con validación del destino y throttling.
 Lectura de correo requiere caso de detección y alcance autorizado, no permiso
 global preventivo. Nunca reutilizar token de login del analista para un collector.
+El delta sync de admisión aceptado usa solo atributos mínimos y falla cerrado para
+nuevos privilegios; su app permission, licencia y comportamiento real deben probarse.
 
 ### CatoAdapter
 

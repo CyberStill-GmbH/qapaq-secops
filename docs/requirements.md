@@ -10,6 +10,9 @@ Prevalece sobre la agrupación y vocabulario propuestos inicialmente.
 La resolución [U-002/ADR-016](adr/016-toolchain-and-capacity-baseline.md) acepta
 versiones, workspace, ORM, herramientas, límites iniciales y metodología de
 capacidad. No acredita todavía instalación, compatibilidad ni rendimiento.
+La resolución [U-003/ADR-017](adr/017-identity-and-authorization.md) acepta Entra
+ID, modelo single-tenant, sesión BFF, RBAC/scopes, privilegios y gate productivo.
+No acredita federación ni licenciamiento configurados.
 
 ## Requisitos trazables
 
@@ -23,7 +26,7 @@ capacidad. No acredita todavía instalación, compatibilidad ni rendimiento.
 - R-08: conservar raw, normalizar SecurityEvent, analizar ECS/OCSF. [Modelo](architecture/event-model.md), ADR-011.
 - R-09: hot/warm/cold, retención gobernada y consulta histórica sin acoplar al consumidor al tier. ADR-008.
 - R-10: AD, Microsoft 365/Graph, Cato, Sophos, Wazuh, firewalls, IDS/IPS, servidores/endpoints; MISP futuro. [Integraciones](architecture/integrations.md), ADR-010.
-- R-11: roles dinámicos y capabilities, política por API, scopes y controles de objeto/campo. [RBAC](architecture/rbac.md), ADR-009.
+- R-11: Entra ID humano, BFF con sesión opaca y roles dinámicos/capabilities con scopes, controles de objeto/campo, JIT y separación de funciones. [Identidad](architecture/identity-and-authorization.md), ADR-009/017.
 - R-12: distinguir eventos, logs y auditoría; acciones críticas auditables y protección frente a manipulación. ADR-012.
 - R-13: SecretProvider y referencias a secretos, sin passwords/tokens/API keys en PostgreSQL. ADR-013.
 - R-14: distinguir Event, Alert, Incident, Case; ciclo de investigación y evidencia. [Módulos](architecture/modules.md).
@@ -53,7 +56,7 @@ como funcionales. Ninguna política aquí se presenta como certificación regula
 ## Aceptación de esta entrega
 
 - Los diez documentos de arquitectura solicitados existen y se enlazan entre sí.
-- Dieciséis ADR con Context, Decision, Alternatives, Consequences y Trade-offs, estado y condición de revisión; ADR-015 y ADR-016 Accepted.
+- Diecisiete ADR con Context, Decision, Alternatives, Consequences y Trade-offs, estado y condición de revisión; ADR-015, ADR-016 y ADR-017 Accepted.
 - Once diagramas Mermaid coherentes con las decisiones y propuestas documentadas.
 - Estructura, dependencias, convenciones, testing, threat model, riesgos y preguntas documentados.
 - Baseline aceptada diferenciada de tooling instalado, compatibilidad comprobada y capacidad medida; ninguna integración declarada probada.

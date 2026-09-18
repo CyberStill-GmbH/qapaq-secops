@@ -1,11 +1,13 @@
 # RBAC basado en capabilities
 
-Estado: PROPOSAL · [ADR-009](../adr/009-capability-rbac.md).
+Modelo de autorización: ACCEPTED por
+[ADR-017](../adr/017-identity-and-authorization.md). Schema físico y catálogo final
+por endpoint: PROPOSAL en [ADR-009](../adr/009-capability-rbac.md).
 
 ## Modelo
 
 access es dueño de users, roles, permissions, user_roles y role_permissions.
-Usuario local referencia subject/issuer corporativo estable, no email mutable.
+Usuario local referencia `tid + oid` de Microsoft Entra ID, no email mutable.
 Roles dinámicos agrupan capabilities registradas por módulos; un administrador
 no crea una capability ejecutable escribiendo un string nuevo en la base.
 
@@ -19,7 +21,7 @@ Múltiples roles aportan unión de grants válidos dentro de sus scopes; prohibi
 globales (suspensión, hold, segregación) prevalecen. No inferir jerarquías por nombre
 ni usar wildcard * persistente para administradores.
 
-## Catálogo inicial candidato
+## Catálogo por concretar
 
 - alerts.read, alerts.acknowledge, alerts.close.
 - incidents.read, incidents.create, incidents.assign, incidents.close; incidents.reopen propuesto para reapertura.
@@ -30,27 +32,31 @@ ni usar wildcard * persistente para administradores.
 - audit.read, audit.export; reports.read, reports.generate.
 - Capacidades adicionales propuestas por riesgos: events.read, evidence.read, evidence.export, retention.manage, retention.hold, platform.health.read.
 
-El catálogo es una propuesta contractual; no endpoints ni permisos ya instalados.
+ADR-017 acepta las capabilities críticas y la separación raw/export/JIT/SOAR. El
+catálogo restante es propuesta contractual; no endpoints ni permisos instalados.
 No permitir audit.export implícito por audit.read, ni evidence.read por events.read.
 Cada endpoint declarará un conjunto con semántica allOf/anyOf explícita.
 
-## Plantillas de roles para validar con SOC
+## Bundles aceptados
 
-- SOC_ANALYST_L1: lectura de alertas/contexto permitido, acknowledge, creación de incidente/case dentro del scope; no habilitar reglas, exportar raw ni cerrar incidentes por defecto.
-- SOC_ANALYST_L2: investigación, asignación/cierre/reapertura y actualización de casos según política; exportación de evidencia es asignación adicional, no automática.
-- SOC_ADMIN: administración SOC de reglas/conectores y coordinación; gestión de roles privilegiados sujeta a grant policy y segregación.
+- SOC_L1: lectura/triaje en scope, notas y creación de incidente; sin reglas, raw export, cierres críticos ni administración.
+- SOC_L2: investigación, lifecycle y evidencia; exportación raw y aprobación propia no son automáticas.
+- SOC_MANAGER: supervisión y aprobaciones operativas; no administración técnica o de identidad implícita.
+- DETECTION_ENGINEER: diseño/prueba/versionado de reglas; publicación crítica revisada.
 - AUDITOR: audit.read y reportes aprobados; exports requieren permiso explícito y propósito; sin mutaciones SOC.
-- READ_ONLY: lectura de vistas/alertas permitidas; sin raw, secrets, exports ni administración.
+- VIEWER: lectura de vistas/alertas permitidas; sin raw, secrets, exports ni administración.
 - PLATFORM_ADMIN: salud, configuración técnica permitida y operación; no obtiene lectura de evidencia ni roles.manage automáticamente.
+- ACCESS_ADMIN: grants, scopes, suspensión y sesiones; no puede autoasignarse ni aprobar solo privilegios.
 
-Son bundles recomendados, no matriz de grants aceptada. SOC debe validar recursos,
-scopes y conflictos de funciones antes del seed de roles.
+Son bundles aceptados; cada capability y endpoint requiere matriz y prueba antes
+del seed productivo. Detalle en [identidad y autorización](identity-and-authorization.md).
 
 ## Evitar autoescalada y roles obsoletos
 
-roles.manage autoriza administrar dentro de un conjunto otorgable; no autoriza
-otorgarse cualquier permiso ni borrar restricciones. Proponer doble control para
-asignaciones privilegiadas, con iniciador distinto del aprobador. Evitar eliminar
+`roles.manage` autoriza administrar dentro de un conjunto otorgable; no autoriza
+otorgarse cualquier permiso ni borrar restricciones. Aplicar doble control para
+asignaciones privilegiadas, con iniciador distinto del aprobador. La doble
+aprobación, JIT y separación de funciones están aceptadas. Evitar eliminar
 el último administrador autorizado sin un procedimiento de recuperación probado.
 
 Cambio de rol incrementa versión de autorización/invalida caches; operaciones

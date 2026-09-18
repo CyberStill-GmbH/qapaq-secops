@@ -2,8 +2,9 @@
 
 Alcance operacional ACCEPTED por [ADR-015](../adr/015-operational-scope-and-ownership.md)
 y baseline técnica ACCEPTED por
-[ADR-016](../adr/016-toolchain-and-capacity-baseline.md), con fecha de decisión
-aportada 2026-09-18. Implementación pendiente. Fuente:
+[ADR-016](../adr/016-toolchain-and-capacity-baseline.md). Identidad/autorización
+ACCEPTED por [ADR-017](../adr/017-identity-and-authorization.md), con fecha de
+decisión aportada 2026-09-18. Implementación pendiente. Fuente:
 [requerimientos](../requirements.md).
 
 ## ARCHITECTURE ASSESSMENT
@@ -12,9 +13,9 @@ aportada 2026-09-18. Implementación pendiente. Fuente:
 
 La solicitud prescribe un monolito modular SOC y su stack; el repositorio no
 contiene una aplicación que permita inferir contratos existentes. El diseño no
-representa infraestructura inventariada. ASSUMPTION: una organización operadora
-inicial, sin SaaS multitenant; se debe confirmar si hay segregación por equipos,
-filiales o unidades. No eliminar control por recurso aunque exista una sola entidad.
+representa infraestructura inventariada. ADR-017 acepta una organización QAPAQ,
+sin SaaS multitenant; equipos, filiales y unidades se expresan como scopes. No
+eliminar control por recurso aunque exista una sola organización.
 
 ### Base aceptada y decisiones técnicas propuestas
 
@@ -29,6 +30,10 @@ U-002 acepta el [toolchain, límites y método de capacidad](toolchain-and-capac
 Node/NestJS/Fastify para API, React/Vite para web, PostgreSQL/Prisma para estado,
 Redis/BullMQ para jobs y Python/uv para analítica justificada. Los perfiles de carga
 son escenarios de medición; ninguna cifra de EPS está aceptada todavía.
+
+U-003 acepta Entra ID single-tenant, BFF con sesión opaca, RBAC con scopes y
+privilegios JIT con separación de funciones. La decisión permite diseñar; el gate
+de federación/autorización bloquea habilitar endpoints productivos.
 
 Proponer SecurityEvent propio, pequeño y versionado, con semántica inspirada en
 ECS y un mapeo explícito evaluable hacia OCSF. No afirmar conformidad con ninguno.
@@ -49,7 +54,7 @@ Los [ADRs](../adr/README.md) distinguen requisitos prescritos de elecciones de d
 Prioritarios: pérdida de telemetría por ACK prematuro; abuso de permisos/exports;
 manipulación de auditoría; saturación compartida; pérdida de raw por retención
 inadecuada; incompatibilidad con APIs/ediciones reales. No se conocen volumen,
-licencias, identidad corporativa, retención aprobada, RPO/RTO ni capacidad del equipo.
+licencias/configuración de Entra, retención aprobada, RPO/RTO ni capacidad del equipo.
 Cada riesgo tiene tratamiento en [riesgos](risks.md) y [preguntas](../decisions/unresolved.md).
 
 ### Simplificaciones

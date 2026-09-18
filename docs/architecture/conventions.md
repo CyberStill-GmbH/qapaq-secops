@@ -23,7 +23,9 @@ TypeScript 6.0.3 con `strict`, `noUncheckedIndexedAccess`,
 y `noFallthroughCasesInSwitch`. No any en fronteras sin validación previa, ni type assertion como
 sustituto de parsing. DTO runtime separado de entidad persistida. Mapear errores de
 dominio/aplicación a códigos seguros en presentation; no lanzar HttpException
-desde domain. Pasar contexto de actor/correlación explícito.
+desde domain. Pasar contexto de actor/correlación explícito. Las operaciones
+protegidas declaran capability/resource mediante `@Policy`; no comparan roles en
+controllers ni aceptan identidad implícita desde contexto global.
 
 Inyección mediante tokens en composition root; domain no depende del contenedor.
 Ports para IO, tiempo o aleatoriedad cuando faciliten pruebas/reemplazo real; no

@@ -1,11 +1,11 @@
 # qapaq-secops — arquitectura inicial
 
-Arquitectura documental: U-001/ADR-015 y U-002/ADR-016 aceptados con fecha de
-decisión aportada 2026-09-18. La capacidad numérica sigue pendiente de medición.
-Sin implementación.
+Arquitectura documental: U-001/ADR-015, U-002/ADR-016 y U-003/ADR-017 aceptados
+con fecha de decisión aportada 2026-09-18. Capacidad pendiente de medición e
+identidad bloqueada operacionalmente hasta pruebas de federación. Sin implementación.
 
-Esta entrega modifica únicamente `docs/`. La estructura de aplicaciones,
-contratos y controles descritos es propuesta, no software existente. No se han
+Esta entrega modifica únicamente `docs/`. Las decisiones aceptadas y propuestas
+describen arquitectura, no software existente. No se han
 contactado sistemas de Qapaq ni usado datos reales.
 
 La configuración y documentación de CI añadidas en paralelo pertenecen a otro
@@ -20,6 +20,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 4. [ADRs y estado de decisiones](adr/README.md).
 5. [Preguntas abiertas](decisions/unresolved.md) y [riesgos](architecture/risks.md).
 6. [Toolchain, límites y capacidad](architecture/toolchain-and-capacity.md).
+7. [Identidad, sesiones y autorización](architecture/identity-and-authorization.md).
 
 ## Diseño
 
@@ -29,6 +30,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Almacenamiento y búsqueda histórica](architecture/storage.md).
 - [Integraciones y ports](architecture/integrations.md).
 - [Seguridad](architecture/security.md), [RBAC](architecture/rbac.md), [auditoría](architecture/audit.md).
+- [Identidad y autorización aceptadas](architecture/identity-and-authorization.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
 - [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
@@ -55,8 +57,11 @@ objetivo; la primera vertical no lo limita ni condiciona esta aceptación.
 DECISION: U-002 y [ADR-016](adr/016-toolchain-and-capacity-baseline.md) fijan
 versiones, workspace, ORM, herramientas, límites y benchmark. No demuestran que
 el toolchain esté instalado ni aceptan una cifra de EPS.
-PROPOSAL: schemas, transportes, sesiones, retención y demás detalles técnicos no
-cubiertos por ADR-015/016. ADR-001…014 no se aceptan en bloque.
+DECISION: U-003 y [ADR-017](adr/017-identity-and-authorization.md) fijan Entra ID,
+single-tenant, BFF/sesiones, RBAC con scopes, JIT y segregación. Producción sigue
+bloqueada hasta completar el gate de federación/autorización.
+PROPOSAL: schemas, transportes, retención y demás detalles técnicos no
+cubiertos por ADR-015/016/017. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan
 estado UNRESOLVED y un criterio verificable de cierre.
 

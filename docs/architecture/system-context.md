@@ -1,6 +1,6 @@
 # Contexto del sistema
 
-Estado: PROPOSAL, salvo hechos explícitos de [R-01/R-10](../requirements.md).
+Actores/identidad: ACCEPTED por ADR-015/017; dependencias restantes: PROPOSAL.
 
 ## Actores
 
@@ -11,8 +11,8 @@ defecto acceso a toda evidencia. Infraestructura provisiona redes, almacenamient
 identidad técnica y backups conforme a requisitos acordados.
 
 Riesgos/Antifraude gobierna reglas, criterios, casos y decisiones antifraude según
-U-001; usa capacidades compartidas sin perder su ownership. Los nombres de roles
-son plantillas de diseño, no usuarios ni asignaciones reales.
+U-001; usa capacidades compartidas sin perder su ownership. Los bundles de roles
+están aceptados por ADR-017; no representan usuarios ni asignaciones existentes.
 Financiera Qapaq es la organización destinataria; no hay datos personales en estos
 documentos.
 
@@ -28,12 +28,12 @@ Qapaq añade gestión transversal, contextualización, casos y auditoría. No co
 automáticamente Active Response ni administra endpoints de fabricantes.
 
 PostgreSQL, Redis, indexador y object storage son dependencias provisionadas por
-otro equipo; despliegue concreto UNKNOWN. Un proveedor corporativo de identidad
-es preferible a credenciales locales; su selección está pendiente.
+otro equipo; despliegue concreto UNKNOWN. Microsoft Entra ID es el IdP humano
+aceptado. Configuración, licencias y pruebas permanecen pendientes del gate de ADR-017.
 
 ## Fronteras de confianza
 
-1. Navegador → API: datos, IDs, headers y campos de rol son no confiables. Autorización del backend sobre el objeto real.
+1. Navegador → BFF/API: cookie opaca y CSRF; datos, IDs, headers y campos de rol son no confiables. Autorización del backend sobre el objeto real.
 2. API/jobs → módulos: contexto de actor explícito, no ambient global; un job no hereda privilegios ilimitados.
 3. Proveedores → collectors: identidad de fuente, TLS y validación; contenido de logs no es código.
 4. Workers → stores: cuentas con permisos por función; acceso a raw separado de búsqueda.

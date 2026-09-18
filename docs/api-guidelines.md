@@ -1,6 +1,6 @@
 # API y política por operación
 
-Estado: PROPOSAL; no rutas desplegadas. [Seguridad](architecture/security.md),
+Política de autorización/sesión: ACCEPTED; rutas y contratos: PROPOSAL. [Seguridad](architecture/security.md),
 [RBAC](architecture/rbac.md) y [auditoría](architecture/audit.md).
 
 ## Flujo
@@ -14,6 +14,8 @@ un guard de ruta no puede verificar todo con un ID no resuelto.
 Cada endpoint expuesto declara política; uno público necesita excepción explícita.
 Proteger rutas administrativas, health detallado, exports, streams y jobs igual
 que los controllers principales. No usar if role == ADMIN como bypass universal.
+El PolicyGuard aplica capability y contexto en HTTP; los casos de uso sensibles
+repiten la decisión para workers/CLI. `USER` autenticado no concede permisos.
 
 ## Ficha requerida antes de implementar
 
@@ -32,7 +34,7 @@ Aceptar solo campos allowlisted; paginación limitada, rangos temporales y filtr
 tipados. No exponer DSL arbitraria de OpenSearch ni SQL del cliente. Limitar cuerpos,
 profundidad, coste de query, frecuencia y concurrencia por actor/operación.
 Umbrales quedan pendientes de medición. Secure headers y CORS de orígenes aprobados;
-si hay cookies, CSRF en mutaciones. Escapar salida en contexto, no «sanitizar»
+las cookies BFF requieren CSRF en mutaciones. Escapar salida en contexto, no «sanitizar»
 destructivamente el raw original.
 
 ADR-016 acepta estos límites iniciales: body JSON 1 MiB, URL 8 KiB, headers

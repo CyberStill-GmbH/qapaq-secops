@@ -10,7 +10,7 @@ flowchart LR
     SOC -->|operacion autorizada| APP
     AUD -->|consulta y export controlado| APP
     OPS -->|provision y operacion| APP
-    APP -->|federacion propuesta| IDP
+    APP -->|OIDC BFF aceptado; configuracion pendiente| IDP
     SOURCES -->|datos no confiables| APP
     SIEM -->|telemetria y senales| APP
     FUTURE -.->|indicadores autorizados| APP

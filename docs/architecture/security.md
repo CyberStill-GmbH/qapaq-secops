@@ -1,20 +1,20 @@
 # Seguridad de la arquitectura
 
-Estado: PROPOSAL. No constituye certificación de cumplimiento.
+Identidad/autorización: ACCEPTED por ADR-017. Los demás controles técnicos
+permanecen PROPOSAL. No constituye certificación de cumplimiento.
 [Threat model](../threat-model.md), [RBAC](rbac.md), [API](../api-guidelines.md).
 
 ## Identidad y sesión
 
-Preferir federación con IdP corporativo mediante protocolo estándar; OIDC
-Authorization Code con PKCE es propuesta, no una configuración existente. No
-construir IdP propio ni almacenar passwords en PostgreSQL. Confirmar proveedor,
-MFA, ciclo de baja, revocación, sesiones y acceso de emergencia en U-003.
+Microsoft Entra ID es el único IdP humano ordinario. Usar tenant corporativo
+explícito, OIDC Authorization Code con PKCE S256 y BFF NestJS. No construir IdP
+propio ni almacenar passwords. La decisión está aceptada; producción sigue
+bloqueada hasta el [gate de federación](identity-and-authorization.md).
 
-Para web de mismo origen, proponer sesión de backend con cookie Secure/HttpOnly,
-SameSite apropiado y protección CSRF de mutaciones; no almacenar tokens de
-proveedores en localStorage. Validar issuer, audience, firma, expiración, state
-y nonce según flujo. Persistir solo metadata y hash de identificador de sesión;
-tokens de sesión/IdP en almacén seguro elegido, nunca PostgreSQL en claro ni raw.
+La web usa sesión opaca server-side y cookie `__Host-qapaq_session` Secure,
+HttpOnly, SameSite=Lax, Path=/ y sin Domain. Proteger mutaciones con CSRF y
+Origin/Referer; React no recibe ni almacena tokens. Validar firma, issuer,
+audience, `tid`, expiración/not-before, state, nonce, PKCE y redirect exacta.
 
 Revocación y cambios de rol invalidan capacidades cacheadas mediante versión de
 política/sesión; comportamiento ante fallo es deny para decisiones no verificables.
@@ -29,9 +29,9 @@ permiso cuando representa acción humana demorada. Acciones técnicas continuas
 usan su propia política, no requieren sesión humana viva ni privilegio universal.
 
 Aislar acceso a raw de búsqueda y a administración de plataforma de evidencias.
-No crear multi-tenancy completo sin requisito; sí propagar el ámbito de datos
-aprobado y negar referencias cruzadas. Cambios de asignaciones no permiten
-autoescalada: revisar grantable permissions y segregación propuesta en RBAC.
+No crear multitenancy: QAPAQ es una organización y sus unidades son scopes.
+Cambios de asignaciones no permiten autoescalada; JIT, doble aprobación y
+segregación se aplican según ADR-017.
 
 ## SecretProvider
 
@@ -61,9 +61,8 @@ Bloquear destinos no autorizados y cambios por redirección/DNS que evadan polí
 ## Operaciones críticas y SOAR de implementación incremental
 
 Activar reglas, cambiar retención, exportar evidencia, cambiar RBAC y configuraciones
-requiere razón y auditoría durable. Proponer doble control para asignaciones
-privilegiadas, purga/hold y futuras acciones destructivas; el catálogo concreto
-queda pendiente, sin frenar acciones ordinarias ya autorizadas.
+requiere razón y auditoría durable. ADR-017 exige doble control para grants
+privilegiados y SOAR alto/crítico; purga/hold continúa pendiente de U-004.
 
 SOAR, Playbooks & Ticketing es un módulo de alcance aceptado por ADR-015.
 PlaybookVersion, Trigger, ActionDefinition, Execution y Approval son contratos

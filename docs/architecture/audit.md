@@ -17,6 +17,12 @@ outcome y metadata permitida. previousState/newState son diffs allowlisted
 redactados, nunca volcado íntegro de entidad. Guardar policyVersion y delegación
 para jobs cuando aplique; una denegación puede no tener actor autenticado.
 
+ADR-017 acepta para decisiones de acceso sensibles: actor, subject, capability,
+resource, scope, decision, reason, policyVersion, authorizationVersion, requestId,
+hash de sessionId, timestamp y outcome. Auditar login/logout/rechazo, sesiones,
+grants/scopes, JIT, aprobaciones, step-up, raw, export, SOAR y break-glass, sin
+tokens, cookies ni secretos.
+
 ## Acciones y atomicidad
 
 Auditar RBAC/usuarios, configuración, reglas y su activación, conectores, exportación

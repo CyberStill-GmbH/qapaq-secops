@@ -23,6 +23,11 @@ Redis 8.10.1, BullMQ 5.81.5 y OpenSearch 3.7.x. Object storage con
 permisos, durabilidad y capacidades documentadas; SecretProvider; conectividad a
 fuentes autorizadas. No asumir URLs, redes ni cuentas concretas.
 
+Microsoft Entra ID requiere tenant/app registration, redirect URIs exactas,
+credencial backend, grupo de admisión y políticas MFA/Conditional Access validadas.
+El almacén de sesiones debe soportar revocación, expiración y cifrado de tokens.
+Ningún endpoint productivo se habilita antes del gate operacional de ADR-017.
+
 Cuentas distintas por función/entorno, TLS y egress limitado, rotación de secretos,
 backups/restore probados, cuotas, reloj sincronizado y espacio de archivo. Redis
 de colas no comparte eviction imprevisible con cache general. Hot/warm/cold son

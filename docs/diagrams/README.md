@@ -1,6 +1,7 @@
 # Diagramas Mermaid
 
-Límites y lifecycles aceptados por U-001/ADR-015; topología técnica propuesta,
+Límites/lifecycles aceptados por U-001/ADR-015 e identidad por U-003/ADR-017;
+topología técnica restante propuesta,
 no inventario ni software desplegado. Flechas sólidas
 representan flujo/interacción; punteadas representan relación transversal u opción
 futura según etiqueta. Los módulos no son microservicios.
@@ -9,7 +10,7 @@ futura según etiqueta. Los módulos no son microservicios.
 2. [Container Diagram](02-containers.mmd): contenedores conceptuales, no compromiso con Docker/Kubernetes.
 3. [Arquitectura modular](03-modules.mmd): datos/contratos, no imports de internals; audit aplica también a acciones críticas no dibujadas.
 4. [Pipeline de ingesta](04-ingestion.mmd): aceptación durable distinta de procesamiento.
-5. [Autenticación/autorización](05-authentication-authorization.mmd): IdP/sesión propuestos, no configuración OIDC exacta.
+5. [Autenticación/autorización](05-authentication-authorization.mmd): flujo Entra/BFF aceptado; configuración real pendiente del gate.
 6. [Ciclo de incidente](06-incident-lifecycle.mmd): secuencia aceptada; guardas y excepciones siguen U-008.
 7. [Hot/Warm/Cold](07-storage-tiers.mmd): tiers lógicos; restore histórico puede ser asíncrono.
 8. [Adapters externos](08-integrations.mmd): puertos de aplicación, implementación en infraestructura.
