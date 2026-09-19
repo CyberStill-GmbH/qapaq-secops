@@ -93,6 +93,8 @@ Antes de considerar un PBI para Sprint Planning debe tener:
 - evidencia esperada y tipo de specs;
 - tamaño que pueda completarse dentro de un Sprint;
 - preguntas abiertas visibles con dueño.
+- uno o más componentes `C-xx`, ruta concreta y orden de dependencias según el
+  [plan de construcción](component-delivery-plan.md).
 
 Estos criterios mejoran transparencia; no son una “Definition of Ready” obligatoria
 ni permiten que una persona bloquee unilateralmente el refinamiento.

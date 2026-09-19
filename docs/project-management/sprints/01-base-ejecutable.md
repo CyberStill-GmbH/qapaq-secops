@@ -22,6 +22,22 @@ externa, siempre que el bloqueo tenga evidencia y el resto de la base sea ejecut
 La integración externa no se declara Done en ese caso. PBI-005 no implementa
 proveedores futuros: define la frontera y pruebas comunes usadas por el adapter real.
 
+## Componentes a construir
+
+| Orden | Componentes | Resultado físico |
+| --- | --- | --- |
+| 1 | C-01 | Workspace pnpm, versiones, scripts y configuración TypeScript reproducibles |
+| 2 | C-03, C-05 | Configuración tipada y contrato SecurityEvent 1.0.0 ejecutable |
+| 3 | C-06, C-04 | Entorno de servicios reales y persistencia/migración base |
+| 4 | C-02, C-07 | Entrypoints ejecutables y límites arquitectónicos comprobados |
+| 5 | C-08 | Port, suite de conformidad y probe Wazuh read-only real |
+| 6 | C-09 | CI de PR #2 adaptada al workspace y a sus scripts reales |
+
+La secuencia C-01 → C-03/C-05 → C-06 es el camino de desbloqueo. No se crean todos
+los módulos del producto: solo aparecen las rutas con código o specs de este Sprint.
+Los contratos, comandos y evidencia de cada C-ID están en el
+[plan por componentes](../component-delivery-plan.md).
+
 ## Plan de trabajo
 
 ### Inicio y primera semana
@@ -79,4 +95,5 @@ terminarlos. Si solo falla el acceso corporativo, Sprint 2 puede avanzar en
 persistencia y adapter contra Wazuh real local, pero PBI-007 permanece bloqueado y
 no se usa una respuesta Microsoft simulada para cerrarlo.
 
-[Product Backlog](../product-backlog.md) · [Definition of Done](../definition-of-done.md)
+[Product Backlog](../product-backlog.md) · [Plan por componentes](../component-delivery-plan.md) ·
+[Definition of Done](../definition-of-done.md)

@@ -252,3 +252,28 @@ inventario y `git diff --check` no encontró errores. El inventario vigente cont
 90 archivos Markdown, 13 fuentes Mermaid y 24 números ADR canónicos. No se
 ejecutaron tests de aplicación, proveedores, benchmark ni E2E porque esos
 artefactos y entornos no existen en esta rama.
+
+## Actualización por auditoría estructural y componentes Scrum
+
+La auditoría del 2026-09-19 confirmó que el snapshot `4a90cde` contiene únicamente
+documentación, `.gitignore` y licencia: no existen workspace, aplicaciones,
+módulos, lockfile, migraciones, schemas ejecutables ni specs. Se registraron doce
+hallazgos STR-01…STR-12 con impacto y acción. CI continúa en la rama/PR #2 y su
+existencia separada no se presenta como control integrado en esta rama.
+
+Se corrigió la distribución física propuesta: API y worker son entrypoints delgados
+y la lógica compartida vive en `modules/`, evitando imports entre apps o duplicar
+el dominio de notificaciones. Auditoría y capacidades técnicas transversales viven
+en `platform/`; los contratos versionados, en `packages/contracts`. Las rutas se
+crean solo al entregar contenido ejecutable.
+
+El Scrum ahora mapea C-01…C-23 a rutas, responsabilidades, PBI, dependencias, specs
+y evidencia. Cada Sprint declara los componentes y su orden crítico. El plan no
+afirma que un único Developer pueda completar todo el mapa en seis semanas: cada
+Planning selecciona componentes completos por capacidad y conserva tests reales,
+seguridad y Definition of Done.
+
+La comprobación vigente encuentra 92 archivos Markdown, 13 fuentes Mermaid y 24
+números ADR canónicos. La revisión local verificó enlaces, fences, secuencia única
+C-01…C-23, cobertura de componentes por Sprint y `git diff --check`. No se ejecutan
+tests de aplicación porque sus artefactos siguen sin existir.

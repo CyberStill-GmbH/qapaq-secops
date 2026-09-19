@@ -168,6 +168,20 @@ Convenciones:
   por los ADR, aunque esté fuera del Scrum Team;
 - squash solo si conserva una descripción final y trazabilidad suficiente.
 
+## Planificación por componentes
+
+El [plan de construcción por componentes](component-delivery-plan.md) asigna cada
+PBI a una ruta, responsabilidad, dependencia y evidencia. Un item no entra al
+Sprint Backlog con expresiones generales como «hacer backend» o «integrar Wazuh»:
+debe indicar el componente `C-xx`, contrato afectado, specs aplicables y criterio
+de salida.
+
+Los entrypoints se mantienen delgados y la lógica compartida vive en `modules/`.
+El Sprint 1 materializa workspace, contratos, plataforma mínima y fronteras; el
+Sprint 2 construye connectors/telemetry de extremo a extremo; el Sprint 3 añade
+detection, SOC, access, auditoría, SOAR y evidencia final. La ruta crítica y los
+cortes de capacidad del plan prevalecen sobre ejecutar todos los PBI en paralelo.
+
 ## Flujo del PBI
 
 `Backlog → Ready → In Progress → In Review → Done`. `Blocked` puede aplicarse desde
@@ -216,6 +230,7 @@ cifra. El burn-up del Product Goal muestra alcance total y trabajo Done.
 
 - [Product Backlog ordenado](product-backlog.md).
 - [Definition of Done y criterios de refinamiento](definition-of-done.md).
+- [Plan de construcción por componentes](component-delivery-plan.md).
 - [Sprint 1](sprints/01-base-ejecutable.md).
 - [Sprint 2](sprints/02-ingesta-microsoft-wazuh.md).
 - [Sprint 3](sprints/03-operacion-soc.md).

@@ -7,6 +7,10 @@ El orden combina valor, riesgo, dependencia y aprendizaje. `P0` es necesario par
 el MVP Candidate; `P1` mejora su usabilidad u operación; `P2` queda después del
 timebox. El Sprint indicado es forecast inicial y se confirma en Planning.
 
+La materialización técnica PBI → ruta → dependencia → specs está en el
+[plan de construcción por componentes](component-delivery-plan.md). Los IDs C-01…
+C-23 permiten convertir cada PBI en tasks revisables sin crear componentes vacíos.
+
 ## Épica E1 — Base de ingeniería reproducible
 
 ### PBI-001 — Materializar workspace y toolchain

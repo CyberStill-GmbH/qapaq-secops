@@ -23,6 +23,22 @@ Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. El equ
 selecciona PBIs independientes del orden global, pero no afirma el Sprint Goal hasta
 recorrer la fuente real.
 
+## Componentes a construir
+
+| Orden | Componentes | Resultado físico |
+| --- | --- | --- |
+| 1 | C-10 | Adapter Wazuh, registro de fuente, paginación y errores de frontera |
+| 2 | C-11 | Admisión durable con raw/ref/hash, manifiesto y checkpoint |
+| 3 | C-12 | Mapping Wazuh → SecurityEvent validado y versionado |
+| 4 | C-13 | Inbox, idempotencia, replay, cuarentena y reproceso |
+| 5 | C-14 | Proyección OpenSearch y consulta tipada/autorizable |
+| Transversal | C-15 | Logs, métricas, traces y health incorporados con cada etapa |
+
+C-10 → C-11 → C-12 → C-13 → C-14 es la ruta crítica. Cada componente debe cerrar
+su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 y
+las provider specs siguen bloqueados sin sistemas corporativos reales. Consultar
+el [plan por componentes](../component-delivery-plan.md).
+
 ## Plan de trabajo
 
 ### Primera semana
@@ -83,4 +99,5 @@ avanzar en lifecycle/auditoría sobre SecurityEvents producidos por la instancia
 Wazuh real de integración, pero la Review final no declara MVP Candidate hasta
 cerrar el recorrido Microsoft 365.
 
-[Product Backlog](../product-backlog.md) · [Definition of Done](../definition-of-done.md)
+[Product Backlog](../product-backlog.md) · [Plan por componentes](../component-delivery-plan.md) ·
+[Definition of Done](../definition-of-done.md)
