@@ -31,6 +31,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 11. [Modelo C4](architecture/c4-model.md).
 12. [Separación de observabilidad y auditoría](adr/021-observability-and-audit-separation.md).
 13. [Plan Scrum del MVP](project-management/README.md).
+14. [Especificación RF/RNF y matrices de trazabilidad](requirements/README.md).
 
 ## Diseño
 
@@ -49,6 +50,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Observabilidad](architecture/observability.md).
 - [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
+- [Requisitos funcionales, no funcionales y matrices](requirements/README.md).
 - [Threat model](threat-model.md).
 - [Diagramas Mermaid de arquitectura y lifecycles](diagrams/README.md).
 - [Plan por etapas](roadmap.md), [operación y despliegue](deployment.md), [runbooks](runbooks.md).

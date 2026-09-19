@@ -235,3 +235,20 @@ por secretRef, acceso read-only al Indexer, prohibición de DTOs externos en dom
 raw/hash, autorización, auditoría y gates de provider specs. Las vistas C4 01…03 y
 los flujos 04/10 se actualizaron y renderizaron. Las fuentes oficiales de Scrum,
 GitHub, Wazuh y Microsoft se registraron en `references.md`.
+
+## Actualización por especificación RF/RNF
+
+La baseline del 2026-09-19 materializa 36 RF, 37 RNF, mapa de 24 capacidades,
+matrices RBAC/fuentes/trazabilidad/dependencias, U-001…U-017 y glosario bajo
+`docs/requirements/`. Se inspeccionaron README, ADR-001…024, C4, arquitectura,
+CI/CD, backlog, testing, inventario, threat model, árbol Git e issues. GitHub no
+contiene issues y la rama no contiene código de aplicación; ninguna capacidad se
+marcó implementada.
+
+Un verificador local confirmó secuencias RF/RNF, campos obligatorios, una entrada
+por U, enlaces y fences. Markdownlint aprobó los once documentos nuevos con la
+regla de longitud deshabilitada para permitir matrices; `yaml-lint` aprobó el
+inventario y `git diff --check` no encontró errores. El inventario vigente contiene
+90 archivos Markdown, 13 fuentes Mermaid y 24 números ADR canónicos. No se
+ejecutaron tests de aplicación, proveedores, benchmark ni E2E porque esos
+artefactos y entornos no existen en esta rama.
