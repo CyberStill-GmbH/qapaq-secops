@@ -65,12 +65,21 @@ qapaq-secops/
 │   ├── api/                    # NestJS HTTP
 │   ├── worker/                 # BullMQ consumers/schedulers
 │   └── web/                    # React + Vite
+├── modules/                    # capacidades de negocio compartidas
+│   ├── access/
+│   ├── connectors/
+│   ├── telemetry/
+│   ├── detection/
+│   ├── soc/
+│   └── soar/
+├── platform/
+│   ├── audit/
+│   ├── database/
+│   ├── observability/
+│   ├── configuration/
+│   └── testing/
 ├── packages/
-│   ├── contracts/              # contratos internos versionados
-│   ├── database/               # Prisma client y migraciones
-│   ├── observability/          # logging, métricas y tracing
-│   ├── configuration/          # configuración tipada
-│   └── testing/                # fixtures sintéticos compartidos
+│   └── contracts/              # contratos internos versionados
 ├── docs/
 ├── scripts/
 ├── pnpm-workspace.yaml
@@ -80,8 +89,9 @@ qapaq-secops/
     └── analytics/              # no desplegado
 ```
 
-Los módulos de negocio permanecen dentro de `apps/api` o paquetes internos con
-límites explícitos; el monorepo no los convierte en aplicaciones independientes.
+Los módulos de negocio viven en `modules/` con límites explícitos y son compartidos
+por entrypoints delgados. El monorepo no los convierte en aplicaciones o servicios
+independientes.
 
 Las versiones Python/uv están fijadas para investigación reproducible y futura
 activación, no obligan a crear runtime, manifests o imagen en el MVP. Cuando se

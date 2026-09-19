@@ -1,98 +1,117 @@
-# Estructura propuesta del repositorio
+# Estructura objetivo del repositorio
 
-Estructura del workspace ACCEPTED por
-[ADR-016](../adr/016-toolchain-and-capacity-baseline.md), alineada con los módulos
-aprobados en ADR-015. La distribución interna fina sigue evolutiva. No se crean
-carpetas de aplicación en esta tarea.
+Estado: BASELINE DE IMPLEMENTACIÓN. El workspace fue aceptado por
+[ADR-016](../adr/016-toolchain-and-capacity-baseline.md); esta distribución fina
+resuelve el uso compartido de módulos por API y worker. La estructura todavía no
+existe en la rama documental.
 
 ```text
 qapaq-secops/
-  AGENTS.md
-  .codex/skills/                 # existente; workflows locales
-  docs/                         # diseño y decisiones de esta entrega
   apps/
-    api/
+    api/                         # entrypoint HTTP/BFF y composition root
       src/
-        modules/
-          access/
-          connectors/
-          telemetry/
-          detection/
-          soc/
-          threat-intelligence/
-          soar/
-          antifraud/
-        platform/               # capacidades transversales, no dominio compartido
-        bootstrap/              # composición y HTTP
       test/
-    worker/                     # BullMQ consumers y schedulers
-      notifications/           # capability de soar para entrega asíncrona
-        application/           # solicitar, entregar y escalar sin acuse
-        domain/                # notification, policy y attempt
-        infrastructure/        # adapter de Microsoft Teams Workflow
-    web/
+    worker/                      # entrypoint BullMQ, schedulers y composition root
       src/
-        features/               # vistas y flujos SOC, no copias de entidades ORM
-  research/
-    analytics/                  # experimentos Python no desplegados
+      test/
+    web/                         # React; consume API, nunca storage directamente
+      src/
+      test/
+  modules/                       # capacidades de negocio compartidas por entrypoints
+    access/
+    connectors/
+    telemetry/
+    detection/
+    soc/
+    soar/
+  platform/                      # implementaciones técnicas transversales
+    audit/                       # AuditEvent, append-only y archivo/reconciliación
+    configuration/
+    database/
+    observability/
+    testing/
   packages/
-    contracts/                  # contratos internos versionados
-    database/                   # Prisma client y migraciones
-    observability/              # logging, métricas y tracing
-    configuration/              # configuración tipada
-    testing/                    # fixtures sintéticos
-  scripts/                      # cuando exista automatización ejecutable necesaria
+    contracts/                   # schemas/eventos/jobs públicos y versionados
+  research/
+    analytics/                   # Python no desplegado; se crea solo tras su gate
+  scripts/                       # automatización ejecutable necesaria
+  docs/
   .github/
-    workflows/                  # CI gestionado aparte; no creado por esta tarea
+    workflows/
 ```
 
-API y worker son entrypoints del mismo monolito modular, no servicios de negocio
-independientes. El proceso separado protege la API de carga asíncrona y escala por
-cola. API/web/worker comparten pnpm workspace/lockfile. `pyproject.toml`, `uv.lock` y
-`apps/analytics` solo se incorporan al runtime después del gate de U-007.
-Versiones y herramientas están fijadas en [toolchain](toolchain-and-capacity.md).
+API y worker son entrypoints del mismo monolito modular. La API expone HTTP/BFF y
+el worker ejecuta jobs; ambos componen módulos desde `modules/`. Ninguno importa
+internals del otro. Esta ubicación reemplaza la propuesta anterior de poner los
+módulos en `apps/api/src/modules`, que impedía compartirlos limpiamente con el
+worker.
+
+Solo se crean directorios cuando incluyen código, configuración o specs reales.
+Durante el MVP se materializan `access`, `connectors`, `telemetry`, `detection`,
+`soc` y `soar`. `threat-intelligence` y `antifraud` conservan su alcance aceptado,
+pero no generan carpetas vacías hasta entrar en un incremento.
+
+`apps/api`, `apps/worker` y `apps/web` comparten pnpm workspace y lockfile.
+`pyproject.toml`, `uv.lock` y el runtime Python solo se incorporan después del gate
+de U-007. Las versiones están fijadas en
+[toolchain y capacidad](toolchain-and-capacity.md).
 
 ## Interior de un módulo
 
 ```text
 modules/soc/
-  domain/                       # agregados Incident, Case, Alert; invariantes
-  application/
-    ports/                      # repositorios, autorización contextual y evidencia
-    use-cases/                  # cerrar incidente, vincular evidencia, etc.
-  infrastructure/
-    persistence/
-    adapters/
-  presentation/
-    http/
-  public/                       # contratos de colaboración entre módulos
+  src/
+    domain/                      # agregados, value objects e invariantes
+    application/
+      ports/                     # necesidades del módulo, no SDKs
+      use-cases/
+    infrastructure/             # adapters y persistencia del módulo
+    presentation/               # handlers HTTP/jobs sin reglas de negocio
+    public/                      # única superficie importable por otros módulos
+  test/
+    unit/
+    integration/
+    contract/
 ```
 
-Los nombres son ejemplos de organización. Crear subcarpetas solo al existir
-contenido; separar commands/queries si aporta legibilidad, no por exigir CQRS.
-No repositorio genérico BaseRepository ni entity base llena de dependencias.
-La relación entre estas capas se muestra como C4 nivel 4 propuesto en el
-[modelo C4](c4-model.md); no prueba que las clases o carpetas estén creadas.
+Las carpetas se crean conforme aparece contenido. Repositorios y ports viven en
+application por defecto; una interfaz pertenece al dominio solo si expresa una
+necesidad puramente de dominio. DTO, entidad Prisma y agregado son tipos distintos.
+No se introduce `BaseRepository`, entidad base ni `packages/shared`.
 
-Repositorios y ports viven en application por defecto; una interfaz de dominio
-solo si expresa una necesidad puramente de dominio. NestJS module y wiring van en
-composición/presentation/infrastructure según convención acordada, nunca en domain.
+Cada módulo publica una fachada de composición. Los entrypoints conocen esa
+fachada y suministran adapters; no importan archivos internos. El C4 nivel 4 de
+[modelo C4](c4-model.md) sigue siendo representativo hasta que exista código.
 
-## Paquetes y límites
+## Límites de las áreas técnicas
 
-contracts contiene schemas de eventos/jobs y API compartidos, no entidades de
-dominio ni permisos autoejecutables. Modelos internos no se exportan para que React
-haga lógica de negocio. Evitar packages/shared; extraer security/observability
-solo cuando dos consumidores reales justifiquen compartir implementación.
-No distribuir un paquete gigante que haga depender todos los contextos de todos.
+- `platform/configuration` valida configuración y resuelve referencias a secretos;
+  no contiene valores corporativos.
+- `platform/audit` implementa la capacidad transversal de auditoría de seguridad;
+  expone un port/fachada y nunca se sustituye por logging operacional.
+- `platform/database` contiene cliente, migraciones y utilidades transaccionales;
+  cada módulo conserva ownership de sus schemas y repositorios.
+- `platform/observability` implementa logging, métricas y tracing; auditoría de
+  seguridad sigue siendo una capacidad explícita, no un log.
+- `platform/testing` contiene arranque y clientes de servicios reales aislados;
+  no contiene servidores fake ni respuestas grabadas.
+- `packages/contracts` contiene SecurityEvent, AuditEvent y mensajes versionados;
+  no contiene entidades de dominio ni lógica de autorización.
 
-La investigación Python usa datos sintéticos o sanitizados y no constituye runtime.
-Tras una activación aprobada, Python consume contratos y fixtures, no importa
-paquetes TypeScript ni escribe tablas del backend; sus dependencias se fijan en
-`uv.lock` y se validan por separado.
+## Orden de materialización
+
+1. raíz pnpm y configuración TypeScript;
+2. `packages/contracts` y áreas mínimas de `platform/`;
+3. entrypoints ejecutables de API, worker y web;
+4. módulos `connectors` y `telemetry` para la vertical Wazuh;
+5. módulos `detection`, `soc`, `access` y `soar`;
+6. componentes post-MVP solo cuando tengan PBI, contrato y entorno real.
+
+La secuencia detallada, dependencias y evidencia están en el
+[plan de construcción por componentes](../project-management/component-delivery-plan.md).
 
 ## Documentación canónica
 
-architecture/ describe diseño; adr/ registra decisiones; diagrams/ conserva Mermaid.
-Documentos planos anteriores enlazan a canónicos por compatibilidad. Referencias
-de vendors y preguntas se mantienen sin crear árboles de docs vacíos.
+`architecture/` describe diseño; `adr/` registra decisiones; `diagrams/` conserva
+Mermaid. Los documentos planos anteriores enlazan a páginas canónicas. Referencias
+de proveedores y preguntas se mantienen sin crear árboles vacíos.

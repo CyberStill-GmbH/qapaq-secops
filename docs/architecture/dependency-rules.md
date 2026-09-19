@@ -30,6 +30,13 @@ proyecciones públicas. soar posee notificaciones/ticketing; antifraud comparte
 capacidades mediante contratos, no mediante repositorios internos de soc.
 threat-intelligence posee indicadores; detection consume su contexto público.
 
+Los módulos viven en `modules/` y son compartidos por los entrypoints. `apps/api`
+y `apps/worker` importan únicamente la fachada pública/composición de cada módulo;
+ningún módulo depende de `apps/` y ninguna app importa internals de otra. Las
+implementaciones técnicas de `platform/` satisfacen ports durante la composición,
+pero domain/application no las importan. `apps/web` consume contratos HTTP y nunca
+Prisma, Indexer, object storage o código backend.
+
 Para consultas inmediatas, llamada síncrona tipada; para side effects recuperables,
 outbox con evento versionado. Eventos no cargan entidades ORM ni secretos. No usar
 eventos en memoria para afirmar entrega durable. No imponer transacciones
