@@ -1,6 +1,7 @@
 # Sprint 2 — Ingesta Microsoft 365/Wazuh
 
-Fechas: 2026-10-03 a 2026-10-16 · Planning: 2026-10-05 · Review/Retro: 2026-10-16.
+Fechas: 2026-10-05 a 2026-10-06 · Planning: 2026-10-05 · Review/Retro: 2026-10-06.
+Timebox: dos días laborables.
 
 ## Sprint Goal
 
@@ -39,23 +40,32 @@ su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 
 las provider specs siguen bloqueados sin sistemas corporativos reales. Consultar
 el [plan por componentes](../component-delivery-plan.md).
 
-## Plan de trabajo
+## Gate previo obligatorio
 
-### Primera semana
+Al terminar la Review de Sprint 1 deben estar Done C-01…C-09 y disponibles tenant,
+dataset, Wazuh, Indexer, red, secretRefs y servicios de integración. El 2026-10-05
+no se usa para instalar dependencias pendientes. Si un gate falla, el PBI afectado
+se registra `BLOCKED` y el Sprint no afirma la vertical completa.
 
+## Plan de trabajo por día
+
+### Día 1 — 2026-10-05
+
+- Planning de 30 minutos y verificación ejecutable del gate;
 - confirmar configuración Office 365/Wazuh y generar actividad sintética autorizada;
 - consultar alertas Wazuh mediante adapter de solo lectura;
 - persistir raw/ref/hash y registrar manifiesto antes del checkpoint;
 - implementar mapping versionado y validación previa a indexación;
 - mantener DTOs Wazuh dentro de infraestructura.
 
-### Segunda semana
+### Día 2 — 2026-10-06
 
 - probar duplicados, restart, cursor/checkpoint y replay;
 - implementar cuarentena y reproceso con lineage;
 - indexar/consultar SecurityEvent con filtros y límites;
 - instrumentar cobertura, lag, error e integridad;
-- ejecutar E2E parcial desde Microsoft 365 hasta consulta QAPAQ.
+- ejecutar E2E parcial desde Microsoft 365 hasta consulta QAPAQ;
+- realizar Review y Retrospective con evidencia del mismo commit.
 
 ## Dependencias de entrada
 

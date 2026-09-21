@@ -277,3 +277,19 @@ La comprobación vigente encuentra 92 archivos Markdown, 13 fuentes Mermaid y 24
 números ADR canónicos. La revisión local verificó enlaces, fences, secuencia única
 C-01…C-23, cobertura de componentes por Sprint y `git diff --check`. No se ejecutan
 tests de aplicación porque sus artefactos siguen sin existir.
+
+## Actualización de cadencia y Daily Scrum
+
+El 2026-09-21 se redujo Sprint 2 a dos días laborables, 2026-10-05/06, por decisión
+del usuario. Sprint 3 se adelanta al 2026-10-07/20 y el timebox termina el
+2026-10-20. El alcance y la Definition of Done de Sprint 2 no se reducen: C-01…C-09,
+los accesos Microsoft 365/Wazuh y los servicios reales son un gate previo. Una
+dependencia ausente produce `BLOCKED`, no fake, spec omitida o aceptación parcial.
+
+Se añadió un artefacto de Daily Scrum con agenda de 15 minutos, campos, estados,
+regla de escalamiento y registro inicial del 2026-09-21. El registro declara la
+documentación terminada y conserva C-01…C-09 como implementación pendiente; no
+presenta la baseline documental como incremento ejecutable.
+
+El inventario vigente contiene 93 archivos Markdown. Enlaces, fences, fechas del
+timebox y `git diff --check` se vuelven a validar con esta actualización.

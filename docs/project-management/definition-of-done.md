@@ -1,6 +1,6 @@
 # Definition of Done y criterios de refinamiento
 
-Estado: BASELINE DEL EQUIPO para el timebox 2026-09-19 a 2026-10-30.
+Estado: BASELINE DEL EQUIPO para el timebox 2026-09-19 a 2026-10-20.
 La Definition of Done es común a todos los incrementos; un criterio específico de
 un PBI puede endurecerla, nunca reducirla.
 

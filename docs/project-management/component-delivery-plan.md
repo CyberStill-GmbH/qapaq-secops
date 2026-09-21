@@ -1,6 +1,6 @@
 # Plan de construcción por componentes — MVP
 
-Estado: BASELINE DE EJECUCIÓN · Horizonte: 2026-09-19 a 2026-10-30. Este plan
+Estado: BASELINE DE EJECUCIÓN · Horizonte: 2026-09-19 a 2026-10-20. Este plan
 convierte los PBI en componentes físicos, dependencias y evidencia verificable. No
 afirma que las rutas existan: su estado inicial es PLANNED.
 
@@ -35,7 +35,7 @@ C-04/C-08; C-02 y C-07 cierran la forma del workspace; C-09 se adapta a scripts
 reales. No se copia CI documentalmente ni se crea otro workflow si PR #2 ya cubre
 la capacidad.
 
-## Sprint 2 — Ingesta durable Microsoft 365/Wazuh
+## Sprint 2 — Ingesta durable Microsoft 365/Wazuh, dos días
 
 | ID | Componente y ruta principal | Responsabilidad | PBI | Depende de | Specs y evidencia de salida |
 | --- | --- | --- | --- | --- | --- |
@@ -50,6 +50,10 @@ Orden crítico: C-10 → C-11 → C-12 → C-13 → C-14. C-15 se añade durante
 componente y se cierra al final; no se pospone toda la observabilidad a una tarea
 aislada. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
 infraestructura interna tenga specs reales.
+
+El timebox 2026-10-05/06 presupone que C-01…C-09 y todos los accesos están listos.
+El día 1 ejecuta C-10…C-12; el día 2, C-13…C-15 y la Review. Esta distribución es
+un forecast intensivo, no permiso para paralelizar dependencias ni reducir la DoD.
 
 ## Sprint 3 — Operación SOC y evidencia
 
@@ -83,7 +87,7 @@ C-22. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
 
 ## Corte por capacidad y trabajo paralelo
 
-No se asume que un Developer trainee pueda completar C-01…C-23 en seis semanas.
+No se asume que un Developer trainee pueda completar C-01…C-23 dentro del timebox.
 En cada Planning se seleccionan componentes completos siguiendo la ruta crítica y
 la capacidad declarada. El orden de protección es:
 

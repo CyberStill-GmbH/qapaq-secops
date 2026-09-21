@@ -62,6 +62,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Verificador existente](verification.md) y [validación documental](validation.md).
 - [CI de seguridad y preparación de CD](ci-cd.md).
 - [Plan Scrum, componentes, backlog, Definition of Done y Sprints](project-management/README.md).
+- [Daily Scrum y registro operativo](project-management/daily-scrum.md).
 
 ## Autoridad y trazabilidad
 

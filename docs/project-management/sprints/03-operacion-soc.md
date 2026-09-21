@@ -1,6 +1,6 @@
 # Sprint 3 — Operación SOC y evidencia del candidato
 
-Fechas: 2026-10-17 a 2026-10-30 · Planning: 2026-10-19 · Review/Retro: 2026-10-30.
+Fechas: 2026-10-07 a 2026-10-20 · Planning: 2026-10-07 · Review/Retro: 2026-10-20.
 
 ## Sprint Goal
 
