@@ -4,6 +4,10 @@ packages:
   - platform/*
   - packages/*
 
+overrides:
+  deepmerge-ts: 8.0.2
+  mysql2: 3.24.4
+
 allowBuilds:
   '@prisma/engines': true
   cpu-features: false
