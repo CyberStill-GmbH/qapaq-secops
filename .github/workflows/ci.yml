@@ -120,8 +120,7 @@ jobs:
       - name: Install locked dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Run configured project checks (missing checks fail)
-        shell: pwsh
-        run: ./.codex/skills/implementation-verifier/scripts/verify.ps1
+        run: pnpm run verify
 
   containers:
     needs: discover
