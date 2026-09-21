@@ -1,0 +1,18 @@
+export const CONFIGURATION_LIMITS = Object.freeze({
+  portMinimum: 1,
+  portMaximum: 65_535,
+  durationMinimumMs: 100,
+  durationMaximumMs: 120_000,
+  retryMaximum: 5,
+  pageSizeDefault: 50,
+  pageSizeMaximum: 200,
+  poolMinimum: 0,
+  poolMaximum: 50,
+  redisDatabaseMinimum: 0,
+  redisDatabaseMaximum: 15,
+  secretReferenceMaximumLength: 256,
+  redactionMaximumDepth: 16,
+  redactionMaximumProperties: 1_000,
+} as const);
+
+export const REDACTED_VALUE = '[REDACTED]' as const;

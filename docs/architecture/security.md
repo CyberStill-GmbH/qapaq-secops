@@ -44,6 +44,12 @@ alternativas; entorno solo para desarrollo local controlado/CI autorizado, sin
 .env versionado. No asumir proveedor productivo. Rotación/revocación y fallo seguro
 deben probarse; cache corta en memoria con redacción de excepciones.
 
+C-03 materializa esta frontera en `platform/configuration`: perfiles explícitos,
+referencias neutrales, resolución única por arranque, `SecretValue` no serializable
+en claro, errores tipados y política TLS fail-closed. El adapter de entorno queda
+encapsulado en el loader local y rechaza producción; no constituye la selección del
+provider productivo.
+
 SecretProvider no elimina secretos de los dumps de memoria ni sustituye controles
 del host. Aplicar mínimo acceso, cifrado de tránsito/reposo con llaves administradas
 por Infraestructura y separación entre operadores/lectores.

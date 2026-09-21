@@ -1,0 +1,32 @@
+import type { ConfigurationProfile } from './profile.js';
+
+export const PRODUCTION_PROFILE: ConfigurationProfile = Object.freeze({
+  name: 'production',
+  allowLocalInsecureTransport: false,
+  requireTls: true,
+  defaults: Object.freeze({
+    QAPAQ_API_HOST: '0.0.0.0',
+    QAPAQ_API_PORT: '3000',
+    QAPAQ_POSTGRES_CONNECTION_TIMEOUT: '5s',
+    QAPAQ_POSTGRES_STATEMENT_TIMEOUT: '15s',
+    QAPAQ_POSTGRES_POOL_MIN: '1',
+    QAPAQ_POSTGRES_POOL_MAX: '10',
+    QAPAQ_POSTGRES_TLS: 'true',
+    QAPAQ_REDIS_DATABASE: '0',
+    QAPAQ_REDIS_TLS: 'true',
+    QAPAQ_REDIS_CONNECTION_TIMEOUT: '5s',
+    QAPAQ_REDIS_COMMAND_TIMEOUT: '5s',
+    QAPAQ_REDIS_RETRY_LIMIT: '5',
+    QAPAQ_MINIO_TLS: 'true',
+    QAPAQ_MINIO_REGION: 'us-east-1',
+    QAPAQ_MINIO_CONNECTION_TIMEOUT: '5s',
+    QAPAQ_MINIO_REQUEST_TIMEOUT: '15s',
+    QAPAQ_MINIO_RETRY_LIMIT: '5',
+    QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED: 'true',
+    QAPAQ_WAZUH_CONNECT_TIMEOUT: '5s',
+    QAPAQ_WAZUH_REQUEST_TIMEOUT: '15s',
+    QAPAQ_WAZUH_RETRY_LIMIT: '5',
+    QAPAQ_WAZUH_PAGE_SIZE: '50',
+    QAPAQ_WAZUH_MAX_PAGE_SIZE: '200',
+  }),
+});

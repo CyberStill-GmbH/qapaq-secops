@@ -1,6 +1,6 @@
 # ADR-013 — Secret management abstraction
 
-Estado: Proposed · Fecha: 2026-09-17.
+Estado: Proposed / C-03 Implemented · Fecha: 2026-09-17; implementación: 2026-09-21.
 Origen: solicitud de arquitectura; detalles recomendados pendientes de revisión.
 Aceptación: no registrada; responsables propuestos SOC, Arquitectura, Seguridad e Infraestructura según impacto.
 
@@ -10,7 +10,7 @@ R-13 prohíbe passwords/API keys/tokens directamente en PostgreSQL.
 
 ## Decision
 
-Guardar secretRef y metadata mínima; SecretProvider resuelve con identidad técnica restringida. Azure Key Vault/Vault son opciones; EnvironmentSecretAdapter solo entorno local/CI controlado. Proveedor productivo pendiente.
+Guardar secretRef y metadata mínima; SecretProvider resuelve con identidad técnica restringida. C-03 implementa el puerto neutral, referencias `secret://<namespace>/<name>`, errores seguros, caché por arranque y un adaptador de entorno encapsulado exclusivamente para desarrollo/test. Azure Key Vault/Vault siguen siendo opciones no seleccionadas; el proveedor productivo permanece pendiente.
 
 ## Alternatives
 
@@ -26,6 +26,9 @@ Centralizar reduce dispersión pero crea dependencia de disponibilidad y bootstr
 
 ## Validación y revisión
 
-Infraestructura confirma provider/identidad, permisos y rotación; probar rechazo/expiración sin exponer valores antes de activar conectores.
+Las specs de C-03 prueban referencias inválidas, secreto ausente, acceso denegado,
+proveedor no disponible, error sanitizado, resolución única y fallo de arranque.
+Infraestructura aún debe confirmar provider/identidad, permisos y rotación antes de
+activar conectores en producción.
 
 [Diseño relacionado](../architecture/security.md) · [Preguntas abiertas](../decisions/unresolved.md).
