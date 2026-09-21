@@ -203,6 +203,22 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Node / pnpm
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# Local integration runtime
+.local/
+.env.local
+
+# Prisma generated client
+platform/database/generated/
+
 # Ruff stuff:
 .ruff_cache/
 

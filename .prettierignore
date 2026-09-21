@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.local
+playwright-report
+test-results
+pnpm-lock.yaml
+docs
+
+.github

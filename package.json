@@ -1,0 +1,41 @@
+{
+  "name": "qapaq-secops",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": "24.21.0",
+    "pnpm": "12.4.2"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
+    "lint": "oxlint apps platform packages modules scripts tests",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm run test:unit",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
+    "boundaries": "depcruise apps platform packages modules --config .dependency-cruiser.cjs",
+    "verify": "pwsh -NoProfile -File scripts/verify.ps1",
+    "dev:api": "pnpm --filter @qapaq/api dev",
+    "dev:worker": "pnpm --filter @qapaq/worker dev",
+    "dev:web": "pnpm --filter @qapaq/web dev",
+    "infra:setup-wazuh": "pwsh -NoProfile -File scripts/dev/setup-wazuh.ps1",
+    "infra:repair-docker": "pwsh -NoProfile -File scripts/dev/repair-docker-desktop.ps1",
+    "infra:up": "pwsh -NoProfile -File scripts/dev/start-local.ps1",
+    "infra:down": "pwsh -NoProfile -File scripts/dev/stop-local.ps1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.13.6",
+    "dependency-cruiser": "18.4.0",
+    "oxlint": "1.84.0",
+    "prettier": "3.9.8",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

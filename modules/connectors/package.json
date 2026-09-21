@@ -1,0 +1,17 @@
+{
+  "name": "@qapaq/connectors",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/public/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opensearch-project/opensearch": "3.6.0"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
