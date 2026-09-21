@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
       - name: Test input discovery
         working-directory: .github/ci
-        run: python3 -m unittest --verbose test_discover.py
+        run: python3 -m unittest --verbose
       - id: inputs
         run: python3 .github/ci/discover.py
 
@@ -46,7 +46,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -58,9 +57,20 @@ jobs:
       - uses: github/codeql-action/init@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
         with:
           languages: ${{ matrix.language }}
-      - uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+      - name: Analyze source and write SARIF locally
+        uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
         with:
           category: /language:${{ matrix.language }}
+          output: codeql-results
+          upload: never
+          upload-database: false
+      - name: Preserve CodeQL SARIF evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codeql-${{ matrix.language }}-${{ github.sha }}
+          path: codeql-results
+          if-no-files-found: error
+          retention-days: 30
 
   secrets:
     runs-on: ubuntu-24.04
