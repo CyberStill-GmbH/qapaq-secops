@@ -28,7 +28,7 @@ class DiscoverTests(unittest.TestCase):
 
         self.assertFalse(result["has_pnpm"])
         self.assertFalse(result["has_containers"])
-        self.assertEqual(["actions"], result["languages"])
+        self.assertEqual([], result["languages"])
 
     def test_complete_pnpm_workspace_is_detected(self):
         files = {

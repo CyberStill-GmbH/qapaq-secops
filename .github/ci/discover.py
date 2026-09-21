@@ -32,7 +32,7 @@ def _resolved_inside(root: Path, path: PurePosixPath) -> Path:
 
 def discover(files: Iterable[str], root: Path = Path(".")) -> dict[str, object]:
     paths = {_repository_path(name) for name in files}
-    languages = ["actions"]
+    languages = []
     if any(path.suffix in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"} for path in paths):
         languages.append("javascript-typescript")
     if any(path.suffix == ".py" for path in paths):

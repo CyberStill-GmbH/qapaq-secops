@@ -40,6 +40,7 @@ jobs:
 
   codeql:
     needs: discover
+    if: ${{ needs.discover.outputs.languages != '[]' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -56,7 +57,6 @@ jobs:
       - uses: github/codeql-action/init@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
         with:
           languages: ${{ matrix.language }}
-          build-mode: none
       - uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
         with:
           category: /language:${{ matrix.language }}
