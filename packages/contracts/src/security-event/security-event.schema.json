@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.qapaq.internal/security-event/1.0.0",
+  "title": "qapaq.security-event",
+  "description": "Contrato canónico de eventos de seguridad de QAPAQ SecOps.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordId",
+    "eventUid",
+    "eventUidType",
+    "kind",
+    "occurredAt",
+    "observedAt",
+    "receivedAt",
+    "source",
+    "tenant",
+    "severity",
+    "category",
+    "outcome",
+    "entities",
+    "raw",
+    "provenance"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "recordId": { "$ref": "#/$defs/uuidV7" },
+    "eventUid": { "$ref": "#/$defs/opaqueIdentifier" },
+    "eventUidType": { "enum": ["native", "transport", "derived"] },
+    "kind": { "enum": ["event", "alert", "finding", "state"] },
+    "occurredAt": { "$ref": "#/$defs/utcTimestamp" },
+    "observedAt": { "$ref": "#/$defs/utcTimestamp" },
+    "receivedAt": { "$ref": "#/$defs/utcTimestamp" },
+    "source": { "$ref": "#/$defs/source" },
+    "tenant": { "$ref": "#/$defs/tenant" },
+    "severity": { "$ref": "#/$defs/severity" },
+    "category": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authentication",
+          "iam",
+          "network",
+          "intrusion_detection",
+          "malware",
+          "host",
+          "file",
+          "process",
+          "configuration",
+          "email",
+          "web",
+          "vulnerability",
+          "threat",
+          "api",
+          "database",
+          "unclassified"
+        ]
+      }
+    },
+    "outcome": { "enum": ["success", "failure", "unknown"] },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "entities": { "$ref": "#/$defs/entities" },
+    "detection": { "$ref": "#/$defs/detection" },
+    "raw": { "$ref": "#/$defs/raw" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "kind": { "const": "alert" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": { "detection": { "$ref": "#/$defs/detection" } },
+        "required": ["detection"]
+      }
+    }
+  ],
+  "$defs": {
+    "uuidV7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:[0-9]{4})-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\\.[0-9]{1,9})?Z$"
+    },
+    "opaqueIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "vendor", "product", "dataset", "instanceId"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "siem",
+            "identity",
+            "email",
+            "endpoint",
+            "network",
+            "cloud",
+            "application",
+            "database",
+            "other"
+          ]
+        },
+        "vendor": { "$ref": "#/$defs/shortText" },
+        "product": { "$ref": "#/$defs/shortText" },
+        "dataset": { "$ref": "#/$defs/shortText" },
+        "instanceId": { "$ref": "#/$defs/opaqueIdentifier" },
+        "nativeEventId": { "$ref": "#/$defs/opaqueIdentifier" }
+      }
+    },
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/opaqueIdentifier" }
+      }
+    },
+    "severity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "normalized",
+        "originalValue",
+        "originalLabel",
+        "originalScale",
+        "mappingId",
+        "mappingVersion"
+      ],
+      "properties": {
+        "normalized": {
+          "enum": ["unknown", "informational", "low", "medium", "high", "critical"]
+        },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "originalValue": {
+          "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 128 }, { "type": "number" }]
+        },
+        "originalLabel": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "originalScale": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "mappingId": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "mappingVersion": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "id": { "$ref": "#/$defs/opaqueIdentifier" },
+        "name": { "$ref": "#/$defs/shortText" },
+        "principal": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "domain": { "type": "string", "minLength": 1, "maxLength": 253 }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "id": { "$ref": "#/$defs/opaqueIdentifier" },
+        "name": { "$ref": "#/$defs/shortText" },
+        "type": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identities", "resources"],
+      "properties": {
+        "identities": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/identity" }
+        },
+        "resources": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/resource" }
+        }
+      }
+    },
+    "detectionRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "provider", "groups"],
+      "properties": {
+        "id": { "$ref": "#/$defs/opaqueIdentifier" },
+        "name": { "$ref": "#/$defs/shortText" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "provider": { "$ref": "#/$defs/shortText" },
+        "groups": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        }
+      }
+    },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule"],
+      "properties": {
+        "rule": { "$ref": "#/$defs/detectionRule" }
+      }
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256", "mediaType", "sizeBytes"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^raw:[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!$&'()*+,;=%-]*$"
+        },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "mediaType": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$"
+        },
+        "sizeBytes": { "type": "integer", "minimum": 0, "maximum": 262144 }
+      }
+    },
+    "ingestionHop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "vendor", "product"],
+      "properties": {
+        "kind": { "enum": ["origin", "collector", "adapter"] },
+        "vendor": { "$ref": "#/$defs/shortText" },
+        "product": { "$ref": "#/$defs/shortText" },
+        "instanceId": { "$ref": "#/$defs/opaqueIdentifier" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connector",
+        "connectorVersion",
+        "parserVersion",
+        "mappingVersion",
+        "timestampQuality",
+        "ingestionPath"
+      ],
+      "properties": {
+        "connector": { "$ref": "#/$defs/shortText" },
+        "connectorVersion": { "$ref": "#/$defs/shortText" },
+        "parserVersion": { "$ref": "#/$defs/shortText" },
+        "mappingVersion": { "$ref": "#/$defs/shortText" },
+        "timestampQuality": { "enum": ["source", "derived", "estimated"] },
+        "ingestionPath": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/ingestionHop" }
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "maxLength": 128,
+        "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9-]*)+$"
+      },
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "maxLength": 4096 },
+        {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/jsonValue" }
+        },
+        {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": { "maxLength": 128 },
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    }
+  }
+}

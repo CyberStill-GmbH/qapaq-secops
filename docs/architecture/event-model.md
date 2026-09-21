@@ -1,12 +1,12 @@
 # SecurityEvent y contratos de frontera
 
-Estado: DECISION aceptada; contrato `qapaq.security-event` 1.0.0 pendiente de implementación.
+Estado: DECISION aceptada; C-05 `qapaq.security-event` 1.0.0 implementado.
 [ADR-011](../adr/011-security-event-normalization.md) · [U-010](../decisions/unresolved.md).
 
 ## Autoridad y alcance
 
 JSON Schema Draft 2020-12 será la fuente normativa en
-`packages/contracts/security-event/1.0.0/security-event.schema.json`. Los tipos
+`packages/contracts/src/security-event/security-event.schema.json`. Los tipos
 TypeScript, validadores, documentación y mappings de OpenSearch deben generarse o
 verificarse contra él. Ninguna interfaz TypeScript aislada constituye el contrato.
 
@@ -18,28 +18,29 @@ regresión y mapping versionado. La adopción no implica conformidad regulatoria
 
 ## Estructura canónica 1.0.0
 
-- `specVersion`: versión SemVer obligatoria del contrato.
+- `schemaVersion`: versión SemVer obligatoria del contrato, fijada en `1.0.0`.
 - `recordId`: UUIDv7 nuevo para cada recepción física.
 - `eventUid`, `eventUidType`: identidad lógica y método `native`, `transport` o
-  `derived`; `dedupConfidence` indica `high`, `medium` o `low`.
+  `derived`.
 - `kind`: `event`, `alert`, `finding` o `state`.
-- `time`: `occurredAt`, `observedAt`, `ingestedAt`, `effectiveAt` y `timeBasis`.
-  No se inventan tiempos ausentes ni zonas horarias.
-- `producer`: `vendor`, `product`, `dataset`, `instanceId` validado y
+- `occurredAt`, `observedAt` y `receivedAt`: instantes RFC 3339 en UTC. No se exige
+  orden entre ellos y `provenance.timestampQuality` declara su calidad.
+- `source`: `kind`, `vendor`, `product`, `dataset`, `instanceId` validado y
   `nativeEventId` opcional.
-- `classification`: `category`, `type`, `action` y `outcome`.
-- `severity`: `normalized`, `score`, `sourceValue`, `sourceLabel`, `sourceScale`,
+- `tenant.id`: ámbito lógico opaco de aislamiento y autorización.
+- `category`, `action` y `outcome`: clasificación canónica acotada.
+- `severity`: `normalized`, `score`, `originalValue`, `originalLabel`, `originalScale`,
   `mappingId` y `mappingVersion`.
-- `detection`: `ruleId`, `ruleName` y `ruleVersion` del origen; no reemplazan la
-  identidad de una regla Qapaq.
-- Entidades opcionales: `user`, `host`, `device`, `process`, `file` y `network`,
-  con procedencia y límites explícitos.
-- `threat.techniques`: técnicas observadas o declaradas con fuente.
+- `entities.identities` y `entities.resources`: representaciones genéricas,
+  acotadas y explícitamente vacías cuando la fuente no aporta datos.
+- `detection.rule`: `id`, `name`, `version`, `provider` y `groups` del origen; es
+  obligatorio para `kind=alert` y no reemplaza una regla Qapaq.
 - `raw`: `ref`, `sha256`, `mediaType` y `sizeBytes` de la evidencia separada.
-- `pipeline`: `connector`, `connectorVersion`, `parserVersion` y `mappingVersion`.
-- `handling`: `classificationCode` y `redactionState`.
-- `extensions.<vendor>`: campos no canónicos con namespace, tamaño y profundidad
-  limitados; sin indexación dinámica ilimitada.
+- `provenance`: conector y versiones de conector/parser/mapping, calidad temporal y
+  cadena `ingestionPath` desde origen hasta adaptador.
+- `extensions.<namespace>`: campos no canónicos JSON con namespace reverse-DNS,
+  máximo 16 KiB, profundidad 4, 64 propiedades totales, arrays de 64, claves de
+  128 caracteres y strings de 4096; sin indexación dinámica ilimitada.
 
 Los campos opcionales ausentes se omiten; `null` solo se admite donde lo permita
 el schema. Las claves extra se rechazan salvo dentro de extensiones controladas.
@@ -112,9 +113,10 @@ Validadores mínimos:
 
 ## Evolución y artefactos
 
-El layout previsto dentro de `packages/contracts/security-event/` contiene el schema
-por versión, catálogos, mappings por vendor, perfiles `ecs-9.5.0` y `ocsf-1.9.0`,
-y ejemplos sintéticos. Los mappings tienen versión independiente. Un cambio
+El layout implementado dentro de `packages/contracts/src/security-event/` contiene
+el schema normativo, tipos generados, catálogos, validador, errores y corpus
+sintético. Los mappings por proveedor y perfiles `ecs-9.5.0` y `ocsf-1.9.0`
+pertenecen a componentes posteriores y tendrán versión independiente. Un cambio
 incompatible eleva major; uno aditivo exige lectores compatibles. Renormalizar crea
 una revisión nueva y conserva lineage, sin reescribir silenciosamente la historia.
 

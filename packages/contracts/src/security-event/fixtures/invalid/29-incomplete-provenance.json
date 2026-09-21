@@ -1,0 +1,91 @@
+{
+  "input": {
+    "schemaVersion": "1.0.0",
+    "recordId": "01890f47-7abc-7def-8abc-0123456789ab",
+    "eventUid": "siem-qapaq-lab:alerts:evt-0001",
+    "eventUidType": "native",
+    "kind": "alert",
+    "occurredAt": "2026-09-20T15:30:00.000Z",
+    "observedAt": "2026-09-20T15:30:01.000Z",
+    "receivedAt": "2026-09-20T15:30:02.000Z",
+    "source": {
+      "kind": "siem",
+      "vendor": "Wazuh, Inc.",
+      "product": "Wazuh",
+      "dataset": "alerts",
+      "instanceId": "siem-qapaq-lab",
+      "nativeEventId": "evt-0001"
+    },
+    "tenant": {
+      "id": "tenant-synthetic-001"
+    },
+    "severity": {
+      "normalized": "high",
+      "score": 72,
+      "originalValue": 12,
+      "originalLabel": "high",
+      "originalScale": "provider-level-0-15",
+      "mappingId": "synthetic.alert.severity",
+      "mappingVersion": "1.0.0"
+    },
+    "category": ["intrusion_detection"],
+    "outcome": "unknown",
+    "action": "alert.created",
+    "entities": {
+      "identities": [
+        {
+          "kind": "service",
+          "id": "identity-synthetic-001",
+          "principal": "synthetic-user@example.test"
+        }
+      ],
+      "resources": [
+        {
+          "kind": "host",
+          "id": "host-synthetic-001",
+          "name": "workstation.example.test",
+          "type": "endpoint"
+        }
+      ]
+    },
+    "detection": {
+      "rule": {
+        "id": "rule-synthetic-1001",
+        "name": "Synthetic suspicious activity",
+        "version": "1",
+        "provider": "wazuh",
+        "groups": ["synthetic", "authentication"]
+      }
+    },
+    "raw": {
+      "ref": "raw:tenant-synthetic-001/2026/09/20/evt-0001",
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "mediaType": "application/json",
+      "sizeBytes": 2048
+    },
+    "provenance": {
+      "connector": "qapaq-wazuh-indexer",
+      "connectorVersion": "1.0.0",
+      "parserVersion": "1.0.0",
+      "timestampQuality": "source",
+      "ingestionPath": [
+        {
+          "kind": "collector",
+          "vendor": "Wazuh, Inc.",
+          "product": "Wazuh",
+          "instanceId": "siem-qapaq-lab"
+        },
+        {
+          "kind": "adapter",
+          "vendor": "QAPAQ",
+          "product": "QAPAQ SecOps"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "code": "SCHEMA_VALIDATION_FAILED",
+    "path": "/provenance/mappingVersion",
+    "keyword": "required"
+  }
+}

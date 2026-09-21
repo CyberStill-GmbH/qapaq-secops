@@ -8,3 +8,5 @@ export interface SourceCoverage {
   readonly observedAt: string;
   readonly status: 'current' | 'lagging' | 'unavailable';
 }
+
+export * from './security-event/index.js';

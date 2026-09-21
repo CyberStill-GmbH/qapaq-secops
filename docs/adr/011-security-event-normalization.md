@@ -1,6 +1,6 @@
 # ADR-011 — Contrato canónico SecurityEvent
 
-Estado: Accepted / Implementation Required · Fecha: 2026-09-18.
+Estado: Accepted / C-05 Implemented · Fecha: 2026-09-18; implementación: 2026-09-21.
 Decisión aportada por el usuario; responsables de implementación: Desarrollo y SOC, con revisión de Seguridad y Arquitectura.
 
 ## Context
@@ -15,13 +15,16 @@ superficie mayor que la necesaria para el MVP.
 ## Decision
 
 Adoptar `qapaq.security-event` como contrato canónico interno, con versión inicial
-`1.0.0` y JSON Schema Draft 2020-12 como definición normativa. El artefacto se
-ubicará en `packages/contracts/security-event/1.0.0/security-event.schema.json`,
-siguiendo la estructura aceptada del repositorio. Tipos TypeScript, validadores,
+`1.0.0` y JSON Schema Draft 2020-12 como definición normativa. El artefacto vive en
+`packages/contracts/src/security-event/security-event.schema.json`, junto a su
+implementación compilable. Tipos TypeScript, validadores,
 documentación y mappings de OpenSearch serán generados o verificados contra ese
 schema.
 
-El contrato distingue `recordId`, UUIDv7 de cada recepción física, de `eventUid`,
+El schema normativo implementado se ubica en
+`packages/contracts/src/security-event/security-event.schema.json`; esta ruta
+reemplaza la ruta de artefacto prevista originalmente para mantener schema, tipos,
+validador y API en un único paquete compilable. El contrato distingue `recordId`, UUIDv7 de cada recepción física, de `eventUid`,
 identidad lógica estable. La estrategia de `eventUid` y su confianza dependen del
 dataset; un hash heurístico no autoriza descarte automático. Cada reintento o replay
 conserva `eventUid` y crea un `recordId` nuevo. No se declara entrega exactly-once.
@@ -67,7 +70,9 @@ versión.
 
 ## Validación y revisión
 
-U-010 queda aceptada y requiere implementación. Se cierra técnicamente cuando
+U-010 queda aceptada. C-05 cubre schema, tipos, catálogos, validador, corpus y
+contract tests; los criterios que pertenecen a C-12/C-13 y a entornos autorizados
+siguen su propio gate. U-010 se cierra integralmente cuando
 existan: schema ejecutable; diccionario y taxonomía; mapping de alertas Wazuh
 derivadas de Microsoft 365 probado; corpus; pruebas de contrato en CI; pruebas de
 replay/idempotencia; cuarentena y reproceso; verificación de hash raw; reporte de
