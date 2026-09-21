@@ -27,18 +27,23 @@ merge queue, manual y schedule. Tiene `contents: read` por defecto, no usa
 `pull_request_target`, fija Actions por SHA y ejecuta CodeQL, Gitleaks, Trivy,
 descubrimiento, un verificador y un gate agregado. No publica ni despliega.
 
-FACT: el workflow actual descubre `package-lock.json`, instala con `npm ci` y usa
-`npm audit`. No existen aplicación, `package.json`, `pnpm-lock.yaml` ni imágenes.
-Por ello los jobs de aplicación se omiten y el verificador reporta
-`NOT_CONFIGURED`.
+FACT: GitHub Code Security no está habilitado para este repositorio privado. CodeQL
+analiza TypeScript/JavaScript y Python, escribe SARIF por lenguaje y lo conserva 30
+días como artifact del run. Se usa `upload: never` para evitar que una publicación
+SARIF no disponible invalide un análisis correcto. El artifact faltante falla de
+forma cerrada. Si se habilita Code Security, se cambia a publicación SARIF y se
+restaura `security-events: write` exclusivamente en el job CodeQL.
 
-GAP: el diseño aceptado usa pnpm. Al materializar el workspace, CI debe migrar a
-`pnpm install --frozen-lockfile` y `pnpm audit`; no debe crear `package-lock.json`
-solo para ejecutar npm. Hasta ese cambio el pipeline actual no acredita conformidad
-con U-011 para la aplicación.
+FACT: el workflow descubre el workspace pnpm materializado, exige las versiones
+fijadas en `.nvmrc` y `packageManager`, instala con
+`pnpm install --frozen-lockfile --ignore-scripts`, ejecuta `pnpm audit` y corre el
+verificador integral. Un `package-lock.json`, una versión no aprobada o entradas
+incompletas provocan fallo cerrado.
 
-El cambio de workflow, scripts y `.github/ci/discover.py` está fuera de esta entrega
-documental y requiere una tarea de implementación revisada.
+GAP: aún no existen imágenes registradas en `.github/ci/containers.json`; por ello
+el escaneo de contenedores se omite y el resumen lo declara `NOT_CONFIGURED`. El
+job pasa a ser obligatorio automáticamente cuando se registre el primer
+`Dockerfile` real.
 
 ## CI de pull requests
 
