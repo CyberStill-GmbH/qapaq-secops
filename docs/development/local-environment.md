@@ -19,6 +19,13 @@ Copy-Item .env.example .env.local
 pnpm run infra:up
 ```
 
+Las aplicaciones leen únicamente variables `QAPAQ_*` mediante
+`@qapaq/configuration`. `QAPAQ_PROFILE` es obligatorio. Los valores de secretos del
+Compose local permanecen separados de sus referencias
+`secret://environment/<VARIABLE>`; el adaptador de entorno está prohibido en
+producción. La lista completa y sus límites está en
+[`platform/configuration/README.md`](../../platform/configuration/README.md).
+
 `infra:up` inicia PostgreSQL 18.6, Redis 8.10.1 y MinIO. El stack oficial Wazuh
 se instala por separado porque aporta Manager, Wazuh Indexer basado en OpenSearch
 y Wazuh Dashboard basado en OpenSearch Dashboards:

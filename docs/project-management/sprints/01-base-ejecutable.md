@@ -46,6 +46,9 @@ Los contratos, comandos y evidencia de cada C-ID están en el
 - Materializar workspace, scripts y CI antes de ampliar código.
 - Levantar servicios reales aislados y probar health/teardown.
 - Implementar schema, catálogos y corpus SecurityEvent.
+- C-03 implementado: configuración tipada, perfiles, `SecretProvider`, política TLS,
+  límites operativos, redacción y specs de fallo seguro. La selección del provider
+  productivo permanece pendiente de Infraestructura.
 - Abrir el requerimiento formal de acceso Microsoft 365/Wazuh con todos los campos
   de PBI-006 y fecha objetivo no posterior a 2026-09-25.
 

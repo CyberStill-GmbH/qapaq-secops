@@ -9,12 +9,13 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @qapaq/api dev',
-      url: 'http://127.0.0.1:3000/health',
+      env: { QAPAQ_PROFILE: 'test' },
+      url: 'http://127.0.0.1:3100/health',
       reuseExistingServer: false,
       timeout: 60_000,
     },
     {
-      command: 'pnpm --filter @qapaq/web dev --host 127.0.0.1',
+      command: 'pnpm --filter @qapaq/web dev --host 127.0.0.1 --mode test',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: false,
       timeout: 60_000,

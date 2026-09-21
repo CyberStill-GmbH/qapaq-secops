@@ -30,6 +30,12 @@ un componente puede servir a varios PBI.
 | C-08 | `modules/connectors` contrato operativo/probe Wazuh | Port `SecurityEventProvider`, health y consulta read-only mínima | 005, 006 | C-03, C-05, C-06 | Contract suite y consulta a Wazuh/Indexer real autorizado |
 | C-09 | `.github/workflows` y ownership | Integrar PR #2, pnpm congelado, scans y evidencia sin secretos | 002 | C-01, C-06, C-07 | PR confiable/no confiable; checks requeridos y artifact redactado |
 
+C-03 fue materializado el 2026-09-21 con perfiles explícitos, contratos tipados
+para PostgreSQL, Redis, MinIO y Wazuh Indexer, puerto `SecretProvider`, resolución
+única por arranque, redacción y fallo seguro. El provider productivo continúa como
+dependencia de Infraestructura; el adapter de entorno está limitado a desarrollo y
+test y rechaza producción.
+
 Orden obligatorio: C-01 inicia; C-03/C-05 pueden avanzar en paralelo; C-06 habilita
 C-04/C-08; C-02 y C-07 cierran la forma del workspace; C-09 se adapta a scripts
 reales. No se copia CI documentalmente ni se crea otro workflow si PR #2 ya cubre
