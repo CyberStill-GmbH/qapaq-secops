@@ -1,0 +1,40 @@
+sequenceDiagram
+    actor U as Operador
+    participant W as React
+    participant B as NestJS BFF
+    participant I as Microsoft Entra ID
+    participant S as Session store
+    participant P as Access Policy
+    participant D as Caso de uso
+    participant DB as PostgreSQL
+
+    U->>W: Iniciar sesión
+    W->>B: Solicitar login
+    B->>I: Authorization Code + PKCE S256<br/>tenant explícito, state y nonce
+    I-->>B: Authorization code
+    B->>I: Intercambiar code + verifier
+    I-->>B: Tokens validados en backend
+    B->>S: Crear sesión opaca<br/>tid + oid + authorizationVersion
+    B-->>W: __Host-qapaq_session<br/>Secure, HttpOnly, SameSite=Lax
+
+    U->>W: Acción SOC
+    W->>B: Request + cookie + CSRF
+    B->>S: Sesión vigente y versión actual
+    B->>P: Capability + scope + contexto
+    alt Sesión o política denegada
+        P-->>B: DENY
+        B-->>W: Error seguro
+    else Política HTTP permitida
+        B->>D: Entrada validada + actor
+        D->>P: Reautorizar recurso real
+        alt Recurso fuera de scope
+            P-->>D: DENY
+            D-->>B: Error sin enumeración
+            B-->>W: Respuesta segura
+        else Recurso autorizado
+            D->>DB: Estado + AuditEvent + outbox
+            DB-->>D: Commit o rollback
+            D-->>B: Resultado
+            B-->>W: DTO seguro + correlationId
+        end
+    end

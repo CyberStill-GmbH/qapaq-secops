@@ -1,0 +1,33 @@
+C4Container
+    title C4 Nivel 2 — Contenedores conceptuales de QAPAQ SecOps
+
+    Person(user, "Usuario autorizado", "SOC, auditoría, antifraude o administración")
+    System_Ext(entra, "Microsoft Entra ID", "IdP humano")
+    System_Ext(m365, "Microsoft 365", "Única fuente empresarial del MVP")
+    System_Ext(wazuh, "Wazuh", "Office 365 collector, ruleset, alertas e Indexer")
+    System_Ext(secrets, "SecretProvider", "Resuelve referencias bajo identidad técnica")
+    System_Ext(teams, "Microsoft Teams Workflow", "Publica en el canal SOC dedicado")
+
+    System_Boundary(qapaq, "QAPAQ SecOps — monolito modular") {
+        Container(web, "Web SOC", "React + TypeScript", "Interfaz para operaciones autorizadas")
+        Container(api, "API / BFF", "NestJS + Fastify", "Sesión, autorización y casos de uso síncronos")
+        Container(worker, "Worker / scheduler", "NestJS + BullMQ", "Collectors, pipeline, detección y jobs recuperables")
+        ContainerDb(pg, "Operational Store", "PostgreSQL", "Estado, configuración, checkpoints, auditoría y outbox/inbox")
+        ContainerDb(queue, "Job Queue", "Redis + BullMQ", "Entrega de jobs recuperables")
+        ContainerDb(search, "QAPAQ Telemetry Search", "OpenSearch", "Proyección SecurityEvent para investigación")
+        ContainerDb(objects, "Object Storage", "Azure Blob / S3-compatible", "Raw, evidencia, manifests y exports")
+    }
+
+    Rel_D(user, web, "Usa", "HTTPS")
+    Rel_R(web, api, "Invoca", "HTTPS/JSON")
+    Rel_U(api, entra, "", "OIDC")
+    Rel_D(api, pg, "Gestiona estado")
+    Rel_D(api, queue, "Encola trabajos")
+    Rel_D(worker, queue, "Consume trabajos")
+    Rel_D(worker, pg, "Persiste progreso")
+    Rel_D(worker, search, "Indexa telemetría")
+    Rel_D(worker, objects, "Preserva raw y evidencia")
+    Rel_D(m365, wazuh, "")
+    Rel_U(worker, wazuh, "", "HTTPS read-only")
+    Rel_U(worker, secrets, "")
+    Rel_L(worker, teams, "", "HTTPS")

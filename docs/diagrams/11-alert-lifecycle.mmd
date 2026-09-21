@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> NEW: Crear alerta
+    NEW --> ENRICHING: Enriquecer
+    ENRICHING --> TRIAGE: Habilitar triaje
+    TRIAGE --> INVESTIGATING: Investigar
+    INVESTIGATING --> CONFIRMED: Confirmar
+    INVESTIGATING --> FALSE_POSITIVE: Clasificar falso positivo
+    CONFIRMED --> CLOSED: Cierre autorizado y auditado
+    FALSE_POSITIVE --> CLOSED: Cierre autorizado y auditado

@@ -1,0 +1,30 @@
+C4Component
+    title C4 Nivel 3 — Componentes del backend modular
+
+    Container(web, "Web SOC", "React", "Opera capacidades autorizadas")
+    System_Ext(wazuh, "Wazuh", "Motor base del MVP para Microsoft 365 y alertas")
+    System_Ext(teams, "Microsoft Teams Workflow", "Canal SOC dedicado")
+
+    Container_Boundary(backend, "Backend QAPAQ SecOps — API y worker") {
+        Component(access, "Identity, Access & Policy", "NestJS", "Sesiones, RBAC, scopes y políticas")
+        Component(connectors, "Integrations & Collectors", "NestJS", "Adapters, salud, cursores y checkpoints")
+        Component(telemetry, "Telemetry Ingestion & Processing", "NestJS", "Admisión, validación y normalización")
+        Component(intel, "Threat Intelligence", "NestJS", "IOC, procedencia, vigencia y contexto")
+        Component(detection, "Detection & Correlation", "NestJS", "Priorización QAPAQ y correlación complementaria")
+        Component(soc, "Alerts, Incidents & Cases", "NestJS", "Triaje, investigación, casos y evidencia")
+        Component(soar, "SOAR, Playbooks & Ticketing", "NestJS", "Planes, aprobaciones, acciones, tickets y notificaciones")
+        Component(antifraud, "Antifraud Intelligence", "NestJS", "Señales, scoring explicable y casos")
+        Component(audit, "Audit & Archive", "Capacidad transversal", "Auditoría atómica, outbox y archivo protegido")
+        Component(ops, "Operations & Observability", "Capacidad transversal", "Health, métricas, modos y recovery")
+    }
+
+    Rel_D(web, access, "Inicia sesión")
+    Rel_D(web, soc, "Opera investigación", "HTTPS")
+    Rel_U(connectors, wazuh, "", "Read-only")
+    Rel_L(connectors, telemetry, "Entrega lotes")
+    Rel_D(intel, detection, "Aporta IOC")
+    Rel_D(telemetry, detection, "Entrega eventos")
+    Rel_L(detection, soc, "Genera candidatos")
+    Rel_U(antifraud, soc, "Gestiona casos")
+    Rel_D(soc, soar, "Solicita ejecución")
+    Rel_L(soar, teams, "", "HTTPS")

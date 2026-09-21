@@ -1,0 +1,14 @@
+stateDiagram-v2
+    [*] --> OPEN: Apertura autorizada
+    OPEN --> INVESTIGATING: Investigar
+    INVESTIGATING --> CONTAINMENT: Contener
+    CONTAINMENT --> ERADICATION: Erradicar
+    ERADICATION --> RECOVERY: Recuperar
+    RECOVERY --> RESOLVED: Resolver
+    RESOLVED --> CLOSED: Cierre autorizado y auditado
+    note right of INVESTIGATING
+        Toda transicion exige dominio,
+        permiso, actor, timestamp,
+        motivo y auditoria.
+        Excepciones siguen U-008.
+    end note

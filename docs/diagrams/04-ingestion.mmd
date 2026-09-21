@@ -1,0 +1,22 @@
+flowchart TB
+    SOURCE["Microsoft 365 - unica fuente empresarial MVP"]
+    WAZUH["Wazuh - recoleccion ruleset y alerta base"]
+    COL["Collector - checkpoint no adelantado"]
+    ING["Ingestion - validacion y limites"]
+    RAW[("Raw durable y digest")]
+    MAN["Manifiesto de lote y outbox"]
+    ACK["Recibo durable y checkpoint"]
+    QUEUE["BullMQ - propuesta tecnica"]
+    NORM["Parsing y SecurityEvent 1.0.0"]
+    IDX["OpenSearch - primera vertical"]
+    ANA["Priorizacion QAPAQ y Detection"]
+    CAND["Alert Candidate - enrichment y deduplicacion"]
+    ALERT["Alert y triaje"]
+    SOC["Incident y auditoria"]
+    BAD["Cuarentena y replay autorizado"]
+    SOURCE --> WAZUH --> COL --> ING --> RAW --> MAN
+    MAN --> ACK
+    MAN --> QUEUE --> NORM --> IDX --> ANA --> CAND
+    CAND -->|promocion si corresponde| ALERT --> SOC
+    NORM -->|fallo permanente| BAD
+    QUEUE -->|intentos agotados| BAD

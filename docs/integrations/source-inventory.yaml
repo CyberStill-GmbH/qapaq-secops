@@ -1,0 +1,103 @@
+# Inventario documental de fuentes. No contiene secretos ni habilita producción.
+# Cada TO_BE_PROVIDED debe resolverse y aprobarse antes del estado enabled.
+schema_version: "1.0"
+sources:
+  - source_id: wazuh-to-be-provided
+    product: Wazuh
+    mvp_role: detection_engine_and_alert_source
+    edition: TO_BE_PROVIDED
+    owner_team: infrastructure
+    business_owner: security
+    interface:
+      api: TO_BE_PROVIDED
+      api_version: TO_BE_PROVIDED
+      region: TO_BE_PROVIDED
+      authentication: TO_BE_PROVIDED
+      credential_ref: TO_BE_PROVIDED
+    authorization: { approved_scopes: [], approval_ticket: TO_BE_PROVIDED }
+    datasets:
+      - id: TO_BE_PROVIDED
+        enabled: false
+        source_event_id: TO_BE_PROVIDED
+        event_time_field: TO_BE_PROVIDED
+        schema_version: TO_BE_PROVIDED
+    pagination: { strategy: TO_BE_PROVIDED, cursor_field: TO_BE_PROVIDED }
+    limits: { quota: TO_BE_PROVIDED, maximum_page_size: TO_BE_PROVIDED }
+    replay: { classification: TO_BE_PROVIDED, maximum_window: TO_BE_PROVIDED, zero_loss_guarantee: false }
+    retention: { source_retention: TO_BE_PROVIDED, platform_retention: U-004 }
+    status: planned
+
+  - source_id: microsoft-to-be-provided
+    product: Microsoft Entra ID or Microsoft 365
+    mvp_role: sole_business_source_via_wazuh
+    edition: TO_BE_PROVIDED
+    owner_team: infrastructure
+    business_owner: security
+    interface:
+      api: TO_BE_PROVIDED
+      api_version: TO_BE_PROVIDED
+      region: TO_BE_PROVIDED
+      authentication: client_credentials
+      credential_ref: TO_BE_PROVIDED
+    authorization: { approved_scopes: [], approval_ticket: TO_BE_PROVIDED }
+    datasets:
+      - id: TO_BE_PROVIDED
+        enabled: false
+        source_event_id: TO_BE_PROVIDED
+        event_time_field: TO_BE_PROVIDED
+        schema_version: TO_BE_PROVIDED
+    pagination: { strategy: TO_BE_PROVIDED, cursor_field: TO_BE_PROVIDED }
+    limits: { quota: TO_BE_PROVIDED, maximum_page_size: TO_BE_PROVIDED }
+    replay: { classification: TO_BE_PROVIDED, maximum_window: TO_BE_PROVIDED, zero_loss_guarantee: false }
+    retention: { source_retention: TO_BE_PROVIDED, platform_retention: U-004 }
+    status: planned
+
+  - source_id: sophos-to-be-provided
+    product: Sophos product TO_BE_PROVIDED
+    mvp_role: post_mvp
+    edition: TO_BE_PROVIDED
+    owner_team: infrastructure
+    business_owner: security
+    interface:
+      api: TO_BE_PROVIDED
+      api_version: TO_BE_PROVIDED
+      region: TO_BE_PROVIDED
+      authentication: TO_BE_PROVIDED
+      credential_ref: TO_BE_PROVIDED
+    authorization: { approved_scopes: [], approval_ticket: TO_BE_PROVIDED }
+    datasets:
+      - id: TO_BE_PROVIDED
+        enabled: false
+        source_event_id: TO_BE_PROVIDED
+        event_time_field: TO_BE_PROVIDED
+        schema_version: TO_BE_PROVIDED
+    pagination: { strategy: TO_BE_PROVIDED, cursor_field: TO_BE_PROVIDED }
+    limits: { quota: TO_BE_PROVIDED, maximum_page_size: TO_BE_PROVIDED }
+    replay: { classification: TO_BE_PROVIDED, maximum_window: TO_BE_PROVIDED, zero_loss_guarantee: false }
+    retention: { source_retention: TO_BE_PROVIDED, platform_retention: U-004 }
+    status: planned
+
+  - source_id: cato-to-be-provided
+    product: Cato
+    mvp_role: post_mvp
+    edition: TO_BE_PROVIDED
+    owner_team: infrastructure
+    business_owner: security
+    interface:
+      api: TO_BE_PROVIDED
+      api_version: TO_BE_PROVIDED
+      region: TO_BE_PROVIDED
+      authentication: TO_BE_PROVIDED
+      credential_ref: TO_BE_PROVIDED
+    authorization: { approved_scopes: [], approval_ticket: TO_BE_PROVIDED }
+    datasets:
+      - id: TO_BE_PROVIDED
+        enabled: false
+        source_event_id: TO_BE_PROVIDED
+        event_time_field: TO_BE_PROVIDED
+        schema_version: TO_BE_PROVIDED
+    pagination: { strategy: TO_BE_PROVIDED, cursor_field: TO_BE_PROVIDED }
+    limits: { quota: TO_BE_PROVIDED, maximum_page_size: TO_BE_PROVIDED }
+    replay: { classification: TO_BE_PROVIDED, maximum_window: TO_BE_PROVIDED, zero_loss_guarantee: false }
+    retention: { source_retention: TO_BE_PROVIDED, platform_retention: U-004 }
+    status: planned
