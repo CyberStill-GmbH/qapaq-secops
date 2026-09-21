@@ -1,6 +1,7 @@
 # Sprint 2 — Ingesta Microsoft 365/Wazuh
 
-Fechas: 2026-10-03 a 2026-10-16 · Planning: 2026-10-05 · Review/Retro: 2026-10-16.
+Fechas: 2026-10-05 a 2026-10-06 · Planning: 2026-10-05 · Review/Retro: 2026-10-06.
+Timebox: dos días laborables.
 
 ## Sprint Goal
 
@@ -23,23 +24,48 @@ Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. El equ
 selecciona PBIs independientes del orden global, pero no afirma el Sprint Goal hasta
 recorrer la fuente real.
 
-## Plan de trabajo
+## Componentes a construir
 
-### Primera semana
+| Orden | Componentes | Resultado físico |
+| --- | --- | --- |
+| 1 | C-10 | Adapter Wazuh, registro de fuente, paginación y errores de frontera |
+| 2 | C-11 | Admisión durable con raw/ref/hash, manifiesto y checkpoint |
+| 3 | C-12 | Mapping Wazuh → SecurityEvent validado y versionado |
+| 4 | C-13 | Inbox, idempotencia, replay, cuarentena y reproceso |
+| 5 | C-14 | Proyección OpenSearch y consulta tipada/autorizable |
+| Transversal | C-15 | Logs, métricas, traces y health incorporados con cada etapa |
 
+C-10 → C-11 → C-12 → C-13 → C-14 es la ruta crítica. Cada componente debe cerrar
+su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 y
+las provider specs siguen bloqueados sin sistemas corporativos reales. Consultar
+el [plan por componentes](../component-delivery-plan.md).
+
+## Gate previo obligatorio
+
+Al terminar la Review de Sprint 1 deben estar Done C-01…C-09 y disponibles tenant,
+dataset, Wazuh, Indexer, red, secretRefs y servicios de integración. El 2026-10-05
+no se usa para instalar dependencias pendientes. Si un gate falla, el PBI afectado
+se registra `BLOCKED` y el Sprint no afirma la vertical completa.
+
+## Plan de trabajo por día
+
+### Día 1 — 2026-10-05
+
+- Planning de 30 minutos y verificación ejecutable del gate;
 - confirmar configuración Office 365/Wazuh y generar actividad sintética autorizada;
 - consultar alertas Wazuh mediante adapter de solo lectura;
 - persistir raw/ref/hash y registrar manifiesto antes del checkpoint;
 - implementar mapping versionado y validación previa a indexación;
 - mantener DTOs Wazuh dentro de infraestructura.
 
-### Segunda semana
+### Día 2 — 2026-10-06
 
 - probar duplicados, restart, cursor/checkpoint y replay;
 - implementar cuarentena y reproceso con lineage;
 - indexar/consultar SecurityEvent con filtros y límites;
 - instrumentar cobertura, lag, error e integridad;
-- ejecutar E2E parcial desde Microsoft 365 hasta consulta QAPAQ.
+- ejecutar E2E parcial desde Microsoft 365 hasta consulta QAPAQ;
+- realizar Review y Retrospective con evidencia del mismo commit.
 
 ## Dependencias de entrada
 
@@ -83,4 +109,5 @@ avanzar en lifecycle/auditoría sobre SecurityEvents producidos por la instancia
 Wazuh real de integración, pero la Review final no declara MVP Candidate hasta
 cerrar el recorrido Microsoft 365.
 
-[Product Backlog](../product-backlog.md) · [Definition of Done](../definition-of-done.md)
+[Product Backlog](../product-backlog.md) · [Plan por componentes](../component-delivery-plan.md) ·
+[Definition of Done](../definition-of-done.md)

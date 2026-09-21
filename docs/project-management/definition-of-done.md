@@ -1,6 +1,6 @@
 # Definition of Done y criterios de refinamiento
 
-Estado: BASELINE DEL EQUIPO para el timebox 2026-09-19 a 2026-10-30.
+Estado: BASELINE DEL EQUIPO para el timebox 2026-09-19 a 2026-10-20.
 La Definition of Done es común a todos los incrementos; un criterio específico de
 un PBI puede endurecerla, nunca reducirla.
 
@@ -93,6 +93,8 @@ Antes de considerar un PBI para Sprint Planning debe tener:
 - evidencia esperada y tipo de specs;
 - tamaño que pueda completarse dentro de un Sprint;
 - preguntas abiertas visibles con dueño.
+- uno o más componentes `C-xx`, ruta concreta y orden de dependencias según el
+  [plan de construcción](component-delivery-plan.md).
 
 Estos criterios mejoran transparencia; no son una “Definition of Ready” obligatoria
 ni permiten que una persona bloquee unilateralmente el refinamiento.

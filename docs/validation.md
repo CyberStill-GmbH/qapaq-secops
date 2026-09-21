@@ -235,3 +235,61 @@ por secretRef, acceso read-only al Indexer, prohibición de DTOs externos en dom
 raw/hash, autorización, auditoría y gates de provider specs. Las vistas C4 01…03 y
 los flujos 04/10 se actualizaron y renderizaron. Las fuentes oficiales de Scrum,
 GitHub, Wazuh y Microsoft se registraron en `references.md`.
+
+## Actualización por especificación RF/RNF
+
+La baseline del 2026-09-19 materializa 36 RF, 37 RNF, mapa de 24 capacidades,
+matrices RBAC/fuentes/trazabilidad/dependencias, U-001…U-017 y glosario bajo
+`docs/requirements/`. Se inspeccionaron README, ADR-001…024, C4, arquitectura,
+CI/CD, backlog, testing, inventario, threat model, árbol Git e issues. GitHub no
+contiene issues y la rama no contiene código de aplicación; ninguna capacidad se
+marcó implementada.
+
+Un verificador local confirmó secuencias RF/RNF, campos obligatorios, una entrada
+por U, enlaces y fences. Markdownlint aprobó los once documentos nuevos con la
+regla de longitud deshabilitada para permitir matrices; `yaml-lint` aprobó el
+inventario y `git diff --check` no encontró errores. El inventario vigente contiene
+90 archivos Markdown, 13 fuentes Mermaid y 24 números ADR canónicos. No se
+ejecutaron tests de aplicación, proveedores, benchmark ni E2E porque esos
+artefactos y entornos no existen en esta rama.
+
+## Actualización por auditoría estructural y componentes Scrum
+
+La auditoría del 2026-09-19 confirmó que el snapshot `4a90cde` contiene únicamente
+documentación, `.gitignore` y licencia: no existen workspace, aplicaciones,
+módulos, lockfile, migraciones, schemas ejecutables ni specs. Se registraron doce
+hallazgos STR-01…STR-12 con impacto y acción. CI continúa en la rama/PR #2 y su
+existencia separada no se presenta como control integrado en esta rama.
+
+Se corrigió la distribución física propuesta: API y worker son entrypoints delgados
+y la lógica compartida vive en `modules/`, evitando imports entre apps o duplicar
+el dominio de notificaciones. Auditoría y capacidades técnicas transversales viven
+en `platform/`; los contratos versionados, en `packages/contracts`. Las rutas se
+crean solo al entregar contenido ejecutable.
+
+El Scrum ahora mapea C-01…C-23 a rutas, responsabilidades, PBI, dependencias, specs
+y evidencia. Cada Sprint declara los componentes y su orden crítico. El plan no
+afirma que un único Developer pueda completar todo el mapa en seis semanas: cada
+Planning selecciona componentes completos por capacidad y conserva tests reales,
+seguridad y Definition of Done.
+
+La comprobación vigente encuentra 92 archivos Markdown, 13 fuentes Mermaid y 24
+números ADR canónicos. La revisión local verificó enlaces, fences, secuencia única
+C-01…C-23, cobertura de componentes por Sprint y `git diff --check`. No se ejecutan
+tests de aplicación porque sus artefactos siguen sin existir.
+
+## Actualización de cadencia y Daily Scrum
+
+El 2026-09-21 se redujo Sprint 2 a dos días laborables, 2026-10-05/06, por decisión
+del usuario. Sprint 3 se adelanta al 2026-10-07/20 y el timebox termina el
+2026-10-20. El alcance y la Definition of Done de Sprint 2 no se reducen: C-01…C-09,
+los accesos Microsoft 365/Wazuh y los servicios reales son un gate previo. Una
+dependencia ausente produce `BLOCKED`, no fake, spec omitida o aceptación parcial.
+
+Se añadió un artefacto de Daily Scrum con agenda de 15 minutos, campos, estados,
+regla de escalamiento y registro inicial del 2026-09-21. El registro declara la
+documentación terminada y conserva C-01…C-09 como implementación pendiente; no
+presenta la baseline documental como incremento ejecutable.
+
+El inventario vigente contiene 93 archivos Markdown. Enlaces, fences, fechas del
+timebox y `git diff --check` se vuelven a validar con esta actualización.

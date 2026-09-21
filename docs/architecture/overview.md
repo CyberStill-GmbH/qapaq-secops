@@ -113,8 +113,9 @@ añade vistas de comportamiento, contratos y ownership.
 Monorepo pnpm aceptado con `apps/api`, `apps/worker` y `apps/web`.
 `research/analytics` puede conservar experimentos no desplegados; `apps/analytics`
 solo aparece después del gate de U-007.
-`packages/contracts`, `database`, `observability`, `configuration` y `testing`
-mantienen límites explícitos. [Árbol y convenciones](repository-structure.md).
+`modules/` contiene capacidades compartidas por API/worker; `platform/` contiene
+auditoría e implementaciones técnicas; `packages/contracts` conserva contratos
+versionados. [Árbol y convenciones](repository-structure.md).
 
 Esta tarea crea documentación, no esas carpetas ni interfaces ejecutables.
 

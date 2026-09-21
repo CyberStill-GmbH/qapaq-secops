@@ -139,22 +139,19 @@ IDs de alerta, incidente o notificación no son labels.
 ## Estructura objetivo del MVP
 
 ```text
-apps/worker/notifications/
-  application/
-    request-notification.use-case
-    deliver-notification.use-case
-    escalate-unacknowledged.use-case
-  domain/
-    notification
-    notification-policy
-    notification-attempt
-  infrastructure/
-    microsoft-teams-workflow.adapter
+modules/soar/src/
+  domain/                        # notification, policy y attempt
+  application/                  # request, deliver y escalate use cases
+  infrastructure/               # Microsoft Teams Workflow adapter
+  public/                       # fachada y contratos consumibles
+apps/worker/src/
+  notifications.consumer        # entrypoint; compone y ejecuta SOAR
 ```
 
 La ruta es una guía para la implementación, no evidencia de archivos existentes.
-El adapter implementa un port; no se permite `fetch(webhookUrl)` dentro de
-`DetectionService`.
+El worker no contiene un segundo dominio de notificaciones: consume la fachada de
+`modules/soar`. El adapter implementa un port; no se permite `fetch(webhookUrl)`
+dentro de `DetectionService`.
 
 ## Pruebas de aceptación
 

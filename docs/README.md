@@ -31,6 +31,9 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 11. [Modelo C4](architecture/c4-model.md).
 12. [Separación de observabilidad y auditoría](adr/021-observability-and-audit-separation.md).
 13. [Plan Scrum del MVP](project-management/README.md).
+14. [Especificación RF/RNF y matrices de trazabilidad](requirements/README.md).
+15. [Auditoría de estructura](architecture/repository-structure-audit.md).
+16. [Plan de construcción por componentes](project-management/component-delivery-plan.md).
 
 ## Diseño
 
@@ -47,8 +50,9 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Operación y continuidad](architecture/operations-and-continuity.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
-- [Estructura propuesta](architecture/repository-structure.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
+- [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
+- [Requisitos funcionales, no funcionales y matrices](requirements/README.md).
 - [Threat model](threat-model.md).
 - [Diagramas Mermaid de arquitectura y lifecycles](diagrams/README.md).
 - [Plan por etapas](roadmap.md), [operación y despliegue](deployment.md), [runbooks](runbooks.md).
@@ -57,7 +61,8 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Fuentes primarias consultadas](references.md).
 - [Verificador existente](verification.md) y [validación documental](validation.md).
 - [CI de seguridad y preparación de CD](ci-cd.md).
-- [Plan Scrum, backlog, Definition of Done y Sprints](project-management/README.md).
+- [Plan Scrum, componentes, backlog, Definition of Done y Sprints](project-management/README.md).
+- [Daily Scrum y registro operativo](project-management/daily-scrum.md).
 
 ## Autoridad y trazabilidad
 

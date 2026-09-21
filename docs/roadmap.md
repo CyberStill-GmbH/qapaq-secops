@@ -4,7 +4,7 @@ Alcance y orden inicial aceptados por [U-001](decisions/unresolved.md) y
 [ADR-015](adr/015-operational-scope-and-ownership.md). Gates técnicos propuestos,
 sin fechas ni estimaciones inventadas. La documentación no implementa funcionalidades.
 
-El timebox ejecutable de 2026-09-19 a 2026-10-30, sus Sprint Goals y Product
+El timebox ejecutable de 2026-09-19 a 2026-10-20, sus Sprint Goals y Product
 Backlog están en el [plan Scrum](project-management/README.md). ADR-024 sustituye
 el orden inicial de fuentes sin reducir el alcance objetivo post-MVP.
 

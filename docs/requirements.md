@@ -1,5 +1,11 @@
 # Requerimientos y alcance documental
 
+La especificación detallada y canónica para planificación, implementación y
+aceptación se encuentra en
+[docs/requirements/](requirements/README.md). Esta página conserva el resumen de
+entrada y las restricciones históricas; ante diferencias de detalle, prevalecen
+los ADR aceptados y la especificación trazable enlazada.
+
 Fuente: solicitud de arquitectura de qapaq-secops del 2026-09-17 y restricción
 posterior «solo crea ahora la documentación en docs/». Esta última excluye crear
 el skeleton ejecutable. Estado: requisitos de entrada; implementación pendiente.

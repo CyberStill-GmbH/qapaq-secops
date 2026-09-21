@@ -1,9 +1,9 @@
 # Plan Scrum profesional — MVP QAPAQ SecOps
 
-Estado: BASELINE DE PLANIFICACIÓN · Inicio: 2026-09-19 · Fin del timebox: 2026-10-30.
-Horizonte: seis semanas, tres Sprints de dos semanas. La disponibilidad horaria
-debe declararse en cada Sprint Planning; el calendario no presupone trabajo en
-fines de semana.
+Estado: BASELINE DE PLANIFICACIÓN · Inicio: 2026-09-19 · Fin del timebox: 2026-10-20.
+Horizonte: 32 días calendario con tres Sprints: dos semanas, dos días laborables y
+dos semanas. La disponibilidad horaria debe declararse en cada Sprint Planning; el
+calendario no presupone trabajo en fines de semana.
 
 ## Propósito
 
@@ -25,7 +25,7 @@ Microsoft 365, analizada por Wazuh, en eventos canónicos, alertas y casos traza
 con autorización, auditoría y operación medible; su arquitectura debe permitir
 incorporar nuevas APIs mediante adapters sin cambiar el dominio ni los consumidores.
 
-## Objetivo del timebox de seis semanas
+## Objetivo del timebox
 
 Producir un **MVP Candidate** ejecutable en ambiente controlado con esta ruta real:
 
@@ -82,9 +82,9 @@ Developer decide cómo alcanzar el Sprint Goal dentro de las políticas aprobada
 - [Sprint 1 — Base ejecutable y contratos](sprints/01-base-ejecutable.md):
   2026-09-19 a 2026-10-02.
 - [Sprint 2 — Ingesta Microsoft 365/Wazuh](sprints/02-ingesta-microsoft-wazuh.md):
-  2026-10-03 a 2026-10-16.
+  2026-10-05 a 2026-10-06, dos días laborables.
 - [Sprint 3 — Operación SOC y evidencia](sprints/03-operacion-soc.md):
-  2026-10-17 a 2026-10-30.
+  2026-10-07 a 2026-10-20.
 
 Los Sprints empiezan en la fecha indicada, pero el trabajo ordinario y los eventos
 se realizan en días laborables declarados. Planning ocurre el primer día laborable;
@@ -96,8 +96,10 @@ produce incrementos verificables desde Sprint 1.
 - Sprint Planning: máximo 90 minutos; confirma disponibilidad, Sprint Goal, PBIs
   seleccionados y plan técnico.
 - Daily Scrum: 15 minutos cada día laborable; inspecciona avance al Sprint Goal,
-  siguiente acción y bloqueo. No es reporte jerárquico.
-- Refinement: dos sesiones de 45 minutos por Sprint; descompone los PBIs próximos.
+  siguiente acción y bloqueo. No es reporte jerárquico; usa el
+  [registro operativo](daily-scrum.md).
+- Refinement: dos sesiones de 45 minutos en Sprint 1 y Sprint 3. Sprint 2 queda
+  refinado y preparado antes de su Planning por tener solo dos días.
 - Sprint Review: 60 minutos con evidencia ejecutada, no diapositivas como sustituto
   del incremento.
 - Sprint Retrospective: 45 minutos; selecciona una mejora verificable para el
@@ -168,6 +170,30 @@ Convenciones:
   por los ADR, aunque esté fuera del Scrum Team;
 - squash solo si conserva una descripción final y trazabilidad suficiente.
 
+## Planificación por componentes
+
+El [plan de construcción por componentes](component-delivery-plan.md) asigna cada
+PBI a una ruta, responsabilidad, dependencia y evidencia. Un item no entra al
+Sprint Backlog con expresiones generales como «hacer backend» o «integrar Wazuh»:
+debe indicar el componente `C-xx`, contrato afectado, specs aplicables y criterio
+de salida.
+
+Los entrypoints se mantienen delgados y la lógica compartida vive en `modules/`.
+El Sprint 1 materializa workspace, contratos, plataforma mínima y fronteras; el
+Sprint 2 construye connectors/telemetry de extremo a extremo; el Sprint 3 añade
+detection, SOC, access, auditoría, SOAR y evidencia final. La ruta crítica y los
+cortes de capacidad del plan prevalecen sobre ejecutar todos los PBI en paralelo.
+
+Sprint 2 es un timebox intensivo de dos días. Solo inicia su vertical completa si
+al cierre de Sprint 1 están operativos workspace, contratos, ambiente de integración,
+Wazuh/Indexer, Microsoft 365 y secretRefs. Un prerrequisito ausente conserva el PBI
+`BLOCKED`; el calendario abreviado no autoriza fakes, omitir specs o trasladar
+fallos sin evidencia.
+
+Esta duración es una replanificación excepcional decidida antes de Sprint 2. Al
+terminar el MVP, la Retrospective debe fijar una cadencia estable para el siguiente
+Product Goal usando la capacidad observada.
+
 ## Flujo del PBI
 
 `Backlog → Ready → In Progress → In Review → Done`. `Blocked` puede aplicarse desde
@@ -216,6 +242,8 @@ cifra. El burn-up del Product Goal muestra alcance total y trabajo Done.
 
 - [Product Backlog ordenado](product-backlog.md).
 - [Definition of Done y criterios de refinamiento](definition-of-done.md).
+- [Plan de construcción por componentes](component-delivery-plan.md).
+- [Daily Scrum y registro](daily-scrum.md).
 - [Sprint 1](sprints/01-base-ejecutable.md).
 - [Sprint 2](sprints/02-ingesta-microsoft-wazuh.md).
 - [Sprint 3](sprints/03-operacion-soc.md).

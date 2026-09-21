@@ -1,6 +1,6 @@
 # Sprint 3 — Operación SOC y evidencia del candidato
 
-Fechas: 2026-10-17 a 2026-10-30 · Planning: 2026-10-19 · Review/Retro: 2026-10-30.
+Fechas: 2026-10-07 a 2026-10-20 · Planning: 2026-10-07 · Review/Retro: 2026-10-20.
 
 ## Sprint Goal
 
@@ -22,6 +22,22 @@ El forecast es deliberadamente revisable: Planning selecciona PBIs completos seg
 capacidad observada en Sprint 1/2. PBI-020 y PBI-021 no se recortan para incorporar
 UI adicional. Un flujo por API puede constituir el incremento usable si la vista
 PBI-017 no cabe, siempre que Product Owner lo acepte antes de Planning.
+
+## Componentes a construir
+
+| Orden | Componentes | Resultado físico |
+| --- | --- | --- |
+| 1 | C-18, C-19 | Autorización Entra y auditoría transaccional disponibles desde el inicio |
+| 2 | C-16 | Priorización QAPAQ sobre alertas Wazuh con reason codes |
+| 3 | C-17 | Lifecycle mínimo de alerta, triaje e incidente/caso |
+| 4 | C-20 | Outbox, worker y adapter Teams con fallback y acuse QAPAQ |
+| 5 | C-22 | E2E, fallos, recovery, capacidad y release evidence del mismo commit |
+| Condicional | C-21, C-23 | Vista operativa y verificación de extensibilidad, después del P0 |
+
+C-18/C-19 no son tareas de cierre: protegen C-17 y C-20. C-22 acumula evidencia
+desde los primeros PR y no se comprime para incorporar UI. Las dependencias y
+specs por componente están en el
+[plan por componentes](../component-delivery-plan.md).
 
 ## Plan de trabajo
 
@@ -88,4 +104,5 @@ calidad de accesos, estabilidad de specs, supuestos Wazuh/Microsoft filtrados fu
 de infraestructura y viabilidad del siguiente proveedor. Esta evidencia reordena
 PBI-023/024 y el plan posterior.
 
-[Product Backlog](../product-backlog.md) · [Definition of Done](../definition-of-done.md)
+[Product Backlog](../product-backlog.md) · [Plan por componentes](../component-delivery-plan.md) ·
+[Definition of Done](../definition-of-done.md)
