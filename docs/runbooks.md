@@ -12,6 +12,14 @@ SOAR reconciliation y security incident. Cada uno declara trigger, precondicione
 permisos, pasos, validación, aborto, rollback, owner, escalamiento y evidencia.
 Otra persona distinta del autor ejecuta cada runbook crítico antes de producción.
 
+## Docker Desktop no inicia en Windows
+
+Si el backend aborta al inicializar `dockerInference` o `engine.sock`, aplicar el
+procedimiento reversible documentado en
+[entorno local](development/local-environment.md#recuperación-de-docker-desktop-en-windows).
+No usar factory reset: la reparación aísla simultáneamente ambos directorios de
+sockets, conserva respaldos y valida daemon, red y contenedores reales.
+
 ## Conector degradado o sin eventos
 
 Comprobar última recepción/checkpoint, errores y cobertura, sin revelar tokens.

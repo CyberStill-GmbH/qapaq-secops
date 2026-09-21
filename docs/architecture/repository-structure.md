@@ -1,9 +1,10 @@
 # Estructura objetivo del repositorio
 
-Estado: BASELINE DE IMPLEMENTACIÓN. El workspace fue aceptado por
+Estado: BASELINE EJECUTABLE. El workspace fue aceptado por
 [ADR-016](../adr/016-toolchain-and-capacity-baseline.md); esta distribución fina
-resuelve el uso compartido de módulos por API y worker. La estructura todavía no
-existe en la rama documental.
+resuelve el uso compartido de módulos por API y worker. La rama `develop`
+materializa la raíz pnpm, los tres entrypoints, límites modulares, infraestructura
+local y primeras comprobaciones reales.
 
 ```text
 qapaq-secops/

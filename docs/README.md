@@ -6,11 +6,8 @@ U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007,
 U-012/ADR-022 y la revisión de vertical ADR-024 aceptados, con fecha
 aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
-operacionales. Sin implementación.
-
-Esta entrega modifica únicamente `docs/`. Las decisiones aceptadas y propuestas
-describen arquitectura, no software existente. No se han
-contactado sistemas de Qapaq ni usado datos reales.
+operacionales. La rama `develop` incluye una baseline ejecutable sin lógica de
+negocio ni acceso a sistemas corporativos de Qapaq.
 
 La configuración y documentación de CI añadidas en paralelo pertenecen a otro
 trabajo. Se conservan sus cambios; esta revisión de arquitectura no certifica
@@ -34,6 +31,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 14. [Especificación RF/RNF y matrices de trazabilidad](requirements/README.md).
 15. [Auditoría de estructura](architecture/repository-structure-audit.md).
 16. [Plan de construcción por componentes](project-management/component-delivery-plan.md).
+17. [Entorno local ejecutable y troubleshooting](development/local-environment.md).
 
 ## Diseño
 
@@ -63,6 +61,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [CI de seguridad y preparación de CD](ci-cd.md).
 - [Plan Scrum, componentes, backlog, Definition of Done y Sprints](project-management/README.md).
 - [Daily Scrum y registro operativo](project-management/daily-scrum.md).
+- [Entorno local y recuperación de Docker Desktop](development/local-environment.md).
 
 ## Autoridad y trazabilidad
 

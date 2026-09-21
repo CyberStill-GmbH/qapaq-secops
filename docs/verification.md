@@ -1,13 +1,13 @@
 # Verificación
 
-No hay tooling de aplicación configurado en el estado inicial. El verificador
-no instala dependencias, no inventa comandos y no escribe archivos del proyecto
-por sí mismo; los comandos configurados sí pueden tener efectos y deben revisarse.
+La rama `develop` configura tooling ejecutable. El verificador no instala
+dependencias ni escribe archivos del proyecto por sí mismo; los comandos
+configurados sí pueden tener efectos y deben revisarse.
 
 Desde la raíz:
 
 ```powershell
-pwsh -NoProfile -File .codex/skills/implementation-verifier/scripts/verify.ps1
+pnpm run verify
 ```
 
 Usa docs/verification-checks.json. Códigos de salida: 0 = todos los checks
@@ -18,11 +18,11 @@ es obligatoria fuera del script; exit 0 no certifica una feature completa.
 
 U-002 acepta como interfaz de repositorio `format`, `format:check`, `lint`,
 `typecheck`, `test`, `test:unit`, `test:integration`, `test:e2e`, `build` y
-`bench`. En el estado documental siguen sin estar materializados. Aceptar sus
-nombres no permite reemplazar los `null` ni reportar PASS.
+`bench`. Los scripts de formato, lint, tipos, tests, build y límites están
+materializados; `bench` permanece pendiente del incremento que mida capacidad.
 
-Al existir comandos reales, reemplazar cada null por un objeto con executable y
-arguments (array de strings). Ejemplo de formato, NO configuración aprobada:
+Cada check usa un objeto con `executable` y `arguments` para evitar evaluación de
+shell. Ejemplo:
 
 ```json
 {"executable": "pnpm", "arguments": ["run", "lint"]}

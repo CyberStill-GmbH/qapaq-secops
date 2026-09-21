@@ -1,8 +1,8 @@
 {
-  "format": null,
-  "lint": null,
-  "unit": null,
-  "integration": null,
-  "typecheck": null,
-  "boundaries": null
+  "format": { "executable": "pnpm", "arguments": ["run", "format:check"] },
+  "lint": { "executable": "pnpm", "arguments": ["run", "lint"] },
+  "unit": { "executable": "pnpm", "arguments": ["run", "test:unit"] },
+  "integration": { "executable": "pnpm", "arguments": ["run", "test:integration"] },
+  "typecheck": { "executable": "pnpm", "arguments": ["run", "typecheck"] },
+  "boundaries": { "executable": "pnpm", "arguments": ["run", "boundaries"] }
 }

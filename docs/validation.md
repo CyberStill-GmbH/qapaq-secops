@@ -293,3 +293,29 @@ presenta la baseline documental como incremento ejecutable.
 
 El inventario vigente contiene 93 archivos Markdown. Enlaces, fences, fechas del
 timebox y `git diff --check` se vuelven a validar con esta actualización.
+
+## Actualización por baseline ejecutable de `develop`
+
+El 2026-09-21 se materializó el workspace pnpm descrito por ADR-016: API NestJS
+con Fastify, worker, web React/Vite, contratos, configuración validada, cliente
+OpenSearch para el Wazuh Indexer, Prisma, Testcontainers y límites verificables
+entre `apps/`, `modules/`, `platform/` y `packages/`. Esta sección sustituye las
+afirmaciones históricas anteriores que indicaban ausencia de implementación.
+
+Node.js 24.21.0, pnpm 12.4.2 y Chromium de Playwright quedaron instalados. Las
+comprobaciones locales aprobaron formato, lint, typecheck, límites, cuatro tests
+unitarios, dos tests de integración contra PostgreSQL 18.6/Redis 8.10.1, un E2E
+con navegador real y build de los paquetes ejecutables. `verification-checks.json`
+contiene ahora los comandos reales usados por el verificador y por CI.
+
+Docker Desktop se recuperó de dos sockets AF_UNIX obsoletos mediante aislamiento
+reversible y sin borrar imágenes o volúmenes. Un contenedor `hello-world` confirmó
+daemon, red y registro; PostgreSQL, Redis y MinIO quedaron saludables por Compose.
+La recuperación está automatizada y documentada en
+`scripts/dev/repair-docker-desktop.ps1` y `development/local-environment.md`.
+
+Wazuh Docker v4.14.7 se fija desde el repositorio oficial e incluye Manager,
+Indexer basado en OpenSearch y Dashboard basado en OpenSearch Dashboards. El
+preflight impide iniciar ese stack si Docker no dispone de 4 CPU, 8 GiB y 50 GiB;
+en ese caso `-PullOnly` permite instalar sus imágenes sin declarar el servicio
+operativo. No se incorpora un OpenSearch independiente ni se usan fakes.
