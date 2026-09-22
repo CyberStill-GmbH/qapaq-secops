@@ -11,14 +11,15 @@ informe no reemplaza el registro diario en `daily-scrum.md`; lo alimenta.
 
 ## Resumen ejecutivo
 
-`main` está sincronizado con `origin/main` (commit `0500fc3`) y el pipeline de
+`main` está sincronizado con `origin/main` (commit `68f68a4`) y el pipeline de
 CI (`CI Security`) pasa **completo**, incluido el `CI gate`, después de
 corregir dos fallas reales detectadas hoy. Cinco componentes de Sprint 1 tienen
 evidencia ejecutable (`C-01`, `C-02`, `C-03`, `C-05`, `C-07`); `C-04` tiene
 diseño físico cerrado, código de persistencia con contrato estático verificado
-y ahora una primera evidencia real de conexión/migración contra PostgreSQL,
-aunque sin cubrir los criterios de rollback/concurrencia; `C-06`, `C-08` y
-`C-09` siguen `IN_PROGRESS` con evidencia parcial.
+y una primera evidencia real de conexión/migración contra PostgreSQL, aunque
+sin cubrir los criterios de rollback/concurrencia; `C-06` avanzó de forma
+sustancial hoy (harness de integración real, aún sin digests reproducibles);
+`C-08` y `C-09` siguen `IN_PROGRESS` con evidencia parcial.
 
 ## Avance por componente
 
@@ -29,7 +30,7 @@ aunque sin cubrir los criterios de rollback/concurrencia; `C-06`, `C-08` y
 | C-03 — configuración | `DONE` (2026-09-21) | Perfiles tipados, `SecretProvider`, fallo seguro ante configuración ausente. |
 | C-04 — persistencia de admisión | `IN_PROGRESS` | ER de diseño cerrado en [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md) y su [resolución de auditoría](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22). Prisma schema y migración con siete tablas (`sources`, `source_checkpoints`, `ingestion_manifests`, `raw_event_references`, `event_inbox`, `outbox_messages`, `quarantined_events`) verificadas **estáticamente** (contrato sobre el SQL, 24+ constraints) **y ahora también con conexión real**: `prisma migrate deploy` contra PostgreSQL local (`qapaq_secops`, `127.0.0.1:5432`) confirma la migración aplicada sin drift (ver evidencia abajo). Sigue **sin** evidencia de migración desde vacío, rollback inyectado ni carreras concurrentes — los 7 criterios de cierre de [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md#encaje-en-componentes-y-evidencia-para-cerrar-c-04) solo están parcialmente cubiertos (criterio 1). No se acepta como Done. |
 | C-05 — contrato SecurityEvent | `DONE` | Schema JSON, catálogos, validador y corpus de 41 fixtures (válidos/inválidos) en `packages/contracts/src/security-event`; contract specs incluidos en los 180 tests unitarios verdes. |
-| C-06 — entorno de integración real | `IN_PROGRESS` | Solo existe `platform/testing/test/services.integration.spec.ts`; arranque/teardown real de PostgreSQL, Redis, object storage, OpenSearch y Wazuh sigue sin demostrarse en CI. |
+| C-06 — entorno de integración real | `IN_PROGRESS` | Materializado parcialmente: `IntegrationEnvironment` (`platform/testing`) con `preflight/start/health/collectEvidence/stop`, perfiles `base`/`search`/`wazuh`/`full`, health real de PostgreSQL/Redis/MinIO vía Testcontainers, evidencia redactada y cleanup por etiquetas. `integration-environment.lock.json` tiene los digests en `null` — sin eso la evidencia no es reproducible en CI. OpenSearch y Wazuh permanecen `BLOCKED` (falta TLS y topología oficial). |
 | C-07 — reglas de dependencia | `DONE` | `dependency-cruiser` + `scripts/check-entrypoints.mjs` activos: "no dependency violations found (91 modules, 110 dependencies cruised)" y "Entrypoint architecture: PASS" (ver captura). |
 | C-08 — probe Wazuh | `IN_PROGRESS` | Solo existe el esqueleto `modules/connectors/src/infrastructure/wazuh-indexer-client.ts`; falta la suite de conformidad y la consulta real al Indexer autorizado. |
 | C-09 — CI y ownership | `IN_PROGRESS` | Pipeline completo (`discover`, `codeql`×2, `secrets`, `filesystem`, `pnpm-audit`, `quality`, `entrypoints`, `containers`, `gate`) verde hoy. Pendiente: activar protección de rama en `main` — hoy mismo se empujaron commits directos sin bloqueo, lo que contradice el objetivo de "PR confiable/no confiable" de la aceptación de C-09. |
@@ -103,6 +104,23 @@ mensaje):
 Verificado en el run real `35793054805`: los 9 jobs aplicables y el `CI gate`
 terminaron en `success` (`codeql` incluido en ambos lenguajes).
 
+## Hallazgo: enlaces rotos en el merge de C-06
+
+El commit `f6659fc` (`feat(c06): audita pipeline y documenta entorno de
+integración`) agrega referencias en `docs/README.md` y `docs/ci-cd.md` a tres
+documentos que **no existen** en el árbol:
+
+- `docs/development/integration-environment.md`
+- `docs/architecture/c-06-integration-testing.md`
+- `docs/architecture/c-06-completeness-audit.md`
+
+El único documento real es [`platform/testing/README.md`](../../../platform/testing/README.md),
+que sí describe el harness con precisión. No corregí estos enlaces por mi
+cuenta porque no son míos; quedan como pendiente para quien cierre C-06.
+
+El `CI Security` de ese mismo merge (run `35797942905`, commit `68f68a4`)
+terminó en `success` completo — el código nuevo de C-06 no rompió nada.
+
 ## Evidencia de pruebas
 
 Ejecución local de hoy (`main`, commit `91529b7`), después de `prisma generate`:
@@ -128,9 +146,10 @@ de CI equivalente es `35793054805` (enlace en la sección de CI/CD).
 
 ## Ajuste propuesto para el Daily Scrum de mañana (2026-09-23)
 
-1. Confirmar si C-06 (entorno de integración real) entra como próximo
-   componente: es prerrequisito de C-04, C-08 y C-09 para dejar de depender de
-   verificación estática.
+1. C-06 avanzó hoy (harness `IntegrationEnvironment` en `platform/testing`);
+   falta resolver digests reales en `integration-environment.lock.json`,
+   corregir los tres enlaces rotos que dejó su merge y decidir si el perfil
+   `base` ya es suficiente para desbloquear evidencia real de C-04.
 2. No declarar C-04 `DONE` en ningún reporte hasta tener migración/rollback
    reales — el diseño y el código existen, la evidencia productiva no.
 3. Escalar a Franco el acceso Microsoft 365/Wazuh si no hay avance para el
