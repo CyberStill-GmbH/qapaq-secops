@@ -33,6 +33,37 @@ pero **no** evidencia contra PostgreSQL real; `C-06`, `C-08` y `C-09` siguen
 | C-08 — probe Wazuh | `IN_PROGRESS` | Solo existe el esqueleto `modules/connectors/src/infrastructure/wazuh-indexer-client.ts`; falta la suite de conformidad y la consulta real al Indexer autorizado. |
 | C-09 — CI y ownership | `IN_PROGRESS` | Pipeline completo (`discover`, `codeql`×2, `secrets`, `filesystem`, `pnpm-audit`, `quality`, `entrypoints`, `containers`, `gate`) verde hoy. Pendiente: activar protección de rama en `main` — hoy mismo se empujaron commits directos sin bloqueo, lo que contradice el objetivo de "PR confiable/no confiable" de la aceptación de C-09. |
 
+## Diagrama ER de C-04 y decisiones de diseño
+
+![Diagrama entidad-relación de C-04 (admisión operacional)](../../architecture/assets/c-04-admission-er.png)
+
+Siete tablas de admisión (`sources` → `source_checkpoints`/`ingestion_manifests`
+→ `raw_event_references`/`event_inbox`/`outbox_messages` → `quarantined_events`),
+renderizado directo del `schema.prisma` real, no un boceto aparte — ver
+[`c-04-admission-er.md`](../../architecture/c-04-admission-er.md) para el
+diccionario físico completo.
+
+Decisiones de diseño cerradas hoy (resolución de la
+[auditoría del MER](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22)):
+
+- **Checkpoint minimalista:** `source_checkpoints` guarda solo el último cursor
+  confirmado (CAS por `revision`); no persiste estados de pipeline.
+- **Reutilización de raw acotada:** un `event_inbox` puede referenciar un raw de
+  otro manifiesto, pero solo de la **misma** `Source` — nunca de otro tenant.
+- **Cuarentena por FK compuesta:** `quarantined_events` cuelga de la combinación
+  completa `(sourceId, manifestId, inboxId, rawEventReferenceId, recordId)`, no
+  de una tabla independiente sin pertenencia verificada.
+- **Outbox de un solo mensaje por manifiesto:** payload cerrado a 4 KiB, con
+  solo `manifestId`; generalizarlo requiere nueva migración, no se improvisa.
+- **Sin cascadas de borrado:** todas las FK son `ON DELETE/UPDATE RESTRICT`;
+  evidencia y raw no desaparecen por una eliminación en cadena.
+- **Contadores disjuntos:** `accepted_count`/`quarantined_count`/`duplicate_count`
+  son una foto de admisión (`duplicate_count = 0` en esta entrega), no se
+  recalculan por fallos posteriores del parser.
+
+Estas decisiones cierran el diseño físico; **no** cierran C-04 como componente
+— la verificación contra PostgreSQL real sigue pendiente (ver bloqueos).
+
 ## Incidencia de CI resuelta hoy
 
 El pipeline en `main` fallaba en `secrets`, `entrypoints` y `quality` desde el
