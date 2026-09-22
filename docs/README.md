@@ -40,6 +40,9 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Flujos y resiliencia](architecture/data-flow.md).
 - [SecurityEvent y contratos](architecture/event-model.md).
 - [Almacenamiento y búsqueda histórica](architecture/storage.md).
+- [Modelo entidad-relación (MER) y normalización](architecture/data-model-mer.md).
+- [ER final C-04: admisión operacional](architecture/c-04-admission-er.md) y
+  [auditoría con resolución documental](architecture/c-04-mer-audit.md).
 - [Integraciones y ports](architecture/integrations.md).
 - [Seguridad](architecture/security.md), [RBAC](architecture/rbac.md), [auditoría](architecture/audit.md).
 - [Identidad y autorización aceptadas](architecture/identity-and-authorization.md).

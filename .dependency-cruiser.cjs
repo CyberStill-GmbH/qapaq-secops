@@ -15,8 +15,14 @@ module.exports = {
     {
       name: 'no-cross-app-imports',
       severity: 'error',
-      from: { path: '^apps/([^/]+)/', pathNot: '^apps/([^/]+)/test/' },
+      from: { path: '^apps/([^/]+)/' },
       to: { path: '^apps/', pathNot: '^apps/$1/' },
+    },
+    {
+      name: 'no-packages-to-apps',
+      severity: 'error',
+      from: { path: '^packages/' },
+      to: { path: '^apps/' },
     },
     {
       name: 'no-circular',
@@ -26,6 +32,7 @@ module.exports = {
     },
   ],
   options: {
+    exclude: { path: '(^|/)(dist|node_modules)/' },
     doNotFollow: { path: 'node_modules' },
     tsConfig: { fileName: 'tsconfig.base.json' },
     enhancedResolveOptions: { exportsFields: ['exports'] },

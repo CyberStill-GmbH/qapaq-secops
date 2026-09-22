@@ -76,7 +76,11 @@ export function parseApi(environment: EnvironmentInput, profile: ConfigurationPr
   return {
     profile: profile.name,
     host: requireHost(environment, profile, 'QAPAQ_API_HOST'),
-    port: parsePort(environment, profile, 'QAPAQ_API_PORT'),
+    // El puerto cero solicita una asignación atómica al sistema operativo; solo se permite en el perfil test.
+    port:
+      profile.name === 'test' && environment['QAPAQ_API_PORT'] === '0'
+        ? 0
+        : parsePort(environment, profile, 'QAPAQ_API_PORT'),
   } as const;
 }
 
@@ -156,12 +160,14 @@ export function parseFullEnvironment(environment: EnvironmentInput, profile: Con
     profile,
     'QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED',
   );
-  if (!rejectUnauthorized && profile.name === 'production')
+
+  if (!rejectUnauthorized && profile.name === 'production') {
     throw configurationError(
-      'CONFIG_TLS_REQUIRED',
-      'QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED',
+      'CONFIG_TLS_REQUIRED', 
+      'QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED', 
       profile.name,
     );
+  }
   const pageSize = parseInteger(
     environment,
     profile,

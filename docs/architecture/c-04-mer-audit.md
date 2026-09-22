@@ -2,6 +2,10 @@
 
 Fecha: 2026-09-22. Estado: **REVISIÓN**, no aceptación de schema ni implementación.
 
+Actualización: los hallazgos tienen [resolución documental](#resolución-documental-del-mer--2026-09-22)
+y un [ER final C-04](c-04-admission-er.md). El resultado siguiente conserva el
+diagnóstico inicial; la validación ejecutable de persistencia sigue pendiente.
+
 ## Resultado
 
 El MER sirve como contexto global, pero no constituye todavía una especificación
@@ -263,3 +267,49 @@ Se verificaron procedencia Git, igualdad de blobs importados, diff y estado del
 repositorio. Esta entrega importa documentos y audita; no ejecuta Prisma,
 migraciones, PostgreSQL ni pruebas de persistencia. No modifica código de C-02,
 no implementa C-04 ni el resto del MER y no hace commit, push o despliegue.
+
+
+## Resolución documental del MER — 2026-09-22
+
+Esta sección actualiza el estado de los hallazgos; el análisis y los hashes
+anteriores describen la importación original. El MER se ha revisado desde entonces
+y ya no debe compararse con esos blobs como si siguiera intacto. La solicitud de
+resolver el ER fija una [baseline de diseño C-04](c-04-admission-er.md), sin aceptar
+el MER global ni cerrar su implementación.
+
+- A-01: checkpoint solo confirmado y CAS; flujo/diagrama corregidos a una TX antes
+  del recibo. Los estados del pipeline no se persisten como progreso del checkpoint.
+- A-02: identidad de Source y FKs compuestas explícitas; cuarentena verifica
+  inbox/raw/recordId. Reutilizar raw del mismo origen lógico se permite entre
+  manifiestos de la misma Source, de forma deliberada, sin permitir cruces de tenant.
+- A-03: recordId por recepción; claves de operación separadas de eventUid;
+  reintento técnico conserva el sobre. C-13 conserva deduplicación de efectos.
+- A-04: raw por registro, referencia inmutable globalmente única, versión opcional
+  sin unicidad nullable y límites C-05. Inbox/raw no es 1:1 por reutilización.
+- A-05: comando commitAdmission acotado, repositorios internos y ownership definido;
+  la futura implementación deberá impedir checkpoint independiente y probarlo.
+- A-06: retiradas las garantías universales de FKs; integridad externa exige store
+  y verificaciones de C-11. Las referencias polimórficas mantienen sus limitaciones.
+- A-07: corregida la atribución inexistente de dataset_id a evidence; clasificación
+  propia/snapshot/derivada queda para su entrega, no se inventa otra tabla C-04.
+- A-08: opcionalidades corregidas; notas y U-008 no se dibujan como FKs/N:M aceptadas;
+  notificación/outbox deja de inferir 1:1. ER C-04 especifica mínimos del comando.
+- A-09: requisitos funcionales R separados de propuestas físicas; baseline C-04
+  acotada y sin cambio de estados de ADR o aceptación global.
+- A-10: rollback total con diagnóstico sanitizado fuera de la TX; no existe
+  manifiesto fallido confirmado. Contadores son conjuntos disjuntos al admitir,
+  no una mezcla de fases; duplicados semánticos no se descartan en C-04.
+- A-11: outbox por lote, fórmula de filas y escenario de crecimiento explícitos;
+  medición de índices/WAL y gates de retención pendientes, sin promesa de EPS.
+- A-12: estados iniciales, payload cerrado de 4 KiB, límites de cursor/tiempo,
+  errores y gates de configuración/harness/migración establecidos.
+
+Los criterios 1–5 quedan resueltos **a nivel de diseño documental**. El criterio 6
+continúa pendiente: no se ha creado schema ni migración, ni demostrado comportamiento
+PostgreSQL. La matriz de pruebas de la baseline es requisito para cerrar C-04.
+Las decisiones globales pendientes de §6 del MER conservan su alcance original.
+
+Verificación de esta revisión: enlaces locales de los documentos modificados,
+coincidencia del ER incrustado con su fuente canónica, sintaxis Mermaid y diff.
+No se ejecutan migraciones ni se declara validación de persistencia por revisar
+Markdown. No se modifican los cambios de código pendientes de C-02.

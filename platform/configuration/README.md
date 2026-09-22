@@ -21,8 +21,11 @@ el composition root.
 MinIO, y exige HTTPS, CA explícita y verificación de certificado para Wazuh
 Indexer. Ninguna URL admite usuario o contraseña embebidos.
 
-El adaptador de secretos basado en variables de entorno solo se usa mediante el
-loader local del worker y rechaza `production`. El proveedor productivo y su
+El adaptador de secretos basado en variables de entorno solo se usa mediante
+`loadLocalWorkerConfig` y rechaza `production`. El worker inactivo de C-02 usa
+`loadWorkerEntrypointConfig`: valida el perfil y rechaza variables QAPAQ desconocidas,
+sin resolver secretos de dependencias que todavía no consume. Los loaders anteriores
+conservan su API. El proveedor productivo y su
 identidad técnica siguen pendientes de Infraestructura conforme a ADR-013.
 
 ## Contratos
@@ -44,7 +47,8 @@ normal nunca registra la configuración completa.
 
 ## Límites C-03
 
-- puertos: 1–65535;
+- puertos: 1–65535; solo `QAPAQ_API_PORT=0` bajo el perfil `test` permite que el
+  sistema operativo asigne un puerto efímero de forma atómica;
 - duraciones: unidad obligatoria `ms`, `s` o `m`, entre 100 ms y 120 s;
 - reintentos adicionales: 0–5;
 - página Wazuh inicial/máxima: 50/200;
@@ -64,6 +68,12 @@ const password = config.postgres.password.value.reveal();
 El loader completo falla de forma atómica: si una referencia no se resuelve, no
 devuelve configuración parcial. `loadConfigurationAndStart` ejecuta el callback de
 arranque únicamente después de completar toda la validación y resolución.
+
+El export público usa JavaScript de `dist/` en ejecución normal y TypeScript de
+`src/` bajo la condición `development`, usada por Vitest y los comandos `dev`.
+Construir consumidores con el filtro de dependencias de pnpm, por ejemplo
+`pnpm --filter @qapaq/api... build`. La configuración pública de React vive
+exclusivamente en `apps/web/src/bootstrap/public-config.ts`.
 
 ```powershell
 pnpm exec vitest run platform/configuration/test/runtime-config.spec.ts --config vitest.config.ts

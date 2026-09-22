@@ -76,6 +76,11 @@ export function loadApiConfig(environment: EnvironmentInput): ApiConfig {
   return deepFreeze(parseApi(environment, profile));
 }
 
+/** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */
+export function loadWorkerEntrypointConfig(environment: EnvironmentInput) {
+  return deepFreeze({ profile: profileFrom(environment).name });
+}
+
 export async function loadWorkerConfig(
   environment: EnvironmentInput,
   provider: SecretProvider,

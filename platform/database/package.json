@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "generate": "prisma generate",
+    "validate": "prisma validate",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status",
     "migrate:dev": "prisma migrate dev",
+    "test": "prisma generate && vitest run --config vitest.config.ts",
+    "test:integration": "pnpm run test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -16,6 +21,8 @@
   "devDependencies": {
     "@types/pg": "8.23.1",
     "prisma": "7.10.0",
-    "typescript": "6.0.3"
+    "testcontainers": "12.1.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
   }
 }

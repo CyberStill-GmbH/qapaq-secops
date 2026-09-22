@@ -18,7 +18,7 @@
     "test:unit": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
-    "boundaries": "depcruise apps platform packages modules --config .dependency-cruiser.cjs",
+    "boundaries": "depcruise apps platform packages modules --config .dependency-cruiser.cjs && node scripts/check-entrypoints.mjs",
     "verify": "pwsh -NoProfile -File scripts/verify.ps1",
     "dev:api": "pnpm --filter @qapaq/api dev",
     "dev:worker": "pnpm --filter @qapaq/worker dev",
@@ -26,7 +26,12 @@
     "infra:setup-wazuh": "pwsh -NoProfile -File scripts/dev/setup-wazuh.ps1",
     "infra:repair-docker": "pwsh -NoProfile -File scripts/dev/repair-docker-desktop.ps1",
     "infra:up": "pwsh -NoProfile -File scripts/dev/start-local.ps1",
-    "infra:down": "pwsh -NoProfile -File scripts/dev/stop-local.ps1"
+    "infra:down": "pwsh -NoProfile -File scripts/dev/stop-local.ps1",
+    "smoke:api": "pnpm --filter @qapaq/api... build && node --test tests/smoke/api.smoke.mjs",
+    "smoke:worker": "pnpm --filter @qapaq/worker... build && node --test tests/smoke/worker.smoke.mjs",
+    "smoke:web": "node tests/smoke/build-public-web.mjs && node --test tests/smoke/web.smoke.mjs",
+    "smoke:built": "node --test tests/smoke/*.smoke.mjs",
+    "test:entrypoints": "vitest run --config vitest.config.ts apps tests/architecture platform/configuration/test/entrypoint-config.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
