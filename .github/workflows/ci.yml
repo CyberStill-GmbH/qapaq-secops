@@ -82,7 +82,7 @@ jobs:
           persist-credentials: false
       - run: bash .github/ci/install-scanner.sh gitleaks
       - name: Scan full fetched history with redaction
-        run: gitleaks git --redact=100 --exit-code=1 --log-opts="--all" .
+        run: gitleaks git --config .gitleaks.toml --redact=100 --exit-code=1 --log-opts="--all" .
 
   filesystem:
     runs-on: ubuntu-24.04
@@ -130,6 +130,8 @@ jobs:
         run: corepack enable
       - name: Install locked dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Generate the Prisma client (skipped by --ignore-scripts)
+        run: pnpm --filter @qapaq/database run generate
       - name: Run configured project checks (missing checks fail)
         run: pnpm run verify
 
@@ -145,6 +147,8 @@ jobs:
           node-version-file: .nvmrc
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Generate the Prisma client (skipped by --ignore-scripts)
+        run: pnpm --filter @qapaq/database run generate
       - name: C-02 checks without external services
         run: |
           pnpm run typecheck
