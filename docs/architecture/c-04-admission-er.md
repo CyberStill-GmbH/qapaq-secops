@@ -77,6 +77,30 @@ La repetición de sourceId/dataset o sourceId/manifestId sirve a FKs compuestas;
 es redundancia controlada por restricciones. No se afirma 3FN estricta universal.
 No se duplica la clasificación de dataset ni se añade dataset_catalog a C-04.
 
+## Diagrama entidad-relación
+
+Renderizado con `mermaid-cli` directamente desde
+[`14-c-04-admission-er.mmd`](../diagrams/14-c-04-admission-er.mmd), no dibujado
+a mano: los nombres de tabla/columna y las marcas `PK`/`FK`/`UK` son una
+proyección exacta de `platform/database/prisma/schema.prisma` y su migración
+`20260922000000_c04_admission`. Si el schema cambia, este archivo `.mmd` deja de
+coincidir hasta regenerarse — no editar la imagen por separado.
+
+![Diagrama entidad-relación de C-04 (admisión operacional)](assets/c-04-admission-er.png)
+
+Lectura: `Sources` es la raíz de identidad (única por
+`tenantId+provider+product+dataset+instanceKey`); cero o un `SourceCheckpoint`
+por `(sourceId, dataset)` guarda solo el último cursor confirmado (sin estados
+de pipeline). Cada `IngestionManifest` confirmado pertenece a una `Source` y
+agrupa de 1 a 500 `EventInbox`, referencias `RawEventReference` propias y
+exactamente un `OutboxMessage` de admisión. Un `EventInbox` puede reutilizar un
+raw de otro manifiesto de la **misma** `Source` (nunca de otra), nunca de otro
+tenant. `QuarantinedEvent` cuelga de la combinación completa de FKs del
+`EventInbox` que falló, no de una tabla independiente. Ninguna FK usa cascada
+de borrado (`ON DELETE RESTRICT` en todas). El diccionario completo, con tipos,
+límites de longitud, CHECKs y justificación de cada UNIQUE, está en la
+siguiente sección.
+
 ## Diccionario físico
 
 Nombres públicos en camelCase; tablas/columnas SQL en snake_case mediante mapeo
