@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "docs/architecture/toolchain-and-capacity.md",
+  "note": "Los digests se resuelven y se registran en la evidencia cuando Docker puede consultar el registry; null bloquea la aceptación reproducible.",
+  "postgres": { "image": "postgres", "version": "18.6", "digest": null },
+  "redis": { "image": "redis", "version": "8.10.1", "digest": null },
+  "minio": {
+    "image": "quay.io/minio/minio",
+    "version": "RELEASE.2025-09-07T16-13-09Z",
+    "digest": null
+  },
+  "opensearch": { "image": "opensearchproject/opensearch", "version": "3.7.0", "digest": null },
+  "wazuhManager": { "image": "wazuh/wazuh-manager", "version": "4.14.7", "digest": null },
+  "wazuhIndexer": { "image": "wazuh/wazuh-indexer", "version": "4.14.7", "digest": null }
+}

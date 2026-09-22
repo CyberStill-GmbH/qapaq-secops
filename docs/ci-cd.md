@@ -68,6 +68,20 @@ caché con procesos privilegiados y fijan Actions externas a SHA completo. Títu
 ramas y metadata son input no confiable. Cambios en workflows, migraciones,
 autenticación, autorización o controles de seguridad requieren CODEOWNERS.
 
+## Integración C-06
+
+El job normal de CI puede ejecutar el preflight y las suites `base` cuando el
+runner tenga Docker y capacidad suficiente. Los perfiles `search`, `wazuh` y
+`full` son integración pesada: deben ejecutarse en un runner con capacidad
+demostrada y conservar la evidencia sanitizada como artifact. Un runner sin
+daemon, sin digest resoluble o por debajo del mínimo debe producir
+`BLOCKED`/`NOT_RUN`, nunca PASS ni una sustitución con mocks.
+
+La separación OpenSearch QAPAQ/Wazuh Indexer se mantiene también en CI. Las
+credenciales son sintéticas por run, los puertos son dinámicos y el cleanup se
+limita a recursos etiquetados. La guía operativa está en
+[Entorno C-06 de integración](development/integration-environment.md).
+
 ## Candidatos de release
 
 Una release solo parte de un commit integrado en la rama principal protegida y una

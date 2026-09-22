@@ -32,6 +32,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 15. [Auditoría de estructura](architecture/repository-structure-audit.md).
 16. [Plan de construcción por componentes](project-management/component-delivery-plan.md).
 17. [Entorno local ejecutable y troubleshooting](development/local-environment.md).
+18. [Entorno C-06 de integración](development/integration-environment.md).
 
 ## Diseño
 
@@ -53,6 +54,8 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Observabilidad](architecture/observability.md).
 - [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
+- [Harness C-06 y estado de aceptación](architecture/c-06-integration-testing.md).
+- [Auditoría de completitud C-06](architecture/c-06-completeness-audit.md).
 - [Requisitos funcionales, no funcionales y matrices](requirements/README.md).
 - [Threat model](threat-model.md).
 - [Diagramas Mermaid de arquitectura y lifecycles](diagrams/README.md).
