@@ -304,12 +304,13 @@ el MER global ni cerrar su implementación.
 - A-12: estados iniciales, payload cerrado de 4 KiB, límites de cursor/tiempo,
   errores y gates de configuración/harness/migración establecidos.
 
-Los criterios 1–5 quedan resueltos **a nivel de diseño documental**. El criterio 6
-continúa pendiente: no se ha creado schema ni migración, ni demostrado comportamiento
-PostgreSQL. La matriz de pruebas de la baseline es requisito para cerrar C-04.
+Los criterios 1–5 quedan resueltos **a nivel de diseño documental**. La migración
+Prisma C-04 y el schema de siete tablas ya existen. La suite
+`platform/database/test/postgres-c04.integration.spec.ts` demuestra migración desde
+base vacía, rollback total después de una escritura fallida y carrera concurrente
+contra PostgreSQL real. La aceptación completa de C-04 aún conserva los gates de
+comando público de admisión, límites, CAS de checkpoint y evidencia de producción.
 Las decisiones globales pendientes de §6 del MER conservan su alcance original.
 
-Verificación de esta revisión: enlaces locales de los documentos modificados,
-coincidencia del ER incrustado con su fuente canónica, sintaxis Mermaid y diff.
-No se ejecutan migraciones ni se declara validación de persistencia por revisar
-Markdown. No se modifican los cambios de código pendientes de C-02.
+Evidencia visual: [`c04-migration-test-success.png`](../../c04-migration-test-success.png)
+y [`c04-rollback-concurrency-success.png`](../../c04-rollback-concurrency-success.png).
