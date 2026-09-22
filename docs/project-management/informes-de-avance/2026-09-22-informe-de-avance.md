@@ -11,15 +11,15 @@ informe no reemplaza el registro diario en `daily-scrum.md`; lo alimenta.
 
 ## Resumen ejecutivo
 
-`main` está sincronizado con `origin/main` (commit `68f68a4`) y el pipeline de
+`main` está sincronizado con `origin/main` (commit `7f0dc52`) y el pipeline de
 CI (`CI Security`) pasa **completo**, incluido el `CI gate`, después de
 corregir dos fallas reales detectadas hoy. Cinco componentes de Sprint 1 tienen
-evidencia ejecutable (`C-01`, `C-02`, `C-03`, `C-05`, `C-07`); `C-04` tiene
-diseño físico cerrado, código de persistencia con contrato estático verificado
-y una primera evidencia real de conexión/migración contra PostgreSQL, aunque
-sin cubrir los criterios de rollback/concurrencia; `C-06` avanzó de forma
-sustancial hoy (harness de integración real, aún sin digests reproducibles);
-`C-08` y `C-09` siguen `IN_PROGRESS` con evidencia parcial.
+evidencia ejecutable (`C-01`, `C-02`, `C-03`, `C-05`, `C-07`); `C-04` avanzó de
+diseño a evidencia real contra PostgreSQL (migración desde vacío, rollback y
+una carrera concurrente), cubriendo parcialmente 3 de sus 7 criterios de
+cierre; `C-06` avanzó de forma sustancial (harness de integración real, aún
+sin digests reproducibles); `C-08` y `C-09` siguen `IN_PROGRESS` con evidencia
+parcial. El hallazgo de enlaces rotos del reporte anterior ya se resolvió.
 
 ## Avance por componente
 
@@ -28,7 +28,7 @@ sustancial hoy (harness de integración real, aún sin digests reproducibles);
 | C-01 — workspace | `DONE` | Install congelado, format, lint, typecheck y build reproducibles; verificado hoy de nuevo (ver captura). |
 | C-02 — entrypoints | `DONE` (2026-09-22) | API/worker/web con lifecycle, health y composition roots propios, sin dependencias simuladas. Detalle completo en [`c-02-entrypoints.md`](../../development/c-02-entrypoints.md). CI job `entrypoints` verde, incluida la suite Playwright de arranque/recuperación en Chromium. |
 | C-03 — configuración | `DONE` (2026-09-21) | Perfiles tipados, `SecretProvider`, fallo seguro ante configuración ausente. |
-| C-04 — persistencia de admisión | `IN_PROGRESS` | ER de diseño cerrado en [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md) y su [resolución de auditoría](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22). Prisma schema y migración con siete tablas (`sources`, `source_checkpoints`, `ingestion_manifests`, `raw_event_references`, `event_inbox`, `outbox_messages`, `quarantined_events`) verificadas **estáticamente** (contrato sobre el SQL, 24+ constraints) **y ahora también con conexión real**: `prisma migrate deploy` contra PostgreSQL local (`qapaq_secops`, `127.0.0.1:5432`) confirma la migración aplicada sin drift (ver evidencia abajo). Sigue **sin** evidencia de migración desde vacío, rollback inyectado ni carreras concurrentes — los 7 criterios de cierre de [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md#encaje-en-componentes-y-evidencia-para-cerrar-c-04) solo están parcialmente cubiertos (criterio 1). No se acepta como Done. |
+| C-04 — persistencia de admisión | `IN_PROGRESS` | ER de diseño cerrado en [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md) y su [resolución de auditoría](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22). `platform/database/test/postgres-c04.integration.spec.ts` (real, contra PostgreSQL, `describe.skipIf(!DATABASE_URL)`) demuestra: migración desde base vacía con exactamente 7 tablas, rollback total tras una escritura fallida inyectada (7 conteos en cero) y una carrera concurrente resuelta a una sola escritura (1 fulfilled / 1 rejected). Cubre los criterios 1–3 de [cierre de C-04](../../architecture/c-04-admission-er.md#encaje-en-componentes-y-evidencia-para-cerrar-c-04) de forma parcial (un solo caso de carrera, no la matriz completa). Faltan los criterios 4–7: casos de rechazo (cruces de Source/tenant, IDs inválidos), identidad/replay, comando público de admisión y CAS de checkpoint, y evidencia adjunta desde CI. No se acepta como Done. |
 | C-05 — contrato SecurityEvent | `DONE` | Schema JSON, catálogos, validador y corpus de 41 fixtures (válidos/inválidos) en `packages/contracts/src/security-event`; contract specs incluidos en los 180 tests unitarios verdes. |
 | C-06 — entorno de integración real | `IN_PROGRESS` | Materializado parcialmente: `IntegrationEnvironment` (`platform/testing`) con `preflight/start/health/collectEvidence/stop`, perfiles `base`/`search`/`wazuh`/`full`, health real de PostgreSQL/Redis/MinIO vía Testcontainers, evidencia redactada y cleanup por etiquetas. `integration-environment.lock.json` tiene los digests en `null` — sin eso la evidencia no es reproducible en CI. OpenSearch y Wazuh permanecen `BLOCKED` (falta TLS y topología oficial). |
 | C-07 — reglas de dependencia | `DONE` | `dependency-cruiser` + `scripts/check-entrypoints.mjs` activos: "no dependency violations found (91 modules, 110 dependencies cruised)" y "Entrypoint architecture: PASS" (ver captura). |
@@ -82,6 +82,24 @@ tras cada escritura, carreras concurrentes, casos de rechazo (cruces de
 Source/tenant, IDs inválidos, etc.) y evidencia adjunta desde CI. C-04
 permanece `IN_PROGRESS`.
 
+### Migración desde vacío, rollback y concurrencia — evidencia real
+
+![C-04 — migración desde base vacía](assets/2026-09-22-c04-migration-test-success.png)
+![C-04 — rollback y concurrencia](assets/2026-09-22-c04-rollback-concurrency-success.png)
+
+`platform/database/test/postgres-c04.integration.spec.ts` (commit `f03ec2a`)
+crea una base PostgreSQL temporal por ejecución, aplica `prisma migrate
+deploy` desde vacío y verifica exactamente las 7 tablas esperadas; inyecta un
+fallo a mitad de una transacción de admisión y confirma que las 7 tablas
+quedan en cero filas; y lanza dos escrituras concurrentes del mismo comando,
+verificando 1 `fulfilled`/1 `rejected` y un único registro persistido. Las dos
+capturas corresponden a corridas separadas (cada una solo ejecuta el
+subconjunto no-`skip` de esa corrida), no a una única ejecución con los tres
+casos en verde simultáneamente. Cubre los criterios 1–3 de cierre de C-04 de
+forma parcial: un solo escenario de carrera, no la matriz completa (checkpoint
+concurrente, mismo comando repetido, etc.). Referencia:
+[actualización de la auditoría del MER](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22).
+
 ## Incidencia de CI resuelta hoy
 
 El pipeline en `main` fallaba en `secrets`, `entrypoints` y `quality` desde el
@@ -104,22 +122,20 @@ mensaje):
 Verificado en el run real `35793054805`: los 9 jobs aplicables y el `CI gate`
 terminaron en `success` (`codeql` incluido en ambos lenguajes).
 
-## Hallazgo: enlaces rotos en el merge de C-06
+## Hallazgo: enlaces rotos en el merge de C-06 (ya resuelto)
 
 El commit `f6659fc` (`feat(c06): audita pipeline y documenta entorno de
-integración`) agrega referencias en `docs/README.md` y `docs/ci-cd.md` a tres
-documentos que **no existen** en el árbol:
+integración`) había agregado referencias en `docs/README.md` y `docs/ci-cd.md`
+a tres documentos inexistentes. El commit posterior `7a902fe`
+(`docs(c06): agrega auditoria de completitud y guia operativa`) los creó:
 
-- `docs/development/integration-environment.md`
-- `docs/architecture/c-06-integration-testing.md`
-- `docs/architecture/c-06-completeness-audit.md`
+- [`docs/development/integration-environment.md`](../../development/integration-environment.md).
+- [`docs/architecture/c-06-integration-testing.md`](../../architecture/c-06-integration-testing.md).
+- [`docs/architecture/c-06-completeness-audit.md`](../../architecture/c-06-completeness-audit.md).
 
-El único documento real es [`platform/testing/README.md`](../../../platform/testing/README.md),
-que sí describe el harness con precisión. No corregí estos enlaces por mi
-cuenta porque no son míos; quedan como pendiente para quien cierre C-06.
-
-El `CI Security` de ese mismo merge (run `35797942905`, commit `68f68a4`)
-terminó en `success` completo — el código nuevo de C-06 no rompió nada.
+Los tres enlaces ya resuelven; no queda pendiente de este hallazgo. El
+`CI Security` de ambos merges (runs `35797942905` y `35798906627`) terminó en
+`success` completo.
 
 ## Evidencia de pruebas
 
@@ -141,7 +157,7 @@ de CI equivalente es `35793054805` (enlace en la sección de CI/CD).
 | Elemento | Estado | Dueño | Siguiente acción |
 | --- | --- | --- | --- |
 | Tenant, permisos, Wazuh/Indexer y secretRefs de Microsoft 365 | Por confirmar | Franco Clavo Santander | Fecha objetivo no posterior al 2026-09-25 (PBI-006), sin la cual C-08 no puede cerrar. |
-| C-04 con evidencia parcial contra PostgreSQL real | Riesgo activo | Cesar | Conectividad y estado de migración confirmados hoy; requiere C-06 (entorno de integración reproducible) para demostrar migración desde vacío, rollback y concurrencia. |
+| C-04 con evidencia parcial contra PostgreSQL real | Riesgo activo | Cesar | Migración desde vacío, rollback y una carrera concurrente ya demostrados hoy; faltan casos de rechazo (cruces de tenant, IDs inválidos), identidad/replay y evidencia adjunta desde CI para cerrar los 7 criterios. |
 | Protección de rama en `main` no configurada | Riesgo de proceso | Cesar / Franco | Definir política de PR obligatorio antes de que más de una persona escriba en `main`. |
 
 ## Ajuste propuesto para el Daily Scrum de mañana (2026-09-23)
@@ -150,8 +166,10 @@ de CI equivalente es `35793054805` (enlace en la sección de CI/CD).
    falta resolver digests reales en `integration-environment.lock.json`,
    corregir los tres enlaces rotos que dejó su merge y decidir si el perfil
    `base` ya es suficiente para desbloquear evidencia real de C-04.
-2. No declarar C-04 `DONE` en ningún reporte hasta tener migración/rollback
-   reales — el diseño y el código existen, la evidencia productiva no.
+2. No declarar C-04 `DONE` en ningún reporte hasta cubrir los 7 criterios de
+   cierre completos — hoy se demostraron 3 (migración desde vacío, rollback,
+   una carrera concurrente); faltan casos de rechazo, identidad/replay,
+   comando público de admisión y evidencia adjunta desde CI.
 3. Escalar a Franco el acceso Microsoft 365/Wazuh si no hay avance para el
    2026-09-25, según lo ya registrado en `daily-scrum.md`.
 4. Mantener el límite de WIP de dos componentes; hoy se tocaron efectivamente
