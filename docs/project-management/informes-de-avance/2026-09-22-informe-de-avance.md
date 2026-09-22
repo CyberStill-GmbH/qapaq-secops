@@ -11,13 +11,14 @@ informe no reemplaza el registro diario en `daily-scrum.md`; lo alimenta.
 
 ## Resumen ejecutivo
 
-`main` está sincronizado con `origin/main` (commit `91529b7`) y el pipeline de
+`main` está sincronizado con `origin/main` (commit `0500fc3`) y el pipeline de
 CI (`CI Security`) pasa **completo**, incluido el `CI gate`, después de
 corregir dos fallas reales detectadas hoy. Cinco componentes de Sprint 1 tienen
 evidencia ejecutable (`C-01`, `C-02`, `C-03`, `C-05`, `C-07`); `C-04` tiene
-diseño físico cerrado y código de persistencia con contrato estático verificado,
-pero **no** evidencia contra PostgreSQL real; `C-06`, `C-08` y `C-09` siguen
-`IN_PROGRESS` con evidencia parcial.
+diseño físico cerrado, código de persistencia con contrato estático verificado
+y ahora una primera evidencia real de conexión/migración contra PostgreSQL,
+aunque sin cubrir los criterios de rollback/concurrencia; `C-06`, `C-08` y
+`C-09` siguen `IN_PROGRESS` con evidencia parcial.
 
 ## Avance por componente
 
@@ -26,7 +27,7 @@ pero **no** evidencia contra PostgreSQL real; `C-06`, `C-08` y `C-09` siguen
 | C-01 — workspace | `DONE` | Install congelado, format, lint, typecheck y build reproducibles; verificado hoy de nuevo (ver captura). |
 | C-02 — entrypoints | `DONE` (2026-09-22) | API/worker/web con lifecycle, health y composition roots propios, sin dependencias simuladas. Detalle completo en [`c-02-entrypoints.md`](../../development/c-02-entrypoints.md). CI job `entrypoints` verde, incluida la suite Playwright de arranque/recuperación en Chromium. |
 | C-03 — configuración | `DONE` (2026-09-21) | Perfiles tipados, `SecretProvider`, fallo seguro ante configuración ausente. |
-| C-04 — persistencia de admisión | `IN_PROGRESS` | ER de diseño cerrado en [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md) y su [resolución de auditoría](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22). Prisma schema y migración con siete tablas (`sources`, `source_checkpoints`, `ingestion_manifests`, `raw_event_references`, `event_inbox`, `outbox_messages`, `quarantined_events`) verificadas **solo de forma estática** (contrato sobre el SQL, 24+ constraints). **No** hay evidencia de migración real, rollback ni concurrencia contra PostgreSQL — [`component-delivery-plan.md`](../component-delivery-plan.md) lo declara explícitamente pendiente. No se acepta como Done. |
+| C-04 — persistencia de admisión | `IN_PROGRESS` | ER de diseño cerrado en [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md) y su [resolución de auditoría](../../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22). Prisma schema y migración con siete tablas (`sources`, `source_checkpoints`, `ingestion_manifests`, `raw_event_references`, `event_inbox`, `outbox_messages`, `quarantined_events`) verificadas **estáticamente** (contrato sobre el SQL, 24+ constraints) **y ahora también con conexión real**: `prisma migrate deploy` contra PostgreSQL local (`qapaq_secops`, `127.0.0.1:5432`) confirma la migración aplicada sin drift (ver evidencia abajo). Sigue **sin** evidencia de migración desde vacío, rollback inyectado ni carreras concurrentes — los 7 criterios de cierre de [`c-04-admission-er.md`](../../architecture/c-04-admission-er.md#encaje-en-componentes-y-evidencia-para-cerrar-c-04) solo están parcialmente cubiertos (criterio 1). No se acepta como Done. |
 | C-05 — contrato SecurityEvent | `DONE` | Schema JSON, catálogos, validador y corpus de 41 fixtures (válidos/inválidos) en `packages/contracts/src/security-event`; contract specs incluidos en los 180 tests unitarios verdes. |
 | C-06 — entorno de integración real | `IN_PROGRESS` | Solo existe `platform/testing/test/services.integration.spec.ts`; arranque/teardown real de PostgreSQL, Redis, object storage, OpenSearch y Wazuh sigue sin demostrarse en CI. |
 | C-07 — reglas de dependencia | `DONE` | `dependency-cruiser` + `scripts/check-entrypoints.mjs` activos: "no dependency violations found (91 modules, 110 dependencies cruised)" y "Entrypoint architecture: PASS" (ver captura). |
@@ -62,7 +63,23 @@ Decisiones de diseño cerradas hoy (resolución de la
   recalculan por fallos posteriores del parser.
 
 Estas decisiones cierran el diseño físico; **no** cierran C-04 como componente
-— la verificación contra PostgreSQL real sigue pendiente (ver bloqueos).
+— la verificación contra PostgreSQL real sigue **parcialmente** pendiente (ver
+evidencia y bloqueos).
+
+### Primera evidencia real de conexión y migración
+
+![Prisma migrate deploy contra PostgreSQL real](assets/2026-09-22-prisma-migrate-deploy.png)
+
+Salida real de `prisma migrate deploy` contra una instancia PostgreSQL en
+`127.0.0.1:5432`, base `qapaq_secops`: reconoce la única migración en
+`prisma/migrations` y reporta "No pending migrations to apply" (sin drift).
+Esto confirma conectividad real y consistencia del estado de migración, **no**
+sustituye los criterios de cierre restantes de
+[`c-04-admission-er.md`](../../architecture/c-04-admission-er.md#encaje-en-componentes-y-evidencia-para-cerrar-c-04):
+falta migración desde vacío con reaplicación por historial, rollback inyectado
+tras cada escritura, carreras concurrentes, casos de rechazo (cruces de
+Source/tenant, IDs inválidos, etc.) y evidencia adjunta desde CI. C-04
+permanece `IN_PROGRESS`.
 
 ## Incidencia de CI resuelta hoy
 
@@ -106,7 +123,7 @@ de CI equivalente es `35793054805` (enlace en la sección de CI/CD).
 | Elemento | Estado | Dueño | Siguiente acción |
 | --- | --- | --- | --- |
 | Tenant, permisos, Wazuh/Indexer y secretRefs de Microsoft 365 | Por confirmar | Franco Clavo Santander | Fecha objetivo no posterior al 2026-09-25 (PBI-006), sin la cual C-08 no puede cerrar. |
-| C-04 sin evidencia contra PostgreSQL real | Riesgo activo | Cesar | Requiere C-06 (entorno de integración real) antes de poder demostrar migración/rollback/concurrencia. |
+| C-04 con evidencia parcial contra PostgreSQL real | Riesgo activo | Cesar | Conectividad y estado de migración confirmados hoy; requiere C-06 (entorno de integración reproducible) para demostrar migración desde vacío, rollback y concurrencia. |
 | Protección de rama en `main` no configurada | Riesgo de proceso | Cesar / Franco | Definir política de PR obligatorio antes de que más de una persona escriba en `main`. |
 
 ## Ajuste propuesto para el Daily Scrum de mañana (2026-09-23)
