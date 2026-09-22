@@ -10,7 +10,7 @@ import {
   startApp,
   startProcess,
   until,
-  secret,
+  fixtureToken,
 } from './support.mjs';
 
 for (const termination of ['SIGTERM', 'SIGINT']) {
@@ -40,7 +40,7 @@ for (const termination of ['SIGTERM', 'SIGINT']) {
 }
 
 test('invalid worker configuration never reaches readiness', async () => {
-  const runtime = startApp('worker', { QAPAQ_PROFILE: secret });
+  const runtime = startApp('worker', { QAPAQ_PROFILE: fixtureToken });
   try {
     assert.equal((await exitedWithin(runtime)).code, 1);
     assert.deepEqual(

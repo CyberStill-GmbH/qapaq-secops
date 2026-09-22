@@ -10,7 +10,7 @@ import {
   startApp,
   startProcess,
   until,
-  secret,
+  fixtureToken,
   startupTimeout,
 } from './support.mjs';
 
@@ -49,7 +49,7 @@ for (const termination of ['SIGTERM', 'SIGINT']) {
 }
 
 test('invalid API config exits before listening without leaking input', async () => {
-  const runtime = startApp('api', { QAPAQ_PROFILE: '', QAPAQ_API_HOST: secret });
+  const runtime = startApp('api', { QAPAQ_PROFILE: '', QAPAQ_API_HOST: fixtureToken });
   try {
     assert.equal((await exitedWithin(runtime)).code, 1);
     assert.equal(runtime.port, undefined);

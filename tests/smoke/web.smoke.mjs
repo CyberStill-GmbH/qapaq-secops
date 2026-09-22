@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-import { root, secret } from './support.mjs';
+import { root, fixtureToken } from './support.mjs';
 
 test('compiled React artifact, assets and static health', async () => {
   const require = createRequire(resolve(root, 'apps/web/package.json'));
@@ -33,7 +33,7 @@ test('compiled React artifact, assets and static health', async () => {
     for (const file of await readdir(resolve(root, 'apps/web/dist'), { recursive: true })) {
       if (!/\.(js|css|html|json)$/u.test(file)) continue;
       const source = await readFile(resolve(root, 'apps/web/dist', file), 'utf8');
-      assert.ok(!source.includes(secret), file);
+      assert.ok(!source.includes(fixtureToken), file);
       assert.doesNotMatch(
         source,
         /QAPAQ_(?:POSTGRES|REDIS|MINIO|WAZUH)|SECRET_TOKEN|secret:\/\/|BEGIN (?:RSA |EC )?PRIVATE KEY|https?:\/\/[^/\s]+:[^/\s]+@/u,

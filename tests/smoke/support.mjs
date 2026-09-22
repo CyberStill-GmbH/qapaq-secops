@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-export const secret = 'c02-synthetic-private-9f7a80';
+export const fixtureToken = 'c02-fixture-value';
 // WSL puede tardar más de 50 segundos en cargar Nest desde node_modules en un disco Windows montado.
 // Esta opción solo amplía la observación del arranque, nunca el límite de cierre.
 export const startupTimeout = process.env['C02_SMOKE_SLOW_FILESYSTEM'] === '1' ? 90_000 : 10_000;
@@ -15,7 +15,7 @@ export function startProcess(args, overrides = {}) {
   );
   const child = spawn(process.execPath, args, {
     cwd: root,
-    env: { ...env, SECRET_TOKEN: secret, QAPAQ_PROFILE: 'test', ...overrides },
+    env: { ...env, SECRET_TOKEN: fixtureToken, QAPAQ_PROFILE: 'test', ...overrides },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     windowsHide: true,
   });
@@ -96,7 +96,7 @@ export function events(runtime) {
 }
 
 export function assertSafe(runtime) {
-  assert.ok(!runtime.output.includes(secret));
+  assert.ok(!runtime.output.includes(fixtureToken));
   assert.ok(!runtime.output.includes('synthetic-private-fault'));
   for (const item of events(runtime)) {
     assert.ok(
