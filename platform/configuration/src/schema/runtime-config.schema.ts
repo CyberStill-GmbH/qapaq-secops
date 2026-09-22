@@ -163,8 +163,8 @@ export function parseFullEnvironment(environment: EnvironmentInput, profile: Con
 
   if (!rejectUnauthorized && profile.name === 'production') {
     throw configurationError(
-      'CONFIG_TLS_REQUIRED', 
-      'QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED', 
+      'CONFIG_TLS_REQUIRED',
+      'QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED',
       profile.name,
     );
   }

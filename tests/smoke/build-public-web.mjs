@@ -1,19 +1,19 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
-import { root, secret } from './support.mjs';
+import { root, fixtureToken } from './support.mjs';
 
 const cwd = resolve(root, 'apps/web');
 const require = createRequire(resolve(cwd, 'package.json'));
 const env = {
   ...process.env,
   VITE_PUBLIC_BASE_PATH: '/',
-  SECRET_TOKEN: secret,
-  VITE_PRIVATE_PASSWORD: secret,
-  VITE_ACCESS_KEY: secret,
-  VITE_PRIVATE_CA: `-----BEGIN PRIVATE KEY-----${secret}`,
-  VITE_PRIVATE_URL: `https://user:${secret}@example.test`,
-  QAPAQ_POSTGRES_PASSWORD_REF: `secret://test/${secret}`,
+  SECRET_TOKEN: fixtureToken,
+  VITE_PRIVATE_PASSWORD: fixtureToken,
+  VITE_ACCESS_KEY: fixtureToken,
+  VITE_PRIVATE_CA: `-----BEGIN PRIVATE KEY-----${fixtureToken}`,
+  VITE_PRIVATE_URL: `https://user:${fixtureToken}@example.test`,
+  QAPAQ_POSTGRES_PASSWORD_REF: `secret://test/${fixtureToken}`,
 };
 
 for (const args of [
