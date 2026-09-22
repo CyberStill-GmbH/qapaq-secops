@@ -244,6 +244,7 @@ cifra. El burn-up del Product Goal muestra alcance total y trabajo Done.
 - [Definition of Done y criterios de refinamiento](definition-of-done.md).
 - [Plan de construcción por componentes](component-delivery-plan.md).
 - [Daily Scrum y registro](daily-scrum.md).
+- [Informes de avance](informes-de-avance/README.md).
 - [Sprint 1](sprints/01-base-ejecutable.md).
 - [Sprint 2](sprints/02-ingesta-microsoft-wazuh.md).
 - [Sprint 3](sprints/03-operacion-soc.md).
