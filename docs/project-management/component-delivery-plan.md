@@ -49,6 +49,13 @@ para PostgreSQL, Redis, MinIO y Wazuh Indexer, puerto `SecretProvider`, resoluci
 dependencia de Infraestructura; el adapter de entorno está limitado a desarrollo y
 test y rechaza producción.
 
+C-06 fue materializado parcialmente el 2026-09-22 en `platform/testing`: API de
+ciclo de vida, preflight, perfiles, aislamiento, health base, evidencia y cleanup
+seguro. La aceptación real de PostgreSQL/Redis/MinIO requiere Docker accesible;
+OpenSearch y Wazuh permanecen `BLOCKED` hasta completar TLS, Compose oficial y
+capacidad. El detalle y la matriz vigente están en
+[C-06 — entorno real de integración](../architecture/c-06-integration-testing.md).
+
 Orden obligatorio: C-01 inicia; C-03/C-05 pueden avanzar en paralelo; C-06 habilita
 C-04/C-08; C-02 y C-07 cierran la forma del workspace; C-09 se adapta a scripts
 reales. No se copia CI documentalmente ni se crea otro workflow si PR #2 ya cubre

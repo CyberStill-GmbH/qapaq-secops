@@ -16,6 +16,14 @@ ports externos con fakes. No tests que solo repitan propiedades de una clase.
 
 ## Integration
 
+La infraestructura común de C-06 está en
+[`platform/testing`](../platform/testing/README.md). Cada suite debe solicitar
+el perfil mínimo (`base`, `search`, `wazuh` o `full`), ejecutar preflight antes
+de descargar imágenes, esperar health real y limpiar únicamente recursos con
+las etiquetas de su `runId`. Docker inaccesible, digest no resoluble o falta de
+capacidad se reportan como `BLOCKED`/`NOT_RUN`; no se sustituyen por servidores
+falsos.
+
 Con instancias desechables de versiones elegidas: transacciones PostgreSQL
 estado+audit+outbox; claves únicas/inbox; Redis/BullMQ retries/locks y recuperación;
 mappings/queries del indexador; object store/manifiestos. Probar rollback,
