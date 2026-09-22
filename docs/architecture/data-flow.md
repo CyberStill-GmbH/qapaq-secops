@@ -14,8 +14,8 @@ revierte ni duplica la alerta. Detalle en
 
 1. Collector identifica fuente y permisos, obtiene un lote acotado y cursor sin adelantarlo.
 2. Ingestion valida envoltura, límites y procedencia; conserva bytes originales en object storage inmutable lógico junto con digest y metadatos de recepción.
-3. Tras confirmar escritura durable según contrato del store, registra manifiesto de lote y outbox de procesamiento en PostgreSQL. Es metadata por lote, no telemetría masiva.
-4. Devuelve recibo de aceptación; connectors persiste el checkpoint. Si cae antes del checkpoint, se repite el lote y la clave de admisión evita duplicar efectos.
+3. Tras confirmar raw durable según contrato del store, ejecuta una sola transacción PostgreSQL: manifiesto, referencias raw, inbox de recepciones, cuarentena inicial si corresponde, outbox por lote y checkpoint mediante revisión esperada. El [ER C-04](c-04-admission-er.md) fija pertenencia, límites e idempotencia de esa operación. Hay metadata por recepción y por lote; su volumen debe medirse.
+4. Solo después del commit devuelve recibo. No hay una segunda escritura de checkpoint tras aceptar. Ante respuesta perdida, reintenta el mismo comando con las mismas identidades y recupera el recibo; una nueva adquisición/replay crea nuevos recordIds. La deduplicación de efectos lógicos pertenece a C-13 y no se deduce de eventUid.
 5. Dispatcher publica referencias pequeñas en BullMQ y marca progreso. Si publica y cae antes de marcar, puede publicar otra vez; consumidor idempotente.
 6. Parser y normalizer producen `qapaq.security-event` 1.0.0 y validan su JSON
    Schema; antes de indexar y exportar se vuelve a validar. Un fallo conserva raw,
@@ -32,6 +32,8 @@ No usar el ACK del transporte como promesa de procesamiento terminado.
 ADR-019 acepta checkpoints independientes por conector y estados `FETCHED`,
 `DURABLE`, `NORMALIZED`, `PROCESSED`, `CHECKPOINTED`. Pull no implica ACK al
 proveedor. Un webhook recibe 2xx solo tras validación y persistencia/cola durable.
+Esos estados describen etapas del pipeline: el checkpoint C-04 solo conserva el
+cursor confirmado, no el progreso de normalización/procesamiento.
 Cada dataset declara FULL_REPLAY, BOUNDED_REPLAY, BEST_EFFORT o NO_REPLAY.
 En recovery: partir del último checkpoint durable, calcular la ventana mínima
 recuperable, rewind, fetch, deduplicar, normalizar, procesar y reconciliar. Una

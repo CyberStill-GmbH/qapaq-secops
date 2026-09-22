@@ -23,6 +23,8 @@ futura según etiqueta. Los módulos no son microservicios.
 12. [C4 nivel 4 — código representativo](12-c4-code-soc-module.mmd): capas hexagonales propuestas del módulo SOC; no clases implementadas.
 13. [Notificación de alerta crítica](13-critical-alert-notification.mmd): outbox, worker, SecretProvider, Teams Workflow y acuse en QAPAQ.
 
+14. [ER C-04 de admisión](14-c-04-admission-er.mmd): siete entidades, pertenencia y cardinalidad SQL; mínimos transaccionales en el [diccionario](../architecture/c-04-admission-er.md).
+
 Las fuentes .mmd son canónicas. Para cambiar un diagrama, contrastar
 [flujos](../architecture/data-flow.md), [seguridad](../architecture/security.md) y
 el ADR correspondiente. No inferir dependencias adicionales de una flecha.

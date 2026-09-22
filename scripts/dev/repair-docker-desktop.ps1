@@ -36,13 +36,13 @@ foreach ($source in @($dockerRun, $secretsEngine)) {
 if (Test-Path -LiteralPath $settingsPath) {
     Copy-Item -LiteralPath $settingsPath -Destination "$settingsPath.backup-$timestamp"
     $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
-    $settings | Add-Member -NotePropertyName EnableInference -NotePropertyValue $false -Force
-    $settings | Add-Member -NotePropertyName EnableDockerAI -NotePropertyValue $false -Force
-    $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding utf8NoBOM
-}
-
-if (Test-Path -LiteralPath $settingsPath) {
-    Copy-Item -LiteralPath $settingsPath -Destination
+    # Docker Desktop conserva estas propiedades aunque ya existan; asignarlas
+    # explícitamente evita que el servicio de IA vuelva a crear su socket roto.
+    $settings.EnableInference = $false
+    $settings.EnableDockerAI = $false
+    # Windows PowerShell 5.1 no reconoce utf8NoBOM; UTF8 mantiene JSON válido
+    # y permite ejecutar el procedimiento desde la consola documentada.
+    $settings | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $settingsPath -Encoding UTF8
 }
 
 if (-not (Test-Path -LiteralPath $desktopExecutable)) {

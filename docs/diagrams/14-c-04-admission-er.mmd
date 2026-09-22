@@ -1,0 +1,8 @@
+erDiagram
+    SOURCES ||--o| SOURCE_CHECKPOINTS : "cursor confirmado"
+    SOURCES ||--o{ INGESTION_MANIFESTS : "fuente y dataset"
+    INGESTION_MANIFESTS ||--o{ RAW_EVENT_REFERENCES : "origen del objeto"
+    INGESTION_MANIFESTS ||--o{ EVENT_INBOX : "recepciones del lote"
+    RAW_EVENT_REFERENCES ||--o{ EVENT_INBOX : "misma fuente y posible reutilizacion"
+    INGESTION_MANIFESTS ||--o| OUTBOX_MESSAGES : "uno por comando confirmado"
+    EVENT_INBOX ||--o{ QUARANTINED_EVENTS : "fallos de la recepcion"

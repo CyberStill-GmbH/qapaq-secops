@@ -12,7 +12,12 @@ Prisma ejecutada ni una base de datos instalada.
 Clasificación aplicada a cada sección: **FACT** (observado en el repo),
 **DECISION** (ADR aceptado), **PROPOSAL** (este documento u otro no aceptado),
 **ASSUMPTION** (inferencia explícita para poder dibujar el MER) o **UNKNOWN**.
-Ver [reglas de clasificación](../../AGENTS.md).
+La procedencia funcional no acredita un schema físico ni una restricción SQL.
+
+**Excepción acotada:** el [ER final C-04](c-04-admission-er.md) establece la
+baseline de las siete tablas de admisión y resuelve los hallazgos de la
+[auditoría](c-04-mer-audit.md). Prevalece sobre §3.2/3.3 y §4.2. Su implementación
+sigue pendiente; el resto de este MER permanece PROPOSAL.
 
 ## 1. Alcance
 
@@ -45,13 +50,13 @@ tabla.
 | Módulo | Entidades propuestas | Fuente |
 | --- | --- | --- |
 | access | `users`, `roles`, `capabilities`, `role_capabilities`, `access_grants`, `sessions`, `service_identities` | [identity-and-authorization.md](identity-and-authorization.md), [rbac.md](rbac.md), ADR-009/017 |
-| connectors | `integrations`, `integration_checkpoints`, `source_health` | [integrations.md](integrations.md), [source-integration-strategy.md](source-integration-strategy.md) |
-| telemetry (control plane) | `ingest_batches`, `quarantine_entries`, `raw_object_catalog` | [event-model.md](event-model.md), [storage.md](storage.md) |
+| connectors | `sources`, `source_checkpoints` (C-04); `integrations`, `source_health` (futuro) | [integrations.md](integrations.md), [source-integration-strategy.md](source-integration-strategy.md) |
+| telemetry (control plane) | `ingestion_manifests`, `raw_event_references`, `event_inbox`, `outbox_messages`, `quarantined_events` (C-04) | [event-model.md](event-model.md), [storage.md](storage.md) |
 | detection | `detection_rules`, `detection_rule_versions`, `detections` | [modules.md](modules.md#4-detection--correlation--detection) |
 | threat-intelligence | `indicators`, `indicator_matches` | [modules.md](modules.md#5-threat-intelligence--threat-intelligence) |
 | soc | `alerts`, `alert_event_refs`, `incidents`, `cases`, `case_links`, `notes`, `evidence`, `evidence_custody_events` | [modules.md](modules.md#6-alerts-incidents--cases--soc) |
 | soar | `playbooks`, `playbook_versions`, `playbook_executions`, `playbook_approvals`, `tickets`, `notifications`, `notification_attempts`, `notification_outbox` | [modules.md](modules.md#7-soar-playbooks--ticketing--soar), [critical-alert-notifications.md](critical-alert-notifications.md) |
-| antifraud | `antifraud_signals`, `antifraud_cases` (esqueleto mínimo) | [modules.md](modules.md#8-antifraud-intelligence--antifraud) — **UNRESOLVED**, ver §9 |
+| antifraud | `antifraud_signals`, `antifraud_cases` (esqueleto mínimo) | [modules.md](modules.md#8-antifraud-intelligence--antifraud) — **UNRESOLVED**, ver §3.8 |
 | transversal (auditoría) | `audit_events`, `audit_outbox`, `audit_archive_manifests`, `audit_corrections` | [audit.md](audit.md) |
 | transversal (retención/custodia) | `dataset_catalog`, `retention_policies`, `legal_holds`, `purge_runs`, `deletion_ledger`, `exports` | [retention-privacy-custody.md](retention-privacy-custody.md) |
 
@@ -61,10 +66,11 @@ directamente — solo por interfaz pública o evento, por
 
 ## 3. Catálogo de entidades
 
-Cada tabla siguiente indica atributos mínimos con **Estado** (F=FACT/DECISION del
-doc citado, P=PROPOSAL de este documento, A=ASSUMPTION) y **Fuente**. Tipos son
-orientativos (Prisma/PostgreSQL); el mapeo exacto a Prisma schema queda pendiente
-de implementación.
+Fuera de C-04, las filas indican **Estado** (R=requisito funcional referenciado,
+P=propuesta física de este documento, A=supuesto) y **Fuente**. R no significa que
+los campos, tipos, claves o cardinalidades sean un schema físico aceptado: sus
+concreciones son propuestas salvo decisión explícita citada. El diccionario
+normativo de C-04 está separado para no promover todo el catálogo a DECISION.
 
 ### 3.1 access
 
@@ -73,14 +79,14 @@ de implementación.
 | Campo | Tipo | Estado | Fuente |
 | --- | --- | --- | --- |
 | `id` (PK) | uuid | P | — |
-| `entra_tenant_id` | text | F | identity-and-authorization.md §"Identidad y restricción del tenant" |
-| `entra_object_id` | text | F | idem |
-| `display_name` | text | F | idem |
-| `email` | text | F | idem (descriptivo, no identificador) |
-| `status` | enum(`PENDING`,`ACTIVE`,`SUSPENDED`,`REVOKED`) | F | idem |
-| `authorization_version` | int | F | idem §"Versionado, revocación y directorio" |
-| `last_login_at` | timestamptz | F | idem |
-| `last_directory_sync_at` | timestamptz | F | idem |
+| `entra_tenant_id` | text | R | identity-and-authorization.md §"Identidad y restricción del tenant" |
+| `entra_object_id` | text | R | idem |
+| `display_name` | text | R | idem |
+| `email` | text | R | idem (descriptivo, no identificador) |
+| `status` | enum(`PENDING`,`ACTIVE`,`SUSPENDED`,`REVOKED`) | R | idem |
+| `authorization_version` | int | R | idem §"Versionado, revocación y directorio" |
+| `last_login_at` | timestamptz | R | idem |
+| `last_directory_sync_at` | timestamptz | R | idem |
 | `created_at`, `updated_at` | timestamptz | A | convención estándar |
 
 `UNIQUE (entra_tenant_id, entra_object_id)`: **DECISION** — es el identificador
@@ -91,7 +97,7 @@ primario estable, no `email`/`UPN` (identity-and-authorization.md).
 | Campo | Tipo | Estado | Fuente |
 | --- | --- | --- | --- |
 | `id` (PK) | uuid | P | — |
-| `name` | text unique | F | rbac.md — bundles `VIEWER`, `SOC_L1`, `SOC_L2`, `SOC_MANAGER`, `DETECTION_ENGINEER`, `PLATFORM_ADMIN`, `AUDITOR`, `ACCESS_ADMIN` |
+| `name` | text unique | R | rbac.md — bundles `VIEWER`, `SOC_L1`, `SOC_L2`, `SOC_MANAGER`, `DETECTION_ENGINEER`, `PLATFORM_ADMIN`, `AUDITOR`, `ACCESS_ADMIN` |
 | `description` | text | A | — |
 | `is_privileged` | boolean | A | soporta el flujo de doble aprobación de rbac.md §"Evitar autoescalada" |
 | `created_at`, `updated_at` | timestamptz | A | — |
@@ -105,16 +111,16 @@ escribiendo un string nuevo"*).
 | Campo | Tipo | Estado | Fuente |
 | --- | --- | --- | --- |
 | `id` (PK) | uuid | P | — |
-| `key` | text unique (`resource.action`) | F | rbac.md §"Catálogo por concretar" (ej. `alerts.read`, `raw_event.export`) |
-| `owning_module` | text | F | modules.md — cada módulo registra sus capabilities |
-| `is_critical` | boolean | F | identity-and-authorization.md §"Privilegios..." lista capabilities críticas |
+| `key` | text unique (`resource.action`) | R | rbac.md §"Catálogo por concretar" (ej. `alerts.read`, `raw_event.export`) |
+| `owning_module` | text | R | modules.md — cada módulo registra sus capabilities |
+| `is_critical` | boolean | R | identity-and-authorization.md §"Privilegios..." lista capabilities críticas |
 | `description` | text | A | — |
 
 #### `role_capabilities` (junction, sustituye `role_permissions`)
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `role_id` (FK roles), `capability_id` (FK capabilities) — PK compuesta | F | ADR-009 nombra `role_permissions`; aquí `role_capabilities` para alinear con el vocabulario de capabilities de ADR-017 — **ASSUMPTION de nomenclatura**, no de modelo |
+| `role_id` (FK roles), `capability_id` (FK capabilities) — PK compuesta | R | ADR-009 nombra `role_permissions`; aquí `role_capabilities` para alinear con el vocabulario de capabilities de ADR-017 — **ASSUMPTION de nomenclatura**, no de modelo |
 
 #### `access_grants` (sustituye/extiende `user_roles`)
 
@@ -125,15 +131,15 @@ puntual, porque ADR-017 describe grants con esa granularidad
 | Campo | Tipo | Estado | Fuente |
 | --- | --- | --- | --- |
 | `id` (PK) | uuid | P | — |
-| `user_id` (FK users) | uuid | F | idem |
+| `user_id` (FK users) | uuid | R | idem |
 | `role_id` (FK roles, nullable) | uuid | A | un grant puede ser de rol o de capability suelta |
-| `capability_id` (FK capabilities, nullable) | uuid | F | idem |
-| `scope_type` | enum(`ORGANIZATION`,`BUSINESS_UNIT`,`BRANCH`,`TEAM`,`ASSIGNED_RESOURCES`) | F | idem |
-| `scope_id` | text nullable | F | idem |
-| `conditions` | jsonb | P | idem — condiciones ABAC acotadas, ver §7.2 |
-| `requested_by`, `approved_by` | FK users | F | idem — nunca el mismo actor para grants privilegiados |
-| `reason`, `ticket_ref` | text | F | idem |
-| `valid_from`, `valid_until` | timestamptz | F | idem — JIT máx. 1 hora inicial |
+| `capability_id` (FK capabilities, nullable) | uuid | R | idem |
+| `scope_type` | enum(`ORGANIZATION`,`BUSINESS_UNIT`,`BRANCH`,`TEAM`,`ASSIGNED_RESOURCES`) | R | idem |
+| `scope_id` | text nullable | R | idem |
+| `conditions` | jsonb | P | idem — condiciones ABAC acotadas, ver §5.1 |
+| `requested_by`, `approved_by` | FK users | R | idem — nunca el mismo actor para grants privilegiados |
+| `reason`, `ticket_ref` | text | R | idem |
+| `valid_from`, `valid_until` | timestamptz | R | idem — JIT máx. 1 hora inicial |
 | `status` | enum(`PENDING`,`ACTIVE`,`EXPIRED`,`REVOKED`) | A | — |
 | `created_at` | timestamptz | A | — |
 
@@ -144,7 +150,7 @@ regla de integridad para que un grant no quede vacío.
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id` (PK), `user_id` (FK), `entra_tid`, `entra_oid`, `auth_time`, `auth_strength`, `authorization_version_at_creation`, `created_at`, `last_activity_at`, `absolute_expires_at`, `revoked`, `revoked_at`, `revoked_reason`, `concurrent_slot` | F | identity-and-authorization.md §"Flujo BFF y sesión" — campos mínimos listados explícitamente |
+| `id` (PK), `user_id` (FK), `entra_tid`, `entra_oid`, `auth_time`, `auth_strength`, `authorization_version_at_creation`, `created_at`, `last_activity_at`, `absolute_expires_at`, `revoked`, `revoked_at`, `revoked_reason`, `concurrent_slot` | R | identity-and-authorization.md §"Flujo BFF y sesión" — campos mínimos listados explícitamente |
 
 Nunca contiene el token de Entra ni la cookie; solo el identificador de sesión
 del lado servidor (idem).
@@ -153,7 +159,7 @@ del lado servidor (idem).
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `kind` (`SERVICE_COLLECTOR`,`SERVICE_WORKER`,`SERVICE_INTEGRATION`,`SERVICE_ANALYTICS`), `name`, `scope`, `credential_ref`, `status`, `rotated_at`, `created_at` | F | identity-and-authorization.md §"Identidades de servicio" |
+| `id`, `kind` (`SERVICE_COLLECTOR`,`SERVICE_WORKER`,`SERVICE_INTEGRATION`,`SERVICE_ANALYTICS`), `name`, `scope`, `credential_ref`, `status`, `rotated_at`, `created_at` | R | identity-and-authorization.md §"Identidades de servicio" |
 
 ### 3.2 connectors
 
@@ -161,43 +167,36 @@ del lado servidor (idem).
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `provider` (`wazuh`\|`microsoft`\|`cato`\|`sophos`), `product`, `edition`, `dataset`, `owner_functional`, `owner_technical`, `scope`, `secret_ref`, `status` (`planned`\|`configured`\|`validated`\|`enabled`\|`degraded`\|`paused`), `disabled_reason`, `created_at`, `updated_at` | F | integrations.md §"Ficha de habilitación por conector" |
+| `id`, `provider` (`wazuh`\|`microsoft`\|`cato`\|`sophos`), `product`, `edition`, `dataset`, `owner_functional`, `owner_technical`, `scope`, `secret_ref`, `status` (`planned`\|`configured`\|`validated`\|`enabled`\|`degraded`\|`paused`), `disabled_reason`, `created_at`, `updated_at` | R | integrations.md §"Ficha de habilitación por conector" |
 
 Solo el registro de `provider = 'wazuh'` puede llegar a `enabled` en el MVP; los
 demás quedan en `planned` como máximo — **DECISION**
 ([source-integration-strategy.md](source-integration-strategy.md#el-mvp-materializa-únicamente-integrationswazuh)).
 
-#### `integration_checkpoints`
+#### `sources` y `source_checkpoints` — baseline C-04
 
-| Campo | Estado | Fuente |
-| --- | --- | --- |
-| `id`, `integration_id` (FK), `dataset_id`, `cursor`, `state` (`FETCHED`\|`DURABLE`\|`NORMALIZED`\|`PROCESSED`\|`CHECKPOINTED`), `replay_policy` (`FULL_REPLAY`\|`BOUNDED_REPLAY`\|`BEST_EFFORT`\|`NO_REPLAY`), `gap_detected`, `updated_at` | F | source-integration-strategy.md §"Checkpoint, ACK y replay" |
+El [diccionario final](c-04-admission-er.md#diccionario-físico) fija identidad
+por tenant/proveedor/producto/dataset/instancia, un checkpoint opcional por fuente,
+CAS por revisión y cursor confirmado. Sustituye `integration_checkpoints`; los
+estados FETCHED/DURABLE/NORMALIZED/PROCESSED/CHECKPOINTED describen etapas del flujo,
+no estados de la fila de checkpoint. `integrations` sigue siendo ficha operativa
+futura y `source_health` una propuesta fuera de las siete tablas de C-04.
 
-#### `source_health`
+### 3.3 telemetry — baseline C-04
 
-| Campo | Estado | Fuente |
-| --- | --- | --- |
-| `id`, `integration_id` (FK), `status`, `checked_at`, `degraded_since`, `reason` | P | integrations.md — salud del conector mencionada, tabla propuesta aquí |
+El [ER final](c-04-admission-er.md) fija:
 
-### 3.3 telemetry (control plane; no almacena el evento)
+- `ingestion_manifests`: sustituye `ingest_batches`; lote y cursores de admisión.
+- `raw_event_references`: sustituye el catálogo raw propuesto en esta entrega;
+  objeto inmutable por registro con manifiesto de origen, sin tier de archivo.
+- `event_inbox`: recepción física con recordId e idempotencia de persistencia.
+- `outbox_messages`: una referencia al manifiesto por admisión confirmada.
+- `quarantined_events`: sustituye `quarantine_entries`; historial ligado al
+  inbox/raw/recordId de la misma fuente mediante FK compuesta.
 
-#### `ingest_batches`
-
-| Campo | Estado | Fuente |
-| --- | --- | --- |
-| `id`, `integration_id` (FK), `dataset_id`, `received_at`, `event_count`, `accepted_count`, `rejected_count`, `duplicate_count`, `raw_object_ref`, `raw_sha256` | P | storage.md §"catálogo de lotes/archivos"; toolchain-and-capacity.md §"Límites de ingesta" fija contadores esperados |
-
-#### `quarantine_entries`
-
-| Campo | Estado | Fuente |
-| --- | --- | --- |
-| `id`, `security_event_record_id` nullable, `connector`, `parser_version`, `error_code`, `raw_object_ref`, `quarantined_at`, `reprocessed_at`, `reprocess_status` | F | event-model.md §"Validación y cuarentena" |
-
-#### `raw_object_catalog`
-
-| Campo | Estado | Fuente |
-| --- | --- | --- |
-| `id`, `dataset_id`, `object_ref`, `sha256`, `media_type`, `size_bytes`, `tier` (`hot`\|`warm`\|`cold`), `schema_version`, `received_at` | F | storage.md §"Cold" (manifiesto) + event-model.md §"raw" |
+No son tablas adicionales a las siete de C-04. El catálogo de archivo por tier,
+la ficha de integración y los outboxes de auditoría/notificación pertenecen a
+sus entregas futuras. C-04 no implementa su comportamiento ni un parser.
 
 ### 3.4 detection
 
@@ -209,13 +208,13 @@ demás quedan en `planned` como máximo — **DECISION**
 | `detection_rule_versions`: `id`, `rule_id` (FK), `version`, `definition` (jsonb), `severity_baseline`, `mitre_techniques` (text[]), `published_by`, `published_at`, `created_at` | P | idem |
 
 Separar regla de versión evita repetir metadatos inmutables por cada versión
-(ver §7 normalización).
+(ver §5 normalización).
 
 #### `detections`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `rule_id` (FK), `rule_version_id` (FK), `security_event_record_id`, `security_event_uid`, `confidence`, `severity`, `produced_at` | F | event-model.md (identidad del evento) + modules.md (Detection como resultado de una regla) |
+| `id`, `rule_id` (FK), `rule_version_id` (FK), `security_event_record_id`, `security_event_uid`, `confidence`, `severity`, `produced_at` | R | event-model.md (identidad del evento) + modules.md (Detection como resultado de una regla) |
 
 ### 3.5 threat-intelligence
 
@@ -223,13 +222,13 @@ Separar regla de versión evita repetir metadatos inmutables por cada versión
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `type` (`ip`\|`domain`\|`hash`\|`url`\|...), `value`, `source`, `confidence`, `tlp`, `valid_from`, `valid_until`, `created_at`, `updated_at` | F | modules.md §"Threat Intelligence" |
+| `id`, `type` (`ip`\|`domain`\|`hash`\|`url`\|...), `value`, `source`, `confidence`, `tlp`, `valid_from`, `valid_until`, `created_at`, `updated_at` | R | modules.md §"Threat Intelligence" |
 
 #### `indicator_matches`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `indicator_id` (FK), `security_event_record_id`, `alert_id` nullable (FK), `matched_at` | F | modules.md — "una coincidencia IOC es evidencia, no confirmación automática" |
+| `id`, `indicator_id` (FK), `security_event_record_id`, `alert_id` nullable (FK), `matched_at` | R | modules.md — "una coincidencia IOC es evidencia, no confirmación automática" |
 
 ### 3.6 soc
 
@@ -237,7 +236,7 @@ Separar regla de versión evita repetir metadatos inmutables por cada versión
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `status` (`NEW`\|`ENRICHING`\|`TRIAGE`\|`INVESTIGATING`\|`CONFIRMED`\|`FALSE_POSITIVE`\|`CLOSED`), `severity_normalized`, `severity_score`, `mapping_id`, `mapping_version`, `classification`, `scope`, `assigned_to` (FK users nullable), `created_at`, `updated_at`, `closed_at` | F | modules.md §"Lifecycles aceptados" (estados exactos) + event-model.md §"Severidad" |
+| `id`, `status` (`NEW`\|`ENRICHING`\|`TRIAGE`\|`INVESTIGATING`\|`CONFIRMED`\|`FALSE_POSITIVE`\|`CLOSED`), `severity_normalized`, `severity_score`, `mapping_id`, `mapping_version`, `classification`, `scope`, `assigned_to` (FK users nullable), `created_at`, `updated_at`, `closed_at` | R | modules.md §"Lifecycles aceptados" (estados exactos) + event-model.md §"Severidad" |
 
 #### `alert_event_refs`
 
@@ -246,19 +245,19 @@ OpenSearch); nunca copia el evento.
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `alert_id` (FK), `security_event_record_id`, `security_event_uid` — PK compuesta | F | event-model.md (identidad `recordId`/`eventUid`) |
+| `alert_id` (FK), `security_event_record_id` — PK propuesta; `security_event_uid` — atributo de referencia, dependencia por validar | R | event-model.md (identidad `recordId`/`eventUid`) |
 
 #### `incidents`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `title`, `status` (`OPEN`\|`INVESTIGATING`\|`CONTAINMENT`\|`ERADICATION`\|`RECOVERY`\|`RESOLVED`\|`CLOSED`), `severity`, `scope`, `classification`, `opened_at`, `closed_at`, `created_by` (FK users) | F | modules.md §"Incident lifecycle" |
+| `id`, `title`, `status` (`OPEN`\|`INVESTIGATING`\|`CONTAINMENT`\|`ERADICATION`\|`RECOVERY`\|`RESOLVED`\|`CLOSED`), `severity`, `scope`, `classification`, `opened_at`, `closed_at`, `created_by` (FK users) | R | modules.md §"Incident lifecycle" |
 
 #### `cases`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `kind` (`soc`\|`antifraud`), `title`, `status`, `scope`, `owner_id` (FK users), `opened_at`, `closed_at` | F | modules.md — "Case: contenedor de investigación SOC o antifraude" |
+| `id`, `kind` (`soc`\|`antifraud`), `title`, `status`, `scope`, `owner_id` (FK users), `opened_at`, `closed_at` | R | modules.md — "Case: contenedor de investigación SOC o antifraude" |
 
 #### `case_links` — **cardinalidad UNRESOLVED**
 
@@ -283,13 +282,13 @@ No implementar `UNIQUE`/`CHECK` de cardinalidad hasta que U-008 se resuelva.
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `incident_id` (FK), `source_collector`, `acquired_at`, `name`, `media_type`, `size_bytes`, `sha256`, `object_version`, `classification`, `key_ref`, `hold_id` nullable (FK legal_holds), `retention_until` | F | retention-privacy-custody.md §"Holds, custodia e inmutabilidad" |
+| `id`, `incident_id` (FK), `source_collector`, `acquired_at`, `name`, `media_type`, `size_bytes`, `sha256`, `object_version`, `classification`, `key_ref`, `hold_id` nullable (FK legal_holds), `retention_until` | R | retention-privacy-custody.md §"Holds, custodia e inmutabilidad" |
 
 #### `evidence_custody_events`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `evidence_id` (FK), `event_type` (`acquire`\|`transfer`\|`validate`\|`access`\|`copy`\|`export`\|`custodian_change`\|`hold`\|`delete`), `actor_id`, `occurred_at`, `notes` | F | idem — "Adquisición, transferencia, validación, acceso, copia, export, cambio de custodio, hold y eliminación quedan en cadena de custodia" |
+| `id`, `evidence_id` (FK), `event_type` (`acquire`\|`transfer`\|`validate`\|`access`\|`copy`\|`export`\|`custodian_change`\|`hold`\|`delete`), `actor_id`, `occurred_at`, `notes` | R | idem — "Adquisición, transferencia, validación, acceso, copia, export, cambio de custodio, hold y eliminación quedan en cadena de custodia" |
 
 ### 3.7 soar
 
@@ -304,7 +303,7 @@ No implementar `UNIQUE`/`CHECK` de cardinalidad hasta que U-008 se resuelva.
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `playbook_version_id` (FK), `incident_id` nullable (FK), `alert_id` nullable (FK), `requester_id` (FK), `approver_id` nullable (FK), `target`, `parameters` (jsonb, sin secretos), `idempotency_key` unique, `status`, `step_up_verified_at`, `started_at`, `finished_at`, `result` | F | identity-and-authorization.md §"Acciones SOAR altas/críticas" |
+| `id`, `playbook_version_id` (FK), `incident_id` nullable (FK), `alert_id` nullable (FK), `requester_id` (FK), `approver_id` nullable (FK), `target`, `parameters` (jsonb, sin secretos), `idempotency_key` unique, `status`, `step_up_verified_at`, `started_at`, `finished_at`, `result` | R | identity-and-authorization.md §"Acciones SOAR altas/críticas" |
 
 `CHECK (requester_id <> approver_id)` para acciones alta/crítica: **DECISION**
 (identity-and-authorization.md — *"requester distinto de approver"*).
@@ -328,9 +327,9 @@ Modelo tomado literalmente de
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `notifications`: `id`, `alert_id` (FK), `incident_id` nullable, `channel`, `notification_version`, `notification_id` unique (`alertId + channel + notificationVersion`), `status` (`PENDING`\|`SENDING`\|`SENT`\|`FAILED_RETRYABLE`\|`FAILED_TERMINAL`\|`ACKNOWLEDGED`\|`SUPERSEDED`), `acknowledged_by`, `acknowledged_at`, `superseded_by` | F | idem |
-| `notification_attempts`: `id`, `notification_id` (FK), `attempt_number` (≤5), `result`, `error_code`, `attempted_at` | F | idem — "Máximo cinco intentos" |
-| `notification_outbox`: `id`, `notification_id` (FK), `status`, `created_at`, `processed_at` | F | idem — patrón outbox transaccional con la alerta |
+| `notifications`: `id`, `alert_id` (FK), `incident_id` nullable, `channel`, `notification_version`, `notification_id` unique (`alertId + channel + notificationVersion`), `status` (`PENDING`\|`SENDING`\|`SENT`\|`FAILED_RETRYABLE`\|`FAILED_TERMINAL`\|`ACKNOWLEDGED`\|`SUPERSEDED`), `acknowledged_by`, `acknowledged_at`, `superseded_by` | R | idem |
+| `notification_attempts`: `id`, `notification_id` (FK), `attempt_number` (≤5), `result`, `error_code`, `attempted_at` | R | idem — "Máximo cinco intentos" |
+| `notification_outbox`: `id`, `notification_id` (FK), `status`, `created_at`, `processed_at` | R | idem — patrón outbox transaccional con la alerta |
 
 ### 3.8 antifraud — **UNRESOLVED**
 
@@ -368,7 +367,7 @@ encadenados (audit.md §"Cadena de hashes").
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `audit_event_id` (FK), `status`, `created_at`, `processed_at` | F | audit.md §"Atomicidad y append-only" |
+| `id`, `audit_event_id` (FK), `status`, `created_at`, `processed_at` | R | audit.md §"Atomicidad y append-only" |
 
 #### `audit_archive_manifests`
 
@@ -381,7 +380,7 @@ Campos literales de audit.md §"Archivo inmutable y firma": `manifest_id`,
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `original_audit_event_id` (FK), `correction_audit_event_id` (FK), `created_at` | F | audit.md — "Correcciones crean un nuevo AUDIT_CORRECTION que referencia el evento original" |
+| `id`, `original_audit_event_id` (FK), `correction_audit_event_id` (FK), `created_at` | R | audit.md — "Correcciones crean un nuevo AUDIT_CORRECTION que referencia el evento original" |
 
 ### 3.10 Retención y custodia (transversal)
 
@@ -403,40 +402,40 @@ producción.
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `dataset_id` (FK), `version`, `hot_days`, `total_days`, `trigger`, `approved_by`, `effective_date`, `status` | F | idem §"Purga y cambios de política" |
+| `id`, `dataset_id` (FK), `version`, `hot_days`, `total_days`, `trigger`, `approved_by`, `effective_date`, `status` | R | idem §"Purga y cambios de política" |
 
 #### `legal_holds`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `case_ref`, `authority`, `requester_id`, `approver_id`, `reason`, `scope`, `datasets` (text[]), `resources` (jsonb), `created_at`, `review_at`, `released_at`, `released_by` | F | idem §"Holds, custodia e inmutabilidad" — "revisado al menos cada 90 días" |
+| `id`, `case_ref`, `authority`, `requester_id`, `approver_id`, `reason`, `scope`, `datasets` (text[]), `resources` (jsonb), `created_at`, `review_at`, `released_at`, `released_by` | R | idem §"Holds, custodia e inmutabilidad" — "revisado al menos cada 90 días" |
 
 #### `purge_runs`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `purge_run_id`, `dataset_id` (FK), `policy_version`, `range_start`, `range_end`, `object_count`, `bytes_removed`, `started_at`, `finished_at`, `result`, `exceptions` (jsonb), `manifest_hash`, `approved_by` | F | idem §"Purga y cambios de política" |
+| `purge_run_id`, `dataset_id` (FK), `policy_version`, `range_start`, `range_end`, `object_count`, `bytes_removed`, `started_at`, `finished_at`, `result`, `exceptions` (jsonb), `manifest_hash`, `approved_by` | R | idem §"Purga y cambios de política" |
 
 #### `deletion_ledger`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `dataset_id`, `subject_ref`, `purge_run_id` (FK), `deleted_at` | F | idem — "El deletion ledger evita resurrección tras restore" |
+| `id`, `dataset_id`, `subject_ref`, `purge_run_id` (FK), `deleted_at` | R | idem — "El deletion ledger evita resurrección tras restore" |
 
 #### `exports`
 
 | Campo | Estado | Fuente |
 | --- | --- | --- |
-| `id`, `dataset_id`, `filters` (jsonb), `range_start`, `range_end`, `purpose`, `requester_id`, `approver_id`, `classification`, `manifest_ref`, `checksum`, `encrypted`, `expires_at` (≤30 días), `download_count`, `created_at` | F | idem §"Exports, residencia y salida" |
+| `id`, `dataset_id`, `filters` (jsonb), `range_start`, `range_end`, `purpose`, `requester_id`, `approver_id`, `classification`, `manifest_ref`, `checksum`, `encrypted`, `expires_at` (≤30 días), `download_count`, `created_at` | R | idem §"Exports, residencia y salida" |
 
 ## 4. Diagramas ER
 
 Dividido en seis diagramas por dominio en vez de uno solo, para que cada uno
 sea legible a tamaño por defecto en el visor de Markdown/GitHub — el diagrama
-único anterior mezclaba demasiadas entidades y se veía ilegible. `||--o{` = uno
-a muchos, `}o--o{` = muchos a muchos, `..` = relación **no confirmada**
-(U-008). Cada diagrama es una vista parcial del mismo modelo del §3; el
-[panorama completo](#43-panorama-completo-referencia-rápida) al final los
+único anterior mezclaba demasiadas entidades y se veía ilegible. `||--o{` = padre obligatorio y cero o muchos hijos; `o|` indica
+participación opcional. Una línea punteada Mermaid no significa cardinalidad
+desconocida: U-008 se representa sin cardinalidades en un flujo conceptual. Cada diagrama es una vista parcial del mismo modelo del §3; el
+[panorama completo](#47-panorama-completo-referencia-rápida) al final los
 resume en una sola imagen de solo cajas, sin atributos, para navegación.
 
 ### 4.1 Identidad y acceso (access)
@@ -444,10 +443,10 @@ resume en una sola imagen de solo cajas, sin atributos, para navegación.
 ```mermaid
 erDiagram
     USERS ||--o{ ACCESS_GRANTS : recibe
-    ROLES ||--o{ ACCESS_GRANTS : "otorgado como"
+    ROLES o|--o{ ACCESS_GRANTS : "otorgado como"
     ROLES ||--o{ ROLE_CAPABILITIES : agrupa
     CAPABILITIES ||--o{ ROLE_CAPABILITIES : compone
-    CAPABILITIES ||--o{ ACCESS_GRANTS : "grant puntual"
+    CAPABILITIES o|--o{ ACCESS_GRANTS : "grant puntual"
     USERS ||--o{ SESSIONS : autentica
 ```
 
@@ -455,14 +454,18 @@ erDiagram
 
 ```mermaid
 erDiagram
-    INTEGRATIONS ||--o{ INTEGRATION_CHECKPOINTS : rastrea
-    INTEGRATIONS ||--o{ SOURCE_HEALTH : reporta
-    INTEGRATIONS ||--o{ INGEST_BATCHES : produce
+    SOURCES ||--o| SOURCE_CHECKPOINTS : "cursor confirmado"
+    SOURCES ||--o{ INGESTION_MANIFESTS : "fuente y dataset"
+    INGESTION_MANIFESTS ||--o{ RAW_EVENT_REFERENCES : "origen del objeto"
+    INGESTION_MANIFESTS ||--o{ EVENT_INBOX : "recepciones del lote"
+    RAW_EVENT_REFERENCES ||--o{ EVENT_INBOX : "misma fuente y posible reutilizacion"
+    INGESTION_MANIFESTS ||--o| OUTBOX_MESSAGES : "uno por comando confirmado"
+    EVENT_INBOX ||--o{ QUARANTINED_EVENTS : "fallos de la recepcion"
 ```
 
-`RAW_OBJECT_CATALOG` y `QUARANTINE_ENTRIES` se relacionan con un `dataset_id` y
-un `raw_object_ref`, no con un `batch_id` explícito en el §3.3 — se omiten de
-este diagrama para no sugerir una FK que la tabla no declara.
+Fuente canónica: [14-c-04-admission-er.mmd](../diagrams/14-c-04-admission-er.mmd).
+Las FKs compuestas y las reglas de comando que imponen los mínimos del lote
+están en el [ER final](c-04-admission-er.md#relaciones-borrado-e-índices).
 
 ### 4.3 Detección e inteligencia de amenazas (detection / threat-intelligence)
 
@@ -483,14 +486,19 @@ porque ninguna fuente fija esa cardinalidad todavía.
 ```mermaid
 erDiagram
     ALERTS ||--o{ ALERT_EVENT_REFS : referencia
-    ALERTS ||--o{ NOTES : anota
-    INCIDENTS ||--o{ NOTES : anota
-    CASES ||--o{ NOTES : anota
     INCIDENTS ||--o{ EVIDENCE : contiene
     EVIDENCE ||--o{ EVIDENCE_CUSTODY_EVENTS : registra
-    LEGAL_HOLDS ||--o{ EVIDENCE : "bloquea (opcional)"
-    ALERTS }o..o{ INCIDENTS : "case_links (UNRESOLVED U-008)"
-    INCIDENTS }o..o{ CASES : "case_links (UNRESOLVED U-008)"
+    LEGAL_HOLDS o|--o{ EVIDENCE : "bloquea (opcional)"
+```
+
+Las notas polimórficas no tienen tres FKs obligatorias: `parent_type/parent_id`
+requiere validación de aplicación o un rediseño posterior. Las cardinalidades de
+`case_links` continúan U-008; esta vista solo indica conceptos relacionados:
+
+```mermaid
+flowchart LR
+    ALERTS -. "U-008 sin cardinalidad" .-> INCIDENTS
+    INCIDENTS -. "U-008 sin cardinalidad" .-> CASES
 ```
 
 ### 4.5 SOAR, playbooks y notificaciones (soar)
@@ -500,11 +508,11 @@ erDiagram
     PLAYBOOKS ||--o{ PLAYBOOK_VERSIONS : versiona
     PLAYBOOK_VERSIONS ||--o{ PLAYBOOK_EXECUTIONS : ejecuta
     PLAYBOOK_EXECUTIONS ||--o{ PLAYBOOK_APPROVALS : requiere
-    INCIDENTS ||--o{ PLAYBOOK_EXECUTIONS : origina
-    INCIDENTS ||--o{ TICKETS : sincroniza
+    INCIDENTS o|--o{ PLAYBOOK_EXECUTIONS : origina
+    INCIDENTS o|--o{ TICKETS : sincroniza
     ALERTS ||--o{ NOTIFICATIONS : dispara
     NOTIFICATIONS ||--o{ NOTIFICATION_ATTEMPTS : intenta
-    NOTIFICATIONS ||--|| NOTIFICATION_OUTBOX : "misma transacción"
+    NOTIFICATIONS ||--o{ NOTIFICATION_OUTBOX : "FK sin unicidad declarada"
 ```
 
 ### 4.6 Auditoría, retención y custodia (transversal)
@@ -514,12 +522,15 @@ erDiagram
     DATASET_CATALOG ||--o{ RETENTION_POLICIES : versiona
     DATASET_CATALOG ||--o{ PURGE_RUNS : purga
     PURGE_RUNS ||--o{ DELETION_LEDGER : registra
-    DATASET_CATALOG ||--o{ EXPORTS : exporta
     AUDIT_EVENTS ||--o{ AUDIT_OUTBOX : encola
     AUDIT_EVENTS ||--o{ AUDIT_CORRECTIONS : corrige
 ```
 
-Nota común a los seis diagramas: `ALERT_EVENT_REFS`, `DETECTIONS` e
+`exports.dataset_id` no declara FK física en este catálogo; no se dibuja como
+relación garantizada. Misma transacción no implica cardinalidad 1:1; para imponerla
+se necesita UNIQUE y una decisión de la entrega correspondiente.
+
+Nota común a los diagramas: `ALERT_EVENT_REFS`, `DETECTIONS` e
 `INDICATOR_MATCHES` referencian `security_event_record_id`/
 `security_event_uid`, que **no son FK** — apuntan a documentos en OpenSearch,
 no a una tabla PostgreSQL. Se documentan como atributos en el §3, no como
@@ -551,43 +562,27 @@ flowchart LR
 
 ## 5. Metodología de normalización
 
-Aplicada a cada tabla del §3 con esta secuencia:
+Esta revisión documenta dependencias y límites; no certifica normalización de
+un schema todavía no implementado.
 
-1. **1FN (valores atómicos, sin grupos repetidos):** ningún campo enumera
-   múltiples valores independientes en una columna escalar. Las excepciones
-   deliberadas usan `jsonb`/`text[]` de PostgreSQL, tratado por el motor como un
-   valor atómico único aunque contenga estructura interna — ver §5.1 para la
-   justificación de cada caso, no una violación silenciosa de 1FN.
-2. **2FN (dependencia completa de la clave):** toda tabla con clave compuesta
-   (`role_capabilities`, `alert_event_refs`) contiene solo atributos que
-   dependen de *ambas* columnas de la clave; atributos que dependen de una sola
-   parte se movieron a la tabla padre (`capabilities.owning_module` en vez de
-   repetirlo en `role_capabilities`).
-3. **3FN (sin dependencias transitivas):** atributos que describen otra entidad
-   se extrajeron a tabla propia en vez de duplicarse:
-   - `roles.name` no se repite en `access_grants` (se referencia por `role_id`).
-   - `detection_rule_versions` separa metadata de versión de `detection_rules`
-     para que cambiar `severity_baseline` de una versión no reescriba filas de
-     `detections` ya emitidas.
-   - `integrations` no repite `owner_functional`/`owner_technical` por
-     checkpoint; vive una sola vez y `integration_checkpoints` solo referencia
-     `integration_id`.
-   - `dataset_catalog` centraliza clasificación/retención; `evidence`,
-     `raw_object_catalog` y `exports` la referencian por `dataset_id` en vez de
-     copiar clasificación, evitando que dos filas del mismo dataset queden con
-     clasificaciones distintas por error de escritura (anomalía de
-     actualización clásica de 2FN/3FN).
-4. **Enums vs. tablas de referencia:** estados de lifecycle (`alerts.status`,
-   `incidents.status`, `notifications.status`) usan `enum` porque su lista está
-   **aceptada y cerrada por ADR** (modules.md, critical-alert-notifications.md);
-   no son datos de negocio mutables por un usuario, así que no ameritan tabla
-   de catálogo aparte. `capabilities` sí es tabla (no enum) porque su catálogo
-   crece por módulo sin recompilar el schema (rbac.md).
-5. **Verificación de anomalías:** para cada tabla se comprobó que
-   insertar/actualizar/eliminar una fila no pueda dejar datos inconsistentes en
-   otra sin pasar por una FK explícita — en particular las tablas de auditoría y
-   retención, donde una copia divergente de clasificación o de hash sería un
-   defecto de seguridad, no solo de diseño.
+1. Las claves compuestas requieren dependencia de toda la clave. En
+   `alert_event_refs` se propone `(alert_id, security_event_record_id)` como PK;
+   eventUid es referencia dependiente del registro externo, no una tercera columna
+   de PK ratificada. Su ubicación definitiva se valida al entregar SOC.
+2. `evidence` no declara dataset_id y sí conserva classification; `exports`
+   conserva dataset_id y classification sin FK física declarada. No se afirma que
+   ambas tablas hereden clasificación automáticamente de dataset_catalog. El
+   significado de clasificación propia, snapshot o derivación deberá decidirse
+   con custodia/retención antes de sus migraciones.
+3. C-04 usa FKs compuestas para pertenencia y documenta redundancia controlada;
+   su referencia raw no demuestra existencia ni digest del objeto externo.
+4. Las notas y holds polimórficos, referencias OpenSearch, hashes y reglas de
+   negocio no quedan protegidos universalmente por FKs. Requieren guardas y
+   pruebas de la entrega dueña. No se afirma haber demostrado consistencia de
+   todas las mutaciones del MER.
+5. Los lifecycles funcionales aceptados no fijan por sí solos enums SQL ni todos
+   sus estados iniciales. C-04 adopta CHECKs mínimos y evolución por migración;
+   el resto del catálogo conserva su carácter propuesto.
 
 ### 5.1 Excepciones deliberadas a la normalización estricta
 
@@ -605,8 +600,8 @@ justificaría extraer `resources` a una tabla `legal_hold_resources`).
 
 ### 5.2 Por qué `audit_events` no se "normaliza" como una tabla mutable
 
-`audit_events` cumple 1FN/2FN/3FN en su estructura de columnas, pero
-deliberadamente **no sigue el patrón de actualización normal**: es
+`audit_events` requiere validar sus dependencias funcionales al implementar su
+schema. Independientemente de esa normalización, su contrato exige que sea
 append-only, el rol runtime no tiene `UPDATE`/`DELETE`, y las correcciones se
 modelan como una fila nueva (`audit_corrections`) en vez de un `UPDATE` sobre
 la fila original. Esto no es una violación de normalización — es un requisito
@@ -639,11 +634,11 @@ verificar el estado real, no solo este documento:
 
 ## 7. Cómo auditar este documento
 
-Para verificar que ninguna entidad fue inventada:
+Para distinguir requisitos heredados de decisiones físicas nuevas:
 
-1. Cada tabla del §3 cita al menos un documento fuente en la columna
-   "Fuente"; abrir el documento y confirmar que el campo aparece o es una
-   consecuencia directa de una regla ahí escrita.
+1. Cada fila R del §3 cita procedencia funcional; verificar qué campos están
+   expresamente requeridos y cuáles son concreciones físicas propuestas. Una
+   inferencia no se convierte en FACT por citar el documento funcional.
 2. Toda fila marcada **PROPOSAL**, **ASSUMPTION** o **UNRESOLVED** es una
    decisión de este documento, no un hecho aceptado — no debe copiarse a un
    ADR o a Prisma sin pasar por revisión de Arquitectura.

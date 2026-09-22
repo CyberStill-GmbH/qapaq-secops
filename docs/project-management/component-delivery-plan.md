@@ -23,12 +23,25 @@ un componente puede servir a varios PBI.
 | C-01 | Raíz del workspace: `package.json`, `pnpm-workspace.yaml`, `.nvmrc`, `tsconfig*`, lint/format | Instalación, scripts y build reproducibles | 001 | Ninguna | Checkout limpio, install congelado, format, lint, typecheck y build PASS |
 | C-02 | Entrypoints: `apps/api`, `apps/worker`, `apps/web` | Arranque mínimo, health y composition roots delgados | 001 | C-01, C-03 | Smoke real de cada proceso; API y worker sin imports entre apps |
 | C-03 | `platform/configuration` | Validación tipada, profiles y contratos `SecretProvider` | 001, 003 | C-01 | Unit de schema; arranque falla seguro ante configuración ausente/inválida |
-| C-04 | `platform/database` | Prisma client, migración base y frontera transaccional | 003, 009, 019 | C-01, C-03, C-06 | Migrar/rollback contra PostgreSQL real; transacción y ownership comprobados |
+| C-04 | `platform/database` y adaptadores de connectors/telemetry | Prisma client, siete tablas de admisión y comando transaccional según ER C-04 | 003, 009, 019 | C-01, C-03, C-05 (contrato), C-06 (PostgreSQL aislado) | Migración real, rollback atómico, carreras, pertenencia, límites y ownership comprobados |
 | C-05 | `packages/contracts/security-event` | JSON Schema, catálogos, tipos, validadores y corpus 1.0.0 | 004 | C-01 | Contract specs de corpus válido/inválido y versiones incompatibles |
 | C-06 | `platform/testing` y definición de entorno de integración | Arranque/teardown de PostgreSQL, Redis, object storage, OpenSearch y Wazuh reales | 003 | C-01, C-03 | Health, aislamiento y limpieza PASS; versiones y commit registrados |
 | C-07 | Reglas del workspace y fixtures de violación | Límites apps/modules/platform, capas y ciclos | 005 | C-01, C-02 | Regla acepta arquitectura válida y rechaza cada bypass preparado |
 | C-08 | `modules/connectors` contrato operativo/probe Wazuh | Port `SecurityEventProvider`, health y consulta read-only mínima | 005, 006 | C-03, C-05, C-06 | Contract suite y consulta a Wazuh/Indexer real autorizado |
 | C-09 | `.github/workflows` y ownership | Integrar PR #2, pnpm congelado, scans y evidencia sin secretos | 002 | C-01, C-06, C-07 | PR confiable/no confiable; checks requeridos y artifact redactado |
+
+C-02 fue materializado el 2026-09-22: API Nest/Fastify, worker inactivo independiente,
+shell React, lifecycle y health sin dependencias simuladas. La evidencia y los
+límites ambientales se registran en [entrega C-02](../development/c-02-entrypoints.md).
+La aceptación de detalles Proposed de ADR-001 no se modifica.
+
+C-04 tiene [ER final de diseño](../architecture/c-04-admission-er.md), con
+[resolución de auditoría](../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22).
+No está implementado ni aceptado por tener documentación. Adelanta únicamente
+persistencia de las siete entidades; C-11 conserva raw durable/orquestación y C-13
+conserva claims, deduplicación de efectos, replay y reprocess. Se mantienen los
+prerrequisitos de C-06; su suite PostgreSQL debe poder ejecutarse sin los demás
+servicios. Los estados futuros se incorporarán con sus respectivas migraciones.
 
 C-03 fue materializado el 2026-09-21 con perfiles explícitos, contratos tipados
 para PostgreSQL, Redis, MinIO y Wazuh Indexer, puerto `SecretProvider`, resolución
@@ -83,7 +96,7 @@ C-22. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
 | Productor | Contrato | Consumidor | Regla |
 | --- | --- | --- | --- |
 | C-10 | Documento Wazuh validado + cursor/coverage | C-11/C-12 | Tipos Wazuh permanecen en infraestructura |
-| C-11 | RawRef + manifest/checkpoint | C-12/C-13 | Checkpoint avanza después de aceptación durable |
+| C-11 | RawRef + manifest/checkpoint | C-12/C-13 | Raw durable primero; checkpoint y admisión se confirman en una sola TX |
 | C-12 | `qapaq.security-event/1.0.0` | C-14/C-16 | Schema es fuente normativa; raw queda separado |
 | C-16 | DetectionCandidate con reason/version | C-17 | Repetición conserva idempotencia |
 | C-17 | Alert/Incident + evento de dominio | C-19/C-20/C-21 | Ningún consumidor escribe tablas internas de SOC |
