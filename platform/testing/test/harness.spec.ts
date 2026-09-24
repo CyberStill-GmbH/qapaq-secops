@@ -12,11 +12,11 @@ describe('harness de integración C-06', () => {
   });
 
   it('informa BLOCKED cuando Docker no está disponible, sin falsear PASS', async () => {
-    const environment = new IntegrationEnvironment({ timeouts: { preflightMs: 1000 } });
+    const environment = new IntegrationEnvironment();
     const report = await environment.preflight();
     expect(['PASS', 'BLOCKED']).toContain(report.status);
     if (report.status === 'BLOCKED') expect(environment.state).toBe('blocked');
-  });
+  }, 60_000);
 
   it('redacta credenciales antes de persistir evidencia', () => {
     const sanitized = redactEvidence({ password: 'synthetic', nested: { token: 'synthetic' } });

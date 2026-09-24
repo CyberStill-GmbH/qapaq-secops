@@ -18,6 +18,7 @@ Los perfiles son:
 
 | Perfil | Servicios | Estado de aceptación |
 | --- | --- | --- |
+| `postgres` | PostgreSQL por digest | Para evidencia C-04; requiere Docker y suite real |
 | `base` | PostgreSQL, Redis, MinIO | Harness implementado; requiere Docker |
 | `search` | `base` + OpenSearch QAPAQ | Bloqueado hasta TLS/configuración aprobada |
 | `wazuh` | Manager + Indexer oficiales | Bloqueado hasta Compose/capacidad |
@@ -45,10 +46,18 @@ artifacts/integration/<runId>/environment-evidence.json
 
 La evidencia incluye commit, árbol sucio, perfil, imágenes, health y cleanup;
 redacta passwords, tokens, access keys, connection strings y claves privadas.
-Los digests se resuelven con `docker image inspect`; si el daemon o el registry
-no están disponibles, permanecen pendientes y la ejecución no puede declararse
-reproducible para CI.
+El perfil `postgres` consume el digest fijado en
+[`integration-environment.lock.json`](../../platform/testing/integration-environment.lock.json),
+arranca por ese digest y lo verifica con `docker image inspect`. La suite C-04 se
+ejecuta en el job `c04-postgres` y adjunta resultado, commit, versión/digest y
+cleanup. Los otros perfiles aún necesitan sus propios digests antes de declarar
+evidencia reproducible en CI.
 
-En el host actual Docker Desktop no expone `dockerDesktopLinuxEngine`, por lo que
-la ejecución base queda `BLOCKED BY INFRASTRUCTURE`. El preflight no descarga
-imágenes ni intenta arrancar Wazuh cuando falta capacidad.
+El 2026-09-23 se aisló el caché roto de Secrets Engine con
+`scripts/dev/repair-docker-desktop.ps1` y Docker Desktop volvió a exponer el
+engine Linux. El perfil `postgres` pasó preflight, health, suite C-04 y cleanup;
+su evidencia local es `c06-96005944-b033-45be-98ad-86661b4a1b09`. El engine
+dispone de unos 3 GiB: cumple el mínimo de 2 GiB del perfil `postgres`, mientras
+el perfil `base` conserva su mínimo de 4 GiB. La suite de integración C-06 de
+PostgreSQL/Redis pasó por separado; object storage y Wazuh no quedan certificados
+por esta ejecución.

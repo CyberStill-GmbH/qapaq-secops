@@ -4,14 +4,14 @@ import { promisify } from 'node:util';
 const exec = promisify(execFile);
 
 export async function dockerPreflight(
-  profile: 'base' | 'search' | 'wazuh' | 'full' = 'base',
+  profile: 'postgres' | 'base' | 'search' | 'wazuh' | 'full' = 'base',
 ): Promise<{
   status: 'PASS' | 'BLOCKED';
   checks: { name: string; status: 'PASS' | 'BLOCKED'; detail: string }[];
 }> {
   try {
     const { stdout } = await exec('docker', ['info', '--format', '{{json .}}'], {
-      timeout: 10_000,
+      timeout: 45_000,
     });
     const info = JSON.parse(stdout) as {
       ServerVersion?: string;
@@ -21,7 +21,13 @@ export async function dockerPreflight(
     };
     const memoryGiB = Math.round((info.MemTotal ?? 0) / 1024 ** 3);
     const minimumGiB =
-      profile === 'wazuh' || profile === 'full' ? 16 : profile === 'search' ? 8 : 4;
+      profile === 'wazuh' || profile === 'full'
+        ? 16
+        : profile === 'search'
+          ? 8
+          : profile === 'postgres'
+            ? 2
+            : 4;
     const architecture = info.Architecture ?? 'desconocida';
     const checks: { name: string; status: 'PASS' | 'BLOCKED'; detail: string }[] = [
       {

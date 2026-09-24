@@ -212,3 +212,8 @@ publicación y despliegue permanecen bloqueados.
 - [Dependabot](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
 - [Gitleaks](https://github.com/gitleaks/gitleaks).
 - [Trivy](https://github.com/aquasecurity/trivy).
+
+El escaneo de secretos conserva `--all` para revisar el historial completo. La única excepción
+en `.gitleaksignore` identifica por fingerprint un valor de prueba histórico de
+`tests/smoke/support.mjs` (commit `8ff6c78`): el smoke test lo inyectaba como `SECRET_TOKEN`
+y comprobaba que no apareciera en la salida. La excepción no cubre hallazgos nuevos.
