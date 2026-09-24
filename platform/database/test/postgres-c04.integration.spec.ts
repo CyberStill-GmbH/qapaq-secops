@@ -1,16 +1,16 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDatabaseClient, createDatabaseClient } from '../src/client.js';
+import { AdmissionError, commitAdmission, type AdmissionCommand } from '../src/commit-admission.js';
 import { runDatabaseTransaction } from '../src/transaction.js';
 import { admissionFixture, insertFixture } from './fixtures.js';
 
 const exec = promisify(execFile);
 const databaseUrl = process.env['DATABASE_URL'];
-const databaseRoot = new URL('../', import.meta.url).pathname
-  .replace(/^\//, '')
-  .replace(/\//g, '\\');
+const databaseRoot = fileURLToPath(new URL('../', import.meta.url));
 
 function temporaryDatabaseName(): string {
   return `qapaq_c04_${process.pid}_${Date.now()}`.replace(/[^a-z0-9_]/gi, '_').toLowerCase();
@@ -118,5 +118,103 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
     expect(await client.eventInbox.count()).toBe(1);
     expect(await client.outboxMessage.count()).toBe(1);
     await closeDatabaseClient(client);
+  });
+
+  it('admite un lote completo, devuelve el mismo recibo y revierte un cursor obsoleto', async () => {
+    const client = createDatabaseClient({ connectionString: temporary!.url, maxConnections: 4 });
+    try {
+      const fixture = admissionFixture();
+      await client.source.create({ data: fixture.source });
+      const command: AdmissionCommand = {
+        sourceId: fixture.source.id,
+        dataset: fixture.source.dataset,
+        manifestKey: fixture.manifest.manifestKey,
+        manifestId: fixture.manifest.id,
+        outboxId: fixture.outbox.id,
+        messageId: fixture.outbox.messageId,
+        outboxIdempotencyKey: fixture.outbox.idempotencyKey,
+        receivedAt: fixture.manifest.receivedAt,
+        expectedRevision: 0n,
+        cursor: { from: null, to: 'cursor-1', version: '1' },
+        newRawObjects: [
+          {
+            id: fixture.raw.id,
+            objectRef: fixture.raw.objectRef,
+            sha256: fixture.raw.sha256,
+            mediaType: fixture.raw.mediaType,
+            sizeBytes: fixture.raw.sizeBytes,
+            receivedAt: fixture.raw.receivedAt,
+          },
+        ],
+        events: [
+          {
+            id: fixture.inbox.id,
+            recordId: fixture.inbox.recordId,
+            providerEventId: fixture.inbox.providerEventId,
+            idempotencyKey: fixture.inbox.idempotencyKey,
+            rawReferenceId: fixture.raw.id,
+            quarantine: { id: fixture.quarantine.id, errorCode: fixture.quarantine.errorCode },
+          },
+        ],
+      };
+      const committed = await commitAdmission(client, command);
+      expect(committed).toEqual({
+        manifestId: fixture.manifest.id,
+        eventCount: 1,
+        acceptedCount: 0,
+        quarantinedCount: 1,
+        duplicateCount: 0,
+        checkpointRevision: 1n,
+      });
+      expect(await commitAdmission(client, command)).toEqual(committed);
+      const changed = {
+        ...command,
+        events: [{ ...command.events[0]!, providerEventId: 'otro-evento' }],
+      };
+      await expect(commitAdmission(client, changed)).rejects.toMatchObject({
+        code: 'PERSISTENCE_CONSTRAINT_VIOLATION',
+      } satisfies Partial<AdmissionError>);
+      const next = admissionFixture();
+      const stale: AdmissionCommand = {
+        ...command,
+        manifestKey: next.manifest.manifestKey,
+        manifestId: next.manifest.id,
+        outboxId: next.outbox.id,
+        messageId: next.outbox.messageId,
+        outboxIdempotencyKey: next.outbox.idempotencyKey,
+        newRawObjects: [
+          { ...command.newRawObjects[0]!, id: next.raw.id, objectRef: next.raw.objectRef },
+        ],
+        events: [
+          {
+            ...command.events[0]!,
+            id: next.inbox.id,
+            recordId: next.inbox.recordId,
+            idempotencyKey: next.inbox.idempotencyKey,
+            rawReferenceId: next.raw.id,
+            quarantine: { id: next.quarantine.id, errorCode: next.quarantine.errorCode },
+          },
+        ],
+      };
+      await expect(commitAdmission(client, stale)).rejects.toMatchObject({
+        code: 'PERSISTENCE_CONCURRENCY_CONFLICT',
+      } satisfies Partial<AdmissionError>);
+      expect(await client.ingestionManifest.count({ where: { sourceId: fixture.source.id } })).toBe(
+        1,
+      );
+      expect(await client.eventInbox.count({ where: { sourceId: fixture.source.id } })).toBe(1);
+      expect(
+        await client.sourceCheckpoint.findUnique({
+          where: {
+            sourceId_dataset: {
+              sourceId: fixture.source.id,
+              dataset: fixture.source.dataset,
+            },
+          },
+        }),
+      ).toMatchObject({ revision: 1n });
+    } finally {
+      await closeDatabaseClient(client);
+    }
   });
 });
