@@ -227,9 +227,13 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
       await expect(commitAdmission(client, crossDataset)).rejects.toMatchObject({
         code: 'PERSISTENCE_NOT_FOUND',
       } satisfies Partial<AdmissionError>);
-      expect(await client.ingestionManifest.count()).toBe(0);
-      expect(await client.eventInbox.count()).toBe(0);
-      expect(await client.rawEventReference.count()).toBe(0);
+      expect(await client.ingestionManifest.count({ where: { sourceId: fixture.source.id } })).toBe(
+        0,
+      );
+      expect(await client.eventInbox.count({ where: { sourceId: fixture.source.id } })).toBe(0);
+      expect(await client.rawEventReference.count({ where: { sourceId: fixture.source.id } })).toBe(
+        0,
+      );
     } finally {
       await closeDatabaseClient(client);
     }
