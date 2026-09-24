@@ -668,9 +668,9 @@ promoción del mismo digest a staging, detección por health, rollback y evidenc
 
 ### Decisión de evidencia C-04 con el entorno C-06
 
-**Decision status:** DECIDED / CI IMPLEMENTED, LOCAL EXECUTION VERIFIED
+**Decision status:** DECIDED / CI VERIFIED
 
-**CI evidence status:** PENDING FIRST SUCCESSFUL RUN
+**CI evidence status:** VERIFIED ON `develop` (`c213073e6afff723690d78377d7e8170a712a63a`)
 
 **Decision owners:** Development + Platform
 
@@ -699,7 +699,7 @@ Para adjuntar evidencia **aceptada** de C-04 desde CI se requiere:
    general continúa limitado a `platform/testing/test`.
 3. Adjuntar el artifact redactado con commit, versión/digest, comando, resultado y
    limpieza `PASS`. El job y el gate exigen que la suite y el artifact se produzcan;
-   su primera ejecución real en CI todavía debe observarse antes de declarar Done.
+   la ejecución real en CI debe terminar con el gate en `success`.
 
 Tras aislar el caché roto de Secrets Engine y reiniciar Docker Desktop/WSL, la
 ejecución local `c06-96005944-b033-45be-98ad-86661b4a1b09` confirmó digest,
@@ -707,8 +707,13 @@ health PostgreSQL, cinco pruebas C-04 y cleanup `PASS`. El artifact local regist
 el commit `f03ec2a157e86cc128646d0d815d38f7bfa968d6` y `workingTreeDirty=true`;
 por ello demuestra el comportamiento del árbol actual, no certifica ese commit.
 La integración C-06 local también pasó con nueve pruebas de PostgreSQL/Redis.
-El cierre formal exige el artifact `c04-postgres-<commit>` de CI sobre el cambio
-integrado. Estas suites aún no cubren todos los criterios del comando público
+La [ejecución CI 35945693397](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/35945693397)
+del commit integrado `c213073e6afff723690d78377d7e8170a712a63a` terminó en
+`success`, incluido el gate y el job C-04. Publicó el artifact
+`c04-postgres-c213073e6afff723690d78377d7e8170a712a63a` con la evidencia
+del perfil `postgres` fijado por digest, cinco pruebas y limpieza. Con ello queda
+verificada la ruta de evidencia C-04 desde CI. Estas suites aún no cubren todos
+los criterios del comando público
 C-04 ni el smoke de object storage/Wazuh exigido por Sprint 1.
 
 ## U-012 — notificación de alertas críticas en Microsoft Teams
