@@ -147,7 +147,8 @@ jobs:
           node-version-file: .nvmrc
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm --filter @qapaq/database generate
+      - name: Generate the Prisma client for clean checkout checks
+        run: pnpm --filter @qapaq/database generate
       - name: C-02 checks without external services
         run: |
           pnpm run typecheck
