@@ -3,7 +3,11 @@ import { promisify } from 'node:util';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import { Client } from 'pg';
 import { createClient } from 'redis';
-import type { IntegrationEnvironmentOptions } from './environment-options.js';
+import type {
+  IntegrationEnvironmentOptions,
+  IntegrationProfile,
+  ServiceImageLock,
+} from './environment-options.js';
 import { imageLock, resolveOptions } from './environment-options.js';
 import { createTestRunId } from './test-run-id.js';
 import type { IntegrationEnvironmentState } from './environment-state.js';
@@ -15,25 +19,43 @@ import type { HealthResult } from '../health/health-result.js';
 
 const exec = promisify(execFile);
 
-async function resolveImageDigests() {
-  const entries = Object.entries(imageLock) as [
+async function resolveImageDigests(profile: IntegrationProfile) {
+  const selected =
+    profile === 'postgres'
+      ? ['postgres']
+      : profile === 'base'
+        ? ['postgres', 'redis', 'minio']
+        : profile === 'search'
+          ? ['postgres', 'redis', 'minio', 'opensearch']
+          : profile === 'wazuh'
+            ? ['wazuhManager', 'wazuhIndexer']
+            : Object.keys(imageLock);
+  const entries = Object.entries(imageLock).filter(([name]) => selected.includes(name)) as [
     keyof typeof imageLock,
     (typeof imageLock)[keyof typeof imageLock],
   ][];
-  const resolved = { ...imageLock };
+  const resolved = Object.fromEntries(
+    Object.entries(imageLock).map(([name, image]) => [name, { ...image, digest: null }]),
+  ) as Record<keyof typeof imageLock, ServiceImageLock>;
   for (const [name, image] of entries) {
     try {
+      const reference = image.digest
+        ? `${image.image}@${image.digest}`
+        : `${image.image}:${image.version}`;
       const result = await exec('docker', [
         'image',
         'inspect',
-        `${image.image}:${image.version}`,
+        reference,
         '--format',
-        '{{index .RepoDigests 0}}',
+        '{{json .RepoDigests}}',
       ]);
-      const digest = result.stdout.trim().split('@')[1];
-      if (digest?.startsWith('sha256:')) resolved[name] = { ...image, digest };
+      const digests = JSON.parse(result.stdout) as string[];
+      const recorded = image.digest
+        ? digests.find((value) => value.endsWith(`@${image.digest}`))
+        : digests.find((value) => value.includes('@sha256:'));
+      resolved[name] = { ...image, digest: recorded?.split('@')[1] ?? null };
     } catch {
-      // La ausencia de digest mantiene la evidencia como no reproducible.
+      resolved[name] = { ...image, digest: null };
     }
   }
   return resolved;
@@ -87,6 +109,12 @@ export class IntegrationEnvironment {
     const docker = await dockerPreflight(this.options.profile);
     const resources = resourcePreflight(this.options.profile);
     const checks = [...docker.checks, ...resources.checks];
+    if (this.options.profile === 'postgres')
+      checks.push({
+        name: 'postgres-image-lock',
+        status: /^sha256:[0-9a-f]{64}$/u.test(imageLock.postgres.digest ?? '') ? 'PASS' : 'BLOCKED',
+        detail: imageLock.postgres.digest ? 'Digest PostgreSQL fijado' : 'Falta digest PostgreSQL',
+      });
     this.preflightValue = {
       status: reportStatus(checks),
       checks,
@@ -110,9 +138,18 @@ export class IntegrationEnvironment {
         'qapaq.test.owner': 'platform-testing',
       };
       const profile = this.options.profile;
-      if (profile === 'base' || profile === 'search' || profile === 'full') {
+      if (
+        profile === 'postgres' ||
+        profile === 'base' ||
+        profile === 'search' ||
+        profile === 'full'
+      ) {
+        if (profile === 'postgres' && !imageLock.postgres.digest)
+          throw new Error('Falta digest PostgreSQL para C-04');
         const postgres = await new GenericContainer(
-          `${imageLock.postgres.image}:${imageLock.postgres.version}`,
+          profile === 'postgres'
+            ? `${imageLock.postgres.image}@${imageLock.postgres.digest}`
+            : `${imageLock.postgres.image}:${imageLock.postgres.version}`,
         )
           .withEnvironment({
             POSTGRES_DB: 'qapaq_test',
@@ -121,7 +158,7 @@ export class IntegrationEnvironment {
           })
           .withExposedPorts(5432)
           .withLabels(labels)
-          .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/))
+          .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/, 2))
           .start();
         this.runtimeValue = {
           ...this.runtimeValue,
@@ -217,13 +254,13 @@ export class IntegrationEnvironment {
           durationMs: Date.now() - started,
           detail: 'SELECT 1',
         });
-      } catch (error) {
+      } catch {
         checks.push({
           service: 'postgres',
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message : 'fallo de conexión',
+          detail: 'fallo de conexión',
         });
       } finally {
         await client.end().catch(() => undefined);
@@ -241,13 +278,13 @@ export class IntegrationEnvironment {
           durationMs: Date.now() - started,
           detail: 'PING',
         });
-      } catch (error) {
+      } catch {
         checks.push({
           service: 'redis',
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message : 'fallo de conexión',
+          detail: 'fallo de conexión',
         });
       } finally {
         await client.quit().catch(() => undefined);
@@ -266,13 +303,13 @@ export class IntegrationEnvironment {
           durationMs: Date.now() - started,
           detail: 'health/live',
         });
-      } catch (error) {
+      } catch {
         checks.push({
           service: 'minio',
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message : 'fallo HTTP',
+          detail: 'fallo HTTP',
         });
       }
     }
@@ -312,7 +349,14 @@ export class IntegrationEnvironment {
     }
     const blockedComponent =
       isBlockedComponent(this.runtimeValue.opensearch) || this.runtimeValue.wazuh?.blocked;
-    const resolvedImages = await resolveImageDigests();
+    const resolvedImages =
+      this.stateValue === 'healthy'
+        ? await resolveImageDigests(this.options.profile)
+        : { ...imageLock, postgres: { ...imageLock.postgres, digest: null } };
+    const postgresLockVerified =
+      this.options.profile !== 'postgres' ||
+      (resolvedImages.postgres.digest !== null &&
+        resolvedImages.postgres.digest === imageLock.postgres.digest);
     return {
       runId: this.runId,
       projectCommit,
@@ -326,7 +370,11 @@ export class IntegrationEnvironment {
       health: this.healthResults,
       cleanup: { status: 'PENDING', remainingOwnedResources: [] },
       result:
-        this.stateValue === 'healthy' && !blockedComponent
+        this.stateValue === 'healthy' &&
+        !blockedComponent &&
+        postgresLockVerified &&
+        this.healthResults.length > 0 &&
+        this.healthResults.every((check) => check.healthy)
           ? 'PASS'
           : this.stateValue === 'blocked' || blockedComponent
             ? 'BLOCKED'

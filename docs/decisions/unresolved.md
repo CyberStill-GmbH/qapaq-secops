@@ -658,13 +658,58 @@ ambientes, identidad, conectividad, mecanismo, aprobadores, health checks y sopo
 antes de las dos últimas.
 
 El workspace usa `pnpm install --frozen-lockfile` y `pnpm audit`; no se crea un
-`package-lock.json` artificial para ejecutar npm. El workflow observado todavía
-usa descubrimiento npm y debe migrarse al implementar el workspace. No se crea CD
-con valores o credenciales ficticios.
+`package-lock.json` artificial para ejecutar npm. El workflow actual ya descubre
+pnpm y ejecuta controles del workspace. No se crea CD con valores o credenciales
+ficticios.
 
 U-011 permanece parcialmente resuelta hasta demostrar los ocho escenarios de
 cierre: aislamiento de PR, CI completa, candidato certificado, contrato aceptado,
 promoción del mismo digest a staging, detección por health, rollback y evidencia.
+
+### Decisión de evidencia C-04 con el entorno C-06
+
+**Decision status:** DECIDED / CI IMPLEMENTED, LOCAL EXECUTION VERIFIED
+
+**CI evidence status:** PENDING FIRST SUCCESSFUL RUN
+
+**Decision owners:** Development + Platform
+
+**Decision date:** 2026-09-23
+
+El perfil `base` de `IntegrationEnvironment` ofrece PostgreSQL 18.6 real con puerto
+dinámico y limpieza del contenedor, por lo que es una base funcional suficiente
+para ejecutar la suite de persistencia C-04. También inicia Redis y MinIO, aunque
+la suite C-04 solo requiere PostgreSQL. Esta suficiencia funcional no acredita
+todavía la reproducibilidad ni el cumplimiento de la Definition of Done en CI.
+
+Se adoptó la alternativa **`postgres`**, que inicia solo PostgreSQL. El digest del
+índice OCI de `docker.io/library/postgres:18.6` se consultó con
+`docker buildx imagetools inspect` el 2026-09-23 y quedó fijado en
+[`integration-environment.lock.json`](../../platform/testing/integration-environment.lock.json).
+El runtime consume ese lock, arranca por digest y vuelve a comprobar el digest
+local al recoger evidencia. Un digest ausente o diferente impide `PASS`. Los
+digests de Redis, MinIO, OpenSearch y Wazuh siguen `null`; se resolverán antes de
+aceptar evidencia de los perfiles que los ejecutan. No son requisito de C-04.
+
+Para adjuntar evidencia **aceptada** de C-04 desde CI se requiere:
+
+1. Arrancar el perfil `postgres` con el digest fijado y verificarlo tras el pull.
+2. Ejecutar la suite PostgreSQL C-04 con `DATABASE_URL` efímera. El job
+   `c04-postgres` ya la invoca directamente; el `vitest.integration.config.ts`
+   general continúa limitado a `platform/testing/test`.
+3. Adjuntar el artifact redactado con commit, versión/digest, comando, resultado y
+   limpieza `PASS`. El job y el gate exigen que la suite y el artifact se produzcan;
+   su primera ejecución real en CI todavía debe observarse antes de declarar Done.
+
+Tras aislar el caché roto de Secrets Engine y reiniciar Docker Desktop/WSL, la
+ejecución local `c06-96005944-b033-45be-98ad-86661b4a1b09` confirmó digest,
+health PostgreSQL, cinco pruebas C-04 y cleanup `PASS`. El artifact local registra
+el commit `f03ec2a157e86cc128646d0d815d38f7bfa968d6` y `workingTreeDirty=true`;
+por ello demuestra el comportamiento del árbol actual, no certifica ese commit.
+La integración C-06 local también pasó con nueve pruebas de PostgreSQL/Redis.
+El cierre formal exige el artifact `c04-postgres-<commit>` de CI sobre el cambio
+integrado. Estas suites aún no cubren todos los criterios del comando público
+C-04 ni el smoke de object storage/Wazuh exigido por Sprint 1.
 
 ## U-012 — notificación de alertas críticas en Microsoft Teams
 
