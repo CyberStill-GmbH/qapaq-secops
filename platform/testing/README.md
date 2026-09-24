@@ -11,7 +11,8 @@ importarse.
 de ownership (`qapaq.test`, `qapaq.test.run-id` y `qapaq.test.owner`) y nombres
 derivados de esa identidad. Las credenciales solo viven en el runtime.
 
-Los perfiles son `base` (PostgreSQL, Redis y MinIO), `search` (base más el
+Los perfiles son `postgres` (PostgreSQL fijado por digest para C-04), `base`
+(PostgreSQL, Redis y MinIO), `search` (base más el
 componente OpenSearch pendiente de TLS aprobado), `wazuh` (topología Wazuh
 pendiente de Compose oficial y capacidad) y `full` (search+wazuh). Un perfil
 pendiente queda `BLOCKED`; nunca se informa como PASS.
@@ -31,9 +32,9 @@ runtime. OpenSearch y Wazuh requieren completar su configuración TLS y su
 topología oficial antes de aceptar esos perfiles.
 
 Las imágenes y tags provienen de la baseline de [toolchain y capacidad](../../docs/architecture/toolchain-and-capacity.md)
-y se declaran en `integration-environment.lock.json`. Los digests se rellenan
-durante un preflight con acceso al registry; mientras sean `null` la evidencia
-debe considerarse no reproducible para CI.
+y se declaran en `integration-environment.lock.json`. El perfil `postgres`
+requiere su digest fijado y verificado. Los perfiles que aún tengan digests
+`null` no producen evidencia reproducible para CI.
 
 La evidencia se escribe en `artifacts/integration/<runId>/` después de aplicar
 redacción. El teardown solo elimina recursos que llevan las tres etiquetas del

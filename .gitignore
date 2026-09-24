@@ -215,6 +215,7 @@ test-results/
 # Local integration runtime
 .local/
 .env.local
+artifacts/integration/
 
 # Prisma generated client
 platform/database/generated/
