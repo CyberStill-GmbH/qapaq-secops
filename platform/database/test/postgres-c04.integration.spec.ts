@@ -247,18 +247,8 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
       await client.source.create({ data: own.fixture.source });
       await client.source.create({ data: foreign.fixture.source });
       // El raw referenciado por el evento pertenece a `foreign`, no a `own.command.sourceId`.
-      await client.rawEventReference.create({
-        data: {
-          id: foreign.command.newRawObjects[0]!.id,
-          sourceId: foreign.fixture.source.id,
-          manifestId: foreign.fixture.manifest.id,
-          objectRef: foreign.command.newRawObjects[0]!.objectRef,
-          sha256: foreign.command.newRawObjects[0]!.sha256,
-          mediaType: foreign.command.newRawObjects[0]!.mediaType,
-          sizeBytes: foreign.command.newRawObjects[0]!.sizeBytes,
-          receivedAt: foreign.command.newRawObjects[0]!.receivedAt,
-        },
-      });
+      // El manifiesto de `foreign` debe existir antes que su raw por la FK compuesta
+      // raw_event_references_manifest_fkey (sourceId, manifestId) -> (sourceId, id).
       await client.ingestionManifest.create({
         data: {
           id: foreign.fixture.manifest.id,
@@ -273,6 +263,18 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
           duplicateCount: 0,
           quarantinedCount: 0,
           updatedAt: foreign.fixture.manifest.receivedAt,
+        },
+      });
+      await client.rawEventReference.create({
+        data: {
+          id: foreign.command.newRawObjects[0]!.id,
+          sourceId: foreign.fixture.source.id,
+          manifestId: foreign.fixture.manifest.id,
+          objectRef: foreign.command.newRawObjects[0]!.objectRef,
+          sha256: foreign.command.newRawObjects[0]!.sha256,
+          mediaType: foreign.command.newRawObjects[0]!.mediaType,
+          sizeBytes: foreign.command.newRawObjects[0]!.sizeBytes,
+          receivedAt: foreign.command.newRawObjects[0]!.receivedAt,
         },
       });
       const crossTenant: AdmissionCommand = {
