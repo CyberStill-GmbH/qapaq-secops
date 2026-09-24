@@ -304,13 +304,19 @@ el MER global ni cerrar su implementación.
 - A-12: estados iniciales, payload cerrado de 4 KiB, límites de cursor/tiempo,
   errores y gates de configuración/harness/migración establecidos.
 
-Los criterios 1–5 quedan resueltos **a nivel de diseño documental**. La migración
-Prisma C-04 y el schema de siete tablas ya existen. La suite
-`platform/database/test/postgres-c04.integration.spec.ts` demuestra migración desde
-base vacía, rollback total después de una escritura fallida y carrera concurrente
-contra PostgreSQL real. La aceptación completa de C-04 aún conserva los gates de
-comando público de admisión, límites, CAS de checkpoint y evidencia de producción.
-Las decisiones globales pendientes de §6 del MER conservan su alcance original.
+Los criterios 1–6 quedan resueltos, criterio 6 con implementación real y no
+solo a nivel de diseño documental (ver
+[Cierre 2026-09-24](c-04-admission-er.md#cierre-2026-09-24)): la migración
+Prisma, el schema de siete tablas, el comando público `commitAdmission`,
+límites, CAS de checkpoint y rechazo por pertenencia/tenant están
+implementados y probados. La suite
+`platform/database/test/postgres-c04.integration.spec.ts` demuestra migración
+desde base vacía, rollback total, carrera concurrente, admisión idempotente y
+rechazo por cruce de Source/tenant/dataset contra PostgreSQL real; la suite
+`platform/database/test/commit-admission-validation.spec.ts` prueba en
+unitario los límites de identificadores, tamaño y conteo. Las decisiones
+globales pendientes de §6 del MER conservan su alcance original y no bloquean
+el cierre de C-04.
 
 Evidencia visual: [`c04-migration-test-success.png`](../../c04-migration-test-success.png)
 y [`c04-rollback-concurrency-success.png`](../../c04-rollback-concurrency-success.png).

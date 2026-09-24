@@ -11,6 +11,7 @@ export {
 export {
   AdmissionError,
   commitAdmission,
+  validateAdmissionCommand,
   type AdmissionCommand,
   type AdmissionReceipt,
   type RawObjectProof,

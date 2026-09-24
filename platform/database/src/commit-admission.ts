@@ -104,7 +104,7 @@ function canonical(value: unknown): string {
     .join(',')}}`;
 }
 
-function validate(command: AdmissionCommand): void {
+export function validateAdmissionCommand(command: AdmissionCommand): void {
   requireValue(uuid7.test(command.sourceId) && uuid7.test(command.manifestId));
   requireValue(uuid7.test(command.outboxId) && uuid7.test(command.messageId));
   requireValue(command.events.length >= 1 && command.events.length <= 500);
@@ -188,7 +188,7 @@ export async function commitAdmission(
   client: PrismaClient,
   command: AdmissionCommand,
 ): Promise<AdmissionReceipt> {
-  validate(command);
+  validateAdmissionCommand(command);
   const digestCommand = {
     ...command,
     events: [...command.events].sort((a, b) => a.id.localeCompare(b.id)),

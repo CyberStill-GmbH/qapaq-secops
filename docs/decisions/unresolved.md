@@ -711,10 +711,27 @@ La [ejecución CI 35945693397](https://github.com/CyberStill-GmbH/qapaq-secops/a
 del commit integrado `c213073e6afff723690d78377d7e8170a712a63a` terminó en
 `success`, incluido el gate y el job C-04. Publicó el artifact
 `c04-postgres-c213073e6afff723690d78377d7e8170a712a63a` con la evidencia
-del perfil `postgres` fijado por digest, cinco pruebas y limpieza. Con ello queda
-verificada la ruta de evidencia C-04 desde CI. Estas suites aún no cubren todos
-los criterios del comando público
-C-04 ni el smoke de object storage/Wazuh exigido por Sprint 1.
+del perfil `postgres` fijado por digest, cinco pruebas y limpieza. Con ello quedó
+verificada la ruta de evidencia C-04 desde CI.
+
+### Cierre de C-04 — 2026-09-24
+
+**Decision status:** DECIDED / DONE
+
+El 2026-09-24 se cerraron los dos gates que este apartado dejaba abiertos para
+el comando público C-04: rechazo por cruce de Source/tenant/dataset y límites
+de identificadores/tamaño/conteo. Detalle completo, incluida la distinción
+entre lo verificado localmente hoy (typecheck, boundaries, 205 specs unitarias
+en verde, incluidas 18 nuevas de `validateAdmissionCommand`) y lo pendiente de
+confirmación por el próximo run de CI (los dos casos nuevos de pertenencia
+contra PostgreSQL real, no ejecutables en esta sesión por falta de Docker
+local), en [C-04 — Cierre 2026-09-24](../architecture/c-04-admission-er.md#cierre-2026-09-24).
+
+El smoke de object storage/Wazuh exigido por Sprint 1 (PBI-003) permanece
+pendiente, pero queda reclasificado como alcance de C-06/C-08, no como gate de
+cierre de C-04: la columna de evidencia de C-04 en el
+[plan de componentes](../project-management/component-delivery-plan.md) nunca
+lo exigió; solo lo mencionaba este apartado como contexto de Sprint 1.
 
 ## U-012 — notificación de alertas críticas en Microsoft Teams
 

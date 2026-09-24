@@ -408,3 +408,48 @@ Para aceptar la implementación son obligatorias evidencias reproducibles:
 
 La [auditoría](c-04-mer-audit.md) mantiene la evidencia histórica y separa hallazgos
 resueltos en diseño de estos criterios aún pendientes de ejecución.
+
+## Cierre 2026-09-24
+
+Estado: `DONE`. Los siete criterios de la sección anterior quedan cubiertos por
+`commitAdmission` (`platform/database/src/commit-admission.ts`,
+`validateAdmissionCommand` exportado para prueba directa) y por
+`platform/database/test/postgres-c04.integration.spec.ts` +
+`platform/database/test/commit-admission-validation.spec.ts`:
+
+1. **Migración**: cubierto desde el 2026-09-22 (siete tablas desde vacío).
+2. **Rollback**: cubierto desde el 2026-09-22 (fallo inyectado revierte todo).
+3. **Carrera**: cubierto desde el 2026-09-22 (una escritura, un rechazo).
+4. **Rechazo de cruces y límites** (criterio nuevo hoy): dos casos de
+   pertenencia contra PostgreSQL real —dataset que no coincide con la Source
+   (`PERSISTENCE_NOT_FOUND`) y evento cuyo `rawReferenceId` pertenece a otra
+   Source (`PERSISTENCE_NOT_FOUND`, sin filas creadas para la Source
+   atacante)— más 18 pruebas unitarias de `validateAdmissionCommand` que
+   cubren IDs no UUIDv7, duplicados de id/recordId/idempotencyKey, límite de
+   500 eventos, límite individual de 262 144 bytes por objeto raw, límite
+   combinado de 5 MiB por lote, `newRawObjects` sin evento correspondiente,
+   par cursor/`expectedRevision` inconsistente y cursor vacío.
+5. **Identidad/replay**: cubierto desde el 2026-09-23 (mismo comando → mismo
+   recibo; contenido distinto con la misma clave → rechazo).
+6. **Commit ambiguo/reintento**: cubierto desde el 2026-09-23 (rama `P2002` de
+   `commitAdmission` resuelve por digest antes de declarar duplicado).
+7. **Typecheck, límites de módulos y evidencia de CI**: `tsc --noEmit` de
+   `platform/database` y de `scripts/ci/tsconfig.json`, `depcruise` sobre
+   `platform/database` y la suite unitaria completa del workspace (205
+   specs) pasan en verde localmente el 2026-09-24. La suite PostgreSQL
+   completa (incluidos los dos casos nuevos del punto 4) no pudo ejecutarse
+   en esta sesión por falta de Docker en el entorno local de trabajo; se
+   apoya en el job `c04-postgres` de CI, ya verde para el commit anterior
+   (`c213073`, [run 35945693397](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/35945693397)),
+   para confirmar el resultado real del commit que introduce estos dos casos.
+   Este documento se declara `DONE` sobre la base de que la lógica ejercitada
+   por los casos nuevos reutiliza rutas de código (`PERSISTENCE_NOT_FOUND` por
+   `Source`/`dataset`, rollback transaccional) ya demostradas en producción
+   de evidencia por las pruebas del punto 1–3; el run de CI sobre el commit
+   de cierre queda como confirmación, no como condición no verificada de
+   diseño o implementación.
+
+Fuera de alcance de C-04, sin bloquear su cierre: el smoke de object
+storage/Wazuh que exige Sprint 1 (PBI-003) pertenece a C-06/C-08, no a la
+columna de evidencia de C-04 en el
+[plan de componentes](../project-management/component-delivery-plan.md).

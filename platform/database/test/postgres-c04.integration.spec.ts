@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeDatabaseClient, createDatabaseClient } from '../src/client.js';
 import { AdmissionError, commitAdmission, type AdmissionCommand } from '../src/commit-admission.js';
 import { runDatabaseTransaction } from '../src/transaction.js';
-import { admissionFixture, insertFixture } from './fixtures.js';
+import { admissionCommandFixture, admissionFixture, insertFixture } from './fixtures.js';
 
 const exec = promisify(execFile);
 const databaseUrl = process.env['DATABASE_URL'];
@@ -213,6 +213,78 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
           },
         }),
       ).toMatchObject({ revision: 1n });
+    } finally {
+      await closeDatabaseClient(client);
+    }
+  });
+
+  it('rechaza un comando cuyo dataset no coincide con el dataset registrado de la Source', async () => {
+    const client = createDatabaseClient({ connectionString: temporary!.url, maxConnections: 4 });
+    try {
+      const { fixture, command } = admissionCommandFixture();
+      await client.source.create({ data: fixture.source });
+      const crossDataset: AdmissionCommand = { ...command, dataset: 'otro-dataset' };
+      await expect(commitAdmission(client, crossDataset)).rejects.toMatchObject({
+        code: 'PERSISTENCE_NOT_FOUND',
+      } satisfies Partial<AdmissionError>);
+      expect(await client.ingestionManifest.count()).toBe(0);
+      expect(await client.eventInbox.count()).toBe(0);
+      expect(await client.rawEventReference.count()).toBe(0);
+    } finally {
+      await closeDatabaseClient(client);
+    }
+  });
+
+  it('rechaza un evento cuyo rawReferenceId pertenece a otra Source (aislamiento de tenant)', async () => {
+    const client = createDatabaseClient({ connectionString: temporary!.url, maxConnections: 4 });
+    try {
+      const own = admissionCommandFixture();
+      const foreign = admissionCommandFixture();
+      await client.source.create({ data: own.fixture.source });
+      await client.source.create({ data: foreign.fixture.source });
+      // El raw referenciado por el evento pertenece a `foreign`, no a `own.command.sourceId`.
+      await client.rawEventReference.create({
+        data: {
+          id: foreign.command.newRawObjects[0]!.id,
+          sourceId: foreign.fixture.source.id,
+          manifestId: foreign.fixture.manifest.id,
+          objectRef: foreign.command.newRawObjects[0]!.objectRef,
+          sha256: foreign.command.newRawObjects[0]!.sha256,
+          mediaType: foreign.command.newRawObjects[0]!.mediaType,
+          sizeBytes: foreign.command.newRawObjects[0]!.sizeBytes,
+          receivedAt: foreign.command.newRawObjects[0]!.receivedAt,
+        },
+      });
+      await client.ingestionManifest.create({
+        data: {
+          id: foreign.fixture.manifest.id,
+          sourceId: foreign.fixture.source.id,
+          dataset: foreign.fixture.source.dataset,
+          manifestKey: foreign.fixture.manifest.manifestKey,
+          admissionDigest: 'c'.repeat(64),
+          receivedAt: foreign.fixture.manifest.receivedAt,
+          durableAt: foreign.fixture.manifest.receivedAt,
+          eventCount: 0,
+          acceptedCount: 0,
+          duplicateCount: 0,
+          quarantinedCount: 0,
+          updatedAt: foreign.fixture.manifest.receivedAt,
+        },
+      });
+      const crossTenant: AdmissionCommand = {
+        ...own.command,
+        newRawObjects: [],
+        events: [
+          { ...own.command.events[0]!, rawReferenceId: foreign.command.newRawObjects[0]!.id },
+        ],
+      };
+      await expect(commitAdmission(client, crossTenant)).rejects.toMatchObject({
+        code: 'PERSISTENCE_NOT_FOUND',
+      } satisfies Partial<AdmissionError>);
+      expect(
+        await client.ingestionManifest.count({ where: { sourceId: own.fixture.source.id } }),
+      ).toBe(0);
+      expect(await client.eventInbox.count({ where: { sourceId: own.fixture.source.id } })).toBe(0);
     } finally {
       await closeDatabaseClient(client);
     }

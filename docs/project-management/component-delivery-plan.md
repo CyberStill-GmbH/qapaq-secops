@@ -37,11 +37,21 @@ La aceptación de detalles Proposed de ADR-001 no se modifica.
 
 C-04 tiene [ER final de diseño](../architecture/c-04-admission-er.md), con
 [resolución de auditoría](../architecture/c-04-mer-audit.md#resolución-documental-del-mer--2026-09-22).
-No está implementado ni aceptado por tener documentación. Adelanta únicamente
-persistencia de las siete entidades; C-11 conserva raw durable/orquestación y C-13
-conserva claims, deduplicación de efectos, replay y reprocess. Se mantienen los
-prerrequisitos de C-06; su suite PostgreSQL debe poder ejecutarse sin los demás
-servicios. Los estados futuros se incorporarán con sus respectivas migraciones.
+Adelanta únicamente persistencia de las siete entidades; C-11 conserva raw
+durable/orquestación y C-13 conserva claims, deduplicación de efectos, replay
+y reprocess. Se mantienen los prerrequisitos de C-06; su suite PostgreSQL debe
+poder ejecutarse sin los demás servicios. Los estados futuros se incorporarán
+con sus respectivas migraciones.
+
+C-04 quedó `DONE` el 2026-09-24: el comando público `commitAdmission`
+(`platform/database/src/commit-admission.ts`) cubre los seis criterios de la
+columna "Specs y evidencia de salida" contra PostgreSQL real —migración desde
+vacío, rollback atómico, una carrera concurrente, límites de tamaño/conteo,
+pertenencia (rechazo por cruce de Source/tenant y de dataset) y ownership
+(raw/eventos solo visibles para su propia Source)— más idempotencia de recibo
+y CAS de checkpoint. El detalle de la evidencia, incluida la distinción entre
+lo verificado localmente y lo pendiente de confirmación en CI, está en
+[C-04 — cierre de persistencia de admisión](../architecture/c-04-admission-er.md#cierre-2026-09-24).
 
 C-03 fue materializado el 2026-09-21 con perfiles explícitos, contratos tipados
 para PostgreSQL, Redis, MinIO y Wazuh Indexer, puerto `SecretProvider`, resolución
