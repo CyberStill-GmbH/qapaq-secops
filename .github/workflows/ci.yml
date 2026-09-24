@@ -130,6 +130,8 @@ jobs:
         run: corepack enable
       - name: Install locked dependencies without lifecycle scripts
         run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Generate the Prisma client for clean checkout checks
+        run: pnpm --filter @qapaq/database generate
       - name: Run configured project checks (missing checks fail)
         run: pnpm run verify
 
@@ -145,6 +147,7 @@ jobs:
           node-version-file: .nvmrc
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @qapaq/database generate
       - name: C-02 checks without external services
         run: |
           pnpm run typecheck

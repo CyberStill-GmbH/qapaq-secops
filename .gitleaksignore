@@ -1,0 +1,2 @@
+# Historical smoke-test fixture injected as SECRET_TOKEN; scoped to its exact finding.
+8ff6c78f2779fc25b05a0355849647a770225a0f:tests/smoke/support.mjs:generic-api-key:6
