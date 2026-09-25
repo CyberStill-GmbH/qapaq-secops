@@ -89,10 +89,10 @@ día laborable se escala conforme al plan Scrum.
 
 Sprint: 1 — Base ejecutable y contratos.
 
-`main` se revisó en `df44dc7`: C-04 ya está DONE y C-06 base está integrado.
-La rama `codex/c06-ci-repair` añadió aceptación funcional real OpenSearch/Wazuh,
-evidencias y excepción aceptada de capacidad de pruebas; su merge a `main` queda
-como siguiente acción de este cierre.
+`main` se revisó inicialmente en `df44dc7`: C-04 ya estaba DONE y C-06 base
+integrado. El cierre con evidencia real OpenSearch/Wazuh y excepción aceptada de
+capacidad se integró después por PR #14, merge `ec4d357`; todos los jobs CI del
+PR terminaron PASS. El corte final de este Daily es `main` en `ec4d357`.
 
 Componentes activos y estado:
 
@@ -109,8 +109,8 @@ Evidencia terminada:
   índice diario; evidencia JSON/PNG versionada en la rama de cierre.
 - El entorno Railway temporal fue eliminado al terminar la captura.
 
-Plan hasta el siguiente Daily: integrar la rama de cierre con CI verde; continuar
-la gestión de accesos C-08 y confirmar C-09. La orquestación local `search` /
+Plan hasta el siguiente Daily: continuar la gestión de accesos C-08 y confirmar
+C-09. La orquestación local `search` /
 `wazuh` / `full` y el sizing oficial del Compose Wazuh quedan como mejoras
 posteriores; el sizing oficial sigue requerido para despliegue.
 
