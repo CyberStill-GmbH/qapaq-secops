@@ -71,6 +71,16 @@ C-04/C-08; C-02 y C-07 cierran la forma del workspace; C-09 se adapta a scripts
 reales. No se copia CI documentalmente ni se crea otro workflow si PR #2 ya cubre
 la capacidad.
 
+C-09 tiene una auditoría inicial registrada en
+[C-09 — CI seguro y evidencia](c-09/README.md). El head recuperable de PR #2 está
+integrado en `main`; faltan la aceptación real con PR confiable/no confiable y la
+confirmación administrativa de required checks. CODEOWNERS y aprobación
+independiente fueron eximidos por el propietario mientras exista un único
+mantenedor humano. Se añadió un
+workflow de evidencia restringido a CI exitoso en `main`, aún pendiente de
+integración y ejecución para producir el artifact oficial. Permanece bloqueado,
+sin estado `DONE`.
+
 ## Sprint 2 — Ingesta durable Microsoft 365/Wazuh, dos días
 
 | ID | Componente y ruta principal | Responsabilidad | PBI | Depende de | Specs y evidencia de salida |
