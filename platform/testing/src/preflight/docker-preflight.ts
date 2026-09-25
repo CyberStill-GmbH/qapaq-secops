@@ -25,11 +25,11 @@ export async function dockerPreflight(
         ? 16
         : profile === 'wazuh'
           ? 8
-        : profile === 'search'
-          ? 8
-          : profile === 'postgres'
-            ? 2
-            : 3;
+          : profile === 'search'
+            ? 8
+            : profile === 'postgres'
+              ? 2
+              : 3;
     const architecture = info.Architecture ?? 'desconocida';
     const checks: { name: string; status: 'PASS' | 'BLOCKED'; detail: string }[] = [
       {

@@ -56,7 +56,9 @@ async function remainingContainers(runId: string): Promise<string[]> {
 describe('C-06 perfil base con servicios reales', () => {
   it('verifica salud, aislamiento concurrente, operaciones y cleanup', async () => {
     try {
-      const preflights = await Promise.all(environments.map((environment) => environment.preflight()));
+      const preflights = await Promise.all(
+        environments.map((environment) => environment.preflight()),
+      );
       expect(preflights.map((report) => report.status)).toEqual(['PASS', 'PASS']);
       expect(environments[0].runId).not.toBe(environments[1].runId);
 
@@ -77,11 +79,7 @@ describe('C-06 perfil base con servicios reales', () => {
       const health = await Promise.all(environments.map((environment) => environment.health()));
       for (const report of health) {
         expect(report.status).toBe('PASS');
-        expect(report.checks.map((check) => check.service)).toEqual([
-          'postgres',
-          'redis',
-          'minio',
-        ]);
+        expect(report.checks.map((check) => check.service)).toEqual(['postgres', 'redis', 'minio']);
         expect(report.checks.every((check) => check.healthy)).toBe(true);
       }
       suiteStatus = 'PASS';
@@ -100,7 +98,9 @@ describe('C-06 perfil base con servicios reales', () => {
       } catch {
         cleanupStatus = 'FAIL';
       }
-      const remaining = await remainingContainers(environment.runId).catch(() => ['docker-inspect-failed']);
+      const remaining = await remainingContainers(environment.runId).catch(() => [
+        'docker-inspect-failed',
+      ]);
       if (remaining.length > 0) cleanupStatus = 'FAIL';
       const selected = snapshot?.images;
       const pinned = Boolean(
@@ -134,8 +134,11 @@ describe('C-06 perfil base con servicios reales', () => {
         cleanup: { status: cleanupStatus, remainingOwnedResources: remaining },
         suite: { name: 'C-06 base end-to-end', status: suiteStatus, checks },
         result:
-          suiteStatus === 'PASS' && cleanupStatus === 'PASS' && pinned ? ('PASS' as const) :
-          suiteStatus === 'BLOCKED' ? ('BLOCKED' as const) : ('FAIL' as const),
+          suiteStatus === 'PASS' && cleanupStatus === 'PASS' && pinned
+            ? ('PASS' as const)
+            : suiteStatus === 'BLOCKED'
+              ? ('BLOCKED' as const)
+              : ('FAIL' as const),
       };
       await writeEnvironmentEvidence(repositoryRoot, evidence);
     }

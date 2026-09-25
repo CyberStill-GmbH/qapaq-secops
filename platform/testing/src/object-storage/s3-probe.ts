@@ -50,13 +50,10 @@ export async function verifyS3RoundTrip(options: S3ProbeOptions): Promise<void> 
     );
     objectCreated = true;
 
-    const head = await client.send(
-      new HeadObjectCommand({ Bucket: options.bucket, Key: key }),
-    );
+    const head = await client.send(new HeadObjectCommand({ Bucket: options.bucket, Key: key }));
     if (head.Metadata?.['sha256'] !== expectedHash)
       throw new Error('S3 HeadObject: metadata SHA-256 no coincide');
-    if (head.ContentLength !== payload.length)
-      throw new Error('S3 HeadObject: tamaño no coincide');
+    if (head.ContentLength !== payload.length) throw new Error('S3 HeadObject: tamaño no coincide');
 
     const get = await client.send(new GetObjectCommand({ Bucket: options.bucket, Key: key }));
     if (!get.Body) throw new Error('S3 GetObject: respuesta sin contenido');
@@ -74,7 +71,9 @@ export async function verifyS3RoundTrip(options: S3ProbeOptions): Promise<void> 
     throw new Error(`S3 CRUD: ${name}`);
   } finally {
     if (objectCreated)
-      await client.send(new DeleteObjectCommand({ Bucket: options.bucket, Key: key })).catch(() => undefined);
+      await client
+        .send(new DeleteObjectCommand({ Bucket: options.bucket, Key: key }))
+        .catch(() => undefined);
     if (bucketCreated)
       await client.send(new DeleteBucketCommand({ Bucket: options.bucket })).catch(() => undefined);
     client.destroy();
