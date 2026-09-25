@@ -51,6 +51,13 @@ Las imágenes OCI utilizadas tienen tag y digest completos en
 completa observada con 3.46 GiB Docker y 11.1 GiB disponibles. No se extrapola
 esta reducción al setup oficial Wazuh.
 
+El runner CI recibió `401 unauthorized` al descargar la imagen MinIO desde
+Quay. Para mantener el flujo reproducible se usa el mirror público
+`docker.io/tobi312/minio`, fijado por digest OCI; la prueba valida la API S3
+real y registra explícitamente el registro e imagen usados en la evidencia.
+Este mirror resuelve la descarga de CI, pero la imagen base debe volver a
+evaluarse si cambia el origen o el digest publicado.
+
 ## Resultado y evidencia visual
 
 Salida real guardada: `artifacts/integration/c06-validation-2026-09-24/vitest-integration.log`.

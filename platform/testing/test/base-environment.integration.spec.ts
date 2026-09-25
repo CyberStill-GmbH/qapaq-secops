@@ -117,7 +117,7 @@ describe('C-06 perfil base con servicios reales', () => {
             postgres: { image: 'docker.io/library/postgres', version: '18.6', digest: null },
             redis: { image: 'docker.io/library/redis', version: '8.10.1', digest: null },
             minio: {
-              image: 'quay.io/minio/minio',
+              image: 'docker.io/tobi312/minio',
               version: 'RELEASE.2025-09-07T16-13-09Z',
               digest: null,
             },
