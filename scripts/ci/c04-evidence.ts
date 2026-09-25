@@ -74,9 +74,9 @@ try {
     cleanup: { status: cleanupStatus, remainingOwnedResources: [] },
     result: complete ? 'PASS' : evidence.result === 'BLOCKED' ? 'BLOCKED' : 'FAIL',
     suite: {
-      command,
-      exitCode: suiteExitCode,
+      name: 'C-04 PostgreSQL',
       status: suiteExitCode === null ? 'NOT_RUN' : suiteExitCode === 0 ? 'PASS' : 'FAIL',
+      checks: [command, `exitCode=${suiteExitCode ?? 'NOT_RUN'}`],
     },
     versions: {
       node: process.version,

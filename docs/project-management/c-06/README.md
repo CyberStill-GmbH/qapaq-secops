@@ -1,16 +1,20 @@
 # C-06 — plan y ejecución de integración
 
-Fecha: 2026-09-24 · Rama inspeccionada: `main` · HEAD: `74200a0e41d9`
+Fecha de cierre: 2026-09-25 · Rama `codex/c06-ci-repair` · CI base limpio en
+`1c4d7cd7047e` · E2E Railway en `9adbbe33c2961f83fb92d30fd683a9da0541e6c8`
 
 ## Resumen ejecutivo
 
 Se implementó y verificó localmente el perfil `base` de C-06 con servicios
 reales. Dos entornos simultáneos ejecutaron operaciones en PostgreSQL, Redis y
 MinIO, comprobaron aislamiento y terminaron sin recursos Docker huérfanos. La
-suite completa obtuvo **10/10 pruebas PASS**. C-06 global permanece
-**IN_PROGRESS / PARTIALLY VERIFIED**: OpenSearch QAPAQ con TLS y el flujo oficial
-Wazuh Manager → pipeline → Indexer siguen sin aceptación; el job C-06 de CI aún
-no tiene run remoto observado.
+suite local obtuvo **10/10 pruebas PASS**. En CI también pasó el perfil `base`
+en checkout limpio en `1c4d7cd7047e`, con dos ejecuciones concurrentes y
+evidencia remota. Una corrida Railway posterior aprobó OpenSearch QAPAQ 3.7.0
+con TLS/CRUD/cleanup y Wazuh 4.14.7 de Manager → pipeline → Indexer con el
+marcador recuperado por API. C-06 global queda **DONE** con excepción aceptada
+de capacidad para pruebas: el entorno disponible pasó los flujos, aunque no
+acredita el sizing de referencia del Compose oficial Wazuh.
 
 ## Plan técnico aplicado
 
@@ -20,8 +24,9 @@ no tiene run remoto observado.
 | 2. Reproducibilidad | Fijar Postgres/Redis/MinIO por versión y digest | Lock OCI y preflight verificable | PASS para `base` |
 | 3. Harness | Mantener `starting` hasta health; CRUD real y cleanup aislado | Health, aislamiento, cleanup | PASS en dos entornos concurrentes |
 | 4. Validación | Typecheck y suite de integración completa | Resultado y salida capturados | PASS; 10 pruebas, 4 archivos |
-| 5. Perfiles pesados | OpenSearch TLS y Compose Wazuh oficial | Operación real + evidencia | BLOCKED; prerequisitos no satisfechos |
-| 6. Cierre | CI remoto, checkout limpio y matriz global | Evidencia vinculada a SHA aceptado | Pendiente; no cerrar global |
+| 5. OpenSearch y Wazuh | TLS/CRUD y alerta E2E consultada por API | Resultado Railway real y evidencia JSON/PNG | PASS; SHA `9adbbe33` |
+| 6. Capacidad oficial de Compose | 4 CPU, 8 GiB Docker, 50 GiB y kernel requerido | Contraste con entorno disponible | Excepción aceptada para pruebas; no acredita despliegue |
+| 7. Cierre | CI base, checkout limpio y gates funcionales | Evidencia enlazada a SHA | DONE con excepción documentada |
 
 ## Cómo reproducir el perfil base
 
@@ -50,6 +55,13 @@ Las imágenes OCI utilizadas tienen tag y digest completos en
 3 GiB Docker/host y 5 GiB libres; los mínimos se calibraron a la ejecución
 completa observada con 3.46 GiB Docker y 11.1 GiB disponibles. No se extrapola
 esta reducción al setup oficial Wazuh.
+
+El runner CI recibió `401 unauthorized` al descargar la imagen MinIO desde
+Quay. Para mantener el flujo reproducible se usa el mirror público
+`docker.io/tobi312/minio`, fijado por digest OCI; la prueba valida la API S3
+real y registra explícitamente el registro e imagen usados en la evidencia.
+Este mirror resuelve la descarga de CI, pero la imagen base debe volver a
+evaluarse si cambia el origen o el digest publicado.
 
 ## Resultado y evidencia visual
 
@@ -127,7 +139,7 @@ de un piloto puede generar cargos de cómputo, imagen, disco y red. Referencias:
 [precios y cuotas](https://docs.railway.com/pricing/plans), y
 [requisito de kernel Wazuh](https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html).
 
-## Definition of Done: estado actual
+## Definition of Done: cierre aceptado — 2026-09-25
 
 | Gate | Estado |
 | --- | --- |
@@ -135,10 +147,12 @@ de un piloto puede generar cargos de cómputo, imagen, disco y red. Referencias:
 | Aislamiento concurrente | PASS local |
 | Limpieza completa de recursos por run | PASS local |
 | Versiones/digests/commit registrados | PASS local; working tree dirty declarado |
-| Suite C-06 en CI y artifact ligado al SHA | IN_REVIEW; falta observar el run remoto |
-| OpenSearch real y TLS aprobado | BLOCKED |
-| Wazuh oficial E2E Manager → pipeline → Indexer | BLOCKED |
-| C-06 completo | IN_PROGRESS; no cumple todavía DoD global |
+| Suite C-06 en CI y artifact ligado al SHA | PASS; run 36154234794, commit limpio `1c4d7cd7047e` |
+| OpenSearch real, TLS, CRUD y limpieza | PASS en Railway; evidencia JSON/PNG versionada |
+| Wazuh E2E Manager → pipeline → Indexer y consulta API | PASS en Railway; marcador sintético recuperado |
+| Capacidad de Compose oficial Wazuh | Excepción aceptada para pruebas; mínimo oficial permanece para despliegue |
+| Perfiles locales `search`/`wazuh`/`full` | Limitación aceptada; aceptación funcional remota documentada |
+| C-06 completo | DONE con excepción acotada al sizing del entorno de pruebas |
 
 La matriz técnica viva está en
 [`c-06-integration-testing.md`](../../architecture/c-06-integration-testing.md)
@@ -182,3 +196,35 @@ renderizó desde las líneas originales preservadas; el documento del marcador
 sintético no fue consultado por API.
 
 ![Logs reales del smoke de Wazuh en Railway](assets/2026-09-25-c06-railway-wazuh-smoke.png)
+
+## Verificación CI reproducible — 2026-09-25
+
+El run [36154234794](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/36154234794) ejecutó C-04 PostgreSQL y C-06 base sobre el commit limpio `1c4d7cd7047e6047c8b3b27f1de81cef55879822`. C-04 y C-06 terminaron PASS. El perfil C-06 lanzó dos entornos al mismo tiempo; ambos confirmaron health y operaciones reales de PostgreSQL 18.6, Redis 8.10.1 y MinIO por API S3, y ambos terminaron con `cleanup.status: PASS` y cero recursos propios restantes. El runner registró Docker 28.0.4, 2 CPU, 7.75 GiB asignados a Docker y 12.6 GiB libres en disco.
+
+Las evidencias originales JSON están versionadas en [assets/2026-09-25-c06-ci-run-a.json](assets/2026-09-25-c06-ci-run-a.json) y [assets/2026-09-25-c06-ci-run-b.json](assets/2026-09-25-c06-ci-run-b.json). La imagen siguiente se renderizó desde esos resultados reales y conserva el SHA completo en los JSON.
+
+![Evidencia visual del run C-06 en CI](assets/2026-09-25-c06-ci-evidence.png)
+
+La corrección del fixture de C-04 asegura que sus contadores cumplen la restricción de admisión. Para C-06, CI no podía descargar anónimamente desde Quay; el harness quedó fijado al digest del mirror público declarado en el lock y la prueba ejercitó la API S3 autenticada.
+
+## Cierre funcional E2E — 2026-09-25
+
+La corrida posterior en Railway terminó PASS con el commit
+`9adbbe33c2961f83fb92d30fd683a9da0541e6c8`. Wazuh `4.14.7` recibió una alerta
+sintética TCP syslog, la procesó con la regla `100501` y la sonda confirmó el
+marcador mediante la API en `wazuh-alerts-4.x-2026.09.25`. OpenSearch QAPAQ
+`3.7.0` pasó TLS verificado, health GREEN, CRUD autenticado y eliminación del
+índice de prueba. El JSON íntegro sin secretos y la imagen renderizada desde ese
+resultado están aquí:
+
+- [Resultado E2E JSON](assets/2026-09-25-c06-railway-full-e2e.json)
+- [Evidencia visual E2E](assets/2026-09-25-c06-railway-full-e2e.png)
+- [Renderer reproducible](../../../scripts/ci/render-c06-railway-evidence.py)
+
+Al completar la captura se eliminó el proyecto temporal Railway y la llave SSH
+efímera ya estaba desregistrada. Para este cierre se acepta como excepción de
+pruebas la capacidad disponible del piloto pese a no demostrar los 50 GiB y el
+kernel del Compose oficial. Esta decisión no cambia el requisito de capacidad
+para despliegue. El estado global C-06 queda **DONE**; el harness local aún no
+orquesta `search`/`wazuh`/`full`, registrado como mejora posterior y no como
+bloqueo del criterio funcional aceptado en esta entrega.

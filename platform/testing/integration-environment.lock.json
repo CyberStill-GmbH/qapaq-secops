@@ -1,17 +1,21 @@
 {
   "schemaVersion": 1,
   "generatedFrom": "docs/architecture/toolchain-and-capacity.md",
-  "note": "Los perfiles ejecutables usan referencias OCI por digest. OpenSearch y Wazuh siguen bloqueados hasta validar sus perfiles TLS y su topología oficial.",
+  "note": "Los perfiles ejecutables usan referencias OCI por digest. MinIO usa un mirror público fijado por digest porque Quay rechaza pulls anónimos desde runners CI. OpenSearch y Wazuh siguen bloqueados hasta validar sus perfiles TLS y su topología oficial.",
   "postgres": {
     "image": "docker.io/library/postgres",
     "version": "18.6",
     "digest": "sha256:86c951e05bf56c93d95d397747fb8820ac76cc3bedb78f43abd83eedbe3666ae"
   },
-  "redis": { "image": "docker.io/library/redis", "version": "8.10.1", "digest": "sha256:8a1efc5f479551822b47424ccae982026b633f28818eab0387348120a61e10e2" },
+  "redis": {
+    "image": "docker.io/library/redis",
+    "version": "8.10.1",
+    "digest": "sha256:8a1efc5f479551822b47424ccae982026b633f28818eab0387348120a61e10e2"
+  },
   "minio": {
-    "image": "quay.io/minio/minio",
+    "image": "docker.io/tobi312/minio",
     "version": "RELEASE.2025-09-07T16-13-09Z",
-    "digest": "sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e"
+    "digest": "sha256:e2226dea4b9aef896db02f7396102d48eb58cd339d930332e3d8bdac80012a78"
   },
   "opensearch": { "image": "opensearchproject/opensearch", "version": "3.7.0", "digest": null },
   "wazuhManager": { "image": "wazuh/wazuh-manager", "version": "4.14.7", "digest": null },

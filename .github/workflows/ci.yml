@@ -178,6 +178,8 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec tsc -p scripts/ci/tsconfig.json --noEmit
       - name: Run C-04 against digest-pinned PostgreSQL and write evidence
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
         run: pnpm exec tsx scripts/ci/c04-evidence.ts
       - name: Attach redacted C-04 evidence
         if: always()
@@ -192,6 +194,8 @@ jobs:
     name: C-06 base services evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -203,6 +207,8 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Typecheck integration environment
         run: pnpm --filter @qapaq/testing typecheck
+      - name: Record Docker runner capacity
+        run: docker info --format 'Docker {{.ServerVersion}} · {{.NCPU}} CPU · {{.MemTotal}} bytes RAM'
       - name: Run two isolated PostgreSQL, Redis and MinIO environments
         run: pnpm exec vitest run --config vitest.integration.config.ts platform/testing/test/base-environment.integration.spec.ts --reporter=verbose
       - name: Attach redacted C-06 evidence
