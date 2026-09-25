@@ -21,13 +21,15 @@ export async function dockerPreflight(
     };
     const memoryGiB = Math.round((info.MemTotal ?? 0) / 1024 ** 3);
     const minimumGiB =
-      profile === 'wazuh' || profile === 'full'
+      profile === 'full'
         ? 16
+        : profile === 'wazuh'
+          ? 8
         : profile === 'search'
           ? 8
           : profile === 'postgres'
             ? 2
-            : 4;
+            : 3;
     const architecture = info.Architecture ?? 'desconocida';
     const checks: { name: string; status: 'PASS' | 'BLOCKED'; detail: string }[] = [
       {
@@ -44,7 +46,7 @@ export async function dockerPreflight(
       {
         name: 'memoria',
         status: memoryGiB >= minimumGiB ? ('PASS' as const) : ('BLOCKED' as const),
-        detail: `${memoryGiB} GiB disponibles para Docker; mínimo ${minimumGiB} GiB para ${profile}`,
+        detail: `${((info.MemTotal ?? 0) / 1024 ** 3).toFixed(2)} GiB disponibles para Docker; mínimo ${minimumGiB} GiB para ${profile}`,
       },
     ];
     return {

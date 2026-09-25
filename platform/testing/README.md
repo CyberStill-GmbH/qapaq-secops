@@ -26,10 +26,19 @@ pnpm --filter @qapaq/testing typecheck
 
 Cuando Docker no está disponible, las suites reales se marcan como omitidas y
 el preflight conserva el resultado `BLOCKED`. En una máquina con Docker activo,
-los tests de PostgreSQL y Redis usan Testcontainers con puertos dinámicos y
-realizan `SELECT 1` y `PING`; MinIO se valida mediante su health endpoint en el
-runtime. OpenSearch y Wazuh requieren completar su configuración TLS y su
-topología oficial antes de aceptar esos perfiles.
+el test de aceptación `base-environment.integration.spec.ts` inicia dos
+entornos concurrentes con Testcontainers: valida PostgreSQL (server version y
+schema CRUD aislado), Redis (PING/INFO/SET/GET/TTL/DEL aislado) y MinIO (S3
+autenticado, bucket/object CRUD, SHA-256 metadata). Comprueba ownership,
+aislamiento y ausencia de contenedores remanentes al terminar.
+
+El 2026-09-24 la suite completa pasó 10 pruebas en 4 archivos; el perfil `base`
+pasó en dos entornos paralelos y generó dos evidencias con cleanup `PASS`. La
+captura de stdout y la matriz de evidencia están en
+[`docs/project-management/c-06`](../../docs/project-management/c-06/README.md).
+OpenSearch requiere completar su configuración TLS aprobada. Wazuh requiere
+ejecutar Compose oficial con capacidad suficiente; esos perfiles permanecen
+`BLOCKED`.
 
 Las imágenes y tags provienen de la baseline de [toolchain y capacidad](../../docs/architecture/toolchain-and-capacity.md)
 y se declaran en `integration-environment.lock.json`. El perfil `postgres`
@@ -38,4 +47,7 @@ requiere su digest fijado y verificado. Los perfiles que aún tengan digests
 
 La evidencia se escribe en `artifacts/integration/<runId>/` después de aplicar
 redacción. El teardown solo elimina recursos que llevan las tres etiquetas del
-run actual.
+run actual. Los requisitos de disco y memoria se aplican por perfil: `base`
+requiere 3 GiB y 5 GiB libres (límites calibrados en ejecución real); `search`
+requiere 8 GiB y 20 GiB; Wazuh/full mantienen los límites de sus preflight y
+setup documentados. No se interpretan como dimensionamiento de producción.
