@@ -20,9 +20,11 @@ y cuarentena demostrados.
 7. PBI-013 — telemetría, solo después de proteger el P0.
 
 PBI-007 es dependencia externa crítica. Si no están disponibles tenant, permiso,
-Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. El equipo
-selecciona PBIs independientes del orden global, pero no afirma el Sprint Goal hasta
-recorrer la fuente real.
+Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. Por
+decisión del Product Owner del 2026-09-25, el desarrollo local de Sprint 2 puede
+iniciar con el contrato C-08 y su suite ejecutable. La integración real se difiere
+al E2E final del MVP: no se afirma el Sprint Goal ni el MVP Candidate hasta recorrer
+la fuente autorizada.
 
 ## Componentes a construir
 
@@ -37,23 +39,28 @@ recorrer la fuente real.
 
 C-10 → C-11 → C-12 → C-13 → C-14 es la ruta crítica. Cada componente debe cerrar
 su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 y
-las provider specs siguen bloqueados sin sistemas corporativos reales. Consultar
+las provider specs contra Wazuh real siguen bloqueados sin sistemas corporativos
+reales; los contratos locales permiten desarrollar y comprobar límites sin simular
+una aceptación real. Consultar
 el [plan por componentes](../component-delivery-plan.md).
 
 ## Gate previo obligatorio
 
-Al terminar la Review de Sprint 1 deben estar Done C-01…C-09 y disponibles tenant,
-dataset, Wazuh, Indexer, red, secretRefs y servicios de integración. El 2026-10-05
-no se usa para instalar dependencias pendientes. Si un gate falla, el PBI afectado
-se registra `BLOCKED` y el Sprint no afirma la vertical completa.
+Al terminar la Review de Sprint 1 deben estar listos los contratos y código base
+C-01…C-09 para el trabajo local de Sprint 2. La falta actual de Wazuh/tenant no
+bloquea ese desarrollo por la decisión de aplazamiento del 2026-09-25; los PBI y
+pruebas que exigen esos sistemas se registran `BLOCKED` y se acumulan como gate del
+E2E final. El 2026-10-05 no se usa para instalar dependencias pendientes.
 
 ## Plan de trabajo por día
 
 ### Día 1 — 2026-10-05
 
 - Planning de 30 minutos y verificación ejecutable del gate;
-- confirmar configuración Office 365/Wazuh y generar actividad sintética autorizada;
-- consultar alertas Wazuh mediante adapter de solo lectura;
+- avanzar el adapter y validar su contrato localmente;
+- si Wazuh/tenant y permisos ya están disponibles, confirmar configuración y
+  generar actividad sintética autorizada; si no, registrar PBI-007/provider specs
+  como `BLOCKED` sin crear fixtures que aparenten aceptación;
 - persistir raw/ref/hash y registrar manifiesto antes del checkpoint;
 - implementar mapping versionado y validación previa a indexación;
 - mantener DTOs Wazuh dentro de infraestructura.
@@ -64,7 +71,9 @@ se registra `BLOCKED` y el Sprint no afirma la vertical completa.
 - implementar cuarentena y reproceso con lineage;
 - indexar/consultar SecurityEvent con filtros y límites;
 - instrumentar cobertura, lag, error e integridad;
-- ejecutar E2E parcial desde Microsoft 365 hasta consulta QAPAQ;
+- ejecutar E2E desde Microsoft 365 hasta consulta QAPAQ si la dependencia externa
+  está disponible; en caso contrario, trasladar explícitamente ese gate a la
+  aceptación final del MVP;
 - realizar Review y Retrospective con evidencia del mismo commit.
 
 ## Dependencias de entrada

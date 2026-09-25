@@ -12,6 +12,7 @@ respalde.
 - [2026-09-22 — Cierre de C-02, diseño C-04 y arreglo de CI](2026-09-22-informe-de-avance.md).
 - [2026-09-24 — Daily Scrum: admisión C-04 y evidencia CI](2026-09-24-informe-de-avance.md).
 - [2026-09-24 — Ejecución y evidencia local C-06](../c-06/README.md).
+- [2026-09-25 — Daily Scrum: cierre C-06 y avance C-08](2026-09-25-informe-de-avance.md).
 
 ## Convención
 

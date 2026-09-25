@@ -122,6 +122,34 @@ pero accesos externos y gobierno de rama aún necesitan confirmación.
 
 Informe: [Daily Scrum 2026-09-25](informes-de-avance/2026-09-25-informe-de-avance.md).
 
+### Actualización de ejecución C-08 — 2026-09-25, corte posterior
+
+En la rama de trabajo `codex/c08-wazuh-provider`, basada en `main` `706fbec`,
+quedaron implementados el contrato neutral, health separado para Manager e
+Indexer, consulta read-only, allowlist y cursores firmados. La suite contractual
+reutilizable ahora cubre 18 verificaciones. En esta máquina pasó el test dirigido
+(26 tests totales, 18 contractuales sobre cliente simulado), el unit completo
+(237/237), typecheck, lint y boundaries (123 módulos / 168 dependencias).
+
+No se ejecutó la aceptación real de C-08: las URLs locales `127.0.0.1` no
+responden, Docker Desktop 4.73.1 falla en Windows al abrir `dockerInference` y el
+proyecto Railway aislado de C-08 no tiene servicios. La evidencia Railway E2E
+preservada pertenece al cierre C-06 y no se usa para acreditar C-08. Se fijaron
+los digests 4.14.7 de Wazuh Manager e Indexer recuperados de evidencia de C-06,
+sin atribuirlos a una ejecución C-08.
+
+Cambio aceptado al Sprint Backlog por el Product Owner: C-08 queda
+`DONE` para Sprint 2 por excepción explícita del Product Owner; su integración autorizada y pruebas de TLS,
+autenticación, read-only, mapping y paginación se difieren al E2E final del MVP.
+Esta excepción de planificación no acredita integración real ni permite declarar
+completo el Sprint Goal o MVP Candidate antes de ese recorrido real. Los PBIs dependientes de Wazuh/tenant permanecen `BLOCKED`, pero
+el trabajo local de Sprint 2 puede avanzar con los contratos.
+
+Confianza en el Sprint Goal: ÁMBAR. El contrato local y la base de Sprint 2 están
+listos; la integración de la fuente corporativa es gate diferido de aceptación.
+
+Informe actualizado: [Daily Scrum 2026-09-25](informes-de-avance/2026-09-25-informe-de-avance.md).
+
 [Plan Scrum](README.md) · [Componentes](component-delivery-plan.md) ·
 [Sprint 1](sprints/01-base-ejecutable.md)
 

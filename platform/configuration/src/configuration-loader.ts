@@ -100,15 +100,29 @@ export async function loadRuntimeConfig(
   const profile = profileFrom(environment);
   const parsed = parseFullEnvironment(environment, profile);
   const resolve = createResolver(provider, profile);
-  const [postgresPassword, minioAccessKey, minioSecretKey, wazuhUsername, wazuhPassword, wazuhCa] =
-    await Promise.all([
-      resolve(parsed.postgres.passwordReference, 'postgres.password'),
-      resolve(parsed.minio.accessKeyReference, 'minio.accessKey'),
-      resolve(parsed.minio.secretKeyReference, 'minio.secretKey'),
-      resolve(parsed.wazuh.indexer.usernameReference, 'wazuh.indexer.username'),
-      resolve(parsed.wazuh.indexer.passwordReference, 'wazuh.indexer.password'),
-      resolve(parsed.wazuh.indexer.caReference, 'wazuh.indexer.certificateAuthority'),
-    ]);
+  const [
+    postgresPassword,
+    minioAccessKey,
+    minioSecretKey,
+    wazuhUsername,
+    wazuhPassword,
+    wazuhCa,
+    wazuhCursorKey,
+    wazuhManagerUsername,
+    wazuhManagerPassword,
+    wazuhManagerCa,
+  ] = await Promise.all([
+    resolve(parsed.postgres.passwordReference, 'postgres.password'),
+    resolve(parsed.minio.accessKeyReference, 'minio.accessKey'),
+    resolve(parsed.minio.secretKeyReference, 'minio.secretKey'),
+    resolve(parsed.wazuh.indexer.usernameReference, 'wazuh.indexer.username'),
+    resolve(parsed.wazuh.indexer.passwordReference, 'wazuh.indexer.password'),
+    resolve(parsed.wazuh.indexer.caReference, 'wazuh.indexer.certificateAuthority'),
+    resolve(parsed.wazuh.indexer.cursorSigningKeyReference, 'wazuh.indexer.cursorSigningKey'),
+    resolve(parsed.wazuh.manager.usernameReference, 'wazuh.manager.username'),
+    resolve(parsed.wazuh.manager.passwordReference, 'wazuh.manager.password'),
+    resolve(parsed.wazuh.manager.caReference, 'wazuh.manager.certificateAuthority'),
+  ]);
   const { passwordReference: _postgresReference, ...postgres } = parsed.postgres;
   const {
     accessKeyReference: _accessReference,
@@ -119,8 +133,15 @@ export async function loadRuntimeConfig(
     usernameReference: _usernameReference,
     passwordReference: _wazuhPasswordReference,
     caReference: _caReference,
+    cursorSigningKeyReference: _cursorSigningKeyReference,
     ...wazuhIndexer
   } = parsed.wazuh.indexer;
+  const {
+    usernameReference: _managerUsernameReference,
+    passwordReference: _managerPasswordReference,
+    caReference: _managerCaReference,
+    ...wazuhManager
+  } = parsed.wazuh.manager;
   return deepFreeze({
     profile: profile.name,
     api: parsed.api,
@@ -133,6 +154,13 @@ export async function loadRuntimeConfig(
         username: wazuhUsername,
         password: wazuhPassword,
         certificateAuthority: wazuhCa,
+        cursorSigningKey: wazuhCursorKey,
+      },
+      manager: {
+        ...wazuhManager,
+        username: wazuhManagerUsername,
+        password: wazuhManagerPassword,
+        certificateAuthority: wazuhManagerCa,
       },
     },
   });

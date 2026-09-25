@@ -27,7 +27,7 @@ un componente puede servir a varios PBI.
 | C-05 | `packages/contracts/security-event` | JSON Schema, catálogos, tipos, validadores y corpus 1.0.0 | 004 | C-01 | Contract specs de corpus válido/inválido y versiones incompatibles |
 | C-06 | `platform/testing` y definición de entorno de integración | Arranque/teardown de PostgreSQL, Redis, object storage, OpenSearch y Wazuh reales | 003 | C-01, C-03 | Health, aislamiento y limpieza PASS; versiones y commit registrados |
 | C-07 | Reglas del workspace y fixtures de violación | Límites apps/modules/platform, capas y ciclos | 005 | C-01, C-02 | Regla acepta arquitectura válida y rechaza cada bypass preparado |
-| C-08 | `modules/connectors` contrato operativo/probe Wazuh | Port `SecurityEventProvider`, health y consulta read-only mínima | 005, 006 | C-03, C-05, C-06 | Contract suite y consulta a Wazuh/Indexer real autorizado |
+| C-08 | `modules/connectors` contrato operativo/probe Wazuh | Port `SecurityEventProvider`, health y consulta read-only mínima | 005, 006 | C-03, C-05, C-06 | DONE para Sprint 2 por excepción PO (2026-09-25); aceptación real autorizada pendiente como gate obligatorio del E2E final MVP |
 | C-09 | `.github/workflows` y ownership | Integrar PR #2, pnpm congelado, scans y evidencia sin secretos | 002 | C-01, C-06, C-07 | PR confiable/no confiable; checks requeridos y artifact redactado |
 
 C-02 fue materializado el 2026-09-22: API Nest/Fastify, worker inactivo independiente,
@@ -87,9 +87,14 @@ componente y se cierra al final; no se pospone toda la observabilidad a una tare
 aislada. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
 infraestructura interna tenga specs reales.
 
-El timebox 2026-10-05/06 presupone que C-01…C-09 y todos los accesos están listos.
-El día 1 ejecuta C-10…C-12; el día 2, C-13…C-15 y la Review. Esta distribución es
-un forecast intensivo, no permiso para paralelizar dependencias ni reducir la DoD.
+Por decisión del Product Owner del 2026-09-25, C-08 queda DONE para habilitar
+desarrollo de Sprint 2 mediante su puerto y contract suite local aunque falte acceso a Wazuh. La aceptación técnica real sigue pendiente para el E2E final del MVP.
+La prueba autorizada real queda diferida al E2E final del MVP y sigue siendo gate
+de aceptación del producto; no se permite declarar el Sprint Goal ni el MVP
+Candidate completos sin ese recorrido. El timebox 2026-10-05/06 puede avanzar en
+trabajo independiente; PBI-007 y las provider specs que requieran Wazuh real quedan
+`BLOCKED` hasta disponer de acceso. El orden de dependencias y la DoD funcional no
+cambian.
 
 ## Sprint 3 — Operación SOC y evidencia
 
