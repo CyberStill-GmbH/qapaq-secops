@@ -5,18 +5,18 @@
 
 ## Resumen ejecutivo
 
-`main` fue revisada en `df44dc7` (2026-09-25, 09:58 Lima). Integra C-04 como
-DONE y la base del harness C-06. La rama `codex/c06-ci-repair` contiene evidencia
-adicional de aceptación real OpenSearch/Wazuh y la decisión de cierre C-06 como
-DONE con excepción de capacidad limitada al entorno de pruebas; esa rama todavía
-no forma parte de `main` en este corte.
+`main` fue revisada inicialmente en `df44dc7` (2026-09-25, 09:58 Lima), con C-04
+DONE y C-06 base integrado. El cierre funcional C-06 se incorporó después por
+PR #14, merge commit `ec4d35769572b0d6f6108ff97a06aff5dbccacdf`; CI del PR terminó
+PASS en todos los jobs. El corte final de este informe es `main` en `ec4d357` y
+C-06 está DONE con excepción aceptada de capacidad para pruebas.
 
 ## Avance en `main`
 
 | Componente | Estado en `main` | Evidencia / lectura |
 | --- | --- | --- |
 | C-04 — admisión transaccional | DONE | Rechazo por pertenencia y límites, pruebas de aislamiento y merge integrado en `df44dc7` |
-| C-06 — integración base | IN_PROGRESS en el corte | Harness PostgreSQL/Redis/MinIO, evidencia y suite base incorporados; el cierre E2E de la rama aún no estaba integrado |
+| C-06 — integración | DONE | CI base y aceptación real OpenSearch/Wazuh integradas por PR #14; sizing de pruebas aceptado por excepción documentada |
 | C-08 — integración externa | IN_PROGRESS | La lectura del plan mantiene pendientes de acceso autorizado y referencias de secretos |
 | C-09 — gobierno de CI/main | IN_PROGRESS | CI existe; el estado de protección requerida de rama se debe confirmar |
 
@@ -43,23 +43,22 @@ no forma parte de `main` en este corte.
 | OpenSearch con TLS, CRUD y limpieza | PASS Railway |
 | Wazuh Manager → pipeline → Indexer y consulta API | PASS Railway |
 | Capacidad del Compose oficial Wazuh | Excepción aceptada para pruebas; no acredita despliegue |
-| C-06 global | DONE con excepción documentada, pendiente de merge a `main` |
+| C-06 global | DONE en `main`, con excepción de capacidad documentada |
 
 ## Plan y riesgos
 
-1. Integrar la rama de cierre con CI verde y actualizar el corte de `main`.
-2. Mantener como trabajo posterior la orquestación local de los perfiles
+1. Confirmar accesos autorizados y referencias de secretos para C-08.
+2. Confirmar branch protection/checks requeridos de C-09.
+3. Mantener como trabajo posterior la orquestación local de los perfiles
    `search`, `wazuh` y `full`.
-3. Confirmar accesos autorizados y referencias de secretos para C-08.
-4. Confirmar branch protection/checks requeridos de C-09.
 
 **Cambio aceptado al Sprint Backlog:** C-06 acepta el entorno de prueba disponible
 para cerrar la aceptación funcional. Se registra como excepción temporal de
 capacidad de pruebas; sizing oficial continúa requerido para despliegue.
 
-**Confianza en el Sprint Goal:** ÁMBAR. C-04 está cerrado y C-06 tiene aceptación
-funcional completa en la rama; C-08 y la protección de `main` siguen requiriendo
-confirmación. Este informe usa un wordmark tipográfico QAPAQ porque el repositorio
+**Confianza en el Sprint Goal:** ÁMBAR. C-04 y C-06 están cerrados; C-08 y la
+protección de `main` siguen requiriendo confirmación. Este informe usa un wordmark
+tipográfico QAPAQ porque el repositorio
 no contiene un recurso gráfico oficial de logo en sus informes de avance.
 
 ## Evidencia visual de C-06
