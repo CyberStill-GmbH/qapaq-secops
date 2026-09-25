@@ -71,15 +71,17 @@ C-04/C-08; C-02 y C-07 cierran la forma del workspace; C-09 se adapta a scripts
 reales. No se copia CI documentalmente ni se crea otro workflow si PR #2 ya cubre
 la capacidad.
 
-C-09 tiene una auditoría inicial registrada en
-[C-09 — CI seguro y evidencia](c-09/README.md). El head recuperable de PR #2 está
-integrado en `main`; faltan la aceptación real con PR confiable/no confiable y la
-confirmación administrativa de required checks. CODEOWNERS y aprobación
-independiente fueron eximidos por el propietario mientras exista un único
-mantenedor humano. Se añadió un
-workflow de evidencia restringido a CI exitoso en `main`, aún pendiente de
-integración y ejecución para producir el artifact oficial. Permanece bloqueado,
-sin estado `DONE`.
+C-09 tiene una auditoría y evidencia de cierre registradas en
+[C-09 — CI seguro y evidencia](c-09/README.md). PR #2 ya estaba integrado; PR #16
+añadió el agregador y el workflow de evidencia, y se fusionó en `main` con el
+commit `c6d235b82a88904b3e129103e861f17bd1534f40`. La CI de `main` y el workflow
+de evidencia pasaron; el artifact se descargó, inspeccionó y verificó por
+SHA-256. El componente permanece
+`IMPLEMENTED / BLOCKED_BY_REPOSITORY_ADMINISTRATION`: el plan no aplica
+protecciones al repo privado, no hay required checks ni CODEOWNERS/revisión
+activa, y aún falta una PR controlada de fork con canario sintético. El propietario
+eximió CODEOWNERS/revisión independiente mientras haya un único mantenedor
+humano; eso no sustituye el DoD documentado.
 
 ## Sprint 2 — Ingesta durable Microsoft 365/Wazuh, dos días
 
