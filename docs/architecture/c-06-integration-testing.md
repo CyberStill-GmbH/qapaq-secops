@@ -1,16 +1,16 @@
 # C-06 — entorno real de integración
 
-Estado global: **IN_PROGRESS / PARTIALLY VERIFIED** (verificación local del
-perfil `base`: **PASS**, 2026-09-24). El harness se encuentra en
+Estado global: **IN_PROGRESS / PARTIALLY VERIFIED** (perfil `base`: **PASS**
+local y en CI limpio, 2026-09-25). El harness se encuentra en
 `platform/testing`; sus perfiles pendientes conservan el estado `BLOCKED` y no
 producen PASS implícito.
 
 ## Alcance y perfiles
 
-| Perfil | Servicios | Criterio de ejecución | Estado al 2026-09-24 |
+| Perfil | Servicios | Criterio de ejecución | Estado al 2026-09-25 |
 | --- | --- | --- | --- |
 | `postgres` | PostgreSQL | Digest bloqueado, query y teardown | Implementado; suite real existente |
-| `base` | PostgreSQL, Redis y MinIO | Operaciones reales, aislamiento, evidencia y limpieza | PASS local; dos entornos concurrentes probados |
+| `base` | PostgreSQL, Redis y MinIO | Operaciones reales, aislamiento, evidencia y limpieza | PASS local y CI limpio; dos entornos concurrentes probados |
 | `search` | `base` + OpenSearch QAPAQ | TLS/autenticación QAPAQ y CRUD/health real | BLOCKED; configuración TLS y digest no disponibles |
 | `wazuh` | Topología oficial Wazuh | Manager → pipeline → Indexer, setup oficial y smoke | BLOCKED; preflight de recursos no cumple |
 | `full` | `search` + `wazuh` | Flujo completo con capacidad aprobada | BLOCKED |
@@ -41,8 +41,10 @@ Referencias de ejecución:
   y en `artifacts/integration/<runId>/environment-evidence.json`.
 - Suite completa: 4 archivos y 10 pruebas aprobados; salida preservada en
   `artifacts/integration/c06-validation-2026-09-24/vitest-integration.log`.
-- El workflow contiene `c06-base`, pero aún no existe una ejecución remota de
-  ese job que permita afirmar PASS de CI.
+- El job `c06-base` y el gate general del run
+  [36154234794](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/36154234794)
+  terminaron PASS con checkout limpio. Los JSON están versionados en
+  `docs/project-management/c-06/assets/2026-09-25-c06-ci-run-{a,b}.json`.
 
 El umbral `base` del harness se fijó en 3 GiB de Docker y host, y 5 GiB libres en
 disco, pues la prueba completa pasó en el engine local medido en 3.46 GiB y con
@@ -78,7 +80,7 @@ espacio adicional sin permitir el arranque. La captura derivada de la salida se
 encuentra en
 [`2026-09-24-c06-wazuh-preflight.png`](../project-management/c-06/assets/2026-09-24-c06-wazuh-preflight.png).
 
-Por tanto, C-06 global continúa `IN_PROGRESS`: la aceptación de `base` es real y
-reproducible localmente; OpenSearch/TLS, Wazuh E2E y el run remoto de CI siguen
-pendientes. La matriz de cierre y los pasos ejecutados están en
+Por tanto, C-06 global continúa `IN_PROGRESS`: `base` es reproducible localmente
+y en CI limpio; OpenSearch/TLS y Wazuh E2E siguen pendientes. La matriz de cierre
+y los pasos ejecutados están en
 [`Plan y ejecución C-06`](../project-management/c-06/README.md).

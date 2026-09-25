@@ -1,9 +1,9 @@
 # Auditoría de completitud C-06
 
-Fecha de verificación: 2026-09-24. Base de código inspeccionada: `main` en
-`74200a0e41d9abe9693b162ca2fba4264b2b35f0`, con cambios locales aún sin
-commit. Estado global: **IN_PROGRESS / PARTIALLY VERIFIED**. La ejecución real
-local acredita el perfil `base`, no la topología completa OpenSearch/Wazuh ni CI.
+Fecha de verificación: 2026-09-25. Base verificada en CI: commit limpio
+`1c4d7cd7047e6047c8b3b27f1de81cef55879822`. Estado global:
+**IN_PROGRESS / PARTIALLY VERIFIED**. CI acredita el perfil `base`; no se acepta
+todavía la topología completa OpenSearch/Wazuh.
 
 ## Resultado por criterio
 
@@ -18,18 +18,19 @@ local acredita el perfil `base`, no la topología completa OpenSearch/Wazuh ni C
 | Aislamiento concurrente | PASS | Dos run IDs concurrentes; puertos, bucket y ownership independientes |
 | Cleanup/evidencia redactada | PASS | Dos JSON con cleanup PASS y cero recursos restantes |
 | Suite de integración local | PASS | 4 archivos, 10 pruebas; log preservado bajo artifacts |
-| CI C-06 | IN_REVIEW | Job `c06-base` y gate añadidos; run remoto aún no observado |
-| OpenSearch QAPAQ + TLS | BLOCKED | Falta configuración TLS/autenticación aprobada, imagen fijada y operación real |
-| Wazuh Manager → pipeline → Indexer | BLOCKED | El setup oficial no supera preflight de memoria/disco; sin clone/pull/start ni smoke |
+| CI C-06 | PASS | Run `36154234794`; dos entornos concurrentes, ambos cleanup PASS, artifacts ligados al SHA limpio |
+| OpenSearch QAPAQ + TLS | BLOCKED | Falta ejecutar health/CRUD sobre servicio real con TLS y digest fijado |
+| Wazuh Manager → pipeline → Indexer | PARTIAL | Smoke Railway de servicios/Indexer PASS; marcador sintético no recuperado por API; requisitos oficiales no acreditados |
 | Perfiles `search`, `wazuh`, `full` | BLOCKED | Falta ejecutar prerequisitos anteriores y guardar evidencia ligada a commit limpio |
 
 ## Ejecución y trazabilidad
 
-El comando `pnpm run test:integration --reporter=verbose` terminó con 10/10
-pruebas aprobadas. `pnpm --filter @qapaq/testing typecheck` también terminó
-correctamente. Los dos JSON base identifican el commit `74200a0...`, reportan
-`workingTreeDirty: true`, las versiones/digests y el resultado de cleanup. No
-atribuir esos resultados a un checkout limpio ni al workflow de GitHub.
+El comando local `pnpm run test:integration --reporter=verbose` terminó con
+10/10 pruebas aprobadas. La suite remota C-06 pasó el 2026-09-25 en un checkout
+limpio: dos entornos concurrentes registraron PostgreSQL 18.6, Redis 8.10.1 y
+MinIO S3 con digest, health, aislamiento y cleanup. Ambos JSON están versionados
+en `docs/project-management/c-06/assets/2026-09-25-c06-ci-run-{a,b}.json`.
+El job C-04 PostgreSQL y el gate general también pasaron en el mismo run.
 
 Artefactos e imágenes se describen en el
 [plan y ejecución de C-06](../project-management/c-06/README.md). La vista
@@ -50,14 +51,15 @@ integración aprobados en el repo.
 2. Habilitar runner con recursos/disco conforme al setup Wazuh; ejecutar la
    composición oficial `v4.14.7`, certs y prueba sintética Manager → pipeline →
    Indexer. Registrar versiones/digests, commit y limpieza.
-3. Ejecutar el job `c06-base` en CI y adjuntar evidencia al SHA evaluado.
-4. Repetir aceptación con checkout limpio tras integrar los cambios y actualizar
+3. Recuperar por API el marcador sintético desde el índice Wazuh en el piloto
+   Railway y acreditar cleanup/capacidad del entorno frente a los criterios.
+4. Repetir aceptación en checkout limpio tras integrar los cambios y actualizar
    esta auditoría con los artefactos CI y los runs pesados aprobados.
 
 ```text
-C-06 base: PASS / VERIFIED LOCAL
+C-06 base: PASS / VERIFIED LOCAL + CI CLEAN
 C-06 search: BLOCKED
-C-06 Wazuh: BLOCKED BY INFRASTRUCTURE / E2E NOT RUN
+C-06 Wazuh: PARTIAL / E2E MARKER NOT VERIFIED
 C-06 global: IN_PROGRESS / PARTIALLY VERIFIED
 ```
 

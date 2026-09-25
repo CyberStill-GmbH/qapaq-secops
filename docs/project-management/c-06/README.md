@@ -1,16 +1,17 @@
 # C-06 — plan y ejecución de integración
 
-Fecha: 2026-09-24 · Rama inspeccionada: `main` · HEAD: `74200a0e41d9`
+Fecha: 2026-09-25 · Rama verificada: `codex/c06-ci-repair` · HEAD: `1c4d7cd7047e`
 
 ## Resumen ejecutivo
 
 Se implementó y verificó localmente el perfil `base` de C-06 con servicios
 reales. Dos entornos simultáneos ejecutaron operaciones en PostgreSQL, Redis y
 MinIO, comprobaron aislamiento y terminaron sin recursos Docker huérfanos. La
-suite completa obtuvo **10/10 pruebas PASS**. C-06 global permanece
+suite local obtuvo **10/10 pruebas PASS**. En CI también pasó el perfil `base`
+en checkout limpio en `1c4d7cd7047e`, con dos ejecuciones concurrentes y
+evidencia remota. C-06 global permanece
 **IN_PROGRESS / PARTIALLY VERIFIED**: OpenSearch QAPAQ con TLS y el flujo oficial
-Wazuh Manager → pipeline → Indexer siguen sin aceptación; el job C-06 de CI aún
-no tiene run remoto observado.
+Wazuh Manager → pipeline → Indexer siguen sin aceptación.
 
 ## Plan técnico aplicado
 
@@ -142,7 +143,7 @@ de un piloto puede generar cargos de cómputo, imagen, disco y red. Referencias:
 | Aislamiento concurrente | PASS local |
 | Limpieza completa de recursos por run | PASS local |
 | Versiones/digests/commit registrados | PASS local; working tree dirty declarado |
-| Suite C-06 en CI y artifact ligado al SHA | IN_REVIEW; falta observar el run remoto |
+| Suite C-06 en CI y artifact ligado al SHA | PASS; run 36154234794, commit limpio `1c4d7cd7047e` |
 | OpenSearch real y TLS aprobado | BLOCKED |
 | Wazuh oficial E2E Manager → pipeline → Indexer | BLOCKED |
 | C-06 completo | IN_PROGRESS; no cumple todavía DoD global |
@@ -189,3 +190,13 @@ renderizó desde las líneas originales preservadas; el documento del marcador
 sintético no fue consultado por API.
 
 ![Logs reales del smoke de Wazuh en Railway](assets/2026-09-25-c06-railway-wazuh-smoke.png)
+
+## Verificación CI reproducible — 2026-09-25
+
+El run [36154234794](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/36154234794) ejecutó C-04 PostgreSQL y C-06 base sobre el commit limpio `1c4d7cd7047e6047c8b3b27f1de81cef55879822`. C-04 y C-06 terminaron PASS. El perfil C-06 lanzó dos entornos al mismo tiempo; ambos confirmaron health y operaciones reales de PostgreSQL 18.6, Redis 8.10.1 y MinIO por API S3, y ambos terminaron con `cleanup.status: PASS` y cero recursos propios restantes. El runner registró Docker 28.0.4, 2 CPU, 7.75 GiB asignados a Docker y 12.6 GiB libres en disco.
+
+Las evidencias originales JSON están versionadas en [assets/2026-09-25-c06-ci-run-a.json](assets/2026-09-25-c06-ci-run-a.json) y [assets/2026-09-25-c06-ci-run-b.json](assets/2026-09-25-c06-ci-run-b.json). La imagen siguiente se renderizó desde esos resultados reales y conserva el SHA completo en los JSON.
+
+![Evidencia visual del run C-06 en CI](assets/2026-09-25-c06-ci-evidence.png)
+
+La corrección del fixture de C-04 asegura que sus contadores cumplen la restricción de admisión. Para C-06, CI no podía descargar anónimamente desde Quay; el harness quedó fijado al digest del mirror público declarado en el lock y la prueba ejercitó la API S3 autenticada. Esta verificación cierra el gate base de CI, pero no modifica los gates OpenSearch/Wazuh ni el estado global.
