@@ -243,7 +243,7 @@ jobs:
         run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:scan
 
   gate:
-    name: CI gate
+    name: CI / required
     if: always()
     needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, containers]
     runs-on: ubuntu-24.04
