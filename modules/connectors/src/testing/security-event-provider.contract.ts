@@ -94,7 +94,11 @@ export function defineSecurityEventProviderContract(
       const provider = harness.createProvider();
       const first = await provider.readPage(harness.query);
       await expect(
-        provider.readPage({ ...harness.query, sourceId: `${harness.query.sourceId}-other`, cursor: first.nextCursor! }),
+        provider.readPage({
+          ...harness.query,
+          sourceId: `${harness.query.sourceId}-other`,
+          cursor: first.nextCursor!,
+        }),
       ).rejects.toMatchObject({ code: 'PROVIDER_CURSOR_INCOMPATIBLE' });
     });
 
@@ -102,7 +106,11 @@ export function defineSecurityEventProviderContract(
       const provider = harness.createProvider();
       const first = await provider.readPage(harness.query);
       await expect(
-        provider.readPage({ ...harness.query, dataset: `${harness.query.dataset}-other`, cursor: first.nextCursor! }),
+        provider.readPage({
+          ...harness.query,
+          dataset: `${harness.query.dataset}-other`,
+          cursor: first.nextCursor!,
+        }),
       ).rejects.toMatchObject({ code: 'PROVIDER_QUERY_REJECTED' });
     });
 
@@ -168,7 +176,8 @@ export function defineSecurityEventProviderContract(
     it('15. never exposes provider-specific DTOs as record fields', async () => {
       const result = await harness.createProvider().readPage(harness.query);
       const allowed = ['sourceRecordId', 'dataset', 'occurredAt', 'collectedAt', 'raw', 'metadata'];
-      for (const record of result.items) expect(Object.keys(record).every((key) => allowed.includes(key))).toBe(true);
+      for (const record of result.items)
+        expect(Object.keys(record).every((key) => allowed.includes(key))).toBe(true);
     });
 
     it('16. does not perform writes', async () => {
