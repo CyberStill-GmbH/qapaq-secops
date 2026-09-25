@@ -85,6 +85,43 @@ Se agrega una sección fechada por día laborable. No se reescribe el historial 
 mejorar métricas. Si no hubo avance, se registra la causa. Un bloqueo que dura un
 día laborable se escala conforme al plan Scrum.
 
+## Registro — 2026-09-25
+
+Sprint: 1 — Base ejecutable y contratos.
+
+`main` se revisó en `df44dc7`: C-04 ya está DONE y C-06 base está integrado.
+La rama `codex/c06-ci-repair` añadió aceptación funcional real OpenSearch/Wazuh,
+evidencias y excepción aceptada de capacidad de pruebas; su merge a `main` queda
+como siguiente acción de este cierre.
+
+Componentes activos y estado:
+
+- C-06: `DONE` según la excepción aceptada para el entorno de pruebas disponible.
+- C-08: `IN_PROGRESS`; confirmar tenant/permisos/secretRefs.
+- C-09: `IN_PROGRESS`; confirmar protección de rama y checks requeridos.
+
+Evidencia terminada:
+
+- CI base limpio: dos entornos concurrentes PostgreSQL/Redis/MinIO con health,
+  aislamiento y cleanup PASS.
+- OpenSearch QAPAQ 3.7.0: TLS, health GREEN, CRUD y cleanup PASS en Railway.
+- Wazuh 4.14.7: alerta sintética procesada y marcador recuperado por API en el
+  índice diario; evidencia JSON/PNG versionada en la rama de cierre.
+- El entorno Railway temporal fue eliminado al terminar la captura.
+
+Plan hasta el siguiente Daily: integrar la rama de cierre con CI verde; continuar
+la gestión de accesos C-08 y confirmar C-09. La orquestación local `search` /
+`wazuh` / `full` y el sizing oficial del Compose Wazuh quedan como mejoras
+posteriores; el sizing oficial sigue requerido para despliegue.
+
+Cambio al Sprint Backlog: se acepta la capacidad de prueba disponible para la
+aceptación funcional de C-06, dejando registrada la excepción limitada a pruebas.
+
+Confianza en el Sprint Goal: ÁMBAR; la aceptación C-06 y C-04 están cerradas,
+pero accesos externos y gobierno de rama aún necesitan confirmación.
+
+Informe: [Daily Scrum 2026-09-25](informes-de-avance/2026-09-25-informe-de-avance.md).
+
 [Plan Scrum](README.md) · [Componentes](component-delivery-plan.md) ·
 [Sprint 1](sprints/01-base-ejecutable.md)
 

@@ -1,9 +1,12 @@
 # Auditoría de completitud C-06
 
-Fecha de verificación: 2026-09-25. Base verificada en CI: commit limpio
-`1c4d7cd7047e6047c8b3b27f1de81cef55879822`. Estado global:
-**IN_PROGRESS / PARTIALLY VERIFIED**. CI acredita el perfil `base`; no se acepta
-todavía la topología completa OpenSearch/Wazuh.
+Fecha de cierre: 2026-09-25. Base verificada en CI: commit limpio
+`1c4d7cd7047e6047c8b3b27f1de81cef55879822`. E2E complementario en Railway:
+commit `9adbbe33c2961f83fb92d30fd683a9da0541e6c8`. Estado global:
+**DONE** con excepción de capacidad de pruebas aceptada para este cierre.
+Railway acreditó OpenSearch TLS/CRUD y Wazuh Manager → pipeline → Indexer con
+marcador consultado por API. El sizing oficial del Compose Wazuh no se alcanzó;
+la aceptación de esta entrega usa la capacidad disponible para el piloto.
 
 ## Resultado por criterio
 
@@ -19,9 +22,11 @@ todavía la topología completa OpenSearch/Wazuh.
 | Cleanup/evidencia redactada | PASS | Dos JSON con cleanup PASS y cero recursos restantes |
 | Suite de integración local | PASS | 4 archivos, 10 pruebas; log preservado bajo artifacts |
 | CI C-06 | PASS | Run `36154234794`; dos entornos concurrentes, ambos cleanup PASS, artifacts ligados al SHA limpio |
-| OpenSearch QAPAQ + TLS | BLOCKED | Falta ejecutar health/CRUD sobre servicio real con TLS y digest fijado |
-| Wazuh Manager → pipeline → Indexer | PARTIAL | Smoke Railway de servicios/Indexer PASS; marcador sintético no recuperado por API; requisitos oficiales no acreditados |
-| Perfiles `search`, `wazuh`, `full` | BLOCKED | Falta ejecutar prerequisitos anteriores y guardar evidencia ligada a commit limpio |
+| OpenSearch QAPAQ + TLS | PASS Railway | 3.7.0, CA propia, TLS validado, health GREEN, CRUD y cleanup PASS |
+| Wazuh Manager → pipeline → Indexer | PASS Railway | 4.14.7, syslog sintético, regla 100501 y marcador recuperado por API |
+| Suite/CI del perfil base | PASS | Checkout limpio, dos entornos concurrentes, health, aislamiento y cleanup |
+| Capacidad vs. sizing oficial Wazuh | EXCEPCIÓN ACEPTADA | Se aceptó el entorno de pruebas disponible para este cierre; no se declara que cumpla el mínimo oficial |
+| Perfiles locales `search`, `wazuh`, `full` | LIMITACIÓN ACEPTADA | La aceptación E2E fue remota en Railway; el harness local aún no los orquesta |
 
 ## Ejecución y trazabilidad
 
@@ -40,28 +45,34 @@ ejecutiva de las dos evidencias y el stdout real están insertadas allí.
 
 El setup oficial local de Wazuh requiere al menos 4 CPU, 8 GiB Docker y 50 GiB
 libres. La máquina reportó 12 CPU, 3.5 GiB Docker y 11 GiB libres. El script
-terminó en su preflight antes de mutar el workspace o descargar imágenes. No se
-omitió ese control. OpenSearch QAPAQ, adicionalmente, no tiene TLS/auth de
-integración aprobados en el repo.
+terminó en su preflight antes de mutar el workspace o descargar imágenes. Para
+este cierre se aceptó la capacidad disponible del piloto como excepción de
+pruebas. OpenSearch TLS/auth se probó por separado con CA propia.
 
-## Condiciones para cerrar C-06
+## Decisión de cierre y trabajo posterior
 
-1. Aprobar y fijar configuración TLS/autenticación e imagen OCI de OpenSearch;
-   ejecutar health y operaciones reales del perfil `search`.
-2. Habilitar runner con recursos/disco conforme al setup Wazuh; ejecutar la
-   composición oficial `v4.14.7`, certs y prueba sintética Manager → pipeline →
-   Indexer. Registrar versiones/digests, commit y limpieza.
-3. Recuperar por API el marcador sintético desde el índice Wazuh en el piloto
-   Railway y acreditar cleanup/capacidad del entorno frente a los criterios.
-4. Repetir aceptación en checkout limpio tras integrar los cambios y actualizar
-   esta auditoría con los artefactos CI y los runs pesados aprobados.
+La decisión de producto para este cierre acepta la capacidad disponible en el
+entorno de pruebas Railway aunque no alcance el sizing oficial del Compose
+Wazuh. Esta excepción queda acotada a pruebas de integración; no cambia los
+requisitos de despliegue. Se da por cerrado el alcance funcional con CI `base`,
+OpenSearch TLS/CRUD/cleanup y Wazuh E2E observados con evidencia guardada. Como
+mejora posterior se puede incorporar el perfil local TLS `search`, automatizar
+la composición oficial Wazuh y repetirla en un host con capacidad de referencia.
 
 ```text
 C-06 base: PASS / VERIFIED LOCAL + CI CLEAN
-C-06 search: BLOCKED
-C-06 Wazuh: PARTIAL / E2E MARKER NOT VERIFIED
-C-06 global: IN_PROGRESS / PARTIALLY VERIFIED
+C-06 base CI: PASS
+C-06 OpenSearch TLS + CRUD + cleanup: PASS
+C-06 Wazuh synthetic Manager -> pipeline -> Indexer: PASS
+C-06 available test capacity: ACCEPTED EXCEPTION (decision 2026-09-25)
+C-06 global: DONE (capacity exception recorded)
 ```
+
+La evidencia Railway final está en
+`../project-management/c-06/assets/2026-09-25-c06-railway-full-e2e.json` y su
+imagen asociada. El addendum de smoke y los estados `BLOCKED` de las entradas
+históricas siguientes describen la corrida previa; la corrida E2E posterior y
+la excepción registrada arriba son las vigentes para el cierre.
 
 ### Addendum Railway — 2026-09-25
 
