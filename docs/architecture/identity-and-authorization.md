@@ -74,10 +74,15 @@ creación, última actividad, expiración absoluta y estado de revocación.
 | Aviso previo | 2 minutos |
 | Vigencia de step-up privilegiado | 15 minutos |
 | Cache de autorización | máximo 60 segundos |
-| Sesiones concurrentes por usuario | 3 |
+| Sesiones concurrentes por usuario | 1 (`REJECT_NEW`) |
 
 El timeout absoluto exige nueva autenticación. Polling, WebSocket y actividad
 automática no renuevan la inactividad; solo actividad humana relevante puede hacerlo.
+
+La creación de sesión garantiza atómicamente un único slot activo por usuario. Un
+segundo login devuelve `AUTH_SESSION_ALREADY_ACTIVE` sin revelar datos de la sesión
+existente. Logout, expiración o revocación liberan el slot; reemplazar una sesión
+no se permite en el baseline. La invariante vive en PostgreSQL y no solo en cache.
 
 Toda mutación requiere token CSRF synchronizer o double-submit, validación de
 Origin/Referer, CORS con allowlist exacta, SameSite, Content Security Policy,
@@ -90,10 +95,21 @@ resistente a phishing, preferentemente FIDO2, passkey administrada, Windows Hell
 for Business o certificado. SMS/OTP no bastan para acciones críticas cuando QAPAQ
 disponga de métodos resistentes a phishing.
 
-Según licencias y operación confirmadas por Identity, producción exige usuario
-activo, MFA, dispositivo administrado/compliant, riesgo aceptable y ubicación/red
-permitida cuando corresponda. Identity debe confirmar Conditional Access,
-authentication strengths, device compliance y PIM antes de producción.
+Passkey FIDO2 administrada por Entra es un método aprobado para completar el mismo
+flujo OIDC; no es una credencial local ni un bypass OAuth. QAPAQ verifica el contexto
+de autenticación ratificado por Identity y nunca almacena clave privada WebAuthn.
+
+Producción exige usuario activo, MFA resistente a phishing, dispositivo
+administrado/compliant cuando aplique, riesgo aceptable y conexión desde la red
+QAPAQ. Conditional Access usa una named location con CIDR públicos de oficina/VPN,
+y el ingress/BFF vuelve a validar la IP efectiva confiando solo en proxies propios.
+Identity debe confirmar Conditional Access, authentication strengths, passkeys,
+device compliance y PIM antes de producción.
+
+Entra conserva Smart Lockout para intentos de credencial. QAPAQ añade rate limiting
+distribuido y respuestas genéricas en endpoints anónimos, sin contador por username
+que facilite enumeración o denegación dirigida. El baseline y gates completos están
+en [ADR-025](../adr/025-security-access-observability-hardening.md).
 
 ## Usuario local y autorización
 
@@ -264,7 +280,15 @@ La federación/autorización queda operacionalmente comprobada solo cuando pasen
 24. export raw aprobado queda auditado;
 25. service identity no usa endpoints humanos;
 26. caída de Graph no concede privilegios;
-27. denegaciones responden sin filtrar información.
+27. denegaciones responden sin filtrar información;
+28. dos callbacks concurrentes crean como máximo una sesión activa;
+29. un segundo login se rechaza hasta logout/revocación/expiración;
+30. acceso desde dentro de la red QAPAQ pasa y fuera de ella falla en Entra y borde;
+31. headers de IP reenviada desde un origen no confiable no evaden la allowlist;
+32. passkey Entra completa OIDC sin registrar credencial WebAuthn en QAPAQ;
+33. fuerza de autenticación insuficiente se rechaza;
+34. throttling devuelve respuesta genérica y `Retry-After` sin enumerar cuentas;
+35. Smart Lockout, recuperación y eventos de riesgo se observan en el tenant autorizado.
 
 ## Gate de producción
 
@@ -272,7 +296,7 @@ Se pueden diseñar endpoints, guards, policies y specs de dominio. No se
 habilitan endpoints productivos hasta que Identity, Security y SOC validen tenant
 ID, app registration, redirect URIs, certificados/credenciales, grupo, Conditional
 Access, MFA, authentication strength, scopes/matriz, Graph sync, revocación,
-step-up, break-glass y las pruebas anteriores.
+step-up, break-glass, red/CIDR/proxy, passkeys, Smart Lockout y las pruebas anteriores.
 
 [RBAC](rbac.md) · [seguridad](security.md) · [API](../api-guidelines.md) ·
 [fuentes](../references.md).

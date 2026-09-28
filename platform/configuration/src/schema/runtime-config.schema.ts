@@ -155,6 +155,7 @@ export function parseFullEnvironment(environment: EnvironmentInput, profile: Con
     throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_MINIO_RAW_BUCKET', profile.name);
 
   const wazuhUrl = parseUrl(environment, profile, 'QAPAQ_WAZUH_INDEXER_URL');
+  const wazuhManagerUrl = parseUrl(environment, profile, 'QAPAQ_WAZUH_MANAGER_API_URL');
   const rejectUnauthorized = parseBoolean(
     environment,
     profile,
@@ -184,6 +185,15 @@ export function parseFullEnvironment(environment: EnvironmentInput, profile: Con
   );
   if (pageSize > maximumPageSize)
     throw configurationError('CONFIG_LIMIT_INVALID', 'wazuh.indexer.pageSize', profile.name);
+  const allowedWazuhIndex = requireString(environment, profile, 'QAPAQ_WAZUH_ALLOWED_INDEX');
+  const wazuhDataset = requireString(environment, profile, 'QAPAQ_WAZUH_DATASET');
+  if (
+    !/^wazuh-alerts-[a-z0-9.*_-]+$/u.test(allowedWazuhIndex) ||
+    allowedWazuhIndex.includes('..') ||
+    wazuhDataset !== 'wazuh-alerts'
+  ) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_WAZUH_ALLOWED_INDEX', profile.name);
+  }
 
   return {
     api: parseApi(environment, profile),
@@ -227,6 +237,30 @@ export function parseFullEnvironment(environment: EnvironmentInput, profile: Con
       ),
     },
     wazuh: {
+      manager: {
+        baseUrl: wazuhManagerUrl.toString(),
+        usernameReference: parseSecretReference(
+          requireString(environment, profile, 'QAPAQ_WAZUH_MANAGER_USERNAME_REF'),
+          'QAPAQ_WAZUH_MANAGER_USERNAME_REF',
+        ),
+        passwordReference: parseSecretReference(
+          requireString(environment, profile, 'QAPAQ_WAZUH_MANAGER_PASSWORD_REF'),
+          'QAPAQ_WAZUH_MANAGER_PASSWORD_REF',
+        ),
+        caReference: parseSecretReference(
+          requireString(environment, profile, 'QAPAQ_WAZUH_MANAGER_CA_REF'),
+          'QAPAQ_WAZUH_MANAGER_CA_REF',
+        ),
+        connectTimeoutMs: parseDuration(environment, profile, 'QAPAQ_WAZUH_CONNECT_TIMEOUT'),
+        requestTimeoutMs: parseDuration(environment, profile, 'QAPAQ_WAZUH_REQUEST_TIMEOUT'),
+        maximumResponseBytes: parseInteger(
+          environment,
+          profile,
+          'QAPAQ_WAZUH_MAX_RESPONSE_BYTES',
+          1_024,
+          100_000_000,
+        ),
+      },
       indexer: {
         baseUrl: wazuhUrl.toString(),
         usernameReference: parseSecretReference(
@@ -253,6 +287,20 @@ export function parseFullEnvironment(environment: EnvironmentInput, profile: Con
         ),
         pageSize,
         maximumPageSize,
+        allowedIndex: allowedWazuhIndex,
+        dataset: wazuhDataset,
+        cursorSigningKeyReference: parseSecretReference(
+          requireString(environment, profile, 'QAPAQ_WAZUH_CURSOR_SECRET_REF'),
+          'QAPAQ_WAZUH_CURSOR_SECRET_REF',
+        ),
+        cursorTtlMs: parseDuration(environment, profile, 'QAPAQ_WAZUH_CURSOR_TTL'),
+        maximumResponseBytes: parseInteger(
+          environment,
+          profile,
+          'QAPAQ_WAZUH_MAX_RESPONSE_BYTES',
+          1_024,
+          100_000_000,
+        ),
       },
     },
   } as const;

@@ -1,0 +1,32 @@
+{
+  "message": "",
+  "commit": "9adbbe33c2961f83fb92d30fd683a9da0541e6c8",
+  "wazuh": {
+    "index": "wazuh-alerts-4.x-2026.09.25",
+    "marker": "C06_RAILWAY_SYNTHETIC_20260925_D",
+    "markerPresent": true,
+    "queryAttempts": 5,
+    "result": "PASS",
+    "ruleId": "100501",
+    "search": "PASS",
+    "sendAttempts": 1,
+    "sendProtocol": "TCP syslog",
+    "sent": true,
+    "tlsVerified": true,
+    "version": "4.14.7"
+  },
+  "result": "PASS",
+  "date": "2026-09-25",
+  "level": "info",
+  "qapaqOpenSearch": {
+    "cleanup": "PASS",
+    "crud": "PASS",
+    "health": "GREEN",
+    "host": "qapaq-opensearch-e2e.railway.internal",
+    "result": "PASS",
+    "tlsVerified": true,
+    "version": "3.7.0",
+    "versionExpected": "3.7.0"
+  },
+  "timestamp": "2026-09-25T16:29:21.398101533Z"
+}

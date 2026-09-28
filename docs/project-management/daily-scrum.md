@@ -79,11 +79,215 @@ Cambio al Sprint Backlog: Sprint 2 se reduce a dos días laborables, 2026-10-05 
 Confianza en el Sprint Goal: ÁMBAR. La documentación está lista, pero el incremento
 ejecutable depende de materializar C-01 y confirmar accesos externos.
 
+## Registro — 2026-09-23
+
+Sprint: 1 — Base ejecutable y contratos.
+
+Sprint Goal: disponer de una base reproducible que valide SecurityEvent y cerrar
+el contrato operativo Microsoft 365/Wazuh sin supuestos. Sigue alcanzable.
+
+Componentes activos y estado:
+
+- C-01, C-02, C-03, C-05, C-07: `DONE`; sin cambios hoy.
+- C-04 — persistencia de admisión: `IN_PROGRESS`. Cubre criterios 1–3 de 7
+  (migración desde vacío, rollback, una carrera concurrente); faltan rechazo
+  (4), identidad/replay (5), comando público de admisión (6) y evidencia
+  adjunta desde CI (7).
+- C-06 — entorno de integración real: `IN_PROGRESS`. `IntegrationEnvironment`
+  operativo (perfiles `base`/`search`/`wazuh`/`full`);
+  `integration-environment.lock.json` sigue con digests en `null`.
+- C-08 — probe Wazuh: `IN_PROGRESS`. Ya no depende de acceso externo de
+  Infraestructura; bloqueado por trabajo propio (suite de conformidad y
+  consulta real al Indexer local, sujeta a TLS/topología de C-06).
+- C-09 — CI y ownership: `IN_PROGRESS`. Pipeline verde; protección de rama en
+  `main` sigue sin configurar.
+
+Evidencia terminada desde el Daily anterior (2026-09-22, commit `d6ea599`):
+
+- Commit `0fe6b8b` — `docs/architecture/wazuh-engine-and-opensearch.md`:
+  documento nuevo que consolida [ADR-005](../adr/005-opensearch-wazuh-telemetry.md)
+  y [ADR-024](../adr/024-microsoft-365-wazuh-mvp-vertical.md); formaliza la
+  frontera de ownership Wazuh/Infraestructura vs. QAPAQ/SOC Development y la
+  distinción entre el Wazuh Indexer (externo, read-only) y una eventual
+  proyección OpenSearch propia (aún `Proposed`, no desplegada). No cambia
+  código ni el estado de ningún componente `C-xx`; es documentación que
+  respalda formalmente la reclasificación de Wazuh como trabajo de ingeniería
+  interno (C-06/C-08) ya anunciada informalmente en el
+  [informe de 2026-09-23](informes-de-avance/2026-09-23-informe-de-avance.md).
+
+Plan hasta el siguiente Daily (2026-09-24):
+
+1. Avanzar C-04 hacia los casos de rechazo (cruces de Source/tenant, IDs
+   inválidos) — criterio 4 de 7.
+2. Evaluar si el perfil `base` de `IntegrationEnvironment` (C-06) alcanza para
+   adjuntar evidencia de C-04 desde CI, o si hace falta resolver antes los
+   digests de `integration-environment.lock.json`.
+3. Commitear la referencia cruzada pendiente en `docs/README.md` y
+   `docs/architecture/c4-model.md` hacia el nuevo documento Wazuh/OpenSearch
+   (editada localmente, aún sin commit en `main` al cierre de este registro).
+4. Verificar con Franco el avance de Microsoft 365 hasta `enabled` (PBI-006);
+   fecha objetivo 2026-09-25.
+5. Mantener el límite de WIP de dos componentes activos (C-04 y C-06).
+
+Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
+
+- Microsoft 365 sin `enabled` (dataset, scopes aprobados, ticket de
+  autorización) — impacto: bloquea cierre de PBI-006 — dueño: Franco Clavo
+  Santander — siguiente acción: aprobación formal antes del 2026-09-25 —
+  escalamiento: Product Owner si no hay respuesta al vencer la fecha.
+- C-04 con evidencia parcial contra PostgreSQL real — impacto: no permite
+  declarar `DONE` — dueño: Cesar — siguiente acción: cubrir criterios 4–7 —
+  sin escalamiento, es trabajo planificado.
+- C-06 sin digests reproducibles en `integration-environment.lock.json`;
+  OpenSearch/Wazuh locales sin TLS ni topología oficial — impacto: evidencia
+  de C-04/C-08 no reproducible en CI — dueño: Cesar — siguiente acción:
+  resolver antes de usar C-06 como fuente de evidencia en CI.
+- Protección de rama en `main` no configurada — impacto: riesgo de proceso si
+  más de una persona escribe en `main` — dueño: Cesar / Franco — siguiente
+  acción: definir política de PR obligatorio.
+
+Cambio al Sprint Backlog: ninguno. El commit `0fe6b8b` es documentación que
+formaliza una frontera ya vigente; no reordena ni modifica ningún PBI. PBI-006
+permanece con el mismo criterio de aceptación, pendiente solo de la
+aprobación de Microsoft 365.
+
+Confianza en el Sprint Goal: ÁMBAR. La mitad ejecutable del incremento avanza
+(C-01, C-02, C-03, C-05, C-07 `DONE`); el cierre depende de completar C-04 y
+C-06 (trabajo interno) y de la aprobación externa pendiente de Microsoft 365.
+
+## Registro — 2026-09-24
+
+Sprint: 1 — Base ejecutable y contratos.
+
+Sprint Goal: disponer de una base reproducible que valide SecurityEvent y cerrar
+el contrato operativo Microsoft 365/Wazuh sin supuestos. Sigue alcanzable.
+
+Componentes activos y estado:
+
+- C-01, C-02, C-03, C-05, C-07: `DONE`; sin cambios hoy.
+- C-04 — persistencia de admisión: `IN_PROGRESS`. Desde el cierre de ayer
+  cubre migración, rollback, carrera concurrente, comando público de admisión
+  (`commitAdmission`), idempotencia, CAS de checkpoint y cuarentena contra
+  PostgreSQL real, con evidencia verificada en CI (run `35945693397`, commit
+  `c213073`). Faltan casos explícitos de rechazo por cruce de Source/tenant e
+  IDs inválidos, y el smoke de object storage/Wazuh exigido por Sprint 1.
+- C-06 — entorno de integración real: `IN_PROGRESS`. Sin cambio técnico desde
+  ayer; `integration-environment.lock.json` sigue con digests en `null`;
+  OpenSearch y Wazuh locales siguen `BLOCKED` por TLS y topología.
+- C-08 — probe Wazuh: `IN_PROGRESS`. Sin cambio técnico; misma frontera de
+  ownership documentada ayer (`wazuh-engine-and-opensearch.md`).
+- C-09 — CI y ownership: `IN_PROGRESS`. Job `c04-postgres` verde en el gate;
+  generación de Prisma y alcance del fixture de gitleaks corregidos ayer;
+  protección de rama en `main` queda decidida como innecesaria en este
+  timebox (ver bloqueos).
+
+Evidencia terminada desde el Daily anterior (2026-09-23, commit `74200a0`):
+
+- Commit `0fe6b8b` — documentación Wazuh/OpenSearch (ver Daily de ayer).
+- Commits `b25b59c`…`8901a1b` — comando público de admisión C-04, job de CI
+  `c04-postgres` con evidencia por commit, y correcciones de CI/gitleaks. Ver
+  desglose completo en el
+  [informe de cierre de 2026-09-23](informes-de-avance/2026-09-23-informe-de-cierre.md).
+- No hay commits nuevos en `main` entre la apertura de este Daily y el cierre
+  de ayer (`74200a0` sigue siendo el `HEAD` de `main` al momento de este
+  registro).
+
+Plan hasta el siguiente Daily (2026-09-25):
+
+1. Cerrar C-04: casos de rechazo por cruce de Source/tenant e IDs inválidos,
+   y smoke de object storage/Wazuh — criterios restantes antes de `DONE`.
+2. Resolver los digests en `null` de `integration-environment.lock.json`
+   (C-06) para que la evidencia sea reproducible en CI.
+3. Commitear la referencia cruzada pendiente en `docs/README.md` y
+   `docs/architecture/c4-model.md` hacia `wazuh-engine-and-opensearch.md`
+   (sigue editada localmente, sin commit, reportado desde ayer).
+4. Verificar con Franco el estado de Microsoft 365 hasta `enabled`
+   (PBI-006); fecha objetivo 2026-09-25 vence hoy/mañana.
+5. Mantener el límite de WIP de dos componentes activos (C-04 y C-06).
+
+Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
+
+- ~~Microsoft 365 sin `enabled`~~ — **Actualizado el 2026-09-24**: Franco
+  (Product Owner) declaró `status: enabled` en
+  [`source-inventory.yaml`](../integrations/source-inventory.yaml) sobre la
+  base del `credential_ref` de app registration ya entregado (2026-09-22).
+  `approved_scopes`, `approval_ticket`, `dataset`, `api_version` y `region`
+  siguen sin valores reales, y no hay una conexión mínima de lectura
+  demostrada. Este `enabled` **no cierra PBI-006**, que sigue abierto en el
+  Product Backlog hasta cubrir esos criterios — ver
+  [decisión completa](../decisions/unresolved.md#decisión-microsoft-365-pasa-a-enabled-sin-el-gate-técnico-completo-de-pbi-006).
+  No se declara PBI-006 `DONE` en este registro.
+- C-04: rechazo por cruce Source/tenant e IDs inválidos, y smoke object
+  storage/Wazuh sin cubrir — impacto: no permite declarar `DONE` — dueño:
+  Cesar — siguiente acción: continuar hoy — sin escalamiento, es trabajo
+  planificado.
+- C-06 sin digests reproducibles en `integration-environment.lock.json`;
+  OpenSearch/Wazuh locales sin TLS ni topología oficial — impacto: evidencia
+  de C-04/C-08 no reproducible en CI — dueño: Cesar — siguiente acción:
+  resolver antes de usar C-06 como fuente de evidencia en CI.
+- ~~Protección de rama en `main` no configurada~~ — **Resuelto el 2026-09-24**:
+  Franco (Product Owner) decidió que un PR obligatorio antes de `main` es
+  intrascendente en este timebox (Cesar tiene control total del código, el
+  repositorio es privado, y los otros dos colaboradores son cuentas propias
+  de Cesar). Ver
+  [decisión completa](../decisions/unresolved.md#decisión-protección-de-rama-en-main-no-es-requisito-de-este-timebox).
+  Se reabre si se incorpora un colaborador externo real.
+- Referencia cruzada Wazuh/OpenSearch en `docs/README.md` y `c4-model.md`
+  editada localmente sin commit desde el 2026-09-23 — impacto: bajo, solo
+  navegación de documentación — dueño: Cesar — siguiente acción: incluir en
+  el próximo commit de documentación.
+
+Cambio al Sprint Backlog: ninguno. Ningún PBI cambia de prioridad ni de
+criterio de aceptación hoy.
+
+Confianza en el Sprint Goal: ÁMBAR. C-01, C-02, C-03, C-05, C-07 permanecen
+`DONE`; C-04 cerró hoy sus criterios de pertenencia/límites (`DONE`, pendiente
+de confirmación por CI); C-06 no avanza en digests/TLS desde ayer; Microsoft
+365 pasó a `enabled` por decisión de Franco, pero PBI-006 sigue abierto hasta
+cubrir scopes, ticket, dataset y una conexión real de lectura.
+
 ## Regla para los siguientes registros
 
 Se agrega una sección fechada por día laborable. No se reescribe el historial para
 mejorar métricas. Si no hubo avance, se registra la causa. Un bloqueo que dura un
 día laborable se escala conforme al plan Scrum.
+
+## Registro — 2026-09-25
+
+Sprint: 1 — Base ejecutable y contratos.
+
+`main` se revisó inicialmente en `df44dc7`: C-04 ya estaba DONE y C-06 base
+integrado. El cierre con evidencia real OpenSearch/Wazuh y excepción aceptada de
+capacidad se integró después por PR #14, merge `ec4d357`; todos los jobs CI del
+PR terminaron PASS. El corte final de este Daily es `main` en `ec4d357`.
+
+Componentes activos y estado:
+
+- C-06: `DONE` según la excepción aceptada para el entorno de pruebas disponible.
+- C-08: `IN_PROGRESS`; confirmar tenant/permisos/secretRefs.
+- C-09: `IN_PROGRESS`; confirmar protección de rama y checks requeridos.
+
+Evidencia terminada:
+
+- CI base limpio: dos entornos concurrentes PostgreSQL/Redis/MinIO con health,
+  aislamiento y cleanup PASS.
+- OpenSearch QAPAQ 3.7.0: TLS, health GREEN, CRUD y cleanup PASS en Railway.
+- Wazuh 4.14.7: alerta sintética procesada y marcador recuperado por API en el
+  índice diario; evidencia JSON/PNG versionada en la rama de cierre.
+- El entorno Railway temporal fue eliminado al terminar la captura.
+
+Plan hasta el siguiente Daily: continuar la gestión de accesos C-08 y confirmar
+C-09. La orquestación local `search` /
+`wazuh` / `full` y el sizing oficial del Compose Wazuh quedan como mejoras
+posteriores; el sizing oficial sigue requerido para despliegue.
+
+Cambio al Sprint Backlog: se acepta la capacidad de prueba disponible para la
+aceptación funcional de C-06, dejando registrada la excepción limitada a pruebas.
+
+Confianza en el Sprint Goal: ÁMBAR; la aceptación C-06 y C-04 están cerradas,
+pero accesos externos y gobierno de rama aún necesitan confirmación.
+
+Informe: [Daily Scrum 2026-09-25](informes-de-avance/2026-09-25-informe-de-avance.md).
 
 [Plan Scrum](README.md) · [Componentes](component-delivery-plan.md) ·
 [Sprint 1](sprints/01-base-ejecutable.md)
@@ -179,3 +383,57 @@ smoke de infraestructura, no aceptación E2E. El piloto tenía volumen de 5 GB
 frente a 50 GB requeridos y no verificó el sysctl del host. Evidencia redactada
 y logs preservados en `artifacts/integration/c06-railway-2026-09-25/`. C-06 se
 mantiene `IN_PROGRESS`; detalle en [plan y ejecución](c-06/README.md).
+
+## Registro — 2026-09-28
+
+Sprint: 2 — Ingesta durable Microsoft 365/Wazuh (Sprint Goal vigente).
+
+Sprint 1 cerró sus nueve componentes (`C-01`…`C-09`) el 2026-09-25, ocho días
+laborables antes de su límite original (2026-10-02). Este registro abre el
+trabajo de Sprint 2 hoy, adelantado respecto a las fechas 2026-10-05/06 que
+todavía figuran en
+[`sprints/02-ingesta-microsoft-wazuh.md`](sprints/02-ingesta-microsoft-wazuh.md);
+pendiente confirmar con Franco una Sprint Planning corta que re-feche el
+documento formalmente.
+
+Componentes activos y estado:
+
+- C-01…C-07: `DONE`, sin condiciones.
+- C-08: `DONE` solo para habilitar Sprint 2, por excepción del Product Owner
+  (2026-09-25); integración real contra Wazuh sigue pendiente como gate del
+  E2E final del MVP.
+- C-09: `IMPLEMENTED / BLOCKED_BY_REPOSITORY_ADMINISTRATION`, no `DONE`.
+- C-10 — adapter Wazuh: `READY`; inicia hoy sobre el contrato local de C-08.
+
+Evidencia terminada desde el Daily anterior: cierre de Sprint 1 completo, ver
+[informe de cierre 2026-09-25](informes-de-avance/2026-09-25-informe-de-cierre.md).
+
+Plan hasta el siguiente Daily:
+
+1. Confirmar fecha de Sprint Planning y timebox real de Sprint 2 con Franco.
+2. Avanzar C-10 (registro de fuente, paginación, errores de frontera) contra
+   el contrato local de C-08; sin afirmar aceptación contra Wazuh real.
+3. Registrar PBI-007 como `BLOCKED` en el Product Backlog con dueño (Franco).
+4. Evaluar abrir C-11 como segundo ítem de WIP solo si no compromete el foco
+   en C-10.
+
+Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
+
+- PBI-007 sin tenant/permisos/red reales de Microsoft 365/Wazuh — impacto:
+  bloquea el Sprint Goal completo, no el desarrollo local — dueño: Franco
+  Clavo Santander — siguiente acción: confirmar acceso real o mantener el
+  bloqueo con fecha objetivo explícita — escalamiento: Product Owner si no
+  hay respuesta antes del cierre de Sprint 2.
+- Fechas de Sprint 2 desactualizadas en el documento de plan — impacto: bajo,
+  riesgo de proceso — dueño: Cesar / Franco — siguiente acción: re-fechar
+  tras la Sprint Planning.
+
+Cambio al Sprint Backlog: ninguno declarado hoy; PBI-007 se mantiene `BLOCKED`
+como ya estaba registrado.
+
+Confianza en el Sprint Goal: ÁMBAR. El gate previo de Sprint 1 está satisfecho
+con sus excepciones documentadas y C-10 puede avanzar en local hoy mismo; el
+Sprint Goal completo depende enteramente de que Franco confirme acceso real a
+Microsoft 365/Wazuh durante el Sprint.
+
+Informe: [Daily Scrum 2026-09-28](informes-de-avance/2026-09-28-informe-de-avance.md).

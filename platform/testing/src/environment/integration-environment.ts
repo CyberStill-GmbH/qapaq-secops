@@ -94,7 +94,7 @@ function profileImageNames(profile: IntegrationProfile): (keyof typeof imageLock
         ? ['postgres', 'redis', 'minio', 'opensearch']
         : profile === 'wazuh'
           ? ['wazuhManager', 'wazuhIndexer']
-          : Object.keys(imageLock) as (keyof typeof imageLock)[];
+          : (Object.keys(imageLock) as (keyof typeof imageLock)[]);
 }
 
 function pinnedImage(name: keyof typeof imageLock): string {
@@ -149,6 +149,7 @@ export class IntegrationEnvironment {
     if (report.status !== 'PASS')
       throw new Error(`Preflight ${report.status}; no se inicia el entorno`);
     this.stateValue = 'starting';
+    let startingService = 'PostgreSQL';
     try {
       const labels = {
         'qapaq.test': 'true',
@@ -162,11 +163,10 @@ export class IntegrationEnvironment {
         profile === 'search' ||
         profile === 'full'
       ) {
+        startingService = 'PostgreSQL';
         if (profile === 'postgres' && !imageLock.postgres.digest)
           throw new Error('Falta digest PostgreSQL para C-04');
-        const postgres = await new GenericContainer(
-          pinnedImage('postgres'),
-        )
+        const postgres = await new GenericContainer(pinnedImage('postgres'))
           .withEnvironment({
             POSTGRES_DB: 'qapaq_test',
             POSTGRES_USER: 'qapaq',
@@ -185,6 +185,7 @@ export class IntegrationEnvironment {
         };
       }
       if (profile === 'base' || profile === 'search' || profile === 'full') {
+        startingService = 'Redis';
         const redis = await new GenericContainer(pinnedImage('redis'))
           .withExposedPorts(6379)
           .withLabels(labels)
@@ -199,6 +200,7 @@ export class IntegrationEnvironment {
         };
       }
       if (profile === 'base' || profile === 'search' || profile === 'full') {
+        startingService = 'MinIO';
         const minio = await new GenericContainer(pinnedImage('minio'))
           .withEnvironment({
             MINIO_ROOT_USER: 'qapaq-test',
@@ -242,7 +244,8 @@ export class IntegrationEnvironment {
     } catch (error) {
       await this.stop().catch(() => undefined);
       this.stateValue = 'failed';
-      throw error;
+      const detail = error instanceof Error ? error.message.split('\n')[0] : 'error desconocido';
+      throw new Error(`No se pudo iniciar ${startingService}: ${detail}`, { cause: error });
     }
   }
 
@@ -350,7 +353,8 @@ export class IntegrationEnvironment {
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message.slice(0, 160) : 'fallo en probe S3 autenticado',
+          detail:
+            error instanceof Error ? error.message.slice(0, 160) : 'fallo en probe S3 autenticado',
         });
       }
     }
@@ -371,8 +375,13 @@ export class IntegrationEnvironment {
         detail: this.runtimeValue.wazuh.reason,
       });
     this.healthResults = checks;
-    const hasBlocked = isBlockedComponent(this.runtimeValue.opensearch) || this.runtimeValue.wazuh?.blocked;
-    const status = hasBlocked ? 'BLOCKED' : checks.every((check) => check.healthy) ? 'PASS' : 'BLOCKED';
+    const hasBlocked =
+      isBlockedComponent(this.runtimeValue.opensearch) || this.runtimeValue.wazuh?.blocked;
+    const status = hasBlocked
+      ? 'BLOCKED'
+      : checks.every((check) => check.healthy)
+        ? 'PASS'
+        : 'BLOCKED';
     this.stateValue = status === 'PASS' ? 'healthy' : 'blocked';
     return { status, checks };
   }

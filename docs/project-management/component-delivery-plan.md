@@ -27,7 +27,7 @@ un componente puede servir a varios PBI.
 | C-05 | `packages/contracts/security-event` | JSON Schema, catálogos, tipos, validadores y corpus 1.0.0 | 004 | C-01 | Contract specs de corpus válido/inválido y versiones incompatibles |
 | C-06 | `platform/testing` y definición de entorno de integración | Arranque/teardown de PostgreSQL, Redis, object storage, OpenSearch y Wazuh reales | 003 | C-01, C-03 | Health, aislamiento y limpieza PASS; versiones y commit registrados |
 | C-07 | Reglas del workspace y fixtures de violación | Límites apps/modules/platform, capas y ciclos | 005 | C-01, C-02 | Regla acepta arquitectura válida y rechaza cada bypass preparado |
-| C-08 | `modules/connectors` contrato operativo/probe Wazuh | Port `SecurityEventProvider`, health y consulta read-only mínima | 005, 006 | C-03, C-05, C-06 | Contract suite y consulta a Wazuh/Indexer real autorizado |
+| C-08 | `modules/connectors` contrato operativo/probe Wazuh | Port `SecurityEventProvider`, health y consulta read-only mínima | 005, 006 | C-03, C-05, C-06 | DONE para Sprint 2 por excepción PO (2026-09-25); aceptación real autorizada pendiente como gate obligatorio del E2E final MVP |
 | C-09 | `.github/workflows` y ownership | Integrar PR #2, pnpm congelado, scans y evidencia sin secretos | 002 | C-01, C-06, C-07 | PR confiable/no confiable; checks requeridos y artifact redactado |
 
 C-02 fue materializado el 2026-09-22: API Nest/Fastify, worker inactivo independiente,
@@ -71,6 +71,18 @@ C-04/C-08; C-02 y C-07 cierran la forma del workspace; C-09 se adapta a scripts
 reales. No se copia CI documentalmente ni se crea otro workflow si PR #2 ya cubre
 la capacidad.
 
+C-09 tiene una auditoría y evidencia de cierre registradas en
+[C-09 — CI seguro y evidencia](c-09/README.md). PR #2 ya estaba integrado; PR #16
+añadió el agregador y el workflow de evidencia, y se fusionó en `main` con el
+commit `c6d235b82a88904b3e129103e861f17bd1534f40`. La CI de `main` y el workflow
+de evidencia pasaron; el artifact se descargó, inspeccionó y verificó por
+SHA-256. El componente permanece
+`IMPLEMENTED / BLOCKED_BY_REPOSITORY_ADMINISTRATION`: el plan no aplica
+protecciones al repo privado, no hay required checks ni CODEOWNERS/revisión
+activa, y aún falta una PR controlada de fork con canario sintético. El propietario
+eximió CODEOWNERS/revisión independiente mientras haya un único mantenedor
+humano; eso no sustituye el DoD documentado.
+
 ## Sprint 2 — Ingesta durable Microsoft 365/Wazuh, dos días
 
 | ID | Componente y ruta principal | Responsabilidad | PBI | Depende de | Specs y evidencia de salida |
@@ -81,15 +93,25 @@ la capacidad.
 | C-13 | `modules/telemetry` resiliencia | Inbox, idempotencia, replay, quarantine y reprocess | 011 | C-11, C-12 | Reinicio, carrera, duplicado y poison event sin efecto duplicado |
 | C-14 | `modules/telemetry` proyección y consulta | Indexación OpenSearch y query API tipada/autorizable | 012 | C-12, C-13 | OpenSearch real, caída/recovery, límites y raw oculto por defecto |
 | C-15 | `platform/observability` y señales del pipeline | Métricas, logs, traces y health con cardinalidad acotada | 013 | C-10…C-14 | Cada estado healthy/degraded/failed provocado y observado |
+| C-24 | `platform/configuration` + frontera control plane/SecretProvider | Alta, rotación y revocación write-only; persistir solo ref/fingerprint/metadata | 029 | C-03, C-08 | Contract/security specs sin GET/export/plaintext; E2E final en Sprint 3 |
+| C-28 | `platform/gateway/krakend` + LB/config | Gateway CE on-premises, rutas allowlisted, TLS/OAuth, límites y telemetría; sin estado de negocio | 030 | C-03, C-06, C-24 | Config validation y 401/403/429/5xx/timeout; integración con C-10/C-15 y admisión antes de BullMQ |
 
 Orden crítico: C-10 → C-11 → C-12 → C-13 → C-14. C-15 se añade durante cada
 componente y se cierra al final; no se pospone toda la observabilidad a una tarea
-aislada. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
+aislada. C-15 incluye Collector, Prometheus, Loki y provisioning mínimo de Grafana;
+C-24 cierra el contrato y C-28 selecciona KrakenD, pero no inventan un vault.
+KrakenD se ubica antes de la API de Wazuh/proveedor y la admisión C-11 permanece
+antes de BullMQ. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
 infraestructura interna tenga specs reales.
 
-El timebox 2026-10-05/06 presupone que C-01…C-09 y todos los accesos están listos.
-El día 1 ejecuta C-10…C-12; el día 2, C-13…C-15 y la Review. Esta distribución es
-un forecast intensivo, no permiso para paralelizar dependencias ni reducir la DoD.
+Por decisión del Product Owner del 2026-09-25, C-08 queda DONE para habilitar
+desarrollo de Sprint 2 mediante su puerto y contract suite local aunque falte acceso a Wazuh. La aceptación técnica real sigue pendiente para el E2E final del MVP.
+La prueba autorizada real queda diferida al E2E final del MVP y sigue siendo gate
+de aceptación del producto; no se permite declarar el Sprint Goal ni el MVP
+Candidate completos sin ese recorrido. El timebox 2026-10-05/06 puede avanzar en
+trabajo independiente; PBI-007 y las provider specs que requieran Wazuh real quedan
+`BLOCKED` hasta disponer de acceso. El orden de dependencias y la DoD funcional no
+cambian.
 
 ## Sprint 3 — Operación SOC y evidencia
 
@@ -103,10 +125,15 @@ un forecast intensivo, no permiso para paralelizar dependencias ni reducir la Do
 | C-21 | `apps/web` | Consulta, detalle, triaje y estados degradados | 017 | C-14, C-17, C-18 | Playwright contra backend real; acceso/raw denegados por API |
 | C-22 | `platform/testing/e2e`, performance y release evidence | Vertical, fallos, recovery, benchmark, SBOM y decisión | 020, 021 | C-10…C-21 | Matriz PASS/FAIL/BLOCKED ligada a commit y ambiente |
 | C-23 | Reglas, suite de conformidad y guía de proveedor | Probar extensión sin implementar un proveedor ficticio | 022 | C-07, C-08, C-10 | Análisis de acoplamiento y conformidad del adapter Wazuh real |
+| C-25 | `modules/access`, BFF e ingress | Sesión única, red QAPAQ, passkey Entra, Smart Lockout y rate limit | 016, 026 | C-18, C-03, C-06 | Carreras, inside/outside, proxy forjado, passkey y abuso PASS |
+| C-26 | `platform/observability` + provisioning Grafana | Dashboards SOC, auth/red, alertas externas, retention y recovery | 013, 027 | C-15, C-18, C-19 | Fallos observados; redacción/RBAC/backup/restore y evidencia de control interno |
+| C-27 | `apps/web` + contrato API | Catálogo de errores, helpRef, acciones y correlationId | 028 | C-18, C-21, C-26 | Contract/UX/a11y/no-enumeration y fallback PASS |
+| C-28 | `platform/gateway/krakend` + LB/config | Completar HA, rotación, failure modes, benchmark y dashboards por ruta | 030 | C-15, C-24 | Failover/rolling update, cuota por réplica, no-secrets y E2E durable PASS; evidencia alimenta C-22 |
 
-C-18 y C-19 empiezan al inicio del Sprint porque son dependencias de seguridad, no
+C-18, C-19 y C-25 empiezan al inicio del Sprint porque son dependencias de seguridad, no
 pulido final. C-16 alimenta C-17; C-17/C-19 habilitan C-20; C-21 es P1 y no desplaza
-C-22. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
+C-22. C-26 endurece el baseline de C-15; C-24/C-28 completan su E2E y C-27 no desplaza el
+P0. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
 
 ## Contratos entre componentes
 

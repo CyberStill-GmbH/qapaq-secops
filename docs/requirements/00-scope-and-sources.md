@@ -55,6 +55,10 @@ retención que no haya sido ratificada.
 - PostgreSQL, Redis/BullMQ, OpenSearch QAPAQ y object storage: dependencias de la
   aplicación administradas por Infraestructura.
 - OpenTelemetry Collector y servicio de firma: contratos corporativos externos.
+- Grafana OSS, Loki y Prometheus: observabilidad SOC autogestionada bajo control
+  QAPAQ para no contratar/tercerizar ese servicio; provisión aún pendiente.
+- API Gateway y SecretProvider productivo: alta write-only y resolución runtime de
+  credenciales; productos concretos aún pendientes.
 - Cato, Sophos y MISP: integraciones posteriores sujetas a inventario y decisión.
 
 ## Frontera de responsabilidad
@@ -78,6 +82,9 @@ aprobaciones.
 - `SecurityEvent` 1.0.0, búsqueda e indexación derivada;
 - priorización, alertas, triaje e incidente/caso mínimo;
 - vista de cobertura y salud operacional;
+- tableros SOC en Grafana OSS con logs Loki y métricas Prometheus;
+- una sesión humana, red QAPAQ, passkey Entra y protección de intentos;
+- credenciales de integraciones write-only y catálogo de errores accionable;
 - notificación crítica por Teams, acuse dentro de QAPAQ y fallback pendiente;
 - auditoría de acciones sensibles y evidencia de CI/release candidate.
 

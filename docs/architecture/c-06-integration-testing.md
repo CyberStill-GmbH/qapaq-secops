@@ -1,19 +1,21 @@
 # C-06 — entorno real de integración
 
-Estado global: **IN_PROGRESS / PARTIALLY VERIFIED** (verificación local del
-perfil `base`: **PASS**, 2026-09-24). El harness se encuentra en
-`platform/testing`; sus perfiles pendientes conservan el estado `BLOCKED` y no
-producen PASS implícito.
+Estado global: **DONE** (2026-09-25), con excepción aceptada de capacidad para
+pruebas. Perfil `base`: PASS local/CI; OpenSearch TLS/CRUD y Wazuh Manager →
+pipeline → Indexer: PASS remoto en Railway. El sizing oficial Wazuh no se
+cumplió físicamente y se conserva como requisito para despliegue.
+`platform/testing` conserva como mejora futura la orquestación local de los
+perfiles pesados; la aceptación funcional remota está respaldada por evidencia.
 
 ## Alcance y perfiles
 
-| Perfil | Servicios | Criterio de ejecución | Estado al 2026-09-24 |
+| Perfil | Servicios | Criterio de ejecución | Estado al 2026-09-25 |
 | --- | --- | --- | --- |
 | `postgres` | PostgreSQL | Digest bloqueado, query y teardown | Implementado; suite real existente |
-| `base` | PostgreSQL, Redis y MinIO | Operaciones reales, aislamiento, evidencia y limpieza | PASS local; dos entornos concurrentes probados |
-| `search` | `base` + OpenSearch QAPAQ | TLS/autenticación QAPAQ y CRUD/health real | BLOCKED; configuración TLS y digest no disponibles |
-| `wazuh` | Topología oficial Wazuh | Manager → pipeline → Indexer, setup oficial y smoke | BLOCKED; preflight de recursos no cumple |
-| `full` | `search` + `wazuh` | Flujo completo con capacidad aprobada | BLOCKED |
+| `base` | PostgreSQL, Redis y MinIO | Operaciones reales, aislamiento, evidencia y limpieza | PASS local y CI limpio; dos entornos concurrentes probados |
+| `search` | `base` + OpenSearch QAPAQ | TLS/autenticación QAPAQ y CRUD/health real | Aceptación funcional PASS en Railway; harness local pendiente |
+| `wazuh` | Topología Wazuh | Manager → pipeline → Indexer, setup y smoke | E2E funcional PASS en Railway; excepción sizing aceptada para este cierre |
+| `full` | `search` + `wazuh` | Flujos funcionales combinados | Aceptación PASS por evidencias reales Railway; harness local pendiente |
 
 `IntegrationEnvironment` expone `preflight()`, `start()`, `health()`,
 `collectEvidence()` y `stop()`. Cada ejecución usa `runId`, labels de ownership y
@@ -41,8 +43,10 @@ Referencias de ejecución:
   y en `artifacts/integration/<runId>/environment-evidence.json`.
 - Suite completa: 4 archivos y 10 pruebas aprobados; salida preservada en
   `artifacts/integration/c06-validation-2026-09-24/vitest-integration.log`.
-- El workflow contiene `c06-base`, pero aún no existe una ejecución remota de
-  ese job que permita afirmar PASS de CI.
+- El job `c06-base` y el gate general del run
+  [36154234794](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/36154234794)
+  terminaron PASS con checkout limpio. Los JSON están versionados en
+  `docs/project-management/c-06/assets/2026-09-25-c06-ci-run-{a,b}.json`.
 
 El umbral `base` del harness se fijó en 3 GiB de Docker y host, y 5 GiB libres en
 disco, pues la prueba completa pasó en el engine local medido en 3.46 GiB y con
@@ -78,7 +82,9 @@ espacio adicional sin permitir el arranque. La captura derivada de la salida se
 encuentra en
 [`2026-09-24-c06-wazuh-preflight.png`](../project-management/c-06/assets/2026-09-24-c06-wazuh-preflight.png).
 
-Por tanto, C-06 global continúa `IN_PROGRESS`: la aceptación de `base` es real y
-reproducible localmente; OpenSearch/TLS, Wazuh E2E y el run remoto de CI siguen
-pendientes. La matriz de cierre y los pasos ejecutados están en
+La decisión de cierre acepta la capacidad disponible en Railway para pruebas,
+pese a que no acredita el sizing oficial del Compose Wazuh. La excepción se
+limita a pruebas de integración y no modifica sizing de despliegue. C-06 queda
+`DONE` por `base` reproducible local/CI y pruebas reales OpenSearch/Wazuh
+conservadas en
 [`Plan y ejecución C-06`](../project-management/c-06/README.md).
