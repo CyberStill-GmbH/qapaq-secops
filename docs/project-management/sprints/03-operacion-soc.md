@@ -17,6 +17,9 @@ y emitir una decisión de preparación sustentada en E2E, fallos, capacidad y re
 6. PBI-020 — suite E2E y fallos.
 7. PBI-021 — capacidad, recovery y release evidence.
 8. PBI-017 — vista operativa y PBI-022 — extensibilidad, solo si el P0 está protegido.
+9. PBI-026 — sesión única, red QAPAQ, passkey y protección de intentos.
+10. PBI-027 — tableros SOC y hardening/recovery del stack OSS.
+11. PBI-029 — E2E write-only; PBI-028 — catálogo de errores si el P0 está protegido.
 
 El forecast es deliberadamente revisable: Planning selecciona PBIs completos según
 capacidad observada en Sprint 1/2. PBI-020 y PBI-021 no se recortan para incorporar
@@ -27,12 +30,14 @@ PBI-017 no cabe, siempre que Product Owner lo acepte antes de Planning.
 
 | Orden | Componentes | Resultado físico |
 | --- | --- | --- |
-| 1 | C-18, C-19 | Autorización Entra y auditoría transaccional disponibles desde el inicio |
+| 1 | C-18, C-19, C-25 | Autorización Entra endurecida y auditoría transaccional desde el inicio |
 | 2 | C-16 | Priorización QAPAQ sobre alertas Wazuh con reason codes |
 | 3 | C-17 | Lifecycle mínimo de alerta, triaje e incidente/caso |
 | 4 | C-20 | Outbox, worker y adapter Teams con fallback y acuse QAPAQ |
 | 5 | C-22 | E2E, fallos, recovery, capacidad y release evidence del mismo commit |
-| Condicional | C-21, C-23 | Vista operativa y verificación de extensibilidad, después del P0 |
+| Transversal | C-26 | Grafana SOC, hardening, alertas externas, backup/restore y evidencia SBS |
+| Transversal | C-24 | E2E de alta/rotación/revocación write-only de credenciales |
+| Condicional | C-21, C-23, C-27 | Vista, extensibilidad y catálogo UX, después del P0 |
 
 C-18/C-19 no son tareas de cierre: protegen C-17 y C-20. C-22 acumula evidencia
 desde los primeros PR y no se comprime para incorporar UI. Las dependencias y
@@ -46,6 +51,7 @@ specs por componente están en el
 - implementar priorización sin duplicar el ruleset Wazuh;
 - materializar lifecycle de alerta/incidente y AuditEvent atómico;
 - integrar Entra BFF/RBAC con entorno autorizado;
+- probar sesión única, red QAPAQ, passkey Entra y throttling sin enumeración;
 - implementar outbox/worker Teams y payload mínimo;
 - completar specs de seguridad y autorización.
 
@@ -55,13 +61,18 @@ specs por componente están en el
 - ejecutar benchmark y drenaje con configuración documentada;
 - verificar restart/replay sin alertas, casos o mensajes duplicados;
 - recopilar digest, SBOM, CI, migraciones, rollback y riesgos;
+- demostrar dashboards/alertas, redacción, acceso, backup/restore y control interno
+  de Grafana OSS/Loki/Prometheus; completar alta write-only y catálogo de errores;
 - realizar Review ejecutable y decisión de preparación.
 
 ## Dependencias de entrada
 
 - SecurityEvent consultable, replay y cuarentena de Sprint 2;
 - app registration Entra, tenant, redirect URIs y claims aprobados;
+- CIDR QAPAQ, VPN/egress, proxies confiables, Conditional Access, passkey y Smart Lockout aprobados;
 - Teams Workflow, canal, secretRef, propietario y fallback aprobados;
+- Grafana/Loki/Prometheus/Collector con versiones, storage, IAM y red interna;
+- API Gateway, SecretProvider e identidades técnicas para E2E write-only;
 - reviewer de Seguridad para auth, mapping y notificación;
 - entorno con recursos suficientes para benchmark/recovery.
 
@@ -69,7 +80,10 @@ specs por componente están en el
 
 - promoción idempotente de Wazuh alert a QAPAQ alert;
 - lifecycle válido, transición inválida, concurrencia y denegación;
-- OIDC/BFF, tenant/issuer/audience, state/nonce/PKCE, scopes y revocación;
+- OIDC/BFF, tenant/issuer/audience, state/nonce/PKCE, scopes, revocación, sesión
+  única, inside/outside de red, passkey, Smart Lockout y rate limiting;
+- no revelación de credenciales en create/rotate/revoke y ausencia de read/export;
+- Grafana/Loki/Prometheus: auth, red privada, redacción, cardinalidad, caída y restore;
 - atomicidad estado/audit/outbox y prohibición de update/delete de auditoría;
 - Teams real, timeout ambiguo, reintentos, duplicado, fallback y acuse QAPAQ;
 - recorrido E2E Microsoft 365 → Wazuh → QAPAQ → Teams;

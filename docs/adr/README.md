@@ -1,7 +1,8 @@
 # Índice de Architecture Decision Records
 
-ADR-007, ADR-011, ADR-015, ADR-016, ADR-017, ADR-022 y ADR-024 están Accepted; ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por
-resolución explícita del usuario, con fecha aportada 2026-09-18. Fijan alcance,
+ADR-007, ADR-011, ADR-015, ADR-016, ADR-017, ADR-022 y ADR-024 están Accepted;
+ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por resolución del
+2026-09-18, y ADR-025 por los requerimientos del 2026-09-28. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad, separación
 de observabilidad/auditoría y CI/release/despliegue. ADR-001…014 mantienen
 Proposed salvo ADR-007, ADR-011 y aspectos sustituidos. Aceptación documental no equivale a software
@@ -32,6 +33,7 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-022 — Notificación de alertas críticas mediante Microsoft Teams](022-microsoft-teams-critical-alert-notifications.md), Accepted; activación bloqueada hasta configurar la operación y superar 20 pruebas.
 - [ADR-023 — Separación de CI, release y despliegue](023-ci-release-deployment-separation.md), Conditionally Accepted; CI/candidatos habilitados y publicación/despliegue bloqueados.
 - [ADR-024 — Microsoft 365 y Wazuh como vertical del primer MVP](024-microsoft-365-wazuh-mvp-vertical.md), Accepted / Implementation Required; sustituye el orden de pilotos de ADR-015/019.
+- [ADR-025 — Endurecimiento de acceso, secretos y observabilidad SOC](025-security-access-observability-hardening.md), Conditionally Accepted; implementación bloqueada por gates de red, identidad, secretos y plataforma.
 
 ## Compatibilidad con los archivos anteriores
 
@@ -42,5 +44,6 @@ No son ADR adicionales ni conservan la numeración semántica anterior.
 
 La numeración nueva cumple el adjunto actual. Las skills fuera de docs/ no se
 modificaron; resolver referencias antiguas por tema/título, usando este índice.
-ADR-021 acepta OpenTelemetry como contrato neutral sin elegir el backend
-corporativo; los objetivos de ADR-020 todavía requieren medición.
+ADR-025 selecciona Grafana OSS, Loki y Prometheus para el backend operacional
+interno, manteniendo OpenTelemetry como contrato y los objetivos de ADR-020 sujetos
+a medición.

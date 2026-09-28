@@ -198,9 +198,9 @@ Aceptación:
 - caída del índice conserva raw/checkpoint y expone backlog;
 - integration specs usan el motor real.
 
-### PBI-013 — Telemetría del pipeline
+### PBI-013 — Telemetría del pipeline y backend OSS
 
-Prioridad: P1 · Forecast: Sprint 2 · Tipo: Enabler/Observability · Riesgo: medio.
+Prioridad: P0 · Forecast: Sprint 2 · Tipo: Enabler/Observability · Riesgo: alto.
 
 Como operador, necesito distinguir cobertura, atraso, rechazo y fallo.
 
@@ -211,7 +211,10 @@ Aceptación:
 - logs estructurados carecen de raw, tokens y PII innecesaria;
 - trace/request IDs cruzan jobs sin usarse como claves de deduplicación;
 - health diferencia Wazuh caído, Indexer caído y pipeline atrasado;
-- una spec provoca cada estado observable.
+- una spec provoca cada estado observable;
+- OpenTelemetry Collector entrega logs a Loki y métricas a Prometheus; Grafana OSS
+  consulta ambos sin acceso anónimo ni exposición pública de los backends;
+- configuración, dashboards y alertas mínimas quedan versionados y restaurables.
 
 ## Épica E4 — Flujo SOC mínimo
 
@@ -351,6 +354,66 @@ Aceptación:
 - se documentan puntos de extensión y cambios legítimos del composition root;
 - Cato/Sophos permanecen sin código hasta contar con contrato y entorno real.
 
+### PBI-026 — Endurecer acceso humano
+
+Prioridad: P0 · Forecast: Sprint 3 · Tipo: Security/Identity · Riesgo: alto.
+
+Como Security, necesito una sesión por usuario, red QAPAQ, passkey y protección de
+intentos para reducir secuestro, phishing y acceso externo.
+
+Aceptación:
+
+- dos logins concurrentes producen una sola sesión y el segundo se rechaza;
+- Entra Conditional Access y el borde prueban inside/outside, VPN y proxy forjado;
+- passkey FIDO2 completa el mismo OIDC y no crea credencial local;
+- Smart Lockout y rate limiting genérico se prueban sin enumeración;
+- no existe `SUPERADMIN`; break-glass y roles separados conservan SoD.
+
+### PBI-027 — Tableros SOC en Grafana OSS
+
+Prioridad: P0 · Forecast: Sprint 3 · Tipo: Platform/SOC/Compliance · Riesgo: alto.
+
+Como SOC, necesito operar Grafana OSS + Loki + Prometheus bajo control QAPAQ para
+observar el sistema sin tercerizar logs ni información operacional.
+
+Aceptación:
+
+- Grafana usa Entra/red QAPAQ; Loki/Prometheus permanecen privados y autenticados;
+- dashboards muestran plataforma, cobertura/lag, ingesta, colas, auth y auditoría;
+- no-data/stale/degraded/failed son inequívocos y caída total alerta fuera del stack;
+- redacción/cardinalidad, RBAC, backup/restore, retención y sizing tienen evidencia;
+- inventario/RACI/egress demuestran operación interna y Compliance revisa el
+  supuesto de no tercerización de SBS 504-2021 arts. 22–25.
+
+### PBI-028 — Catálogo de errores accionable
+
+Prioridad: P1 · Forecast: Sprint 3 · Tipo: UX/Security/Support · Riesgo: medio.
+
+Como usuario, necesito saber qué significa un error y qué acción segura realizar.
+
+Aceptación:
+
+- API/UI usan código, mensaje, `correlationId`, `helpRef` y retry estables;
+- catálogo cubre auth, autorización, input, estado, fuentes, secretos y dependencias;
+- errores externos se normalizan y ningún stack/secreto/topología llega a UI;
+- accesibilidad, localización fallback y no enumeración tienen pruebas;
+- soporte puede correlacionar en Loki sin ampliar acceso del usuario.
+
+### PBI-029 — Alta write-only de credenciales de tecnologías
+
+Prioridad: P0 · Forecast: Sprint 2 (contrato) / Sprint 3 (E2E) · Tipo: Security/Platform · Riesgo: alto.
+
+Como Platform Admin, necesito ingresar una API key una vez y operar después solo
+con su referencia para añadir fuentes sin exponer credenciales.
+
+Aceptación:
+
+- API Gateway expone create/rotate/revoke, nunca read/export de plaintext;
+- SecretProvider externo custodia; DB/audit/UI solo conservan ref/fingerprint/metadata;
+- identidad del adapter resuelve únicamente su namespace;
+- rotación prueba la nueva versión antes de switch/revocación y no hace fallback;
+- onboarding sigue exigiendo adapter, mapping, límites, health y suite real.
+
 ## Backlog post-MVP
 
 ### PBI-023 — Incorporar segunda fuente autorizada
@@ -371,8 +434,8 @@ baseline, benchmark, aislamiento y gate de ADR-007.
 
 ## Regla de corte
 
-PBI-001…012 y PBI-014…016, 018…021 forman el forecast P0 del candidato. PBI-013,
-017 y 022 son P1: se incorporan si no ponen en riesgo el Sprint Goal. La Review de
+PBI-001…016, 018…021, 026, 027 y 029 forman el forecast P0 del candidato. PBI-017,
+022 y 028 son P1: se incorporan si no ponen en riesgo el Sprint Goal. La Review de
 cada Sprint puede reordenar el backlog; no puede eliminar specs, seguridad o
 evidencia para conservar una fecha.
 

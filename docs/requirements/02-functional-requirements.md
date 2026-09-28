@@ -606,3 +606,85 @@ Cada requisito expresa una obligación principal. `Auth` usa la forma
 - **Aceptación:** Dado capability no activada, no existe runtime; activada, input o
   output inválido se rechaza sin mutar dominio.
 - **Verificación:** benchmark, contract, security e integration specs del gate.
+
+## Endurecimiento transversal solicitado el 2026-09-28
+
+### RF-037 — Impedir sesiones humanas concurrentes
+
+- **Enunciado:** mantener como máximo una sesión humana activa por usuario y
+  rechazar atómicamente un segundo login.
+- **Actor/disparador/precondiciones:** usuario/Entra callback; identidad admitida.
+- **Entradas/validaciones:** `tid+oid`, sesión/slot vigente y transacción PostgreSQL.
+- **Resultado/fallos:** crea sesión o `AUTH_SESSION_ALREADY_ACTIVE`; no revela la previa.
+- **Datos/auditoría/Auth:** sesión/revocación; auditar sin cookie/token.
+- **Prioridad/estado/origen/dependencias:** MVP P0 · CONFIRMADO · ADR-025 · C-18/C-25.
+- **Aceptación:** dos callbacks concurrentes producen una sesión; logout, expiración
+  o revocación permiten el siguiente login sin slot huérfano.
+- **Verificación:** integration de carrera/fallo y E2E multisesión.
+
+### RF-038 — Restringir acceso a red QAPAQ con passkey
+
+- **Enunciado:** todo usuario debe acceder desde CIDR QAPAQ y poder usar passkey
+  FIDO2 de Entra dentro de OIDC, conservando MFA/admisión/RBAC.
+- **Actor/disparador/precondiciones:** usuario; named location, proxy y passkey habilitados.
+- **Entradas/validaciones:** IP efectiva por proxy confiable, tenant y contexto de
+  autenticación aprobado; nunca clave WebAuthn local.
+- **Resultado/fallos:** inside continúa; outside, header forjado o fuerza insuficiente se deniegan.
+- **Datos/auditoría/Auth:** clasificación de red y fuerza, sin IP completa en labels.
+- **Prioridad/estado/origen/dependencias:** MVP P0 · CONFIRMADO/GATED · ADR-025.
+- **Aceptación:** inside/outside/VPN/proxy directo/passkey PASS; no hay bypass local
+  ni `SUPERADMIN` universal.
+- **Verificación:** provider spec Entra/CA y E2E de borde.
+
+### RF-039 — Limitar intentos de ingreso
+
+- **Enunciado:** Entra aplica Smart Lockout y QAPAQ limita endpoints anónimos sin
+  permitir enumeración ni bloqueo dirigido por username.
+- **Actor/disparador/precondiciones:** actor anónimo; storage distribuido disponible.
+- **Entradas/validaciones:** IP normalizada, pre-sesión y operación; umbral medido.
+- **Resultado/fallos:** `429` genérico con `Retry-After`, backoff/jitter y expiración.
+- **Datos/auditoría/Auth:** contadores efímeros/métricas agregadas, sin password/UPN.
+- **Prioridad/estado/origen/dependencias:** MVP P0 · CONFIRMADO/GATED · ADR-025.
+- **Aceptación:** spray, burst, cuenta inexistente y caída del limiter fallan seguros.
+- **Verificación:** security/load test y evidencia Smart Lockout.
+
+### RF-040 — Ingresar credencial de integración una sola vez
+
+- **Enunciado:** Platform Admin registra/rota credencial por API Gateway write-only;
+  ninguna API/UI humana puede recuperar después su valor.
+- **Actor/disparador/precondiciones:** Platform Admin con step-up, aprobación y fuente inventariada.
+- **Entradas/validaciones:** valor solo en request TLS, tipo/tamaño/owner/namespace.
+- **Resultado/fallos:** SecretProvider guarda y devuelve `secretRef`, fingerprint y
+  metadata; un fallo no persiste plaintext ni habilita la fuente.
+- **Datos/auditoría/Auth:** referencia/versión/owner; `integration.secret.rotate` con SoD.
+- **Prioridad/estado/origen/dependencias:** MVP P0 · CONFIRMADO/GATED · ADR-013/025.
+- **Aceptación:** no existe GET/export; logs, DB, audit y colas no contienen secreto;
+  solo la identidad del adapter resuelve su namespace.
+- **Verificación:** contract/security/provider specs y secret scan.
+
+### RF-041 — Explicar errores de forma accionable
+
+- **Enunciado:** API/UI presentan código, explicación segura, acción,
+  `correlationId`, `helpRef` y retry cuando corresponda.
+- **Actor/disparador/precondiciones:** cualquier usuario/caso de uso.
+- **Entradas/validaciones:** error normalizado y catálogo versionado.
+- **Resultado/fallos:** mensaje útil sin stack, secreto, topología ni enumeración;
+  fallback `UNEXPECTED_ERROR` si no existe mapping.
+- **Datos/auditoría/Auth:** detalle técnico solo en Loki redactado.
+- **Prioridad/estado/origen/dependencias:** MVP P1 · CONFIRMADO · ADR-025/catálogo.
+- **Aceptación:** escenarios conocidos enlazan ayuda; texto proveedor nunca aparece.
+- **Verificación:** contract, UX, accesibilidad y redaction tests.
+
+### RF-042 — Operar observabilidad SOC autogestionada
+
+- **Enunciado:** Platform/SOC consulta métricas y logs en Grafana OSS con Prometheus
+  y Loki autogestionados, sin sustituir audit trail.
+- **Actor/disparador/precondiciones:** SOC/Platform; Entra, red QAPAQ y stack saludables.
+- **Entradas/validaciones:** señales OTLP/Prometheus allowlisted y de baja cardinalidad.
+- **Resultado/fallos:** dashboards/alertas distinguen healthy, no-data, stale,
+  degraded y failed; caída total alerta por canal independiente.
+- **Datos/auditoría/Auth:** Loki/Prometheus; roles de consulta/admin separados.
+- **Prioridad/estado/origen/dependencias:** MVP P0 · CONFIRMADO/GATED · ADR-021/025.
+- **Aceptación:** fallos inyectados aparecen/alertan; secretos/PII no aparecen;
+  backup/restore y control de acceso se demuestran.
+- **Verificación:** integration/E2E, threat test, restore y revisión Compliance.

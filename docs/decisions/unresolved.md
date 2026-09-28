@@ -459,6 +459,8 @@ capabilities separadas. Las identidades de servicio no usan roles humanos.
 La decisión completa, valores iniciales, roles, autoridad, revocación y pruebas
 se encuentran en [ADR-017](../adr/017-identity-and-authorization.md) y
 [identidad y autorización](../architecture/identity-and-authorization.md).
+ADR-025 la endurece con una sesión humana, red QAPAQ obligatoria, passkey Entra y
+protección de intentos; no crea un `SUPERADMIN`.
 
 ### Operational gate
 
@@ -466,7 +468,7 @@ La decisión cierra U-003 sin afirmar que la federación funciona. Los endpoints
 productivos permanecen bloqueados hasta que Identity, Security y SOC validen
 tenant/app registration, redirects, credenciales, grupo de admisión, Conditional
 Access, MFA/authentication strength, matriz/scopes, Graph sync, revocación,
-step-up, break-glass y los 27 escenarios mínimos aceptados.
+step-up, break-glass y los 35 escenarios mínimos vigentes por ADR-025.
 
 Evidencia de aceptación: instrucción explícita del usuario y texto de resolución
 aportado en esta tarea. El diseño y specs puras pueden continuar; federación solo

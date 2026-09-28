@@ -46,6 +46,31 @@ cuotas, cursor, retención o conectividad; esos valores siguen en el inventario.
 Estas referencias sustentan interoperabilidad y cardinalidad. La resolución del
 usuario fija la separación, ownership, buffers, auditoría y gate productivo.
 
+## Baseline de acceso y observabilidad de ADR-025
+
+- [Passkeys FIDO2 en Microsoft Entra](https://learn.microsoft.com/en-us/entra/identity/authentication/concept-fido2-compatibility): soporte de passkeys sincronizadas y ligadas a dispositivo; no prueba habilitación QAPAQ.
+- [Conditional Access y ubicaciones de red](https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-assignment-network): named locations y CIDR públicos para decisiones de acceso.
+- [Smart Lockout](https://learn.microsoft.com/en-us/entra/identity/authentication/howto-password-smart-lockout): bloqueo inteligente y valores base; la política efectiva del tenant sigue pendiente.
+- [WebAuthn Level 3](https://www.w3.org/TR/webauthn-3/): credenciales de clave pública ligadas al relying party.
+- [Autenticación de Loki](https://grafana.com/docs/loki/latest/operations/authentication/): Loki no incluye capa de autenticación; exige proxy/mTLS apropiado.
+- [OTLP hacia Loki](https://grafana.com/docs/loki/latest/send-data/otel/): ingesta de logs por OpenTelemetry Collector.
+- [Modelo de seguridad de Prometheus](https://prometheus.io/docs/operating/security/): endpoints no deben exponerse públicamente sin controles.
+- [Entra en Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/configure-access/configure-authentication/entraid/): autenticación single-tenant y asignación de roles/grupos.
+- [OWASP Secrets Management](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html): centralización, rotación y auditoría de secretos.
+
+Estas fuentes sustentan mecanismos, no configuración real. Grafana OSS/Loki/
+Prometheus es una decisión interna para evitar tercerizar observabilidad y mantener
+control sobre logs SOC; la SBS no prescribe productos.
+
+## Tercerización y control de observabilidad ante SBS
+
+- [Resolución SBS N.° 504-2021, texto actualizado](https://intranet2.sbs.gob.pe/dv_int_cn/2046/v4.0/Adjuntos/504-2021.R.pdf): arts. 22–25 regulan servicios de terceros y servicios significativos de procesamiento; art. 12.6.c exige capacidades SOC de detección/respuesta y monitoreo.
+- [Resolución SBS N.° 1515-2021](https://intranet2.sbs.gob.pe/dv_int_cn/2079/v1.0/Adjuntos/1515-2021.R.pdf): modifica estrategia de salida y plazo de información del art. 24.
+
+Estas normas explican por qué QAPAQ evita contratar el servicio de observabilidad.
+No obligan a usar el stack seleccionado. La conclusión “no tercerizado” solo se
+sostiene si hosting, operación, almacenamiento, backups y accesos son internos.
+
 ## Baseline de U-002
 
 - [Node.js releases](https://nodejs.org/en/about/previous-releases): estado LTS de Node 24 y recomendación de usar líneas LTS en producción.

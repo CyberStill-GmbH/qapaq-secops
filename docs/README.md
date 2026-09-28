@@ -4,7 +4,8 @@ Arquitectura documental: U-001/ADR-015, U-002/ADR-016, U-003/ADR-017 y
 U-010/ADR-011 aceptados; U-004/ADR-018, U-005/ADR-019, U-006/ADR-021,
 U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007,
 U-012/ADR-022 y la revisión de vertical ADR-024 aceptados, con fecha
-aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
+aportada 2026-09-18; ADR-025 fue aceptado condicionalmente por los requisitos de
+Franco Clavo del 2026-09-28. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. La rama `develop` incluye una baseline ejecutable sin lógica de
 negocio ni acceso a sistemas corporativos de Qapaq.
@@ -33,6 +34,9 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 16. [Plan de construcción por componentes](project-management/component-delivery-plan.md).
 17. [Entorno local ejecutable y troubleshooting](development/local-environment.md).
 18. [Entorno C-06 de integración](development/integration-environment.md).
+19. [Baseline de acceso, secretos y observabilidad SOC](architecture/security-access-observability-baseline.md).
+20. [Decisión para evitar tercerización de observabilidad ante SBS](compliance/sbs-observability-rationale.md).
+21. [Catálogo de errores para usuarios y soporte](error-catalog.md).
 
 ## Diseño
 
@@ -52,6 +56,9 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Operación y continuidad](architecture/operations-and-continuity.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
+- [Endurecimiento de acceso, secretos y stack Grafana OSS/Loki/Prometheus](architecture/security-access-observability-baseline.md).
+- [Control interno de logs SOC y análisis SBS](compliance/sbs-observability-rationale.md).
+- [Catálogo de errores](error-catalog.md).
 - [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
 - [Harness C-06 y estado de aceptación](architecture/c-06-integration-testing.md).
@@ -116,6 +123,11 @@ contrato de Infraestructura.
 DECISION: U-012 y [ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md)
 incorporan al MVP la notificación `CRITICAL` por Teams Workflows mediante outbox y
 worker; QAPAQ conserva el acuse y exige fallback probado.
+DECISION: [ADR-025](adr/025-security-access-observability-hardening.md) fija una
+sesión humana, red QAPAQ, passkeys Entra, protección de intentos, alta write-only de
+credenciales, errores accionables y Grafana OSS/Loki/Prometheus autogestionados.
+El stack se elige para conservar control de logs/información SOC y evitar contratar
+el servicio externo regulado por SBS 504-2021 arts. 22–25; no es mandato de la SBS.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
 ADR-007/015/016/017/018/019/020/021/022/023. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan

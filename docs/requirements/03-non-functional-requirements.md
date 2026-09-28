@@ -22,7 +22,7 @@ hardware/configuración, dataset, duración y resultado.
 - **Escenario/respuesta:** ante login, renovación o revocación, tokens Entra quedan
   en BFF server-side; cookie es Secure/HttpOnly/SameSite aprobado y la revocación
   alcanza sesiones/jobs antes del efecto.
-- **Métrica/método/ambiente/responsable:** 27 escenarios ADR-017 aprobados en tenant
+- **Métrica/método/ambiente/responsable:** 35 escenarios ADR-017/025 aprobados en tenant
   autorizado; timeouts exactos los ratifica Identity/Security.
 - **Estado/fuente/impacto:** CONFIRMADO con valores operativos PENDIENTES · U-003 ·
   fallo bloquea endpoints productivos.
@@ -199,7 +199,8 @@ hardware/configuración, dataset, duración y resultado.
   W3C Trace Context con IDs opacos y códigos estables.
 - **Métrica/método/ambiente/responsable:** cobertura `TBD` por operación crítica;
   contract/integration con Collector real aislado; Platform/Infraestructura.
-- **Estado/fuente/impacto:** CONFIRMADO · ADR-021 · backend concreto PENDIENTE.
+- **Estado/fuente/impacto:** CONFIRMADO · ADR-021/025 · backend seleccionado;
+  despliegue, sizing y recovery PENDIENTES.
 
 ### RNF-022 — Cardinalidad y redacción
 
@@ -347,3 +348,54 @@ hardware/configuración, dataset, duración y resultado.
 - **Métrica/método/ambiente/responsable:** mismo digest en promociones y ocho
   escenarios ADR-023; registro/identidad/destinos los aporta Infraestructura.
 - **Estado/fuente/impacto:** CONFIRMADO, publicación/despliegue PENDIENTES · U-011.
+
+## Endurecimiento transversal 2026-09-28
+
+### RNF-038 — Exclusión mutua de sesión
+
+- **Escenario/respuesta:** ante logins concurrentes, una transacción permite como
+  máximo una sesión humana activa y no deja slots huérfanos tras fallo/revocación.
+- **Métrica/método/ambiente/responsable:** 100% de carreras/fault injection conservan
+  la invariante; Development/Security en PostgreSQL/Redis reales.
+- **Estado/fuente/impacto:** CONFIRMADO · ADR-025 · incumplir bloquea acceso productivo.
+
+### RNF-039 — Restricción de red y resistencia a abuso
+
+- **Escenario/respuesta:** acceso fuera de CIDR QAPAQ, proxy no confiable, spray o
+  burst falla cerrado y no enumera cuentas; inside/VPN aprobado permanece usable.
+- **Métrica/método/ambiente/responsable:** casos inside/outside/IPv4/IPv6/header
+  forjado y carga PASS; thresholds medidos; Identity/Infra/Security.
+- **Estado/fuente/impacto:** CONFIRMADO con CIDR/umbrales PENDIENTES · ADR-025.
+
+### RNF-040 — No revelación de credenciales de integración
+
+- **Escenario/respuesta:** después del ingreso write-only, ningún humano, response,
+  log, DB de negocio, audit, cola o export puede recuperar el plaintext.
+- **Métrica/método/ambiente/responsable:** cero exposiciones en tests/scan; rotación
+  y revocación PASS; Platform/Security/Infraestructura.
+- **Estado/fuente/impacto:** CONFIRMADO, provider/gateway PENDIENTES · ADR-013/025.
+
+### RNF-041 — Observabilidad soberana y segregada
+
+- **Escenario/respuesta:** Grafana/Loki/Prometheus operan en infraestructura bajo
+  control QAPAQ, sin SaaS ni egress de telemetría; acceso solo Entra/red QAPAQ.
+- **Métrica/método/ambiente/responsable:** inventario de terceros, flujos de red,
+  restore, IAM y egress verificados; Infra/Compliance/Security.
+- **Estado/fuente/impacto:** CONFIRMADO como decisión, despliegue/dictamen PENDIENTES
+  · ADR-025 · un tercero reabre análisis SBS 504-2021 arts. 22–25.
+
+### RNF-042 — Plataforma observable segura y recuperable
+
+- **Escenario/respuesta:** pérdida de componente, disco o credencial degrada de
+  forma explícita; restore recupera dashboards/config/datos dentro de objetivos aprobados.
+- **Métrica/método/ambiente/responsable:** SLO/RPO/RTO/retención `TBD`, alertas y
+  restore ejercitados; Platform/Infraestructura.
+- **Estado/fuente/impacto:** CONFIRMADO con sizing PENDIENTE · ADR-020/021/025.
+
+### RNF-043 — Errores comprensibles y seguros
+
+- **Escenario/respuesta:** todo fallo visible tiene código/acción/correlationId y
+  nunca filtra stack, secreto, topología o existencia no autorizada.
+- **Métrica/método/ambiente/responsable:** 100% de errores catalogados o fallback;
+  redaction/no-enumeration y revisión UX; Product/Development/Security.
+- **Estado/fuente/impacto:** CONFIRMADO · ADR-025 · mensaje opaco o filtración bloquea release.

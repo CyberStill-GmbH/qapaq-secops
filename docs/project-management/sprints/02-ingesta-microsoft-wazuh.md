@@ -17,7 +17,8 @@ y cuarentena demostrados.
 4. PBI-010 — mapping Wazuh → SecurityEvent.
 5. PBI-011 — idempotencia, replay y cuarentena.
 6. PBI-012 — indexación y consulta.
-7. PBI-013 — telemetría, solo después de proteger el P0.
+7. PBI-013 — telemetría y baseline Grafana OSS/Loki/Prometheus, transversal.
+8. PBI-029 — contrato write-only de credenciales; E2E se completa en Sprint 3.
 
 PBI-007 es dependencia externa crítica. Si no están disponibles tenant, permiso,
 Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. Por
@@ -35,7 +36,8 @@ la fuente autorizada.
 | 3 | C-12 | Mapping Wazuh → SecurityEvent validado y versionado |
 | 4 | C-13 | Inbox, idempotencia, replay, cuarentena y reproceso |
 | 5 | C-14 | Proyección OpenSearch y consulta tipada/autorizable |
-| Transversal | C-15 | Logs, métricas, traces y health incorporados con cada etapa |
+| Transversal | C-15 | Logs/métricas/health, Collector, Loki/Prometheus y provisioning Grafana |
+| Transversal | C-24 | Contrato API Gateway write-only y SecretProvider, sin plaintext persistido |
 
 C-10 → C-11 → C-12 → C-13 → C-14 es la ruta crítica. Cada componente debe cerrar
 su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 y
@@ -71,6 +73,9 @@ E2E final. El 2026-10-05 no se usa para instalar dependencias pendientes.
 - implementar cuarentena y reproceso con lineage;
 - indexar/consultar SecurityEvent con filtros y límites;
 - instrumentar cobertura, lag, error e integridad;
+- levantar el baseline autogestionado Grafana OSS/Loki/Prometheus para integración,
+  con versiones fijadas, backends privados y dashboard mínimo del pipeline;
+- cerrar el contrato create/rotate/revoke de credenciales sin endpoint de lectura;
 - ejecutar E2E desde Microsoft 365 hasta consulta QAPAQ si la dependencia externa
   está disponible; en caso contrario, trasladar explícitamente ese gate a la
   aceptación final del MVP;

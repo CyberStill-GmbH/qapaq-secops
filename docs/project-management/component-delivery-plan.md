@@ -93,10 +93,12 @@ humano; eso no sustituye el DoD documentado.
 | C-13 | `modules/telemetry` resiliencia | Inbox, idempotencia, replay, quarantine y reprocess | 011 | C-11, C-12 | Reinicio, carrera, duplicado y poison event sin efecto duplicado |
 | C-14 | `modules/telemetry` proyección y consulta | Indexación OpenSearch y query API tipada/autorizable | 012 | C-12, C-13 | OpenSearch real, caída/recovery, límites y raw oculto por defecto |
 | C-15 | `platform/observability` y señales del pipeline | Métricas, logs, traces y health con cardinalidad acotada | 013 | C-10…C-14 | Cada estado healthy/degraded/failed provocado y observado |
+| C-24 | `platform/configuration` + frontera API Gateway/SecretProvider | Alta, rotación y revocación write-only; persistir solo ref/fingerprint/metadata | 029 | C-03, C-08 | Contract/security specs sin GET/export/plaintext; E2E final en Sprint 3 |
 
 Orden crítico: C-10 → C-11 → C-12 → C-13 → C-14. C-15 se añade durante cada
 componente y se cierra al final; no se pospone toda la observabilidad a una tarea
-aislada. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
+aislada. C-15 incluye Collector, Prometheus, Loki y provisioning mínimo de Grafana;
+C-24 cierra el contrato, no selecciona un vault ficticio. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
 infraestructura interna tenga specs reales.
 
 Por decisión del Product Owner del 2026-09-25, C-08 queda DONE para habilitar
@@ -120,10 +122,14 @@ cambian.
 | C-21 | `apps/web` | Consulta, detalle, triaje y estados degradados | 017 | C-14, C-17, C-18 | Playwright contra backend real; acceso/raw denegados por API |
 | C-22 | `platform/testing/e2e`, performance y release evidence | Vertical, fallos, recovery, benchmark, SBOM y decisión | 020, 021 | C-10…C-21 | Matriz PASS/FAIL/BLOCKED ligada a commit y ambiente |
 | C-23 | Reglas, suite de conformidad y guía de proveedor | Probar extensión sin implementar un proveedor ficticio | 022 | C-07, C-08, C-10 | Análisis de acoplamiento y conformidad del adapter Wazuh real |
+| C-25 | `modules/access`, BFF e ingress | Sesión única, red QAPAQ, passkey Entra, Smart Lockout y rate limit | 016, 026 | C-18, C-03, C-06 | Carreras, inside/outside, proxy forjado, passkey y abuso PASS |
+| C-26 | `platform/observability` + provisioning Grafana | Dashboards SOC, auth/red, alertas externas, retention y recovery | 013, 027 | C-15, C-18, C-19 | Fallos observados; redacción/RBAC/backup/restore y evidencia de control interno |
+| C-27 | `apps/web` + contrato API | Catálogo de errores, helpRef, acciones y correlationId | 028 | C-18, C-21, C-26 | Contract/UX/a11y/no-enumeration y fallback PASS |
 
-C-18 y C-19 empiezan al inicio del Sprint porque son dependencias de seguridad, no
+C-18, C-19 y C-25 empiezan al inicio del Sprint porque son dependencias de seguridad, no
 pulido final. C-16 alimenta C-17; C-17/C-19 habilitan C-20; C-21 es P1 y no desplaza
-C-22. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
+C-22. C-26 endurece el baseline de C-15; C-24 completa su E2E y C-27 no desplaza el
+P0. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
 
 ## Contratos entre componentes
 
