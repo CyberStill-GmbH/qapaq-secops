@@ -1,0 +1,61 @@
+services:
+  mock-indexer:
+    image: node:24.21.0-alpine
+    command: ['node', '/mock-indexer.mjs']
+    volumes:
+      - ./test/mock-indexer.mjs:/mock-indexer.mjs:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:9200/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  gateway:
+    image: krakend:2.13.11
+    pull_policy: missing
+    command: ['run', '-c', '/etc/krakend/krakend.tmpl']
+    environment:
+      FC_ENABLE: '1'
+      GATEWAY_ENDPOINT_TIMEOUT: ${GATEWAY_ENDPOINT_TIMEOUT:?required}
+      GATEWAY_METRICS_PORT: ${GATEWAY_METRICS_PORT:?required}
+      GATEWAY_RATE_PER_SECOND: ${GATEWAY_RATE_PER_SECOND:?required}
+      GATEWAY_RATE_BURST: ${GATEWAY_RATE_BURST:?required}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:?required}
+      OIDC_DISABLE_JWK_SECURITY: ${OIDC_DISABLE_JWK_SECURITY:?required}
+      OIDC_ISSUER: ${OIDC_ISSUER:?required}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:?required}
+      WAZUH_INDEXER_URL: ${WAZUH_INDEXER_URL:?required}
+      WAZUH_INDEXER_CA_FILE: ${WAZUH_INDEXER_CA_FILE:-}
+      WAZUH_BASIC_AUTH_B64: ${WAZUH_BASIC_AUTH_B64:?required}
+      WAZUH_INDEX_PATTERN: ${WAZUH_INDEX_PATTERN:?required}
+    ports:
+      - '127.0.0.1:18080:8080'
+      - '127.0.0.1:19091:9091'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - ./krakend.tmpl:/etc/krakend/krakend.tmpl:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', '/usr/bin/krakend', 'check', '-t', '-n', '-c', '/etc/krakend/krakend.tmpl']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

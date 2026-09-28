@@ -5,11 +5,20 @@ provider_gateway:
   product: KrakenD Community Edition
   deployment: on_premises
   decision: ADR-026
-  version: TO_BE_PROVIDED
+  version: 2.13.11
   image_digest: TO_BE_PROVIDED
   minimum_replicas: 2
   load_balancer: TO_BE_PROVIDED
   secret_provider: TO_BE_PROVIDED
+  production_tls_certificate_ref: TO_BE_PROVIDED
+  production_oidc_issuer: TO_BE_PROVIDED
+  production_oidc_jwks_url: TO_BE_PROVIDED
+  production_oidc_audience: TO_BE_PROVIDED
+  wazuh_indexer_backend_url: TO_BE_PROVIDED
+  wazuh_indexer_ca_ref: TO_BE_PROVIDED
+  prometheus_scrape_target: TO_BE_PROVIDED
+  grafana_provisioning_destination: TO_BE_PROVIDED
+  image_registry_mirror: TO_BE_PROVIDED
   invariant: durable_admission_before_downstream_bullmq
 sources:
   - source_id: wazuh-to-be-provided

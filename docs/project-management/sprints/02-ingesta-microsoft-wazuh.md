@@ -19,7 +19,7 @@ y cuarentena demostrados.
 6. PBI-012 — indexación y consulta.
 7. PBI-013 — telemetría y baseline Grafana OSS/Loki/Prometheus, transversal.
 8. PBI-029 — contrato write-only de credenciales; E2E se completa en Sprint 3.
-9. PBI-030 — contrato y baseline KrakenD on-premises; HA/E2E se completa en Sprint 3.
+9. PBI-030 — contrato y baseline KrakenD on-premises; C-28 aporta en esta rama config fijada, allowlist, validación oficial y gate CI; balanceador, credenciales/identidad real, integración Indexer, HA operativa, rotación y aceptación E2E se completan/gatean en Sprint 3.
 
 PBI-007 es dependencia externa crítica. Si no están disponibles tenant, permiso,
 Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. Por
