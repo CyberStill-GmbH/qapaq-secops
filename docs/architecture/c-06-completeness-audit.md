@@ -1,76 +1,90 @@
 # Auditoría de completitud C-06
 
-Fecha de verificación: 2026-09-22. Esta auditoría distingue implementación de
-ejecución real. El resultado global es **PARTIALLY VERIFIED**; C-06 no puede
-cerrarse como completo.
+Fecha de cierre: 2026-09-25. Base verificada en CI: commit limpio
+`1c4d7cd7047e6047c8b3b27f1de81cef55879822`. E2E complementario en Railway:
+commit `9adbbe33c2961f83fb92d30fd683a9da0541e6c8`. Estado global:
+**DONE** con excepción de capacidad de pruebas aceptada para este cierre.
+Railway acreditó OpenSearch TLS/CRUD y Wazuh Manager → pipeline → Indexer con
+marcador consultado por API. El sizing oficial del Compose Wazuh no se alcanzó;
+la aceptación de esta entrega usa la capacidad disponible para el piloto.
 
-## Evidencia ejecutada
+## Resultado por criterio
 
-| Comprobación | Resultado |
-| --- | --- |
-| `docker info` | PASS — Docker 29.4.3, 12 CPU, 3.46 GiB reportados al engine |
-| `pnpm run test:integration` | PASS — 6 tests, incluyendo PostgreSQL y Redis reales |
-| `pnpm --filter @qapaq/testing typecheck` | PASS |
-| `pnpm run lint` | PASS |
-| `pnpm run format:check` | PASS |
-| `pnpm run boundaries` | PASS |
-| `prisma migrate deploy` directo | PASS — sin migraciones pendientes |
-| MinIO S3 CRUD con hash | NOT_RUN |
-| OpenSearch autenticado con TLS | NOT_RUN |
-| Wazuh Manager → pipeline → Indexer | NOT_RUN |
-
-La infraestructura local de PostgreSQL, Redis y MinIO aparece saludable en
-Compose. La suite existente valida `SELECT 1` y `PING`; no valida todavía todas
-las operaciones exigidas por C-06.
-
-## Matriz contra los criterios de aceptación
-
-| Criterio | Estado | Hallazgo |
+| Criterio de aceptación | Resultado | Evidencia / pendiente |
 | --- | --- | --- |
-| API y estados del entorno | PARCIAL | Existe `IntegrationEnvironment`; `start()` marca `healthy` antes de ejecutar todos los health checks. |
-| Perfiles base/search/wazuh/full | PARCIAL | `base` inicia PostgreSQL/Redis/MinIO; search y Wazuh quedan placeholders `BLOCKED`. |
-| Imágenes con tag y digest | NO CUMPLE | Los seis digests de `integration-environment.lock.json` son `null`. |
-| Preflight Docker/CPU/memoria | PARCIAL | Comprueba daemon, CPU, arquitectura y memoria; faltan disco, red, volumen, puertos, Compose e imágenes. |
-| Identidad y labels | PARCIAL | Testcontainers usa labels; Compose local persistente no queda aislado por `runId`. |
-| PostgreSQL health/operación | PARCIAL | `SELECT 1` real; faltan `server_version`, schema aislado y lifecycle de schema. |
-| Redis health/operación | PARCIAL | `PING` real; faltan `INFO`, prefijo, expiración, autenticación y cleanup de clave. |
-| MinIO health/operación | NO CUMPLE | Solo existe health HTTP; faltan autenticación S3, bucket, escritura, lectura, SHA-256, metadata y borrado. |
-| OpenSearch QAPAQ | NO CUMPLE | No hay contenedor ni cliente de integración; solo bloqueo documentado. |
-| Wazuh Manager/Indexer | NO CUMPLE | No hay composición desde el harness, health, TLS, autenticación ni smoke de transporte. |
-| Evento Wazuh E2E | NO CUMPLE | No se genera marcador ni se consulta el Indexer después del pipeline real. |
-| Evidencia | PARCIAL | API y writer existen; no se adjuntan logs de fallo ni evidencia automática del ciclo completo. |
-| Teardown | PARCIAL | Detiene contenedores del runtime; no verifica recursos restantes ni señales SIGINT/SIGTERM. |
-| Aislamiento paralelo | PARCIAL | Hay `runId` y puertos dinámicos en Testcontainers; no existen pruebas de dos entornos completos. |
-| CI | NO CUMPLE | `.github/workflows/ci.yml` no ejecuta los perfiles de integración C-06. |
-| TLS y secretos | PARCIAL | No se persisten credenciales en evidencia; OpenSearch/Wazuh TLS no están ejecutados. |
+| API, estados y ciclo de vida | PASS en base | `start()` no marca saludable hasta finalizar health; teardown usado por suite |
+| Fijación de imágenes | PASS en base | Postgres 18.6, Redis 8.10.1 y MinIO versionado con digest OCI en lock y JSON |
+| Preflight Docker, host y disco | PASS en base | Docker 29.4.3; 3.46 GiB Docker, 7 GiB host, 11.1 GiB libres; mínimos base 3/3/5 |
+| PostgreSQL health/operación | PASS | Server version y CRUD de schema aislado |
+| Redis health/operación | PASS | PING, INFO, SET/GET/TTL/DEL, namespace aislado |
+| Object storage real | PASS | MinIO S3 autenticado; CreateBucket, Put/Get/Head/Delete y SHA-256 metadata |
+| Aislamiento concurrente | PASS | Dos run IDs concurrentes; puertos, bucket y ownership independientes |
+| Cleanup/evidencia redactada | PASS | Dos JSON con cleanup PASS y cero recursos restantes |
+| Suite de integración local | PASS | 4 archivos, 10 pruebas; log preservado bajo artifacts |
+| CI C-06 | PASS | Run `36154234794`; dos entornos concurrentes, ambos cleanup PASS, artifacts ligados al SHA limpio |
+| OpenSearch QAPAQ + TLS | PASS Railway | 3.7.0, CA propia, TLS validado, health GREEN, CRUD y cleanup PASS |
+| Wazuh Manager → pipeline → Indexer | PASS Railway | 4.14.7, syslog sintético, regla 100501 y marcador recuperado por API |
+| Suite/CI del perfil base | PASS | Checkout limpio, dos entornos concurrentes, health, aislamiento y cleanup |
+| Capacidad vs. sizing oficial Wazuh | EXCEPCIÓN ACEPTADA | Se aceptó el entorno de pruebas disponible para este cierre; no se declara que cumpla el mínimo oficial |
+| Perfiles locales `search`, `wazuh`, `full` | LIMITACIÓN ACEPTADA | La aceptación E2E fue remota en Railway; el harness local aún no los orquesta |
 
-## Bloqueos exactos
+## Ejecución y trazabilidad
 
-1. Los digests reales deben resolverse desde Docker/registry y fijarse en el lock.
-2. El perfil `base` requiere al menos 4 GiB para Docker; el engine actual
-   reporta aproximadamente 3.46 GiB.
-3. `search` necesita una configuración TLS autenticada de OpenSearch QAPAQ.
-4. `wazuh`/`full` necesitan el Compose oficial Wazuh v4.14.7, certificados,
-   credenciales sintéticas, al menos 16 GiB para el perfil pesado y una prueba
-   real Manager → Indexer.
-5. CI necesita un job de integración base y un job pesado separado, con runner y
-   retención de evidencia aprobados.
+El comando local `pnpm run test:integration --reporter=verbose` terminó con
+10/10 pruebas aprobadas. La suite remota C-06 pasó el 2026-09-25 en un checkout
+limpio: dos entornos concurrentes registraron PostgreSQL 18.6, Redis 8.10.1 y
+MinIO S3 con digest, health, aislamiento y cleanup. Ambos JSON están versionados
+en `docs/project-management/c-06/assets/2026-09-25-c06-ci-run-{a,b}.json`.
+El job C-04 PostgreSQL y el gate general también pasaron en el mismo run.
 
-## Conclusión
+Artefactos e imágenes se describen en el
+[plan y ejecución de C-06](../project-management/c-06/README.md). La vista
+ejecutiva de las dos evidencias y el stdout real están insertadas allí.
 
-C-06 tiene una base de harness reutilizable y una validación real parcial de
-PostgreSQL/Redis. No cumple todavía los criterios de cierre global porque faltan
-MinIO CRUD, OpenSearch, Wazuh E2E, digests, preflight completo, cleanup
-verificado y ejecución en CI. El estado correcto es:
+## Bloqueos cuantificados
+
+El setup oficial local de Wazuh requiere al menos 4 CPU, 8 GiB Docker y 50 GiB
+libres. La máquina reportó 12 CPU, 3.5 GiB Docker y 11 GiB libres. El script
+terminó en su preflight antes de mutar el workspace o descargar imágenes. Para
+este cierre se aceptó la capacidad disponible del piloto como excepción de
+pruebas. OpenSearch TLS/auth se probó por separado con CA propia.
+
+## Decisión de cierre y trabajo posterior
+
+La decisión de producto para este cierre acepta la capacidad disponible en el
+entorno de pruebas Railway aunque no alcance el sizing oficial del Compose
+Wazuh. Esta excepción queda acotada a pruebas de integración; no cambia los
+requisitos de despliegue. Se da por cerrado el alcance funcional con CI `base`,
+OpenSearch TLS/CRUD/cleanup y Wazuh E2E observados con evidencia guardada. Como
+mejora posterior se puede incorporar el perfil local TLS `search`, automatizar
+la composición oficial Wazuh y repetirla en un host con capacidad de referencia.
 
 ```text
-C-06 base: PARTIALLY VERIFIED
-C-06 search: BLOCKED
-C-06 Wazuh: BLOCKED BY INFRASTRUCTURE / NOT IMPLEMENTED
-C-06 global: PARTIALLY VERIFIED
+C-06 base: PASS / VERIFIED LOCAL + CI CLEAN
+C-06 base CI: PASS
+C-06 OpenSearch TLS + CRUD + cleanup: PASS
+C-06 Wazuh synthetic Manager -> pipeline -> Indexer: PASS
+C-06 available test capacity: ACCEPTED EXCEPTION (decision 2026-09-25)
+C-06 global: DONE (capacity exception recorded)
 ```
 
-La secuencia se verifica además en
-`platform/testing/test/pipeline-completeness.spec.ts`. Ese test valida el orden
-del flujo y exige que los tramos sin implementación permanezcan `BLOCKED` o
-`NOT_RUN`; no convierte la ausencia de OpenSearch/Wazuh en un PASS artificial.
+La evidencia Railway final está en
+`../project-management/c-06/assets/2026-09-25-c06-railway-full-e2e.json` y su
+imagen asociada. El addendum de smoke y los estados `BLOCKED` de las entradas
+históricas siguientes describen la corrida previa; la corrida E2E posterior y
+la excepción registrada arriba son las vigentes para el cierre.
+
+### Addendum Railway — 2026-09-25
+
+Se ejecutó un piloto aislado y ya eliminado de Wazuh `4.14.7` en Railway. Los
+servicios Manager, Indexer y Dashboard alcanzaron `RUNNING`; OpenSearch Indexer
+inicializó seguridad, creó/mapeó `wazuh-alerts-4.x-2026.09.25` y reportó health
+`GREEN`. Filebeat cargó el pipeline Wazuh. Evidencia de despliegues y logs:
+`artifacts/integration/c06-railway-2026-09-25/`.
+
+Esto acredita un smoke de arranque y salud del Indexer en la configuración
+adaptada. No acredita que el marcador sintético se haya leído de vuelta mediante
+la API del índice: Railway SSH no abrió y la sonda privada no ejecutó el comando
+esperado. Tampoco acredita el sizing oficial (volumen Railway 5 GB frente a 50
+GB requeridos) ni `vm.max_map_count=262144`. Wazuh E2E sigue BLOCKED; C-06 global
+sigue IN_PROGRESS. El piloto no cambió los criterios de aceptación.

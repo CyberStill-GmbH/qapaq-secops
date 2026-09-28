@@ -1,0 +1,26 @@
+{
+  "observed_at_utc": "2026-09-25",
+  "repository_visibility": "private",
+  "default_branch": "main",
+  "rulesets": "none; GitHub UI says rulesets are not enforced for this private repository on the current organization plan",
+  "classic_branch_protection": "none",
+  "codeowners_file": false,
+  "ownership_decision": "single human maintainer; CODEOWNERS and independent approval waived by repository owner on 2026-09-25 until another human maintainer joins",
+  "code_security": "disabled",
+  "dependency_graph": "disabled",
+  "dependabot_alerts": "disabled",
+  "dependabot_security_updates": "disabled",
+  "actions": {
+    "allowed_actions": "all",
+    "require_full_length_sha": true,
+    "default_workflow_permissions": "read-only",
+    "create_and_approve_pull_requests": false,
+    "fork_pull_request_workflows": true,
+    "fork_write_tokens": false,
+    "send_repository_secrets_to_forks": false,
+    "require_approval_for_fork_contributors": false,
+    "global_artifact_and_log_retention_days": 90
+  },
+  "self_hosted_runners": false,
+  "notes": "Sanitized UI observation. No credential, cookie, token value, or secret value recorded."
+}

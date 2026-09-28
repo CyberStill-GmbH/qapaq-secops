@@ -1,4 +1,5 @@
 import type { Prisma } from '../generated/client/client.js';
+import type { AdmissionCommand } from '../src/commit-admission.js';
 
 let sequence = 0;
 
@@ -93,6 +94,47 @@ export function admissionFixture() {
 }
 
 export type AdmissionFixture = ReturnType<typeof admissionFixture>;
+
+// Comando de admisión válido derivado de admissionFixture(); base reutilizable
+// para specs de validación y para las pruebas de commitAdmission contra Postgres.
+export function admissionCommandFixture(fixture: AdmissionFixture = admissionFixture()): {
+  readonly fixture: AdmissionFixture;
+  readonly command: AdmissionCommand;
+} {
+  const command: AdmissionCommand = {
+    sourceId: fixture.source.id,
+    dataset: fixture.source.dataset,
+    manifestKey: fixture.manifest.manifestKey,
+    manifestId: fixture.manifest.id,
+    outboxId: fixture.outbox.id,
+    messageId: fixture.outbox.messageId,
+    outboxIdempotencyKey: fixture.outbox.idempotencyKey,
+    receivedAt: fixture.manifest.receivedAt,
+    expectedRevision: 0n,
+    cursor: { from: null, to: 'cursor-1', version: '1' },
+    newRawObjects: [
+      {
+        id: fixture.raw.id,
+        objectRef: fixture.raw.objectRef,
+        sha256: fixture.raw.sha256,
+        mediaType: fixture.raw.mediaType,
+        sizeBytes: fixture.raw.sizeBytes,
+        receivedAt: fixture.raw.receivedAt,
+      },
+    ],
+    events: [
+      {
+        id: fixture.inbox.id,
+        recordId: fixture.inbox.recordId,
+        providerEventId: fixture.inbox.providerEventId,
+        idempotencyKey: fixture.inbox.idempotencyKey,
+        rawReferenceId: fixture.raw.id,
+        quarantine: { id: fixture.quarantine.id, errorCode: fixture.quarantine.errorCode },
+      },
+    ],
+  };
+  return { fixture, command };
+}
 
 // Secuencia de prueba del schema; no sustituye al comando de aplicación C-04.
 export async function insertFixture(

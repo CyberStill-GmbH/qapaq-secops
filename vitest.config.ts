@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     include: [
       'platform/**/test/**/*.spec.ts',
+      'modules/**/test/**/*.spec.ts',
       'packages/**/test/**/*.spec.ts',
       'apps/**/test/**/*.spec.ts',
       'apps/**/test/**/*.spec.tsx',
@@ -12,5 +13,6 @@ export default defineConfig({
     ],
     exclude: ['**/*.integration.spec.ts'],
     passWithNoTests: false,
+    fsModuleCache: true,
   },
 });

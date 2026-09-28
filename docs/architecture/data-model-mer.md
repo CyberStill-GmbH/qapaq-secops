@@ -153,7 +153,9 @@ regla de integridad para que un grant no quede vacío.
 | `id` (PK), `user_id` (FK), `entra_tid`, `entra_oid`, `auth_time`, `auth_strength`, `authorization_version_at_creation`, `created_at`, `last_activity_at`, `absolute_expires_at`, `revoked`, `revoked_at`, `revoked_reason`, `concurrent_slot` | R | identity-and-authorization.md §"Flujo BFF y sesión" — campos mínimos listados explícitamente |
 
 Nunca contiene el token de Entra ni la cookie; solo el identificador de sesión
-del lado servidor (idem).
+del lado servidor (idem). ADR-025 fija `concurrent_slot = 1` y una restricción/índice
+único aplicable a sesiones no revocadas por `user_id`; Redis no es la autoridad de
+esta invariante.
 
 #### `service_identities`
 

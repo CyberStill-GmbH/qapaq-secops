@@ -1,4 +1,6 @@
-export type IntegrationProfile = 'base' | 'search' | 'wazuh' | 'full';
+import lock from '../../integration-environment.lock.json' with { type: 'json' };
+
+export type IntegrationProfile = 'postgres' | 'base' | 'search' | 'wazuh' | 'full';
 
 export interface IntegrationEnvironmentOptions {
   readonly profile?: IntegrationProfile;
@@ -37,12 +39,12 @@ export interface IntegrationImageLock {
 }
 
 export const imageLock: IntegrationImageLock = {
-  postgres: { image: 'postgres', version: '18.6', digest: null },
-  redis: { image: 'redis', version: '8.10.1', digest: null },
-  minio: { image: 'quay.io/minio/minio', version: 'RELEASE.2025-09-07T16-13-09Z', digest: null },
-  opensearch: { image: 'opensearchproject/opensearch', version: '3.7.0', digest: null },
-  wazuhManager: { image: 'wazuh/wazuh-manager', version: '4.14.7', digest: null },
-  wazuhIndexer: { image: 'wazuh/wazuh-indexer', version: '4.14.7', digest: null },
+  postgres: lock.postgres,
+  redis: lock.redis,
+  minio: lock.minio,
+  opensearch: lock.opensearch,
+  wazuhManager: lock.wazuhManager,
+  wazuhIndexer: lock.wazuhIndexer,
 };
 
 export function resolveOptions(options: IntegrationEnvironmentOptions = {}) {

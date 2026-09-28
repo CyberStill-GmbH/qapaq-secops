@@ -21,6 +21,11 @@ export interface EnvironmentEvidence {
     readonly status: 'PENDING' | 'PASS' | 'FAIL';
     readonly remainingOwnedResources: readonly string[];
   };
+  readonly suite?: {
+    readonly name: string;
+    readonly status: 'PASS' | 'FAIL' | 'BLOCKED' | 'NOT_RUN';
+    readonly checks: readonly string[];
+  };
   readonly result: 'PASS' | 'FAIL' | 'BLOCKED' | 'NOT_RUN';
 }
 

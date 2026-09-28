@@ -3,7 +3,11 @@ import { promisify } from 'node:util';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import { Client } from 'pg';
 import { createClient } from 'redis';
-import type { IntegrationEnvironmentOptions } from './environment-options.js';
+import type {
+  IntegrationEnvironmentOptions,
+  IntegrationProfile,
+  ServiceImageLock,
+} from './environment-options.js';
 import { imageLock, resolveOptions } from './environment-options.js';
 import { createTestRunId } from './test-run-id.js';
 import type { IntegrationEnvironmentState } from './environment-state.js';
@@ -15,25 +19,43 @@ import type { HealthResult } from '../health/health-result.js';
 
 const exec = promisify(execFile);
 
-async function resolveImageDigests() {
-  const entries = Object.entries(imageLock) as [
+async function resolveImageDigests(profile: IntegrationProfile) {
+  const selected =
+    profile === 'postgres'
+      ? ['postgres']
+      : profile === 'base'
+        ? ['postgres', 'redis', 'minio']
+        : profile === 'search'
+          ? ['postgres', 'redis', 'minio', 'opensearch']
+          : profile === 'wazuh'
+            ? ['wazuhManager', 'wazuhIndexer']
+            : Object.keys(imageLock);
+  const entries = Object.entries(imageLock).filter(([name]) => selected.includes(name)) as [
     keyof typeof imageLock,
     (typeof imageLock)[keyof typeof imageLock],
   ][];
-  const resolved = { ...imageLock };
+  const resolved = Object.fromEntries(
+    Object.entries(imageLock).map(([name, image]) => [name, { ...image, digest: null }]),
+  ) as Record<keyof typeof imageLock, ServiceImageLock>;
   for (const [name, image] of entries) {
     try {
+      const reference = image.digest
+        ? `${image.image}@${image.digest}`
+        : `${image.image}:${image.version}`;
       const result = await exec('docker', [
         'image',
         'inspect',
-        `${image.image}:${image.version}`,
+        reference,
         '--format',
-        '{{index .RepoDigests 0}}',
+        '{{json .RepoDigests}}',
       ]);
-      const digest = result.stdout.trim().split('@')[1];
-      if (digest?.startsWith('sha256:')) resolved[name] = { ...image, digest };
+      const digests = JSON.parse(result.stdout) as string[];
+      const recorded = image.digest
+        ? digests.find((value) => value.endsWith(`@${image.digest}`))
+        : digests.find((value) => value.includes('@sha256:'));
+      resolved[name] = { ...image, digest: recorded?.split('@')[1] ?? null };
     } catch {
-      // La ausencia de digest mantiene la evidencia como no reproducible.
+      resolved[name] = { ...image, digest: null };
     }
   }
   return resolved;
@@ -63,6 +85,24 @@ function isBlockedComponent(
   return value !== undefined && 'blocked' in value;
 }
 
+function profileImageNames(profile: IntegrationProfile): (keyof typeof imageLock)[] {
+  return profile === 'postgres'
+    ? ['postgres']
+    : profile === 'base'
+      ? ['postgres', 'redis', 'minio']
+      : profile === 'search'
+        ? ['postgres', 'redis', 'minio', 'opensearch']
+        : profile === 'wazuh'
+          ? ['wazuhManager', 'wazuhIndexer']
+          : (Object.keys(imageLock) as (keyof typeof imageLock)[]);
+}
+
+function pinnedImage(name: keyof typeof imageLock): string {
+  const image = imageLock[name];
+  if (!image.digest) throw new Error(`Falta digest fijado para ${name}`);
+  return `${image.image}@${image.digest}`;
+}
+
 export class IntegrationEnvironment {
   readonly runId = createTestRunId();
   readonly startedAt = new Date().toISOString();
@@ -85,8 +125,14 @@ export class IntegrationEnvironment {
 
   async preflight(): Promise<PreflightReport> {
     const docker = await dockerPreflight(this.options.profile);
-    const resources = resourcePreflight(this.options.profile);
+    const resources = resourcePreflight(this.options.profile, this.options.repositoryRoot);
     const checks = [...docker.checks, ...resources.checks];
+    for (const name of profileImageNames(this.options.profile))
+      checks.push({
+        name: `${name}-image-lock`,
+        status: /^sha256:[0-9a-f]{64}$/u.test(imageLock[name].digest ?? '') ? 'PASS' : 'BLOCKED',
+        detail: imageLock[name].digest ? `Digest ${name} fijado` : `Falta digest ${name}`,
+      });
     this.preflightValue = {
       status: reportStatus(checks),
       checks,
@@ -103,6 +149,7 @@ export class IntegrationEnvironment {
     if (report.status !== 'PASS')
       throw new Error(`Preflight ${report.status}; no se inicia el entorno`);
     this.stateValue = 'starting';
+    let startingService = 'PostgreSQL';
     try {
       const labels = {
         'qapaq.test': 'true',
@@ -110,10 +157,16 @@ export class IntegrationEnvironment {
         'qapaq.test.owner': 'platform-testing',
       };
       const profile = this.options.profile;
-      if (profile === 'base' || profile === 'search' || profile === 'full') {
-        const postgres = await new GenericContainer(
-          `${imageLock.postgres.image}:${imageLock.postgres.version}`,
-        )
+      if (
+        profile === 'postgres' ||
+        profile === 'base' ||
+        profile === 'search' ||
+        profile === 'full'
+      ) {
+        startingService = 'PostgreSQL';
+        if (profile === 'postgres' && !imageLock.postgres.digest)
+          throw new Error('Falta digest PostgreSQL para C-04');
+        const postgres = await new GenericContainer(pinnedImage('postgres'))
           .withEnvironment({
             POSTGRES_DB: 'qapaq_test',
             POSTGRES_USER: 'qapaq',
@@ -121,7 +174,7 @@ export class IntegrationEnvironment {
           })
           .withExposedPorts(5432)
           .withLabels(labels)
-          .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/))
+          .withWaitStrategy(Wait.forLogMessage(/database system is ready to accept connections/, 2))
           .start();
         this.runtimeValue = {
           ...this.runtimeValue,
@@ -132,9 +185,8 @@ export class IntegrationEnvironment {
         };
       }
       if (profile === 'base' || profile === 'search' || profile === 'full') {
-        const redis = await new GenericContainer(
-          `${imageLock.redis.image}:${imageLock.redis.version}`,
-        )
+        startingService = 'Redis';
+        const redis = await new GenericContainer(pinnedImage('redis'))
           .withExposedPorts(6379)
           .withLabels(labels)
           .withWaitStrategy(Wait.forLogMessage(/Ready to accept connections/))
@@ -148,9 +200,8 @@ export class IntegrationEnvironment {
         };
       }
       if (profile === 'base' || profile === 'search' || profile === 'full') {
-        const minio = await new GenericContainer(
-          `${imageLock.minio.image}:${imageLock.minio.version}`,
-        )
+        startingService = 'MinIO';
+        const minio = await new GenericContainer(pinnedImage('minio'))
           .withEnvironment({
             MINIO_ROOT_USER: 'qapaq-test',
             MINIO_ROOT_PASSWORD: `test-${this.runId}`,
@@ -189,12 +240,12 @@ export class IntegrationEnvironment {
               'La topología Wazuh requiere el Compose oficial y recursos dedicados; usar infra:setup-wazuh.',
           },
         };
-      this.stateValue = 'healthy';
       return this.runtimeValue;
     } catch (error) {
       await this.stop().catch(() => undefined);
       this.stateValue = 'failed';
-      throw error;
+      const detail = error instanceof Error ? error.message.split('\n')[0] : 'error desconocido';
+      throw new Error(`No se pudo iniciar ${startingService}: ${detail}`, { cause: error });
     }
   }
 
@@ -202,28 +253,40 @@ export class IntegrationEnvironment {
     readonly status: 'PASS' | 'BLOCKED';
     readonly checks: readonly HealthResult[];
   }> {
-    if (this.stateValue !== 'healthy') return { status: 'BLOCKED', checks: this.healthResults };
+    if (this.stateValue !== 'starting' && this.stateValue !== 'healthy')
+      return { status: 'BLOCKED', checks: this.healthResults };
     const checks: HealthResult[] = [];
     if (this.runtimeValue.postgres) {
       const started = Date.now();
       const client = new Client({ connectionString: this.runtimeValue.postgres.connectionString });
       try {
         await client.connect();
-        const result = await client.query<{ value: number }>('SELECT 1 AS value');
-        checks.push({
-          service: 'postgres',
-          healthy: result.rows[0]?.value === 1,
-          checkedAt: new Date().toISOString(),
-          durationMs: Date.now() - started,
-          detail: 'SELECT 1',
-        });
-      } catch (error) {
+        const version = await client.query<{ server_version: string }>('SHOW server_version');
+        const schema = `qapaq_${this.runId.replaceAll('-', '_')}`;
+        await client.query(`CREATE SCHEMA "${schema}"`);
+        try {
+          await client.query(`CREATE TABLE "${schema}".probe (value integer NOT NULL)`);
+          await client.query(`INSERT INTO "${schema}".probe (value) VALUES (1)`);
+          const result = await client.query<{ value: number }>(
+            `SELECT value FROM "${schema}".probe`,
+          );
+          checks.push({
+            service: 'postgres',
+            healthy: result.rows[0]?.value === 1 && Boolean(version.rows[0]?.server_version),
+            checkedAt: new Date().toISOString(),
+            durationMs: Date.now() - started,
+            detail: `server_version ${version.rows[0]?.server_version ?? 'unknown'}; schema aislado CRUD`,
+          });
+        } finally {
+          await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+        }
+      } catch {
         checks.push({
           service: 'postgres',
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message : 'fallo de conexión',
+          detail: 'fallo de conexión',
         });
       } finally {
         await client.end().catch(() => undefined);
@@ -232,39 +295,57 @@ export class IntegrationEnvironment {
     if (this.runtimeValue.redis) {
       const started = Date.now();
       const client = createClient({ url: this.runtimeValue.redis.url });
+      const namespace = `qapaq:c06:${this.runId}`;
       try {
         await client.connect();
+        const set = await client.set(`${namespace}:probe`, 'roundtrip', { EX: 30, NX: true });
+        const info = await client.info('server');
+        const ttl = await client.ttl(`${namespace}:probe`);
+        const value = await client.get(`${namespace}:probe`);
+        const deleted = await client.del(`${namespace}:probe`);
         checks.push({
           service: 'redis',
-          healthy: (await client.ping()) === 'PONG',
+          healthy:
+            (await client.ping()) === 'PONG' &&
+            set === 'OK' &&
+            info.includes('redis_version:') &&
+            value === 'roundtrip' &&
+            ttl > 0 &&
+            deleted === 1,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: 'PING',
+          detail: 'PING + INFO + SET/GET/TTL/DEL con namespace aislado',
         });
-      } catch (error) {
+      } catch {
         checks.push({
           service: 'redis',
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message : 'fallo de conexión',
+          detail: 'fallo de conexión',
         });
       } finally {
+        if (client.isOpen) await client.del(`${namespace}:probe`).catch(() => 0);
         await client.quit().catch(() => undefined);
       }
     }
     if (this.runtimeValue.objectStorage) {
       const started = Date.now();
       try {
-        const response = await fetch(
-          `${this.runtimeValue.objectStorage.endpoint}/minio/health/live`,
-        );
+        const { verifyS3RoundTrip } = await import('../object-storage/s3-probe.js');
+        await verifyS3RoundTrip({
+          endpoint: this.runtimeValue.objectStorage.endpoint,
+          accessKey: this.runtimeValue.objectStorage.accessKey,
+          secretKey: this.runtimeValue.objectStorage.secretKey,
+          bucket: this.runtimeValue.objectStorage.bucket,
+          runId: this.runId,
+        });
         checks.push({
           service: 'minio',
-          healthy: response.ok,
+          healthy: true,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: 'health/live',
+          detail: 'S3 CreateBucket + Put/Get/Head/Delete + SHA-256 metadata',
         });
       } catch (error) {
         checks.push({
@@ -272,7 +353,8 @@ export class IntegrationEnvironment {
           healthy: false,
           checkedAt: new Date().toISOString(),
           durationMs: Date.now() - started,
-          detail: error instanceof Error ? error.message : 'fallo HTTP',
+          detail:
+            error instanceof Error ? error.message.slice(0, 160) : 'fallo en probe S3 autenticado',
         });
       }
     }
@@ -293,7 +375,15 @@ export class IntegrationEnvironment {
         detail: this.runtimeValue.wazuh.reason,
       });
     this.healthResults = checks;
-    return { status: checks.every((check) => check.healthy) ? 'PASS' : 'BLOCKED', checks };
+    const hasBlocked =
+      isBlockedComponent(this.runtimeValue.opensearch) || this.runtimeValue.wazuh?.blocked;
+    const status = hasBlocked
+      ? 'BLOCKED'
+      : checks.every((check) => check.healthy)
+        ? 'PASS'
+        : 'BLOCKED';
+    this.stateValue = status === 'PASS' ? 'healthy' : 'blocked';
+    return { status, checks };
   }
 
   async collectEvidence(): Promise<EnvironmentEvidence> {
@@ -312,7 +402,14 @@ export class IntegrationEnvironment {
     }
     const blockedComponent =
       isBlockedComponent(this.runtimeValue.opensearch) || this.runtimeValue.wazuh?.blocked;
-    const resolvedImages = await resolveImageDigests();
+    const resolvedImages =
+      Object.keys(this.runtimeValue).length > 0
+        ? await resolveImageDigests(this.options.profile)
+        : imageLock;
+    const postgresLockVerified =
+      this.options.profile !== 'postgres' ||
+      (resolvedImages.postgres.digest !== null &&
+        resolvedImages.postgres.digest === imageLock.postgres.digest);
     return {
       runId: this.runId,
       projectCommit,
@@ -326,7 +423,11 @@ export class IntegrationEnvironment {
       health: this.healthResults,
       cleanup: { status: 'PENDING', remainingOwnedResources: [] },
       result:
-        this.stateValue === 'healthy' && !blockedComponent
+        this.stateValue === 'healthy' &&
+        !blockedComponent &&
+        postgresLockVerified &&
+        this.healthResults.length > 0 &&
+        this.healthResults.every((check) => check.healthy)
           ? 'PASS'
           : this.stateValue === 'blocked' || blockedComponent
             ? 'BLOCKED'
