@@ -47,6 +47,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Flujos y resiliencia](architecture/data-flow.md).
 - [SecurityEvent y contratos](architecture/event-model.md).
 - [Almacenamiento y búsqueda histórica](architecture/storage.md).
+- [Motor Wazuh y OpenSearch: detección, correlación y almacenamiento](architecture/wazuh-engine-and-opensearch.md).
 - [Modelo entidad-relación (MER) y normalización](architecture/data-model-mer.md).
 - [ER final C-04: admisión operacional](architecture/c-04-admission-er.md) y
   [auditoría con resolución documental](architecture/c-04-mer-audit.md).

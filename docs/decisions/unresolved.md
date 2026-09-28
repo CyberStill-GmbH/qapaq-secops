@@ -531,6 +531,61 @@ U-005 queda resuelta en diseño respecto a fronteras, ownership, orden revisado,
 raw, procedencia, checkpoints, replay y duplicidad. La ingesta productiva sigue
 bloqueada hasta completar valores reales y superar el gate Microsoft 365/Wazuh.
 
+### Decisión: Microsoft 365 pasa a `enabled` sin el gate técnico completo de PBI-006
+
+**Decision status:** DECIDED / ADMINISTRATIVE, NOT TECHNICALLY VERIFIED
+
+**Decision owner:** Franco Clavo Santander (Product Owner), relayed por Cesar
+Adrian Guevara Salcedo
+
+**Decision date:** 2026-09-24
+
+Franco confirmó que la única entrega relevante para Microsoft 365 es el
+`credential_ref` de app registration ya creado el 2026-09-22
+(`secret://qapaq/microsoft/entra-app`, `docs/integrations/source-inventory.yaml`).
+No hay `approved_scopes`, `approval_ticket`, `dataset`, `api_version` ni
+`region` reales entregados hoy, y no se registró una conexión mínima real de
+lectura contra Microsoft 365. Con esa base, Franco decidió declarar
+`status: enabled` para la fuente Microsoft 365 en el inventario.
+
+Esto **no** satisface el gate completo de **PBI-006** ("Cerrar contrato
+operativo Microsoft 365/Wazuh"), cuyos criterios de aceptación en el
+[Product Backlog](../project-management/product-backlog.md) exigen registrar
+dataset, tenant/region, API, permisos, secretRefs, frecuencia, retención,
+owner y aprobación, y demostrar "una conexión mínima real" de lectura antes de
+aceptar el PBI. `enabled` aquí es una decisión administrativa del Product
+Owner sobre el estado operativo de la fuente, no una declaración de que
+PBI-006 está `DONE`; PBI-006 permanece abierto en el Product Backlog hasta
+que existan esos valores y esa conexión real. Cualquier informe o Daily que
+cite este `enabled` debe distinguir ambas cosas para no dar a entender una
+verificación técnica que no ocurrió.
+
+### Diagnóstico real de PBI-007 — 2026-09-28
+
+**Decision status:** BLOCKED, con evidencia real de causa raíz
+
+El app registration de Microsoft Entra creado el 2026-09-22
+(`secret://qapaq/microsoft/entra-app`) se probó en vivo contra Microsoft Graph
+y la Office 365 Management API. El `client_credentials` grant emite token en
+ambos casos (`200`), pero el claim `roles` viene vacío: el app registration no
+tiene ningún permiso de aplicación concedido. Una llamada real de solo lectura
+al endpoint que usa el módulo `o365` de Wazuh
+(`GET /activity/feed/subscriptions/list`) confirma el bloqueo con evidencia
+directa del servidor: `401 AF10001 — "The permission set () sent in the
+request does not include the expected permission."`
+
+Esto descarta credenciales inválidas o mal configuradas: el app registration
+autentica correctamente. Falta exclusivamente agregar el permiso de
+aplicación `ActivityFeed.Read` (Office 365 Management APIs) y otorgar
+**admin consent** sobre el tenant — una acción en Azure Portal que ningún
+cambio de código puede sustituir. Detalle completo, pasos exactos y la
+configuración objetivo del módulo `o365` de Wazuh (sin versionar secretos)
+están en [C-10 — diagnóstico real de Microsoft 365 en Wazuh](../project-management/c-10/README.md).
+
+PBI-007 permanece `BLOCKED`. Este diagnóstico es evidencia reutilizable, no
+un cierre: evita repetir la investigación cuando se otorgue el consentimiento
+pendiente.
+
 ## U-006 — auditoría y observabilidad
 
 **Decision status:** CONDITIONALLY ACCEPTED
@@ -667,6 +722,34 @@ ficticios.
 U-011 permanece parcialmente resuelta hasta demostrar los ocho escenarios de
 cierre: aislamiento de PR, CI completa, candidato certificado, contrato aceptado,
 promoción del mismo digest a staging, detección por health, rollback y evidencia.
+
+### Decisión: protección de rama en `main` no es requisito de este timebox
+
+**Decision status:** DECIDED
+
+**Decision owner:** Franco Clavo Santander (Product Owner), relayed por Cesar
+Adrian Guevara Salcedo
+
+**Decision date:** 2026-09-24
+
+El bloqueo "protección de rama en `main` no configurada", registrado desde el
+2026-09-21 en el Daily Scrum como riesgo de proceso, queda cerrado. Franco
+determinó que exigir un PR obligatorio antes de escribir en `main` es
+intrascendente en este timebox porque: (1) Cesar tiene control total del
+código como único Developer del MVP, (2) el repositorio es privado, y (3) los
+otros dos colaboradores configurados en GitHub son cuentas propias de Cesar,
+no terceros con intereses distintos. No hay hoy un escenario real de push no
+autorizado o de revisión cruzada entre partes independientes que la
+protección de rama estuviese previniendo.
+
+Esta decisión es válida mientras se mantengan esas tres condiciones. Se
+revisa antes de aceptar un colaborador externo real (otro Developer,
+Infraestructura empujando directamente, o un pipeline de terceros con
+permiso de escritura), momento en el que la ausencia de protección de rama
+vuelve a ser un riesgo activo y debe reevaluarse junto con U-011. No cambia
+el resto del gate de CI (`discover`, `codeql`, `secrets`, `filesystem`,
+`pnpm-audit`, `quality`, `entrypoints`, `c04-postgres`, `containers`, `gate`),
+que sigue aplicando a cada push independientemente de si hay o no un PR.
 
 ### Decisión de evidencia C-04 con el entorno C-06
 

@@ -63,9 +63,15 @@ sources:
     limits: { quota: TO_BE_PROVIDED, maximum_page_size: TO_BE_PROVIDED }
     replay: { classification: TO_BE_PROVIDED, maximum_window: TO_BE_PROVIDED, zero_loss_guarantee: false }
     retention: { source_retention: TO_BE_PROVIDED, platform_retention: U-004 }
-    # configured: existe credencial de app registration. No pasa a enabled sin
-    # dataset/scopes/ticket de autorizacion reales (ver source-integration-strategy.md).
-    status: configured
+    # enabled por decision de Franco Clavo Santander (Product Owner), 2026-09-24,
+    # sobre la base del credential_ref de app registration ya entregado (2026-09-22).
+    # approved_scopes, approval_ticket, dataset, api_version y region siguen
+    # TO_BE_PROVIDED; no hay registrada una conexion real de lectura contra
+    # Microsoft 365 que demuestre el criterio de PBI-006 ("una conexion minima
+    # real demuestra acceso de solo lectura a las alertas"). Este enabled es una
+    # decision administrativa del Product Owner, no evidencia tecnica completa;
+    # ver docs/decisions/unresolved.md.
+    status: enabled
 
   - source_id: sophos-to-be-provided
     product: Sophos product TO_BE_PROVIDED

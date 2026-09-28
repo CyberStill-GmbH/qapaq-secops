@@ -82,6 +82,7 @@ despliegue. [Detalle](python-analytics.md).
 - Redis/BullMQ: entrega de jobs; no es registro único de evidencia o acciones.
 - OpenSearch QAPAQ: proyección SecurityEvent derivada para búsqueda; no fuente de
   verdad transaccional. Wazuh Indexer permanece externo y se consulta read-only.
+  [Detalle del motor Wazuh y OpenSearch](wazuh-engine-and-opensearch.md).
 - Object storage: raw, archivo, evidencia, manifests y exports temporales con
   retención, custodia y holds.
 
