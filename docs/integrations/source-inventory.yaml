@@ -1,6 +1,16 @@
 # Inventario documental de fuentes. No contiene secretos ni habilita producción.
 # Cada TO_BE_PROVIDED debe resolverse y aprobarse antes del estado enabled.
 schema_version: "1.0"
+provider_gateway:
+  product: KrakenD Community Edition
+  deployment: on_premises
+  decision: ADR-026
+  version: TO_BE_PROVIDED
+  image_digest: TO_BE_PROVIDED
+  minimum_replicas: 2
+  load_balancer: TO_BE_PROVIDED
+  secret_provider: TO_BE_PROVIDED
+  invariant: durable_admission_before_downstream_bullmq
 sources:
   - source_id: wazuh-to-be-provided
     product: Wazuh

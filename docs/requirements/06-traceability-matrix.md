@@ -16,7 +16,8 @@
 | Conservación gobernada | retención/restore | RF-012/030/031/033; RNF-032…034 | ADR-018/020 | 20+25 escenarios, restore y matriz | NO IMPLEMENTADO; gates U-004/U-009 |
 | Entrega reproducible | CI/release candidate | RNF-026/027/035…037 | ADR-016/023 | checks, digest/SBOM/attestation | CI en PR #2; workspace/release ausentes |
 | Extensibilidad | adapters | RF-034; RNF-028 | ADR-010/024 | suite de conformidad/proveedor real | POST-MVP |
-| Secretos no revelables | API Gateway/SecretProvider | RF-040; RNF-003/040 | ADR-013/025 | write-only, rotación, scan y provider spec | NO IMPLEMENTADO; gate U-019 |
+| Secretos no revelables | QAPAQ control plane/SecretProvider | RF-040; RNF-003/040 | ADR-013/025/026 | write-only, rotación, scan y provider spec | NO IMPLEMENTADO; gate U-019 |
+| APIs de proveedor gobernadas | KrakenD on-premises + admisión durable | RF-043; RNF-044/045 | ADR-026 | HA/failover, límites, TLS/OAuth, no-secrets, commit antes de BullMQ y benchmark | NO IMPLEMENTADO; gate U-019 |
 | Observabilidad interna | Grafana OSS/Loki/Prometheus | RF-042; RNF-021…023/041/042 | ADR-021/025 | auth/redacción/fallo/restore/control interno | NO IMPLEMENTADO; gate U-020 |
 | Errores accionables | catálogo/UI/API | RF-041; RNF-043 | ADR-025 | contract/UX/a11y/no-enumeration | NO IMPLEMENTADO |
 | Respuesta/analítica futura | SOAR/Python | RF-035/036 | U-007/U-008 | gates específicos y benchmark | BLOQUEADO/POST-MVP |
@@ -35,7 +36,7 @@
 | Matriz Legal/Compliance sin ratificar | No lifecycle sintético | No si no hay TTL | No con purga manual bloqueada | Sí TTL/purga automática |
 | WORM/firma/Collector/canales no provisionados | No writer/contratos | Parcial | No para demo aislada declarada | Sí auditoría/observabilidad productiva |
 | Grafana/Loki/Prometheus sin sizing/IAM/restore | No instrumentación | Sí tablero SOC | Sí requisito observabilidad | Sí |
-| Gateway/SecretProvider productivo no seleccionado | No port/contrato | Sí alta segura | Sí nuevas credenciales | Sí |
+| KrakenD sin BOM/topología/rutas y SecretProvider no seleccionado | No port/contrato | Sí alta/consumo seguro | Sí nuevas credenciales/APIs | Sí |
 | Sizing, RPO/RTO/SLO y restore no medidos | No implementación | No piloto funcional limitado | No candidato limitado con gaps | Sí |
 | Contrato de publicación/despliegue ausente | No CI/candidato | No ejecución local | No candidato artifact | Sí publicación/CD |
 | U-008 SOAR detallado abierto | No MVP | No | No | Solo si se habilitan acciones SOAR |

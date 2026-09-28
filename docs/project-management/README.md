@@ -24,6 +24,8 @@ Entregar una plataforma QAPAQ SecOps capaz de convertir actividad autorizada de
 Microsoft 365, analizada por Wazuh, en eventos canónicos, alertas y casos trazables,
 con autorización, auditoría y operación medible; su arquitectura debe permitir
 incorporar nuevas APIs mediante adapters sin cambiar el dominio ni los consumidores.
+Las APIs directas atraviesan KrakenD CE on-premises y se admiten de forma durable
+antes de publicar referencias en Redis/BullMQ.
 La observabilidad del SOC usa Grafana OSS, Loki y Prometheus autogestionados para
 mantener control QAPAQ sobre logs e información operacional sin contratar ese servicio.
 
@@ -32,7 +34,8 @@ mantener control QAPAQ sobre logs e información operacional sin contratar ese s
 Producir un **MVP Candidate** ejecutable en ambiente controlado con esta ruta real:
 
 ```text
-Microsoft 365 → Wazuh → Wazuh Indexer → QAPAQ SecurityEvent
+Microsoft 365 → Wazuh → Wazuh Indexer ← KrakenD ← QAPAQ connector
+                                         → admisión durable → QAPAQ SecurityEvent
               → priorización → alerta/caso → auditoría → Teams si es CRITICAL
 ```
 

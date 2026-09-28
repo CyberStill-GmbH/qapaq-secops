@@ -5,7 +5,8 @@ U-010/ADR-011 aceptados; U-004/ADR-018, U-005/ADR-019, U-006/ADR-021,
 U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007,
 U-012/ADR-022 y la revisión de vertical ADR-024 aceptados, con fecha
 aportada 2026-09-18; ADR-025 fue aceptado condicionalmente por los requisitos de
-Franco Clavo del 2026-09-28. Capacidad pendiente de medición; identidad, eliminación,
+Franco Clavo del 2026-09-28; ADR-026 acepta KrakenD CE on-premises como gateway
+de APIs de proveedores. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. La rama `develop` incluye una baseline ejecutable sin lógica de
 negocio ni acceso a sistemas corporativos de Qapaq.
@@ -37,6 +38,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 19. [Baseline de acceso, secretos y observabilidad SOC](architecture/security-access-observability-baseline.md).
 20. [Decisión para evitar tercerización de observabilidad ante SBS](compliance/sbs-observability-rationale.md).
 21. [Catálogo de errores para usuarios y soporte](error-catalog.md).
+22. [KrakenD on-premises y admisión antes de BullMQ](architecture/provider-api-gateway.md).
 
 ## Diseño
 
@@ -59,6 +61,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Endurecimiento de acceso, secretos y stack Grafana OSS/Loki/Prometheus](architecture/security-access-observability-baseline.md).
 - [Control interno de logs SOC y análisis SBS](compliance/sbs-observability-rationale.md).
 - [Catálogo de errores](error-catalog.md).
+- [API Gateway KrakenD de proveedores](architecture/provider-api-gateway.md).
 - [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
 - [Harness C-06 y estado de aceptación](architecture/c-06-integration-testing.md).
@@ -128,6 +131,11 @@ sesión humana, red QAPAQ, passkeys Entra, protección de intentos, alta write-o
 credenciales, errores accionables y Grafana OSS/Loki/Prometheus autogestionados.
 El stack se elige para conservar control de logs/información SOC y evitar contratar
 el servicio externo regulado por SBS 504-2021 arts. 22–25; no es mandato de la SBS.
+DECISION: [ADR-026](adr/026-on-premises-krakend-provider-api-gateway.md) selecciona
+KrakenD CE on-premises delante de APIs consumidas directamente. El gateway aplica
+controles de transporte; QAPAQ conserva semántica, raw/checkpoint/outbox y solo
+publica referencias en Redis/BullMQ después de admisión durable. El MVP no cambia
+`Microsoft 365 → Wazuh`; QAPAQ consulta Wazuh Indexer mediante KrakenD.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
 ADR-007/015/016/017/018/019/020/021/022/023. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan

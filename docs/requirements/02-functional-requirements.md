@@ -650,7 +650,8 @@ Cada requisito expresa una obligación principal. `Auth` usa la forma
 
 ### RF-040 — Ingresar credencial de integración una sola vez
 
-- **Enunciado:** Platform Admin registra/rota credencial por API Gateway write-only;
+- **Enunciado:** Platform Admin registra/rota credencial por el control plane QAPAQ
+  write-only; KrakenD solo recibe materialización runtime cuando la ruta la necesita;
   ninguna API/UI humana puede recuperar después su valor.
 - **Actor/disparador/precondiciones:** Platform Admin con step-up, aprobación y fuente inventariada.
 - **Entradas/validaciones:** valor solo en request TLS, tipo/tamaño/owner/namespace.
@@ -688,3 +689,22 @@ Cada requisito expresa una obligación principal. `Auth` usa la forma
 - **Aceptación:** fallos inyectados aparecen/alertan; secretos/PII no aparecen;
   backup/restore y control de acceso se demuestran.
 - **Verificación:** integration/E2E, threat test, restore y revisión Compliance.
+
+### RF-043 — Consumir APIs de proveedores mediante KrakenD
+
+- **Enunciado:** toda API que QAPAQ consuma directamente atraviesa KrakenD CE
+  on-premises antes de la admisión y eventual publicación en Redis/BullMQ.
+- **Actor/disparador/precondiciones:** connector worker o proveedor webhook; fuente,
+  ruta, upstream, secretRef y scopes aprobados.
+- **Entradas/validaciones:** ruta/método/host allowlisted, TLS, OAuth/API key runtime,
+  tamaño, timeout, cuota y correlation context.
+- **Resultado/fallos:** respuesta llega al adapter para validación; 401/403/429/5xx,
+  timeout o circuit breaker degradan la fuente sin adelantar checkpoint.
+- **Datos/auditoría/Auth:** gateway no guarda body/raw/secreto; raw, manifiesto,
+  inbox, checkpoint y outbox quedan durables antes de encolar referencias.
+- **Prioridad/estado/origen/dependencias:** MVP P0 · CONFIRMADO/GATED · ADR-026 ·
+  balanceador, KrakenD, SecretProvider y C-28.
+- **Aceptación:** no existe acceso directo del adapter al upstream ni pipe
+  `KrakenD → BullMQ`; M365 mantiene `M365 → Wazuh` y QAPAQ consulta el Indexer por
+  KrakenD; una API directa futura usa ruta aislada.
+- **Verificación:** contract/provider/security/E2E, fault injection y benchmark.

@@ -45,6 +45,7 @@ Decisiones que gobiernan esta vista:
 - U-007/ADR-007: Python es capacidad futura y no un contenedor del runtime MVP.
 - U-009/ADR-020: Infraestructura opera dependencias; QAPAQ observa su estado.
 - U-012/ADR-022: Teams Workflows es el canal primario de alertas críticas.
+- ADR-026: KrakenD CE on-premises gobierna APIs de proveedores directas.
 
 ## Nivel 2 — Contenedores
 
@@ -91,6 +92,10 @@ externos administrados por Infraestructura/Security: QAPAQ exporta OTLP y solici
 firmas, pero no administra backends ni obtiene llaves privadas.
 Teams Workflow también es externo: Infraestructura/Microsoft 365 administra
 canal, workflow, propietarios y secreto; el worker solo consume su contrato.
+KrakenD es un contenedor de infraestructura on-premises, stateless y replicado
+detrás de balanceador. El worker lo usa para Wazuh Indexer y futuras APIs directas;
+el gateway no accede a stores ni a BullMQ. La respuesta pasa luego por el adapter y
+la admisión durable de QAPAQ.
 
 ## Nivel 3 — Componentes
 
@@ -111,7 +116,8 @@ Auditoría y Operations & Observability son capacidades transversales, no módul
 negocio adicionales. Cada módulo conserva estado e interfaces públicas. Se prohíben
 imports arbitrarios de internals, tablas ajenas y entidades ORM compartidas.
 
-El flujo MVP es Microsoft 365 → Wazuh → connectors → telemetry → detection → soc
+El flujo MVP es Microsoft 365 → Wazuh; después connectors → KrakenD → Wazuh
+Indexer → telemetry → detection → soc
 → soar. Wazuh produce la alerta base; Detection & Correlation de QAPAQ prioriza y
 puede añadir lógica complementaria sin duplicar el ruleset. Para una
 alerta crítica, `soc` confirma la alerta y publica una salida; `soar` entrega

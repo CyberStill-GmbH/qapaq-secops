@@ -16,7 +16,7 @@ plataforma de observabilidad estén provisionados.
 | Passkey | método FIDO2/passkey de Entra dentro de OIDC; QAPAQ no custodia claves privadas | 3, PBI-026 | phishing y credencial paralela |
 | Observabilidad SOC interna | Grafana OSS + Loki + Prometheus, autogestionados, con OpenTelemetry Collector | 2/3, PBI-013/027 | operación ciega y dependencia SaaS |
 | Manual de errores | catálogo versionado por código estable, explicación, acción y `correlationId` | 3, PBI-028 | mensajes opacos o exposición técnica |
-| Alta simple de tecnologías | onboarding declarativo, port común y credencial write-only vía API Gateway/SecretProvider | 2/3, PBI-029/022 | secretos dispersos y adapters acoplados |
+| Alta simple de tecnologías | onboarding declarativo, KrakenD on-premises, port común y credencial write-only vía SecretProvider | 2/3, PBI-029/030/022 | secretos dispersos, egress no gobernado y adapters acoplados |
 
 La solicitud de “superadmin” ya está cubierta funcionalmente por bundles separados
 (`ACCESS_ADMIN`, `PLATFORM_ADMIN`, `SOC_MANAGER`) y cuentas break-glass de Entra.
@@ -90,15 +90,16 @@ recuperación antes de que la prueba se considere PASS.
 
 ## 3. Credenciales de integraciones y alta de tecnologías
 
-El “API Gateway” es el control plane de alta y distribución; **no sustituye al
-gestor de secretos**. El flujo aprobado es:
+KrakenD CE on-premises es el API Gateway de tráfico de proveedores; **no sustituye
+al gestor de secretos ni recibe directamente el alta humana**. El control plane
+QAPAQ expone el alta write-only y distribuye referencias/configuración aprobada:
 
 ```text
 Platform Admin + step-up + aprobación
-  → API Gateway (write-only, TLS, límites, schema)
+  → API QAPAQ de configuración (write-only, TLS, límites, schema)
   → SecretProvider / gestor externo
   → secretRef + fingerprint/metadata en QAPAQ
-  → identidad técnica del adapter resuelve solo en runtime
+  → identidad técnica materializa solo en runtime para adapter/KrakenD
 ```
 
 - La operación de alta acepta el valor una sola vez y jamás existe `GET` del valor.
@@ -117,8 +118,15 @@ Platform Admin + step-up + aprobación
   cursor/replay, límites, health y suite de conformidad. Centralizar claves reduce
   fricción y exposición, pero no vuelve plug-and-play una API semánticamente distinta.
 
-El producto de API Gateway y el gestor productivo siguen abiertos. No se implementa
-un vault casero ni cifrado reversible en una tabla de negocio.
+KrakenD queda seleccionado por [ADR-026](../adr/026-on-premises-krakend-provider-api-gateway.md):
+dos o más nodos stateless detrás de balanceador, rutas/upstreams allowlisted,
+OAuth2 Client Credentials o API key inyectada en runtime, timeouts, rate limiting,
+circuit breaker y telemetría hacia el stack interno. El adapter conserva cuota
+exacta, cursor, replay, retries semánticos y admisión durable. La respuesta externa
+se guarda como raw/manifiesto/checkpoint/outbox antes de publicar referencias en
+Redis/BullMQ. El gestor productivo de secretos sigue abierto; no se implementa un
+vault casero ni cifrado reversible en una tabla de negocio. Ver la
+[arquitectura del gateway](provider-api-gateway.md).
 
 ## 4. Grafana OSS + Loki + Prometheus
 
@@ -185,7 +193,7 @@ No se declara estas capacidades operativas hasta cerrar:
 - tenant/app, grupos, política passkey, Conditional Access, Smart Lockout y claims
   de fuerza autenticadora observados;
 - carrera de sesión única y revocación distribuida;
-- producto/API Gateway, gestor de secretos, identidades técnicas y rotación;
+- BOM/topología/rutas KrakenD, gestor de secretos, identidades técnicas y rotación;
 - versiones fijadas, sizing, HA, TLS, retención, backup/restore y alertas externas
   de Grafana/Loki/Prometheus/Collector;
 - catálogo de errores revisado por Product/SOC y pruebas de no enumeración;

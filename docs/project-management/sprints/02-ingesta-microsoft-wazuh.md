@@ -19,6 +19,7 @@ y cuarentena demostrados.
 6. PBI-012 — indexación y consulta.
 7. PBI-013 — telemetría y baseline Grafana OSS/Loki/Prometheus, transversal.
 8. PBI-029 — contrato write-only de credenciales; E2E se completa en Sprint 3.
+9. PBI-030 — contrato y baseline KrakenD on-premises; HA/E2E se completa en Sprint 3.
 
 PBI-007 es dependencia externa crítica. Si no están disponibles tenant, permiso,
 Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. Por
@@ -37,9 +38,11 @@ la fuente autorizada.
 | 4 | C-13 | Inbox, idempotencia, replay, cuarentena y reproceso |
 | 5 | C-14 | Proyección OpenSearch y consulta tipada/autorizable |
 | Transversal | C-15 | Logs/métricas/health, Collector, Loki/Prometheus y provisioning Grafana |
-| Transversal | C-24 | Contrato API Gateway write-only y SecretProvider, sin plaintext persistido |
+| Transversal | C-24 | Control plane QAPAQ write-only y SecretProvider, sin plaintext persistido |
+| Transversal | C-28 | KrakenD CE + LB/config: rutas Wazuh/proveedor, TLS/OAuth, límites y telemetría |
 
-C-10 → C-11 → C-12 → C-13 → C-14 es la ruta crítica. Cada componente debe cerrar
+C-10 consume Wazuh Indexer por C-28; C-28 → C-10 → C-11 → C-12 → C-13 → C-14
+es la ruta crítica de datos. Cada componente debe cerrar
 su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 y
 las provider specs contra Wazuh real siguen bloqueados sin sistemas corporativos
 reales; los contratos locales permiten desarrollar y comprobar límites sin simular
@@ -76,6 +79,9 @@ E2E final. El 2026-10-05 no se usa para instalar dependencias pendientes.
 - levantar el baseline autogestionado Grafana OSS/Loki/Prometheus para integración,
   con versiones fijadas, backends privados y dashboard mínimo del pipeline;
 - cerrar el contrato create/rotate/revoke de credenciales sin endpoint de lectura;
+- validar configuración KrakenD, egress/rutas allowlisted y failure modes básicos;
+- demostrar que la respuesta Wazuh queda durable en C-11 antes de publicar una
+  referencia en BullMQ; KrakenD no escribe directamente a la cola;
 - ejecutar E2E desde Microsoft 365 hasta consulta QAPAQ si la dependencia externa
   está disponible; en caso contrario, trasladar explícitamente ese gate a la
   aceptación final del MVP;
@@ -88,11 +94,14 @@ E2E final. El 2026-10-05 no se usa para instalar dependencias pendientes.
 - Wazuh configurado con integración Office 365 y ruleset verificable;
 - Indexer accesible con mínimo privilegio;
 - storage, PostgreSQL y Redis disponibles en el ambiente de integración.
+- balanceador/KrakenD internos y egress al Wazuh Indexer; BOM y certificados
+  pueden quedar gated, pero la ruta no se declara productiva sin ellos.
 
 ## Specs obligatorias
 
 - actividad real Microsoft 365 → evento/alerta Wazuh;
 - 401/403, timeout, throttling aplicable y recuperación;
+- ruta KrakenD, TLS inválido, 429/5xx, circuit breaker y caída de un nodo;
 - caída antes/después de raw, manifiesto, publicación y checkpoint;
 - mapping completo y rechazo de documento inválido/sobredimensionado;
 - replay, duplicado concurrente, identidad débil y poison event;

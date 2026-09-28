@@ -21,7 +21,8 @@ Adoptar el baseline de
 - Smart Lockout de Entra y rate limiting anónimo genérico en QAPAQ;
 - acceso humano solo desde red QAPAQ mediante Conditional Access e ingress/BFF;
 - passkey FIDO2 en Entra dentro del flujo OIDC existente, sin credencial local;
-- credenciales de adapters ingresadas una vez por API Gateway write-only y custodiadas por SecretProvider externo;
+- credenciales de adapters ingresadas una vez por control plane QAPAQ write-only,
+  custodiadas por SecretProvider externo y materializadas en KrakenD/adapter solo en runtime;
 - Grafana OSS + Loki + Prometheus autogestionados, manteniendo OpenTelemetry Collector y separación de auditoría;
 - catálogo de errores estable y accionable para UI/API.
 

@@ -408,11 +408,33 @@ con su referencia para añadir fuentes sin exponer credenciales.
 
 Aceptación:
 
-- API Gateway expone create/rotate/revoke, nunca read/export de plaintext;
+- control plane QAPAQ expone create/rotate/revoke, nunca read/export de plaintext;
 - SecretProvider externo custodia; DB/audit/UI solo conservan ref/fingerprint/metadata;
 - identidad del adapter resuelve únicamente su namespace;
 - rotación prueba la nueva versión antes de switch/revocación y no hace fallback;
 - onboarding sigue exigiendo adapter, mapping, límites, health y suite real.
+
+### PBI-030 — Gateway on-premises para APIs de proveedores
+
+Prioridad: P0 · Forecast: Sprint 2 (contrato/baseline) / Sprint 3 (HA/E2E) · Tipo: Platform/Security · Riesgo: alto.
+
+Como Platform/SOC Development, necesito que los consumos directos de proveedores
+atraviesen KrakenD CE on-premises para gobernar egress, autenticación técnica,
+límites y fallos sin convertir al gateway o a Redis en sistemas de registro.
+
+Aceptación:
+
+- dos nodos stateless detrás de LB sobreviven caída y rolling update;
+- rutas/upstreams/métodos están allowlisted; TLS/OAuth o API key se materializan
+  desde SecretProvider sin persistir ni registrar plaintext;
+- timeouts, rate limit por réplica y circuit breaker se prueban con
+  401/403/429/5xx/TLS/timeout y cuota total calculada;
+- adapter valida y persiste raw/manifiesto/checkpoint/outbox antes de que el
+  dispatcher publique referencias en BullMQ;
+- KrakenD no hace mapping, cursor, replay, retries semánticos, fan-out ni cache de feeds;
+- Grafana/Loki/Prometheus muestran gateway y cobertura sin bodies ni labels sensibles;
+- el MVP conserva `M365 → Wazuh`; QAPAQ consulta Wazuh Indexer por KrakenD y Graph
+  directo permanece futuro hasta decisión autorizada.
 
 ## Backlog post-MVP
 

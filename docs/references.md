@@ -158,3 +158,23 @@ capacidad ni disponibilidad del equipo; esos valores se declaran en Planning.
 Las páginas oficiales demuestran mecanismos disponibles. No prueban edición,
 licencia, permisos, versión o configuración del entorno QAPAQ; PBI-006 debe
 confirmarlos mediante acceso autorizado.
+
+## API Gateway de proveedores: KrakenD
+
+- [KrakenD — Clustering](https://www.krakend.io/docs/deploying/clustering/): nodos
+  stateless, balanceador y escalado horizontal.
+- [KrakenD — Traffic management](https://www.krakend.io/docs/throttling/): rate
+  limiting hacia backends y circuit breaker.
+- [KrakenD — OAuth2 Client Credentials](https://www.krakend.io/docs/v2.3/authorization/client-credentials/):
+  obtención y renovación técnica de tokens.
+- [KrakenD — TLS](https://www.krakend.io/docs/service-settings/tls/): TLS servidor
+  y cliente/mTLS, incluida la limitación global relevante para Community Edition.
+- [KrakenD — Environment variables](https://www.krakend.io/docs/configuration/environment-vars/)
+  y [configuration structure](https://www.krakend.io/docs/configuration/structure/):
+  configuración flexible, schema y validación.
+- [KrakenD — OpenTelemetry](https://www.krakend.io/docs/telemetry/opentelemetry-by-endpoint/):
+  métricas y traces del gateway hacia observabilidad interna.
+
+Estas capacidades sustentan ADR-026; no demuestran versión, edición, topología,
+certificados, cuotas ni rendimiento del ambiente QAPAQ. Los límites stateless se
+tratan por réplica y el BOM fija versión/digest después de provider specs.

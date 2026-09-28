@@ -93,12 +93,15 @@ humano; eso no sustituye el DoD documentado.
 | C-13 | `modules/telemetry` resiliencia | Inbox, idempotencia, replay, quarantine y reprocess | 011 | C-11, C-12 | Reinicio, carrera, duplicado y poison event sin efecto duplicado |
 | C-14 | `modules/telemetry` proyección y consulta | Indexación OpenSearch y query API tipada/autorizable | 012 | C-12, C-13 | OpenSearch real, caída/recovery, límites y raw oculto por defecto |
 | C-15 | `platform/observability` y señales del pipeline | Métricas, logs, traces y health con cardinalidad acotada | 013 | C-10…C-14 | Cada estado healthy/degraded/failed provocado y observado |
-| C-24 | `platform/configuration` + frontera API Gateway/SecretProvider | Alta, rotación y revocación write-only; persistir solo ref/fingerprint/metadata | 029 | C-03, C-08 | Contract/security specs sin GET/export/plaintext; E2E final en Sprint 3 |
+| C-24 | `platform/configuration` + frontera control plane/SecretProvider | Alta, rotación y revocación write-only; persistir solo ref/fingerprint/metadata | 029 | C-03, C-08 | Contract/security specs sin GET/export/plaintext; E2E final en Sprint 3 |
+| C-28 | `platform/gateway/krakend` + LB/config | Gateway CE on-premises, rutas allowlisted, TLS/OAuth, límites y telemetría; sin estado de negocio | 030 | C-03, C-06, C-24 | Config validation y 401/403/429/5xx/timeout; integración con C-10/C-15 y admisión antes de BullMQ |
 
 Orden crítico: C-10 → C-11 → C-12 → C-13 → C-14. C-15 se añade durante cada
 componente y se cierra al final; no se pospone toda la observabilidad a una tarea
 aislada. C-15 incluye Collector, Prometheus, Loki y provisioning mínimo de Grafana;
-C-24 cierra el contrato, no selecciona un vault ficticio. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
+C-24 cierra el contrato y C-28 selecciona KrakenD, pero no inventan un vault.
+KrakenD se ubica antes de la API de Wazuh/proveedor y la admisión C-11 permanece
+antes de BullMQ. PBI-007 permanece BLOCKED si falta el tenant o Wazuh autorizado, aunque la
 infraestructura interna tenga specs reales.
 
 Por decisión del Product Owner del 2026-09-25, C-08 queda DONE para habilitar
@@ -125,10 +128,11 @@ cambian.
 | C-25 | `modules/access`, BFF e ingress | Sesión única, red QAPAQ, passkey Entra, Smart Lockout y rate limit | 016, 026 | C-18, C-03, C-06 | Carreras, inside/outside, proxy forjado, passkey y abuso PASS |
 | C-26 | `platform/observability` + provisioning Grafana | Dashboards SOC, auth/red, alertas externas, retention y recovery | 013, 027 | C-15, C-18, C-19 | Fallos observados; redacción/RBAC/backup/restore y evidencia de control interno |
 | C-27 | `apps/web` + contrato API | Catálogo de errores, helpRef, acciones y correlationId | 028 | C-18, C-21, C-26 | Contract/UX/a11y/no-enumeration y fallback PASS |
+| C-28 | `platform/gateway/krakend` + LB/config | Completar HA, rotación, failure modes, benchmark y dashboards por ruta | 030 | C-15, C-24 | Failover/rolling update, cuota por réplica, no-secrets y E2E durable PASS; evidencia alimenta C-22 |
 
 C-18, C-19 y C-25 empiezan al inicio del Sprint porque son dependencias de seguridad, no
 pulido final. C-16 alimenta C-17; C-17/C-19 habilitan C-20; C-21 es P1 y no desplaza
-C-22. C-26 endurece el baseline de C-15; C-24 completa su E2E y C-27 no desplaza el
+C-22. C-26 endurece el baseline de C-15; C-24/C-28 completan su E2E y C-27 no desplaza el
 P0. La evidencia C-22 se acumula desde el primer PR y termina con la vertical.
 
 ## Contratos entre componentes

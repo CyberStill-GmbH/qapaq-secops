@@ -20,6 +20,7 @@ y emitir una decisión de preparación sustentada en E2E, fallos, capacidad y re
 9. PBI-026 — sesión única, red QAPAQ, passkey y protección de intentos.
 10. PBI-027 — tableros SOC y hardening/recovery del stack OSS.
 11. PBI-029 — E2E write-only; PBI-028 — catálogo de errores si el P0 está protegido.
+12. PBI-030 — HA, seguridad, observabilidad y E2E KrakenD antes de BullMQ.
 
 El forecast es deliberadamente revisable: Planning selecciona PBIs completos según
 capacidad observada en Sprint 1/2. PBI-020 y PBI-021 no se recortan para incorporar
@@ -37,6 +38,7 @@ PBI-017 no cabe, siempre que Product Owner lo acepte antes de Planning.
 | 5 | C-22 | E2E, fallos, recovery, capacidad y release evidence del mismo commit |
 | Transversal | C-26 | Grafana SOC, hardening, alertas externas, backup/restore y evidencia SBS |
 | Transversal | C-24 | E2E de alta/rotación/revocación write-only de credenciales |
+| Transversal | C-28 | KrakenD HA, failure modes, cuotas, benchmark y dashboards por ruta |
 | Condicional | C-21, C-23, C-27 | Vista, extensibilidad y catálogo UX, después del P0 |
 
 C-18/C-19 no son tareas de cierre: protegen C-17 y C-20. C-22 acumula evidencia
@@ -63,6 +65,8 @@ specs por componente están en el
 - recopilar digest, SBOM, CI, migraciones, rollback y riesgos;
 - demostrar dashboards/alertas, redacción, acceso, backup/restore y control interno
   de Grafana OSS/Loki/Prometheus; completar alta write-only y catálogo de errores;
+- demostrar failover/rolling update de KrakenD, límites calculados por réplica y
+  admisión durable antes de cualquier publicación downstream;
 - realizar Review ejecutable y decisión de preparación.
 
 ## Dependencias de entrada
@@ -72,7 +76,7 @@ specs por componente están en el
 - CIDR QAPAQ, VPN/egress, proxies confiables, Conditional Access, passkey y Smart Lockout aprobados;
 - Teams Workflow, canal, secretRef, propietario y fallback aprobados;
 - Grafana/Loki/Prometheus/Collector con versiones, storage, IAM y red interna;
-- API Gateway, SecretProvider e identidades técnicas para E2E write-only;
+- KrakenD CE/LB on-premises, SecretProvider e identidades técnicas para E2E;
 - reviewer de Seguridad para auth, mapping y notificación;
 - entorno con recursos suficientes para benchmark/recovery.
 
@@ -83,6 +87,8 @@ specs por componente están en el
 - OIDC/BFF, tenant/issuer/audience, state/nonce/PKCE, scopes, revocación, sesión
   única, inside/outside de red, passkey, Smart Lockout y rate limiting;
 - no revelación de credenciales en create/rotate/revoke y ausencia de read/export;
+- KrakenD: config/rutas/egress allowlisted, TLS/OAuth, 401/403/429/5xx/timeout,
+  circuit breaker, caída de nodo, cuota agregada y commit durable antes de BullMQ;
 - Grafana/Loki/Prometheus: auth, red privada, redacción, cardinalidad, caída y restore;
 - atomicidad estado/audit/outbox y prohibición de update/delete de auditoría;
 - Teams real, timeout ambiguo, reintentos, duplicado, fallback y acuse QAPAQ;

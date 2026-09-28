@@ -399,3 +399,21 @@ hardware/configuración, dataset, duración y resultado.
 - **Métrica/método/ambiente/responsable:** 100% de errores catalogados o fallback;
   redaction/no-enumeration y revisión UX; Product/Development/Security.
 - **Estado/fuente/impacto:** CONFIRMADO · ADR-025 · mensaje opaco o filtración bloquea release.
+
+### RNF-044 — Gateway de proveedores resiliente y sin estado de negocio
+
+- **Escenario/respuesta:** al caer o actualizar un nodo KrakenD, el balanceador usa
+  otro nodo; cursor, raw, manifiesto y jobs no se pierden porque nunca residen en el gateway.
+- **Métrica/método/ambiente/responsable:** mínimo dos nodos, caída/rolling update,
+  readiness, drain y rollback PASS; Platform/Infra/Security.
+- **Estado/fuente/impacto:** CONFIRMADO con topología/BOM PENDIENTES · ADR-026.
+
+### RNF-045 — Presupuestos seguros de proveedor y admisión
+
+- **Escenario/respuesta:** rate limit por réplica, deadline jerárquico, circuit
+  breaker y backpressure respetan la cuota; no hay retries ocultos, cache de feeds
+  ni publicación downstream antes de commit durable.
+- **Métrica/método/ambiente/responsable:** 401/403/429/5xx/timeout/TLS y máximo de
+  réplicas PASS; p95/p99, throughput y headroom medidos por ruta; Platform/SOC Dev.
+- **Estado/fuente/impacto:** CONFIRMADO con cuotas/umbrales PENDIENTES · ADR-026;
+  violar el orden durable bloquea la fuente.
