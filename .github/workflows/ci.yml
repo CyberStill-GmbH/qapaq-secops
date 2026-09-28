@@ -120,6 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Require an explicit application runtime
         run: test -s .nvmrc || { echo 'NOT_CONFIGURED - add .nvmrc for the application'; exit 1; }
@@ -133,6 +134,8 @@ jobs:
       - name: Generate the Prisma client for clean checkout checks
         run: pnpm --filter @qapaq/database generate
       - name: Run configured project checks (missing checks fail)
+        env:
+          FORMAT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.event.merge_group.base_sha }}
         run: pnpm run verify
 
   entrypoints:
@@ -220,6 +223,24 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  c28-krakend:
+    name: C-28 KrakenD config and route contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Route allowlist and security contract
+        run: node --test platform/gateway/krakend/test/contract.test.mjs
+      - name: Validate Compose input
+        run: docker compose --env-file platform/gateway/krakend/.env.example -f platform/gateway/krakend/compose.yaml config --quiet
+      - name: Runtime integration with controlled JWKS and Wazuh backend
+        run: node platform/gateway/krakend/test/integration.mjs
+
   containers:
     needs: discover
     if: needs.discover.outputs.has_containers == 'true'
@@ -245,7 +266,7 @@ jobs:
   gate:
     name: CI / required
     if: always()
-    needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, containers]
+    needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, c28-krakend, containers]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -256,7 +277,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           jobs = json.loads(os.environ['RESULTS'])
-          required = ['discover', 'codeql', 'secrets', 'filesystem', 'entrypoints', 'c04-postgres', 'c06-base']
+          required = ['discover', 'codeql', 'secrets', 'filesystem', 'entrypoints', 'c04-postgres', 'c06-base', 'c28-krakend']
           outputs = jobs['discover']['outputs']
           if outputs.get('has_pnpm') == 'true':
               required += ['pnpm-audit', 'quality']

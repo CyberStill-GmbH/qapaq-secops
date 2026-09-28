@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {
+      "id": "wazuh-cluster-health",
+      "path": "/wazuh/_cluster/health",
+      "method": "GET",
+      "backend": "wazuh-indexer",
+      "auth": "jwt",
+      "rate_limit": "provider-read",
+      "timeout": "provider-read",
+      "classification": "internal-operational",
+      "owner": "platform"
+    },
+    {
+      "id": "wazuh-search",
+      "path": "/wazuh/_search",
+      "method": "POST",
+      "backend": "wazuh-indexer",
+      "auth": "jwt",
+      "rate_limit": "provider-read",
+      "timeout": "provider-read",
+      "classification": "security-event-query",
+      "owner": "soc-platform"
+    }
+  ]
+}

@@ -18,6 +18,14 @@
     "digest": "sha256:e2226dea4b9aef896db02f7396102d48eb58cd339d930332e3d8bdac80012a78"
   },
   "opensearch": { "image": "opensearchproject/opensearch", "version": "3.7.0", "digest": null },
-  "wazuhManager": { "image": "wazuh/wazuh-manager", "version": "4.14.7", "digest": null },
-  "wazuhIndexer": { "image": "wazuh/wazuh-indexer", "version": "4.14.7", "digest": null }
+  "wazuhManager": {
+    "image": "wazuh/wazuh-manager",
+    "version": "4.14.7",
+    "digest": "sha256:d10b545b886ed2e36af9d137aeef00c959b2bbb2bdb398167a74efc26cc24c27"
+  },
+  "wazuhIndexer": {
+    "image": "wazuh/wazuh-indexer",
+    "version": "4.14.7",
+    "digest": "sha256:44468f2f6f5821e47c4cf44c36ef78566ee519ef7c6165417070613005eec2ef"
+  }
 }

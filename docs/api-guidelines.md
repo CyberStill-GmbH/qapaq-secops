@@ -49,6 +49,10 @@ secrets, consultas ni connection strings. 401 para identidad ausente/inválida;
 estado incompatible; 429 con retry apropiado para límites. Detalles solo en logs
 redactados. No revelar existencia de recursos a quien carece de permiso.
 
+Cada código debe existir en el [catálogo de errores](error-catalog.md) con
+explicación, acción segura, retry y `helpRef`. La UI no muestra únicamente “ocurrió
+un error”: presenta contexto accionable y `correlationId` sin copiar la excepción.
+
 ## Asincronía e idempotencia
 
 Para restores/reportes/exports, contrato de job con estado y cobertura; 202 significa

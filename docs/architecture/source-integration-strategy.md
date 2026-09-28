@@ -20,6 +20,8 @@ externos conservan responsabilidades específicas:
 - Infraestructura: operación, licencias, cuentas, configuración, conectividad,
   secretos, upgrades y disponibilidad de esos productos.
 - SOC Development: conectores y toda la lógica de QAPAQ SecOps.
+- KrakenD on-premises: frontera técnica común para APIs que QAPAQ consume
+  directamente; no normaliza ni conserva eventos.
 
 Wazuh no reemplaza gestión de incidentes, RBAC, correlación propia ni conectores
 directos. Microsoft, Cato y Sophos no están obligados a pasar primero por Wazuh.
@@ -64,6 +66,12 @@ El MVP materializa únicamente `integrations/wazuh`. Microsoft 365 se configura 
 Wazuh y no crea `integrations/microsoft`; ese slice solo nace si una decisión
 post-MVP aprueba una API directa. Cato y Sophos permanecen como rutas documentales,
 sin carpetas o código vacío.
+
+Todo consumo API directo de un slice habilitado atraviesa KrakenD on-premises según
+[ADR-026](../adr/026-on-premises-krakend-provider-api-gateway.md). Para el MVP, el
+adapter Wazuh consulta el Indexer a través del gateway; KrakenD no se inserta entre
+Microsoft 365 y el collector de Wazuh. Una futura ruta Graph/Cato/Sophos usa el
+mismo gateway, pero conserva adapter, autenticación, cursor y cuotas propios.
 
 ## Vertical de fuente del MVP
 
@@ -118,6 +126,12 @@ FETCHED → DURABLE → NORMALIZED → PROCESSED → CHECKPOINTED
 El checkpoint avanza únicamente después de almacenamiento durable. Las APIs pull
 no tienen un ACK hacia el proveedor. En webhooks, HTTP 2xx se emite cuando el
 mensaje fue validado y persistido o encolado de forma durable.
+
+El gateway aplica controles de transporte antes de que una respuesta llegue a la
+admisión, pero no publica directamente en Redis/BullMQ. El adapter valida; raw y
+manifiesto/checkpoint/outbox quedan durables; solo entonces el dispatcher publica
+IDs o referencias pequeñas. Detalle en
+[API Gateway de proveedores](provider-api-gateway.md).
 
 Cada dataset declara `FULL_REPLAY`, `BOUNDED_REPLAY`, `BEST_EFFORT` o `NO_REPLAY`.
 No se promete cero pérdida hasta demostrar IDs estables, retención, cursor durable,

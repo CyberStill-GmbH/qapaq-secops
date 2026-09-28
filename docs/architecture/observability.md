@@ -1,9 +1,10 @@
 # Observabilidad operacional
 
 Estado: **CONDITIONALLY ACCEPTED** por
-[U-006/ADR-021](../adr/021-observability-and-audit-separation.md). Los SLI/SLO,
+[U-006/ADR-021](../adr/021-observability-and-audit-separation.md) y
+[ADR-025](../adr/025-security-access-observability-hardening.md). Los SLI/SLO,
 modos y continuidad siguen [ADR-020](../adr/020-operations-and-continuity.md).
-Producción está **BLOCKED UNTIL ROLLBACK, ARCHIVE AND ALERT TESTS PASS**.
+Producción está **BLOCKED UNTIL ROLLBACK, ARCHIVE, ACCESS, RESTORE AND ALERT TESTS PASS**.
 
 ## Separación de señales
 
@@ -21,16 +22,24 @@ retención o caída del backend operacional no puede eliminar auditoría confirm
 API y workers se instrumentan con OpenTelemetry, exportan por OTLP, propagan W3C
 Trace Context, emiten logs JSON estructurados y métricas compatibles con
 Prometheus. El destino es un OpenTelemetry Collector administrado por
-Infraestructura:
+Infraestructura y el backend seleccionado por ADR-025 es Grafana OSS + Loki +
+Prometheus:
 
 ```text
-QAPAQ API / workers → OTLP → OpenTelemetry Collector → backend corporativo
+QAPAQ API / workers → OTLP → OpenTelemetry Collector → Loki (logs)
+QAPAQ API / workers → Prometheus scrape/Collector → Prometheus (métricas)
+SOC/Platform → Grafana OSS → Loki/Prometheus
 ```
 
-El dominio no importa SDK de proveedores ni conoce productos de métricas, logs o
-traces. Infraestructura define endpoint, autenticación, certificados, backends,
-retención, almacenamiento, cuotas, disponibilidad, soporte, alert manager y
-canales. Los backends locales de desarrollo no acreditan operación productiva.
+El dominio no importa SDK de proveedores. Infraestructura define endpoint,
+autenticación, certificados, retención, almacenamiento, cuotas, disponibilidad,
+soporte, Alertmanager y canales. Loki queda detrás de proxy autenticado/mTLS;
+Prometheus, exporters y `/metrics` no se exponen a Internet; Grafana usa Entra y
+red QAPAQ sin acceso anónimo. Los backends locales no acreditan producción.
+
+Este stack no incluye un backend de trazas. Se preservan W3C Trace Context y
+`traceId`/`spanId` correlacionables en logs; almacenar/buscar trazas con Tempo u otro
+producto requiere decisión posterior de capacidad y retención.
 
 QAPAQ produce señales correctas y expone health seguro. No administra el
 Collector, su almacenamiento ni la infraestructura productiva.
