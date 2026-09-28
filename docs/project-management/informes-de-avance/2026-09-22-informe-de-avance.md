@@ -1,5 +1,13 @@
 # Informe de avance — 2026-09-22
 
+**Para:** Ing. Franco Clavo Santander — Product Owner y sponsor de Riesgos No Financieros
+
+**De:** Cesar Adrian Guevara Salcedo — Developer y Scrum Master interino
+
+**Fecha:** 22 de septiembre de 2026
+
+**Asunto:** Cierre de C-02, diseño y evidencia real de C-04, arreglo de CI
+
 Preparado para el Daily Scrum de **2026-09-23**. Sprint 1 — Base ejecutable y
 contratos (2026-09-19 → 2026-10-02). Facilitador: Cesar Adrian Guevara Salcedo.
 

@@ -14,11 +14,12 @@ Otra persona distinta del autor ejecuta cada runbook crítico antes de producci�
 
 ## Docker Desktop no inicia en Windows
 
-Si el backend aborta al inicializar `dockerInference` o `engine.sock`, aplicar el
-procedimiento reversible documentado en
-[entorno local](development/local-environment.md#recuperación-de-docker-desktop-en-windows).
-No usar factory reset: la reparación aísla simultáneamente ambos directorios de
-sockets, conserva respaldos y valida daemon, red y contenedores reales.
+Síntomas, diagnóstico, recuperación, caché/espacio WSL y pasos de validación están
+documentados en [recuperación Docker Desktop/WSL2](development/local-environment.md#recuperación-de-docker-desktop-en-windows).
+Para el fallo `dockerInference`/`engine.sock`, capturar diagnostic ID y después
+ejecutar una sola vez `scripts/dev/repair-docker-desktop.ps1`; no borrar volúmenes,
+VHDX ni desregistrar `docker-desktop-data`. Si es solo build cache, recuperar el
+daemon y valorar el `docker builder prune` interactivo tras `docker system df -v`.
 
 ## Conector degradado o sin eventos
 

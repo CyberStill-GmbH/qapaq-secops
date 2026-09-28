@@ -8,6 +8,7 @@ Todas las capacidades están **NO IMPLEMENTADAS** en la rama inspeccionada.
 | Autenticación humana Entra/BFF | MVP | U-003 / ADR-017; gate de federación pendiente |
 | Autorización por capability, recurso y scope | MVP | U-003 / ADR-017; catálogo final por endpoint pendiente |
 | Catálogo y configuración lógica de fuentes | MVP | U-001/005; valores reales pendientes |
+| Gateway on-premises de APIs de proveedores | MVP | ADR-026; KrakenD CE, HA/BOM/rutas y E2E pendientes |
 | Adquisición Microsoft 365 mediante Wazuh | MVP | ADR-024; piloto autorizado bloquea operación |
 | ACK, checkpoint, retry y replay | MVP | ADR-019; garantía solo desde adquisición durable |
 | Custodia de raw y manifests | MVP | ADR-018/019; WORM y retención condicionados |

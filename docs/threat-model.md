@@ -17,7 +17,7 @@ frontera suficiente para confiar.
 
 ## Escenarios y tratamiento
 
-- T-01 — Spoofing: token mal validado o sesión revocada conserva acceso. ADR-017 fija tenant explícito, validación OIDC, sesión BFF, revocación/versionado y cuentas técnicas separadas. Probar los 27 escenarios antes de producción; residual: compromiso/configuración del IdP.
+- T-01 — Spoofing: token mal validado o sesión revocada conserva acceso. ADR-017/025 fijan tenant explícito, validación OIDC, sesión BFF única, red QAPAQ, passkey, revocación/versionado y cuentas técnicas separadas. Probar los 35 escenarios antes de producción; residual: compromiso/configuración del IdP o borde.
 - T-02 — Elevación: usuario cambia ID de case, campo de rol o asignaciones para leer/exportar o autoescalar. Capabilities + scope + objeto/campo + JIT, step-up y doble control privilegiado. Residual: implementación o matriz defectuosa; gate ADR-017 pendiente.
 - T-03 — Tampering: payload vendor modifica reglas, ejecuta comandos o inyecta HTML/SQL. JSON Schema normativo, extensiones acotadas, cuarentena, escape, consultas parametrizadas y sin eval/shell interpolado. Probar fixtures maliciosos y hashes raw inválidos; residual: parser/SDK vulnerable.
 - T-04 — SSRF/exfiltración: conector o nextLink apunta a destino no autorizado y arrastra token. Allowlist por proveedor, validar redirect/DNS y egress, no URLs arbitrarias. Probar destino alternativo; residual: host permitido comprometido.

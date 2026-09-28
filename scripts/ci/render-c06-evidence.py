@@ -56,7 +56,15 @@ def terminal_image(source: Path, target: Path):
 def evidence_image(paths: list[Path], target: Path):
     evidence = [json.loads(p.read_text(encoding="utf-8")) for p in paths]
     width, height = 1560, 960
-    im, d = canvas("Evidencia de dos ejecuciones aisladas", "JSON generado por el harness después del teardown · perfil base · estado PASS", width, height)
+    commit = evidence[0]["projectCommit"]
+    dirty = any(item["workingTreeDirty"] for item in evidence)
+    source_state = "árbol de trabajo con cambios" if dirty else "checkout limpio"
+    im, d = canvas(
+        "C-06 · evidencia de CI",
+        f"Dos ejecuciones reales · perfil base · {source_state} · commit {commit[:12]}",
+        width,
+        height,
+    )
     cards = [(64, 194, 744, 812), (816, 194, 1496, 812)]
     labels = ["EJECUCIÓN A", "EJECUCIÓN B"]
     for item, box, label in zip(evidence, cards, labels):
@@ -64,7 +72,7 @@ def evidence_image(paths: list[Path], target: Path):
         d.rounded_rectangle(box, radius=18, fill="#ffffff", outline="#d9e3ed", width=2)
         d.text((x1 + 28, y1 + 24), label, font=font(FONT_SANS, 16), fill="#087e82")
         d.text((x1 + 28, y1 + 56), item["runId"], font=font(FONT_REG, 15), fill="#10253f")
-        d.text((x1 + 28, y1 + 88), f"Commit {item['projectCommit'][:12]} · árbol de trabajo con cambios", font=font(FONT_SANS, 15), fill="#52657b")
+        d.text((x1 + 28, y1 + 88), f"Commit {item['projectCommit'][:12]} · {source_state}", font=font(FONT_SANS, 15), fill="#52657b")
         d.rounded_rectangle((x1 + 28, y1 + 128, x2 - 28, y1 + 184), radius=12, fill="#e6f6ed")
         d.text((x1 + 48, y1 + 145), "RESULTADO PASS     CLEANUP PASS     0 RECURSOS", font=font(FONT_REG, 15), fill="#17623a")
         y = y1 + 216
@@ -80,7 +88,8 @@ def evidence_image(paths: list[Path], target: Path):
             y += 112
         d.text((x1 + 30, y + 2), "Dos entornos simultáneos · puertos, DB y bucket independientes", font=font(FONT_SANS, 13), fill="#344a62")
     d.text((64, 850), "Los perfiles OpenSearch y Wazuh están bloqueados y no aparecen como aceptados en esta evidencia.", font=font(FONT_SANS, 17), fill="#8b4d08")
-    d.text((64, 910), "Fuente: artifacts/integration/<runId>/environment-evidence.json · SHA completos conservados en los JSON originales", font=font(FONT_SANS, 13), fill="#60748a")
+    source_names = " · ".join(path.name for path in paths)
+    d.text((64, 910), f"Fuente: {source_names} · SHA completos conservados en los JSON originales", font=font(FONT_SANS, 13), fill="#60748a")
     im.save(target, optimize=True)
 
 
