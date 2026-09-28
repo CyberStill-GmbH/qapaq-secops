@@ -1,5 +1,17 @@
 export type {
-  WazuhIndexerConnection,
-  WazuhIndexerHealth,
-} from '../infrastructure/wazuh-indexer-client.js';
-export { WazuhIndexerClient } from '../infrastructure/wazuh-indexer-client.js';
+  EventPage,
+  EventQuery,
+  JsonObject,
+  JsonValue,
+  ProviderComponentHealth,
+  ProviderErrorCode,
+  ProviderHealth,
+  ProviderRecord,
+  SecurityEventProvider,
+  SourceCapabilities,
+} from '../application/security-event-provider.js';
+export { SecurityEventProviderError } from '../application/security-event-provider.js';
+export {
+  createWazuhSecurityEventProvider,
+  type WazuhProviderConfiguration,
+} from '../infrastructure/wazuh/wazuh-provider.factory.js';

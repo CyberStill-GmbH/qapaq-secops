@@ -40,8 +40,10 @@ revocación. Se requieren almacén de sesión seguro, CSRF, sincronización Grap
 versionado de autorización, JIT/aprobaciones y auditoría detallada. La pérdida de
 Graph no concede nuevos privilegios. La aplicación no guarda passwords humanos.
 
-La decisión está aceptada, pero producción permanece bloqueada hasta demostrar
-federación, licencias/políticas, revocación, matriz y los 27 escenarios mínimos.
+ADR-025 endurece el baseline a una sesión humana, red QAPAQ obligatoria, passkey
+Entra y protección de intentos. La decisión está aceptada, pero producción permanece
+bloqueada hasta demostrar federación, licencias/políticas, revocación, matriz y los
+35 escenarios mínimos vigentes.
 
 ## Trade-offs
 

@@ -1,0 +1,4 @@
+# Historical smoke-test fixture injected as SECRET_TOKEN; scoped to its exact finding.
+8ff6c78f2779fc25b05a0355849647a770225a0f:tests/smoke/support.mjs:generic-api-key:6
+# Synthetic Wazuh provider-test credential; scoped to its exact historical finding.
+ec76604a0e5bd7307e048dcce85f123d86bca892:modules/connectors/test/wazuh-security-event.provider.spec.ts:generic-api-key:10

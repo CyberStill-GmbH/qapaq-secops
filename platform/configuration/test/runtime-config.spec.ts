@@ -38,6 +38,10 @@ const references = {
   wazuhUser: 'secret://test/wazuh-user',
   wazuhPassword: 'secret://test/wazuh-password',
   wazuhCa: 'secret://test/wazuh-ca',
+  wazuhCursor: 'secret://test/wazuh-cursor-key',
+  wazuhManagerUser: 'secret://test/wazuh-manager-user',
+  wazuhManagerPassword: 'secret://test/wazuh-manager-password',
+  wazuhManagerCa: 'secret://test/wazuh-manager-ca',
 } as const;
 
 function validEnvironment(profile = 'test'): Record<string, string> {
@@ -52,6 +56,10 @@ function validEnvironment(profile = 'test'): Record<string, string> {
     QAPAQ_WAZUH_USERNAME_REF: references.wazuhUser,
     QAPAQ_WAZUH_PASSWORD_REF: references.wazuhPassword,
     QAPAQ_WAZUH_CA_REF: references.wazuhCa,
+    QAPAQ_WAZUH_CURSOR_SECRET_REF: references.wazuhCursor,
+    QAPAQ_WAZUH_MANAGER_USERNAME_REF: references.wazuhManagerUser,
+    QAPAQ_WAZUH_MANAGER_PASSWORD_REF: references.wazuhManagerPassword,
+    QAPAQ_WAZUH_MANAGER_CA_REF: references.wazuhManagerCa,
   };
 }
 
@@ -69,6 +77,7 @@ function productionEnvironment(): Record<string, string> {
     QAPAQ_MINIO_PORT: '443',
     QAPAQ_MINIO_TLS: 'true',
     QAPAQ_WAZUH_INDEXER_URL: 'https://indexer.example.test:9200',
+    QAPAQ_WAZUH_MANAGER_API_URL: 'https://manager.example.test:55000',
   };
 }
 
@@ -81,6 +90,11 @@ function provider(failure?: unknown): TestSecretProvider {
       [references.wazuhUser]: 'wazuh-user-value',
       [references.wazuhPassword]: 'wazuh-password-value',
       [references.wazuhCa]: '-----BEGIN CERTIFICATE-----\nsynthetic\n-----END CERTIFICATE-----',
+      [references.wazuhCursor]: '0123456789abcdef0123456789abcdef-cursor-key',
+      [references.wazuhManagerUser]: 'wazuh-manager-reader',
+      [references.wazuhManagerPassword]: 'wazuh-manager-reader-secret',
+      [references.wazuhManagerCa]:
+        '-----BEGIN CERTIFICATE-----\nmanager-ca\n-----END CERTIFICATE-----',
       'secret://test/redis-password': 'redis-secret-value',
     },
     failure,
@@ -240,6 +254,12 @@ describe('service contracts and transport policy', () => {
       pageSize: 50,
       maximumPageSize: 200,
     });
+    expect(config.wazuh.manager).toMatchObject({
+      baseUrl: 'https://127.0.0.1:55000/',
+      connectTimeoutMs: 5_000,
+      requestTimeoutMs: 15_000,
+    });
+    expect(config.wazuh.indexer.cursorSigningKey.value.toJSON()).toBe('[REDACTED]');
     expect(JSON.stringify(config)).not.toContain('postgres-secret-value');
   });
 
@@ -272,6 +292,8 @@ describe('service contracts and transport policy', () => {
     ['QAPAQ_MINIO_RAW_BUCKET', 'INVALID_BUCKET', 'QAPAQ_MINIO_RAW_BUCKET'],
     ['QAPAQ_WAZUH_PAGE_SIZE', '0', 'QAPAQ_WAZUH_PAGE_SIZE'],
     ['QAPAQ_WAZUH_PAGE_SIZE', '201', 'QAPAQ_WAZUH_PAGE_SIZE'],
+    ['QAPAQ_WAZUH_ALLOWED_INDEX', '*', 'QAPAQ_WAZUH_ALLOWED_INDEX'],
+    ['QAPAQ_WAZUH_DATASET', 'arbitrary', 'QAPAQ_WAZUH_ALLOWED_INDEX'],
   ])('rejects invalid service limit %s', async (name, value, path) => {
     await expect(
       loadRuntimeConfig({ ...validEnvironment(), [name]: value }, provider()),

@@ -4,7 +4,9 @@ Arquitectura documental: U-001/ADR-015, U-002/ADR-016, U-003/ADR-017 y
 U-010/ADR-011 aceptados; U-004/ADR-018, U-005/ADR-019, U-006/ADR-021,
 U-009/ADR-020 y U-011/ADR-023 aceptados condicionalmente; U-007/ADR-007,
 U-012/ADR-022 y la revisión de vertical ADR-024 aceptados, con fecha
-aportada 2026-09-18. Capacidad pendiente de medición; identidad, eliminación,
+aportada 2026-09-18; ADR-025 fue aceptado condicionalmente por los requisitos de
+Franco Clavo del 2026-09-28; ADR-026 acepta KrakenD CE on-premises como gateway
+de APIs de proveedores. Capacidad pendiente de medición; identidad, eliminación,
 ingesta, auditoría/observabilidad y continuidad conservan gates
 operacionales. La rama `develop` incluye una baseline ejecutable sin lógica de
 negocio ni acceso a sistemas corporativos de Qapaq.
@@ -32,6 +34,11 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 15. [Auditoría de estructura](architecture/repository-structure-audit.md).
 16. [Plan de construcción por componentes](project-management/component-delivery-plan.md).
 17. [Entorno local ejecutable y troubleshooting](development/local-environment.md).
+18. [Entorno C-06 de integración](development/integration-environment.md).
+19. [Baseline de acceso, secretos y observabilidad SOC](architecture/security-access-observability-baseline.md).
+20. [Decisión para evitar tercerización de observabilidad ante SBS](compliance/sbs-observability-rationale.md).
+21. [Catálogo de errores para usuarios y soporte](error-catalog.md).
+22. [KrakenD on-premises y admisión antes de BullMQ](architecture/provider-api-gateway.md).
 
 ## Diseño
 
@@ -40,6 +47,10 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Flujos y resiliencia](architecture/data-flow.md).
 - [SecurityEvent y contratos](architecture/event-model.md).
 - [Almacenamiento y búsqueda histórica](architecture/storage.md).
+- [Motor Wazuh y OpenSearch: detección, correlación y almacenamiento](architecture/wazuh-engine-and-opensearch.md).
+- [Modelo entidad-relación (MER) y normalización](architecture/data-model-mer.md).
+- [ER final C-04: admisión operacional](architecture/c-04-admission-er.md) y
+  [auditoría con resolución documental](architecture/c-04-mer-audit.md).
 - [Integraciones y ports](architecture/integrations.md).
 - [Seguridad](architecture/security.md), [RBAC](architecture/rbac.md), [auditoría](architecture/audit.md).
 - [Identidad y autorización aceptadas](architecture/identity-and-authorization.md).
@@ -48,8 +59,14 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Operación y continuidad](architecture/operations-and-continuity.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
+- [Endurecimiento de acceso, secretos y stack Grafana OSS/Loki/Prometheus](architecture/security-access-observability-baseline.md).
+- [Control interno de logs SOC y análisis SBS](compliance/sbs-observability-rationale.md).
+- [Catálogo de errores](error-catalog.md).
+- [API Gateway KrakenD de proveedores](architecture/provider-api-gateway.md).
 - [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
+- [Harness C-06 y estado de aceptación](architecture/c-06-integration-testing.md).
+- [Auditoría de completitud C-06](architecture/c-06-completeness-audit.md).
 - [Requisitos funcionales, no funcionales y matrices](requirements/README.md).
 - [Threat model](threat-model.md).
 - [Diagramas Mermaid de arquitectura y lifecycles](diagrams/README.md).
@@ -110,6 +127,16 @@ contrato de Infraestructura.
 DECISION: U-012 y [ADR-022](adr/022-microsoft-teams-critical-alert-notifications.md)
 incorporan al MVP la notificación `CRITICAL` por Teams Workflows mediante outbox y
 worker; QAPAQ conserva el acuse y exige fallback probado.
+DECISION: [ADR-025](adr/025-security-access-observability-hardening.md) fija una
+sesión humana, red QAPAQ, passkeys Entra, protección de intentos, alta write-only de
+credenciales, errores accionables y Grafana OSS/Loki/Prometheus autogestionados.
+El stack se elige para conservar control de logs/información SOC y evitar contratar
+el servicio externo regulado por SBS 504-2021 arts. 22–25; no es mandato de la SBS.
+DECISION: [ADR-026](adr/026-on-premises-krakend-provider-api-gateway.md) selecciona
+KrakenD CE on-premises delante de APIs consumidas directamente. El gateway aplica
+controles de transporte; QAPAQ conserva semántica, raw/checkpoint/outbox y solo
+publica referencias en Redis/BullMQ después de admisión durable. El MVP no cambia
+`Microsoft 365 → Wazuh`; QAPAQ consulta Wazuh Indexer mediante KrakenD.
 PROPOSAL: schemas, transportes y demás detalles técnicos no cubiertos por
 ADR-007/015/016/017/018/019/020/021/022/023. ADR-001…014 no se aceptan en bloque.
 ASSUMPTION y UNKNOWN se identifican donde afectan el diseño; las preguntas usan

@@ -16,10 +16,13 @@ reportes, dashboards, saved queries y notificaciones. Playbooks solo como límit
 futuro, sin tablas vacías ahora.
 
 También admite catálogo de lotes/archivos, restauraciones, outbox/inbox de efectos
-operacionales y checkpoints. Dimensionar escrituras de control por lote: guardar
-cada SecurityEvent como JSONB en PostgreSQL contradice el objetivo del diseño.
-ADR-016 acepta Prisma 7.10.0 y migraciones; el schema físico, particionado e
-índices transaccionales siguen pendientes.
+operacionales y checkpoints. El [ER final C-04](c-04-admission-er.md) define
+metadata por recepción (raw ref e inbox) y por lote (manifiesto y outbox), con
+cuarentena adicional. Dimensionar filas, índices y WAL: no basta llamarlo control
+por lote. Guardar cada SecurityEvent como JSONB contradice el objetivo del diseño.
+ADR-016 acepta Prisma 7.10.0 y migraciones. C-04 tiene baseline de diseño físico;
+su migración y medición siguen pendientes. El particionado y los demás dominios
+no quedan decididos por esta entrega.
 
 Wazuh conserva su telemetría según sus mecanismos. Qapaq consulta mediante port;
 una proyección normalizada propia solo se crea en índices/namespace compatibles

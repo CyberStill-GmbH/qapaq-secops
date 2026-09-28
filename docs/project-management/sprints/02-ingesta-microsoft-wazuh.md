@@ -17,12 +17,16 @@ y cuarentena demostrados.
 4. PBI-010 — mapping Wazuh → SecurityEvent.
 5. PBI-011 — idempotencia, replay y cuarentena.
 6. PBI-012 — indexación y consulta.
-7. PBI-013 — telemetría, solo después de proteger el P0.
+7. PBI-013 — telemetría y baseline Grafana OSS/Loki/Prometheus, transversal.
+8. PBI-029 — contrato write-only de credenciales; E2E se completa en Sprint 3.
+9. PBI-030 — contrato y baseline KrakenD on-premises; C-28 aporta en esta rama config fijada, allowlist, validación oficial y gate CI; balanceador, credenciales/identidad real, integración Indexer, HA operativa, rotación y aceptación E2E se completan/gatean en Sprint 3.
 
 PBI-007 es dependencia externa crítica. Si no están disponibles tenant, permiso,
-Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. El equipo
-selecciona PBIs independientes del orden global, pero no afirma el Sprint Goal hasta
-recorrer la fuente real.
+Wazuh o red al Planning, se mantiene `BLOCKED`; no se reemplaza por fake. Por
+decisión del Product Owner del 2026-09-25, el desarrollo local de Sprint 2 puede
+iniciar con el contrato C-08 y su suite ejecutable. La integración real se difiere
+al E2E final del MVP: no se afirma el Sprint Goal ni el MVP Candidate hasta recorrer
+la fuente autorizada.
 
 ## Componentes a construir
 
@@ -33,27 +37,35 @@ recorrer la fuente real.
 | 3 | C-12 | Mapping Wazuh → SecurityEvent validado y versionado |
 | 4 | C-13 | Inbox, idempotencia, replay, cuarentena y reproceso |
 | 5 | C-14 | Proyección OpenSearch y consulta tipada/autorizable |
-| Transversal | C-15 | Logs, métricas, traces y health incorporados con cada etapa |
+| Transversal | C-15 | Logs/métricas/health, Collector, Loki/Prometheus y provisioning Grafana |
+| Transversal | C-24 | Control plane QAPAQ write-only y SecretProvider, sin plaintext persistido |
+| Transversal | C-28 | KrakenD CE + LB/config: rutas Wazuh/proveedor, TLS/OAuth, límites y telemetría |
 
-C-10 → C-11 → C-12 → C-13 → C-14 es la ruta crítica. Cada componente debe cerrar
+C-10 consume Wazuh Indexer por C-28; C-28 → C-10 → C-11 → C-12 → C-13 → C-14
+es la ruta crítica de datos. Cada componente debe cerrar
 su failure path antes del siguiente; C-15 no se difiere hasta el final. PBI-007 y
-las provider specs siguen bloqueados sin sistemas corporativos reales. Consultar
+las provider specs contra Wazuh real siguen bloqueados sin sistemas corporativos
+reales; los contratos locales permiten desarrollar y comprobar límites sin simular
+una aceptación real. Consultar
 el [plan por componentes](../component-delivery-plan.md).
 
 ## Gate previo obligatorio
 
-Al terminar la Review de Sprint 1 deben estar Done C-01…C-09 y disponibles tenant,
-dataset, Wazuh, Indexer, red, secretRefs y servicios de integración. El 2026-10-05
-no se usa para instalar dependencias pendientes. Si un gate falla, el PBI afectado
-se registra `BLOCKED` y el Sprint no afirma la vertical completa.
+Al terminar la Review de Sprint 1 deben estar listos los contratos y código base
+C-01…C-09 para el trabajo local de Sprint 2. La falta actual de Wazuh/tenant no
+bloquea ese desarrollo por la decisión de aplazamiento del 2026-09-25; los PBI y
+pruebas que exigen esos sistemas se registran `BLOCKED` y se acumulan como gate del
+E2E final. El 2026-10-05 no se usa para instalar dependencias pendientes.
 
 ## Plan de trabajo por día
 
 ### Día 1 — 2026-10-05
 
 - Planning de 30 minutos y verificación ejecutable del gate;
-- confirmar configuración Office 365/Wazuh y generar actividad sintética autorizada;
-- consultar alertas Wazuh mediante adapter de solo lectura;
+- avanzar el adapter y validar su contrato localmente;
+- si Wazuh/tenant y permisos ya están disponibles, confirmar configuración y
+  generar actividad sintética autorizada; si no, registrar PBI-007/provider specs
+  como `BLOCKED` sin crear fixtures que aparenten aceptación;
 - persistir raw/ref/hash y registrar manifiesto antes del checkpoint;
 - implementar mapping versionado y validación previa a indexación;
 - mantener DTOs Wazuh dentro de infraestructura.
@@ -64,7 +76,15 @@ se registra `BLOCKED` y el Sprint no afirma la vertical completa.
 - implementar cuarentena y reproceso con lineage;
 - indexar/consultar SecurityEvent con filtros y límites;
 - instrumentar cobertura, lag, error e integridad;
-- ejecutar E2E parcial desde Microsoft 365 hasta consulta QAPAQ;
+- levantar el baseline autogestionado Grafana OSS/Loki/Prometheus para integración,
+  con versiones fijadas, backends privados y dashboard mínimo del pipeline;
+- cerrar el contrato create/rotate/revoke de credenciales sin endpoint de lectura;
+- validar configuración KrakenD, egress/rutas allowlisted y failure modes básicos;
+- demostrar que la respuesta Wazuh queda durable en C-11 antes de publicar una
+  referencia en BullMQ; KrakenD no escribe directamente a la cola;
+- ejecutar E2E desde Microsoft 365 hasta consulta QAPAQ si la dependencia externa
+  está disponible; en caso contrario, trasladar explícitamente ese gate a la
+  aceptación final del MVP;
 - realizar Review y Retrospective con evidencia del mismo commit.
 
 ## Dependencias de entrada
@@ -74,11 +94,14 @@ se registra `BLOCKED` y el Sprint no afirma la vertical completa.
 - Wazuh configurado con integración Office 365 y ruleset verificable;
 - Indexer accesible con mínimo privilegio;
 - storage, PostgreSQL y Redis disponibles en el ambiente de integración.
+- balanceador/KrakenD internos y egress al Wazuh Indexer; BOM y certificados
+  pueden quedar gated, pero la ruta no se declara productiva sin ellos.
 
 ## Specs obligatorias
 
 - actividad real Microsoft 365 → evento/alerta Wazuh;
 - 401/403, timeout, throttling aplicable y recuperación;
+- ruta KrakenD, TLS inválido, 429/5xx, circuit breaker y caída de un nodo;
 - caída antes/después de raw, manifiesto, publicación y checkpoint;
 - mapping completo y rechazo de documento inválido/sobredimensionado;
 - replay, duplicado concurrente, identidad débil y poison event;

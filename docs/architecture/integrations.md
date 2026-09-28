@@ -7,6 +7,12 @@ Microsoft 365/Wazuh ACCEPTED / IMPLEMENTATION REQUIRED por ADR-024; detalle fís
 permanece pendiente de prueba autorizada. Otros proveedores son PROPOSAL/post-MVP.
 Producto mencionado no equivale a conexión.
 
+El transporte de toda API consumida directamente está gobernado por
+[ADR-026](../adr/026-on-premises-krakend-provider-api-gateway.md): adapter/worker →
+LB interno → KrakenD CE → proveedor. KrakenD aplica controles técnicos, pero el
+adapter conserva contrato, paginación, cursor y retry; la admisión durable ocurre
+antes de publicar referencias en BullMQ.
+
 ## Ports mínimos por necesidad
 
 Microsoft Entra ID mediante IdentityProvider en access autentica humanos;
@@ -94,7 +100,8 @@ auditoría, reporting y SOAR. `wazuh-alerts-*` produce `WAZUH_ALERT`, no raw ori
 
 ADR-024 lo convierte en el adapter operativo del MVP: Wazuh recolecta Office 365,
 aplica decoders/ruleset y genera alertas; QAPAQ consulta Indexer read-only y
-normaliza. Un cliente Graph directo de telemetría no se implementa en paralelo.
+normaliza. Esa consulta QAPAQ→Indexer atraviesa KrakenD; la ruta M365→Wazuh no.
+Un cliente Graph directo de telemetría no se implementa en paralelo.
 Entra OIDC para login humano sigue siendo una frontera distinta y obligatoria.
 
 ### Firewalls, IDS/IPS, servidores y endpoints
@@ -132,7 +139,8 @@ consumido por QAPAQ desde el Indexer. No implementa un conector Graph paralelo.
 Sophos, Cato y correlación multifuente se incorporan después de demostrar el
 contrato común.
 
-Configurar timeouts, tamaño máximo y circuit breaker si aporta aislamiento.
+KrakenD configura timeouts, tamaño máximo, rate limit y circuit breaker como
+controles de transporte; el adapter mantiene presupuestos exactos y `Retry-After`.
 No permitir URL arbitraria con credenciales: validar esquema, hostname, puerto,
 resolución y redirecciones frente al allowlist específico, incluso para destinos
 internos aprobados. Un collector comprometido no debe alcanzar metadata services.

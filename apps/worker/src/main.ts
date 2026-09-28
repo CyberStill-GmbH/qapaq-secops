@@ -1,41 +1,70 @@
-import { Redis } from 'ioredis';
+import { pathToFileURL } from 'node:url';
+import { ConfigurationError } from '@qapaq/configuration';
+import { buildWorker } from './bootstrap.js';
 
-import { ConfigurationError, loadLocalWorkerConfig } from '@qapaq/configuration';
-
-async function main(): Promise<void> {
-  const config = await loadLocalWorkerConfig(process.env);
-  const redis = new Redis({
-    host: config.redis.host,
-    port: config.redis.port,
-    db: config.redis.database,
-    ...(config.redis.username ? { username: config.redis.username } : {}),
-    ...(config.redis.password ? { password: config.redis.password.value.reveal() } : {}),
-    ...(config.redis.tls ? { tls: {} } : {}),
-    connectTimeout: config.redis.connectionTimeoutMs,
-    commandTimeout: config.redis.commandTimeoutMs,
-    enableReadyCheck: true,
-    lazyConnect: true,
-    maxRetriesPerRequest: config.redis.retryLimit,
-  });
-  await redis.connect();
-  await redis.ping();
-  process.stdout.write('{"service":"qapaq-worker","status":"ready"}\n');
-
-  const shutdown = async (): Promise<void> => {
-    await redis.quit();
-    process.exitCode = 0;
+export function main(): void {
+  let worker: ReturnType<typeof buildWorker> | undefined;
+  let failureReported = false;
+  let closing: Promise<void> | undefined;
+  const report = (state: string, errorCode?: string) => {
+    process.stdout.write(
+      `${JSON.stringify({
+        event: `application.${state}`,
+        service: 'qapaq-secops-worker',
+        timestamp: new Date().toISOString(),
+        ...(errorCode ? { errorCode } : {}),
+      })}\n`,
+    );
   };
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
+  const fail = (error: unknown, code: string) => {
+    process.exitCode = 1;
+    worker?.fail();
+    if (!failureReported) {
+      failureReported = true;
+      report('failed', error instanceof ConfigurationError ? error.code : code);
+    }
+  };
+  const stop = () =>
+    (closing ??= (async () => {
+      const deadline = setTimeout(() => {
+        fail(undefined, 'SHUTDOWN_TIMEOUT');
+        process.exit(1);
+      }, 6_000);
+      try {
+        await worker?.stop();
+      } catch (error) {
+        fail(error, 'SHUTDOWN_FAILED');
+      } finally {
+        clearTimeout(deadline);
+        process.off('SIGTERM', onSignal);
+        process.off('SIGINT', onSignal);
+        process.off('uncaughtException', onException);
+        process.off('unhandledRejection', onRejection);
+      }
+      if (process.exitCode === 1) process.exit(1);
+    })());
+  const onSignal = () => {
+    void stop();
+  };
+  const onException = (error: unknown) => {
+    fail(error, 'UNCAUGHT_EXCEPTION');
+    void stop();
+  };
+  const onRejection = (error: unknown) => {
+    fail(error, 'UNHANDLED_REJECTION');
+    void stop();
+  };
+  try {
+    worker = buildWorker(process.env, report);
+    process.on('SIGTERM', onSignal);
+    process.on('SIGINT', onSignal);
+    process.on('uncaughtException', onException);
+    process.on('unhandledRejection', onRejection);
+    worker.start();
+  } catch (error) {
+    fail(error, 'BOOTSTRAP_FAILED');
+    void stop();
+  }
 }
 
-try {
-  await main();
-} catch (error) {
-  const safeError =
-    error instanceof ConfigurationError
-      ? error.toJSON()
-      : { code: 'BOOTSTRAP_FAILED', message: 'El worker no pudo iniciar de forma segura.' };
-  process.stderr.write(`${JSON.stringify(safeError)}\n`);
-  process.exitCode = 1;
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

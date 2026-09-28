@@ -31,4 +31,11 @@ proveedor no disponible, error sanitizado, resolución única y fallo de arranqu
 Infraestructura aún debe confirmar provider/identidad, permisos y rotación antes de
 activar conectores en producción.
 
+ADR-025 añade el flujo de ingreso humano: el API Gateway acepta la credencial una
+sola vez por una operación write-only y la entrega al SecretProvider externo. QAPAQ
+persiste solo `secretRef`, fingerprint no reversible y metadata; no existe API/UI de
+lectura del valor. El gateway es control plane, no vault. La identidad técnica del
+adapter puede resolver únicamente su namespace en runtime y toda rotación se prueba
+antes de revocar la versión anterior.
+
 [Diseño relacionado](../architecture/security.md) · [Preguntas abiertas](../decisions/unresolved.md).

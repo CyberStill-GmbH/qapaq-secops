@@ -24,13 +24,18 @@ Entregar una plataforma QAPAQ SecOps capaz de convertir actividad autorizada de
 Microsoft 365, analizada por Wazuh, en eventos canónicos, alertas y casos trazables,
 con autorización, auditoría y operación medible; su arquitectura debe permitir
 incorporar nuevas APIs mediante adapters sin cambiar el dominio ni los consumidores.
+Las APIs directas atraviesan KrakenD CE on-premises y se admiten de forma durable
+antes de publicar referencias en Redis/BullMQ.
+La observabilidad del SOC usa Grafana OSS, Loki y Prometheus autogestionados para
+mantener control QAPAQ sobre logs e información operacional sin contratar ese servicio.
 
 ## Objetivo del timebox
 
 Producir un **MVP Candidate** ejecutable en ambiente controlado con esta ruta real:
 
 ```text
-Microsoft 365 → Wazuh → Wazuh Indexer → QAPAQ SecurityEvent
+Microsoft 365 → Wazuh → Wazuh Indexer ← KrakenD ← QAPAQ connector
+                                         → admisión durable → QAPAQ SecurityEvent
               → priorización → alerta/caso → auditoría → Teams si es CRITICAL
 ```
 
@@ -184,11 +189,13 @@ Sprint 2 construye connectors/telemetry de extremo a extremo; el Sprint 3 añade
 detection, SOC, access, auditoría, SOAR y evidencia final. La ruta crítica y los
 cortes de capacidad del plan prevalecen sobre ejecutar todos los PBI en paralelo.
 
-Sprint 2 es un timebox intensivo de dos días. Solo inicia su vertical completa si
-al cierre de Sprint 1 están operativos workspace, contratos, ambiente de integración,
-Wazuh/Indexer, Microsoft 365 y secretRefs. Un prerrequisito ausente conserva el PBI
-`BLOCKED`; el calendario abreviado no autoriza fakes, omitir specs o trasladar
-fallos sin evidencia.
+Sprint 2 es un timebox intensivo de dos días. Por decisión del Product Owner del
+2026-09-25, su desarrollo local puede iniciar con los contratos C-08 aunque falte
+acceso operativo a Wazuh/Indexer o Microsoft 365. Los PBI y pruebas que dependen de
+esos sistemas conservan el estado `BLOCKED`; sus gates pasan a la aceptación E2E
+final del MVP. El Sprint Goal y MVP Candidate siguen pendientes hasta completar el
+recorrido autorizado real. Esta excepción no autoriza fakes ni a presentar una
+prueba unitaria como integración.
 
 Esta duración es una replanificación excepcional decidida antes de Sprint 2. Al
 terminar el MVP, la Retrospective debe fijar una cadencia estable para el siguiente
@@ -244,6 +251,7 @@ cifra. El burn-up del Product Goal muestra alcance total y trabajo Done.
 - [Definition of Done y criterios de refinamiento](definition-of-done.md).
 - [Plan de construcción por componentes](component-delivery-plan.md).
 - [Daily Scrum y registro](daily-scrum.md).
+- [Informes de avance](informes-de-avance/README.md).
 - [Sprint 1](sprints/01-base-ejecutable.md).
 - [Sprint 2](sprints/02-ingesta-microsoft-wazuh.md).
 - [Sprint 3](sprints/03-operacion-soc.md).
