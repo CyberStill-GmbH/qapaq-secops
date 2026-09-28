@@ -76,6 +76,14 @@ Los specs de integración crean PostgreSQL y Redis reales con Testcontainers. El
 primer arranque puede descargar imágenes y tardar más; el timeout de preparación
 no sustituye ninguna aserción.
 
+`pnpm run format:check` valida con Prettier los archivos añadidos/modificados en
+la rama respecto a `FORMAT_BASE_SHA` (CI lo fija a la base del evento; localmente
+usa `main`) y los archivos staged. Para incluir además cambios sin stage y archivos
+nuevos locales, ejecuta `node scripts/ci/check-format.mjs --include-working-tree`.
+El chequeo global `pnpm exec prettier --check . --ignore-unknown` queda disponible
+para auditorías completas; el baseline de formato pendiente en el resto del repo
+se corrige aparte, evitando mezclas masivas de formato con cambios funcionales.
+
 ## Recuperación de Docker Desktop en Windows
 
 Docker Desktop puede quedar en un ciclo de cierre tras una salida abrupta si sus
