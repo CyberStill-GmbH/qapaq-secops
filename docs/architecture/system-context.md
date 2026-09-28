@@ -21,7 +21,8 @@ documentos.
 
 Microsoft 365 y Wazuh son los sistemas externos de la vertical MVP: Wazuh recolecta
 la actividad Microsoft, aplica ruleset y expone alertas; QAPAQ consume el Indexer
-read-only. Cato, Sophos, MISP y rutas directas son post-MVP. La disponibilidad
+read-only a través de KrakenD CE on-premises. KrakenD no se ubica entre Microsoft
+365 y Wazuh. Cato, Sophos, MISP y rutas directas son post-MVP. La disponibilidad
 pública de una API no prueba edición, licencia, dataset, permiso, cuota ni conectividad.
 
 Wazuh sigue siendo responsable de agentes, HIDS, FIM, SCA, inventario,
@@ -39,6 +40,8 @@ aceptado. Configuración, licencias y pruebas permanecen pendientes del gate de 
 1. Navegador → BFF/API: cookie opaca y CSRF; datos, IDs, headers y campos de rol son no confiables. Autorización del backend sobre el objeto real.
 2. API/jobs → módulos: contexto de actor explícito, no ambient global; un job no hereda privilegios ilimitados.
 3. Proveedores → collectors: identidad de fuente, TLS y validación; contenido de logs no es código.
+   APIs directas atraviesan LB/KrakenD allowlisted; el gateway no acepta upstreams
+   arbitrarios, no almacena raw y no publica directamente en BullMQ.
 4. Workers → stores: cuentas con permisos por función; acceso a raw separado de búsqueda.
 5. Administración → configuración/secretos: autorización reforzada, razón y auditoría; referencias de secretos, no valores.
 6. Plataforma → evidencia/exportaciones: controles de descarga y caducidad, sin links públicos ni envío no autorizado.

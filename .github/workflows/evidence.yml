@@ -1,0 +1,66 @@
+name: C-09 Evidence
+
+on:
+  workflow_run:
+    workflows: [CI Security]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: c09-evidence-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+jobs:
+  evidence:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Read pinned tool versions
+        id: versions
+        run: |
+          printf 'node=%s\n' "$(tr -d '\r\n' < .nvmrc)" >> "$GITHUB_OUTPUT"
+      - name: Enable pinned package manager
+        run: corepack enable
+      - name: Verify pinned package manager
+        id: pnpm
+        run: |
+          expected="$(node -p 'require("./package.json").packageManager.replace("pnpm@","")')"
+          actual="$(pnpm --version)"
+          test "$actual" = "$expected"
+          printf 'pnpm=%s\n' "$actual" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Gitleaks scanner
+        run: bash .github/ci/install-scanner.sh gitleaks
+      - name: Generate allowlisted evidence from successful protected-branch CI
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          C09_RUN_ID: ${{ github.event.workflow_run.id }}
+          NODE_VERSION: ${{ steps.versions.outputs.node }}
+          PNPM_VERSION: ${{ steps.pnpm.outputs.pnpm }}
+          GITLEAKS_VERSION: 8.30.1
+        run: python3 .github/ci/generate_evidence.py
+      - name: Scan evidence with redacted Gitleaks
+        run: gitleaks dir --redact=100 --exit-code=1 artifacts/c09-evidence
+      - name: Verify evidence checksums
+        working-directory: artifacts/c09-evidence
+        run: sha256sum --check checksums.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: c09-ci-evidence-${{ github.event.workflow_run.head_sha }}
+          path: artifacts/c09-evidence/
+          if-no-files-found: error
+          retention-days: 14

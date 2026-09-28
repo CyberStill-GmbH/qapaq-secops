@@ -6,3 +6,176 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// Los CHECK de UUIDv7, límites y estados están en la migración SQL.
+// Los identificadores se proporcionan desde aplicación; no se generan en SQL.
+model Source {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Text
+  provider    String   @db.Text
+  product     String   @db.Text
+  dataset     String   @db.Text
+  instanceKey String   @map("instance_key") @db.Text
+  status      String   @default("planned") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @map("updated_at") @db.Timestamptz(3)
+
+  checkpoint SourceCheckpoint?
+  manifests  IngestionManifest[]
+
+  @@unique([tenantId, provider, product, dataset, instanceKey], map: "sources_identity_key")
+  @@unique([id, dataset], map: "sources_id_dataset_key")
+  @@map("sources")
+}
+
+model SourceCheckpoint {
+  id               String    @id @db.Uuid
+  sourceId         String    @map("source_id") @db.Uuid
+  dataset          String    @db.Text
+  cursor           String    @db.Text
+  cursorVersion    String    @map("cursor_version") @db.Text
+  sourceGeneration String?   @map("source_generation") @db.Text
+  lastOccurredAt   DateTime? @map("last_occurred_at") @db.Timestamptz(3)
+  lastTieBreaker   String?   @map("last_tie_breaker") @db.Text
+  revision         BigInt
+  committedAt      DateTime  @map("committed_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  source Source @relation(fields: [sourceId, dataset], references: [id, dataset], onDelete: Restrict, onUpdate: Restrict, map: "source_checkpoints_source_fkey")
+
+  @@unique([sourceId, dataset], map: "source_checkpoints_source_dataset_key")
+  @@map("source_checkpoints")
+}
+
+model IngestionManifest {
+  id                     String    @id @db.Uuid
+  sourceId               String    @map("source_id") @db.Uuid
+  dataset                String    @db.Text
+  manifestKey            String    @map("manifest_key") @db.Text
+  status                 String    @default("durable") @db.Text
+  admissionDigest        String    @map("admission_digest") @db.Text
+  admissionFormatVersion String    @default("1") @map("admission_format_version") @db.Text
+  cursorFrom             String?   @map("cursor_from") @db.Text
+  cursorTo               String?   @map("cursor_to") @db.Text
+  cursorVersion          String?   @map("cursor_version") @db.Text
+  sourceGeneration       String?   @map("source_generation") @db.Text
+  checkpointRevision     BigInt?   @map("checkpoint_revision")
+  receivedAt             DateTime  @map("received_at") @db.Timestamptz(3)
+  durableAt              DateTime  @map("durable_at") @db.Timestamptz(3)
+  completedAt            DateTime? @map("completed_at") @db.Timestamptz(3)
+  eventCount             Int       @map("event_count")
+  acceptedCount          Int       @map("accepted_count")
+  duplicateCount         Int       @default(0) @map("duplicate_count")
+  quarantinedCount       Int       @map("quarantined_count")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  source     Source              @relation(fields: [sourceId, dataset], references: [id, dataset], onDelete: Restrict, onUpdate: Restrict, map: "ingestion_manifests_source_fkey")
+  rawObjects RawEventReference[]
+  receipts   EventInbox[]
+  messages   OutboxMessage[]
+
+  @@unique([sourceId, manifestKey], map: "ingestion_manifests_source_key")
+  @@unique([sourceId, id], map: "ingestion_manifests_source_id_key")
+  @@index([sourceId, receivedAt, id], map: "ingestion_manifests_source_received_idx")
+  @@map("ingestion_manifests")
+}
+
+model RawEventReference {
+  id            String   @id @db.Uuid
+  sourceId      String   @map("source_id") @db.Uuid
+  manifestId    String   @map("manifest_id") @db.Uuid
+  objectRef     String   @unique(map: "raw_event_references_object_ref_key") @map("object_ref") @db.Text
+  objectVersion String?  @map("object_version") @db.Text
+  sha256        String   @db.Text
+  mediaType     String   @map("media_type") @db.Text
+  sizeBytes     Int      @map("size_bytes")
+  receivedAt    DateTime @map("received_at") @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  manifest IngestionManifest @relation(fields: [sourceId, manifestId], references: [sourceId, id], onDelete: Restrict, onUpdate: Restrict, map: "raw_event_references_manifest_fkey")
+  receipts EventInbox[]
+
+  @@unique([sourceId, id], map: "raw_event_references_source_id_key")
+  @@index([sourceId, manifestId, id], map: "raw_event_references_manifest_idx")
+  @@map("raw_event_references")
+}
+
+model EventInbox {
+  id                  String    @id @db.Uuid
+  sourceId            String    @map("source_id") @db.Uuid
+  manifestId          String    @map("manifest_id") @db.Uuid
+  rawEventReferenceId String    @map("raw_event_reference_id") @db.Uuid
+  recordId            String    @unique(map: "event_inbox_record_id_key") @map("record_id") @db.Uuid
+  providerEventId     String?   @map("provider_event_id") @db.Text
+  idempotencyKey      String    @map("idempotency_key") @db.Text
+  status              String    @default("admitted") @db.Text
+  attemptCount        Int       @default(0) @map("attempt_count")
+  availableAt         DateTime  @map("available_at") @db.Timestamptz(3)
+  processingStartedAt DateTime? @map("processing_started_at") @db.Timestamptz(3)
+  processedAt         DateTime? @map("processed_at") @db.Timestamptz(3)
+  lastErrorCode       String?   @map("last_error_code") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  manifest   IngestionManifest  @relation(fields: [sourceId, manifestId], references: [sourceId, id], onDelete: Restrict, onUpdate: Restrict, map: "event_inbox_manifest_fkey")
+  raw        RawEventReference  @relation(fields: [sourceId, rawEventReferenceId], references: [sourceId, id], onDelete: Restrict, onUpdate: Restrict, map: "event_inbox_raw_fkey")
+  quarantine QuarantinedEvent[]
+
+  @@unique([sourceId, idempotencyKey], map: "event_inbox_source_idempotency_key")
+  @@unique([sourceId, manifestId, id, rawEventReferenceId, recordId], map: "event_inbox_receipt_key")
+  @@index([sourceId, manifestId, id], map: "event_inbox_manifest_idx")
+  @@index([sourceId, rawEventReferenceId], map: "event_inbox_raw_idx")
+  @@map("event_inbox")
+}
+
+// La unicidad por agregado y el CHECK SQL limitan esta entrega a admisión.
+model OutboxMessage {
+  id                  String    @id @db.Uuid
+  messageId           String    @unique(map: "outbox_messages_message_id_key") @map("message_id") @db.Uuid
+  sourceId            String    @map("source_id") @db.Uuid
+  aggregateId         String    @map("aggregate_id") @db.Uuid
+  aggregateType       String    @map("aggregate_type") @db.Text
+  messageType         String    @map("message_type") @db.Text
+  schemaVersion       String    @map("schema_version") @db.Text
+  idempotencyKey      String    @unique(map: "outbox_messages_idempotency_key") @map("idempotency_key") @db.Text
+  payload             Json      @db.JsonB
+  status              String    @default("pending") @db.Text
+  attemptCount        Int       @default(0) @map("attempt_count")
+  availableAt         DateTime  @map("available_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  processingStartedAt DateTime? @map("processing_started_at") @db.Timestamptz(3)
+  publishedAt         DateTime? @map("published_at") @db.Timestamptz(3)
+  lastErrorCode       String?   @map("last_error_code") @db.Text
+
+  manifest IngestionManifest @relation(fields: [sourceId, aggregateId], references: [sourceId, id], onDelete: Restrict, onUpdate: Restrict, map: "outbox_messages_manifest_fkey")
+
+  @@unique([aggregateType, aggregateId], map: "outbox_messages_aggregate_key")
+  @@index([status, availableAt, id], map: "outbox_messages_pending_idx")
+  @@map("outbox_messages")
+}
+
+model QuarantinedEvent {
+  id                  String    @id @db.Uuid
+  sourceId            String    @map("source_id") @db.Uuid
+  manifestId          String    @map("manifest_id") @db.Uuid
+  inboxId             String    @map("inbox_id") @db.Uuid
+  rawEventReferenceId String    @map("raw_event_reference_id") @db.Uuid
+  recordId            String    @map("record_id") @db.Uuid
+  errorCode           String    @map("error_code") @db.Text
+  errorPath           String?   @map("error_path") @db.Text
+  contractVersion     String?   @map("contract_version") @db.Text
+  parserVersion       String?   @map("parser_version") @db.Text
+  status              String    @default("quarantined") @db.Text
+  attemptCount        Int       @default(0) @map("attempt_count")
+  quarantinedAt       DateTime  @map("quarantined_at") @db.Timestamptz(3)
+  lastReprocessedAt   DateTime? @map("last_reprocessed_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  inbox EventInbox @relation(fields: [sourceId, manifestId, inboxId, rawEventReferenceId, recordId], references: [sourceId, manifestId, id, rawEventReferenceId, recordId], onDelete: Restrict, onUpdate: Restrict, map: "quarantined_events_receipt_fkey")
+
+  @@index([sourceId, manifestId, inboxId, rawEventReferenceId, recordId], map: "quarantined_events_receipt_idx")
+  @@map("quarantined_events")
+}

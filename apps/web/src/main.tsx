@@ -1,40 +1,12 @@
-import { StrictMode, useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { bootstrap } from './bootstrap/bootstrap.js';
+import './app/styles.css';
 
-type HealthState = 'checking' | 'operational' | 'unavailable';
-
-function Application(): React.JSX.Element {
-  const [health, setHealth] = useState<HealthState>('checking');
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/health', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Health returned ${response.status}`);
-        await response.json();
-        setHealth('operational');
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        setHealth('unavailable');
-      });
-    return () => controller.abort();
-  }, []);
-
-  return (
-    <main>
-      <h1>QAPAQ SecOps</h1>
-      <p>
-        Estado de la API: <strong>{health}</strong>
-      </p>
-    </main>
-  );
+const element = document.getElementById('root');
+if (element) {
+  bootstrap(element, __QAPAQ_PUBLIC_CONFIG__);
+} else {
+  const fallback = document.createElement('main');
+  fallback.setAttribute('role', 'alert');
+  fallback.textContent = 'No se pudo iniciar la interfaz. Recarga la página.';
+  document.body.append(fallback);
 }
-
-const rootElement = document.getElementById('root');
-if (rootElement === null) throw new Error('Missing #root element');
-createRoot(rootElement).render(
-  <StrictMode>
-    <Application />
-  </StrictMode>,
-);

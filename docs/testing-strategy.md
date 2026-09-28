@@ -16,6 +16,14 @@ ports externos con fakes. No tests que solo repitan propiedades de una clase.
 
 ## Integration
 
+La infraestructura común de C-06 está en
+[`platform/testing`](../platform/testing/README.md). Cada suite debe solicitar
+el perfil mínimo (`base`, `search`, `wazuh` o `full`), ejecutar preflight antes
+de descargar imágenes, esperar health real y limpiar únicamente recursos con
+las etiquetas de su `runId`. Docker inaccesible, digest no resoluble o falta de
+capacidad se reportan como `BLOCKED`/`NOT_RUN`; no se sustituyen por servidores
+falsos.
+
 Con instancias desechables de versiones elegidas: transacciones PostgreSQL
 estado+audit+outbox; claves únicas/inbox; Redis/BullMQ retries/locks y recuperación;
 mappings/queries del indexador; object store/manifiestos. Probar rollback,
@@ -41,7 +49,7 @@ Identidad Entra autorizada → política → Microsoft 365/Wazuh reales → raw/
 detección → alerta → incidente/case → exportación autorizada y auditoría.
 Añadir rutas deny, object-level access y revocación. UI ocultando botones no cuenta
 como prueba de autorización. Las rutas exactas nacerán del contrato de cada feature.
-Antes de producción ejecutar los 27 escenarios de federación/autorización de
+Antes de producción ejecutar los 35 escenarios de federación/autorización de
 [ADR-017](architecture/identity-and-authorization.md), incluyendo tenant/issuer/
 audience, PKCE/state/nonce, CSRF, scopes, SoD, step-up, revocación, raw y services.
 Ejecutar además los 20 escenarios de lifecycle de

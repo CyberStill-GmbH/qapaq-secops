@@ -1,0 +1,44 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #17382f;
+  background: #f6f8f5;
+  line-height: 1.6;
+  color-scheme: light;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 68ch;
+  margin: 12vh auto;
+  padding: 2rem;
+}
+h1 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+p[role='status'] {
+  margin-top: 3rem;
+  font-weight: 600;
+}
+button {
+  font: inherit;
+  color: #fff;
+  background: #225947;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.7rem 1.2rem;
+  cursor: pointer;
+}
+button:hover {
+  background: #17382f;
+}
+button:focus-visible {
+  outline: 3px solid #225947;
+  outline-offset: 4px;
+}
+::selection {
+  color: #fff;
+  background: #225947;
+}

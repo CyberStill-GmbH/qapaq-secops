@@ -48,6 +48,18 @@ class DiscoverTests(unittest.TestCase):
         self.assertTrue(result["has_pnpm"])
         self.assertIn("javascript-typescript", result["languages"])
 
+    def test_typescript_and_python_are_analyzed_by_codeql(self):
+        files = {
+            "apps/api/src/main.ts": "export {};\n",
+            ".github/ci/discover.py": "def discover(): pass\n",
+        }
+        temporary, root = self.create_repository(files)
+        self.addCleanup(temporary.cleanup)
+
+        result = discover(list(files), root)
+
+        self.assertEqual(["javascript-typescript", "python"], result["languages"])
+
     def test_incomplete_pnpm_workspace_fails_closed(self):
         files = {"package.json": json.dumps({"packageManager": "pnpm@12.4.2"})}
         temporary, root = self.create_repository(files)

@@ -10,6 +10,7 @@ export {
   loadLocalWorkerConfig,
   loadRuntimeConfig,
   loadWorkerConfig,
+  loadWorkerEntrypointConfig,
 } from './configuration-loader.js';
 export type {
   ApiConfig,

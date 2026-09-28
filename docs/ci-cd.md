@@ -27,18 +27,23 @@ merge queue, manual y schedule. Tiene `contents: read` por defecto, no usa
 `pull_request_target`, fija Actions por SHA y ejecuta CodeQL, Gitleaks, Trivy,
 descubrimiento, un verificador y un gate agregado. No publica ni despliega.
 
-FACT: el workflow actual descubre `package-lock.json`, instala con `npm ci` y usa
-`npm audit`. No existen aplicación, `package.json`, `pnpm-lock.yaml` ni imágenes.
-Por ello los jobs de aplicación se omiten y el verificador reporta
-`NOT_CONFIGURED`.
+FACT: GitHub Code Security no está habilitado para este repositorio privado. CodeQL
+analiza TypeScript/JavaScript y Python, escribe SARIF por lenguaje y lo conserva 30
+días como artifact del run. Se usa `upload: never` para evitar que una publicación
+SARIF no disponible invalide un análisis correcto. El artifact faltante falla de
+forma cerrada. Si se habilita Code Security, se cambia a publicación SARIF y se
+restaura `security-events: write` exclusivamente en el job CodeQL.
 
-GAP: el diseño aceptado usa pnpm. Al materializar el workspace, CI debe migrar a
-`pnpm install --frozen-lockfile` y `pnpm audit`; no debe crear `package-lock.json`
-solo para ejecutar npm. Hasta ese cambio el pipeline actual no acredita conformidad
-con U-011 para la aplicación.
+FACT: el workflow descubre el workspace pnpm materializado, exige las versiones
+fijadas en `.nvmrc` y `packageManager`, instala con
+`pnpm install --frozen-lockfile --ignore-scripts`, ejecuta `pnpm audit` y corre el
+verificador integral. Un `package-lock.json`, una versión no aprobada o entradas
+incompletas provocan fallo cerrado.
 
-El cambio de workflow, scripts y `.github/ci/discover.py` está fuera de esta entrega
-documental y requiere una tarea de implementación revisada.
+GAP: aún no existen imágenes registradas en `.github/ci/containers.json`; por ello
+el escaneo de contenedores se omite y el resumen lo declara `NOT_CONFIGURED`. El
+job pasa a ser obligatorio automáticamente cuando se registre el primer
+`Dockerfile` real.
 
 ## CI de pull requests
 
@@ -62,6 +67,20 @@ sin secretos ni identidades de despliegue. No publican ni despliegan, no compart
 caché con procesos privilegiados y fijan Actions externas a SHA completo. Títulos,
 ramas y metadata son input no confiable. Cambios en workflows, migraciones,
 autenticación, autorización o controles de seguridad requieren CODEOWNERS.
+
+## Integración C-06
+
+El job normal de CI puede ejecutar el preflight y las suites `base` cuando el
+runner tenga Docker y capacidad suficiente. Los perfiles `search`, `wazuh` y
+`full` son integración pesada: deben ejecutarse en un runner con capacidad
+demostrada y conservar la evidencia sanitizada como artifact. Un runner sin
+daemon, sin digest resoluble o por debajo del mínimo debe producir
+`BLOCKED`/`NOT_RUN`, nunca PASS ni una sustitución con mocks.
+
+La separación OpenSearch QAPAQ/Wazuh Indexer se mantiene también en CI. Las
+credenciales son sintéticas por run, los puertos son dinámicos y el cleanup se
+limita a recursos etiquetados. La guía operativa está en
+[Entorno C-06 de integración](development/integration-environment.md).
 
 ## Candidatos de release
 
@@ -193,3 +212,8 @@ publicación y despliegue permanecen bloqueados.
 - [Dependabot](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
 - [Gitleaks](https://github.com/gitleaks/gitleaks).
 - [Trivy](https://github.com/aquasecurity/trivy).
+
+El escaneo de secretos conserva `--all` para revisar el historial completo. La única excepción
+en `.gitleaksignore` identifica por fingerprint un valor de prueba histórico de
+`tests/smoke/support.mjs` (commit `8ff6c78`): el smoke test lo inyectaba como `SECRET_TOKEN`
+y comprobaba que no apareciera en la salida. La excepción no cubre hallazgos nuevos.
