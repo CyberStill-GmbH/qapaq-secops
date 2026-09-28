@@ -82,6 +82,21 @@ export interface WazuhIndexerConfig {
   readonly retryLimit: number;
   readonly pageSize: number;
   readonly maximumPageSize: number;
+  readonly allowedIndex: string;
+  readonly dataset: string;
+  readonly cursorSigningKey: SecretCredential;
+  readonly cursorTtlMs: number;
+  readonly maximumResponseBytes: number;
+}
+
+export interface WazuhManagerConfig {
+  readonly baseUrl: string;
+  readonly username: SecretCredential;
+  readonly password: SecretCredential;
+  readonly certificateAuthority: SecretCredential;
+  readonly connectTimeoutMs: number;
+  readonly requestTimeoutMs: number;
+  readonly maximumResponseBytes: number;
 }
 
 export interface RuntimeConfig {
@@ -90,7 +105,7 @@ export interface RuntimeConfig {
   readonly postgres: PostgreSqlConfig;
   readonly redis: RedisConfig;
   readonly minio: MinioConfig;
-  readonly wazuh: Readonly<{ indexer: WazuhIndexerConfig }>;
+  readonly wazuh: Readonly<{ indexer: WazuhIndexerConfig; manager: WazuhManagerConfig }>;
 }
 
 export interface WorkerConfig {

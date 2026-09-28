@@ -1,6 +1,6 @@
 # Especificación de requisitos de QAPAQ SecOps
 
-Estado: **BASELINE PARA DESARROLLO** · Corte documental: 2026-09-19.
+Estado: **BASELINE PARA DESARROLLO** · Corte documental: 2026-09-28.
 
 Esta especificación transforma las decisiones arquitectónicas vigentes en
 requisitos verificables. No acredita software implementado, integraciones activas

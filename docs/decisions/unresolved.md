@@ -459,6 +459,8 @@ capabilities separadas. Las identidades de servicio no usan roles humanos.
 La decisión completa, valores iniciales, roles, autoridad, revocación y pruebas
 se encuentran en [ADR-017](../adr/017-identity-and-authorization.md) y
 [identidad y autorización](../architecture/identity-and-authorization.md).
+ADR-025 la endurece con una sesión humana, red QAPAQ obligatoria, passkey Entra y
+protección de intentos; no crea un `SUPERADMIN`.
 
 ### Operational gate
 
@@ -466,7 +468,7 @@ La decisión cierra U-003 sin afirmar que la federación funciona. Los endpoints
 productivos permanecen bloqueados hasta que Identity, Security y SOC validen
 tenant/app registration, redirects, credenciales, grupo de admisión, Conditional
 Access, MFA/authentication strength, matriz/scopes, Graph sync, revocación,
-step-up, break-glass y los 27 escenarios mínimos aceptados.
+step-up, break-glass y los 35 escenarios mínimos vigentes por ADR-025.
 
 Evidencia de aceptación: instrucción explícita del usuario y texto de resolución
 aportado en esta tarea. El diseño y specs puras pueden continuar; federación solo
@@ -528,6 +530,61 @@ casos, RBAC, auditoría y notificaciones. La decisión completa está en
 U-005 queda resuelta en diseño respecto a fronteras, ownership, orden revisado,
 raw, procedencia, checkpoints, replay y duplicidad. La ingesta productiva sigue
 bloqueada hasta completar valores reales y superar el gate Microsoft 365/Wazuh.
+
+### Decisión: Microsoft 365 pasa a `enabled` sin el gate técnico completo de PBI-006
+
+**Decision status:** DECIDED / ADMINISTRATIVE, NOT TECHNICALLY VERIFIED
+
+**Decision owner:** Franco Clavo Santander (Product Owner), relayed por Cesar
+Adrian Guevara Salcedo
+
+**Decision date:** 2026-09-24
+
+Franco confirmó que la única entrega relevante para Microsoft 365 es el
+`credential_ref` de app registration ya creado el 2026-09-22
+(`secret://qapaq/microsoft/entra-app`, `docs/integrations/source-inventory.yaml`).
+No hay `approved_scopes`, `approval_ticket`, `dataset`, `api_version` ni
+`region` reales entregados hoy, y no se registró una conexión mínima real de
+lectura contra Microsoft 365. Con esa base, Franco decidió declarar
+`status: enabled` para la fuente Microsoft 365 en el inventario.
+
+Esto **no** satisface el gate completo de **PBI-006** ("Cerrar contrato
+operativo Microsoft 365/Wazuh"), cuyos criterios de aceptación en el
+[Product Backlog](../project-management/product-backlog.md) exigen registrar
+dataset, tenant/region, API, permisos, secretRefs, frecuencia, retención,
+owner y aprobación, y demostrar "una conexión mínima real" de lectura antes de
+aceptar el PBI. `enabled` aquí es una decisión administrativa del Product
+Owner sobre el estado operativo de la fuente, no una declaración de que
+PBI-006 está `DONE`; PBI-006 permanece abierto en el Product Backlog hasta
+que existan esos valores y esa conexión real. Cualquier informe o Daily que
+cite este `enabled` debe distinguir ambas cosas para no dar a entender una
+verificación técnica que no ocurrió.
+
+### Diagnóstico real de PBI-007 — 2026-09-28
+
+**Decision status:** BLOCKED, con evidencia real de causa raíz
+
+El app registration de Microsoft Entra creado el 2026-09-22
+(`secret://qapaq/microsoft/entra-app`) se probó en vivo contra Microsoft Graph
+y la Office 365 Management API. El `client_credentials` grant emite token en
+ambos casos (`200`), pero el claim `roles` viene vacío: el app registration no
+tiene ningún permiso de aplicación concedido. Una llamada real de solo lectura
+al endpoint que usa el módulo `o365` de Wazuh
+(`GET /activity/feed/subscriptions/list`) confirma el bloqueo con evidencia
+directa del servidor: `401 AF10001 — "The permission set () sent in the
+request does not include the expected permission."`
+
+Esto descarta credenciales inválidas o mal configuradas: el app registration
+autentica correctamente. Falta exclusivamente agregar el permiso de
+aplicación `ActivityFeed.Read` (Office 365 Management APIs) y otorgar
+**admin consent** sobre el tenant — una acción en Azure Portal que ningún
+cambio de código puede sustituir. Detalle completo, pasos exactos y la
+configuración objetivo del módulo `o365` de Wazuh (sin versionar secretos)
+están en [C-10 — diagnóstico real de Microsoft 365 en Wazuh](../project-management/c-10/README.md).
+
+PBI-007 permanece `BLOCKED`. Este diagnóstico es evidencia reutilizable, no
+un cierre: evita repetir la investigación cuando se otorgue el consentimiento
+pendiente.
 
 ## U-006 — auditoría y observabilidad
 
@@ -658,13 +715,108 @@ ambientes, identidad, conectividad, mecanismo, aprobadores, health checks y sopo
 antes de las dos últimas.
 
 El workspace usa `pnpm install --frozen-lockfile` y `pnpm audit`; no se crea un
-`package-lock.json` artificial para ejecutar npm. El workflow observado todavía
-usa descubrimiento npm y debe migrarse al implementar el workspace. No se crea CD
-con valores o credenciales ficticios.
+`package-lock.json` artificial para ejecutar npm. El workflow actual ya descubre
+pnpm y ejecuta controles del workspace. No se crea CD con valores o credenciales
+ficticios.
 
 U-011 permanece parcialmente resuelta hasta demostrar los ocho escenarios de
 cierre: aislamiento de PR, CI completa, candidato certificado, contrato aceptado,
 promoción del mismo digest a staging, detección por health, rollback y evidencia.
+
+### Decisión: protección de rama en `main` no es requisito de este timebox
+
+**Decision status:** DECIDED
+
+**Decision owner:** Franco Clavo Santander (Product Owner), relayed por Cesar
+Adrian Guevara Salcedo
+
+**Decision date:** 2026-09-24
+
+El bloqueo "protección de rama en `main` no configurada", registrado desde el
+2026-09-21 en el Daily Scrum como riesgo de proceso, queda cerrado. Franco
+determinó que exigir un PR obligatorio antes de escribir en `main` es
+intrascendente en este timebox porque: (1) Cesar tiene control total del
+código como único Developer del MVP, (2) el repositorio es privado, y (3) los
+otros dos colaboradores configurados en GitHub son cuentas propias de Cesar,
+no terceros con intereses distintos. No hay hoy un escenario real de push no
+autorizado o de revisión cruzada entre partes independientes que la
+protección de rama estuviese previniendo.
+
+Esta decisión es válida mientras se mantengan esas tres condiciones. Se
+revisa antes de aceptar un colaborador externo real (otro Developer,
+Infraestructura empujando directamente, o un pipeline de terceros con
+permiso de escritura), momento en el que la ausencia de protección de rama
+vuelve a ser un riesgo activo y debe reevaluarse junto con U-011. No cambia
+el resto del gate de CI (`discover`, `codeql`, `secrets`, `filesystem`,
+`pnpm-audit`, `quality`, `entrypoints`, `c04-postgres`, `containers`, `gate`),
+que sigue aplicando a cada push independientemente de si hay o no un PR.
+
+### Decisión de evidencia C-04 con el entorno C-06
+
+**Decision status:** DECIDED / CI VERIFIED
+
+**CI evidence status:** VERIFIED ON `develop` (`c213073e6afff723690d78377d7e8170a712a63a`)
+
+**Decision owners:** Development + Platform
+
+**Decision date:** 2026-09-23
+
+El perfil `base` de `IntegrationEnvironment` ofrece PostgreSQL 18.6 real con puerto
+dinámico y limpieza del contenedor, por lo que es una base funcional suficiente
+para ejecutar la suite de persistencia C-04. También inicia Redis y MinIO, aunque
+la suite C-04 solo requiere PostgreSQL. Esta suficiencia funcional no acredita
+todavía la reproducibilidad ni el cumplimiento de la Definition of Done en CI.
+
+Se adoptó la alternativa **`postgres`**, que inicia solo PostgreSQL. El digest del
+índice OCI de `docker.io/library/postgres:18.6` se consultó con
+`docker buildx imagetools inspect` el 2026-09-23 y quedó fijado en
+[`integration-environment.lock.json`](../../platform/testing/integration-environment.lock.json).
+El runtime consume ese lock, arranca por digest y vuelve a comprobar el digest
+local al recoger evidencia. Un digest ausente o diferente impide `PASS`. Los
+digests de Redis, MinIO, OpenSearch y Wazuh siguen `null`; se resolverán antes de
+aceptar evidencia de los perfiles que los ejecutan. No son requisito de C-04.
+
+Para adjuntar evidencia **aceptada** de C-04 desde CI se requiere:
+
+1. Arrancar el perfil `postgres` con el digest fijado y verificarlo tras el pull.
+2. Ejecutar la suite PostgreSQL C-04 con `DATABASE_URL` efímera. El job
+   `c04-postgres` ya la invoca directamente; el `vitest.integration.config.ts`
+   general continúa limitado a `platform/testing/test`.
+3. Adjuntar el artifact redactado con commit, versión/digest, comando, resultado y
+   limpieza `PASS`. El job y el gate exigen que la suite y el artifact se produzcan;
+   la ejecución real en CI debe terminar con el gate en `success`.
+
+Tras aislar el caché roto de Secrets Engine y reiniciar Docker Desktop/WSL, la
+ejecución local `c06-96005944-b033-45be-98ad-86661b4a1b09` confirmó digest,
+health PostgreSQL, cinco pruebas C-04 y cleanup `PASS`. El artifact local registra
+el commit `f03ec2a157e86cc128646d0d815d38f7bfa968d6` y `workingTreeDirty=true`;
+por ello demuestra el comportamiento del árbol actual, no certifica ese commit.
+La integración C-06 local también pasó con nueve pruebas de PostgreSQL/Redis.
+La [ejecución CI 35945693397](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/35945693397)
+del commit integrado `c213073e6afff723690d78377d7e8170a712a63a` terminó en
+`success`, incluido el gate y el job C-04. Publicó el artifact
+`c04-postgres-c213073e6afff723690d78377d7e8170a712a63a` con la evidencia
+del perfil `postgres` fijado por digest, cinco pruebas y limpieza. Con ello quedó
+verificada la ruta de evidencia C-04 desde CI.
+
+### Cierre de C-04 — 2026-09-24
+
+**Decision status:** DECIDED / DONE
+
+El 2026-09-24 se cerraron los dos gates que este apartado dejaba abiertos para
+el comando público C-04: rechazo por cruce de Source/tenant/dataset y límites
+de identificadores/tamaño/conteo. Detalle completo, incluida la distinción
+entre lo verificado localmente hoy (typecheck, boundaries, 205 specs unitarias
+en verde, incluidas 18 nuevas de `validateAdmissionCommand`) y lo pendiente de
+confirmación por el próximo run de CI (los dos casos nuevos de pertenencia
+contra PostgreSQL real, no ejecutables en esta sesión por falta de Docker
+local), en [C-04 — Cierre 2026-09-24](../architecture/c-04-admission-er.md#cierre-2026-09-24).
+
+El smoke de object storage/Wazuh exigido por Sprint 1 (PBI-003) permanece
+pendiente, pero queda reclasificado como alcance de C-06/C-08, no como gate de
+cierre de C-04: la columna de evidencia de C-04 en el
+[plan de componentes](../project-management/component-delivery-plan.md) nunca
+lo exigió; solo lo mencionaba este apartado como contexto de Sprint 1.
 
 ## U-012 — notificación de alertas críticas en Microsoft Teams
 

@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$checkOrder = @('format', 'lint', 'unit', 'integration', 'typecheck', 'boundaries')
+$checkOrder = @('format', 'lint', 'unit', 'integration', 'typecheck', 'boundaries', 'build', 'smoke')
 $resolvedRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 $resolvedConfig = if ([System.IO.Path]::IsPathRooted($ConfigPath)) {
     (Resolve-Path -LiteralPath $ConfigPath).Path

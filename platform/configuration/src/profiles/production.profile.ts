@@ -28,5 +28,9 @@ export const PRODUCTION_PROFILE: ConfigurationProfile = Object.freeze({
     QAPAQ_WAZUH_RETRY_LIMIT: '5',
     QAPAQ_WAZUH_PAGE_SIZE: '50',
     QAPAQ_WAZUH_MAX_PAGE_SIZE: '200',
+    QAPAQ_WAZUH_ALLOWED_INDEX: 'wazuh-alerts-*',
+    QAPAQ_WAZUH_DATASET: 'wazuh-alerts',
+    QAPAQ_WAZUH_CURSOR_TTL: '1m',
+    QAPAQ_WAZUH_MAX_RESPONSE_BYTES: '10485760',
   }),
 });

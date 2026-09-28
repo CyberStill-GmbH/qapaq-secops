@@ -99,8 +99,9 @@ no exista guardia SEV1 formal.
   un índice derivado en registro probatorio.
 - Escribir síncronamente solo en el archive externo acoplaría toda mutación a su
   disponibilidad sin atomicidad con el dominio.
-- Fijar Grafana, Prometheus, Loki, Tempo u otro proveedor ahora inventaría una
-  plataforma corporativa que Infraestructura no ha entregado.
+- Fijar Grafana, Prometheus, Loki, Tempo u otro proveedor sin decisión inventaría
+  una plataforma corporativa. ADR-025 posteriormente seleccionó Grafana OSS, Loki
+  y Prometheus autogestionados; Tempo continúa sin decidir.
 - Una cadena hash únicamente en PostgreSQL no resiste a un administrador capaz
   de reescribir registros y hashes.
 
