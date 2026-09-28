@@ -83,20 +83,80 @@ sockets AF_UNIX quedan como reparse points inaccesibles. Los mensajes observados
 son `initializing Inference manager` sobre `dockerInference` y, después,
 `initializing Secrets Engine` sobre `engine.sock`.
 
-La reparación debe aislar ambos directorios en el mismo ciclo, con Docker y WSL
-detenidos. `scripts/dev/repair-docker-desktop.ps1` renombra los directorios con
-timestamp, conserva un respaldo, desactiva las funciones de inferencia no usadas
-por QAPAQ, reinicia Docker y valida el daemon con `docker info`. No elimina
-imágenes, volúmenes ni datos y no ejecuta factory reset.
+### Diagnóstico y recuperación
 
-Después de reparar:
+Antes de reiniciar, guarda el trabajo activo en contenedores y captura el error:
+
+```powershell
+wsl --status
+wsl --list --verbose
+docker desktop status
+docker info
+Get-PSDrive -Name C | Select-Object Used,Free
+docker desktop diagnose
+```
+
+`docker desktop diagnose` puede tardar varios minutos; conserva el ID/ruta de
+diagnóstico para el ticket de Infraestructura. Si el cliente de Docker no responde,
+usa Docker Desktop → Troubleshoot → Get support. No adjuntes `.env`, credenciales,
+tokens ni archivos de volúmenes a un ticket.
+
+Si el síntoma es el fallo conocido de los sockets `dockerInference`/`engine.sock`,
+con Docker Desktop cerrado ejecuta desde PowerShell:
+
+```powershell
+pwsh -NoProfile -File scripts/dev/repair-docker-desktop.ps1
+```
+
+El script detiene Docker/WSL, mueve ambos directorios de socket a nombres con
+timestamp bajo `%LOCALAPPDATA%` (no los borra), respalda `settings-store.json`,
+desactiva Docker AI/Inference —no usados por QAPAQ— y vuelve a iniciar Docker. Si
+`docker info` no responde en 90 segundos, detente y adjunta los logs/diagnósticos;
+no repitas el script en bucle. `wsl --shutdown` detiene todas las distribuciones
+WSL2 activas y la VM ligera; guarda antes cualquier trabajo WSL. No desregistra
+distribuciones ni borra sus discos.
+
+Valida daemon, red y operación del runtime antes de reintentar la suite:
 
 ```powershell
 docker desktop status
+docker info --format 'Server={{.ServerVersion}} CPUs={{.NCPU}} Memory={{.MemTotal}}'
 docker run --rm hello-world
 pnpm run test:integration
 ```
 
+### Caché de build y espacio WSL/Docker
+
+No confundir caché BuildKit con sockets Docker ni con datos del Indexer/volúmenes.
+Una caché grande normalmente no explica que `docker info` no conecte; primero
+recupera el daemon. Con Docker sano, inspecciona el uso y limpia solo caché de
+compilación si es necesario:
+
+```powershell
+docker system df -v
+docker builder prune
+```
+
+`docker builder prune` elimina caché de build no usada y puede hacer más lentas las
+compilaciones siguientes; revisa su confirmación interactiva. No uses limpieza
+masiva para “arreglar WSL”: `docker system prune -a --volumes`, `docker volume
+prune`, Docker Desktop **Clean up data / Factory reset**, `wsl --unregister` ni
+borrar/compactar manualmente `ext4.vhdx` pueden eliminar estado persistente. La VM
+puede conservar memoria asignada hasta `wsl --shutdown`; esto reinicia la VM, no es
+una operación para purgar datos. Si el disco virtual sigue sin espacio tras
+limpiar caché de build, escala a Infraestructura antes de tocar VHDX o la
+distribución `docker-desktop-data`.
+
+El repair script deja directorios `*.stale-<timestamp>` y backups de settings para
+diagnóstico. No los elimines hasta confirmar arranques estables y que no contienen
+evidencia requerida. Si el error reaparece o Docker no expone el engine Linux tras
+la reparación, detener cambios locales y escalar a Platform/Infraestructura con
+el Diagnostic ID y hora exacta.
+
 Referencias: [troubleshooting de Docker Desktop](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/topics/),
-[configuración de Docker Desktop](https://docs.docker.com/desktop/settings-and-maintenance/settings/)
-y [despliegue Docker de Wazuh](https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html).
+[recolección de diagnósticos](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/),
+[limpieza de caché de build](https://docs.docker.com/engine/manage-resources/pruning/),
+[comandos básicos de WSL](https://learn.microsoft.com/en-us/windows/wsl/basic-commands),
+[administración del disco WSL](https://learn.microsoft.com/en-us/windows/wsl/disk-space),
+[configuración de Docker Desktop](https://docs.docker.com/desktop/settings-and-maintenance/settings/) y
+[despliegue Docker de Wazuh](https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html).
