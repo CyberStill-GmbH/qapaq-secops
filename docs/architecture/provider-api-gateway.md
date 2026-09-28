@@ -3,6 +3,8 @@
 Decisión normativa: [ADR-026](../adr/026-on-premises-krakend-provider-api-gateway.md).
 Estado: **diseño aceptado; despliegue y rutas gated**.
 
+La decisión de sistema y sus gates de implementación están en el [C-28 System Design](c-28-krakend-system-design.md); comandos y operaciones locales, en [platform/gateway/krakend](../../platform/gateway/krakend/README.md).
+
 ## Arquitectura objetivo
 
 ```mermaid
