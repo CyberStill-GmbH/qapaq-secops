@@ -9,6 +9,11 @@ const gatewayDir = new URL('../', import.meta.url);
 const composeFile = fileURLToPath(new URL('compose.yaml', gatewayDir));
 const envFile = fileURLToPath(new URL('.env.example', gatewayDir));
 const benchmarkFile = fileURLToPath(new URL('../benchmark.mjs', import.meta.url));
+const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url));
+const c10Probe = fileURLToPath(
+  new URL('../../../../modules/connectors/test/c28-live-probe.ts', import.meta.url),
+);
+const tsxCli = fileURLToPath(new URL('../../../../node_modules/tsx/dist/cli.mjs', import.meta.url));
 const gatewayUrl = 'http://127.0.0.1:18080';
 const identity = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const privateKey = identity.privateKey;
@@ -138,6 +143,20 @@ try {
     'backend topology header must be filtered',
   );
 
+  const adapterProbe = spawnSync(process.execPath, [tsxCli, c10Probe], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      C10_GATEWAY_BASE_URL: gatewayUrl,
+      C10_GATEWAY_ACCESS_TOKEN: makeToken({ subject: 'c10-adapter-worker' }),
+    },
+    timeout: 15_000,
+  });
+  if (adapterProbe.error) throw adapterProbe.error;
+  assert.equal(adapterProbe.status, 0, `C-10 adapter probe failed: ${adapterProbe.stderr}`);
+  assert.match(adapterProbe.stdout, /C-10 -> C-28 -> controlled Wazuh Indexer: PASS/);
+
   let metricText = '';
   const scrapeDeadline = Date.now() + 20_000;
   while (Date.now() < scrapeDeadline) {
@@ -206,8 +225,18 @@ try {
     `backend timeout should be controlled 5xx, got ${timeout.status}`,
   );
   await new Promise((resolve) => setTimeout(resolve, 5500));
-  const reset = await request('/wazuh/_search', { body: { controlStatus: 'reset' } });
-  assert.ok(reset.status >= 500, `connection reset should be controlled 5xx, got ${reset.status}`);
+  try {
+    const reset = await request('/wazuh/_search', { body: { controlStatus: 'reset' } });
+    assert.ok(
+      reset.status >= 500,
+      `connection reset should be controlled 5xx, got ${reset.status}`,
+    );
+  } catch (error) {
+    assert.ok(
+      error instanceof TypeError,
+      'a connection reset may surface as a fetch transport error',
+    );
+  }
   await new Promise((resolve) => setTimeout(resolve, 5500));
 
   const unknown = await request('/unregistered', { method: 'GET' });

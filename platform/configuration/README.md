@@ -28,6 +28,26 @@ sin resolver secretos de dependencias que todavía no consume. Los loaders anter
 conservan su API. El proveedor productivo y su
 identidad técnica siguen pendientes de Infraestructura conforme a ADR-013.
 
+## C-24: lifecycle write-only
+
+El control plane usa un puerto separado, `SecretLifecycleProvider`, con solo
+`create`, `rotate` y `revoke`. No reutiliza el método runtime `resolve` de C-03 y
+no ofrece lectura o exportación. `SecretMaterial` es un input de un solo uso: tras
+entregar sus bytes al provider los sobrescribe y su serialización siempre produce
+`[REDACTED]`. Las respuestas contienen exclusivamente metadata segura.
+
+`loadControlPlaneSecretConfig` conserva el schema, validación fail-fast, perfiles,
+referencias y redacción de C-03. Requiere `QAPAQ_SECRET_PROVIDER_TYPE`,
+`QAPAQ_SECRET_PROVIDER_TIMEOUT` y `QAPAQ_SECRET_FINGERPRINT_KEY_REF`; la última se
+resuelve por C-03 y nunca se serializa en claro. `test-only` está prohibido en
+producción. El backend productivo continúa `TO_BE_PROVIDED`.
+
+El fingerprint es `HMAC-SHA-256` con clave separada de al menos 32 bytes. Sirve
+para identificar versiones sin permitir recuperar el valor ni comprobar un
+diccionario usando solo la base de metadata. Persistencia, RBAC, matriz de fallos
+y operación están documentados en [C-24](../../docs/project-management/c-24/README.md)
+y la decisión en [ADR-027](../../docs/adr/027-write-only-secret-lifecycle-control-plane.md).
+
 ## Contratos
 
 - PostgreSQL: host, puerto, base, usuario, password ref, TLS, timeouts y pool.

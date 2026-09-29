@@ -1,5 +1,11 @@
 # C-08 — contrato operativo y probe Wazuh
 
+> Nota de arquitectura (2026-09-28): C-10 migró la implementación Wazuh al
+> boundary C-28. Las referencias históricas de este cierre a acceso directo,
+> credenciales o health del Indexer/Manager describen el estado anterior y no son
+> configuración soportada. El port `SecurityEventProvider` permanece vigente; ver
+> [C-10](../c-10/README.md).
+
 **Estado al 2026-09-25: DONE PARA SPRINT 2, POR EXCEPCIÓN DEL PRODUCT OWNER.**
 La decisión permite avanzar Sprint 2 con el contrato local disponible. La
 aceptación técnica integral de C-08 queda como gate obligatorio del E2E final del

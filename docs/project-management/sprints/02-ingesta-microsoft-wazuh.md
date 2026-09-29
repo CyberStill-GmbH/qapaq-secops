@@ -49,6 +49,14 @@ reales; los contratos locales permiten desarrollar y comprobar límites sin simu
 una aceptación real. Consultar
 el [plan por componentes](../component-delivery-plan.md).
 
+**Actualización de preparación (2026-09-28):** las suites locales unitarias y
+contractuales de C-10/C-28, el checker oficial de configuración KrakenD y la
+integración controlada C-10 → KrakenD → Indexer simulado pasaron. Por tanto, el
+gate para iniciar C-11 (admisión durable) y C-24 (contrato write-only de secretos)
+queda satisfecho. Esto habilita desarrollo y pruebas locales, no aceptación real
+de Wazuh/Office 365 ni despliegue productivo. PBI-007 y los gates de infraestructura
+C-28 siguen bloqueados; ver el [informe de avance y resultados](../informes-de-avance/2026-09-28-informe-de-avance.md).
+
 ## Gate previo obligatorio
 
 Al terminar la Review de Sprint 1 deben estar listos los contratos y código base
@@ -56,6 +64,13 @@ C-01…C-09 para el trabajo local de Sprint 2. La falta actual de Wazuh/tenant n
 bloquea ese desarrollo por la decisión de aplazamiento del 2026-09-25; los PBI y
 pruebas que exigen esos sistemas se registran `BLOCKED` y se acumulan como gate del
 E2E final. El 2026-10-05 no se usa para instalar dependencias pendientes.
+
+**C-11 implementación inicial (2026-09-28):** paquete `@qapaq/telemetry`, raw
+S3-compatible con SHA-256 y coordinación a través del comando transaccional
+C-04 están implementados; pasaron unit tests y el tramo PostgreSQL + MinIO real
+del perfil C-06. C-11 sigue bloqueado para cierre: falta demostrar fallos/crashes en cada
+frontera, concurrencia integral, reconciliación, publisher y CI remoto. Ver el [diseño y
+matriz de fallos C-11](../c-11/README.md).
 
 ## Plan de trabajo por día
 

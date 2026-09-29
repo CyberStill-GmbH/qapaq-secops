@@ -1,6 +1,19 @@
 # Inventario documental de fuentes. No contiene secretos ni habilita producción.
 # Cada TO_BE_PROVIDED debe resolverse y aprobarse antes del estado enabled.
 schema_version: "1.0"
+secret_provider:
+  lifecycle_component: C-24
+  decision: ADR-027
+  backend: TO_BE_PROVIDED
+  production_endpoint: TO_BE_PROVIDED
+  production_identity: TO_BE_PROVIDED
+  production_certificate_ref: TO_BE_PROVIDED
+  workload_identity: TO_BE_PROVIDED
+  credentials_source: TO_BE_PROVIDED
+  production_policy: TO_BE_PROVIDED
+  control_plane_operations: [create, rotate, revoke]
+  runtime_resolution_boundary: separate
+  final_e2e: Sprint 3
 provider_gateway:
   product: KrakenD Community Edition
   deployment: on_premises
@@ -20,6 +33,16 @@ provider_gateway:
   grafana_provisioning_destination: TO_BE_PROVIDED
   image_registry_mirror: TO_BE_PROVIDED
   invariant: durable_admission_before_downstream_bullmq
+connectors:
+  c10_wazuh_adapter:
+    application_port: SecurityEventProvider
+    network_dependency: provider_gateway
+    gateway_base_url: TO_BE_PROVIDED
+    gateway_credential_ref: TO_BE_PROVIDED
+    allowed_routes:
+      - { method: GET, path: /wazuh/_cluster/health }
+      - { method: POST, path: /wazuh/_search }
+    direct_indexer_access: prohibited
 sources:
   - source_id: wazuh-to-be-provided
     product: Wazuh
@@ -28,7 +51,7 @@ sources:
     owner_team: infrastructure
     business_owner: security
     interface:
-      api: TO_BE_PROVIDED
+      api: C-28 KrakenD provider gateway
       api_version: TO_BE_PROVIDED
       region: TO_BE_PROVIDED
       authentication: TO_BE_PROVIDED

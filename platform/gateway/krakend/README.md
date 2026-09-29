@@ -78,7 +78,7 @@ El log de gateway se dirige a stdout para el colector de plataforma. No habilita
 
 `benchmark.mjs` ejecuta carga HTTP reproducible contra un gateway y reporta throughput, p50/p95/p99, error rate y conteos de status. Se requiere endpoint/identidad de prueba; la ejecución no es válida contra producción. Los valores son métricas observadas, no SLO. `BENCHMARK_SCENARIO` permite `healthy`, `slow`, `error` o `rate-limit`; `--concurrency` permite repetir perfiles de concurrencia. Las entradas `slow`/`error` requieren el mock indexer del harness. Por ejemplo, desde PowerShell con el harness activo:
 
-Dos muestras locales registradas el 2026-09-28, ambas con 4 workers, 2 s y respuestas 200 sin errores: 584 solicitudes (292 req/s; p50 5.60 ms, p95 61.23 ms, p99 181.22 ms) y 160 (80 req/s; p50 5.80 ms, p95 166.62 ms, p99 431.24 ms). La variación confirma que son loopback con mocks y smoke checks breves, no una prueba de capacidad ni fundamento de SLO: no representan TLS corporativo, LB, Indexer real, contención del host, límites de CPU/memoria o concurrencia productiva.
+Muestras locales del 2026-09-28 con 4 workers, 2 s y respuestas 200 sin errores: 584 solicitudes (292 req/s; p50 5.60 ms, p95 61.23 ms, p99 181.22 ms), 160 (80 req/s; p50 5.80 ms, p95 166.62 ms, p99 431.24 ms) y 1,540 (770 req/s; p50 4.51 ms, p95 8.36 ms, p99 16.67 ms). La variación confirma que son pruebas loopback con mocks y de corta duración, no una prueba de capacidad ni fundamento de SLO: no representan TLS corporativo, LB, Indexer real, contención del host, límites de CPU/memoria o concurrencia productiva.
 
 ```powershell
 $env:BENCHMARK_URL = 'http://127.0.0.1:18080/wazuh/_search'
@@ -88,7 +88,7 @@ $env:BENCHMARK_SCENARIO = 'healthy'
 node platform/gateway/krakend/benchmark.mjs --confirm-nonprod=true --concurrency=8 --duration-seconds=10
 ```
 
-A la fecha de esta entrega no se publica un resultado porque Docker Engine no arrancó en este host.
+La corrida runtime satisfactoria del 2026-09-28 está incluida en el [registro de evidencia C-10/C-28](../../../docs/project-management/c-10/assets/2026-09-28-c10-c28-contract-run.json). Docker Desktop estaba disponible para esa ejecución. Este resultado cubre solo el gateway oficial en contenedor con mock Indexer y JWKS de prueba; no habilita producción ni aceptación con proveedores reales.
 
 ## Pendientes de producción (`TO_BE_PROVIDED`)
 

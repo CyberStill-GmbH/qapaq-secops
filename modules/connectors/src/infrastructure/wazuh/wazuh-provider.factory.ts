@@ -1,69 +1,59 @@
-import { WazuhIndexerClient } from '../wazuh-indexer-client.js';
 import type { SecurityEventProvider } from '../../application/security-event-provider.js';
-import { WazuhManagerClient } from './wazuh-manager.client.js';
-import { WazuhSecurityEventProvider } from './wazuh-security-event.provider.js';
+import { SecurityEventProviderError } from '../../application/security-event-provider.js';
+import { WazuhGatewayClient, WazuhGatewayError } from './wazuh-gateway.client.js';
+import {
+  WazuhSecurityEventProvider,
+  type WazuhConnectorTelemetry,
+} from './wazuh-security-event.provider.js';
 
 export interface WazuhProviderConfiguration {
   readonly sourceId: string;
-  readonly indexer: {
+  readonly gateway: {
     readonly baseUrl: string;
-    readonly username: string;
-    readonly password: string;
-    readonly certificateAuthority: string;
-    readonly connectTimeoutMs: number;
+    readonly accessToken: string;
     readonly requestTimeoutMs: number;
     readonly maximumPageSize: number;
     readonly retryLimit: number;
-    readonly allowedIndex: string;
     readonly dataset: string;
     readonly cursorSigningKey: string;
     readonly cursorTtlMs: number;
     readonly maximumResponseBytes: number;
+    /** Permitted only for loopback integration tests and local development. */
+    readonly allowInsecureLocalhost?: boolean;
   };
-  readonly manager: {
-    readonly baseUrl: string;
-    readonly username: string;
-    readonly password: string;
-    readonly certificateAuthority: string;
-    readonly connectTimeoutMs: number;
-    readonly requestTimeoutMs: number;
-    readonly maximumResponseBytes: number;
-  };
+  readonly telemetry?: WazuhConnectorTelemetry;
 }
 
-/** Composition root helper; callers pass secrets already resolved through C-03. */
+/** Composition root helper; callers pass C-28 credentials already resolved through C-03. */
 export function createWazuhSecurityEventProvider(
   config: WazuhProviderConfiguration,
 ): SecurityEventProvider {
-  const indexer = new WazuhIndexerClient({
-    endpoint: new URL(config.indexer.baseUrl),
-    username: config.indexer.username,
-    password: config.indexer.password,
-    certificateAuthority: config.indexer.certificateAuthority,
-    connectTimeoutMs: config.indexer.connectTimeoutMs,
-    requestTimeoutMs: config.indexer.requestTimeoutMs,
-  });
-  const manager = new WazuhManagerClient({
-    baseUrl: config.manager.baseUrl,
-    username: config.manager.username,
-    password: config.manager.password,
-    certificateAuthority: config.manager.certificateAuthority,
-    connectTimeoutMs: config.manager.connectTimeoutMs,
-    requestTimeoutMs: config.manager.requestTimeoutMs,
-    maximumResponseBytes: config.manager.maximumResponseBytes,
-  });
+  let gateway: WazuhGatewayClient;
+  try {
+    gateway = new WazuhGatewayClient({
+      baseUrl: config.gateway.baseUrl,
+      accessToken: config.gateway.accessToken,
+      requestTimeoutMs: config.gateway.requestTimeoutMs,
+      maximumResponseBytes: config.gateway.maximumResponseBytes,
+      ...(config.gateway.allowInsecureLocalhost === undefined
+        ? {}
+        : { allowInsecureLocalhost: config.gateway.allowInsecureLocalhost }),
+    });
+  } catch (error) {
+    if (error instanceof WazuhGatewayError && error.code === 'CONFIGURATION_INVALID')
+      throw new SecurityEventProviderError('PROVIDER_CONFIGURATION_INVALID', 'health', false);
+    throw error;
+  }
   return new WazuhSecurityEventProvider({
     sourceId: config.sourceId,
-    allowedDatasets: [config.indexer.dataset],
-    allowedIndices: [config.indexer.allowedIndex],
-    index: config.indexer.allowedIndex,
-    maximumPageSize: config.indexer.maximumPageSize,
-    retryLimit: config.indexer.retryLimit,
+    allowedDatasets: [config.gateway.dataset],
+    maximumPageSize: config.gateway.maximumPageSize,
+    retryLimit: config.gateway.retryLimit,
     maximumBackoffMs: 5_000,
-    maximumResponseBytes: config.indexer.maximumResponseBytes,
-    cursorSecret: config.indexer.cursorSigningKey,
-    cursorTtlMs: config.indexer.cursorTtlMs,
-    client: indexer,
-    managerClient: manager,
+    maximumResponseBytes: config.gateway.maximumResponseBytes,
+    cursorSecret: config.gateway.cursorSigningKey,
+    cursorTtlMs: config.gateway.cursorTtlMs,
+    client: gateway,
+    ...(config.telemetry ? { telemetry: config.telemetry } : {}),
   });
 }

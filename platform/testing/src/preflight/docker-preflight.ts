@@ -3,12 +3,15 @@ import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
 
-export async function dockerPreflight(
-  profile: 'postgres' | 'base' | 'search' | 'wazuh' | 'full' = 'base',
-): Promise<{
+type DockerProfile = 'postgres' | 'base' | 'search' | 'wazuh' | 'full';
+type DockerPreflightReport = {
   status: 'PASS' | 'BLOCKED';
   checks: { name: string; status: 'PASS' | 'BLOCKED'; detail: string }[];
-}> {
+};
+
+const probesInFlight = new Map<DockerProfile, Promise<DockerPreflightReport>>();
+
+async function runDockerPreflight(profile: DockerProfile): Promise<DockerPreflightReport> {
   try {
     const { stdout } = await exec('docker', ['info', '--format', '{{json .}}'], {
       timeout: 45_000,
@@ -60,4 +63,13 @@ export async function dockerPreflight(
         : 'Docker no está disponible';
     return { status: 'BLOCKED', checks: [{ name: 'docker-daemon', status: 'BLOCKED', detail }] };
   }
+}
+
+/** Coalesces concurrent Docker Desktop probes without caching a stale result. */
+export function dockerPreflight(profile: DockerProfile = 'base'): Promise<DockerPreflightReport> {
+  const existing = probesInFlight.get(profile);
+  if (existing) return existing;
+  const probe = runDockerPreflight(profile).finally(() => probesInFlight.delete(profile));
+  probesInFlight.set(profile, probe);
+  return probe;
 }

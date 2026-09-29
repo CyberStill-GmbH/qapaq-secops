@@ -2,6 +2,7 @@ import { configurationError } from './configuration.errors.js';
 import {
   SecretValue,
   type ApiConfig,
+  type ControlPlaneSecretConfig,
   type EnvironmentInput,
   type RedisConfig,
   type RuntimeConfig,
@@ -10,7 +11,12 @@ import {
 } from './configuration.types.js';
 import { selectProfile } from './profiles/index.js';
 import { rejectUnknownQapaqVariables } from './schema/environment.schema.js';
-import { parseApi, parseFullEnvironment, parseRedis } from './schema/runtime-config.schema.js';
+import {
+  parseApi,
+  parseControlPlaneSecretConfig,
+  parseFullEnvironment,
+  parseRedis,
+} from './schema/runtime-config.schema.js';
 import { normalizeSecretError, SecretProviderError } from './secrets/secret-errors.js';
 import {
   secretReferenceNamespace,
@@ -93,6 +99,25 @@ export async function loadWorkerConfig(
   });
 }
 
+export async function loadControlPlaneSecretConfig(
+  environment: EnvironmentInput,
+  provider: SecretProvider,
+): Promise<ControlPlaneSecretConfig> {
+  const profile = profileFrom(environment);
+  const parsed = parseControlPlaneSecretConfig(environment, profile);
+  const resolve = createResolver(provider, profile);
+  const fingerprintKey = await resolve(
+    parsed.fingerprintKeyReference,
+    'secretControlPlane.fingerprintKey',
+  );
+  return deepFreeze({
+    profile: profile.name,
+    providerType: parsed.providerType,
+    providerTimeoutMs: parsed.providerTimeoutMs,
+    fingerprintKey,
+  });
+}
+
 export async function loadRuntimeConfig(
   environment: EnvironmentInput,
   provider: SecretProvider,
@@ -100,29 +125,14 @@ export async function loadRuntimeConfig(
   const profile = profileFrom(environment);
   const parsed = parseFullEnvironment(environment, profile);
   const resolve = createResolver(provider, profile);
-  const [
-    postgresPassword,
-    minioAccessKey,
-    minioSecretKey,
-    wazuhUsername,
-    wazuhPassword,
-    wazuhCa,
-    wazuhCursorKey,
-    wazuhManagerUsername,
-    wazuhManagerPassword,
-    wazuhManagerCa,
-  ] = await Promise.all([
-    resolve(parsed.postgres.passwordReference, 'postgres.password'),
-    resolve(parsed.minio.accessKeyReference, 'minio.accessKey'),
-    resolve(parsed.minio.secretKeyReference, 'minio.secretKey'),
-    resolve(parsed.wazuh.indexer.usernameReference, 'wazuh.indexer.username'),
-    resolve(parsed.wazuh.indexer.passwordReference, 'wazuh.indexer.password'),
-    resolve(parsed.wazuh.indexer.caReference, 'wazuh.indexer.certificateAuthority'),
-    resolve(parsed.wazuh.indexer.cursorSigningKeyReference, 'wazuh.indexer.cursorSigningKey'),
-    resolve(parsed.wazuh.manager.usernameReference, 'wazuh.manager.username'),
-    resolve(parsed.wazuh.manager.passwordReference, 'wazuh.manager.password'),
-    resolve(parsed.wazuh.manager.caReference, 'wazuh.manager.certificateAuthority'),
-  ]);
+  const [postgresPassword, minioAccessKey, minioSecretKey, gatewayToken, wazuhCursorKey] =
+    await Promise.all([
+      resolve(parsed.postgres.passwordReference, 'postgres.password'),
+      resolve(parsed.minio.accessKeyReference, 'minio.accessKey'),
+      resolve(parsed.minio.secretKeyReference, 'minio.secretKey'),
+      resolve(parsed.wazuh.gateway.accessTokenReference, 'wazuh.gateway.accessToken'),
+      resolve(parsed.wazuh.gateway.cursorSigningKeyReference, 'wazuh.gateway.cursorSigningKey'),
+    ]);
   const { passwordReference: _postgresReference, ...postgres } = parsed.postgres;
   const {
     accessKeyReference: _accessReference,
@@ -130,18 +140,10 @@ export async function loadRuntimeConfig(
     ...minio
   } = parsed.minio;
   const {
-    usernameReference: _usernameReference,
-    passwordReference: _wazuhPasswordReference,
-    caReference: _caReference,
+    accessTokenReference: _accessTokenReference,
     cursorSigningKeyReference: _cursorSigningKeyReference,
-    ...wazuhIndexer
-  } = parsed.wazuh.indexer;
-  const {
-    usernameReference: _managerUsernameReference,
-    passwordReference: _managerPasswordReference,
-    caReference: _managerCaReference,
-    ...wazuhManager
-  } = parsed.wazuh.manager;
+    ...wazuhGateway
+  } = parsed.wazuh.gateway;
   return deepFreeze({
     profile: profile.name,
     api: parsed.api,
@@ -149,18 +151,10 @@ export async function loadRuntimeConfig(
     redis: await materializeRedis(parsed.redis, resolve),
     minio: { ...minio, accessKey: minioAccessKey, secretKey: minioSecretKey },
     wazuh: {
-      indexer: {
-        ...wazuhIndexer,
-        username: wazuhUsername,
-        password: wazuhPassword,
-        certificateAuthority: wazuhCa,
+      gateway: {
+        ...wazuhGateway,
+        accessToken: gatewayToken,
         cursorSigningKey: wazuhCursorKey,
-      },
-      manager: {
-        ...wazuhManager,
-        username: wazuhManagerUsername,
-        password: wazuhManagerPassword,
-        certificateAuthority: wazuhManagerCa,
       },
     },
   });

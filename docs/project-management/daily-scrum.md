@@ -403,37 +403,49 @@ Componentes activos y estado:
   (2026-09-25); integración real contra Wazuh sigue pendiente como gate del
   E2E final del MVP.
 - C-09: `IMPLEMENTED / BLOCKED_BY_REPOSITORY_ADMINISTRATION`, no `DONE`.
-- C-10 — adapter Wazuh: `READY`; inicia hoy sobre el contrato local de C-08.
+- C-10 — adapter Wazuh: contrato/unit local y probe C-28 contra mock `PASS`;
+  aceptación con proveedor real pendiente.
+- C-28 — KrakenD: contract suite, checker de imagen oficial y runtime local
+  contra mock `PASS`; HA/infraestructura productiva permanece `TO_BE_PROVIDED`.
 
 Evidencia terminada desde el Daily anterior: cierre de Sprint 1 completo, ver
 [informe de cierre 2026-09-25](informes-de-avance/2026-09-25-informe-de-cierre.md).
+Además, el 2026-09-28 las suites locales de C-10 (47/47), configuración C-03
+(49/49), contrato C-28 (6/6), validación oficial (`Syntax OK`) y la integración
+controlada `C-10 → C-28 → mock Indexer` pasaron. Detalle y límites en el
+[informe de avance](informes-de-avance/2026-09-28-informe-de-avance.md) y el
+[registro JSON](c-10/assets/2026-09-28-c10-c28-contract-run.json).
 
 Plan hasta el siguiente Daily:
 
 1. Confirmar fecha de Sprint Planning y timebox real de Sprint 2 con Franco.
-2. Avanzar C-10 (registro de fuente, paginación, errores de frontera) contra
-   el contrato local de C-08; sin afirmar aceptación contra Wazuh real.
-3. Registrar PBI-007 como `BLOCKED` en el Product Backlog con dueño (Franco).
-4. Evaluar abrir C-11 como segundo ítem de WIP solo si no compromete el foco
-   en C-10.
+2. Iniciar C-11 (admisión durable) y C-24 (control plane write-only) como los
+   dos ítems de WIP, usando suites unitarias, contractuales e integración local;
+   respetar dependencias C-04/C-06/C-10 y C-03/C-08 respectivamente.
+3. Mantener PBI-007 `BLOCKED` hasta que el administrador de Entra conceda
+   `ActivityFeed.Read` + admin consent y se repita la prueba autorizada.
+4. No declarar aceptación de proveedores ni infraestructura KrakenD real por
+   los resultados controlados locales.
 
 Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
 
-- PBI-007 sin tenant/permisos/red reales de Microsoft 365/Wazuh — impacto:
+- PBI-007: diagnóstico real de 2026-09-28 halló tokens sin roles y `401 AF10001`
+  al consultar suscripciones; falta `ActivityFeed.Read`, admin consent y
+  revalidación autorizada — impacto:
   bloquea el Sprint Goal completo, no el desarrollo local — dueño: Franco
-  Clavo Santander — siguiente acción: confirmar acceso real o mantener el
-  bloqueo con fecha objetivo explícita — escalamiento: Product Owner si no
+  Clavo Santander / administrador de Entra — siguiente acción: conceder y
+  consentir `ActivityFeed.Read`, revalidar y mantener el bloqueo hasta que
+  pase — escalamiento: Product Owner si no
   hay respuesta antes del cierre de Sprint 2.
 - Fechas de Sprint 2 desactualizadas en el documento de plan — impacto: bajo,
   riesgo de proceso — dueño: Cesar / Franco — siguiente acción: re-fechar
   tras la Sprint Planning.
 
-Cambio al Sprint Backlog: ninguno declarado hoy; PBI-007 se mantiene `BLOCKED`
-como ya estaba registrado.
+Cambio al Sprint Backlog: habilitar C-11 y C-24 para desarrollo/contratos locales
+tras el cierre del gate de contrato C-10/C-28; PBI-007 se mantiene `BLOCKED`.
 
-Confianza en el Sprint Goal: ÁMBAR. El gate previo de Sprint 1 está satisfecho
-con sus excepciones documentadas y C-10 puede avanzar en local hoy mismo; el
-Sprint Goal completo depende enteramente de que Franco confirme acceso real a
-Microsoft 365/Wazuh durante el Sprint.
+Confianza en el Sprint Goal: ÁMBAR. El gate local de contrato C-10/C-28 pasó y
+permite avanzar en C-11/C-24; el Sprint Goal completo depende de acceso y
+aceptación autorizada Microsoft 365/Wazuh, que siguen bloqueados por PBI-007.
 
 Informe: [Daily Scrum 2026-09-28](informes-de-avance/2026-09-28-informe-de-avance.md).

@@ -179,6 +179,40 @@ Sprint 3 por diseño, no por incumplimiento.
    como foco de hoy; C-24 (credenciales write-only) y C-11 esperan a que uno
    de los dos cierre su contrato local.
 
+## Resultado de verificación y decisión de avance — 2026-09-28
+
+Se ejecutaron las suites con el Node fijado por el repositorio (`24.21.0`),
+pnpm `12.4.2`, Docker Desktop `29.4.3` y Compose `5.1.3`:
+
+| Gate local | Resultado | Alcance demostrado |
+| --- | --- | --- |
+| Unit/contract `modules/connectors/test` | PASS, 47/47 en 3 archivos | Adapter, port y reglas de arquitectura C-10 contra dobles de prueba |
+| Configuración C-03 usada por C-10 | PASS, 49/49 | Validación de runtime/configuración |
+| Contract suite C-28 | PASS, 6/6 | Allowlist, métodos, autenticación, límites, timeouts y configuración |
+| `validate.ps1` + checker de la imagen oficial KrakenD | PASS, `Syntax OK` | Sintaxis/configuración de la versión fijada por tag |
+| Runtime C-10 → C-28 → Indexer controlado | PASS | Imagen KrakenD en Docker local, JWKS efímero y mock Indexer; 401/403/429/5xx, timeout, reset, 404/método, filtrado, métricas y recuperación |
+
+El benchmark corto del harness informó 1,540 solicitudes en 2 s, 770 req/s,
+p50 4.51 ms, p95 8.36 ms, p99 16.67 ms y 0% de errores. Es un smoke loopback
+con mocks, no un SLO ni un resultado de sizing/capacidad.
+El [registro JSON de evidencia](../c-10/assets/2026-09-28-c10-c28-contract-run.json)
+declara que el árbol estaba modificado; los resultados pertenecen al árbol local
+verificado y no deben atribuirse a un checkout limpio de CI.
+
+**Decisión:** sí se puede pasar ahora a **C-11 y C-24** para implementación y
+contratos locales, respetando el WIP de dos componentes. C-11 es el siguiente
+paso de la ruta de ingesta durable; C-24 habilita la frontera write-only que
+necesita la promoción futura de C-28. Esta decisión solo cierra el gate de
+contratos locales de C-10/C-28.
+
+PBI-007 **sigue `BLOCKED`**: el diagnóstico real de CesarQAPAQ encontró tokens
+sin roles y `401 AF10001` al consultar suscripciones de Office 365; falta
+`ActivityFeed.Read` con admin consent y revalidación autorizada. El registro está
+en [PBI-007](../pbi-007/README.md) y el ADR-024 define la vertical. No se declara
+aceptación de Microsoft 365, proveedores, Manager/Indexer reales ni infraestructura
+KrakenD real. Los insumos de producción C-28 siguen `TO_BE_PROVIDED`; E2E/HA y
+capacidad real permanecen como gates.
+
 ## Bloqueos y riesgos vigentes
 
 | Elemento | Estado | Dueño | Siguiente acción |
@@ -193,8 +227,9 @@ Sprint 3 por diseño, no por incumplimiento.
 ## Confianza en el Sprint Goal
 
 ÁMBAR al abrir Sprint 2: el gate previo de Sprint 1 está satisfecho con sus
-excepciones documentadas, y el trabajo local de C-28/C-10 puede arrancar hoy
-sin depender de Wazuh ni KrakenD reales. El Sprint Goal original — admitir una
+excepciones documentadas. El baseline de contratos locales C-28/C-10 pasó y la
+siguiente pareja de WIP es C-11/C-24, sin depender de Wazuh ni KrakenD productivos.
+El Sprint Goal original — admitir una
 alerta Wazuh real originada en Microsoft 365 — sigue condicionado enteramente
 a PBI-007, que abre el Sprint `BLOCKED`. El alcance de hoy se amplió con dos
 PBI P0 nuevos (credenciales write-only, gateway KrakenD) cuyo compromiso en

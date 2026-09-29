@@ -41,6 +41,9 @@ export interface EventPage {
 
 export type ProviderErrorCode =
   | 'PROVIDER_CONFIGURATION_INVALID'
+  | 'PROVIDER_GATEWAY_UNAVAILABLE'
+  | 'PROVIDER_UPSTREAM_UNAVAILABLE'
+  | 'PROVIDER_UPSTREAM_SERVER_ERROR'
   | 'PROVIDER_UNAVAILABLE'
   | 'PROVIDER_AUTHENTICATION_FAILED'
   | 'PROVIDER_AUTHORIZATION_DENIED'
@@ -60,6 +63,7 @@ export class SecurityEventProviderError extends Error {
     public readonly operation: 'health' | 'readPage',
     public readonly retryable: boolean,
     message = code,
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'SecurityEventProviderError';

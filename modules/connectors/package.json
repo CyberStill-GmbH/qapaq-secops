@@ -9,10 +9,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config ../../vitest.config.ts modules/connectors/test"
   },
-  "dependencies": {
-    "@opensearch-project/opensearch": "3.6.0"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@types/node": "24.13.6",
     "typescript": "6.0.3"
   }
 }

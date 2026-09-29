@@ -74,7 +74,7 @@ try {
     cleanup: { status: cleanupStatus, remainingOwnedResources: [] },
     result: complete ? 'PASS' : evidence.result === 'BLOCKED' ? 'BLOCKED' : 'FAIL',
     suite: {
-      name: 'C-04 PostgreSQL',
+      name: 'C-04/C-24 PostgreSQL',
       status: suiteExitCode === null ? 'NOT_RUN' : suiteExitCode === 0 ? 'PASS' : 'FAIL',
       checks: [command, `exitCode=${suiteExitCode ?? 'NOT_RUN'}`],
     },

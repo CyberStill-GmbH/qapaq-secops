@@ -87,14 +87,22 @@ humano; eso no sustituye el DoD documentado.
 
 | ID | Componente y ruta principal | Responsabilidad | PBI | Depende de | Specs y evidencia de salida |
 | --- | --- | --- | --- | --- | --- |
-| C-10 | `modules/connectors` adapter Wazuh | Registro de fuente, consulta paginada, errores y checkpoint input | 007, 008 | C-05, C-08 | Provider specs contra Microsoft 365/Wazuh e Indexer reales |
+| C-10 | `modules/connectors` adapter Wazuh | Registro de fuente, consulta paginada, errores y checkpoint input | 007, 008 | C-05, C-08, C-28 | Contract/unit suite local y probe por KrakenD contra mock; provider specs contra Microsoft 365/Wazuh e Indexer reales siguen bloqueadas |
 | C-11 | `modules/telemetry` admisión durable | Raw/ref/hash, manifiesto/outbox y avance de checkpoint | 009 | C-04, C-06, C-10 | Caída en cada frontera sin pérdida ni cursor adelantado |
 | C-12 | `modules/telemetry` normalizador Wazuh | Mapping versionado hacia SecurityEvent y rechazo seguro | 010 | C-05, C-10, C-11 | Corpus autorizado, procedencia/severidad y schema PASS |
 | C-13 | `modules/telemetry` resiliencia | Inbox, idempotencia, replay, quarantine y reprocess | 011 | C-11, C-12 | Reinicio, carrera, duplicado y poison event sin efecto duplicado |
 | C-14 | `modules/telemetry` proyección y consulta | Indexación OpenSearch y query API tipada/autorizable | 012 | C-12, C-13 | OpenSearch real, caída/recovery, límites y raw oculto por defecto |
 | C-15 | `platform/observability` y señales del pipeline | Métricas, logs, traces y health con cardinalidad acotada | 013 | C-10…C-14 | Cada estado healthy/degraded/failed provocado y observado |
-| C-24 | `platform/configuration` + frontera control plane/SecretProvider | Alta, rotación y revocación write-only; persistir solo ref/fingerprint/metadata | 029 | C-03, C-08 | Contract/security specs sin GET/export/plaintext; E2E final en Sprint 3 |
+| C-24 | `platform/configuration` + frontera control plane/SecretProvider | Alta, rotación y revocación write-only; persistir solo ref/fingerprint/metadata | 029 | C-03, C-08 | DONE: contract/security/PostgreSQL specs sin GET/export/plaintext; E2E real permanece planificado para Sprint 3 |
 | C-28 | `platform/gateway/krakend` + LB/config | Gateway CE on-premises, rutas allowlisted, TLS/OAuth, límites y telemetría; sin estado de negocio | 030 | C-03, C-06, C-24 | Config validation y 401/403/429/5xx/timeout; integración con C-10/C-15 y admisión antes de BullMQ |
+
+**C-11 delivery note (2026-09-28):** existe ya el paquete de orquestación de
+admisión y adapter S3-compatible, integrado contractualmente con C-04 y C-10;
+las pruebas unitarias y la integración C-06 PostgreSQL + MinIO cubren
+persistencia/verificación previa, replay y checkpoint sin avance tras fallo DB.
+C-11 queda `BLOCKED`, no DONE, hasta crash/fault en todas las fronteras,
+concurrencia integral, reconciliación segura, publisher e integración CI. Evidencia y matriz de fallo en
+[`C-11`](c-11/README.md).
 
 Orden crítico: C-10 → C-11 → C-12 → C-13 → C-14. C-15 se añade durante cada
 componente y se cierra al final; no se pospone toda la observabilidad a una tarea

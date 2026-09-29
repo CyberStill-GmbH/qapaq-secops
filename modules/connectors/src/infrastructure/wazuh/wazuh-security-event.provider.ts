@@ -21,31 +21,36 @@ export interface WazuhSearchResponse {
 }
 export interface WazuhReadClient {
   health(signal?: AbortSignal): Promise<{ readonly status: string }>;
-  search(options: {
-    readonly index: string;
-    readonly body: Readonly<Record<string, unknown>>;
-    readonly signal?: AbortSignal;
-  }): Promise<WazuhSearchResponse>;
+  search(
+    body: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
+  ): Promise<WazuhSearchResponse>;
   close(): Promise<void>;
 }
 
-export interface WazuhManagerHealthClient {
-  health(): Promise<{ readonly status: 'healthy'; readonly version?: string }>;
+export interface WazuhConnectorTelemetryEvent {
+  readonly connector: 'wazuh';
+  readonly operation: 'health' | 'search_security_events';
+  readonly result: 'success' | 'failure';
+  readonly errorClass?: string;
+  readonly durationMs: number;
+}
+
+export interface WazuhConnectorTelemetry {
+  record(event: WazuhConnectorTelemetryEvent): void;
 }
 
 export interface WazuhSecurityEventProviderOptions {
   readonly sourceId: string;
   readonly allowedDatasets: readonly string[];
-  readonly allowedIndices: readonly string[];
-  readonly index: string;
   readonly maximumPageSize: number;
   readonly maximumResponseBytes: number;
   readonly retryLimit?: number;
   readonly maximumBackoffMs?: number;
   readonly cursorSecret: string;
-  readonly managerClient: WazuhManagerHealthClient;
   readonly cursorTtlMs?: number;
   readonly client: WazuhReadClient;
+  readonly telemetry?: WazuhConnectorTelemetry;
   readonly now?: () => number;
 }
 
@@ -65,6 +70,7 @@ const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
 const DATASET = 'wazuh-alerts';
 
 function errorFrom(error: unknown, operation: 'health' | 'readPage'): SecurityEventProviderError {
+  if (error instanceof SecurityEventProviderError) return error;
   const candidate = error as {
     statusCode?: number;
     name?: string;
@@ -72,14 +78,24 @@ function errorFrom(error: unknown, operation: 'health' | 'readPage'): SecurityEv
     meta?: { statusCode?: number };
   };
   const status = candidate?.statusCode ?? candidate?.meta?.statusCode;
-  if (candidate?.name === 'AbortError')
+  if (
+    candidate?.name === 'AbortError' ||
+    candidate?.code === 'REQUEST_TIMEOUT' ||
+    candidate?.code === 'REQUEST_CANCELLED'
+  )
     return new SecurityEventProviderError('PROVIDER_TIMEOUT', operation, false);
   if (status === 401)
     return new SecurityEventProviderError('PROVIDER_AUTHENTICATION_FAILED', operation, false);
   if (status === 403)
     return new SecurityEventProviderError('PROVIDER_AUTHORIZATION_DENIED', operation, false);
   if (status === 429)
-    return new SecurityEventProviderError('PROVIDER_RATE_LIMITED', operation, true);
+    return new SecurityEventProviderError(
+      'PROVIDER_RATE_LIMITED',
+      operation,
+      true,
+      'PROVIDER_RATE_LIMITED',
+      retryAfterMs(error),
+    );
   if (status === 400)
     return new SecurityEventProviderError('PROVIDER_QUERY_REJECTED', operation, false);
   if (
@@ -88,12 +104,21 @@ function errorFrom(error: unknown, operation: 'health' | 'readPage'): SecurityEv
     candidate?.code === 'ERR_TLS_CERT_ALTNAME_INVALID'
   )
     return new SecurityEventProviderError('PROVIDER_TLS_VALIDATION_FAILED', operation, false);
-  return new SecurityEventProviderError('PROVIDER_UNAVAILABLE', operation, true);
+  if (status === 500)
+    return new SecurityEventProviderError('PROVIDER_UPSTREAM_SERVER_ERROR', operation, false);
+  if (status === 502 || status === 503 || status === 504)
+    return new SecurityEventProviderError('PROVIDER_UPSTREAM_UNAVAILABLE', operation, true);
+  if (candidate?.code === 'MALFORMED_RESPONSE' || candidate?.code === 'RESPONSE_TOO_LARGE')
+    return new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', operation, false);
+  return new SecurityEventProviderError('PROVIDER_GATEWAY_UNAVAILABLE', operation, true);
 }
 
 function retryAfterMs(error: unknown): number | undefined {
-  const headers = (error as { meta?: { headers?: Record<string, string> } }).meta?.headers;
-  const value = headers?.['retry-after'];
+  const candidate = error as {
+    retryAfter?: string;
+    meta?: { headers?: Record<string, string> };
+  };
+  const value = candidate.retryAfter ?? candidate.meta?.headers?.['retry-after'];
   if (!value) return undefined;
   const seconds = Number(value);
   if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1_000, 60_000);
@@ -196,8 +221,6 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
   public constructor(private readonly options: WazuhSecurityEventProviderOptions) {
     if (
       !options.sourceId ||
-      !options.index ||
-      !options.allowedIndices.includes(options.index) ||
       options.cursorSecret.length < 32 ||
       options.maximumPageSize < 1 ||
       options.maximumResponseBytes < 1_024 ||
@@ -244,17 +267,23 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
         };
       }
     };
-    const [manager, indexer] = await Promise.all([
-      check('wazuh-manager', async () => {
-        await this.options.managerClient.health();
-      }),
-      check('wazuh-indexer', async () => {
-        const health = await this.options.client.health();
-        if (!['green', 'yellow'].includes(health.status.toLowerCase()))
-          throw new Error('unhealthy');
-      }),
-    ]);
-    const components = [manager, indexer];
+    const started = this.#now();
+    const gateway = await check('c28-wazuh-gateway', async () => {
+      const health = await this.options.client.health();
+      if (
+        typeof health.status !== 'string' ||
+        !['green', 'yellow'].includes(health.status.toLowerCase())
+      )
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'health', false);
+    });
+    this.options.telemetry?.record({
+      connector: 'wazuh',
+      operation: 'health',
+      result: gateway.status === 'healthy' ? 'success' : 'failure',
+      ...(gateway.status === 'healthy' ? {} : { errorClass: gateway.code }),
+      durationMs: Math.max(0, this.#now() - started),
+    });
+    const components = [gateway];
     return {
       status: components.every((component) => component.status === 'healthy')
         ? 'healthy'
@@ -309,16 +338,15 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
       let response: WazuhSearchResponse | undefined;
       for (let attempt = 0; attempt <= (this.options.retryLimit ?? 0); attempt += 1) {
         try {
-          response = await this.options.client.search({
-            index: this.options.index,
-            ...(query.signal ? { signal: query.signal } : {}),
-            body: {
+          response = await this.options.client.search(
+            {
               size: query.pageSize + 1,
               query: { range: { timestamp: { gte: query.from, lte: query.to } } },
               sort: [{ timestamp: { order: 'asc' } }, { id: { order: 'asc' } }],
               ...(searchAfter ? { search_after: searchAfter } : {}),
             },
-          });
+            query.signal,
+          );
           break;
         } catch (error) {
           if (!transient(error) || attempt >= (this.options.retryLimit ?? 0)) throw error;
@@ -349,10 +377,16 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
         )
           throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
         const timestamp = raw['timestamp'];
+        if (
+          typeof timestamp !== 'string' ||
+          !rfc3339.test(timestamp) ||
+          !Number.isFinite(Date.parse(timestamp))
+        )
+          throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
         items.push({
           sourceRecordId: hit._id,
           dataset: query.dataset,
-          ...(typeof timestamp === 'string' ? { occurredAt: timestamp } : {}),
+          occurredAt: timestamp,
           collectedAt: readAt,
           raw,
           metadata: {},
@@ -375,10 +409,25 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
               this.options.cursorSecret,
             )
           : undefined;
-      return { items, hasMore, readAt, ...(nextCursor ? { nextCursor } : {}) };
+      const result = { items, hasMore, readAt, ...(nextCursor ? { nextCursor } : {}) };
+      this.options.telemetry?.record({
+        connector: 'wazuh',
+        operation: 'search_security_events',
+        result: 'success',
+        durationMs: Math.max(0, this.#now() - Date.parse(readAt)),
+      });
+      return result;
     } catch (error) {
-      if (error instanceof SecurityEventProviderError) throw error;
-      throw errorFrom(error, 'readPage');
+      const mapped =
+        error instanceof SecurityEventProviderError ? error : errorFrom(error, 'readPage');
+      this.options.telemetry?.record({
+        connector: 'wazuh',
+        operation: 'search_security_events',
+        result: 'failure',
+        errorClass: mapped.code,
+        durationMs: Math.max(0, this.#now() - Date.parse(readAt)),
+      });
+      throw mapped;
     }
   }
 

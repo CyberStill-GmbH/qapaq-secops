@@ -115,6 +115,13 @@ Aceptación:
 
 Prioridad: P0 · Forecast: Sprint 2 · Tipo: Feature/Integration · Riesgo: alto.
 
+Estado al 2026-09-28: `BLOCKED`. Un diagnóstico real encontró tokens sin roles de
+aplicación y `401 AF10001` al leer las suscripciones de Office 365 Management API.
+Falta `ActivityFeed.Read` y admin consent del tenant, seguido de una re-prueba y
+un recorrido autorizado hasta una alerta Wazuh. Ver [registro y evidencia de
+desbloqueo](pbi-007/README.md). Las suites locales de C-10/C-28 no satisfacen
+estos criterios de aceptación.
+
 Como analista, necesito que actividad autorizada de Microsoft 365 sea recolectada y
 analizada por Wazuh.
 
@@ -413,6 +420,10 @@ Aceptación:
 - identidad del adapter resuelve únicamente su namespace;
 - rotación prueba la nueva versión antes de switch/revocación y no hace fallback;
 - onboarding sigue exigiendo adapter, mapping, límites, health y suite real.
+
+Evidencia del componente: [C-24](c-24/README.md) cierra contrato, lifecycle,
+persistencia PostgreSQL y security specs. El E2E con backend productivo permanece
+en Sprint 3 conforme al forecast original de este PBI.
 
 ### PBI-030 — Gateway on-premises para APIs de proveedores
 

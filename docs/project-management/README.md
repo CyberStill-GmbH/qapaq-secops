@@ -248,6 +248,8 @@ cifra. El burn-up del Product Goal muestra alcance total y trabajo Done.
 ## Artefactos del plan
 
 - [Product Backlog ordenado](product-backlog.md).
+- [PBI-007 — diagnóstico y plan de desbloqueo Microsoft 365/Wazuh](pbi-007/README.md).
+- [C-24 — control plane write-only de secretos](c-24/README.md).
 - [Definition of Done y criterios de refinamiento](definition-of-done.md).
 - [Plan de construcción por componentes](component-delivery-plan.md).
 - [Daily Scrum y registro](daily-scrum.md).

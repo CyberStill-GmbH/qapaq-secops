@@ -67,7 +67,7 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
     }
   });
 
-  it('aplica la migración desde una base vacía y crea exactamente siete tablas', async () => {
+  it('aplica todas las migraciones desde una base vacía y conserva las tablas C-04', async () => {
     const client = new Client(temporary!.url);
     await client.connect();
     const result = await client.query<{ tablename: string }>(
@@ -77,9 +77,14 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
     expect(result.rows.map((row) => row.tablename)).toEqual([
       'event_inbox',
       'ingestion_manifests',
+      'managed_secrets',
       'outbox_messages',
       'quarantined_events',
       'raw_event_references',
+      'secret_lifecycle_audit',
+      'secret_lifecycle_operations',
+      'secret_reconciliations',
+      'secret_versions',
       'source_checkpoints',
       'sources',
     ]);

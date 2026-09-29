@@ -6,6 +6,7 @@ export type {
 } from './configuration.errors.js';
 export {
   loadApiConfig,
+  loadControlPlaneSecretConfig,
   loadConfigurationAndStart,
   loadLocalWorkerConfig,
   loadRuntimeConfig,
@@ -14,6 +15,7 @@ export {
 } from './configuration-loader.js';
 export type {
   ApiConfig,
+  ControlPlaneSecretConfig,
   EnvironmentInput,
   MinioConfig,
   PostgreSqlConfig,
@@ -21,7 +23,7 @@ export type {
   RuntimeConfig,
   SecretCredential,
   WorkerConfig,
-  WazuhIndexerConfig,
+  WazuhGatewayConfig,
 } from './configuration.types.js';
 export { SecretValue } from './configuration.types.js';
 export { CONFIGURATION_LIMITS, REDACTED_VALUE } from './limits.js';
@@ -29,3 +31,4 @@ export { CONFIGURATION_PROFILES } from './profiles/index.js';
 export { redactSecrets } from './redaction/index.js';
 export { SecretProviderError, parseSecretReference } from './secrets/index.js';
 export type { SecretProvider, SecretReference } from './secrets/index.js';
+export * from './control-plane/index.js';

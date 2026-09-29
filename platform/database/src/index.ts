@@ -19,3 +19,4 @@ export {
   type AdmissionQuarantine,
   type AdmissionErrorCode,
 } from './commit-admission.js';
+export { PrismaSecretMetadataStore, createUuidV7 } from './secret-metadata.store.js';

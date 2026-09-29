@@ -179,3 +179,102 @@ model QuarantinedEvent {
   @@index([sourceId, manifestId, inboxId, rawEventReferenceId, recordId], map: "quarantined_events_receipt_idx")
   @@map("quarantined_events")
 }
+
+// C-24 persists references and lifecycle metadata only. Secret material is never a column.
+model ManagedSecret {
+  id             String    @id @db.Uuid
+  logicalName    String    @unique(map: "managed_secrets_logical_name_key") @map("logical_name") @db.Text
+  purpose        String    @db.Text
+  owner          String    @db.Text
+  classification String    @db.Text
+  provider       String    @db.Text
+  status         String    @db.Text
+  currentVersion Int       @map("current_version")
+  revision       Int
+  createdAt      DateTime  @map("created_at") @db.Timestamptz(3)
+  createdBy      String    @map("created_by") @db.Text
+  updatedAt      DateTime  @map("updated_at") @db.Timestamptz(3)
+  rotatedAt      DateTime? @map("rotated_at") @db.Timestamptz(3)
+  rotatedBy      String?   @map("rotated_by") @db.Text
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy      String?   @map("revoked_by") @db.Text
+
+  versions   SecretVersion[]
+  operations SecretLifecycleOperation[]
+
+  @@unique([id, currentVersion], map: "managed_secrets_current_version_key")
+  @@map("managed_secrets")
+}
+
+model SecretVersion {
+  secretId        String    @map("secret_id") @db.Uuid
+  version         Int
+  providerRef     String    @unique(map: "secret_versions_provider_ref_key") @map("provider_ref") @db.Text
+  providerVersion String    @map("provider_version") @db.Text
+  fingerprint     String    @db.Text
+  status          String    @db.Text
+  createdAt       DateTime  @map("created_at") @db.Timestamptz(3)
+  createdBy       String    @map("created_by") @db.Text
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(3)
+  supersededAt    DateTime? @map("superseded_at") @db.Timestamptz(3)
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy       String?   @map("revoked_by") @db.Text
+
+  secret ManagedSecret @relation(fields: [secretId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "secret_versions_secret_fkey")
+
+  @@id([secretId, version])
+  @@index([secretId, status], map: "secret_versions_status_idx")
+  @@map("secret_versions")
+}
+
+model SecretLifecycleOperation {
+  operationId String   @id @map("operation_id") @db.Text
+  secretId    String   @map("secret_id") @db.Uuid
+  operation   String   @db.Text
+  version     Int
+  completedAt DateTime @map("completed_at") @db.Timestamptz(3)
+
+  secret ManagedSecret @relation(fields: [secretId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "secret_lifecycle_operations_secret_fkey")
+
+  @@index([secretId, completedAt], map: "secret_lifecycle_operations_secret_idx")
+  @@map("secret_lifecycle_operations")
+}
+
+model SecretLifecycleAudit {
+  id            String   @id @db.Uuid
+  secretId      String   @map("secret_id") @db.Uuid
+  actorId       String   @map("actor_id") @db.Text
+  action        String   @db.Text
+  provider      String   @db.Text
+  providerRef   String?  @map("provider_ref") @db.Text
+  version       Int?
+  fingerprint   String?  @db.Text
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  result        String   @db.Text
+  correlationId String   @map("correlation_id") @db.Text
+  failureClass  String?  @map("failure_class") @db.Text
+
+  @@index([secretId, occurredAt, id], map: "secret_lifecycle_audit_secret_idx")
+  @@map("secret_lifecycle_audit")
+}
+
+model SecretReconciliation {
+  id              String    @id @db.Uuid
+  operationId     String    @unique(map: "secret_reconciliations_operation_key") @map("operation_id") @db.Text
+  secretId        String    @map("secret_id") @db.Uuid
+  logicalName     String    @map("logical_name") @db.Text
+  operation       String    @db.Text
+  provider        String    @db.Text
+  providerRef     String?   @map("provider_ref") @db.Text
+  fingerprint     String?   @db.Text
+  intendedVersion Int       @map("intended_version")
+  reason          String    @db.Text
+  actorId         String    @map("actor_id") @db.Text
+  correlationId   String    @map("correlation_id") @db.Text
+  createdAt       DateTime  @map("created_at") @db.Timestamptz(3)
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedBy      String?   @map("resolved_by") @db.Text
+
+  @@index([reason, createdAt], map: "secret_reconciliations_pending_idx")
+  @@map("secret_reconciliations")
+}

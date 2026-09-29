@@ -6,6 +6,7 @@ import {
   REDACTED_VALUE,
   SecretProviderError,
   loadApiConfig,
+  loadControlPlaneSecretConfig,
   loadConfigurationAndStart,
   loadLocalWorkerConfig,
   loadRuntimeConfig,
@@ -35,13 +36,9 @@ const references = {
   postgres: 'secret://test/postgres-password',
   minioAccess: 'secret://test/minio-access',
   minioSecret: 'secret://test/minio-secret',
-  wazuhUser: 'secret://test/wazuh-user',
-  wazuhPassword: 'secret://test/wazuh-password',
-  wazuhCa: 'secret://test/wazuh-ca',
+  wazuhGatewayToken: 'secret://test/wazuh-gateway-token',
   wazuhCursor: 'secret://test/wazuh-cursor-key',
-  wazuhManagerUser: 'secret://test/wazuh-manager-user',
-  wazuhManagerPassword: 'secret://test/wazuh-manager-password',
-  wazuhManagerCa: 'secret://test/wazuh-manager-ca',
+  c24Fingerprint: 'secret://test/c24-fingerprint-key',
 } as const;
 
 function validEnvironment(profile = 'test'): Record<string, string> {
@@ -53,13 +50,9 @@ function validEnvironment(profile = 'test'): Record<string, string> {
     QAPAQ_MINIO_RAW_BUCKET: 'qapaq-raw-test',
     QAPAQ_MINIO_ACCESS_KEY_REF: references.minioAccess,
     QAPAQ_MINIO_SECRET_KEY_REF: references.minioSecret,
-    QAPAQ_WAZUH_USERNAME_REF: references.wazuhUser,
-    QAPAQ_WAZUH_PASSWORD_REF: references.wazuhPassword,
-    QAPAQ_WAZUH_CA_REF: references.wazuhCa,
+    QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN_REF: references.wazuhGatewayToken,
     QAPAQ_WAZUH_CURSOR_SECRET_REF: references.wazuhCursor,
-    QAPAQ_WAZUH_MANAGER_USERNAME_REF: references.wazuhManagerUser,
-    QAPAQ_WAZUH_MANAGER_PASSWORD_REF: references.wazuhManagerPassword,
-    QAPAQ_WAZUH_MANAGER_CA_REF: references.wazuhManagerCa,
+    QAPAQ_SECRET_FINGERPRINT_KEY_REF: references.c24Fingerprint,
   };
 }
 
@@ -76,8 +69,7 @@ function productionEnvironment(): Record<string, string> {
     QAPAQ_MINIO_ENDPOINT: 'objects.example.test',
     QAPAQ_MINIO_PORT: '443',
     QAPAQ_MINIO_TLS: 'true',
-    QAPAQ_WAZUH_INDEXER_URL: 'https://indexer.example.test:9200',
-    QAPAQ_WAZUH_MANAGER_API_URL: 'https://manager.example.test:55000',
+    QAPAQ_WAZUH_GATEWAY_BASE_URL: 'https://gateway.example.test',
   };
 }
 
@@ -87,14 +79,9 @@ function provider(failure?: unknown): TestSecretProvider {
       [references.postgres]: 'postgres-secret-value',
       [references.minioAccess]: 'minio-access-value',
       [references.minioSecret]: 'minio-secret-value',
-      [references.wazuhUser]: 'wazuh-user-value',
-      [references.wazuhPassword]: 'wazuh-password-value',
-      [references.wazuhCa]: '-----BEGIN CERTIFICATE-----\nsynthetic\n-----END CERTIFICATE-----',
+      [references.wazuhGatewayToken]: 'synthetic-gateway-token',
       [references.wazuhCursor]: '0123456789abcdef0123456789abcdef-cursor-key',
-      [references.wazuhManagerUser]: 'wazuh-manager-reader',
-      [references.wazuhManagerPassword]: 'wazuh-manager-reader-secret',
-      [references.wazuhManagerCa]:
-        '-----BEGIN CERTIFICATE-----\nmanager-ca\n-----END CERTIFICATE-----',
+      [references.c24Fingerprint]: '0123456789abcdef0123456789abcdef-fingerprint-key',
       'secret://test/redis-password': 'redis-secret-value',
     },
     failure,
@@ -162,6 +149,18 @@ describe('profiles and structural validation', () => {
       'CONFIG_VALUE_INVALID',
       'QAPAQ_UNKNOWN',
     );
+  });
+
+  it.each([
+    'QAPAQ_WAZUH_INDEXER_URL',
+    'QAPAQ_WAZUH_INDEXER_HOST',
+    'QAPAQ_WAZUH_INDEXER_USERNAME',
+    'QAPAQ_WAZUH_INDEXER_PASSWORD',
+    'QAPAQ_OPENSEARCH_URL',
+  ])('fails startup when legacy direct-backend variable %s is configured', async (name) => {
+    await expect(
+      loadRuntimeConfig({ ...validEnvironment(), [name]: 'forbidden' }, provider()),
+    ).rejects.toMatchObject({ code: 'CONFIG_VALUE_INVALID', path: name });
   });
 
   it('does not mutate input and deeply freezes output', async () => {
@@ -239,6 +238,31 @@ describe('secret references and resolution', () => {
 });
 
 describe('service contracts and transport policy', () => {
+  it('loads separate C-24 lifecycle-provider configuration with a redacted HMAC key', async () => {
+    const config = await loadControlPlaneSecretConfig(validEnvironment(), provider());
+    expect(config).toMatchObject({
+      profile: 'test',
+      providerType: 'test-only',
+      providerTimeoutMs: 5_000,
+    });
+    expect(config.fingerprintKey.value.toJSON()).toBe('[REDACTED]');
+    expect(JSON.stringify(config)).not.toContain(
+      '0123456789abcdef0123456789abcdef-fingerprint-key',
+    );
+  });
+
+  it('rejects a test-only lifecycle provider in production', async () => {
+    await expect(
+      loadControlPlaneSecretConfig(
+        { ...productionEnvironment(), QAPAQ_SECRET_PROVIDER_TYPE: 'test-only' },
+        provider(),
+      ),
+    ).rejects.toMatchObject({
+      code: 'CONFIG_VALUE_INVALID',
+      path: 'QAPAQ_SECRET_PROVIDER_TYPE',
+    });
+  });
+
   it('builds PostgreSQL, Redis, MinIO and Wazuh contracts', async () => {
     const config = await loadRuntimeConfig(validEnvironment(), provider());
     expect(config.postgres).toMatchObject({
@@ -248,18 +272,13 @@ describe('service contracts and transport policy', () => {
     });
     expect(config.redis).toMatchObject({ port: 6379, database: 0, retryLimit: 5 });
     expect(config.minio).toMatchObject({ port: 9000, rawBucket: 'qapaq-raw-test', retryLimit: 5 });
-    expect(config.wazuh.indexer).toMatchObject({
-      baseUrl: 'https://127.0.0.1:9200/',
-      rejectUnauthorized: true,
+    expect(config.wazuh.gateway).toMatchObject({
+      baseUrl: 'http://127.0.0.1:18080/',
+      allowInsecureLocalhost: true,
       pageSize: 50,
       maximumPageSize: 200,
     });
-    expect(config.wazuh.manager).toMatchObject({
-      baseUrl: 'https://127.0.0.1:55000/',
-      connectTimeoutMs: 5_000,
-      requestTimeoutMs: 15_000,
-    });
-    expect(config.wazuh.indexer.cursorSigningKey.value.toJSON()).toBe('[REDACTED]');
+    expect(config.wazuh.gateway.cursorSigningKey.value.toJSON()).toBe('[REDACTED]');
     expect(JSON.stringify(config)).not.toContain('postgres-secret-value');
   });
 
@@ -267,8 +286,7 @@ describe('service contracts and transport policy', () => {
     ['QAPAQ_POSTGRES_TLS', 'false', 'CONFIG_TLS_REQUIRED'],
     ['QAPAQ_REDIS_TLS', 'false', 'CONFIG_TLS_REQUIRED'],
     ['QAPAQ_MINIO_TLS', 'false', 'CONFIG_TLS_REQUIRED'],
-    ['QAPAQ_WAZUH_INDEXER_URL', 'http://indexer.example.test:9200', 'CONFIG_INSECURE_TRANSPORT'],
-    ['QAPAQ_WAZUH_TLS_REJECT_UNAUTHORIZED', 'false', 'CONFIG_TLS_REQUIRED'],
+    ['QAPAQ_WAZUH_GATEWAY_BASE_URL', 'http://gateway.example.test', 'CONFIG_INSECURE_TRANSPORT'],
   ])('production rejects insecure %s', async (name, value, code) => {
     await expect(
       loadRuntimeConfig({ ...productionEnvironment(), [name]: value }, provider()),
@@ -292,8 +310,7 @@ describe('service contracts and transport policy', () => {
     ['QAPAQ_MINIO_RAW_BUCKET', 'INVALID_BUCKET', 'QAPAQ_MINIO_RAW_BUCKET'],
     ['QAPAQ_WAZUH_PAGE_SIZE', '0', 'QAPAQ_WAZUH_PAGE_SIZE'],
     ['QAPAQ_WAZUH_PAGE_SIZE', '201', 'QAPAQ_WAZUH_PAGE_SIZE'],
-    ['QAPAQ_WAZUH_ALLOWED_INDEX', '*', 'QAPAQ_WAZUH_ALLOWED_INDEX'],
-    ['QAPAQ_WAZUH_DATASET', 'arbitrary', 'QAPAQ_WAZUH_ALLOWED_INDEX'],
+    ['QAPAQ_WAZUH_DATASET', 'arbitrary', 'QAPAQ_WAZUH_DATASET'],
   ])('rejects invalid service limit %s', async (name, value, path) => {
     await expect(
       loadRuntimeConfig({ ...validEnvironment(), [name]: value }, provider()),
@@ -306,15 +323,19 @@ describe('service contracts and transport policy', () => {
         { ...validEnvironment(), QAPAQ_WAZUH_PAGE_SIZE: '100', QAPAQ_WAZUH_MAX_PAGE_SIZE: '50' },
         provider(),
       ),
-    ).rejects.toMatchObject({ code: 'CONFIG_LIMIT_INVALID', path: 'wazuh.indexer.pageSize' });
+    ).rejects.toMatchObject({ code: 'CONFIG_LIMIT_INVALID', path: 'wazuh.gateway.pageSize' });
   });
 
   it.each([
-    ['QAPAQ_WAZUH_INDEXER_URL', 'not-a-url', 'CONFIG_URL_INVALID'],
-    ['QAPAQ_WAZUH_INDEXER_URL', 'https://user:password@indexer.example.test', 'CONFIG_URL_INVALID'],
-    ['QAPAQ_WAZUH_CA_REF', '', 'CONFIG_REQUIRED_VALUE_MISSING'],
+    ['QAPAQ_WAZUH_GATEWAY_BASE_URL', 'not-a-url', 'CONFIG_URL_INVALID'],
+    [
+      'QAPAQ_WAZUH_GATEWAY_BASE_URL',
+      'https://user:password@gateway.example.test',
+      'CONFIG_URL_INVALID',
+    ],
+    ['QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN_REF', '', 'CONFIG_REQUIRED_VALUE_MISSING'],
     ['QAPAQ_WAZUH_REQUEST_TIMEOUT', '0s', 'CONFIG_DURATION_INVALID'],
-    ['QAPAQ_WAZUH_USERNAME_REF', 'literal-user', 'SECRET_REFERENCE_INVALID'],
+    ['QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN_REF', 'literal-token', 'SECRET_REFERENCE_INVALID'],
     ['QAPAQ_POSTGRES_CONNECTION_TIMEOUT', '999m', 'CONFIG_DURATION_INVALID'],
   ])('rejects invalid Wazuh setting %s', async (name, value, code) => {
     await expect(

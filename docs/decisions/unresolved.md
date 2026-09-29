@@ -580,7 +580,7 @@ aplicación `ActivityFeed.Read` (Office 365 Management APIs) y otorgar
 **admin consent** sobre el tenant — una acción en Azure Portal que ningún
 cambio de código puede sustituir. Detalle completo, pasos exactos y la
 configuración objetivo del módulo `o365` de Wazuh (sin versionar secretos)
-están en [C-10 — diagnóstico real de Microsoft 365 en Wazuh](../project-management/c-10/README.md).
+están en [PBI-007 — diagnóstico real de Microsoft 365 en Wazuh](../project-management/pbi-007/README.md).
 
 PBI-007 permanece `BLOCKED`. Este diagnóstico es evidencia reutilizable, no
 un cierre: evita repetir la investigación cuando se otorgue el consentimiento

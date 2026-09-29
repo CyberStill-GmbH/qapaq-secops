@@ -14,5 +14,6 @@ export default defineConfig({
     exclude: ['**/*.integration.spec.ts'],
     passWithNoTests: false,
     fsModuleCache: true,
+    isolate: false,
   },
 });

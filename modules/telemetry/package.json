@@ -1,0 +1,22 @@
+{
+  "name": "@qapaq/telemetry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --dir ../.. exec vitest run --config vitest.config.ts modules/telemetry/test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1138.0",
+    "@qapaq/database": "workspace:*"
+  },
+  "devDependencies": {
+    "@qapaq/testing": "workspace:*",
+    "@types/node": "24.13.6",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

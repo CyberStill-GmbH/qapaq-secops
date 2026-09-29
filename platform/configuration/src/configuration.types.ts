@@ -71,32 +71,18 @@ export interface MinioConfig {
   readonly retryLimit: number;
 }
 
-export interface WazuhIndexerConfig {
+export interface WazuhGatewayConfig {
   readonly baseUrl: string;
-  readonly username: SecretCredential;
-  readonly password: SecretCredential;
-  readonly certificateAuthority: SecretCredential;
-  readonly rejectUnauthorized: boolean;
-  readonly connectTimeoutMs: number;
+  readonly accessToken: SecretCredential;
   readonly requestTimeoutMs: number;
   readonly retryLimit: number;
   readonly pageSize: number;
   readonly maximumPageSize: number;
-  readonly allowedIndex: string;
   readonly dataset: string;
   readonly cursorSigningKey: SecretCredential;
   readonly cursorTtlMs: number;
   readonly maximumResponseBytes: number;
-}
-
-export interface WazuhManagerConfig {
-  readonly baseUrl: string;
-  readonly username: SecretCredential;
-  readonly password: SecretCredential;
-  readonly certificateAuthority: SecretCredential;
-  readonly connectTimeoutMs: number;
-  readonly requestTimeoutMs: number;
-  readonly maximumResponseBytes: number;
+  readonly allowInsecureLocalhost: boolean;
 }
 
 export interface RuntimeConfig {
@@ -105,12 +91,19 @@ export interface RuntimeConfig {
   readonly postgres: PostgreSqlConfig;
   readonly redis: RedisConfig;
   readonly minio: MinioConfig;
-  readonly wazuh: Readonly<{ indexer: WazuhIndexerConfig; manager: WazuhManagerConfig }>;
+  readonly wazuh: Readonly<{ gateway: WazuhGatewayConfig }>;
 }
 
 export interface WorkerConfig {
   readonly profile: ConfigurationProfileName;
   readonly redis: RedisConfig;
+}
+
+export interface ControlPlaneSecretConfig {
+  readonly profile: ConfigurationProfileName;
+  readonly providerType: string;
+  readonly providerTimeoutMs: number;
+  readonly fingerprintKey: SecretCredential;
 }
 
 export type EnvironmentInput = Readonly<Record<string, string | undefined>>;

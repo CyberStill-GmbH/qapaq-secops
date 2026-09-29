@@ -28,11 +28,11 @@ function createClient(): WazuhReadClient & {
 } {
   return {
     health: vi.fn(async () => ({ status: 'green' })),
-    search: vi.fn(async (options: { body: Readonly<Record<string, unknown>> }) => {
-      const range = (options.body['query'] as { range: { timestamp: { gte: string } } }).range;
+    search: vi.fn(async (body: Readonly<Record<string, unknown>>) => {
+      const range = (body['query'] as { range: { timestamp: { gte: string } } }).range;
       if (range.timestamp.gte === '2026-09-24T00:00:00.000Z')
         return { hits: { hits: [] } } as WazuhSearchResponse;
-      const after = options.body['search_after'] as readonly unknown[] | undefined;
+      const after = body['search_after'] as readonly unknown[] | undefined;
       return {
         hits: {
           hits: after
@@ -55,13 +55,10 @@ function provider(
     instance: new WazuhSecurityEventProvider({
       sourceId: 'lab',
       allowedDatasets: ['wazuh-alerts'],
-      allowedIndices: ['wazuh-alerts-*'],
-      index: 'wazuh-alerts-*',
       maximumPageSize: 10,
       maximumResponseBytes: 1_000_000,
       retryLimit,
       cursorSecret: SECRET,
-      managerClient: { health: vi.fn(async () => ({ status: 'healthy' as const })) },
       client,
       now,
     }),
@@ -76,18 +73,16 @@ describe('WazuhSecurityEventProvider', () => {
     ({ client, instance } = provider());
   });
 
-  it('builds a read-only bounded search against the configured index', async () => {
+  it('builds a read-only bounded search for the gateway route', async () => {
     await instance.readPage(QUERY);
     expect(client.search).toHaveBeenCalledWith(
       expect.objectContaining({
-        index: 'wazuh-alerts-*',
-        body: expect.objectContaining({
-          size: 2,
-          query: { range: { timestamp: { gte: QUERY.from, lte: QUERY.to } } },
-        }),
+        size: 2,
+        query: { range: { timestamp: { gte: QUERY.from, lte: QUERY.to } } },
       }),
+      undefined,
     );
-    expect(client.search.mock.calls[0]?.[0]).not.toHaveProperty('method');
+    expect(client.search.mock.calls[0]?.[0]).not.toHaveProperty('script');
   });
 
   it('creates an opaque signed cursor and continues via search_after', async () => {
@@ -97,9 +92,8 @@ describe('WazuhSecurityEventProvider', () => {
     client.search.mockResolvedValueOnce({ hits: { hits: [hit('second', QUERY.from, 'evt-2')] } });
     const second = await instance.readPage({ ...QUERY, cursor: first.nextCursor });
     expect(client.search).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ search_after: [QUERY.from, 'evt-1'] }),
-      }),
+      expect.objectContaining({ search_after: [QUERY.from, 'evt-1'] }),
+      undefined,
     );
     expect(second.items[0]?.sourceRecordId).toBe('second');
   });
@@ -143,7 +137,7 @@ describe('WazuhSecurityEventProvider', () => {
     }
   });
 
-  it('rejects unconfigured datasets and indices before network access', async () => {
+  it('rejects unconfigured datasets before network access', async () => {
     await expect(instance.readPage({ ...QUERY, dataset: 'other' })).rejects.toMatchObject({
       code: 'PROVIDER_QUERY_REJECTED',
     });
@@ -152,12 +146,9 @@ describe('WazuhSecurityEventProvider', () => {
         new WazuhSecurityEventProvider({
           sourceId: 'lab',
           allowedDatasets: ['wazuh-alerts'],
-          allowedIndices: ['other-*'],
-          index: 'wazuh-alerts-*',
           maximumPageSize: 10,
           maximumResponseBytes: 1_000_000,
-          cursorSecret: SECRET,
-          managerClient: { health: vi.fn(async () => ({ status: 'healthy' as const })) },
+          cursorSecret: 'short',
           client,
         }),
     ).toThrow(SecurityEventProviderError);
@@ -167,6 +158,36 @@ describe('WazuhSecurityEventProvider', () => {
   it('closes the underlying client', async () => {
     await instance.close();
     expect(client.close).toHaveBeenCalledOnce();
+  });
+
+  it('emits low-cardinality success and failure telemetry without query or token data', async () => {
+    const record = vi.fn();
+    const observed = new WazuhSecurityEventProvider({
+      sourceId: 'lab',
+      allowedDatasets: ['wazuh-alerts'],
+      maximumPageSize: 10,
+      maximumResponseBytes: 1_000_000,
+      cursorSecret: SECRET,
+      client,
+      telemetry: { record },
+    });
+    await observed.readPage(QUERY);
+    client.search.mockRejectedValueOnce({ statusCode: 401 });
+    await expect(observed.readPage(QUERY)).rejects.toMatchObject({
+      code: 'PROVIDER_AUTHENTICATION_FAILED',
+    });
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connector: 'wazuh',
+        operation: 'search_security_events',
+        result: 'success',
+      }),
+    );
+    expect(record).toHaveBeenLastCalledWith(
+      expect.objectContaining({ result: 'failure', errorClass: 'PROVIDER_AUTHENTICATION_FAILED' }),
+    );
+    expect(JSON.stringify(record.mock.calls)).not.toContain(SECRET);
+    expect(JSON.stringify(record.mock.calls)).not.toContain(QUERY.from);
   });
 
   describe('portable contract', () => {
