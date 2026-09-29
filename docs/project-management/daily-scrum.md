@@ -468,15 +468,17 @@ Detalle en
 [informe de cierre 2026-09-28](informes-de-avance/2026-09-28-informe-de-cierre.md)
 y [C-10 — diagnóstico](c-10/README.md).
 
-Componentes activos y estado:
+Componentes activos y estado. Sprint 2 comprende ocho componentes (ruta crítica
+C-10…C-14 más los transversales C-15, C-24 y C-28); cuatro están construidos:
 
-- C-01…C-09, C-28: `DONE` o `DONE` con excepción documentada, sin cambio hoy.
-- C-10, C-11, C-24: construidos en `7e46282` con contrato y suites locales;
-  su aceptación real sigue condicionada a PBI-007 y a PostgreSQL real.
+- C-01…C-09: `DONE` o `DONE` con excepción documentada, sin cambio hoy. C-08
+  sigue siendo el gate de entrada con su excepción del PO del 2026-09-25.
+- C-10, C-11, C-24, C-28: construidos; C-24 además endurecido hoy en `18c26f2`.
+  Su aceptación real sigue condicionada a PBI-007 y a infraestructura real.
 - C-12, C-13, C-14, C-15: sin código construido; son el alcance restante.
 
-Plan hasta el siguiente Daily — cerrar el alcance construible que queda de
-Sprint 2, sobre lo ya incorporado ayer:
+Plan hasta el siguiente Daily — cerrar los cuatro componentes que faltan y
+completar así todos los componentes de Sprint 2:
 
 1. C-12 — mapping Wazuh → SecurityEvent versionado y validado.
 2. C-13 — idempotencia, replay, duplicados y cuarentena con lineage.
@@ -490,7 +492,12 @@ Sprint 2, sobre lo ya incorporado ayer:
    otorga hoy, re-ejecutar de inmediato la verificación real de C-10.
 
 Cada componente exige su suite local real y failure path demostrado antes de
-declararse `DONE`; el volumen de alcance de hoy no relaja ese estándar.
+declararse `DONE`; el volumen de alcance de hoy no relaja ese estándar. C-13 y
+C-14 necesitan PostgreSQL, Redis y OpenSearch reales: con Docker Desktop caído,
+o se ejecutan en CI o quedan `IN_PROGRESS` con el comando y el entorno
+declarados, sin sustituirse por dobles. C-14 es el de mayor riesgo de no cerrar
+hoy. Plan y specs por componente en el
+[informe del día](informes-de-avance/2026-09-29-informe-de-avance.md).
 
 Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
 
