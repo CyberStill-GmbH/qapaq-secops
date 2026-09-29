@@ -449,3 +449,73 @@ permite avanzar en C-11/C-24; el Sprint Goal completo depende de acceso y
 aceptación autorizada Microsoft 365/Wazuh, que siguen bloqueados por PBI-007.
 
 Informe: [Daily Scrum 2026-09-28](informes-de-avance/2026-09-28-informe-de-avance.md).
+
+## Registro — 2026-09-29
+
+Sprint: 2 — Ingesta durable Microsoft 365/Wazuh (Sprint Goal vigente).
+
+Cierre de ayer: la jornada del 28 cerró en dos tramos. Primero `3e10d73`, con
+C-28 (gateway KrakenD, contrato/baseline) fusionado en `main`, contrato local
+6/6 PASS y gate CI `c28-krakend` obligatorio; la integración local no se
+ejecutó por el fallo persistente de Docker Desktop/WSL y quedó validada en CI.
+Después `7e46282` (`feat(platform): endurece lifecycle de secretos e ingesta`),
+que incorporó C-10, C-11 y C-24 con sus suites locales y registró
+[ADR-027](../adr/027-write-only-secret-lifecycle-control-plane.md). PBI-007
+sigue `BLOCKED`, con diagnóstico real de causa raíz: el app registration de
+Entra autentica pero no tiene permisos de aplicación concedidos
+(`401 AF10001`); falta el admin consent de Franco sobre `ActivityFeed.Read`.
+Detalle en
+[informe de cierre 2026-09-28](informes-de-avance/2026-09-28-informe-de-cierre.md)
+y [C-10 — diagnóstico](c-10/README.md).
+
+Componentes activos y estado:
+
+- C-01…C-09, C-28: `DONE` o `DONE` con excepción documentada, sin cambio hoy.
+- C-10, C-11, C-24: construidos en `7e46282` con contrato y suites locales;
+  su aceptación real sigue condicionada a PBI-007 y a PostgreSQL real.
+- C-12, C-13, C-14, C-15: sin código construido; son el alcance restante.
+
+Plan hasta el siguiente Daily — cerrar el alcance construible que queda de
+Sprint 2, sobre lo ya incorporado ayer:
+
+1. C-12 — mapping Wazuh → SecurityEvent versionado y validado.
+2. C-13 — idempotencia, replay, duplicados y cuarentena con lineage.
+3. C-14 — proyección OpenSearch y consulta tipada/autorizable.
+4. C-15 (transversal) — Collector, Loki/Prometheus, dashboard mínimo.
+5. Endurecimiento aditivo de C-24 ya incorporado hoy: mapeo de sus códigos
+   internos al catálogo público de errores y guardas de ciclo de vida en
+   PostgreSQL (identidad inmutable, revisión que solo avanza, revocado
+   terminal, versión histórica no reactivable).
+6. Seguimiento en paralelo del admin consent pendiente de PBI-007; si se
+   otorga hoy, re-ejecutar de inmediato la verificación real de C-10.
+
+Cada componente exige su suite local real y failure path demostrado antes de
+declararse `DONE`; el volumen de alcance de hoy no relaja ese estándar.
+
+Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
+
+- PBI-007 sin admin consent otorgado sobre `ActivityFeed.Read` — impacto:
+  bloquea el Sprint Goal E2E aunque C-10…C-14 lleguen a `DONE` local —
+  dueño: Franco Clavo Santander — siguiente acción: otorgar el consentimiento
+  en Azure Portal hoy si es posible — escalamiento: Product Owner si no hay
+  respuesta antes del cierre de Sprint 2.
+- Docker Desktop/WSL sin levantar el daemon en el host de desarrollo —
+  impacto: bloquea validación local de C-28 y posiblemente de los nuevos
+  componentes — dueño: Cesar — siguiente acción: reintentar el runbook
+  ampliado ayer; escalar con Diagnostic ID si persiste.
+- Alcance de hoy cubre siete componentes/PBI en una sola jornada — impacto:
+  riesgo de sobrecompromiso aceptado explícitamente — dueño: Cesar —
+  siguiente acción: registrar `IN_PROGRESS` con pendiente exacto cualquier
+  componente que no cierre con evidencia real al final del día, sin forzar
+  `DONE`.
+
+Cambio al Sprint Backlog: ninguno declarado al abrir hoy; PBI-007 se
+mantiene `BLOCKED` como ya estaba registrado.
+
+Confianza en el Sprint Goal: ÁMBAR. El objetivo de hoy —completar toda la
+construcción local de Sprint 2— es alcanzable porque C-28 y el contrato de
+C-08 ya están en `main`, pero exige mantener evidencia verificable en siete
+componentes/PBI sin recortarla por el timebox. El Sprint Goal formal sigue
+condicionado enteramente al admin consent pendiente de PBI-007.
+
+Informe: [Daily Scrum 2026-09-29](informes-de-avance/2026-09-29-informe-de-avance.md).

@@ -12,6 +12,7 @@ export {
   type SecretMetadataStoreErrorCode,
 } from './secret-metadata-store.port.js';
 export { SecretControlPlane, type SecretControlPlaneDependencies } from './secret-control-plane.js';
+export { toPublicSecretError, type PublicSecretError } from './secret-public-errors.js';
 export {
   SECRET_CAPABILITIES,
   SecretControlPlaneError,
