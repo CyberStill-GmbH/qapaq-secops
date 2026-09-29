@@ -45,6 +45,30 @@ crear el cliente correspondiente. `redactSecrets` protege diagnóstico autorizad
 incluidos objetos cíclicos, arrays y credenciales accidentales en URLs. El arranque
 normal nunca registra la configuración completa.
 
+## Control plane write-only de secretos (C-24)
+
+`SecretControlPlane` gestiona el alta, la rotación y la revocación de credenciales
+de integración. Persiste únicamente referencia, fingerprint y metadata no sensible;
+no existe ninguna operación que devuelva el valor enviado.
+
+`SecretWriter` es un puerto **distinto** de `SecretProvider`: aquel solo escribe bajo
+la identidad del control plane y este solo resuelve en runtime bajo la identidad del
+adapter. La separación impide por tipos que el control plane lea y que el runtime
+escriba; el control plane no importa `SecretProvider`, y una spec lo verifica.
+
+- `SubmittedSecret` transporta el material recibido, se serializa como `[REDACTED]`
+  —también bajo `util.inspect`— y se quema en el primer uso, incluso si la operación
+  falla: un reintento exige reenviar el valor por TLS.
+- El fingerprint es `hmac-sha256:v1:<keyId>:<128 bits>`; la clave vive fuera de la
+  tabla de metadata para que un volcado no permita fuerza bruta offline.
+- `SecretMetadataStore` exige el `SecretAuditEvent` en la firma de cada mutación y
+  debe aplicarlo atómicamente: sin auditoría no hay cambio visible (ADR-012).
+- La autorización es un puerto con denegación por defecto; el PolicyGuard real llega
+  en C-18. No existe capability de lectura de valor.
+
+Detalle, threat model, semántica de fallo y escenario E2E de Sprint 3 en
+[C-24](../../docs/project-management/c-24/README.md).
+
 ## Límites C-03
 
 - puertos: 1–65535; solo `QAPAQ_API_PORT=0` bajo el perfil `test` permite que el

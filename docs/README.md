@@ -62,6 +62,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Endurecimiento de acceso, secretos y stack Grafana OSS/Loki/Prometheus](architecture/security-access-observability-baseline.md).
 - [Control interno de logs SOC y análisis SBS](compliance/sbs-observability-rationale.md).
 - [Catálogo de errores](error-catalog.md).
+- [C-24 — control plane write-only de credenciales](project-management/c-24/README.md).
 - [API Gateway KrakenD de proveedores](architecture/provider-api-gateway.md).
 - [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).

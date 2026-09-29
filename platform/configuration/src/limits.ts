@@ -13,6 +13,13 @@ export const CONFIGURATION_LIMITS = Object.freeze({
   secretReferenceMaximumLength: 256,
   redactionMaximumDepth: 16,
   redactionMaximumProperties: 1_000,
+  secretPlaintextMinimumBytes: 8,
+  secretPlaintextMaximumBytes: 8_192,
+  secretPurposeMaximumLength: 64,
+  secretOwnerMaximumLength: 128,
+  secretLabelMaximumEntries: 16,
+  secretLabelMaximumLength: 128,
+  secretFingerprintBits: 128,
 } as const);
 
 export const REDACTED_VALUE = '[REDACTED]' as const;

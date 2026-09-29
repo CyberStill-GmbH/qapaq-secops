@@ -156,6 +156,50 @@ model OutboxMessage {
   @@map("outbox_messages")
 }
 
+// C-24: metadata write-only de credenciales. Ninguna columna admite material
+// secreto; el valor vive solo en el gestor externo. Los CHECK y triggers que
+// imponen inmutabilidad de identidad, revisión monótona y revocación terminal
+// están en la migración SQL.
+model IntegrationSecretMetadata {
+  id          String    @id @db.Uuid
+  secretRef   String    @unique(map: "integration_secret_metadata_secret_ref_key") @map("secret_ref") @db.Text
+  namespace   String    @db.Text
+  purpose     String    @db.Text
+  provider    String    @db.Text
+  owner       String    @db.Text
+  status      String    @default("active") @db.Text
+  version     Int
+  revision    BigInt
+  fingerprint String    @db.Text
+  labels      Json      @default("{}") @db.JsonB
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String    @map("created_by") @db.Text
+  rotatedAt   DateTime? @map("rotated_at") @db.Timestamptz(3)
+  rotatedBy   String?   @map("rotated_by") @db.Text
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy   String?   @map("revoked_by") @db.Text
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  operations IntegrationSecretOperation[]
+
+  @@index([status, expiresAt], map: "integration_secret_metadata_status_idx")
+  @@map("integration_secret_metadata")
+}
+
+model IntegrationSecretOperation {
+  requestId        String   @id @map("request_id") @db.Text
+  secretMetadataId String   @map("secret_metadata_id") @db.Uuid
+  action           String   @db.Text
+  correlationId    String   @map("correlation_id") @db.Text
+  appliedAt        DateTime @map("applied_at") @db.Timestamptz(3)
+
+  secret IntegrationSecretMetadata @relation(fields: [secretMetadataId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "integration_secret_operations_metadata_fkey")
+
+  @@index([secretMetadataId, appliedAt], map: "integration_secret_operations_metadata_idx")
+  @@map("integration_secret_operations")
+}
+
 model QuarantinedEvent {
   id                  String    @id @db.Uuid
   sourceId            String    @map("source_id") @db.Uuid
