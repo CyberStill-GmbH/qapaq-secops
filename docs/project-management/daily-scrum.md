@@ -673,4 +673,4 @@ local está completa y en verde; lo que falta no se resuelve con código de este
 lado. El Sprint Goal formal no se alcanzará mientras PBI-007 siga sin
 consentimiento.
 
-Informe: [Cierre 2026-09-30](informes-de-avance/2026-09-30-informe-de-cierre.md).
+Informe: [Daily Scrum 2026-10-01](informes-de-avance/2026-10-01-informe-de-avance.md) · [Cierre 2026-09-30](informes-de-avance/2026-09-30-informe-de-cierre.md).

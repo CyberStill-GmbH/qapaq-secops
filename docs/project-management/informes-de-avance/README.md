@@ -9,6 +9,7 @@ respalde.
 
 ## Índice
 
+- [2026-10-01 — Daily Scrum: la deuda de Sprint 2 ya no es de construcción sino de verificación](2026-10-01-informe-de-avance.md).
 - [2026-09-30 — Cierre de día: C-12 construido; dominio de C-13, C-14 y C-15 completo; corrección del conteo de pruebas](2026-09-30-informe-de-cierre.md).
 - [2026-09-30 — Daily Scrum: plan re-secuenciado, C-12 como único compromiso del día](2026-09-30-informe-de-avance.md).
 - [2026-09-29 — Cierre de día: endurecimiento de C-24; objetivo de cuatro componentes no alcanzado](2026-09-29-informe-de-cierre.md).
