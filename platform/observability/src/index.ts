@@ -23,3 +23,29 @@ export {
   type PipelineRates,
   type PipelineSignals,
 } from './pipeline-health.js';
+export {
+  CARDINALITY_BUDGET_PER_METRIC,
+  METRIC_TYPES,
+  SOC_METRICS,
+  validateSocMetrics,
+  type MetricSpec,
+  type MetricType,
+  type SignalValidation,
+} from './soc-signals.js';
+export {
+  ALERT_RULES,
+  BACKUP_RECOVERY_PLAN,
+  buildDashboards,
+  EXTERNAL_RECEIVER,
+  GRAFANA_HARDENING,
+  LOKI_UID,
+  PROMETHEUS_UID,
+  RETENTION_POLICIES,
+  serializeDashboard,
+  type AlertRule,
+  type GrafanaDashboard,
+  type GrafanaPanel,
+  type HardeningCheck,
+  type RecoveryStep,
+  type RetentionPolicy,
+} from './grafana-provisioning.js';

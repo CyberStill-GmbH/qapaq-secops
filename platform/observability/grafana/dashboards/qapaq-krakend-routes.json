@@ -1,0 +1,72 @@
+{
+  "uid": "qapaq-krakend-routes",
+  "title": "QAPAQ SecOps · KrakenD por ruta",
+  "tags": [
+    "qapaq",
+    "gateway"
+  ],
+  "timezone": "utc",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "title": "GET /wazuh/_cluster/health · tasa por código",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(krakend_http_requests_total{endpoint=\"/wazuh/_cluster/health\",method=\"GET\"}[5m])) by (status_code)",
+          "legendFormat": "{{status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "GET /wazuh/_cluster/health · latencia p95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(krakend_http_request_duration_seconds_bucket{endpoint=\"/wazuh/_cluster/health\",method=\"GET\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "POST /wazuh/_search · tasa por código",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(krakend_http_requests_total{endpoint=\"/wazuh/_search\",method=\"POST\"}[5m])) by (status_code)",
+          "legendFormat": "{{status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "POST /wazuh/_search · latencia p95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(krakend_http_request_duration_seconds_bucket{endpoint=\"/wazuh/_search\",method=\"POST\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    }
+  ]
+}
