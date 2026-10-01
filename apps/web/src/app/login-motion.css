@@ -1,0 +1,191 @@
+.auth-splash {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #080808;
+  pointer-events: none;
+  animation: auth-splash-out 1050ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-splash-mark {
+  width: clamp(64px, 7vw, 96px);
+  aspect-ratio: 1;
+  background: #fff;
+  opacity: 0.76;
+  filter: drop-shadow(0 0 16px rgb(255 255 255 / 12%));
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  animation: auth-mark-out 1050ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-topbar {
+  animation: auth-content-enter 780ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+
+.login-core {
+  animation: auth-content-enter 900ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+.auth-footer {
+  animation: auth-content-enter 720ms cubic-bezier(0.16, 1, 0.3, 1) 280ms both;
+}
+
+.brand-panel::after {
+  position: absolute;
+  z-index: 11;
+  inset: -8% -18%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(151 111 63 / 6%) 38%,
+    rgb(221 191 149 / 17%) 68%,
+    rgb(255 255 255 / 38%) 100%
+  );
+  filter: blur(22px);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  content: '';
+  animation: login-light-flash 1650ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+.login-light-amber {
+  animation: login-amber-arrival 1650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.login-light-core {
+  animation: login-core-arrival 1500ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+
+.login-glass-mark {
+  animation: login-mark-relight 1700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+@keyframes auth-splash-out {
+  0%,
+  42% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes auth-mark-out {
+  0% {
+    opacity: 0.76;
+    filter: blur(4px) drop-shadow(0 0 16px rgb(255 255 255 / 12%));
+    transform: scale(0.94);
+  }
+  38% {
+    opacity: 0.76;
+    filter: blur(0) drop-shadow(0 0 16px rgb(255 255 255 / 12%));
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(7px) drop-shadow(0 0 24px rgb(255 255 255 / 8%));
+    transform: scale(1.08);
+  }
+}
+
+@keyframes auth-content-enter {
+  0% {
+    filter: blur(6px);
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  72%,
+  100% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes login-light-flash {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateX(18%);
+  }
+  18% {
+    opacity: 0.9;
+  }
+  54% {
+    opacity: 0.36;
+    transform: translateX(-5%);
+  }
+}
+
+@keyframes login-amber-arrival {
+  0% {
+    filter: blur(56px) brightness(0.58);
+    opacity: 0.42;
+  }
+  48% {
+    filter: blur(56px) brightness(1.12);
+    opacity: 1;
+  }
+  100% {
+    filter: blur(56px) brightness(1);
+    opacity: 1;
+  }
+}
+
+@keyframes login-core-arrival {
+  0% {
+    filter: blur(30px) brightness(0.6);
+    opacity: 0.36;
+  }
+  42% {
+    filter: blur(30px) brightness(1.45);
+    opacity: 1;
+  }
+  100% {
+    filter: blur(30px) brightness(1.25);
+    opacity: 1;
+  }
+}
+
+@keyframes login-mark-relight {
+  0%,
+  100% {
+    filter: drop-shadow(0 5px 14px rgb(0 0 0 / 62%)) drop-shadow(0 0 1px rgb(255 255 255 / 20%))
+      brightness(0.85);
+  }
+  45% {
+    filter: drop-shadow(0 5px 14px rgb(0 0 0 / 62%)) drop-shadow(0 0 14px rgb(255 229 190 / 26%))
+      brightness(1.22);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .auth-splash {
+    display: none;
+  }
+
+  .auth-topbar,
+  .login-core,
+  .auth-footer,
+  .login-light-amber,
+  .login-light-core,
+  .login-glass-mark,
+  .brand-panel::after {
+    animation: none !important;
+    opacity: 1;
+  }
+}

@@ -5,10 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '../src/api/client.js';
 import { ErrorBanner } from '../src/app/error-banner.js';
 import { Console } from '../src/app/console.js';
-import Application from '../src/app/application.js';
-import { parsePublicConfig } from '../src/bootstrap/public-config.js';
-
-const CONFIG = parsePublicConfig({ appName: 'QAPAQ SecOps', basePath: '/' });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -110,12 +106,5 @@ describe('C-21/C-27 · presentación', () => {
 
     expect(html).toContain('Cargando el panel');
     expect(html).not.toContain('Sesión activa');
-  });
-
-  it('conserva el shell de C-02 con un único elemento de estado', () => {
-    const html = renderToStaticMarkup(createElement(Application, { config: CONFIG }));
-
-    expect(html).toContain('Interfaz disponible');
-    expect(html.match(/role="status"/gu)).toHaveLength(1);
   });
 });

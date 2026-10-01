@@ -1,0 +1,443 @@
+/* The SOC console inherits the same near-black QAPAQ world as institutional sign-in. */
+.admin-shell {
+  --admin-ink: #f0f0ef;
+  --admin-muted: #a3a3a8;
+  --admin-line: #29292d;
+  --admin-paper: #080808;
+  --admin-white: #101012;
+  --admin-amber: #c49a5a;
+  background: #080808;
+  color: #f0f0ef;
+}
+
+.admin-rail {
+  background: #050505;
+}
+.admin-brand {
+  border-color: #242427;
+}
+.rail-workspace {
+  border-color: #303034;
+  background: #0b0b0d;
+}
+.admin-topbar {
+  border-color: #252528;
+  background: rgb(8 8 8 / 96%);
+}
+.breadcrumbs {
+  color: #9d9da3;
+}
+.breadcrumbs span {
+  color: #67676b;
+}
+.breadcrumbs strong {
+  color: #ececee;
+}
+.mock-chip {
+  border-color: #51442f;
+  background: #17130e;
+  color: #d3b27a;
+}
+.mock-chip > span {
+  background: #c49a5a;
+}
+.refresh-button {
+  border-color: #353539;
+  background: #111113;
+  color: #b8b8bc;
+}
+.avatar-small {
+  border-color: #3e3e42;
+  background: #1b1b1e;
+  color: #ededee;
+}
+.demo-role-select select {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #353539;
+  border-radius: 7px;
+  background: #111113;
+  color: #d7d7da;
+  font: inherit;
+  font-size: 11px;
+}
+.demo-role-select select:focus-visible {
+  outline: 2px solid #c49a5a;
+  outline-offset: 2px;
+}
+.page-heading h1 {
+  color: #f3f3f3;
+}
+.page-heading p,
+.page-heading time {
+  color: #a3a3a8;
+}
+.demo-notice {
+  border-color: #4a3b26;
+  background: #14110c;
+  color: #d2b47e;
+}
+.demo-notice p {
+  color: #c1b6a3;
+}
+.demo-notice strong {
+  color: #f1e5d2;
+}
+.metric-row {
+  border-color: #29292d;
+  background: #0d0d0f;
+}
+.metric {
+  border-color: #29292d;
+}
+.metric-label,
+.metric-note {
+  color: #aaaab0;
+}
+.metric strong {
+  color: #f1f1f0;
+}
+.metric-emphasis strong {
+  color: #e0bd80;
+}
+.priority-line {
+  border-color: #57442a;
+  background: #12100c;
+}
+.priority-icon {
+  border-color: #6c5431;
+  color: #e1bf83;
+}
+.priority-label {
+  color: #d0ad70;
+}
+.priority-line strong {
+  color: #f1f1ef;
+}
+.priority-line small {
+  color: #aaaab0;
+}
+.text-button {
+  color: #b6b6ba;
+}
+.text-button:hover {
+  color: #fff;
+}
+.data-section {
+  border-color: #29292d;
+}
+.section-header {
+  border-color: #29292d;
+}
+.section-header h2 {
+  color: #ebebed;
+}
+.service-row,
+.coverage-row,
+.activity-row,
+.incident-row {
+  border-color: #262629;
+}
+.service-name,
+.coverage-row strong,
+.activity-row strong,
+.incident-row strong {
+  color: #e6e6e7;
+}
+.service-detail,
+.coverage-row small,
+.activity-row small,
+.activity-row time,
+.incident-row small,
+.incident-id {
+  color: #a3a3a8;
+}
+.status {
+  border-color: #3a3a3e;
+  background: #171719;
+  color: #d3d3d5;
+}
+.status-healthy,
+.status-collecting,
+.status-delivered,
+.status-allowed {
+  border-color: #31513e;
+  background: #101a14;
+  color: #aad0b4;
+}
+.status-degraded,
+.status-partial,
+.status-retrying,
+.status-pending,
+.status-pending_second_approver {
+  border-color: #634c2a;
+  background: #1c170f;
+  color: #e0c18a;
+}
+.status-blocked,
+.status-failed,
+.status-denied,
+.status-rejected {
+  border-color: #633638;
+  background: #1d1112;
+  color: #e8aeae;
+}
+.status-unknown {
+  border-color: #424247;
+  background: #151517;
+  color: #c0c0c4;
+}
+.severity {
+  color: #d0d0d2;
+}
+.metric-row,
+.table-section,
+.source-symbol,
+.search-box,
+.table-section,
+.access-policy,
+.request-form {
+  background: #0e0e10;
+}
+.search-box {
+  border-color: #3a3a3e;
+  color: #aaaab0;
+}
+.search-box input {
+  color: #f1f1f2;
+}
+.search-box input::placeholder {
+  color: #929297;
+}
+.search-box:focus-within {
+  border-color: #b18a50;
+  outline-color: rgb(193 151 92 / 25%);
+}
+.filter-tabs {
+  color: #a4a4a9;
+}
+.filter-tabs button:hover,
+.filter-active {
+  color: #f3f3f2;
+}
+.filter-active b {
+  color: #b5b5ba;
+}
+.table-section {
+  border-color: #2b2b2e;
+}
+.admin-shell th {
+  border-color: #29292d;
+  background: #151517;
+  color: #aeafb3;
+}
+.admin-shell td {
+  border-color: #252528;
+  color: #c7c7ca;
+}
+.admin-shell td strong {
+  color: #f0f0ef;
+}
+.admin-shell td small {
+  color: #a2a2a7;
+}
+.admin-shell td code {
+  color: #d0d0d3;
+}
+.clickable-row:hover td {
+  background: #171719;
+}
+.row-open,
+.icon-button {
+  color: #b5b5ba;
+}
+.row-open:hover,
+.icon-button:hover {
+  border-color: #45454a;
+  background: #1b1b1e;
+  color: #fff;
+}
+.row-action,
+.secondary-button {
+  border-color: #444448;
+  background: #131315;
+  color: #ececee;
+}
+.row-action:hover,
+.secondary-button:hover {
+  border-color: #77777b;
+  background: #1c1c1e;
+}
+.primary-button {
+  border-color: #eee;
+  background: #f2f2f0;
+  color: #111;
+}
+.primary-button:hover:not(:disabled) {
+  background: #d9d9d7;
+}
+.data-footnote,
+.audit-note {
+  color: #a3a3a8;
+}
+.source-symbol {
+  border-color: #38383c;
+  color: #dedee0;
+}
+.source-title h2 {
+  color: #f0f0ef;
+}
+.source-main > p,
+.source-meta {
+  color: #a3a3a8;
+}
+.dataset-tags span {
+  border-color: #39393d;
+  background: #151517;
+  color: #c7c7ca;
+}
+.inline-callout {
+  border-color: #39393d;
+  background: #111113;
+  color: #bcbcc0;
+}
+.inline-callout strong {
+  color: #f0f0ef;
+}
+.pipeline-index {
+  color: #a3a3a8;
+}
+.pipeline-step strong {
+  color: #ececee;
+}
+.pipeline-step small,
+.plain-list {
+  color: #b0b0b4;
+}
+.access-policy {
+  border-color: #3a3a3e;
+  color: #c0c0c4;
+}
+.access-policy strong {
+  color: #f0f0ef;
+}
+.request-form {
+  border-color: #37373b;
+}
+.form-heading {
+  border-color: #303034;
+}
+.form-heading h2,
+.request-form label,
+.replay-form label {
+  color: #ededee;
+}
+.form-heading span {
+  color: #a2a2a7;
+}
+.request-form input,
+.request-form select,
+.request-form textarea,
+.replay-form input,
+.replay-form textarea {
+  border-color: #414145;
+  background: #09090b;
+  color: #f1f1f2;
+  color-scheme: dark;
+}
+.request-form input::placeholder,
+.request-form textarea::placeholder,
+.replay-form textarea::placeholder {
+  color: #929297;
+}
+.empty-state {
+  color: #a1a1a6;
+}
+.empty-state strong {
+  color: #eeeeef;
+}
+.empty-state span {
+  color: #aaaab0;
+}
+.detail-drawer,
+.replay-dialog {
+  border-color: #343438;
+  background: #0d0d0f;
+  color: #ededee;
+}
+.detail-drawer {
+  box-shadow: -18px 0 42px rgb(0 0 0 / 42%);
+}
+.drawer-head,
+.drawer-actions {
+  border-color: #303034;
+}
+.drawer-actions {
+  background: #101012;
+}
+.drawer-id,
+.drawer-body > p,
+.detail-row span {
+  color: #a9a9ae;
+}
+.drawer-head h2,
+.detail-row strong {
+  color: #f0f0ef;
+}
+.detail-row {
+  border-color: #2e2e32;
+}
+.replay-dialog .drawer-head p {
+  color: #aaaab0;
+}
+
+.admin-main {
+  position: relative;
+  min-width: 0;
+  isolation: isolate;
+  background: #080808;
+}
+.admin-main::before {
+  position: absolute;
+  z-index: -1;
+  top: 58px;
+  right: 0;
+  width: min(34vw, 450px);
+  height: calc(100% - 58px);
+  background: linear-gradient(
+    270deg,
+    rgb(230 230 230 / 7%) 0%,
+    rgb(171 124 61 / 6%) 12%,
+    rgb(91 63 31 / 3%) 34%,
+    transparent 100%
+  );
+  content: '';
+  pointer-events: none;
+}
+.admin-topbar,
+.admin-content {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 760px) {
+  .admin-main::before {
+    top: 101px;
+    width: 50vw;
+    height: calc(100% - 101px);
+  }
+  .admin-rail {
+    background: #050505;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *,
+  .admin-shell *::before,
+  .admin-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

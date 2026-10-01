@@ -75,6 +75,19 @@ código de validación es el mismo en ambos modos: solo cambia quién firma. El 
 producción rechaza ese modo al arrancar, y las rutas del emisor no se registran cuando
 no existe.
 
+## Convivencia con la interfaz de producto
+
+La portada de `apps/web` es la pantalla de acceso del producto, que hoy funciona sobre
+datos de demostración (`MockAdminApi`). La consola operativa de C-21 vive en
+`/console.html`, con su propia entrada, y es la que habla con el BFF real; el recorrido
+E2E se ejecuta contra ella.
+
+Las dos superficies declaran contratos distintos: `apps/web/API_CONTRACT.md` describe
+rutas `/api/v1/...` que el BFF todavía no publica, mientras que el BFF expone `/api/...`.
+Unificarlas es una decisión de producto pendiente, no un detalle de implementación; hasta
+entonces el proxy de Vite envía ambas al mismo origen y solo reescribe `/api/health/*`,
+que es donde vive el health de C-02.
+
 ## Límites declarados
 
 - **Adaptadores en memoria en el BFF.** El runtime compone los stores en memoria que

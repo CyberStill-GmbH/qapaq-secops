@@ -1,44 +1,50 @@
+@import 'tailwindcss';
+@import './login.css';
+@import './admin.css';
+@import './login-motion.css';
+
+@theme {
+  --color-qapaq-black: #080808;
+  --color-qapaq-white: #f4f4f5;
+  --color-qapaq-muted: #a1a1a6;
+  --color-qapaq-line: #39393d;
+  --font-sans: 'Segoe UI', Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
-  font-family: system-ui, sans-serif;
-  color: #17382f;
-  background: #f6f8f5;
-  line-height: 1.6;
-  color-scheme: light;
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-qapaq-black);
+  color: var(--color-qapaq-white);
 }
-body {
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
   margin: 0;
+  background: var(--color-qapaq-black);
 }
-main {
-  max-width: 68ch;
-  margin: 12vh auto;
-  padding: 2rem;
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
-h1 {
-  font-size: clamp(2rem, 6vw, 3rem);
-  line-height: 1.15;
-  text-wrap: balance;
-}
-p[role='status'] {
-  margin-top: 3rem;
-  font-weight: 600;
-}
+
 button {
   font: inherit;
-  color: #fff;
-  background: #225947;
-  border: 0;
-  border-radius: 0.4rem;
-  padding: 0.7rem 1.2rem;
-  cursor: pointer;
 }
-button:hover {
-  background: #17382f;
-}
-button:focus-visible {
-  outline: 3px solid #225947;
-  outline-offset: 4px;
-}
+
 ::selection {
-  color: #fff;
-  background: #225947;
+  color: #080808;
+  background: #f4f4f5;
 }

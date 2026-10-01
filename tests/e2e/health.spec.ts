@@ -29,13 +29,13 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('request', (request) => requests.push(request.url()));
   await page.goto(baseURL);
-  await expect(page.getByRole('heading', { name: 'QAPAQ SecOps' })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('Interfaz disponible');
-  // Desde C-21 la consola consulta su sesión al abrir. Lo que sigue garantizando C-02
-  // es que el arranque no depende del backend: sin API, la interfaz se declara
-  // disponible y degrada en su propio bloque.
-  expect(requests.filter((url) => url.includes('/api/'))).toEqual(
-    requests.filter((url) => url.includes('/api/auth/session')),
+  await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Continuar con Microsoft Entra/u })).toBeVisible();
+  // La portada consulta el health publico al abrir y lo reporta como no disponible.
+  // Lo que C-02 sigue garantizando es que ese fallo no impide montar la interfaz.
+  await expect(page.getByText('Sin respuesta')).toBeVisible();
+  expect(requests.filter((url) => url.includes('/api/') && !url.includes('/api/health'))).toEqual(
+    [],
   );
   expect(errors).toEqual([]);
   await page.screenshot({ path: 'test-results/c02-web-desktop.png', fullPage: true });
@@ -53,5 +53,5 @@ test('el boundary captura fallos reales de carga y permite recuperarse', async (
   await expect(page.getByRole('button', { name: 'Recargar página' })).toBeVisible();
   await page.unroute('**/assets/application-*.js');
   await page.getByRole('button', { name: 'Recargar página' }).click();
-  await expect(page.getByRole('status')).toHaveText('Interfaz disponible');
+  await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
 });

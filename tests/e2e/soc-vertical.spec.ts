@@ -29,7 +29,7 @@ async function ingest(recordId: string) {
 async function signIn(page: Page, username: string) {
   await page.goto(`${stack.baseUrl}/api/auth/start`);
   await page.locator(`#signin-${username.split('@')[0]}`).click();
-  await page.goto(stack.baseUrl);
+  await page.goto(`${stack.baseUrl}/console.html`);
   await expect(page.getByTestId('console-state')).toHaveText('Sesión activa');
 }
 
@@ -43,7 +43,7 @@ test.afterAll(async () => {
 });
 
 test('la consola exige sesión antes de mostrar alertas', async ({ page }) => {
-  await page.goto(stack.baseUrl);
+  await page.goto(`${stack.baseUrl}/console.html`);
 
   await expect(page.getByTestId('console-state')).toHaveText('Sesión no iniciada');
   await expect(page.getByRole('link', { name: /Iniciar sesión/u })).toBeVisible();
@@ -122,7 +122,7 @@ test('el líder ve el crudo y el auditor verifica la cadena', async ({ page }) =
 
 test('la consola degrada con claridad cuando la API no responde', async ({ page }) => {
   await page.route('**/api/auth/session', (route) => route.abort('failed'));
-  await page.goto(stack.baseUrl);
+  await page.goto(`${stack.baseUrl}/console.html`);
 
   await expect(page.getByTestId('console-state')).toHaveText('Servicio degradado');
   await expect(page.getByRole('alert')).toContainText('degradado');
