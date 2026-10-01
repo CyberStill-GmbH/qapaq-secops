@@ -31,7 +31,12 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'QAPAQ SecOps' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('Interfaz disponible');
-  expect(requests.some((url) => url.includes('/api/'))).toBe(false);
+  // Desde C-21 la consola consulta su sesión al abrir. Lo que sigue garantizando C-02
+  // es que el arranque no depende del backend: sin API, la interfaz se declara
+  // disponible y degrada en su propio bloque.
+  expect(requests.filter((url) => url.includes('/api/'))).toEqual(
+    requests.filter((url) => url.includes('/api/auth/session')),
+  );
   expect(errors).toEqual([]);
   await page.screenshot({ path: 'test-results/c02-web-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 375, height: 812 });
