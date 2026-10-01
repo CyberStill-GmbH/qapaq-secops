@@ -1,0 +1,71 @@
+{
+  "$comment": "C-22 — gates que dependen de accesos externos. Cada uno declara dueño y fecha de revisión; sin eso la matriz se rechaza.",
+  "items": [
+    {
+      "id": "C-10-wazuh-real",
+      "component": "C-10",
+      "requirement": "Provider spec contra Wazuh Indexer autorizado (paginación, cursor, errores).",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "evidence": "modules/connectors/test/c28-live-probe.ts (requiere endpoint e identidad autorizados)",
+      "blockedBy": "Sin tenant ni identidad técnica autorizada para Wazuh.",
+      "owner": "Infraestructura",
+      "dueDate": "2026-10-31"
+    },
+    {
+      "id": "C-18-entra-real",
+      "component": "C-18",
+      "requirement": "Flujo OIDC completo contra el tenant de Microsoft Entra aprobado.",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "evidence": "apps/api/test/bff.spec.ts cubre el flujo con emisor local; falta app registration real.",
+      "blockedBy": "App registration, redirect URIs y claims pendientes de aprobación.",
+      "owner": "Seguridad",
+      "dueDate": "2026-10-31"
+    },
+    {
+      "id": "C-20-teams-real",
+      "component": "C-20",
+      "requirement": "Entrega real en el canal de Teams con acuse y deduplicación observada.",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "evidence": "modules/soar/test/teams-transport.spec.ts ejercita HTTP real contra servidor local.",
+      "blockedBy": "Teams Workflow, canal y secretRef no provisionados.",
+      "owner": "Infraestructura",
+      "dueDate": "2026-10-31"
+    },
+    {
+      "id": "C-19-postgres-adapter",
+      "component": "C-19",
+      "requirement": "AuditEvent sobre PostgreSQL con privilegios sin UPDATE/DELETE y rollback atómico.",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "evidence": "platform/database/test/postgres-c19.integration.spec.ts (requiere Docker).",
+      "blockedBy": "Adapter Prisma y suite de integración pendientes de ejecutar con Docker disponible.",
+      "owner": "Plataforma",
+      "dueDate": "2026-10-20"
+    },
+    {
+      "id": "C-28-ha-runtime",
+      "component": "C-28",
+      "requirement": "Failover y rolling update observados sobre el perfil HA en ejecución.",
+      "priority": "P1",
+      "status": "BLOCKED",
+      "evidence": "platform/gateway/krakend/compose.ha.yaml y test/ha.test.mjs validan la configuración.",
+      "blockedBy": "Requiere Docker Engine con capacidad para tres contenedores y un LB.",
+      "owner": "Plataforma",
+      "dueDate": "2026-10-20"
+    },
+    {
+      "id": "C-26-grafana-runtime",
+      "component": "C-26",
+      "requirement": "Backup/restore de Grafana, Loki y Prometheus ejecutado y verificado.",
+      "priority": "P1",
+      "status": "BLOCKED",
+      "evidence": "platform/observability/test/grafana-provisioning.spec.ts valida provisioning y plan.",
+      "blockedBy": "Stack OSS no desplegado en el ambiente de evaluación.",
+      "owner": "Plataforma",
+      "dueDate": "2026-11-07"
+    }
+  ]
+}

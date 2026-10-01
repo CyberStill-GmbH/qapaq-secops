@@ -1,0 +1,57 @@
+{
+  "uid": "qapaq-access-audit",
+  "title": "QAPAQ SecOps · Acceso y auditoría",
+  "tags": [
+    "qapaq",
+    "acceso"
+  ],
+  "timezone": "utc",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Intentos de acceso por decisión y zona de red.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(qapaq_access_sign_in_total[5m])) by (decision, network_zone)",
+          "legendFormat": "{{decision}} · {{network_zone}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Sesiones activas del BFF.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(qapaq_access_sessions_active)",
+          "legendFormat": "qapaq_access_sessions_active"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Verificaciones de la cadena de auditoría por resultado.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "qapaq-prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(qapaq_audit_chain_verifications_total[5m])) by (result)",
+          "legendFormat": "{{result}}"
+        }
+      ]
+    }
+  ]
+}

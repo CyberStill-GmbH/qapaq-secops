@@ -1,0 +1,105 @@
+# C-28 — perfil de alta disponibilidad del gateway.
+#
+# Dos réplicas idénticas detrás de un balanceador interno. El gateway no guarda estado
+# de negocio, de modo que la disponibilidad depende solo de que el balanceador deje de
+# enviar tráfico a la réplica caída y de que el conjunto siga cumpliendo la cuota con
+# una sola réplica sirviendo (ver `capacity.mjs`).
+#
+# `stop_grace_period` y el health check son lo que hace que un rolling update sea una
+# sustitución ordenada y no una ventana de error: la réplica saliente termina lo que
+# tiene en curso antes de cerrar.
+
+x-gateway: &gateway
+  image: krakend:2.13.11
+  pull_policy: missing
+  command: ['run', '-c', '/etc/krakend/krakend.tmpl']
+  environment:
+    FC_ENABLE: '1'
+    GATEWAY_ENDPOINT_TIMEOUT: ${GATEWAY_ENDPOINT_TIMEOUT:?required}
+    GATEWAY_METRICS_PORT: ${GATEWAY_METRICS_PORT:?required}
+    # Cuota por réplica, calculada desde el objetivo agregado con holgura N-1.
+    GATEWAY_RATE_PER_SECOND: ${GATEWAY_RATE_PER_SECOND:?required}
+    GATEWAY_RATE_BURST: ${GATEWAY_RATE_BURST:?required}
+    OIDC_JWKS_URL: ${OIDC_JWKS_URL:?required}
+    OIDC_DISABLE_JWK_SECURITY: ${OIDC_DISABLE_JWK_SECURITY:?required}
+    OIDC_ISSUER: ${OIDC_ISSUER:?required}
+    OIDC_AUDIENCE: ${OIDC_AUDIENCE:?required}
+    WAZUH_INDEXER_URL: ${WAZUH_INDEXER_URL:?required}
+    WAZUH_INDEXER_CA_FILE: ${WAZUH_INDEXER_CA_FILE:-}
+    WAZUH_BASIC_AUTH_B64: ${WAZUH_BASIC_AUTH_B64:?required}
+    WAZUH_INDEX_PATTERN: ${WAZUH_INDEX_PATTERN:?required}
+  volumes:
+    - ./krakend.tmpl:/etc/krakend/krakend.tmpl:ro
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=16m
+  cap_drop: [ALL]
+  cap_add: [SETUID, SETGID]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  stop_grace_period: 20s
+  healthcheck:
+    test: ['CMD', '/usr/bin/krakend', 'check', '-t', '-n', '-c', '/etc/krakend/krakend.tmpl']
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
+
+services:
+  mock-indexer:
+    image: node:24.21.0-alpine
+    command: ['node', '/mock-indexer.mjs']
+    volumes:
+      - ./test/mock-indexer.mjs:/mock-indexer.mjs:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:9200/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  gateway-a:
+    <<: *gateway
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  gateway-b:
+    <<: *gateway
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  lb:
+    image: nginx:1.29.5-alpine
+    pull_policy: missing
+    volumes:
+      - ./lb/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      # Solo loopback: el balanceador no se publica fuera del host en validación local.
+      - '127.0.0.1:18080:8080'
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+      - /var/cache/nginx:rw,noexec,nosuid,size=8m
+      - /var/run:rw,noexec,nosuid,size=1m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      gateway-a:
+        condition: service_healthy
+      gateway-b:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1:8080/__health']
+      interval: 10s
+      timeout: 3s
+      retries: 3

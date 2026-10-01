@@ -22,6 +22,14 @@ export const ALLOWED_LABEL_KEYS = [
   'status',
   'result',
   'error_code',
+  // C-26 — señales del flujo SOC y del borde de acceso. Todas son de dominio acotado:
+  // prioridad, veredicto, canal, decisión y zona de red tienen valores enumerados.
+  'priority',
+  'verdict',
+  'channel',
+  'decision',
+  'network_zone',
+  'failure_class',
 ] as const;
 
 export type AllowedLabelKey = (typeof ALLOWED_LABEL_KEYS)[number];

@@ -10,3 +10,22 @@ export type {
   IntegrationProfile,
   IntegrationEnvironmentOptions,
 } from './environment/environment-options.js';
+export {
+  buildReleaseEvidence,
+  decideReadiness,
+  EVIDENCE_STATUSES,
+  MATRIX_ERROR_CODES,
+  PRIORITIES,
+  READINESS_DECISIONS,
+  renderMarkdown,
+  validateMatrix,
+  type EvidenceItem,
+  type EvidencePriority,
+  type EvidenceStatus,
+  type MatrixErrorCode,
+  type MatrixProblem,
+  type ReadinessDecision,
+  type ReadinessOutcome,
+  type ReleaseContext,
+  type ReleaseEvidence,
+} from './evidence/release-evidence.js';

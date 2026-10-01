@@ -1,0 +1,21 @@
+# C-26 — destino externo de las alertas.
+# Una alerta que solo se ve dentro de Grafana no avisa cuando Grafana es el problema.
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: qapaq-oncall-external
+    receivers:
+      - uid: qapaq-oncall-webhook
+        type: webhook
+        settings:
+          url: $QAPAQ_ONCALL_WEBHOOK_URL
+          httpMethod: POST
+        # El secreto se inyecta por entorno desde el SecretProvider; no se versiona.
+        disableResolveMessage: false
+policies:
+  - orgId: 1
+    receiver: qapaq-oncall-external
+    group_by: [alertname, severity]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h

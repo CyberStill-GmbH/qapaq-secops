@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QAPAQ SecOps — Demostración C-12</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #eef2f7;
+        color: #0f2d4d;
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 17px;
+        line-height: 1.5;
+      }
+      .wrap {
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 40px 32px 64px;
+      }
+      header {
+        border-bottom: 3px solid #0f2d4d;
+        padding-bottom: 20px;
+        margin-bottom: 28px;
+      }
+      .eyebrow {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #9a6516;
+        margin: 0 0 8px;
+      }
+      h1 {
+        font-size: 34px;
+        margin: 0 0 6px;
+        line-height: 1.2;
+      }
+      .sub {
+        margin: 0;
+        color: #44536b;
+        font-size: 17px;
+      }
+      .flow {
+        display: flex;
+        gap: 16px;
+        align-items: stretch;
+        margin: 0 0 28px;
+        flex-wrap: wrap;
+      }
+      .stat {
+        flex: 1;
+        min-width: 210px;
+        background: #fff;
+        border: 1px solid #dce3eb;
+        border-radius: 14px;
+        padding: 22px 24px;
+      }
+      .stat .n {
+        font-size: 46px;
+        font-weight: 700;
+        line-height: 1;
+        margin: 0 0 6px;
+      }
+      .stat .l {
+        margin: 0;
+        font-size: 15px;
+        color: #44536b;
+      }
+      .stat.ok {
+        border-left: 6px solid #2e7d74;
+      }
+      .stat.ok .n {
+        color: #1f5e57;
+      }
+      .stat.hold {
+        border-left: 6px solid #c9872e;
+      }
+      .stat.hold .n {
+        color: #8a5a14;
+      }
+      .stat.lost {
+        border-left: 6px solid #0f2d4d;
+      }
+      .stat.lost .n {
+        color: #0f2d4d;
+      }
+      h2 {
+        font-size: 22px;
+        margin: 34px 0 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #cdd8e4;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #dce3eb;
+      }
+      th {
+        background: #0f2d4d;
+        color: #fff;
+        text-align: left;
+        font-size: 13px;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        padding: 12px 14px;
+      }
+      td {
+        padding: 12px 14px;
+        border-top: 1px solid #e6ebf1;
+        font-size: 15px;
+        vertical-align: top;
+      }
+      tbody tr:nth-child(even) {
+        background: #f7f9fb;
+      }
+      .pill {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 40px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .mono {
+        font-family: 'Cascadia Mono', Consolas, monospace;
+        font-size: 13px;
+        color: #55606e;
+      }
+      .q {
+        background: #fff;
+        border: 1px solid #dce3eb;
+        border-left: 6px solid #c9872e;
+        border-radius: 12px;
+        padding: 18px 22px;
+        margin-bottom: 12px;
+      }
+      .q .why {
+        font-weight: 700;
+        font-size: 17px;
+        margin: 0 0 6px;
+      }
+      .q .lin {
+        margin: 0;
+        font-size: 14px;
+        color: #55606e;
+      }
+      .cmp {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #dce3eb;
+        border-radius: 12px;
+        padding: 20px 22px;
+      }
+      .card h3 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #55606e;
+      }
+      .card.after {
+        border-left: 6px solid #2e7d74;
+      }
+      pre {
+        margin: 0;
+        font-family: 'Cascadia Mono', Consolas, monospace;
+        font-size: 13px;
+        color: #6b7684;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      dl {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 8px 14px;
+      }
+      dt {
+        font-size: 13px;
+        font-weight: 700;
+        color: #8894a5;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      dd {
+        margin: 0;
+        font-size: 16px;
+      }
+      footer {
+        margin-top: 40px;
+        padding-top: 18px;
+        border-top: 1px solid #cdd8e4;
+        font-size: 14px;
+        color: #687788;
+      }
+      .note {
+        background: #fdf6e6;
+        border: 1px solid #e8d4a2;
+        border-radius: 10px;
+        padding: 14px 18px;
+        font-size: 14px;
+        color: #4a3a12;
+        margin: 22px 0 0;
+      }
+      @media (max-width: 900px) {
+        .cmp {
+          grid-template-columns: 1fr;
+        }
+        dl {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <p class="eyebrow">QAPAQ SecOps · Demostración</p>
+        <h1>Qué le pasa a un evento de seguridad cuando entra</h1>
+        <p class="sub">
+          Resultado de una ejecución real del normalizador, el 30/09/2026 23:46. Procesó 10 eventos
+          en 10 milisegundos.
+        </p>
+      </header>
+
+      <div class="flow">
+        <div class="stat">
+          <p class="n">10</p>
+          <p class="l">eventos recibidos</p>
+        </div>
+        <div class="stat ok">
+          <p class="n">8</p>
+          <p class="l">convertidos en registros legibles</p>
+        </div>
+        <div class="stat hold">
+          <p class="n">2</p>
+          <p class="l">aislados por venir defectuosos</p>
+        </div>
+        <div class="stat lost">
+          <p class="n">0</p>
+          <p class="l">perdidos</p>
+        </div>
+      </div>
+
+      <h2>Lo que quedó consultable</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Cuándo</th>
+            <th>Qué pasó</th>
+            <th>Gravedad</th>
+            <th>Tipo</th>
+            <th>Equipo</th>
+            <th>Usuario</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">30/09/2026 16:41</td>
+            <td>Intento de autenticación SSH fallido</td>
+            <td><span class="pill" style="background: #f7ead4; color: #8a5a14">Alta</span></td>
+            <td>Acceso</td>
+            <td>srv-app-01.qapaq.local</td>
+            <td>jperez@qapaq.pe</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:41</td>
+            <td>Archivo malicioso detectado por análisis antivirus</td>
+            <td><span class="pill" style="background: #fbe6e1; color: #8c2f1e">Crítica</span></td>
+            <td>Código malicioso</td>
+            <td>workstation-contabilidad.qapaq.local</td>
+            <td>mquispe@qapaq.pe</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:42</td>
+            <td>Integridad de archivo alterada en directorio vigilado</td>
+            <td><span class="pill" style="background: #e3f0ed; color: #1f5e57">Media</span></td>
+            <td>Archivos</td>
+            <td>srv-app-01.qapaq.local</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:42</td>
+            <td>Inicio de sesión correcto en Microsoft 365</td>
+            <td><span class="pill" style="background: #e3f0ed; color: #1f5e57">Media</span></td>
+            <td>Identidades, Acceso</td>
+            <td>wazuh-manager</td>
+            <td>fclavo@qapaq.pe</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:43</td>
+            <td>Conexión rechazada por el cortafuegos perimetral</td>
+            <td><span class="pill" style="background: #e8ebef; color: #44536b">Baja</span></td>
+            <td>Red</td>
+            <td>fw-perimetral.qapaq.local</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:43</td>
+            <td>Múltiples solicitudes web sospechosas desde un mismo origen</td>
+            <td><span class="pill" style="background: #f7ead4; color: #8a5a14">Alta</span></td>
+            <td>Web, Intrusión</td>
+            <td>srv-web-02.qapaq.local</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:44</td>
+            <td>Cuenta de administrador agregada al dominio</td>
+            <td><span class="pill" style="background: #fbe6e1; color: #8c2f1e">Crítica</span></td>
+            <td>Equipo, Identidades</td>
+            <td>dc-01.qapaq.local</td>
+            <td>svc_backup@qapaq.pe</td>
+          </tr>
+          <tr>
+            <td class="mono">30/09/2026 16:44</td>
+            <td>Rotación programada de registros completada</td>
+            <td><span class="pill" style="background: #e8ebef; color: #44536b">Baja</span></td>
+            <td>Equipo</td>
+            <td>srv-app-01.qapaq.local</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Lo que se aisló, y por qué</h2>
+      <div class="q">
+        <p class="why">La fecha del evento no existe en el calendario</p>
+        <p class="lin">
+          Evento <strong>evt-1005</strong> · original conservado en
+          <span class="mono">raw:tenant-qapaq-001/2026/09/30/evt-1005</span> · huella
+          <span class="mono">ff02bb17c2a090d2…</span>
+        </p>
+      </div>
+      <div class="q">
+        <p class="why">El evento no declara qué regla lo originó</p>
+        <p class="lin">
+          Evento <strong>evt-1008</strong> · original conservado en
+          <span class="mono">raw:tenant-qapaq-001/2026/09/30/evt-1008</span> · huella
+          <span class="mono">7dd7ec0ccc310d6d…</span>
+        </p>
+      </div>
+      <p class="sub">
+        Ninguno de estos detuvo el procesamiento del resto, y de ninguno se perdió el original:
+        ambos quedan referenciados para revisarse o reprocesarse después.
+      </p>
+
+      <h2>El mismo evento, antes y después</h2>
+      <div class="cmp">
+        <div class="card">
+          <h3>Como llega del sistema</h3>
+          <pre>
+{
+ &quot;timestamp&quot;: &quot;2026-09-30T16:41:02.000Z&quot;,
+ &quot;rule&quot;: {
+  &quot;id&quot;: 5716,
+  &quot;level&quot;: 10,
+  &quot;description&quot;: &quot;Intento de autenticación SSH fallido&quot;,
+  &quot;groups&quot;: [
+   &quot;sshd&quot;,
+   &quot;authentication_failed&quot;
+  ]
+ },
+ &quot;agent&quot;: {
+  &quot;id&quot;: &quot;003&quot;,
+  &quot;name&quot;: &quot;srv-app-01.qapaq.local&quot;
+ },
+ &quot;data&quot;: {
+  &quot;srcuser&quot;: &quot;jperez@qapaq.pe&quot;,
+  &quot;srcip&quot;: &quot;190.12.44.7&quot;
+ }
+}</pre>
+        </div>
+        <div class="card after">
+          <h3>Como queda en la plataforma</h3>
+          <dl>
+            <dt>Qué pasó</dt>
+            <dd>Intento de autenticación SSH fallido</dd>
+            <dt>Cuándo</dt>
+            <dd>30/09/2026 16:41</dd>
+            <dt>Gravedad</dt>
+            <dd>
+              <span class="pill" style="background: #f7ead4; color: #8a5a14">Alta</span> &nbsp;75 de
+              100
+            </dd>
+            <dt>Tipo</dt>
+            <dd>Acceso</dd>
+            <dt>Equipo</dt>
+            <dd>srv-app-01.qapaq.local</dd>
+            <dt>Usuario</dt>
+            <dd>jperez@qapaq.pe</dd>
+            <dt>Original</dt>
+            <dd class="mono">raw:tenant-qapaq-001/2026/09/30/evt-1001</dd>
+          </dl>
+        </div>
+      </div>
+
+      <p class="note">
+        <strong>Sobre esta pantalla.</strong> Es un visualizador de la ejecución, no la interfaz del
+        producto. La interfaz de consulta es una etapa posterior del plan; lo que aquí se demuestra
+        es el procesamiento, que es lo que ya está construido.
+      </p>
+
+      <footer>
+        Generado desde <span class="mono">output/demo/c12-normalization-run.json</span>, producido
+        por <span class="mono">scripts/demo/c12-normalization-demo.ts</span> ejecutando el mismo
+        código que cubren las pruebas automáticas. Mapping
+        <span class="mono">wazuh.alerts v1.0.0</span>. Los eventos del lote son de prueba; el
+        procesamiento es real.
+      </footer>
+    </div>
+  </body>
+</html>

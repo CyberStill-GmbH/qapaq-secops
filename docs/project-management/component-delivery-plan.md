@@ -138,6 +138,15 @@ cambian.
 | C-27 | `apps/web` + contrato API | Catálogo de errores, helpRef, acciones y correlationId | 028 | C-18, C-21, C-26 | Contract/UX/a11y/no-enumeration y fallback PASS |
 | C-28 | `platform/gateway/krakend` + LB/config | Completar HA, rotación, failure modes, benchmark y dashboards por ruta | 030 | C-15, C-24 | Failover/rolling update, cuota por réplica, no-secrets y E2E durable PASS; evidencia alimenta C-22 |
 
+**Entrega Sprint 3 (2026-10-01):** C-16 a C-28 están materializados con dominio,
+frontera HTTP, consola, observabilidad, pasarela y evidencia. El detalle, los comandos
+que lo reproducen y los límites declarados están en
+[entrega C-16…C-28](../development/c-16-c-28-sprint3-delivery.md). Los gates que
+dependen de accesos externos —Entra, Wazuh y Teams reales— y los que requieren Docker
+permanecen `BLOCKED` con dueño y fecha en
+[`c-22/blocked-gates.json`](c-22/blocked-gates.json); por esa razón la decisión derivada
+de la matriz es `LIMITED` y no `MVP CANDIDATE`.
+
 C-18, C-19 y C-25 empiezan al inicio del Sprint porque son dependencias de seguridad, no
 pulido final. C-16 alimenta C-17; C-17/C-19 habilitan C-20; C-21 es P1 y no desplaza
 C-22. C-26 endurece el baseline de C-15; C-24/C-28 completan su E2E y C-27 no desplaza el
