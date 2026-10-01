@@ -1,8 +1,8 @@
 {
   "context": {
-    "commit": "b7bdf11c347f2da35e0c025b8fae96a642dd64c4",
+    "commit": "da79a18be34e7460e6b1ed361171f8fc9f3da402",
     "environment": "local-windows-node24",
-    "generatedAt": "2026-10-01T23:00:26.131Z",
+    "generatedAt": "2026-10-01T23:17:23.954Z",
     "toolchain": {
       "node": "24.21.0",
       "pnpm": "12.4.2"
@@ -15,7 +15,7 @@
       "requirement": "Priorización con reason codes y promoción idempotente.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/detection/test · 3.4s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/detection/test · 1.7s"
     },
     {
       "id": "C-17-lifecycle",
@@ -23,7 +23,7 @@
       "requirement": "Lifecycle, concurrencia y atomicidad estado/auditoría/outbox.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/soc/test · 3.2s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/soc/test · 1.4s"
     },
     {
       "id": "C-18-C-25-access",
@@ -31,7 +31,7 @@
       "requirement": "OIDC, sesión única, red QAPAQ, passkey, Smart Lockout y rate limit.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/access/test · 3.8s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/access/test · 1.5s"
     },
     {
       "id": "C-19-audit",
@@ -39,7 +39,7 @@
       "requirement": "Cadena de hash, tamper/gap, archivo y reconciliación.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts platform/audit/test · 3.2s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts platform/audit/test · 1.6s"
     },
     {
       "id": "C-20-notification",
@@ -47,7 +47,7 @@
       "requirement": "Outbox, reintento, timeout ambiguo, fallback y acuse.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/soar/test · 6.0s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts modules/soar/test · 4.6s"
     },
     {
       "id": "C-18-bff-http",
@@ -55,7 +55,7 @@
       "requirement": "Autorización, denegación y catálogo de errores sobre HTTP real.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts apps/api/test · 9.1s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts apps/api/test · 5.7s"
     },
     {
       "id": "C-27-error-catalog",
@@ -63,7 +63,7 @@
       "requirement": "Catálogo de errores con helpRef, acción y no enumeración.",
       "priority": "P1",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts packages/contracts/test · 4.9s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts packages/contracts/test · 2.1s"
     },
     {
       "id": "C-26-observability",
@@ -71,7 +71,7 @@
       "requirement": "Señales SOC, dashboards versionados, hardening y retención.",
       "priority": "P1",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts platform/observability/test · 2.9s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts platform/observability/test · 1.3s"
     },
     {
       "id": "C-23-coupling",
@@ -79,7 +79,7 @@
       "requirement": "Acoplamiento a proveedor acotado y conformidad del adapter real.",
       "priority": "P1",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts tests/architecture · 6.6s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts tests/architecture · 3.2s"
     },
     {
       "id": "C-22-evidence",
@@ -87,7 +87,7 @@
       "requirement": "Matriz de evidencia y decisión derivadas, no narradas.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec vitest run --config vitest.config.ts platform/testing/test/release-evidence.spec.ts · 2.7s"
+      "evidence": "pnpm exec vitest run --config vitest.config.ts platform/testing/test/release-evidence.spec.ts · 1.1s"
     },
     {
       "id": "C-28-gateway",
@@ -95,7 +95,7 @@
       "requirement": "Cuota por réplica, failover configurado y dashboards por ruta.",
       "priority": "P1",
       "status": "PASS",
-      "evidence": "node --test platform/gateway/krakend/test/contract.test.mjs platform/gateway/krakend/test/ha.test.mjs · 0.7s"
+      "evidence": "node --test platform/gateway/krakend/test/contract.test.mjs platform/gateway/krakend/test/ha.test.mjs · 0.3s"
     },
     {
       "id": "C-07-boundaries",
@@ -103,7 +103,7 @@
       "requirement": "Límites de arquitectura y entrypoints.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm run boundaries · 10.4s"
+      "evidence": "pnpm run boundaries · 4.6s"
     },
     {
       "id": "C-01-typecheck",
@@ -111,7 +111,7 @@
       "requirement": "Tipado estricto en todo el workspace.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm run typecheck · 28.2s"
+      "evidence": "pnpm run typecheck · 12.6s"
     },
     {
       "id": "C-21-C-22-e2e",
@@ -119,7 +119,7 @@
       "requirement": "Recorrido vertical en navegador contra backend real.",
       "priority": "P0",
       "status": "PASS",
-      "evidence": "pnpm exec playwright test · 22.7s"
+      "evidence": "pnpm exec playwright test · 12.4s"
     },
     {
       "id": "C-10-wazuh-real",
@@ -138,8 +138,8 @@
       "requirement": "Flujo OIDC completo contra el tenant de Microsoft Entra aprobado.",
       "priority": "P0",
       "status": "BLOCKED",
-      "evidence": "apps/api/test/bff.spec.ts cubre el flujo con emisor local; falta app registration real.",
-      "blockedBy": "App registration, redirect URIs y claims pendientes de aprobación.",
+      "evidence": "apps/api/test/bff.spec.ts cubre el flujo con emisor local; conectividad y credencial reales verificadas en entra-connectivity-check.md",
+      "blockedBy": "El tenant responde y acepta la aplicacion; falta el inicio de sesion interactivo con claims de rol y unificar los nombres de variables.",
       "owner": "Seguridad",
       "dueDate": "2026-10-31"
     },
@@ -161,7 +161,7 @@
       "priority": "P0",
       "status": "BLOCKED",
       "evidence": "platform/database/test/postgres-c19.integration.spec.ts (requiere Docker).",
-      "blockedBy": "Adapter Prisma y suite de integración pendientes de ejecutar con Docker disponible.",
+      "blockedBy": "Docker no arranca en el ambiente: WSL no esta instalado y el servicio privilegiado requiere elevacion.",
       "owner": "Plataforma",
       "dueDate": "2026-10-20"
     },
@@ -172,7 +172,7 @@
       "priority": "P1",
       "status": "BLOCKED",
       "evidence": "platform/gateway/krakend/compose.ha.yaml y test/ha.test.mjs validan la configuración.",
-      "blockedBy": "Requiere Docker Engine con capacidad para tres contenedores y un LB.",
+      "blockedBy": "Docker no disponible en el ambiente (WSL ausente).",
       "owner": "Plataforma",
       "dueDate": "2026-10-20"
     },
@@ -183,7 +183,7 @@
       "priority": "P1",
       "status": "BLOCKED",
       "evidence": "platform/observability/test/grafana-provisioning.spec.ts valida provisioning y plan.",
-      "blockedBy": "Stack OSS no desplegado en el ambiente de evaluación.",
+      "blockedBy": "Stack OSS no desplegado: Docker no disponible en el ambiente (WSL ausente).",
       "owner": "Plataforma",
       "dueDate": "2026-11-07"
     }

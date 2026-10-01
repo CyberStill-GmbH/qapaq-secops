@@ -18,8 +18,8 @@
       "requirement": "Flujo OIDC completo contra el tenant de Microsoft Entra aprobado.",
       "priority": "P0",
       "status": "BLOCKED",
-      "evidence": "apps/api/test/bff.spec.ts cubre el flujo con emisor local; falta app registration real.",
-      "blockedBy": "App registration, redirect URIs y claims pendientes de aprobación.",
+      "evidence": "apps/api/test/bff.spec.ts cubre el flujo con emisor local; conectividad y credencial reales verificadas en entra-connectivity-check.md",
+      "blockedBy": "El tenant responde y acepta la aplicacion; falta el inicio de sesion interactivo con claims de rol y unificar los nombres de variables.",
       "owner": "Seguridad",
       "dueDate": "2026-10-31"
     },
@@ -41,7 +41,7 @@
       "priority": "P0",
       "status": "BLOCKED",
       "evidence": "platform/database/test/postgres-c19.integration.spec.ts (requiere Docker).",
-      "blockedBy": "Adapter Prisma y suite de integración pendientes de ejecutar con Docker disponible.",
+      "blockedBy": "Docker no arranca en el ambiente: WSL no esta instalado y el servicio privilegiado requiere elevacion.",
       "owner": "Plataforma",
       "dueDate": "2026-10-20"
     },
@@ -52,7 +52,7 @@
       "priority": "P1",
       "status": "BLOCKED",
       "evidence": "platform/gateway/krakend/compose.ha.yaml y test/ha.test.mjs validan la configuración.",
-      "blockedBy": "Requiere Docker Engine con capacidad para tres contenedores y un LB.",
+      "blockedBy": "Docker no disponible en el ambiente (WSL ausente).",
       "owner": "Plataforma",
       "dueDate": "2026-10-20"
     },
@@ -63,7 +63,7 @@
       "priority": "P1",
       "status": "BLOCKED",
       "evidence": "platform/observability/test/grafana-provisioning.spec.ts valida provisioning y plan.",
-      "blockedBy": "Stack OSS no desplegado en el ambiente de evaluación.",
+      "blockedBy": "Stack OSS no desplegado: Docker no disponible en el ambiente (WSL ausente).",
       "owner": "Plataforma",
       "dueDate": "2026-11-07"
     }
