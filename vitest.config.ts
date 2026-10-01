@@ -11,7 +11,7 @@ export default defineConfig({
       'apps/**/test/**/*.spec.tsx',
       'tests/architecture/**/*.spec.ts',
     ],
-    exclude: ['**/*.integration.spec.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.integration.spec.ts'],
     passWithNoTests: false,
     fsModuleCache: true,
     isolate: false,

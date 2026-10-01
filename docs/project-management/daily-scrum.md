@@ -526,3 +526,151 @@ componentes/PBI sin recortarla por el timebox. El Sprint Goal formal sigue
 condicionado enteramente al admin consent pendiente de PBI-007.
 
 Informe: [Daily Scrum 2026-09-29](informes-de-avance/2026-09-29-informe-de-avance.md).
+
+## Registro — 2026-09-30
+
+Sprint: 2 — Ingesta durable Microsoft 365/Wazuh (Sprint Goal vigente).
+
+Cierre de ayer: la jornada del 29 **no cumplió su objetivo**. El plan
+comprometía cerrar C-12, C-13, C-14 y C-15; ninguno tiene código al cierre. Lo
+único que aterrizó fue el endurecimiento aditivo de C-24 en `4e0bd5a`
+(integrado por `18c26f2`): mapeo de los códigos internos del control plane al
+catálogo público de errores y guardas de ciclo de vida en PostgreSQL, con 12
+specs propias. El día cerró en `29d19a4`, un commit documental. PBI-007 tampoco
+se movió: el admin consent sobre `ActivityFeed.Read` sigue sin otorgarse. El
+riesgo de sobrecompromiso estaba registrado por escrito en el plan de ayer y se
+materializó. Detalle en
+[informe de cierre 2026-09-29](informes-de-avance/2026-09-29-informe-de-cierre.md).
+
+Componentes activos y estado. Sprint 2 comprende ocho componentes; cuatro
+construidos y cuatro pendientes, sin cambio respecto a la apertura de ayer:
+
+- C-01…C-09: `DONE` o `DONE` con excepción documentada, sin cambio. C-08 sigue
+  siendo el gate de entrada con su excepción del PO del 2026-09-25.
+- C-10, C-11, C-24, C-28: construidos. Su aceptación sigue condicionada a
+  PBI-007 y a infraestructura real.
+- C-12, C-13, C-14, C-15: sin código construido; son el alcance restante.
+- Línea base verificada hoy sobre `29d19a4`: `npx vitest run` → 21 archivos /
+  212 tests PASS. Corrige un conteo inflado (se reportaban 570): la
+  configuración de vitest anulaba el excluido de `node_modules` y recogía las
+  mismas specs varias veces. Ninguna prueba fallaba.
+
+Plan hasta el siguiente Daily — un componente comprometido, no cuatro:
+
+1. **Compromiso del día: cerrar C-12** (mapping versionado Wazuh →
+   `SecurityEvent`) con sus seis specs, incluido el failure path de cuarentena
+   que no aborta la página. Es el único pendiente que **no** depende de
+   infraestructura bloqueada: su entrada (C-11) y su contrato de salida con
+   corpus de fixtures (C-05) ya están en `main`, así que cierra con `vitest`
+   puro, sin Docker.
+2. **Objetivo extendido y condicionado: C-13**, solo si C-12 cierra en verde.
+   Sus specs exigen PostgreSQL y Redis reales: o corren en CI, o C-13 queda
+   `IN_PROGRESS` con comando y entorno declarados, sin sustituirse por dobles.
+3. **C-15 no se difiere**: las señales de C-12 (normalizados, rechazados, en
+   cuarentena) se exponen conforme el componente cierra, con cardinalidad
+   acotada y sin IP, token, usuario, query string ni URL en las etiquetas. Es
+   avance parcial de C-15 y se declara como parcial.
+4. **C-14 queda fuera del compromiso de hoy** por depender de OpenSearch
+   operativo, no provisionado. Comprometerlo otra vez repetiría el error de
+   ayer.
+5. Seguimiento en paralelo del admin consent pendiente de PBI-007; si se otorga
+   hoy, re-ejecutar de inmediato la verificación real de C-10.
+
+Cambio de método adoptado hoy como respuesta al incumplimiento: un componente
+comprometido por jornada; nada que dependa de infraestructura caída entra en el
+compromiso diario; un componente se abre solo cuando el anterior cerró su
+failure path con suite ejecutada.
+
+Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
+
+- PBI-007 sin admin consent otorgado sobre `ActivityFeed.Read` — impacto:
+  bloquea el Sprint Goal E2E aunque C-12…C-15 lleguen a `DONE` local; sin
+  movimiento desde el 2026-09-28 — dueño: Franco Clavo Santander — siguiente
+  acción: otorgar el consentimiento en Azure Portal y avisar para revalidar —
+  escalamiento: Product Owner antes del cierre de Sprint 2.
+- Cuatro componentes pendientes con el sprint avanzado — impacto: el alcance
+  construible de Sprint 2 está en riesgo real — dueño: Cesar — siguiente
+  acción: sostener la re-secuenciación adoptada hoy y reportar al PO si C-12 no
+  cierra — escalamiento: Product Owner el mismo día.
+- Docker Desktop/WSL sin levantar el daemon — impacto: bloquea las specs de
+  integración de C-13 y C-14 y la suite PostgreSQL de C-24 — dueño: Cesar —
+  siguiente acción: reintentar el runbook de
+  [`local-environment.md`](../development/local-environment.md); escalar a
+  Infraestructura con Diagnostic ID si persiste.
+- C-14 sin OpenSearch operativo — impacto: el componente no es comprometible —
+  dueño: Cesar / Infraestructura — siguiente acción: confirmar provisión antes
+  de volver a incluirlo en un plan diario.
+
+Cambio al Sprint Backlog: ninguno en composición; sí en secuencia — C-12 pasa a
+ser el único componente comprometido de la jornada y C-14 se retira del
+compromiso diario hasta que exista OpenSearch. PBI-007 se mantiene `BLOCKED`.
+
+Confianza en el Sprint Goal: ÁMBAR. La base construida es sólida y verificada
+(cuatro componentes en `main`, 212 tests en verde), y el objetivo de hoy es
+deliberadamente más pequeño y por eso creíble: C-12 no toca ninguna dependencia
+bloqueada. El Sprint Goal formal sigue condicionado enteramente al admin consent
+pendiente de PBI-007.
+
+Informe: [Daily Scrum 2026-09-30](informes-de-avance/2026-09-30-informe-de-avance.md).
+
+## Registro — 2026-10-01
+
+Sprint: 2 — Ingesta durable Microsoft 365/Wazuh (Sprint Goal vigente).
+
+Cierre de ayer: la jornada del 30 **cumplió y superó su compromiso**. El plan
+comprometía cerrar solo C-12; cerró con sus seis specs, y el trabajo continuó
+hasta completar el dominio de C-13, C-14 y C-15. Con eso, **los ocho componentes
+de Sprint 2 tienen código construido**. Ninguno tiene aceptación. Se corrigió
+además un conteo de pruebas inflado que esta serie de informes venía arrastrando
+(se reportaban 570 donde había 212 reales); ninguna prueba fallaba, el defecto
+era de recolección duplicada en `vitest.config.ts`. Detalle en
+[informe de cierre 2026-09-30](informes-de-avance/2026-09-30-informe-de-cierre.md).
+
+Componentes activos y estado:
+
+- C-01…C-09: `DONE` o `DONE` con excepción documentada, sin cambio.
+- C-10, C-11, C-24, C-28: construidos; aceptación condicionada a PBI-007 e
+  infraestructura.
+- C-12: construido y verificado, 19/19 specs propias.
+- C-13, C-14, C-15: dominio construido y verificado; `IN_PROGRESS`, no `DONE`.
+- Línea base verificada hoy: `npx vitest run` → **27 archivos / 320 tests PASS**.
+
+Plan hasta el siguiente Daily — el trabajo cambió de naturaleza: ya no falta
+construir, falta verificar. En orden:
+
+1. Reintentar el runbook de Docker Desktop. Es ahora el bloqueo técnico
+   dominante: impide la aceptación de C-11, C-13 y C-24 a la vez.
+2. Si Docker levanta, ejecutar las integration specs de C-13 contra PostgreSQL y
+   Redis reales: duplicado concurrente, reinicio a mitad de página, poison event
+   aislado y reproceso con trazabilidad.
+3. Escribir los adaptadores de los puertos declarados en `ports.ts`, que hoy no
+   tienen implementación.
+4. Instrumentar C-10…C-14 con las primitivas de C-15: hoy existen las
+   primitivas, no los puntos de medición.
+5. Seguimiento del admin consent de PBI-007.
+
+Bloqueos: causa / impacto / dueño / siguiente acción / escalamiento:
+
+- Docker Desktop/WSL sin levantar el daemon — impacto: **bloqueo dominante**,
+  impide la aceptación de C-11, C-13 y C-24 — dueño: Cesar / Infraestructura —
+  siguiente acción: runbook de [`local-environment.md`](../development/local-environment.md);
+  escalar con Diagnostic ID — escalamiento: Infraestructura hoy mismo.
+- OpenSearch no provisionado — impacto: bloquea la aceptación de C-14 — dueño:
+  Infraestructura — siguiente acción: confirmar provisión.
+- PBI-007 sin admin consent sobre `ActivityFeed.Read` — impacto: bloquea el
+  Sprint Goal completo; sin movimiento desde el 2026-09-28 — dueño: Franco Clavo
+  Santander — escalamiento: Product Owner antes de la Review.
+- Ocho componentes construidos y cero aceptados — impacto: toda la deuda del
+  sprint es de verificación, no de construcción — dueño: Cesar / Franco —
+  siguiente acción: reportar el incremento como tal en la Review, sin
+  reetiquetarlo como Sprint Goal cumplido.
+
+Cambio al Sprint Backlog: ninguno en composición. C-13, C-14 y C-15 pasan de
+`PENDIENTE` a `IN_PROGRESS` con pendiente exacto declarado por componente.
+
+Confianza en el Sprint Goal: ÁMBAR, con el riesgo desplazado. La construcción
+local está completa y en verde; lo que falta no se resuelve con código de este
+lado. El Sprint Goal formal no se alcanzará mientras PBI-007 siga sin
+consentimiento.
+
+Informe: [Cierre 2026-09-30](informes-de-avance/2026-09-30-informe-de-cierre.md).

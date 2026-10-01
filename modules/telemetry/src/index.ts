@@ -11,3 +11,91 @@ export {
   type TelemetryProviderRecord,
 } from './admission.js';
 export { S3RawStore, type S3RawStoreOptions } from './s3-raw-store.js';
+export { deterministicUuid7 } from './deterministic-id.js';
+export {
+  normalizeWazuhAlert,
+  normalizeWazuhPage,
+  NORMALIZATION_ERROR_CODES,
+  WAZUH_MAPPING_ID,
+  WAZUH_MAPPING_VERSION,
+  WAZUH_PARSER_VERSION,
+  WAZUH_SEVERITY_MAPPING_ID,
+  WAZUH_SEVERITY_SCALE,
+  type NormalizationErrorCode,
+  type NormalizationOutcome,
+  type NormalizationReason,
+  type PageNormalizationResult,
+  type QuarantinedRecord,
+  type WazuhAlertInput,
+  type WazuhNormalizationContext,
+} from './wazuh-normalization.js';
+export {
+  DEFAULT_RETRY_POLICY,
+  decideInboxTransition,
+  INBOX_STATUSES,
+  planReplay,
+  type InboxCommand,
+  type InboxDecision,
+  type InboxEntry,
+  type InboxNoopReason,
+  type InboxRejectReason,
+  type InboxStatus,
+  type ProcessingFailure,
+  type ReplayCandidate,
+  type ReplayPlan,
+  type RetryPolicy,
+} from './inbox-lifecycle.js';
+export {
+  comparePositions,
+  decideCheckpointAdvance,
+  highWaterMark,
+  type CheckpointCandidate,
+  type CheckpointDecision,
+  type CheckpointPosition,
+  type CheckpointState,
+} from './checkpoint-advance.js';
+export {
+  applyReprocess,
+  buildQuarantineEntry,
+  DEFAULT_REPROCESS_POLICY,
+  decideReprocess,
+  fromNormalizationQuarantine,
+  QUARANTINE_STATUSES,
+  resolveQuarantine,
+  type QuarantineEntry,
+  type QuarantineLineage,
+  type QuarantineStatus,
+  type ReprocessDecision,
+} from './quarantine-reprocess.js';
+export {
+  buildProjectionDocument,
+  decideProjection,
+  PROJECTION_VERSION,
+  type ProjectedState,
+  type ProjectionDecision,
+  type ProjectionDocument,
+} from './event-projection.js';
+export {
+  EVENTS_READ,
+  EVENTS_READ_RAW,
+  planQuery,
+  QUERY_ERROR_CODES,
+  QUERY_LIMITS,
+  shapeEventForReader,
+  shapePage,
+  type EventPage,
+  type EventQuery,
+  type QueryErrorCode,
+  type QueryPlan,
+  type QueryRejection,
+  type RawEventQuery,
+  type ReadableEvent,
+  type ReaderContext,
+} from './event-query.js';
+export type {
+  CheckpointStore,
+  EventInboxStore,
+  EventProjectionStore,
+  EventQueryStore,
+  QuarantineStore,
+} from './ports.js';

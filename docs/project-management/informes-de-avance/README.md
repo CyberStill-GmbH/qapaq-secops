@@ -9,6 +9,9 @@ respalde.
 
 ## Índice
 
+- [2026-09-30 — Cierre de día: C-12 construido; dominio de C-13, C-14 y C-15 completo; corrección del conteo de pruebas](2026-09-30-informe-de-cierre.md).
+- [2026-09-30 — Daily Scrum: plan re-secuenciado, C-12 como único compromiso del día](2026-09-30-informe-de-avance.md).
+- [2026-09-29 — Cierre de día: endurecimiento de C-24; objetivo de cuatro componentes no alcanzado](2026-09-29-informe-de-cierre.md).
 - [2026-09-29 — Daily Scrum: objetivo del día, cerrar Sprint 2 completo (C-10 a C-15, C-24)](2026-09-29-informe-de-avance.md).
 - [2026-09-28 — Cierre de día: C-28 KrakenD en `main`, diagnóstico real PBI-007](2026-09-28-informe-de-cierre.md).
 - [2026-09-28 — Daily Scrum: inicio de Sprint 2 (Ingesta Microsoft 365/Wazuh)](2026-09-28-informe-de-avance.md).
