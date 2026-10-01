@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import './login.css';
 @import './admin.css';
+@import './login-motion.css';
 
 @theme {
   --color-qapaq-black: #080808;

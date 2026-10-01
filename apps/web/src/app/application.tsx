@@ -5,6 +5,7 @@ import { MockAdminApi } from '../api/mock-admin.js';
 import type { AdminSession } from '../api/admin.js';
 import HeroArt from '../components/login/HeroArt.js';
 import SuperAdminConsole from '../components/admin/SuperAdminConsole.js';
+import qapaqQMask from '../assets/qapaq-q-mask.png';
 
 type CheckState = ApiHealth | 'checking';
 const apiStateText: Record<CheckState, string> = {
@@ -42,7 +43,16 @@ export default function Application({ config }: { config: PublicConfig }): React
   const [checking, setChecking] = useState(false);
   const [session, setSession] = useState<AdminSession | null>(null);
   const [signInState, setSignInState] = useState<'ready' | 'redirecting' | 'error'>('ready');
+  const [showSplash, setShowSplash] = useState(
+    () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
   const activeRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    const splashTimer = window.setTimeout(() => setShowSplash(false), 1_050);
+    return () => window.clearTimeout(splashTimer);
+  }, [showSplash]);
 
   const refreshHealth = useCallback(async () => {
     activeRequest.current?.abort();
@@ -107,6 +117,14 @@ export default function Application({ config }: { config: PublicConfig }): React
 
   return (
     <main className="auth-screen grid min-h-svh" data-base-path={config.basePath}>
+      {showSplash && (
+        <div className="auth-splash" aria-hidden="true">
+          <span
+            className="auth-splash-mark"
+            style={{ maskImage: `url(${qapaqQMask})`, WebkitMaskImage: `url(${qapaqQMask})` }}
+          />
+        </div>
+      )}
       <header className="auth-topbar flex items-center">
         <a className="q-symbol" href={config.basePath} aria-label="QAPAQ SecOps">
           <img src={`${config.basePath}qapaq-mark-source.png`} alt="" />

@@ -17,12 +17,12 @@ export default function HeroArt(): React.JSX.Element {
       aria-label="Identidad visual QAPAQ"
     >
       <div
-        className="pointer-events-none absolute inset-0 z-0 blur-[56px]"
+        className="login-light-amber pointer-events-none absolute inset-0 z-0 blur-[56px]"
         aria-hidden="true"
         style={{ background: amberGlow }}
       />
       <div
-        className="pointer-events-none absolute inset-0 z-0 blur-[30px] brightness-125"
+        className="login-light-core pointer-events-none absolute inset-0 z-0 blur-[30px] brightness-125"
         aria-hidden="true"
         style={{ background: lightCore }}
       />
@@ -36,7 +36,7 @@ export default function HeroArt(): React.JSX.Element {
         style={{ backgroundImage: grainTexture, opacity: GRAIN_OPACITY }}
       />
       <svg
-        className="pointer-events-none absolute left-[-18%] top-1/2 z-10 h-[88%] w-auto -translate-y-1/2"
+        className="login-glass-mark pointer-events-none absolute left-[-18%] top-1/2 z-10 h-[88%] w-auto -translate-y-1/2"
         viewBox="0 0 447 447"
         role="img"
         aria-label="Emblema Q de QAPAQ"
