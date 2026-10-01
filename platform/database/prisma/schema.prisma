@@ -278,3 +278,131 @@ model SecretReconciliation {
   @@index([reason, createdAt], map: "secret_reconciliations_pending_idx")
   @@map("secret_reconciliations")
 }
+
+// C-19 — AuditEvent append-only con cadena de hash por tenant.
+// Los privilegios de UPDATE/DELETE se revocan en la migración; el trigger impide
+// la modificación incluso para un rol con permisos.
+model AuditEvent {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Text
+  sequence      BigInt
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt    DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  actorId       String   @map("actor_id") @db.Text
+  actorType     String   @map("actor_type") @db.Text
+  actorSession  String?  @map("actor_session") @db.Text
+  actorIp       String?  @map("actor_ip") @db.Text
+  action        String   @db.Text
+  resourceType  String   @map("resource_type") @db.Text
+  resourceId    String   @map("resource_id") @db.Text
+  outcome       String   @db.Text
+  correlationId String   @map("correlation_id") @db.Text
+  reason        String?  @db.Text
+  metadata      Json?    @db.JsonB
+  previousHash  String   @map("previous_hash") @db.Text
+  hash          String   @db.Text
+
+  @@unique([tenantId, sequence], map: "audit_events_tenant_sequence_key")
+  @@unique([tenantId, hash], map: "audit_events_tenant_hash_key")
+  @@index([tenantId, occurredAt, sequence], map: "audit_events_tenant_time_idx")
+  @@index([tenantId, action, occurredAt], map: "audit_events_action_idx")
+  @@map("audit_events")
+}
+
+// C-16 — candidato de detección. La unicidad por clave de idempotencia es lo que
+// hace que repetir la promoción no cree un segundo candidato.
+model DetectionCandidate {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Text
+  eventRecordId  String   @map("event_record_id") @db.Uuid
+  eventUid       String   @map("event_uid") @db.Text
+  idempotencyKey String   @map("idempotency_key") @db.Text
+  priority       String   @db.Text
+  score          Int
+  reasons        Json     @db.JsonB
+  rulesetId      String   @map("ruleset_id") @db.Text
+  rulesetVersion String   @map("ruleset_version") @db.Text
+  title          String   @db.Text
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  alert SocAlert?
+
+  @@unique([tenantId, idempotencyKey], map: "detection_candidates_idempotency_key")
+  @@index([tenantId, occurredAt, id], map: "detection_candidates_time_idx")
+  @@map("detection_candidates")
+}
+
+// C-17 — alerta SOC. `revision` sostiene el compare-and-set del dominio.
+model SocAlert {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Text
+  candidateId   String    @unique(map: "soc_alerts_candidate_key") @map("candidate_id") @db.Uuid
+  eventRecordId String    @map("event_record_id") @db.Uuid
+  title         String    @db.Text
+  priority      String    @db.Text
+  score         Int
+  reasons       Json      @db.JsonB
+  status        String    @db.Text
+  assigneeId    String?   @map("assignee_id") @db.Text
+  verdict       String?   @db.Text
+  triageNote    String?   @map("triage_note") @db.Text
+  incidentId    String?   @map("incident_id") @db.Uuid
+  occurredAt    DateTime  @map("occurred_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @map("updated_at") @db.Timestamptz(3)
+  revision      Int
+
+  candidate DetectionCandidate @relation(fields: [candidateId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "soc_alerts_candidate_fkey")
+  incident  SocIncident?       @relation(fields: [incidentId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "soc_alerts_incident_fkey")
+
+  @@index([tenantId, status, occurredAt], map: "soc_alerts_board_idx")
+  @@index([tenantId, incidentId], map: "soc_alerts_incident_idx")
+  @@map("soc_alerts")
+}
+
+// C-17 — incidente/caso mínimo.
+model SocIncident {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Text
+  title         String    @db.Text
+  severity      String    @db.Text
+  status        String    @db.Text
+  ownerId       String    @map("owner_id") @db.Text
+  summary       String    @db.Text
+  openedAt      DateTime  @map("opened_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @map("updated_at") @db.Timestamptz(3)
+  closedAt      DateTime? @map("closed_at") @db.Timestamptz(3)
+  closureReason String?   @map("closure_reason") @db.Text
+  revision      Int
+
+  alerts SocAlert[]
+
+  @@index([tenantId, status, openedAt], map: "soc_incidents_board_idx")
+  @@map("soc_incidents")
+}
+
+// C-20 — intento de notificación. `client_request_id` es estable entre reintentos
+// para que el destino pueda deduplicar un envío ambiguo.
+model NotificationAttempt {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Text
+  messageId       String    @map("message_id") @db.Uuid
+  idempotencyKey  String    @map("idempotency_key") @db.Text
+  clientRequestId String    @map("client_request_id") @db.Text
+  channel         String    @db.Text
+  status          String    @db.Text
+  attemptCount    Int       @map("attempt_count")
+  availableAt     DateTime  @map("available_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @map("updated_at") @db.Timestamptz(3)
+  lastFailureCode String?   @map("last_failure_code") @db.Text
+  lastFailureClass String?  @map("last_failure_class") @db.Text
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz(3)
+  acknowledgedAt  DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  acknowledgedBy  String?   @map("acknowledged_by") @db.Text
+
+  @@unique([tenantId, idempotencyKey], map: "notification_attempts_idempotency_key")
+  @@index([status, availableAt, id], map: "notification_attempts_pending_idx")
+  @@map("notification_attempts")
+}

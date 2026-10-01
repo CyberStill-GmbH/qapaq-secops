@@ -20,3 +20,13 @@ export {
   type AdmissionErrorCode,
 } from './commit-admission.js';
 export { PrismaSecretMetadataStore, createUuidV7 } from './secret-metadata.store.js';
+export {
+  PrismaAlertStore,
+  PrismaAuditStore,
+  PrismaIncidentStore,
+  PrismaSocUnitOfWork,
+  type AlertRow,
+  type IncidentRow,
+  type SealedAuditRow,
+  type SocStores,
+} from './soc-stores.js';

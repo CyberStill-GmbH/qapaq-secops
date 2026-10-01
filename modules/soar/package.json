@@ -1,0 +1,28 @@
+{
+  "name": "@qapaq/soar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --dir ../.. exec vitest run --config vitest.config.ts modules/soar/test"
+  },
+  "dependencies": {
+    "@qapaq/audit": "workspace:*",
+    "@qapaq/configuration": "workspace:*",
+    "@qapaq/soc": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}
