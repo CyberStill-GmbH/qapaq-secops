@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+
+import { deterministicUuid7 as sharedDeterministicUuid7 } from './deterministic-id.js';
 import type {
   AdmissionCommand,
   AdmissionReceipt,
@@ -134,17 +136,11 @@ function canonicalBytes(value: unknown): Buffer {
 }
 
 function deterministicUuid7(namespace: string, label: string, timestamp: Date): string {
-  const millis = timestamp.getTime();
-  if (!Number.isSafeInteger(millis) || millis < 0 || millis >= 2 ** 48)
+  try {
+    return sharedDeterministicUuid7(namespace, label, timestamp);
+  } catch {
     throw new TelemetryAdmissionError('INVALID_ADMISSION');
-  const digest = createHash('sha256').update(`${namespace}\0${label}`, 'utf8').digest();
-  const bytes = Buffer.from(digest.subarray(0, 16));
-  const time = BigInt(millis);
-  for (let i = 5; i >= 0; i--) bytes[i] = Number((time >> BigInt((5 - i) * 8)) & 0xffn);
-  bytes[6] = 0x70 | (bytes[6]! & 0x0f);
-  bytes[8] = 0x80 | (bytes[8]! & 0x3f);
-  const hex = bytes.toString('hex');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
 }
 
 function sha256(bytes: Uint8Array): string {
