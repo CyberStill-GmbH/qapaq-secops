@@ -42,6 +42,10 @@ export function AccessView({
             <select name="bundle" required>
               <option value="SOC_L1">SOC L1</option>
               <option value="SOC_L2">SOC L2</option>
+              <option value="SOC_MANAGER">SOC Manager</option>
+              <option value="DETECTION_ENGINEER">Detection Engineer</option>
+              <option value="AUDITOR">Auditor</option>
+              <option value="VIEWER">Viewer</option>
               <option value="PLATFORM_ADMIN">Platform Admin</option>
               <option value="ACCESS_ADMIN">Access Admin</option>
             </select>

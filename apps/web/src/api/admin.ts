@@ -5,8 +5,13 @@
 export const ADMIN_API = {
   session: '/api/v1/session',
   overview: '/api/v1/platform/overview',
+  events: '/api/v1/soc/events',
   alerts: '/api/v1/soc/alerts',
+  cases: '/api/v1/soc/cases',
   incidents: '/api/v1/soc/incidents',
+  rules: '/api/v1/detection/rules',
+  quarantine: '/api/v1/platform/quarantine',
+  sessions: '/api/v1/platform/sessions',
   sources: '/api/v1/platform/sources',
   services: '/api/v1/platform/services',
   accessRequests: '/api/v1/platform/access-requests',
@@ -23,8 +28,8 @@ export const AUTH_API = {
 
 export type DataMode = 'mock' | 'live';
 export type OperationalStatus = 'healthy' | 'degraded' | 'blocked' | 'unknown';
-export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-export type AlertState = 'new' | 'acknowledged' | 'investigating' | 'resolved';
+export type Severity = 'INFORMATIONAL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AlertState = 'new' | 'enriching' | 'triage' | 'investigating' | 'confirmed' | 'false_positive' | 'closed';
 export type AdminRole =
   | 'PLATFORM_ADMIN'
   | 'SOC_L1'
@@ -96,11 +101,60 @@ export interface AlertSummary {
   readonly summary: string;
 }
 
-export interface IncidentSummary {
+export interface SecurityEventSummary {
+  readonly id: string;
+  readonly occurredAt: string;
+  readonly severity: Severity;
+  readonly category: string;
+  readonly source: string;
+  readonly ruleId: string;
+  readonly principal: string;
+  readonly host: string;
+  readonly summary: string;
+}
+
+export interface CaseSummary {
   readonly id: string;
   readonly title: string;
   readonly severity: Severity;
   readonly state: 'open' | 'investigating' | 'contained' | 'resolved';
+  readonly owner: string;
+  readonly updatedAt: string;
+}
+
+export interface DetectionRuleSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly status: 'enabled' | 'draft' | 'review';
+  readonly version: string;
+  readonly hitsLast24h: number;
+  readonly falsePositiveRate: number;
+  readonly updatedAt: string;
+}
+
+export interface QuarantineRecord {
+  readonly id: string;
+  readonly source: string;
+  readonly reason: string;
+  readonly state: 'pending' | 'reprocessing' | 'recovered' | 'blocked';
+  readonly attempts: number;
+  readonly occurredAt: string;
+}
+
+export interface SessionSummary {
+  readonly id: string;
+  readonly actor: string;
+  readonly role: AdminRole;
+  readonly startedAt: string;
+  readonly lastSeenAt: string;
+  readonly state: 'active' | 'expired' | 'revoked';
+}
+
+export interface IncidentSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly severity: Severity;
+  readonly state: 'open' | 'investigating' | 'containment' | 'eradication' | 'recovery' | 'resolved' | 'closed';
   readonly owner: string;
   readonly alertCount: number;
   readonly updatedAt: string;
@@ -120,7 +174,7 @@ export interface AccessRequest {
   readonly id: string;
   readonly requester: string;
   readonly target: string;
-  readonly requestedBundle: 'SOC_L1' | 'SOC_L2' | 'ACCESS_ADMIN' | 'PLATFORM_ADMIN';
+  readonly requestedBundle: AdminRole;
   readonly scope: string;
   readonly reason: string;
   readonly state: 'pending_second_approver' | 'approved' | 'rejected';
@@ -159,7 +213,7 @@ export interface PageQuery {
 
 function pagePath(path: string, query: PageQuery): string {
   const limit = query.limit ?? 50;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new RangeError('PAGE_LIMIT_OUT_OF_RANGE');
   }
   const parameters = new URLSearchParams({ limit: String(limit) });
@@ -192,6 +246,12 @@ export interface OperationReceipt {
 export interface AdminApi {
   getSession(signal?: AbortSignal): Promise<AdminSession>;
   getOverview(signal?: AbortSignal): Promise<PlatformOverview>;
+  searchEvents(query: PageQuery & { readonly q?: string; readonly from: string; readonly to: string }, signal?: AbortSignal): Promise<Page<SecurityEventSummary>>;
+  getCases(query?: PageQuery, signal?: AbortSignal): Promise<Page<CaseSummary>>;
+  getDetectionRules(query?: PageQuery, signal?: AbortSignal): Promise<Page<DetectionRuleSummary>>;
+  getQuarantine(signal?: AbortSignal): Promise<readonly QuarantineRecord[]>;
+  getSessions(signal?: AbortSignal): Promise<readonly SessionSummary[]>;
+  reprocessQuarantine(recordId: string, reason: string): Promise<OperationReceipt>;
   getAlerts(query?: PageQuery, signal?: AbortSignal): Promise<Page<AlertSummary>>;
   getIncidents(query?: PageQuery, signal?: AbortSignal): Promise<Page<IncidentSummary>>;
   getSources(signal?: AbortSignal): Promise<readonly SourceSummary[]>;
@@ -262,6 +322,36 @@ export class HttpAdminApi implements AdminApi {
   }
   public getOverview(signal?: AbortSignal) {
     return this.request<PlatformOverview>(ADMIN_API.overview, signal ? { signal } : {});
+  }
+  public searchEvents(query: PageQuery & { readonly q?: string; readonly from: string; readonly to: string }, signal?: AbortSignal) {
+    const limit = query.limit ?? 50;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new RangeError('PAGE_LIMIT_OUT_OF_RANGE');
+    const from = new Date(query.from).getTime();
+    const to = new Date(query.to).getTime();
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from || to - from > 90 * 86_400_000) {
+      throw new RangeError('EVENT_WINDOW_INVALID');
+    }
+    const parameters = new URLSearchParams({ limit: String(limit), from: query.from, to: query.to });
+    if (query.cursor) parameters.set('cursor', query.cursor);
+    if (query.q) parameters.set('q', query.q);
+    return this.request<Page<SecurityEventSummary>>(`${ADMIN_API.events}?${parameters}`, signal ? { signal } : {});
+  }
+  public getCases(query: PageQuery = {}, signal?: AbortSignal) {
+    return this.request<Page<CaseSummary>>(pagePath(ADMIN_API.cases, query), signal ? { signal } : {});
+  }
+  public getDetectionRules(query: PageQuery = {}, signal?: AbortSignal) {
+    return this.request<Page<DetectionRuleSummary>>(pagePath(ADMIN_API.rules, query), signal ? { signal } : {});
+  }
+  public getQuarantine(signal?: AbortSignal) {
+    return this.request<readonly QuarantineRecord[]>(ADMIN_API.quarantine, signal ? { signal } : {});
+  }
+  public getSessions(signal?: AbortSignal) {
+    return this.request<readonly SessionSummary[]>(ADMIN_API.sessions, signal ? { signal } : {});
+  }
+  public reprocessQuarantine(recordId: string, reason: string) {
+    return this.request<OperationReceipt>(`${ADMIN_API.quarantine}/${encodeURIComponent(recordId)}/reprocess`, {
+      method: 'POST', body: JSON.stringify({ reason }),
+    });
   }
   public getAlerts(query: PageQuery = {}, signal?: AbortSignal) {
     return this.request<Page<AlertSummary>>(

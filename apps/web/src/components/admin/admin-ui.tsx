@@ -1,14 +1,19 @@
 import type { ReactNode } from 'react';
 export type Section =
   | 'overview'
+  | 'events'
   | 'alerts'
   | 'incidents'
+  | 'cases'
+  | 'rules'
   | 'sources'
   | 'services'
   | 'ingestion'
+  | 'quarantine'
   | 'notifications'
   | 'access'
-  | 'audit';
+  | 'audit'
+  | 'sessions';
 type AlertFilter = 'all' | 'open' | 'critical';
 export type IconName =
   | 'overview'
@@ -87,10 +92,18 @@ export function Status({ value }: { value: string }) {
     partial: 'Parcial',
     new: 'Nueva',
     acknowledged: 'Acusada',
+    enriching: 'Enriqueciendo',
+    triage: 'En triaje',
+    confirmed: 'Confirmada',
+    false_positive: 'Falso positivo',
+    closed: 'Cerrada',
     investigating: 'En investigación',
     resolved: 'Resuelta',
     open: 'Abierto',
     contained: 'Contenido',
+    containment: 'Contención',
+    eradication: 'Erradicación',
+    recovery: 'Recuperación',
     failed: 'Fallida',
     retrying: 'En reintento',
     delivered: 'Entregada',
@@ -106,6 +119,7 @@ export function Status({ value }: { value: string }) {
 
 export function Severity({ value }: { value: string }) {
   const label: Record<string, string> = {
+    INFORMATIONAL: 'Informativa',
     CRITICAL: 'Crítica',
     HIGH: 'Alta',
     MEDIUM: 'Media',

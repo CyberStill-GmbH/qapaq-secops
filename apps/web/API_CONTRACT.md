@@ -48,6 +48,9 @@ corporativo.
 | `GET /api/v1/soc/cases?limit=50&cursor=…`                  | `cases.read@scope`         | `Page<CaseSummary>`; acceso filtrado por caso/scope                                 |
 | `POST /api/v1/soc/cases`                                   | `incidents.create@scope`   | `{ title, severity, alertIds }` → caso creado y auditado                            |
 | `GET /api/v1/detection/rules?limit=50&cursor=…`            | `rules.read@scope`          | `Page<DetectionRuleSummary>`; versión y estado                                      |
+| `GET /api/v1/platform/quarantine`                          | `quarantine.read@scope`     | `QuarantineRecord[]`; motivo y estado, sin cuerpo raw                              |
+| `POST /api/v1/platform/quarantine/{id}/reprocess`          | `quarantine.reprocess`      | `{ reason }` → recibo de operación; bounded, auditado y sujeto a policy            |
+| `GET /api/v1/platform/sessions`                            | `sessions.read@scope`       | `SessionSummary[]`; identidad minimizada y solo dentro del scope                    |
 
 Los bundles de la matriz son específicos: `PLATFORM_ADMIN` no hereda raw,
 exportación ni grants. `ACCESS_ADMIN` mantiene separación de funciones, y no puede
@@ -63,8 +66,11 @@ exclusivamente de `GET /api/v1/session`, y el backend vuelve a autorizarlos por 
 - `HttpAdminApi` usa misma origen, `credentials: same-origin`, `cache: no-store`;
   nunca `Authorization: Bearer` desde el navegador.
 - Mutaciones requieren `x-csrf-token`. Redirecciones fetch se rechazan.
-- Listados aceptan un cursor opaco emitido por servidor; filtros, tamaño de página
-  máximo y vinculación del cursor al actor/tenant son responsabilidad del BFF.
+- Listados aceptan un cursor opaco emitido por servidor; el cliente permite 50 por
+  defecto y hasta 200, rechaza valores fuera del rango y el BFF vuelve a validar
+  tamaño, filtros y vinculación del cursor al actor/tenant.
+- La búsqueda de eventos exige `from` y `to`; el rango no supera 90 días. `tenantId`
+  y cualquier scope salen de la sesión confiable, nunca de parámetros del navegador.
 - Error recomendado: `{ "code": "CAPABILITY_DENIED", "correlationId": "…" }`;
   no devolver stack, raw, access token ni datos de otro tenant.
 - Códigos mínimos: `UNAUTHENTICATED`, `CAPABILITY_DENIED`, `SCOPE_DENIED`,
@@ -86,11 +92,15 @@ con sesión real y capabilities del servidor.
 
 ## Funciones del MVP representadas
 
-- resumen de servicios y cobertura, alertas y su acuse, incidentes, fuentes,
-  ingesta/checkpoints y proyección, notificaciones, acceso y auditoría;
+- resumen de servicios y cobertura, búsqueda normalizada por ventana temporal,
+  alertas y acuse, incidentes, casos, reglas en lectura, fuentes, ingesta,
+  cuarentena, notificaciones, accesos, sesiones y auditoría;
 - inspección de alerta con Event UID/regla/procedencia; raw permanece fuera de la
   vista normal y requiere permiso separado;
 - solicitud acotada de replay, solicitud de grant a doble control y retry
   notificación: se simulan en memoria sin efectos externos;
 - servicios y enlaces muestran explícitamente el estado de evidencia disponible,
   pendiente o no verificada.
+- publicación de reglas, creación/cierre de casos e incidentes, lectura raw,
+  exportación, revocación de sesiones y aprobación de grants permanecen fuera de
+  esta demo; requieren contratos/backend y capabilities verificadas.

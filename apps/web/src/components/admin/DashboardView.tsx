@@ -1,44 +1,46 @@
 import type { AlertSummary, IncidentSummary, PlatformOverview } from '../../api/admin.js';
+import type { AdminRole } from '../../api/admin.js';
 import { Icon, Metric, SectionHeader, Severity, Status, formatDate } from './admin-ui.js';
-type Section = 'overview' | 'alerts' | 'incidents' | 'sources' | 'services' | 'ingestion' | 'notifications' | 'access' | 'audit';
+type Section = 'overview' | 'events' | 'alerts' | 'incidents' | 'cases' | 'rules' | 'sources' | 'services' | 'ingestion' | 'quarantine' | 'notifications' | 'access' | 'audit' | 'sessions';
 export function OverviewView({
   overview,
   alerts,
   incidents,
+  role,
+  canReadAlertDetails,
+  canReadAlertAggregate,
+  canReadIncidents,
+  canReadEvents,
+  canReadAccess,
   onSelectAlert,
   onNavigate,
 }: {
   overview: PlatformOverview;
   alerts: readonly AlertSummary[];
   incidents: readonly IncidentSummary[];
+  role: AdminRole;
+  canReadAlertDetails: boolean;
+  canReadAlertAggregate: boolean;
+  canReadIncidents: boolean;
+  canReadEvents: boolean;
+  canReadAccess: boolean;
   onSelectAlert: (alert: AlertSummary) => void;
   onNavigate: (section: Section) => void;
 }) {
-  const critical = alerts.find((alert) => alert.severity === 'CRITICAL' && alert.state === 'new');
+  const critical = canReadAlertDetails ? alerts.find((alert) => alert.severity === 'CRITICAL' && alert.state === 'new') : undefined;
   return (
     <div className="view-stack">
       <div className="metric-row">
-        <Metric
-          label="Alertas abiertas"
-          value={overview.metrics.openAlerts}
-          note={`${overview.metrics.criticalAlerts} críticas`}
-          emphasis
-        />
-        <Metric
-          label="Incidentes activos"
-          value={overview.metrics.activeIncidents}
-          note="En seguimiento"
-        />
-        <Metric
-          label="Eventos · última hora"
-          value={overview.metrics.eventsLastHour.toLocaleString('es-PE')}
-          note="Conteo ilustrativo"
-        />
-        <Metric
-          label="Revisiones de acceso"
-          value={overview.metrics.pendingAccessReviews}
-          note="Pendientes de segundo aprobador"
-        />
+        {role === 'PLATFORM_ADMIN' ? <>
+          <Metric label="Dependencias" value={overview.services.length} note="Señales de plataforma de la demo" emphasis />
+          <Metric label="Cobertura visible" value={overview.coverage.length} note="Fuentes representadas" />
+          <Metric label="Señales degradadas" value={overview.services.filter((service) => service.status === 'degraded' || service.status === 'blocked').length} note="Requieren revisión operativa" />
+        </> : <>
+          {canReadAlertAggregate && <Metric label="Alertas abiertas" value={overview.metrics.openAlerts} note={`${overview.metrics.criticalAlerts} críticas`} emphasis />}
+          {canReadIncidents && <Metric label="Incidentes activos" value={overview.metrics.activeIncidents} note="En seguimiento" />}
+          {canReadEvents && <Metric label="Eventos · última hora" value={overview.metrics.eventsLastHour.toLocaleString('es-PE')} note="Conteo ilustrativo" />}
+          {canReadAccess && <Metric label="Revisiones de acceso" value={overview.metrics.pendingAccessReviews} note="Pendientes de segundo aprobador" />}
+        </>}
       </div>
       {critical && (
         <section className="priority-line">
@@ -95,8 +97,8 @@ export function OverviewView({
           </div>
         </section>
       </div>
-      <div className="overview-columns lower-columns">
-        <section className="data-section">
+      {(canReadAlertDetails || (canReadIncidents && role !== 'VIEWER' && role !== 'AUDITOR')) && <div className="overview-columns lower-columns">
+        {canReadAlertDetails && <section className="data-section">
           <SectionHeader
             title="Actividad de alertas"
             action="Abrir cola"
@@ -121,8 +123,8 @@ export function OverviewView({
               </button>
             ))}
           </div>
-        </section>
-        <section className="data-section">
+        </section>}
+        {canReadIncidents && role !== 'VIEWER' && role !== 'AUDITOR' && <section className="data-section">
           <SectionHeader
             title="Incidentes en curso"
             action="Ver incidentes"
@@ -142,8 +144,8 @@ export function OverviewView({
               </div>
             ))}
           </div>
-        </section>
-      </div>
+        </section>}
+      </div>}
     </div>
   );
 }
