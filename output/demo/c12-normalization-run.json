@@ -1,0 +1,305 @@
+{
+  "component": "C-12",
+  "title": "Normalización de alertas Wazuh al contrato SecurityEvent",
+  "generatedAt": "2026-10-01T11:27:48.568Z",
+  "mappingId": "wazuh.alerts",
+  "mappingVersion": "1.0.0",
+  "elapsedMs": 10,
+  "counts": {
+    "received": 10,
+    "normalized": 8,
+    "quarantined": 2
+  },
+  "lossless": true,
+  "normalized": [
+    {
+      "recordId": "01a0f334-82e0-7c97-88b9-ba824e4c9ed9",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1001",
+      "occurredAt": "2026-09-30T16:41:02.000Z",
+      "severity": "high",
+      "score": 75,
+      "originalLevel": 10,
+      "category": ["authentication"],
+      "outcome": "failure",
+      "rule": "Intento de autenticación SSH fallido",
+      "host": "srv-app-01.qapaq.local",
+      "principal": "jperez@qapaq.pe",
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1001",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-7130-b9d8-0082a1ea0e0d",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1002",
+      "occurredAt": "2026-09-30T16:41:37.000Z",
+      "severity": "critical",
+      "score": 95,
+      "originalLevel": 13,
+      "category": ["malware"],
+      "outcome": "unknown",
+      "rule": "Archivo malicioso detectado por análisis antivirus",
+      "host": "workstation-contabilidad.qapaq.local",
+      "principal": "mquispe@qapaq.pe",
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1002",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-7309-afc6-11e543456ff5",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1003",
+      "occurredAt": "2026-09-30T16:42:10.000Z",
+      "severity": "medium",
+      "score": 50,
+      "originalLevel": 7,
+      "category": ["file"],
+      "outcome": "unknown",
+      "rule": "Integridad de archivo alterada en directorio vigilado",
+      "host": "srv-app-01.qapaq.local",
+      "principal": null,
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1003",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-72ca-a6a4-572e431bccf2",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1004",
+      "occurredAt": "2026-09-30T16:42:55.000Z",
+      "severity": "medium",
+      "score": 50,
+      "originalLevel": 5,
+      "category": ["iam", "authentication"],
+      "outcome": "success",
+      "rule": "Inicio de sesión correcto en Microsoft 365",
+      "host": "wazuh-manager",
+      "principal": "fclavo@qapaq.pe",
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1004",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-72fe-9d03-f7f6b5023cf1",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1006",
+      "occurredAt": "2026-09-30T16:43:21.000Z",
+      "severity": "low",
+      "score": 25,
+      "originalLevel": 3,
+      "category": ["network"],
+      "outcome": "unknown",
+      "rule": "Conexión rechazada por el cortafuegos perimetral",
+      "host": "fw-perimetral.qapaq.local",
+      "principal": null,
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1006",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-71e7-818e-e72d180b9f17",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1007",
+      "occurredAt": "2026-09-30T16:43:58.000Z",
+      "severity": "high",
+      "score": 75,
+      "originalLevel": 9,
+      "category": ["web", "intrusion_detection"],
+      "outcome": "unknown",
+      "rule": "Múltiples solicitudes web sospechosas desde un mismo origen",
+      "host": "srv-web-02.qapaq.local",
+      "principal": null,
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1007",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-7188-877f-4e6e1f75fa35",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1009",
+      "occurredAt": "2026-09-30T16:44:30.000Z",
+      "severity": "critical",
+      "score": 95,
+      "originalLevel": 12,
+      "category": ["host", "iam"],
+      "outcome": "unknown",
+      "rule": "Cuenta de administrador agregada al dominio",
+      "host": "dc-01.qapaq.local",
+      "principal": "svc_backup@qapaq.pe",
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1009",
+      "mappingVersion": "1.0.0"
+    },
+    {
+      "recordId": "01a0f334-82e0-7dbc-bcc4-45c3b447a2f3",
+      "eventUid": "siem-qapaq-lab:alerts:evt-1010",
+      "occurredAt": "2026-09-30T16:44:51.000Z",
+      "severity": "low",
+      "score": 25,
+      "originalLevel": 2,
+      "category": ["host"],
+      "outcome": "unknown",
+      "rule": "Rotación programada de registros completada",
+      "host": "srv-app-01.qapaq.local",
+      "principal": null,
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1010",
+      "mappingVersion": "1.0.0"
+    }
+  ],
+  "quarantined": [
+    {
+      "sourceRecordId": "evt-1005",
+      "code": "INVALID_TIMESTAMP",
+      "message": "El instante de la alerta no es una marca RFC3339 con zona horaria.",
+      "path": "/timestamp",
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1005",
+      "rawSha256": "ff02bb17c2a090d2047e8c0cdc8d4d24259be223d7af8e92cadd160639c03209"
+    },
+    {
+      "sourceRecordId": "evt-1008",
+      "code": "MISSING_RULE",
+      "message": "La alerta no declara la regla que la originó.",
+      "path": "/rule",
+      "rawRef": "raw:tenant-qapaq-001/2026/09/30/evt-1008",
+      "rawSha256": "7dd7ec0ccc310d6d156050fef1d30aabc1f0cac9a1a0c119d2c49e89fd25f31f"
+    }
+  ],
+  "rawSamples": {
+    "evt-1001": {
+      "timestamp": "2026-09-30T16:41:02.000Z",
+      "rule": {
+        "id": 5716,
+        "level": 10,
+        "description": "Intento de autenticación SSH fallido",
+        "groups": ["sshd", "authentication_failed"]
+      },
+      "agent": {
+        "id": "003",
+        "name": "srv-app-01.qapaq.local"
+      },
+      "data": {
+        "srcuser": "jperez@qapaq.pe",
+        "srcip": "190.12.44.7"
+      }
+    },
+    "evt-1002": {
+      "timestamp": "2026-09-30T16:41:37.000Z",
+      "rule": {
+        "id": 87321,
+        "level": 13,
+        "description": "Archivo malicioso detectado por análisis antivirus",
+        "groups": ["virus", "malware"]
+      },
+      "agent": {
+        "id": "007",
+        "name": "workstation-contabilidad.qapaq.local"
+      },
+      "data": {
+        "srcuser": "mquispe@qapaq.pe"
+      }
+    },
+    "evt-1003": {
+      "timestamp": "2026-09-30T16:42:10.000Z",
+      "rule": {
+        "id": 550,
+        "level": 7,
+        "description": "Integridad de archivo alterada en directorio vigilado",
+        "groups": ["syscheck", "syscheck_entry_added"]
+      },
+      "agent": {
+        "id": "003",
+        "name": "srv-app-01.qapaq.local"
+      },
+      "data": {}
+    },
+    "evt-1004": {
+      "timestamp": "2026-09-30T16:42:55.000Z",
+      "rule": {
+        "id": 91533,
+        "level": 5,
+        "description": "Inicio de sesión correcto en Microsoft 365",
+        "groups": ["office365", "authentication_success"]
+      },
+      "agent": {
+        "id": "000",
+        "name": "wazuh-manager"
+      },
+      "data": {
+        "office365": {
+          "UserId": "fclavo@qapaq.pe"
+        }
+      }
+    },
+    "evt-1005": {
+      "timestamp": "2026-02-31T16:43:00.000Z",
+      "rule": {
+        "id": 1002,
+        "level": 6,
+        "description": "Evento con fecha corrupta",
+        "groups": ["syslog"]
+      },
+      "agent": {
+        "id": "004",
+        "name": "srv-web-02.qapaq.local"
+      }
+    },
+    "evt-1006": {
+      "timestamp": "2026-09-30T16:43:21.000Z",
+      "rule": {
+        "id": 4151,
+        "level": 3,
+        "description": "Conexión rechazada por el cortafuegos perimetral",
+        "groups": ["firewall"]
+      },
+      "agent": {
+        "id": "001",
+        "name": "fw-perimetral.qapaq.local"
+      },
+      "data": {
+        "srcip": "45.133.1.90"
+      }
+    },
+    "evt-1007": {
+      "timestamp": "2026-09-30T16:43:58.000Z",
+      "rule": {
+        "id": 31151,
+        "level": 9,
+        "description": "Múltiples solicitudes web sospechosas desde un mismo origen",
+        "groups": ["web", "web_scan"]
+      },
+      "agent": {
+        "id": "004",
+        "name": "srv-web-02.qapaq.local"
+      },
+      "data": {
+        "srcip": "45.133.1.90"
+      }
+    },
+    "evt-1008": {
+      "timestamp": "2026-09-30T16:44:12.000Z",
+      "agent": {
+        "id": "005",
+        "name": "srv-bd-01.qapaq.local"
+      },
+      "data": {
+        "srcuser": "root"
+      }
+    },
+    "evt-1009": {
+      "timestamp": "2026-09-30T16:44:30.000Z",
+      "rule": {
+        "id": 60122,
+        "level": 12,
+        "description": "Cuenta de administrador agregada al dominio",
+        "groups": ["windows", "account_changed", "adduser"]
+      },
+      "agent": {
+        "id": "002",
+        "name": "dc-01.qapaq.local"
+      },
+      "data": {
+        "dstuser": "svc_backup@qapaq.pe"
+      }
+    },
+    "evt-1010": {
+      "timestamp": "2026-09-30T16:44:51.000Z",
+      "rule": {
+        "id": 19003,
+        "level": 2,
+        "description": "Rotación programada de registros completada",
+        "groups": ["syslog"]
+      },
+      "agent": {
+        "id": "003",
+        "name": "srv-app-01.qapaq.local"
+      }
+    }
+  }
+}
