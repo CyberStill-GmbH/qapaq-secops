@@ -5,6 +5,7 @@ export type {
   ConfigurationProfileName,
 } from './configuration.errors.js';
 export {
+  loadAccessConfig,
   loadApiConfig,
   loadControlPlaneSecretConfig,
   loadConfigurationAndStart,
@@ -27,6 +28,8 @@ export type {
 } from './configuration.types.js';
 export { SecretValue } from './configuration.types.js';
 export { CONFIGURATION_LIMITS, REDACTED_VALUE } from './limits.js';
+export { IDENTITY_MODES } from './schema/index.js';
+export type { AccessConfig, IdentityMode } from './schema/index.js';
 export { CONFIGURATION_PROFILES } from './profiles/index.js';
 export { redactSecrets } from './redaction/index.js';
 export { SecretProviderError, parseSecretReference } from './secrets/index.js';

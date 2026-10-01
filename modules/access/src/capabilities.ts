@@ -1,0 +1,100 @@
+/**
+ * C-18 — capabilities, roles y scopes.
+ *
+ * El rol de Entra es un dato de entrada, no la autorización. QAPAQ traduce roles a
+ * capabilities propias para que un cambio en el directorio no redefina en silencio lo
+ * que alguien puede hacer, y para que la autorización sea revisable aquí.
+ *
+ * Deny por defecto (ADR-009): un rol desconocido no aporta capabilities, no las hereda
+ * y no degrada a lectura.
+ */
+
+export const CAPABILITIES = [
+  'events.read',
+  'events.read_raw',
+  'alerts.read',
+  'alerts.triage',
+  'alerts.assign',
+  'incidents.read',
+  'incidents.write',
+  'incidents.close',
+  'notifications.read',
+  'audit.read',
+  'audit.read_sensitive',
+  'audit.verify',
+  'secrets.write',
+] as const;
+export type Capability = (typeof CAPABILITIES)[number];
+
+/** Roles de aplicación publicados en el app registration de Entra. */
+export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> = Object.freeze({
+  'qapaq.soc.analyst': [
+    'events.read',
+    'alerts.read',
+    'alerts.triage',
+    'alerts.assign',
+    'incidents.read',
+    'incidents.write',
+    'notifications.read',
+  ],
+  'qapaq.soc.lead': [
+    'events.read',
+    'events.read_raw',
+    'alerts.read',
+    'alerts.triage',
+    'alerts.assign',
+    'incidents.read',
+    'incidents.write',
+    'incidents.close',
+    'notifications.read',
+    'audit.read',
+  ],
+  'qapaq.auditor': ['audit.read', 'audit.read_sensitive', 'audit.verify', 'incidents.read'],
+  'qapaq.platform.admin': ['secrets.write', 'audit.read', 'audit.verify'],
+});
+
+/** Scopes OAuth del BFF. El scope acota al cliente; la capability acota a la persona. */
+export const SCOPES = ['soc.read', 'soc.write', 'audit.read'] as const;
+export type Scope = (typeof SCOPES)[number];
+
+const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Object.freeze({
+  'soc.read': [
+    'events.read',
+    'events.read_raw',
+    'alerts.read',
+    'incidents.read',
+    'notifications.read',
+  ],
+  'soc.write': ['alerts.triage', 'alerts.assign', 'incidents.write', 'incidents.close'],
+  'audit.read': ['audit.read', 'audit.read_sensitive', 'audit.verify'],
+});
+
+export function capabilitiesForRoles(roles: readonly string[]): ReadonlySet<Capability> {
+  const granted = new Set<Capability>();
+  for (const role of roles) {
+    for (const capability of ROLE_CAPABILITIES[role] ?? []) granted.add(capability);
+  }
+  return granted;
+}
+
+export function capabilitiesForScopes(scopes: readonly string[]): ReadonlySet<Capability> {
+  const granted = new Set<Capability>();
+  for (const scope of scopes) {
+    for (const capability of SCOPE_CAPABILITIES[scope as Scope] ?? []) granted.add(capability);
+  }
+  return granted;
+}
+
+/**
+ * Capabilities efectivas: intersección de lo que la persona tiene por rol y lo que el
+ * cliente pidió por scope. Un scope amplio no concede nada que el rol no tenga, y un rol
+ * amplio no se ejerce por un cliente que no pidió ese scope.
+ */
+export function effectiveCapabilities(
+  roles: readonly string[],
+  scopes: readonly string[],
+): ReadonlySet<Capability> {
+  const byRole = capabilitiesForRoles(roles);
+  const byScope = capabilitiesForScopes(scopes);
+  return new Set([...byRole].filter((capability) => byScope.has(capability)));
+}

@@ -11,6 +11,7 @@ import {
 } from './configuration.types.js';
 import { selectProfile } from './profiles/index.js';
 import { rejectUnknownQapaqVariables } from './schema/environment.schema.js';
+import { parseAccess, type AccessConfig } from './schema/access.schema.js';
 import {
   parseApi,
   parseControlPlaneSecretConfig,
@@ -80,6 +81,12 @@ async function materializeRedis(
 export function loadApiConfig(environment: EnvironmentInput): ApiConfig {
   const profile = profileFrom(environment);
   return deepFreeze(parseApi(environment, profile));
+}
+
+/** C-18/C-25 — identidad, red confiable y canal crítico del BFF. */
+export function loadAccessConfig(environment: EnvironmentInput): AccessConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseAccess(environment, profile));
 }
 
 /** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */
