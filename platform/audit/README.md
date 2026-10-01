@@ -1,11 +1,23 @@
 # Platform audit
 
-Capacidad transversal para AuditEvent append-only, hash chain, archivo y
-reconciliación. No se implementan tablas ni adapters hasta que PBI-019 defina su
-migración, transacción, rol runtime y specs contra PostgreSQL/object storage reales.
+Capacidad transversal de AuditEvent append-only, cadena de hash, archivo y
+reconciliación.
 
-C-24 incorpora únicamente su journal de seguridad acotado
-`secret_lifecycle_audit`, append-only y metadata-only, como parte atómica de cada
-mutación de lifecycle. No sustituye el AuditEvent transversal, hash chain, archivo
-o custodia de PBI-019; el adapter futuro deberá proyectar estos registros sin
-añadir material secreto.
+Implementado en C-19:
+
+- sellado con cadena de hash por tenant sobre serialización canónica, de modo que el
+  hash sea reproducible por cualquier verificador;
+- verificación que distingue manipulación, bifurcación, hueco y desorden;
+- consulta autorizada con redacción por defecto de sesión, IP y metadata sensible;
+- archivo JSONL inmutable con manifiesto y digest, escrito por rename atómico;
+- reconciliación entre la cadena viva y el archivo, que clasifica hallazgos y no repara
+  nada por su cuenta.
+
+La base refuerza el contrato: la migración `20261008120000_c17_c19_c20_soc_operations`
+instala triggers que rechazan `UPDATE`, `DELETE` y `TRUNCATE` sobre `audit_events`.
+
+C-24 conserva su journal acotado `secret_lifecycle_audit`, metadata-only, como parte
+atómica de cada mutación de lifecycle; no sustituye a este AuditEvent transversal.
+
+Specs: `platform/audit/test`; integración PostgreSQL en
+`platform/database/test/postgres-c19.integration.spec.ts`.
