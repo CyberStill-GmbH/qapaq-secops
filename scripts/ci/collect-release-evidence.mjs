@@ -151,15 +151,28 @@ const CHECKS = [
       ]),
 ];
 
+/** Resumen de una salida fallida: la última línea útil, sin volcar la suite entera. */
+function failureSummary(result) {
+  const output = [result.stdout ?? '', result.stderr ?? '']
+    .join(String.fromCharCode(10))
+    .split(String.fromCharCode(10))
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return output.at(-1)?.slice(0, 160) ?? 'sin salida';
+}
+
 function run(check) {
   const started = Date.now();
+  const options = {
+    cwd: root,
+    encoding: 'utf8',
+    // Un comando que no termina no es un fallo de la ruta crítica: es una medición que
+    // no se pudo tomar, y conviene que se note en la evidencia.
+    timeout: 10 * 60 * 1000,
+  };
   const result = check.node
-    ? spawnSync(process.execPath, check.node, { cwd: root, encoding: 'utf8' })
-    : spawnSync('pnpm', check.command, {
-        cwd: root,
-        encoding: 'utf8',
-        shell: process.platform === 'win32',
-      });
+    ? spawnSync(process.execPath, check.node, options)
+    : spawnSync('pnpm', check.command, { ...options, shell: process.platform === 'win32' });
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   const command = check.node ? `node ${check.node.join(' ')}` : `pnpm ${check.command.join(' ')}`;
   process.stdout.write(`${result.status === 0 ? 'PASS' : 'FAIL'} ${check.id} (${seconds}s)\n`);
@@ -169,7 +182,10 @@ function run(check) {
     requirement: check.requirement,
     priority: check.priority,
     status: result.status === 0 ? 'PASS' : 'FAIL',
-    evidence: `${command} · ${seconds}s`,
+    evidence:
+      result.status === 0
+        ? `${command} · ${seconds}s`
+        : `${command} · ${seconds}s · ${failureSummary(result)}`,
   };
 }
 

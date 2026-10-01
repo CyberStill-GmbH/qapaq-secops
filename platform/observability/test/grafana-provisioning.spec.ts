@@ -15,9 +15,15 @@ import {
 import { SOC_METRICS, validateSocMetrics } from '../src/soc-signals.js';
 
 const GRAFANA = resolve(import.meta.dirname, '../grafana');
+const CRLF = String.fromCharCode(13, 10);
+const LINE_FEED = String.fromCharCode(10);
 
+/**
+ * El final de línea depende de cómo lo haya materializado git en cada máquina; lo que
+ * la comprobación de deriva vigila es el contenido, no el salto de línea.
+ */
 function read(relative: string): string {
-  return readFileSync(resolve(GRAFANA, relative), 'utf8');
+  return readFileSync(resolve(GRAFANA, relative), 'utf8').replaceAll(CRLF, LINE_FEED);
 }
 
 describe('C-26 · catálogo de señales SOC', () => {
@@ -54,7 +60,9 @@ describe('C-26 · catálogo de señales SOC', () => {
 describe('C-26 · dashboards versionados', () => {
   it('lo versionado coincide con lo generado desde el catálogo', () => {
     for (const dashboard of buildDashboards()) {
-      expect(read(`dashboards/${dashboard.uid}.json`)).toBe(serializeDashboard(dashboard));
+      expect(read(`dashboards/${dashboard.uid}.json`)).toBe(
+        serializeDashboard(dashboard).replaceAll(CRLF, LINE_FEED),
+      );
     }
   });
 
