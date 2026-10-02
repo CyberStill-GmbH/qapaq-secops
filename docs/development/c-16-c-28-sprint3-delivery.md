@@ -88,6 +88,21 @@ Unificarlas es una decisión de producto pendiente, no un detalle de implementac
 entonces el proxy de Vite envía ambas al mismo origen y solo reescribe `/api/health/*`,
 que es donde vive el health de C-02.
 
+## Correcciones posteriores a la entrega
+
+El 2026-10-02 se corrigieron tres brechas del BFF que bloqueaban la interfaz. Se
+detectaron al contrastar el BFF con la especificación de frontend:
+
+- **Callback (B-03):** `/api/auth/callback` redirige con un 303 a un `returnTo`
+  validado en vez de responder JSON.
+- **Paginación (B-02):** alertas, incidentes y notificaciones paginan por cursor
+  (`pageSize` 50 por defecto, máximo 200, y `nextCursor`).
+- **CSRF (B-01):** toda mutación con sesión exige `x-csrf-token`, ligado a la sesión,
+  y se rechaza `Sec-Fetch-Site: cross-site`. Error nuevo: `REQUEST_NOT_VERIFIED`.
+
+Causa, solución, mitigación y verificación:
+[registro de resolución](../frontend-design/08-brechas-y-decisiones.md#21-registro-de-resolución-b-01-b-02-b-03).
+
 ## Límites declarados
 
 - **Adaptadores en memoria en el BFF.** El runtime compone los stores en memoria que
