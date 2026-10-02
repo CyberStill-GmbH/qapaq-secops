@@ -1,0 +1,43 @@
+{
+  "id": null,
+  "uid": "qapaq-pipeline-local",
+  "title": "QAPAQ — Pipeline (local baseline)",
+  "tags": ["qapaq", "soc", "local"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Scrape health",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "qapaq-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [{ "expr": "up", "legendFormat": "{{job}}", "refId": "A" }]
+    },
+    {
+      "id": 2,
+      "title": "QAPAQ dependency state (when producers are connected)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "qapaq-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "qapaq_dependency_state",
+          "legendFormat": "{{dependency}} / {{state}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Logs (QAPAQ tenant)",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "qapaq-loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "targets": [{ "expr": "{service_name=~\".+\"}", "refId": "A" }]
+    }
+  ]
+}

@@ -35,3 +35,23 @@ pnpm run test:integration
 ```
 
 Si Docker no responde, el resultado correcto es `BLOCKED`, no un PASS por mocks.
+
+## Observabilidad local C-15
+
+El overlay opt-in `compose.observability.yaml` inicia Loki, Prometheus,
+OpenTelemetry Collector y Grafana OSS para desarrollo local. Publica endpoints solo
+en `127.0.0.1`; antes de levantarlo configura `GRAFANA_ADMIN_PASSWORD` en el
+entorno o en `.env.local` (archivo ignorado por Git). No reutilices esta
+configuración en ambientes compartidos o productivos.
+
+```powershell
+docker compose --env-file .env.local -f infra/local/compose.observability.yaml --profile observability up -d --wait loki prometheus otel-collector grafana
+pwsh -NoProfile -File scripts/dev/test-observability-stack.ps1
+docker compose --env-file .env.local -f infra/local/compose.observability.yaml --profile observability stop grafana otel-collector prometheus loki
+```
+
+El smoke envía datos sintéticos por OTLP y verifica su consulta en Loki y
+Prometheus, targets del scraper y health de Grafana. Espera el `/ready` de Loki
+porque su proceso puede figurar iniciado antes de que el ring de ingesters acepte
+datos. El overlay no conecta todavía los productores de API/worker/gateway de
+QAPAQ; no enviar credenciales, eventos reales ni PII.
