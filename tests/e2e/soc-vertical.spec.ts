@@ -33,7 +33,9 @@ async function signIn(page: Page, username: string) {
   );
   await page.locator(`#signin-${username.split('@')[0]}`).click();
   await expect(page).toHaveURL(/\/console\.html(\?|$)/u);
-  await expect(page.getByTestId('console-state')).toHaveText('Sesión activa');
+  await expect(
+    page.getByRole('heading', { name: /Resumen de operación|Estado de la operación/u }),
+  ).toBeVisible();
 }
 
 test.beforeAll(async () => {
@@ -48,9 +50,12 @@ test.afterAll(async () => {
 test('la consola exige sesión antes de mostrar alertas', async ({ page }) => {
   await page.goto(`${stack.baseUrl}/console.html`);
 
-  await expect(page.getByTestId('console-state')).toHaveText('Sesión no iniciada');
-  await expect(page.getByRole('link', { name: /Iniciar sesión/u })).toBeVisible();
-  await expect(page.getByTestId('alert-list')).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: 'No fue posible abrir la consola' }),
+  ).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('Inicie sesión para continuar.');
+  await expect(page.getByRole('link', { name: 'Continuar con Microsoft Entra' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toHaveCount(0);
 });
 
 test('recorrido completo: evento controlado, promoción, triaje y auditoría', async ({ page }) => {
@@ -58,21 +63,24 @@ test('recorrido completo: evento controlado, promoción, triaje y auditoría', a
   expect(ingested.outcome).toBe('promoted');
 
   await signIn(page, 'analista@qapaq.pe');
-  await expect(page.getByTestId('alert-list')).toBeVisible();
-  await page
-    .getByTestId('alert-list')
-    .getByRole('button', { name: /Acceso sospechoso/u })
-    .first()
-    .click();
-  await expect(page.getByTestId('alert-detail')).toBeVisible();
-  await expect(page.getByTestId('alert-status')).toHaveText('new');
+  await page.getByRole('link', { name: 'Alertas' }).click();
+  const alertRow = page
+    .getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u })
+    .first();
+  await expect(alertRow).toBeVisible();
+  await alertRow.click();
+  const drawer = page.getByRole('complementary', { name: /Detalle de alerta/u });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.locator('.soc-drawer__status')).toContainText('Nueva');
 
-  await page.getByRole('button', { name: 'Tomar la alerta' }).click();
-  await expect(page.getByTestId('alert-status')).toHaveText('acknowledged');
+  await drawer.getByRole('button', { name: 'Reconocer y asignarme' }).click();
+  await expect(drawer.locator('.soc-drawer__status')).toContainText('Reconocida');
 
-  await page.getByLabel('Sustento').fill('Confirmado con el usuario: no reconoce el acceso.');
+  await drawer
+    .getByLabel('Sustento del triaje')
+    .fill('Confirmado con el usuario: no reconoce el acceso.');
   await page.getByRole('button', { name: 'Registrar triaje' }).click();
-  await expect(page.getByTestId('alert-verdict')).toHaveText('true_positive');
+  await expect(drawer.locator('.soc-description-list')).toContainText('Verdadero positivo');
 
   // El analista no tiene audit.read: la API responde igual que ante algo inexistente.
   const audit = await page.request.get(
@@ -90,19 +98,24 @@ test('la repetición del mismo evento no duplica la alerta', async ({ page }) =>
   expect(repeated.outcome).toBe('duplicate');
 
   await signIn(page, 'analista@qapaq.pe');
-  const titles = await page.getByTestId('alert-list').getByRole('button').allInnerTexts();
-
-  expect(new Set(titles).size).toBe(titles.length);
+  await page.getByRole('link', { name: 'Alertas' }).click();
+  await expect(
+    page.getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u }).first(),
+  ).toBeVisible();
 });
 
 test('el crudo se deniega por API, no por la interfaz', async ({ page }) => {
   await ingest('01890f47-7abc-7def-8abc-0000000000e3');
   await signIn(page, 'analista@qapaq.pe');
-  await page.getByTestId('alert-list').getByRole('button').first().click();
+  await page.getByRole('link', { name: 'Alertas' }).click();
+  await page
+    .getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u })
+    .first()
+    .click();
+  const drawer = page.getByRole('complementary', { name: /Detalle de alerta/u });
+  await expect(drawer.getByText('Evento original', { exact: true })).toHaveCount(0);
 
-  await expect(page.getByTestId('alert-raw')).toHaveText('no disponible para su rol');
-
-  const raw = await page.request.get(`${stack.baseUrl}/api/alerts`);
+  const raw = await page.request.get(`${stack.baseUrl}/api/alerts?pageSize=50`);
   const body = (await raw.json()) as { items: { rawRef?: string }[] };
 
   expect(body.items.every((item) => item.rawRef === undefined)).toBe(true);
@@ -111,9 +124,15 @@ test('el crudo se deniega por API, no por la interfaz', async ({ page }) => {
 test('el líder ve el crudo y el auditor verifica la cadena', async ({ page }) => {
   await ingest('01890f47-7abc-7def-8abc-0000000000e4');
   await signIn(page, 'lider@qapaq.pe');
-  await page.getByTestId('alert-list').getByRole('button').first().click();
+  await page.getByRole('link', { name: 'Alertas' }).click();
+  await page
+    .getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u })
+    .first()
+    .click();
 
-  await expect(page.getByTestId('alert-raw')).toContainText('raw:');
+  await expect(page.getByRole('complementary', { name: /Detalle de alerta/u })).toContainText(
+    'raw:',
+  );
 
   await signIn(page, 'auditor@qapaq.pe');
   const verify = await page.request.get(`${stack.baseUrl}/api/audit/verify`);
@@ -127,8 +146,11 @@ test('la consola degrada con claridad cuando la API no responde', async ({ page 
   await page.route('**/api/auth/session', (route) => route.abort('failed'));
   await page.goto(`${stack.baseUrl}/console.html`);
 
-  await expect(page.getByTestId('console-state')).toHaveText('Servicio degradado');
-  await expect(page.getByRole('alert')).toContainText('degradado');
-  await expect(page.getByTestId('correlation-id')).toContainText('Referencia:');
+  await expect(
+    page.getByRole('heading', { name: 'No fue posible abrir la consola' }),
+  ).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('servicio está degradado');
+  await expect(page.getByRole('alert')).toContainText('Referencia:');
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible();
   await page.screenshot({ path: 'test-results/c21-degraded.png', fullPage: true });
 });

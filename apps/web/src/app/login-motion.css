@@ -1,3 +1,13 @@
+.auth-startup {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #080808;
+}
+
 .auth-splash {
   position: fixed;
   z-index: 30;
@@ -19,6 +29,17 @@
   mask-repeat: no-repeat;
   mask-size: contain;
   animation: auth-mark-out 1050ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-splash--waiting {
+  animation: none;
+  opacity: 1;
+  visibility: visible;
+}
+
+.auth-splash--waiting .auth-splash-mark {
+  animation: none;
+  opacity: 0.76;
 }
 
 .auth-topbar {
@@ -176,6 +197,18 @@
 
   .auth-splash {
     display: none;
+  }
+
+  .auth-startup .auth-splash {
+    display: grid;
+    animation: none;
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .auth-startup .auth-splash-mark {
+    animation: none;
+    opacity: 0.76;
   }
 
   .auth-topbar,

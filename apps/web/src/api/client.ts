@@ -106,6 +106,66 @@ export interface AlertView {
   readonly rawRef?: string;
 }
 
+export type AlertStatus = 'new' | 'acknowledged' | 'triaged' | 'escalated' | 'closed';
+export type TriageVerdict = 'true_positive' | 'false_positive' | 'benign' | 'duplicate';
+export type IncidentStatus = 'open' | 'contained' | 'eradicated' | 'resolved' | 'closed';
+
+export interface IncidentView {
+  readonly id: string;
+  readonly title: string;
+  readonly severity: 'critical' | 'high' | 'medium' | 'low';
+  readonly status: IncidentStatus;
+  readonly ownerId: string;
+  readonly alertIds: readonly string[];
+  readonly summary: string;
+  readonly openedAt: string;
+  readonly closedAt: string | null;
+  readonly revision: number;
+}
+
+export interface NotificationView {
+  readonly id: string;
+  readonly status:
+    'pending' | 'sending' | 'sent' | 'indeterminate' | 'fallback' | 'failed' | 'acknowledged';
+  readonly channel: 'teams' | 'fallback_email' | 'manual_console';
+  readonly attemptCount: number;
+  readonly sentAt: string | null;
+  readonly acknowledgedAt: string | null;
+  readonly acknowledgedBy: string | null;
+  readonly lastFailureClass: 'transient' | 'permanent' | 'ambiguous' | null;
+}
+
+export interface AuditEventView {
+  readonly id: string;
+  readonly sequence: string;
+  readonly occurredAt: string;
+  readonly actor: {
+    readonly id: string;
+    readonly type: string;
+    readonly sessionId?: string;
+    readonly ip?: string;
+  };
+  readonly action: string;
+  readonly resource: { readonly type: string; readonly id: string };
+  readonly outcome: string;
+  readonly correlationId: string;
+  readonly reason?: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
+  readonly hash: string;
+  readonly previousHash: string;
+}
+
+export interface AuditIntegrityView {
+  readonly ok: boolean;
+  readonly checked: number;
+  readonly headSequence: string;
+  readonly violations: readonly {
+    readonly code: string;
+    readonly sequence: string;
+    readonly detail: string;
+  }[];
+}
+
 async function session(): Promise<ApiResult<SessionView>> {
   const result = await apiFetch<SessionView>('/api/auth/session');
   csrfToken = result.ok ? result.data.csrfToken : null;
@@ -125,10 +185,57 @@ export const api = {
       cursor ? `/api/alerts?cursor=${encodeURIComponent(cursor)}` : '/api/alerts',
     ),
   alert: (id: string) => apiFetch<{ alert: AlertView }>(`/api/alerts/${encodeURIComponent(id)}`),
+  alertsByStatus: (status?: AlertStatus, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (status) query.set('status', status);
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<Page<AlertView>>(`/api/alerts?${query.toString()}`);
+  },
   command: (id: string, body: Record<string, unknown>) =>
     apiFetch<{ alert: AlertView }>(`/api/alerts/${encodeURIComponent(id)}/commands`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  incidents: (cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<Page<IncidentView>>(`/api/incidents?${query.toString()}`);
+  },
+  createIncident: (body: {
+    readonly alertId: string;
+    readonly title: string;
+    readonly severity: 'critical' | 'high' | 'medium' | 'low';
+    readonly summary: string;
+    readonly expectedAlertRevision: number;
+  }) =>
+    apiFetch<{ incident: IncidentView }>('/api/incidents', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  incidentCommand: (id: string, body: Record<string, unknown>) =>
+    apiFetch<{ incident: IncidentView }>(`/api/incidents/${encodeURIComponent(id)}/commands`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  notifications: (cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<Page<NotificationView>>(`/api/notifications?${query.toString()}`);
+  },
+  acknowledgeNotification: (id: string) =>
+    apiFetch<{ status: 'acknowledged' }>(
+      `/api/notifications/${encodeURIComponent(id)}/acknowledge`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+      },
+    ),
+  audit: (from: string, to: string, action?: string) => {
+    const query = new URLSearchParams({ from, to, pageSize: '50' });
+    if (action) query.set('action', action);
+    return apiFetch<Page<AuditEventView>>(`/api/audit/events?${query.toString()}`);
+  },
+  verifyAudit: () => apiFetch<AuditIntegrityView>('/api/audit/verify'),
+  health: () => apiFetch<{ status: 'ok' | 'unavailable'; service: string }>('/api/health/ready'),
   logout,
 };

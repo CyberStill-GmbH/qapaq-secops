@@ -1,30 +1,21 @@
-/**
- * Entrada de la consola operativa de C-21.
- *
- * Vive en una página propia y no en la pantalla principal: la interfaz de producto y
- * esta consola evolucionan por separado, una sobre datos de demostración y la otra
- * contra el BFF real. Separarlas evita que un cambio de maquetación rompa la evidencia
- * del recorrido, y que la consola imponga su estética al producto.
- */
-
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-
 import { StartupBoundary } from './bootstrap/error-boundary.js';
-import { Console } from './app/console.js';
+import { parsePublicConfig } from './bootstrap/public-config.js';
+import { SocConsole } from './components/soc/SocConsole.js';
 import './app/styles.css';
+import './app/soc-shell.css';
+import './app/soc-data.css';
+import './app/soc-overlays.css';
+import './app/soc-responsive.css';
 
 const element = document.getElementById('root');
+const config = parsePublicConfig(__QAPAQ_PUBLIC_CONFIG__);
 if (element) {
   createRoot(element, { onCaughtError: () => {} }).render(
     <StrictMode>
       <StartupBoundary>
-        <main>
-          <h1>QAPAQ SecOps</h1>
-          <p>Centro de operaciones de seguridad</p>
-          <p role="status">Interfaz disponible</p>
-          <Console />
-        </main>
+        <SocConsole basePath={config.basePath} />
       </StartupBoundary>
     </StrictMode>,
   );

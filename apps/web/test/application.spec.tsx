@@ -5,20 +5,16 @@ import Application from '../src/app/application.js';
 import { parsePublicConfig } from '../src/bootstrap/public-config.js';
 import { StartupBoundary } from '../src/bootstrap/error-boundary.js';
 
-it('renders a QAPAQ sign-in gate with the real brand, Entra identity, and right-side brand panel', () => {
+it('renders only the lightweight QAPAQ splash before session resolution', () => {
   const config = parsePublicConfig({ appName: 'QAPAQ SecOps', basePath: '/' });
   const html = renderToStaticMarkup(createElement(Application, { config }));
-  expect(html).toContain('Inicia sesión en tu cuenta');
-  expect(html).toContain('Continuar con Microsoft Entra');
-  expect(html).toContain('Demo de interfaz · no inicia una sesión corporativa real');
-  expect(html).toContain('OIDC · Authorization Code + PKCE · sesión BFF');
-  expect(html).toContain('Identidad visual QAPAQ');
-  expect(html).toContain('src="/qapaq-mark-source.png"');
-  expect(html).toContain('Emblema Q de QAPAQ');
-  // La geometria exacta del degradado cambia con la identidad visual; lo que la spec
-  // sostiene es que el panel de marca renderiza su luz radial anclada a la derecha.
-  expect(html).toMatch(/radial-gradient\(ellipse [^)]*at 100% 45%/u);
-  expect(html).toContain('Verificar estado del API');
+  expect(html).toContain('class="auth-startup"');
+  expect(html).toContain('aria-label="QAPAQ SecOps"');
+  expect(html).toContain('class="auth-splash-mark"');
+  expect(html).toContain('qapaq-q-mask.png');
+  expect(html).not.toContain('Inicia sesión en tu cuenta');
+  expect(html).not.toContain('Cargando interfaz');
+  expect(html).not.toContain('iniciando sesión institucional');
   expect(html).not.toContain('<input');
   expect(html).not.toContain('Interfaz disponible');
 });

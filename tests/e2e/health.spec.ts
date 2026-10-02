@@ -31,12 +31,12 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Continuar con Microsoft Entra/u })).toBeVisible();
-  // La portada consulta el health publico al abrir y lo reporta como no disponible.
-  // Lo que C-02 sigue garantizando es que ese fallo no impide montar la interfaz.
-  await expect(page.getByText('Sin respuesta')).toBeVisible();
-  expect(requests.filter((url) => url.includes('/api/') && !url.includes('/api/health'))).toEqual(
-    [],
-  );
+  await expect(page.getByText('Usa tu cuenta institucional para continuar.')).toBeVisible();
+  expect(requests.filter((url) => url.includes('/api/'))).toEqual([
+    expect.stringContaining('/api/auth/session'),
+  ]);
+  await expect(page.getByText(/mock|demo de interfaz|verificar estado del api/i)).toHaveCount(0);
+  await expect(page.getByText('Cargando interfaz…')).toHaveCount(0);
   expect(errors).toEqual([]);
   await page.screenshot({ path: 'test-results/c02-web-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 375, height: 812 });

@@ -1,0 +1,123 @@
+@media (max-width: 1100px) {
+  .soc-app {
+    --rail-width: 56px;
+  }
+  .soc-rail {
+    padding-inline: 8px;
+  }
+  .soc-brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .soc-brand__name,
+  .soc-nav__group h2,
+  .soc-nav__item span,
+  .soc-rail__collapse span,
+  .soc-rail__collapse kbd {
+    display: none;
+  }
+  .soc-nav__item,
+  .soc-rail__collapse {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .soc-nav__item.is-active::before {
+    left: -8px;
+  }
+  .soc-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .soc-topbar {
+    height: 50px;
+    padding: 0 12px;
+  }
+  .soc-topbar__tools {
+    gap: 8px;
+  }
+  .soc-profile__name,
+  .soc-profile summary > svg {
+    display: none;
+  }
+  .soc-command-button {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+  .soc-command-button span,
+  .soc-command-button kbd {
+    display: none;
+  }
+  .soc-status {
+    max-width: 145px;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+  }
+  .soc-workspace {
+    min-height: calc(100svh - 50px);
+    padding: 17px 12px;
+  }
+  .soc-page-heading {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .soc-page-heading p {
+    max-width: 48ch;
+  }
+  .soc-page-heading__meta {
+    display: grid;
+    justify-items: end;
+    gap: 5px;
+  }
+  .soc-operation-strip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .soc-operation-strip > div {
+    flex-wrap: wrap;
+  }
+  .soc-compact-list > button {
+    grid-template-columns: 78px minmax(90px, 1fr) 94px;
+  }
+  .soc-compact-list > button time {
+    display: none;
+  }
+  .soc-compact-list--notifications > div {
+    grid-template-columns: 1fr 1fr;
+  }
+  .soc-compact-list--notifications > div time {
+    grid-column: 2;
+  }
+  .soc-table th,
+  .soc-table td {
+    padding-inline: 9px;
+  }
+  .soc-drawer {
+    inset: 50px 0 0;
+    width: 100%;
+    border-left: 0;
+  }
+  .soc-capability-groups {
+    grid-template-columns: 1fr;
+  }
+  .soc-filter-bar {
+    align-items: stretch;
+  }
+  .soc-filter-bar > label {
+    flex: 1 1 145px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .soc-app *,
+  .soc-app *::before,
+  .soc-app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
