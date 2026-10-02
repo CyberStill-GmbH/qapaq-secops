@@ -7,7 +7,7 @@
  * controladores. La limitación está declarada en la matriz de evidencia de C-22.
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import {
   beginAuthorization,
@@ -60,6 +60,8 @@ import {
   LocalTokenExchange,
 } from '../access/identity-provider.js';
 import { LocalDevelopmentIssuer, LOCAL_PRINCIPALS } from '../access/local-issuer.js';
+import { csrfTokenFor } from '../http/csrf.js';
+import { DEFAULT_RETURN_TO } from '../http/return-to.js';
 
 export interface RuntimeOptions {
   readonly access: AccessConfig;
@@ -99,6 +101,11 @@ export class SecOpsRuntime {
   private readonly tokens: TokenExchange;
   private readonly transport: NotificationTransport;
   private readonly clock: () => Date;
+  /**
+   * Clave del token CSRF (B-01). Vive en memoria igual que las sesiones: un reinicio
+   * invalida ambas a la vez. Con el adapter PostgreSQL de sesiones pasa a SecretProvider.
+   */
+  private readonly csrfKey = randomBytes(32);
   /** Contexto de priorización de C-16; en esta entrega se declara, no se inventa. */
   public detectionContext: PrioritizationContext = {
     privilegedIdentities: new Set(),
@@ -216,7 +223,15 @@ export class SecOpsRuntime {
     for (const message of this.soc.outboxRows.values()) this.outbox.enqueue(message);
   }
 
-  public async beginSignIn(origin: RequestOrigin): Promise<{
+  /** Token CSRF de la sesión: se entrega en `GET /api/auth/session` y se exige al mutar. */
+  public csrfTokenFor(sessionId: string): string {
+    return csrfTokenFor(this.csrfKey, sessionId);
+  }
+
+  public async beginSignIn(
+    origin: RequestOrigin,
+    returnTo: string = DEFAULT_RETURN_TO,
+  ): Promise<{
     readonly url: string;
     readonly state: string;
     readonly network: ReturnType<typeof evaluateNetwork>;
@@ -233,6 +248,7 @@ export class SecOpsRuntime {
       this.now(),
     );
     this.rememberNonce(request.state, request.nonce);
+    this.pendingReturnTo.set(request.state, returnTo);
     await this.handshakes.save({
       state: request.state,
       nonce: request.nonce,
@@ -257,6 +273,16 @@ export class SecOpsRuntime {
   }
 
   private readonly pendingNonces = new Map<string, { nonce: string }>();
+  /** Destino ya validado por `safeReturnTo`, atado al `state` del handshake (B-03). */
+  private readonly pendingReturnTo = new Map<string, string>();
+
+  /** Se consume una sola vez, igual que el `state` al que pertenece. */
+  public takeReturnTo(state: string | undefined): string {
+    if (!state) return DEFAULT_RETURN_TO;
+    const returnTo = this.pendingReturnTo.get(state) ?? DEFAULT_RETURN_TO;
+    this.pendingReturnTo.delete(state);
+    return returnTo;
+  }
 
   public rememberNonce(state: string, nonce: string): void {
     this.pendingNonces.set(state, { nonce });

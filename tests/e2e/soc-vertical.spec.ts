@@ -27,9 +27,12 @@ async function ingest(recordId: string) {
 }
 
 async function signIn(page: Page, username: string) {
-  await page.goto(`${stack.baseUrl}/api/auth/start`);
+  // B-03: tras el emisor, el BFF devuelve el navegador a la consola, no a un JSON.
+  await page.goto(
+    `${stack.baseUrl}/api/auth/start?returnTo=${encodeURIComponent('/console.html')}`,
+  );
   await page.locator(`#signin-${username.split('@')[0]}`).click();
-  await page.goto(`${stack.baseUrl}/console.html`);
+  await expect(page).toHaveURL(/\/console\.html(\?|$)/u);
   await expect(page.getByTestId('console-state')).toHaveText('Sesión activa');
 }
 

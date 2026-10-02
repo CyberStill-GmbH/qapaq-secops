@@ -19,6 +19,13 @@ const OFFICE_IP = '10.20.5.9';
 const REMOTE_IP = '203.0.113.7';
 const PROXY_IP = '172.31.0.5';
 
+/**
+ * Cada prueba inicia sesión desde una IP de oficina distinta: el límite real de C-25
+ * (30 callbacks por minuto y origen) no se relaja para las pruebas, se aísla.
+ */
+let officeIp = OFFICE_IP;
+let officeSequence = 0;
+
 let application: NestFastifyApplication;
 let runtime: SecOpsRuntime;
 let stop: () => Promise<void>;
@@ -29,12 +36,16 @@ function server() {
 
 async function signIn(
   username: string,
-  remoteAddress = OFFICE_IP,
+  remoteAddress = officeIp,
   headers: Record<string, string> = {},
+  returnTo?: string,
 ) {
   const start = await server().inject({
     method: 'GET',
-    url: '/api/auth/start',
+    url:
+      returnTo === undefined
+        ? '/api/auth/start'
+        : `/api/auth/start?returnTo=${encodeURIComponent(returnTo)}`,
     remoteAddress,
     headers,
   });
@@ -54,7 +65,23 @@ async function signIn(
     headers,
   });
   const cookie = (response.headers['set-cookie'] as string | undefined)?.split(';')[0] ?? '';
-  return { response, cookie, state };
+  const session = cookie
+    ? await server().inject({
+        method: 'GET',
+        url: '/api/auth/session',
+        headers: { cookie, ...headers },
+        remoteAddress,
+      })
+    : undefined;
+  const csrf = session?.statusCode === 200 ? (JSON.parse(session.body).csrfToken as string) : '';
+  // Cabeceras de una mutación legítima: la cookie y el token CSRF de esa misma sesión.
+  const mutation = { cookie, 'x-csrf-token': csrf };
+  return { response, cookie, csrf, mutation, state };
+}
+
+/** El callback siempre redirige; un fallo viaja como código público en la URL de retorno. */
+function authErrorOf(response: { headers: Record<string, unknown> }): string | null {
+  return new URL(response.headers.location as string, 'http://local').searchParams.get('authError');
 }
 
 function securityEvent(recordId: string, severity: 'critical' | 'low') {
@@ -151,6 +178,8 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  officeSequence += 1;
+  officeIp = `10.20.${100 + Math.floor(officeSequence / 250)}.${(officeSequence % 250) + 1}`;
   runtime.soc.alertRows.clear();
   runtime.soc.incidentRows.clear();
   runtime.soc.outboxRows.clear();
@@ -175,16 +204,18 @@ describe('C-18 · inicio de sesión por el BFF', () => {
     expect(response.body).not.toContain('id_token');
   });
 
-  it('abre sesión y devuelve una cookie HttpOnly con identificador opaco', async () => {
+  it('abre sesión, devuelve una cookie HttpOnly opaca y vuelve a la consola', async () => {
     const { response, cookie } = await signIn('analista@qapaq.pe');
     const header = response.headers['set-cookie'] as string;
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(303);
+    expect(new URL(response.headers.location as string, 'http://local').pathname).toBe('/');
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body).toBe('');
     expect(header).toContain('HttpOnly');
     expect(header).toContain('SameSite=Lax');
     expect(header).not.toContain('analista@qapaq.pe');
     expect(cookie.length).toBeGreaterThan(20);
-    expect(JSON.parse(response.body).capabilities).toContain('alerts.triage');
   });
 
   it('expone la sesión vigente con sus capabilities', async () => {
@@ -229,17 +260,19 @@ describe('C-18 · inicio de sesión por el BFF', () => {
       remoteAddress: OFFICE_IP,
     });
 
-    expect(first.statusCode).toBe(200);
-    expect(replay.statusCode).toBe(401);
-    expect(JSON.parse(replay.body).code).toBe('AUTH_FAILED');
+    expect(first.statusCode).toBe(303);
+    expect(authErrorOf(first)).toBeNull();
+    expect(replay.statusCode).toBe(303);
+    expect(replay.headers['set-cookie']).toBeUndefined();
+    expect(authErrorOf(replay)).toBe('AUTH_FAILED');
   });
 
   it('cierra la sesión y la cookie deja de servir', async () => {
-    const { cookie } = await signIn('analista@qapaq.pe');
+    const { cookie, mutation } = await signIn('analista@qapaq.pe');
     const logout = await server().inject({
       method: 'POST',
       url: '/api/auth/logout',
-      headers: { cookie },
+      headers: mutation,
       remoteAddress: OFFICE_IP,
     });
     const after = await server().inject({
@@ -272,12 +305,13 @@ describe('C-25 · red, passkey y sesión única', () => {
   it('exige passkey desde fuera de la red QAPAQ', async () => {
     const withoutPasskey = await signIn('analista@qapaq.pe', REMOTE_IP);
 
-    expect(withoutPasskey.response.statusCode).toBe(401);
-    expect(JSON.parse(withoutPasskey.response.body).code).toBe('PASSKEY_REQUIRED');
+    expect(withoutPasskey.cookie).toBe('');
+    expect(authErrorOf(withoutPasskey.response)).toBe('PASSKEY_REQUIRED');
 
     const withPasskey = await signIn('lider@qapaq.pe', REMOTE_IP);
 
-    expect(withPasskey.response.statusCode).toBe(200);
+    expect(withPasskey.cookie).not.toBe('');
+    expect(authErrorOf(withPasskey.response)).toBeNull();
   });
 
   it('ignora un X-Forwarded-For forjado desde una conexión no confiable', async () => {
@@ -285,8 +319,8 @@ describe('C-25 · red, passkey y sesión única', () => {
       'x-forwarded-for': OFFICE_IP,
     });
 
-    expect(forged.response.statusCode).toBe(401);
-    expect(JSON.parse(forged.response.body).code).toBe('PASSKEY_REQUIRED');
+    expect(forged.cookie).toBe('');
+    expect(authErrorOf(forged.response)).toBe('PASSKEY_REQUIRED');
   });
 
   it('acepta la cadena cuando el proxy sí es confiable', async () => {
@@ -294,7 +328,8 @@ describe('C-25 · red, passkey y sesión única', () => {
       'x-forwarded-for': `${OFFICE_IP}, ${PROXY_IP}`,
     });
 
-    expect(viaProxy.response.statusCode).toBe(200);
+    expect(viaProxy.cookie).not.toBe('');
+    expect(authErrorOf(viaProxy.response)).toBeNull();
   });
 
   it('rechaza una cadena de proxies que no identifica cliente', async () => {
@@ -302,8 +337,8 @@ describe('C-25 · red, passkey y sesión única', () => {
       'x-forwarded-for': `${PROXY_IP}, ${PROXY_IP}`,
     });
 
-    expect(opaque.response.statusCode).toBe(403);
-    expect(JSON.parse(opaque.response.body).code).toBe('NETWORK_NOT_ALLOWED');
+    expect(opaque.cookie).toBe('');
+    expect(authErrorOf(opaque.response)).toBe('NETWORK_NOT_ALLOWED');
   });
 
   it('invalida la sesión anterior al abrir una nueva', async () => {
@@ -328,12 +363,13 @@ describe('C-25 · red, passkey y sesión única', () => {
   });
 
   it('no admite a una cuenta sin rol y no revela el motivo', async () => {
-    const { response } = await signIn('sinrol@qapaq.pe');
+    const { response, cookie } = await signIn('sinrol@qapaq.pe');
+    const location = new URL(response.headers.location as string, 'http://local');
 
-    expect(response.statusCode).toBe(401);
-    expect(JSON.parse(response.body).message).toBe(
-      'No fue posible iniciar sesión con esas credenciales.',
-    );
+    expect(cookie).toBe('');
+    // Mismo código que una credencial inválida: la URL no dice que faltaba un rol.
+    expect(location.searchParams.get('authError')).toBe('AUTH_FAILED');
+    expect(location.search).not.toMatch(/ROLE|role/u);
   });
 });
 
@@ -387,14 +423,14 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     const acknowledged = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert!.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: { name: 'acknowledge', expectedRevision: alert!.revision },
       remoteAddress: OFFICE_IP,
     });
     const triaged = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert!.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: {
         name: 'triage',
         expectedRevision: JSON.parse(acknowledged.body).alert.revision,
@@ -406,7 +442,7 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     const escalated = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert!.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: { name: 'escalate', expectedRevision: JSON.parse(triaged.body).alert.revision },
       remoteAddress: OFFICE_IP,
     });
@@ -415,7 +451,7 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     const incident = await server().inject({
       method: 'POST',
       url: '/api/incidents',
-      headers: { cookie: lead.cookie },
+      headers: lead.mutation,
       payload: {
         alertId: alert!.id,
         title: 'Acceso no autorizado a srv-app-01',
@@ -453,14 +489,14 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert!.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload,
       remoteAddress: OFFICE_IP,
     });
     const stale = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert!.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload,
       remoteAddress: OFFICE_IP,
     });
@@ -536,7 +572,7 @@ describe('C-18/C-27 · denegación y no enumeración', () => {
     const response = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alertId}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: { name: 'triage' },
       remoteAddress: OFFICE_IP,
     });
@@ -629,14 +665,14 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
     const acknowledged = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: { name: 'acknowledge', expectedRevision: alert.revision },
       remoteAddress: OFFICE_IP,
     });
     const triaged = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: {
         name: 'triage',
         expectedRevision: JSON.parse(acknowledged.body).alert.revision,
@@ -648,7 +684,7 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
     await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert.id}/commands`,
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       payload: { name: 'escalate', expectedRevision: JSON.parse(triaged.body).alert.revision },
       remoteAddress: OFFICE_IP,
     });
@@ -656,7 +692,7 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
     const drained = await server().inject({
       method: 'POST',
       url: '/api/notifications/drain',
-      headers: { cookie: analyst.cookie },
+      headers: analyst.mutation,
       remoteAddress: OFFICE_IP,
     });
     const listed = await server().inject({
@@ -671,5 +707,273 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
     expect(attempts.length).toBeGreaterThan(0);
     // Sin destino Teams alcanzable el crítico no se pierde: queda pendiente o en fallback.
     expect(['pending', 'indeterminate', 'fallback', 'sent']).toContain(attempts[0]!.status);
+  });
+});
+
+describe('B-03 · el callback devuelve al navegador a la consola', () => {
+  /** Destino sin el aviso de sesión reemplazada, que depende de pruebas anteriores. */
+  function destinationOf(response: { headers: Record<string, unknown> }): string {
+    const url = new URL(response.headers.location as string, 'http://local');
+    url.searchParams.delete('sessionNotice');
+    return `${url.pathname}${url.search}`;
+  }
+
+  it('vuelve a la ruta pedida al iniciar la sesión', async () => {
+    const { response } = await signIn('analista@qapaq.pe', undefined, {}, '/alerts?status=new');
+
+    expect(response.statusCode).toBe(303);
+    expect(destinationOf(response)).toBe('/alerts?status=new');
+  });
+
+  it.each([
+    'https://evil.example/robar',
+    '//evil.example/robar',
+    '/\\evil.example',
+    '/api/auth/logout',
+    'alerts',
+    `/${'a'.repeat(600)}`,
+  ])('no redirige fuera de la consola: %s', async (returnTo) => {
+    const { response } = await signIn('analista@qapaq.pe', undefined, {}, returnTo);
+
+    expect(destinationOf(response)).toBe('/');
+  });
+
+  it('un fallo vuelve al mismo destino con código público y correlación', async () => {
+    const { response } = await signIn('analista@qapaq.pe', REMOTE_IP, {}, '/console.html');
+    const location = new URL(response.headers.location as string, 'http://local');
+
+    expect(response.statusCode).toBe(303);
+    expect(location.pathname).toBe('/console.html');
+    expect(location.searchParams.get('authError')).toBe('PASSKEY_REQUIRED');
+    expect(location.searchParams.get('correlationId')).toMatch(/^[0-9a-f-]{36}$/u);
+    expect(response.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('avisa en el retorno cuando la nueva sesión cerró otra', async () => {
+    await signIn('analista@qapaq.pe');
+    const second = await signIn('analista@qapaq.pe');
+
+    expect(second.response.headers.location).toBe('/?sessionNotice=superseded');
+  });
+});
+
+describe('B-01 · CSRF en las mutaciones', () => {
+  async function newAlert(recordId: string) {
+    await ingest(recordId);
+    return [...runtime.soc.alertRows.values()][0]!;
+  }
+
+  function acknowledge(alertId: string, revision: number, headers: Record<string, string>) {
+    return server().inject({
+      method: 'POST',
+      url: `/api/alerts/${alertId}/commands`,
+      headers,
+      payload: { name: 'acknowledge', expectedRevision: revision },
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  it('entrega un token distinto por sesión', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const lead = await signIn('lider@qapaq.pe');
+
+    expect(analyst.csrf).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(analyst.csrf).not.toBe(lead.csrf);
+  });
+
+  it('rechaza una mutación sin token y no ejecuta el comando', async () => {
+    const alert = await newAlert('01890f47-7abc-7def-8abc-00000000b001');
+    const analyst = await signIn('analista@qapaq.pe');
+
+    const response = await acknowledge(alert.id, alert.revision, { cookie: analyst.cookie });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body)).toMatchObject({
+      code: 'REQUEST_NOT_VERIFIED',
+      action: 'reload_resource',
+    });
+    expect(runtime.soc.alertRows.get(`${alert.tenantId}|${alert.id}`)!.status).toBe('new');
+  });
+
+  it('rechaza el token de otra sesión', async () => {
+    const alert = await newAlert('01890f47-7abc-7def-8abc-00000000b002');
+    const analyst = await signIn('analista@qapaq.pe');
+    const lead = await signIn('lider@qapaq.pe');
+
+    const response = await acknowledge(alert.id, alert.revision, {
+      cookie: analyst.cookie,
+      'x-csrf-token': lead.csrf,
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('rechaza una petición iniciada desde otro sitio aunque traiga token', async () => {
+    const alert = await newAlert('01890f47-7abc-7def-8abc-00000000b003');
+    const analyst = await signIn('analista@qapaq.pe');
+
+    const response = await acknowledge(alert.id, alert.revision, {
+      ...analyst.mutation,
+      'sec-fetch-site': 'cross-site',
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('acepta la mutación del mismo origen con su token', async () => {
+    const alert = await newAlert('01890f47-7abc-7def-8abc-00000000b004');
+    const analyst = await signIn('analista@qapaq.pe');
+
+    const response = await acknowledge(alert.id, alert.revision, {
+      ...analyst.mutation,
+      'sec-fetch-site': 'same-origin',
+    });
+
+    expect(response.statusCode).toBe(201);
+  });
+
+  it('sin sesión responde 401 antes de evaluar el token', async () => {
+    const alert = await newAlert('01890f47-7abc-7def-8abc-00000000b005');
+
+    const response = await acknowledge(alert.id, alert.revision, {});
+
+    expect(response.statusCode).toBe(401);
+    expect(JSON.parse(response.body).code).toBe('AUTH_REQUIRED');
+  });
+
+  it('otro sitio no puede cerrar la sesión de la persona', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+
+    const forged = await server().inject({
+      method: 'POST',
+      url: '/api/auth/logout',
+      headers: { cookie: analyst.cookie },
+      remoteAddress: OFFICE_IP,
+    });
+    const still = await server().inject({
+      method: 'GET',
+      url: '/api/auth/session',
+      headers: { cookie: analyst.cookie },
+      remoteAddress: OFFICE_IP,
+    });
+
+    expect(forged.statusCode).toBe(403);
+    expect(still.statusCode).toBe(200);
+  });
+});
+
+describe('B-02 · paginación por cursor de los listados', () => {
+  async function listAlerts(cookie: string, query: string) {
+    return server().inject({
+      method: 'GET',
+      url: `/api/alerts${query}`,
+      headers: { cookie },
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  it('recorre todas las alertas por páginas sin repetir ni perder ninguna', async () => {
+    for (let index = 1; index <= 5; index += 1) {
+      await ingest(`01890f47-7abc-7def-8abc-00000000c00${index}`);
+    }
+    const analyst = await signIn('analista@qapaq.pe');
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const query: string = `?pageSize=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+      const body = JSON.parse((await listAlerts(analyst.cookie, query)).body) as {
+        items: { id: string }[];
+        nextCursor: string | null;
+      };
+      expect(body.items.length).toBeLessThanOrEqual(2);
+      seen.push(...body.items.map((item) => item.id));
+      cursor = body.nextCursor;
+      pages += 1;
+    } while (cursor);
+
+    expect(pages).toBe(3);
+    expect(seen).toHaveLength(5);
+    expect(new Set(seen).size).toBe(5);
+  });
+
+  it('una alerta nueva entre páginas no desplaza las ya entregadas', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c101');
+    await ingest('01890f47-7abc-7def-8abc-00000000c102');
+    const analyst = await signIn('analista@qapaq.pe');
+    const first = JSON.parse((await listAlerts(analyst.cookie, '?pageSize=1')).body);
+
+    await ingest('01890f47-7abc-7def-8abc-00000000c1ff');
+    const second = JSON.parse(
+      (
+        await listAlerts(
+          analyst.cookie,
+          `?pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
+        )
+      ).body,
+    );
+
+    expect(second.items).toHaveLength(1);
+    expect(second.items[0].id).not.toBe(first.items[0].id);
+  });
+
+  it('usa 50 por defecto y no devuelve cursor cuando no hay más', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c201');
+    const analyst = await signIn('analista@qapaq.pe');
+    const body = JSON.parse((await listAlerts(analyst.cookie, '')).body);
+
+    expect(body.items).toHaveLength(1);
+    expect(body.nextCursor).toBeNull();
+  });
+
+  it.each(['0', '201', 'abc', '-1', '1.5'])(
+    'rechaza pageSize=%s en lugar de recortarlo',
+    async (pageSize) => {
+      const analyst = await signIn('analista@qapaq.pe');
+      const response = await listAlerts(analyst.cookie, `?pageSize=${pageSize}`);
+
+      expect(response.statusCode).toBe(422);
+      expect(JSON.parse(response.body)).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        fields: ['pageSize'],
+      });
+    },
+  );
+
+  it('rechaza un cursor alterado o de otro listado', async () => {
+    for (let index = 1; index <= 2; index += 1) {
+      await ingest(`01890f47-7abc-7def-8abc-00000000c30${index}`);
+    }
+    const analyst = await signIn('analista@qapaq.pe');
+    const filtered = JSON.parse((await listAlerts(analyst.cookie, '?status=new&pageSize=1')).body);
+
+    const reused = await listAlerts(
+      analyst.cookie,
+      `?pageSize=1&cursor=${encodeURIComponent(filtered.nextCursor)}`,
+    );
+    const garbage = await listAlerts(analyst.cookie, '?cursor=no-es-un-cursor');
+
+    expect(reused.statusCode).toBe(422);
+    expect(JSON.parse(reused.body).fields).toEqual(['cursor']);
+    expect(garbage.statusCode).toBe(422);
+  });
+
+  it('pagina también incidentes y notificaciones', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const incidents = await server().inject({
+      method: 'GET',
+      url: '/api/incidents?pageSize=10',
+      headers: { cookie: analyst.cookie },
+      remoteAddress: OFFICE_IP,
+    });
+    const notifications = await server().inject({
+      method: 'GET',
+      url: '/api/notifications?pageSize=500',
+      headers: { cookie: analyst.cookie },
+      remoteAddress: OFFICE_IP,
+    });
+
+    expect(JSON.parse(incidents.body)).toMatchObject({ items: [], nextCursor: null });
+    expect(notifications.statusCode).toBe(422);
   });
 });
