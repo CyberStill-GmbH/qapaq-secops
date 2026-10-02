@@ -20,6 +20,7 @@ export const API_ERROR_CODES = [
   'SESSION_EXPIRED',
   'PASSKEY_REQUIRED',
   'NETWORK_NOT_ALLOWED',
+  'REQUEST_NOT_VERIFIED',
   'RATE_LIMITED',
   'RESOURCE_UNAVAILABLE',
   'STATE_CONFLICT',
@@ -92,6 +93,15 @@ export const API_ERROR_CATALOG: Readonly<Record<ApiErrorCode, ApiErrorDefinition
     publicMessage: 'No fue posible verificar el origen de la conexión.',
     action: 'use_qapaq_network',
     helpRef: `${HELP_BASE}#network-not-allowed`,
+    retriable: false,
+  },
+  // Mutación sin token CSRF válido o iniciada desde otro sitio: no se ejecuta nada.
+  REQUEST_NOT_VERIFIED: {
+    code: 'REQUEST_NOT_VERIFIED',
+    httpStatus: 403,
+    publicMessage: 'No fue posible verificar la solicitud. Recargue la página e intente de nuevo.',
+    action: 'reload_resource',
+    helpRef: `${HELP_BASE}#request-not-verified`,
     retriable: false,
   },
   RATE_LIMITED: {

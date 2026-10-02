@@ -83,6 +83,7 @@ describe('C-27 · catálogo de errores', () => {
       'SESSION_EXPIRED',
       'PASSKEY_REQUIRED',
       'NETWORK_NOT_ALLOWED',
+      'REQUEST_NOT_VERIFIED',
       'RATE_LIMITED',
       'RESOURCE_UNAVAILABLE',
       'STATE_CONFLICT',
