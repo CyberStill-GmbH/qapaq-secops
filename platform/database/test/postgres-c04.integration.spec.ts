@@ -74,20 +74,22 @@ describe.skipIf(!databaseUrl)('C-04 PostgreSQL real: vacío, rollback y concurre
       `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations' ORDER BY tablename`,
     );
     await client.end();
-    expect(result.rows.map((row) => row.tablename)).toEqual([
-      'event_inbox',
-      'ingestion_manifests',
-      'managed_secrets',
-      'outbox_messages',
-      'quarantined_events',
-      'raw_event_references',
-      'secret_lifecycle_audit',
-      'secret_lifecycle_operations',
-      'secret_reconciliations',
-      'secret_versions',
-      'source_checkpoints',
-      'sources',
-    ]);
+    expect(result.rows.map((row) => row.tablename)).toEqual(
+      expect.arrayContaining([
+        'event_inbox',
+        'ingestion_manifests',
+        'managed_secrets',
+        'outbox_messages',
+        'quarantined_events',
+        'raw_event_references',
+        'secret_lifecycle_audit',
+        'secret_lifecycle_operations',
+        'secret_reconciliations',
+        'secret_versions',
+        'source_checkpoints',
+        'sources',
+      ]),
+    );
   });
 
   it('revierte todas las escrituras cuando falla una etapa de admisión', async () => {

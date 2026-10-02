@@ -25,7 +25,7 @@ try {
       -e WAZUH_INDEXER_CA_FILE= `
       -e WAZUH_BASIC_AUTH_B64=validation-only `
       -e WAZUH_INDEX_PATTERN=wazuh-alerts-* `
-      krakend:2.13.11 check -t -n -c /etc/krakend/krakend.tmpl
+      krakend:latest@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f check -t -n -c /etc/krakend/krakend.tmpl
     if ($LASTEXITCODE -ne 0) { throw 'KrakenD configuration validation failed.' }
   }
 } finally {

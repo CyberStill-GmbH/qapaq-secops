@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 4173",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build": "pnpm --filter @qapaq/contracts build && tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

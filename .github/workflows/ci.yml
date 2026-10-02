@@ -214,6 +214,8 @@ jobs:
           node-version-file: .nvmrc
       - run: corepack enable
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Generate Prisma client for integration tests
+        run: pnpm --filter @qapaq/database generate
       - name: Typecheck integration environment
         run: pnpm --filter @qapaq/testing typecheck
       - name: Record Docker runner capacity
