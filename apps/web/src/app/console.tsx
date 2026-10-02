@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiErrorBody } from '@qapaq/contracts';
+import { API_ERROR_CODES, apiError, type ApiErrorBody, type ApiErrorCode } from '@qapaq/contracts';
 
 import { api, type AlertView, type SessionView } from '../api/client.js';
 import { ErrorBanner } from './error-banner.js';
@@ -20,10 +20,26 @@ type Phase = 'loading' | 'anonymous' | 'ready' | 'degraded';
 
 const VERDICTS = ['true_positive', 'false_positive', 'benign', 'duplicate'] as const;
 
+/** Ruta a la que el BFF devuelve el navegador tras Entra (B-03). */
+const SIGN_IN_HREF = `/api/auth/start?returnTo=${encodeURIComponent('/console.html')}`;
+
+/**
+ * Un inicio de sesión fallido vuelve con `?authError=<código>&correlationId=`. Solo se
+ * acepta un código del catálogo: el texto que se muestra sale del catálogo, nunca de la URL.
+ */
+function signInErrorFromUrl(): ApiErrorBody | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('authError');
+  if (!code || !(API_ERROR_CODES as readonly string[]).includes(code)) return null;
+  return apiError(code as ApiErrorCode, params.get('correlationId') ?? '');
+}
+
 export function Console(): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<SessionView | null>(null);
   const [alerts, setAlerts] = useState<readonly AlertView[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [selected, setSelected] = useState<AlertView | null>(null);
   const [error, setError] = useState<ApiErrorBody | null>(null);
   const [note, setNote] = useState('');
@@ -33,6 +49,7 @@ export function Console(): React.JSX.Element {
     const result = await api.alerts();
     if (result.ok) {
       setAlerts(result.data.items);
+      setNextCursor(result.data.nextCursor);
       setError(null);
       return;
     }
@@ -40,10 +57,21 @@ export function Console(): React.JSX.Element {
     if (result.error.code === 'DEPENDENCY_DEGRADED') setPhase('degraded');
   }, []);
 
+  const loadMore = useCallback(async () => {
+    if (!nextCursor) return;
+    const result = await api.alerts(nextCursor);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setAlerts((current) => [...current, ...result.data.items]);
+    setNextCursor(result.data.nextCursor);
+  }, [nextCursor]);
+
   const refresh = useCallback(async () => {
     const result = await api.session();
     if (!result.ok) {
-      setError(result.error);
+      setError(signInErrorFromUrl() ?? result.error);
       setPhase(result.error.code === 'DEPENDENCY_DEGRADED' ? 'degraded' : 'anonymous');
       return;
     }
@@ -98,7 +126,7 @@ export function Console(): React.JSX.Element {
           Sesión no iniciada
         </p>
         {error ? <ErrorBanner error={error} /> : null}
-        <a className="qapaq-signin" href="/api/auth/start">
+        <a className="qapaq-signin" href={SIGN_IN_HREF}>
           Iniciar sesión con Microsoft Entra
         </a>
       </section>
@@ -129,6 +157,11 @@ export function Console(): React.JSX.Element {
           ))}
         </ul>
       )}
+      {nextCursor ? (
+        <button type="button" data-testid="alerts-more" onClick={() => void loadMore()}>
+          Cargar más alertas
+        </button>
+      ) : null}
 
       {selected ? (
         <article data-testid="alert-detail">

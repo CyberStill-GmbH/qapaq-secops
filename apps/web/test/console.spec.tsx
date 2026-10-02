@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { apiFetch } from '../src/api/client.js';
+import { api, apiFetch } from '../src/api/client.js';
 import { ErrorBanner } from '../src/app/error-banner.js';
 import { Console } from '../src/app/console.js';
 
@@ -106,5 +106,56 @@ describe('C-21/C-27 · presentación', () => {
 
     expect(html).toContain('Cargando el panel');
     expect(html).not.toContain('Sesión activa');
+  });
+});
+
+describe('B-01 · token CSRF en el cliente', () => {
+  function recordingFetch(calls: { url: string; init: RequestInit }[]) {
+    return ((url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      const body =
+        url === '/api/auth/session'
+          ? JSON.stringify({
+              subjectId: 's',
+              tenantId: 't',
+              roles: [],
+              capabilities: [],
+              amr: [],
+              csrfToken: 'token-de-la-sesion',
+            })
+          : '{}';
+      return Promise.resolve(
+        new Response(url === '/api/auth/logout' ? null : body, {
+          status: url === '/api/auth/logout' ? 204 : 200,
+        }),
+      );
+    }) as unknown as typeof fetch;
+  }
+
+  const headerOf = (call: { init: RequestInit } | undefined) =>
+    (call?.init.headers as Record<string, string> | undefined)?.['x-csrf-token'];
+
+  it('adjunta el token de la sesión solo a las mutaciones', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    stubFetch(recordingFetch(calls));
+
+    await api.session();
+    await api.alerts();
+    await api.command('a-1', { name: 'acknowledge', expectedRevision: 1 });
+
+    expect(headerOf(calls[1])).toBeUndefined();
+    expect(headerOf(calls[2])).toBe('token-de-la-sesion');
+  });
+
+  it('descarta el token al cerrar sesión', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    stubFetch(recordingFetch(calls));
+
+    await api.session();
+    await api.logout();
+    await api.command('a-1', { name: 'acknowledge', expectedRevision: 1 });
+
+    expect(headerOf(calls[1])).toBe('token-de-la-sesion');
+    expect(headerOf(calls[2])).toBeUndefined();
   });
 });
