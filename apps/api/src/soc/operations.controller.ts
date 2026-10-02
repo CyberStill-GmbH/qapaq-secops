@@ -8,14 +8,16 @@
  * gate del MVP.
  */
 
-import { Body, Controller, Get, Inject, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Req } from '@nestjs/common';
 import type { IncomingRequest } from '../http/http-contracts.js';
 
 import { validateSecurityEvent } from '@qapaq/contracts';
 import { acknowledge, drainOutbox } from '@qapaq/soar';
 
 import { ApiError } from '../http/api-error.js';
-import { correlationIdOf, originOf, sessionIdOf } from '../http/request-context.js';
+import { paginate, type PageQuery } from '../http/pagination.js';
+import { correlationIdOf } from '../http/request-context.js';
+import { mutatingActor, readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
 
@@ -41,10 +43,8 @@ export class OperationsController {
 
   @Post('notifications/drain')
   public async drain(@Req() request: IncomingRequest) {
-    const correlationId = correlationIdOf(request);
-    const resolved = await this.runtime.resolveActor(sessionIdOf(request), originOf(request));
-    if (!resolved.ok) throw new ApiError(resolved.reason, correlationId);
-    if (!resolved.actor.capabilities.has('notifications.read')) {
+    const { actor, correlationId } = await mutatingActor(this.runtime, request);
+    if (!actor.capabilities.has('notifications.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
     this.runtime.pumpOutbox();
@@ -53,41 +53,45 @@ export class OperationsController {
   }
 
   @Get('notifications')
-  public async notifications(@Req() request: IncomingRequest) {
-    const correlationId = correlationIdOf(request);
-    const resolved = await this.runtime.resolveActor(sessionIdOf(request), originOf(request));
-    if (!resolved.ok) throw new ApiError(resolved.reason, correlationId);
-    if (!resolved.actor.capabilities.has('notifications.read')) {
+  public async notifications(@Req() request: IncomingRequest, @Query() query: PageQuery) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
+    if (!actor.capabilities.has('notifications.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
+    const page = paginate(
+      [...this.runtime.notifications.rows.values()].filter(
+        (attempt) => attempt.tenantId === actor.tenantId,
+      ),
+      (attempt) => ({ at: attempt.createdAt.getTime(), id: attempt.id }),
+      query,
+      'notifications',
+      correlationId,
+    );
     return {
       correlationId,
-      items: [...this.runtime.notifications.rows.values()]
-        .filter((attempt) => attempt.tenantId === resolved.actor.tenantId)
-        .map((attempt) => ({
-          id: attempt.id,
-          status: attempt.status,
-          channel: attempt.channel,
-          attemptCount: attempt.attemptCount,
-          sentAt: attempt.sentAt?.toISOString() ?? null,
-          acknowledgedAt: attempt.acknowledgedAt?.toISOString() ?? null,
-          acknowledgedBy: attempt.acknowledgedBy,
-          lastFailureClass: attempt.lastFailureClass,
-        })),
+      nextCursor: page.nextCursor,
+      items: page.items.map((attempt) => ({
+        id: attempt.id,
+        status: attempt.status,
+        channel: attempt.channel,
+        attemptCount: attempt.attemptCount,
+        sentAt: attempt.sentAt?.toISOString() ?? null,
+        acknowledgedAt: attempt.acknowledgedAt?.toISOString() ?? null,
+        acknowledgedBy: attempt.acknowledgedBy,
+        lastFailureClass: attempt.lastFailureClass,
+      })),
     };
   }
 
   @Post('notifications/:id/acknowledge')
   public async acknowledgeNotification(@Req() request: IncomingRequest, @Param('id') id: string) {
-    const correlationId = correlationIdOf(request);
-    const resolved = await this.runtime.resolveActor(sessionIdOf(request), originOf(request));
-    if (!resolved.ok) throw new ApiError(resolved.reason, correlationId);
-    if (!resolved.actor.capabilities.has('notifications.read')) {
+    const { actor, correlationId } = await mutatingActor(this.runtime, request);
+    if (!actor.capabilities.has('notifications.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
-    const attempt = await this.runtime.notifications.byId(resolved.actor.tenantId, id);
+    const attempt = await this.runtime.notifications.byId(actor.tenantId, id);
     if (!attempt) throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
-    const result = acknowledge(attempt, resolved.actor.subjectId, this.runtime.now());
+    const result = acknowledge(attempt, actor.subjectId, this.runtime.now());
     if (!result.ok) throw new ApiError('STATE_CONFLICT', correlationId);
     await this.runtime.notifications.save(result.attempt);
     return { correlationId, status: result.attempt.status };

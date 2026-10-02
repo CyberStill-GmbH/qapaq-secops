@@ -4,6 +4,9 @@
  * Cada endpoint resuelve la sesión, delega en el caso de uso y traduce el fallo al
  * catálogo de C-27. La autorización no se evalúa aquí: vive en el caso de uso, de modo
  * que un cliente que no sea esta API obtiene exactamente la misma decisión.
+ *
+ * Las mutaciones exigen además el token CSRF de la sesión (B-01) y los listados se
+ * entregan por páginas con cursor (B-02).
  */
 
 import { Body, Controller, Get, Inject, Param, Post, Query, Req } from '@nestjs/common';
@@ -20,7 +23,8 @@ import {
 } from '@qapaq/soc';
 
 import { ApiError, fromSocFailure } from '../http/api-error.js';
-import { correlationIdOf, originOf, sessionIdOf } from '../http/request-context.js';
+import { paginate, type PageQuery } from '../http/pagination.js';
+import { mutatingActor, readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
 
@@ -64,32 +68,35 @@ function incidentView(incident: Incident) {
 export class SocController {
   public constructor(@Inject(SECOPS_RUNTIME) private readonly runtime: SecOpsRuntime) {}
 
-  private async actorOf(request: IncomingRequest) {
-    const correlationId = correlationIdOf(request);
-    const resolved = await this.runtime.resolveActor(sessionIdOf(request), originOf(request));
-    if (!resolved.ok) throw new ApiError(resolved.reason, correlationId);
-    return { actor: resolved.actor, correlationId };
-  }
-
   @Get('alerts')
-  public async alerts(@Req() request: IncomingRequest, @Query() query: { status?: string }) {
-    const { actor, correlationId } = await this.actorOf(request);
+  public async alerts(
+    @Req() request: IncomingRequest,
+    @Query() query: PageQuery & { status?: string },
+  ) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
     if (!actor.capabilities.has('alerts.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
     const alerts = [...this.runtime.soc.alertRows.values()]
       .filter((alert) => alert.tenantId === actor.tenantId)
-      .filter((alert) => !query.status || alert.status === query.status)
-      .sort((left, right) => right.occurredAt.getTime() - left.occurredAt.getTime());
+      .filter((alert) => !query.status || alert.status === query.status);
+    const page = paginate(
+      alerts,
+      (alert) => ({ at: alert.occurredAt.getTime(), id: alert.id }),
+      query,
+      `alerts:status=${query.status ?? ''}`,
+      correlationId,
+    );
     return {
       correlationId,
-      items: alerts.map((alert) => alertView(alert, actor.capabilities)),
+      items: page.items.map((alert) => alertView(alert, actor.capabilities)),
+      nextCursor: page.nextCursor,
     };
   }
 
   @Get('alerts/:id')
   public async alert(@Req() request: IncomingRequest, @Param('id') id: string) {
-    const { actor, correlationId } = await this.actorOf(request);
+    const { actor, correlationId } = await readingActor(this.runtime, request);
     const alert = this.runtime.soc.alertRows.get(`${actor.tenantId}|${id}`);
     if (!alert || !actor.capabilities.has('alerts.read')) {
       // Mismo error para inexistente y no autorizado: la API no enumera.
@@ -111,7 +118,7 @@ export class SocController {
       assigneeId?: string;
     },
   ) {
-    const { actor, correlationId } = await this.actorOf(request);
+    const { actor, correlationId } = await mutatingActor(this.runtime, request);
     const name = body.name as 'acknowledge' | 'assign' | 'triage' | 'escalate' | 'close' | 'reopen';
     if (!name || typeof body.expectedRevision !== 'number') {
       throw new ApiError('VALIDATION_FAILED', correlationId, ['name', 'expectedRevision']);
@@ -145,7 +152,7 @@ export class SocController {
       expectedAlertRevision?: number;
     },
   ) {
-    const { actor, correlationId } = await this.actorOf(request);
+    const { actor, correlationId } = await mutatingActor(this.runtime, request);
     if (
       !body.alertId ||
       !body.title ||
@@ -176,17 +183,21 @@ export class SocController {
   }
 
   @Get('incidents')
-  public async incidents(@Req() request: IncomingRequest) {
-    const { actor, correlationId } = await this.actorOf(request);
+  public async incidents(@Req() request: IncomingRequest, @Query() query: PageQuery) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
     if (!actor.capabilities.has('incidents.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
-    return {
+    const page = paginate(
+      [...this.runtime.soc.incidentRows.values()].filter(
+        (incident) => incident.tenantId === actor.tenantId,
+      ),
+      (incident) => ({ at: incident.openedAt.getTime(), id: incident.id }),
+      query,
+      'incidents',
       correlationId,
-      items: [...this.runtime.soc.incidentRows.values()]
-        .filter((incident) => incident.tenantId === actor.tenantId)
-        .map(incidentView),
-    };
+    );
+    return { correlationId, items: page.items.map(incidentView), nextCursor: page.nextCursor };
   }
 
   @Post('incidents/:id/commands')
@@ -201,7 +212,7 @@ export class SocController {
       ownerId?: string;
     },
   ) {
-    const { actor, correlationId } = await this.actorOf(request);
+    const { actor, correlationId } = await mutatingActor(this.runtime, request);
     if (!body.name || typeof body.expectedRevision !== 'number') {
       throw new ApiError('VALIDATION_FAILED', correlationId, ['name', 'expectedRevision']);
     }

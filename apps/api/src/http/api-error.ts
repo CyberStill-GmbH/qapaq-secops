@@ -32,7 +32,7 @@ export function fromSocFailure(code: SocFailureCode, correlationId: string): Api
   return new ApiError(mapping[code], correlationId);
 }
 
-export function fromSignInDenial(reason: SignInDenialReason, correlationId: string): ApiError {
+export function signInDenialCode(reason: SignInDenialReason): ApiErrorCode {
   const mapping: Readonly<Record<SignInDenialReason, ApiErrorCode>> = {
     NETWORK_UNTRUSTED: 'NETWORK_NOT_ALLOWED',
     LOCKED_OUT: 'AUTH_FAILED',
@@ -42,5 +42,5 @@ export function fromSignInDenial(reason: SignInDenialReason, correlationId: stri
     MFA_REQUIRED: 'AUTH_FAILED',
     NO_ROLE_ASSIGNED: 'AUTH_FAILED',
   };
-  return new ApiError(mapping[reason], correlationId);
+  return mapping[reason];
 }
