@@ -18,7 +18,7 @@ provider_gateway:
   product: KrakenD Community Edition
   deployment: on_premises
   decision: ADR-026
-  version: 2.13.11
+  version: 3.0.0
   image_digest: TO_BE_PROVIDED
   minimum_replicas: 2
   load_balancer: TO_BE_PROVIDED

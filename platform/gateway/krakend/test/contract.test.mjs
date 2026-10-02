@@ -86,7 +86,7 @@ test('production infrastructure dependencies stay explicitly TO_BE_PROVIDED', ()
   ]) {
     assert.match(inventory, new RegExp(`^  ${key}: TO_BE_PROVIDED$`, 'm'));
   }
-  assert.match(inventory, /^  version: 2\.13\.11$/m);
+  assert.match(inventory, /^  version: 3\.0\.0$/m);
 });
 
 test('Grafana dashboard reports normalized route rate, p50/p95/p99 and response classes', () => {

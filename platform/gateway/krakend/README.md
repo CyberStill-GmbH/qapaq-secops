@@ -6,7 +6,7 @@ Estado de entrega: **configuración y validación local implementadas; producci�
 
 ```text
 QAPAQ connector worker
-  → LB interno (pendiente) → KrakenD CE 2.13.11 (réplicas stateless)
+  → LB interno (pendiente) → KrakenD CE 3.0.0 (réplicas stateless)
   → Wazuh Indexer read-only (URL/TLS/identidad pendientes)
   → adapter valida y admite durablemente → PostgreSQL/outbox → Redis/BullMQ
 ```
@@ -15,7 +15,7 @@ En esta entrega solo se habilitan las dos rutas de lectura del inventario `route
 
 ## Versiones, rutas y controles
 
-- Imagen oficial de ejecución fijada al índice multi-arquitectura `krakend:latest@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f`. La etiqueta upstream se usa solo como descriptor; el digest fija exactamente el contenido y Trivy 0.74.0 reporta cero vulnerabilidades HIGH/CRITICAL (2026-10-02).
+- Imagen oficial de ejecución fijada al índice multi-arquitectura `krakend:3.0.0@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f`. Trivy 0.74.0 reporta cero vulnerabilidades HIGH/CRITICAL (2026-10-02). El template usa formato de configuración 4, requerido por KrakenD 3.x.
 - `routes.json` es la allowlist contractual. `krakend.tmpl` es configuración Flexible Config renderizada por KrakenD; no se genera configuración efectiva con un parser local casero.
 - JWT RS256, issuer, audience y JWKS son configuración obligatoria, hoy `TO_BE_PROVIDED`. La ausencia o invalidez de credencial se modela como 401. La autorización de dominio queda en QAPAQ/Indexer y sus permisos read-only; una denegación autenticada upstream conserva 403, sin remapear todos los errores a 401.
 - El límite de Community Edition configurado es por identidad de workload y por réplica; no es cuota global sincronizada. Control exacto de cuota y `Retry-After` semántico quedan en el adapter. Dimensionar cada límite respecto del número máximo de réplicas es gate de release.

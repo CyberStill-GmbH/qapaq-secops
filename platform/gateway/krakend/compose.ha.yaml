@@ -10,7 +10,7 @@
 # tiene en curso antes de cerrar.
 
 x-gateway: &gateway
-  image: krakend:latest@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f
+  image: krakend:3.0.0@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f
   pull_policy: missing
   command: ['run', '-c', '/etc/krakend/krakend.tmpl']
   environment:
