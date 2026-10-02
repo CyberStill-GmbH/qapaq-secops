@@ -1,1 +1,6 @@
-[]
+[
+  {
+    "dockerfile": "platform/gateway/krakend/Dockerfile",
+    "context": "platform/gateway/krakend"
+  }
+]

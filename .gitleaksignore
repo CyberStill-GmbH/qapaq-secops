@@ -2,3 +2,16 @@
 8ff6c78f2779fc25b05a0355849647a770225a0f:tests/smoke/support.mjs:generic-api-key:6
 # Synthetic Wazuh provider-test credential; scoped to its exact historical finding.
 ec76604a0e5bd7307e048dcce85f123d86bca892:modules/connectors/test/wazuh-security-event.provider.spec.ts:generic-api-key:10
+# Exact historical synthetic test fixtures; no live credentials.
+cbdd0661c45a95d84b4fc67f72920e24ef186623:platform/configuration/src/control-plane/secret-audit.ts:generic-api-key:10
+cbdd0661c45a95d84b4fc67f72920e24ef186623:platform/configuration/src/control-plane/secret-audit.ts:generic-api-key:12
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:modules/connectors/test/wazuh-gateway.client.spec.ts:generic-api-key:43
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:modules/connectors/test/wazuh-gateway.client.spec.ts:generic-api-key:126
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:modules/connectors/test/wazuh-gateway.client.spec.ts:generic-api-key:160
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:modules/connectors/test/wazuh-gateway.client.spec.ts:generic-api-key:183
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:17
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:30
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:36
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:44
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:49
+7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:60
