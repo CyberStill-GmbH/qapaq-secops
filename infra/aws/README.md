@@ -1,8 +1,8 @@
-# AWS Terraform demo — fases 1 y 2B
+# AWS Terraform demo — fases 1, 2B y 2C
 
-**Estado:** fase 1 de red y seguridad aplicada en `main` (44 recursos). Fase 2B
-está preparada para plan, sin apply. Ninguna de las dos fases crea ECS, RDS,
-Redis/Valkey, Wazuh, ALB ni servicios de aplicación.
+**Estado:** fase 1 (44 recursos) y fase 2B aplicadas. Fase 2C publica imágenes
+verificadas a ECR. Estas fases no crean ECS, RDS, Redis/Valkey, Wazuh, ALB ni
+servicios de aplicación.
 
 ## Arquitectura de esta fase
 
@@ -114,14 +114,15 @@ sin desplegar workloads:
 - **IAM:** rol de publicación de imágenes de GitHub OIDC, confiado únicamente al
   repositorio configurado en `main` y con `aud=sts.amazonaws.com`. Puede publicar
   solo en los tres repositorios ECR; `GetAuthorizationToken` requiere `Resource
-= "*"` por la semántica de AWS. No se crea rol de tareas, política de lectura de
-  secretos para aplicaciones ni permiso S3 de runtime antes de implementar y
-  desplegar esas aplicaciones. El rol no está conectado aún a un workflow de
-  publicación.
+= "*"` por la semántica de AWS. Sus acciones de push siguen la política
+  recomendada por AWS: `BatchGetImage`, `BatchCheckLayerAvailability`,
+  `CompleteLayerUpload`, `InitiateLayerUpload`, `PutImage` y `UploadLayerPart`.
+  No tiene acciones de administración ECR, S3 ni lectura de secretos. No se crea
+  rol de tareas ni permisos runtime.
 
 El Worker sigue siendo solo un proceso de ciclo de vida en espera: BullMQ e
 ioredis están en dependencias, pero no existe consumidor ni conexión Redis. ECR
-no hace que API/Worker sean desplegables y no se publican imágenes en esta fase.
+no hace que API/Worker sean desplegables; la Fase 2B no publicó imágenes.
 
 ### Costo estimado y delta de recursos
 
@@ -158,9 +159,9 @@ terraform validate -no-color
 terraform plan -var-file environments/demo.tfvars -input=false -no-color
 ```
 
-El plan remoto confirma que no reemplaza ni destruye los 44 recursos de Fase 1;
-añade las foundations descritas y propone los cuatro cambios in-place anotados
-arriba. Aún no se realiza `apply`.
+El plan remoto confirmó que no reemplazaba ni destruía los 44 recursos de Fase 1;
+añadía las foundations descritas y proponía los cuatro cambios in-place anotados
+arriba. Fase 2B fue aplicada posteriormente y el CI `main` #210 terminó verde.
 
 La VPC pública no implica que todas las subnets/instancias tengan IP pública; las
 subnets no asignan IP pública automáticamente. El SG público con HTTP pertenece a
@@ -175,6 +176,32 @@ consideran desplegables ni DONE**: no hay publicación en ECR ni despliegue ECS,
 la API no tiene readiness real de dependencias y el Worker permanece en espera
 inactiva sin consumidor BullMQ. Más detalles en
 [`docs/deployment/aws-demo.md`](../../docs/deployment/aws-demo.md).
+
+## Fase 2C — publicación verificada en ECR
+
+`.github/workflows/publish-images.yml` se activa únicamente al terminar con éxito
+`CI Security` en `main` por `push`, y comprueba que el commit provenga de este
+repositorio. Hace checkout del SHA exacto que pasó CI. Usa GitHub OIDC con el rol
+`github_ecr_publisher_role_arn`; el ARN se configura como variable no secreta del
+repositorio `AWS_ECR_PUBLISHER_ROLE_ARN`, copiada del output de Terraform. El
+account ID se obtiene de ese ARN y la región es `us-east-1`, igual a
+`environments/demo.tfvars`. No hay access keys estáticas.
+
+Antes de publicar, ejecuta el mismo script de gates que `CI / required`
+(`.github/ci/verify-container-images.sh`): builds API/Worker/KrakenD, Node
+`v24.21.0`, smoke API live/ready, smoke y ciclo de vida Worker, SIGTERM con exit
+code 0 y Trivy HIGH/CRITICAL para las tres imágenes. Solo si todos pasan asigna
+el tag inmutable `sha-<commit>` y hace push. Recupera el digest de cada imagen de
+ECR y adjunta `image-manifest-<commit>.json` con repositorio, tag, digest, commit,
+región y timestamp UTC.
+
+Las URLs siguen los nombres declarados por Terraform:
+`<cuenta>.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-{api,worker,krakend}`.
+No se publica `latest`. ECR escanea cada push y conserva los 20 tags `sha-*` más
+recientes. El futuro ECS debe referenciar las imágenes por digest. Esta fase no
+despliega ECS, ALB, RDS, Redis/Valkey ni Wazuh. El Worker sigue arrancando como
+proceso de ciclo de vida sin consumir BullMQ; publicar su imagen no significa que
+el procesamiento asíncrono esté implementado.
 
 ## Destrucción
 

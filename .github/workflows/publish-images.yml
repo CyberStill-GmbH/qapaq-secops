@@ -1,0 +1,126 @@
+name: Publish verified images
+
+on:
+  workflow_run:
+    workflows: [CI Security]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-images-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-1
+      AWS_ECR_PUBLISHER_ROLE_ARN: ${{ vars.AWS_ECR_PUBLISHER_ROLE_ARN }}
+      IMAGE_TAG: sha-${{ github.event.workflow_run.head_sha }}
+      COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Checkout exact CI-verified commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Validate publisher configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${AWS_ECR_PUBLISHER_ROLE_ARN:?Set the AWS_ECR_PUBLISHER_ROLE_ARN repository variable from Terraform output}"
+          if [[ ! "$AWS_ECR_PUBLISHER_ROLE_ARN" =~ ^arn:aws:iam::([0-9]{12}):role/[^:]+-github-ecr-publisher$ ]]; then
+            echo 'AWS_ECR_PUBLISHER_ROLE_ARN must identify the Terraform-created publisher role.' >&2
+            exit 1
+          fi
+          printf 'AWS_ACCOUNT_ID=%s\n' "${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.AWS_ECR_PUBLISHER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: qapaq-secops-image-publish
+
+      - name: Verify AWS account and resolve ECR repository URLs
+        id: ecr
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${AWS_ECR_PUBLISHER_ROLE_ARN:?Set the AWS_ECR_PUBLISHER_ROLE_ARN repository variable}"
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
+          for service in api worker krakend; do
+            uri="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/qapaq-secops-${service}"
+            printf '%s=%s\n' "$service" "$uri" >> "$GITHUB_OUTPUT"
+          done
+          aws ecr get-login-password --region "$AWS_REGION" |
+            docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build and pass the same runtime, smoke, lifecycle, and Trivy gates as CI
+        run: bash .github/ci/verify-container-images.sh
+
+      - name: Tag and push only verified images
+        shell: bash
+        env:
+          API_REPOSITORY: ${{ steps.ecr.outputs.api }}
+          WORKER_REPOSITORY: ${{ steps.ecr.outputs.worker }}
+          KRAKEND_REPOSITORY: ${{ steps.ecr.outputs.krakend }}
+        run: |
+          set -euo pipefail
+          docker tag qapaq-ci:api "${API_REPOSITORY}:${IMAGE_TAG}"
+          docker tag qapaq-ci:worker "${WORKER_REPOSITORY}:${IMAGE_TAG}"
+          docker tag qapaq-ci:krakend "${KRAKEND_REPOSITORY}:${IMAGE_TAG}"
+          docker push "${API_REPOSITORY}:${IMAGE_TAG}"
+          docker push "${WORKER_REPOSITORY}:${IMAGE_TAG}"
+          docker push "${KRAKEND_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Record immutable image digests
+        shell: bash
+        env:
+          API_REPOSITORY: ${{ steps.ecr.outputs.api }}
+          WORKER_REPOSITORY: ${{ steps.ecr.outputs.worker }}
+          KRAKEND_REPOSITORY: ${{ steps.ecr.outputs.krakend }}
+        run: |
+          set -euo pipefail
+          timestamp=$(date --utc +'%Y-%m-%dT%H:%M:%SZ')
+          api_digest=$(aws ecr batch-get-image --repository-name qapaq-secops-api --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.imageDigest' --output text)
+          worker_digest=$(aws ecr batch-get-image --repository-name qapaq-secops-worker --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.imageDigest' --output text)
+          krakend_digest=$(aws ecr batch-get-image --repository-name qapaq-secops-krakend --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.imageDigest' --output text)
+          for digest in "$api_digest" "$worker_digest" "$krakend_digest"; do
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          done
+          jq -n \
+            --arg commit "$COMMIT_SHA" \
+            --arg tag "$IMAGE_TAG" \
+            --arg region "$AWS_REGION" \
+            --arg timestamp "$timestamp" \
+            --arg api_repository "$API_REPOSITORY" \
+            --arg api_digest "$api_digest" \
+            --arg worker_repository "$WORKER_REPOSITORY" \
+            --arg worker_digest "$worker_digest" \
+            --arg krakend_repository "$KRAKEND_REPOSITORY" \
+            --arg krakend_digest "$krakend_digest" \
+            '{commit:$commit, region:$region, timestamp:$timestamp, images:{api:{repository:$api_repository,tag:$tag,digest:$api_digest},worker:{repository:$worker_repository,tag:$tag,digest:$worker_digest},krakend:{repository:$krakend_repository,tag:$tag,digest:$krakend_digest}}}' \
+            > "image-manifest-${COMMIT_SHA}.json"
+          cat "image-manifest-${COMMIT_SHA}.json"
+
+      - name: Upload image manifest evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-manifest-${{ github.event.workflow_run.head_sha }}
+          path: image-manifest-${{ github.event.workflow_run.head_sha }}.json
+          if-no-files-found: error
+          retention-days: 90
