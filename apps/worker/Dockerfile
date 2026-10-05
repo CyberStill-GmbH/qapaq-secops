@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1.7
+FROM --platform=linux/amd64 node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
+
+ENV COREPACK_HOME=/corepack
+WORKDIR /workspace
+
+RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
+
+# Copy workspace manifests first so dependency installation is cached across source edits.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .nvmrc ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/worker/package.json apps/worker/package.json
+COPY modules/access/package.json modules/access/package.json
+COPY modules/connectors/package.json modules/connectors/package.json
+COPY modules/detection/package.json modules/detection/package.json
+COPY modules/soar/package.json modules/soar/package.json
+COPY modules/soc/package.json modules/soc/package.json
+COPY modules/telemetry/package.json modules/telemetry/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY platform/audit/package.json platform/audit/package.json
+COPY platform/configuration/package.json platform/configuration/package.json
+COPY platform/database/package.json platform/database/package.json
+COPY platform/observability/package.json platform/observability/package.json
+COPY platform/testing/package.json platform/testing/package.json
+
+RUN pnpm install --filter @qapaq/worker... --frozen-lockfile
+
+COPY . .
+RUN pnpm --filter '@qapaq/worker...' run build \
+    && pnpm --filter @qapaq/worker deploy --prod --legacy /runtime \
+    && node scripts/docker/prune-deploy.mjs /runtime
+
+FROM --platform=linux/amd64 node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
+
+ENV NODE_ENV=production \
+    QAPAQ_PROFILE=production
+WORKDIR /app
+
+COPY --from=build --chown=1000:1000 /runtime/ ./
+
+USER 1000:1000
+STOPSIGNAL SIGTERM
+CMD ["node", "dist/main.js"]

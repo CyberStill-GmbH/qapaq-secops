@@ -40,14 +40,21 @@ Verificación completada en [Terraform Demo #2](https://github.com/CyberStill-Gm
 el 5 de octubre de 2026, sobre `main` en `us-east-1`: `fmt`, `validate` y `plan`
 pasaron. El plan reportó 44 recursos por crear, ninguno por cambiar o destruir
 (18 de red y 26 de security groups/reglas), y solo recursos de Fase 1. OIDC
-consultó la cuenta `955200662475` y las AZ `us-east-1a`/`us-east-1b`. No se hizo
-`apply`; la infraestructura sigue sin desplegar.
+consultó la cuenta `955200662475` y las AZ `us-east-1a`/`us-east-1b`. Después,
+[Terraform Demo #3](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37340825790)
+aplicó ese plan guardado desde `main`; el job terminó correctamente. Se crearon
+solo recursos de la Fase 1, sin cómputo ni servicios de aplicación.
 
-## Dockerfiles API y Worker: inventario para la siguiente fase
+## Imágenes locales API y Worker
 
-`apps/api` y `apps/worker` tienen scripts `build`/`typecheck`, pero no Dockerfiles.
-Solo existe `platform/gateway/krakend/Dockerfile`, que empaca KrakenD CE y su
-template; no es imagen de la app.
+Se añadieron [`apps/api/Dockerfile`](../../apps/api/Dockerfile) y
+[`apps/worker/Dockerfile`](../../apps/worker/Dockerfile), además del
+[`.dockerignore`](../../.dockerignore) y sus targets de escaneo en
+`.github/ci/containers.json`. Ambos usan Node 24.21.0 bookworm-slim fijado por
+digest, pnpm 12.4.2, build multi-stage, dependencias de producción desplegadas
+por workspace, usuario `1000:1000` y contexto de monorepo. API expone 3000 con
+healthcheck local; Worker no expone puertos. `scripts/docker/prune-deploy.mjs`
+quita material de desarrollo y pruebas de los directorios runtime.
 
 Antes de escribir Dockerfiles de producción hay que resolver y probar exactamente:
 
@@ -74,11 +81,41 @@ Antes de escribir Dockerfiles de producción hay que resolver y probar exactamen
    de Indexer y URL/CA Wazuh; esos insumos externos faltan. No inventarlos para
    conseguir que el contenedor parezca healthy.
 
+## Validación de imágenes y límites de despliegue
+
+Validación local realizada el 5 de octubre de 2026:
+
+- `pnpm --filter '@qapaq/api...' run build` y
+  `pnpm --filter '@qapaq/worker...' run build`: correctos.
+- `pnpm run smoke:api`: 5/5; `pnpm run smoke:worker`: 4/4.
+- `docker build -f apps/api/Dockerfile -t qapaq-secops-api:test .`: correcto;
+  83,887,809 bytes (aprox. 80.0 MiB), UID/GID 1000:1000. `/health/live` y
+  `/health/ready` contestaron HTTP 200; healthcheck pasó y SIGTERM produjo salida
+  limpia (código 0).
+- `docker build -f apps/worker/Dockerfile -t qapaq-secops-worker:test .`:
+  correcto; 84,106,322 bytes (aprox. 80.2 MiB), UID/GID 1000:1000, sin puertos
+  expuestos. Arrancó y terminó por SIGTERM con código 0.
+- El escaneo de imagen Trivy aún debe ejecutarse en GitHub Actions tras subir
+  estos Dockerfiles; no se afirma que haya pasado antes del workflow.
+
+Estas pruebas validan build y ciclo de vida local, no un despliegue. La API
+todavía no demuestra conectividad con M365 ni con infraestructura AWS y el health
+ready actual solo refleja estado del proceso porque no tiene contribuyentes de
+readiness de dependencias. El Worker es un runtime inactivo de admisión: aunque
+BullMQ/ioredis figuran como dependencias, el código actual no conecta Redis ni
+consume colas. No se publica ninguna imagen en ECR.
+
+La API smoke usó IDs ficticios y un URI de referencia de secreto, sin valores
+secretos ni credenciales reales. No demuestra integración con Microsoft 365.
+Además, las subnets privadas aún no tienen ruta de salida ni VPC endpoints, por
+lo que Fase 1 no permite a ECS recuperar imágenes ni leer Secrets Manager.
+
 ## Riesgos y costo de Fase 1
 
 Los objetos de red y Security Groups de esta fase no añaden cargo horario fijo;
 no se ha creado ningún recurso facturable de cómputo, balanceo, NAT o endpoint.
 Riesgo principal: la topología privada no tiene egress para recuperar imágenes ni
-leer secretos; la Fase 2 debe diseñar endpoints o salida antes de activar ECS.
+leer secretos; antes de activar ECS, una fase posterior debe diseñar endpoints o
+salida.
 Wazuh requerirá egress HTTPS autorizado para su integración saliente con M365. No
 se abre aún porque Wazuh no se despliega en esta fase.

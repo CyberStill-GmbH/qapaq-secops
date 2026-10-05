@@ -1,8 +1,8 @@
 # AWS Terraform demo — fase 1
 
-**Estado:** fase 1 de red y seguridad. No crea aplicación, datos, ECR, ECS,
-Wazuh, observabilidad ni balanceador. No ejecutar `apply` hasta revisar el plan de
-esta fase.
+**Estado:** fase 1 de red y seguridad aplicada en `main`. No crea aplicación,
+datos, ECR, ECS, Wazuh, observabilidad ni balanceador. El apply se hizo desde el
+plan revisado de esta fase; no aplicar fases posteriores sin revisar sus planes.
 
 ## Arquitectura de esta fase
 
@@ -69,7 +69,7 @@ En local no hay credenciales AWS; ejecutar el plan con el workflow manual desde
 asociaciones y security groups. Revisar que no aparezca ningún servicio fuera de
 esta lista. No ejecutar `apply` todavía.
 
-### Verificación registrada
+### Verificación y apply registrados
 
 El workflow manual **Terraform Demo #2** terminó correctamente el 5 de octubre de
 2026 sobre `main` (commit `def9f03`). OIDC autenticó en la cuenta AWS
@@ -77,10 +77,12 @@ El workflow manual **Terraform Demo #2** terminó correctamente el 5 de octubre 
 `us-east-1a` y `us-east-1b`. `fmt`, `validate` y `plan` pasaron. El plan mostró
 **44 para crear, 0 para cambiar y 0 para destruir**: 18 recursos de red y 26 de
 security groups/reglas. No incluyó API, Worker, KrakenD, ALB, RDS, Redis, Wazuh,
-ECR, NAT ni endpoints. No se ejecutó `apply`; no hay infraestructura de esta
-fase desplegada por este workflow.
+ECR, NAT ni endpoints. Luego, el workflow manual **Terraform Demo #3** aplicó el
+plan guardado desde `main` y terminó correctamente el 5 de octubre de 2026. El
+apply solo contiene esos 44 recursos de Fase 1; no se ejecutó ningún servicio de
+aplicación.
 
-Ejecución y salida: [Terraform Demo #2 en GitHub Actions](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37339466733).
+Ejecuciones: [Terraform Demo #2 — plan](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37339466733) · [Terraform Demo #3 — apply](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37340825790).
 
 ## Costo, límites y siguientes gates
 
@@ -96,9 +98,12 @@ aprobar una CIDR/VPN administrativa.
 
 Pendiente para desplegar aplicación: endpoints o egress explícito; permiso de
 egress HTTPS del Wazuh Manager para Microsoft 365; elección de HTTPS/certificado;
-reglas del Dashboard y acceso administrativo; imágenes OCI válidas para KrakenD,
-API y Worker. El repositorio solo tiene Dockerfile de KrakenD. **API y Worker no
-se consideran desplegables ni DONE.**
+reglas del Dashboard y acceso administrativo. API y Worker compilan, pasan sus
+smoke tests y arrancan como UID no root en contenedores locales, pero **no se
+consideran desplegables ni DONE**: no hay publicación en ECR ni despliegue ECS,
+la API no tiene readiness real de dependencias y el Worker permanece en espera
+inactiva sin consumidor BullMQ. Más detalles en
+[`docs/deployment/aws-demo.md`](../../docs/deployment/aws-demo.md).
 
 ## Destrucción
 

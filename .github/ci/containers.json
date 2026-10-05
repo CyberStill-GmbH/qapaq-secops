@@ -1,5 +1,13 @@
 [
   {
+    "dockerfile": "apps/api/Dockerfile",
+    "context": "."
+  },
+  {
+    "dockerfile": "apps/worker/Dockerfile",
+    "context": "."
+  },
+  {
     "dockerfile": "platform/gateway/krakend/Dockerfile",
     "context": "platform/gateway/krakend"
   }
