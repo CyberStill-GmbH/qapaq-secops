@@ -88,6 +88,10 @@ service mesh, data lake de consulta interactiva y SOAR completo.
 
 ## PROPOSED ARCHITECTURE
 
+La [arquitectura cloud demo de AWS](aws-demo.md) documenta la topología temporal,
+su estado real de despliegue y los trade-offs. El diagrama es una referencia
+propuesta, no un inventario de infraestructura provisionada.
+
 React consume solo la API NestJS. Ocho módulos aceptados: Identity, Access &
 Policy; Integrations & Collectors; Telemetry Ingestion & Processing; Detection &
 Correlation; Threat Intelligence; Alerts, Incidents & Cases; SOAR, Playbooks &
