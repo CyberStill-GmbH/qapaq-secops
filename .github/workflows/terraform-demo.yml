@@ -2,6 +2,15 @@ name: Terraform Demo
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: Terraform operation to run
+        type: choice
+        required: true
+        default: plan
+        options:
+          - plan
+          - apply
 
 permissions:
   contents: read
@@ -49,5 +58,9 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Plan
-        run: terraform plan -var-file environments/demo.tfvars -input=false -no-color
+        run: terraform plan -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
+
+      - name: Terraform Apply
+        if: inputs.action == 'apply'
+        run: terraform apply -input=false -auto-approve -no-color tfplan
 
