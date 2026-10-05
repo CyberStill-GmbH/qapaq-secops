@@ -66,6 +66,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Diseño de frontend: dashboard por rol e inventario de componentes](frontend-design/README.md) — **propuesta**, no decisión aceptada.
 - [API Gateway KrakenD de proveedores](architecture/provider-api-gateway.md).
 - [Arquitectura cloud demo AWS y estado de despliegue](architecture/aws-demo.md).
+- [Terraform AWS demo: fase 1 de red y seguridad](deployment/aws-demo.md).
 - [Estructura objetivo](architecture/repository-structure.md), [auditoría estructural](architecture/repository-structure-audit.md), [dependencias](architecture/dependency-rules.md), [convenciones](architecture/conventions.md).
 - [Estrategia de pruebas](testing-strategy.md).
 - [Harness C-06 y estado de aceptación](architecture/c-06-integration-testing.md).
