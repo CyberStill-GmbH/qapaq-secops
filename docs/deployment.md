@@ -1,15 +1,25 @@
 # Operación y entrega de software
 
 Estado: infraestructura PROPOSAL; continuidad CONDITIONALLY ACCEPTED por ADR-020;
-CI/release/despliegue CONDITIONALLY ACCEPTED por ADR-023.
-No hay infraestructura provisionada ni manifests.
+CI/release/despliegue CONDITIONALLY ACCEPTED por ADR-023. La
+[arquitectura cloud demo](architecture/aws-demo.md) describe el target y distingue
+lo planificado de lo comprobado.
+
+El repositorio contiene un bootstrap Terraform de demo bajo `infra/aws` y un
+workflow manual `Terraform Demo`. El run verificado autentica por OIDC desde
+`main`, inicializa el backend S3, valida y ejecuta `plan`; no crea recursos de
+aplicación ni ejecuta `apply`. No hay VPC, ALB, ECS, RDS, Redis, bucket de
+artefactos ni EC2 de Wazuh provisionados por ese Terraform. La pila descrita en el
+diagrama permanece PROPOSAL.
 
 ## Responsabilidades
 
 Desarrollo entrega artefactos versionados, migraciones, contratos, configuración
 documentada, health y runbooks. Infraestructura provisiona compute/red, stores,
 certificados, llaves, IdP técnico, backups y egress. Seguridad define/valida
-políticas; SOC acuerda prioridades y continuidad. No Terraform en este repo ahora.
+políticas; SOC acuerda prioridades y continuidad. Terraform actualmente solo
+comprueba la identidad AWS y el acceso al backend remoto; el aprovisionamiento
+requiere módulos/configuración, permisos mínimos y gates específicos.
 
 La unidad de producto es el monolito modular. API y runner pueden ejecutarse
 separados con el mismo release para aislar carga; número de instancias y HA dependen
