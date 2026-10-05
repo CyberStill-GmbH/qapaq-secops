@@ -96,8 +96,8 @@ recursos futuros.
 Esta fase agrega recursos base para publicar imágenes y almacenar datos de demo,
 sin desplegar workloads:
 
-- **ECR privado:** repositorios `qapaq-secops-demo-api`,
-  `qapaq-secops-demo-worker` y `qapaq-secops-demo-krakend`, cifrado AES-256 de
+- **ECR privado:** repositorios `qapaq-secops-api`,
+  `qapaq-secops-worker` y `qapaq-secops-krakend`, cifrado AES-256 de
   ECR, scan on push y tags inmutables. La política conserva los 20 tags `sha-*`
   más recientes y vence imágenes sin tag luego de un día. Publicar tags de commit
   como `sha-<commit>` permite identificar y volver a fijar una versión.
@@ -124,8 +124,12 @@ no hace que API/Worker sean desplegables y no se publican imágenes en esta fase
 
 ### Costo estimado y delta de recursos
 
-El delta exacto frente al estado aplicado de fase 1 se registrará aquí después de
-la ejecución del workflow de plan desde `main`. El plan no se aplica. Si se aplica
+El plan remoto de Terraform Demo #4 (commit `97174e3`) registró **33 recursos
+nuevos, 0 cambios y 0 destrucciones**, para un total previsto de 77 recursos
+frente a los 44 aplicados de Fase 1. El plan no se aplicó. Incluye 6 recursos
+ECR, 19 S3, 6 placeholders de Secrets Manager y 2 IAM (rol y política inline);
+no reemplaza ni modifica recursos de Fase 1. La verificación remota se repetirá
+tras alinear los nombres de ECR pedidos exactamente, antes de cualquier apply. Si se aplica
 el metadata de seis secretos, Secrets Manager factura por secreto almacenado; la
 tarifa pública actual de referencia es USD 0.40 por secreto/mes, o USD 2.40/mes
 por seis, antes de llamadas API. ECR cobra por almacenamiento de imágenes; S3 por

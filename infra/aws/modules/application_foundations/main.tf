@@ -1,8 +1,8 @@
 locals {
   ecr_repositories = {
-    api     = "${var.project}-${var.environment}-api"
-    worker  = "${var.project}-${var.environment}-worker"
-    krakend = "${var.project}-${var.environment}-krakend"
+    api     = "${var.project}-api"
+    worker  = "${var.project}-worker"
+    krakend = "${var.project}-krakend"
   }
 
   s3_buckets = {
