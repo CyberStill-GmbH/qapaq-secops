@@ -125,26 +125,30 @@ no hace que API/Worker sean desplegables y no se publican imágenes en esta fase
 
 ### Costo estimado y delta de recursos
 
-El plan remoto Terraform Demo #5 (commit `0ac696a`) detectó el hallazgo HIGH
-AWS-0132: Trivy exige una CMK administrada por el cliente para los buckets. Se
-incorporó una CMK compartida para los tres buckets, con rotación y Bucket Keys;
-no se redujeron severidades ni se añadieron excepciones. Ese plan registró 33
-altas, 4 cambios in-place y 0 destrucciones; no se aplicó. Los cambios in-place
-son de los security groups de ALB, API, KrakenD y Worker: el plan propone retirar
-los bloques de egress que aparecen en el recurso SG, mientras mantiene reglas
-egress explícitas modeladas con `aws_vpc_security_group_egress_rule`. Debe
-revisarse ese delta antes de aplicar para evitar que la coexistencia de ambos
-modelos cambie reglas de red. Se volverá a ejecutar el plan con la CMK añadida.
-No hay reemplazos ni destrucciones de los 44 recursos de Fase 1. Ejecución:
-[Terraform Demo #5 — plan](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37353080315).
+El primer CI de Fase 2B encontró el hallazgo HIGH AWS-0132: Trivy exige una CMK
+administrada por el cliente para los buckets. Se incorporó una CMK compartida
+para los tres buckets, con rotación y Bucket Keys; no se redujeron severidades ni
+se añadieron excepciones. El plan remoto Terraform Demo #6 (commit `272d08d`)
+registró **34 recursos nuevos, 4 cambios in-place y 0 destrucciones**, para un
+total previsto de **78** frente a los 44 aplicados de Fase 1. No se ejecutó
+`apply`. Las altas son 6 recursos ECR, 19 S3, una CMK, 6 placeholders de Secrets
+Manager y 2 IAM (rol y política inline). Los cuatro cambios in-place afectan a
+los security groups de ALB, API, KrakenD y Worker: Terraform propone retirar los
+bloques de egress declarados en el recurso SG mientras conserva reglas egress
+explícitas gestionadas por `aws_vpc_security_group_egress_rule`. Revisar esta
+coexistencia antes de aplicar para asegurar que no cambien las reglas efectivas
+de red. No hay reemplazos ni destrucciones de los 44 recursos de Fase 1.
+Ejecución: [Terraform Demo #6 — plan](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37354138323).
 Si se aplica
 el metadata de seis secretos, Secrets Manager factura por secreto almacenado; la
 tarifa pública actual de referencia es USD 0.40 por secreto/mes, o USD 2.40/mes
 por seis, antes de llamadas API. ECR cobra por almacenamiento de imágenes; S3 por
 almacenamiento, solicitudes y transferencia. VPC/route tables/IAM no agregan
-cargos mensuales fijos, y no hay NAT, endpoints ni cómputo. Una CMK de KMS añade
-aproximadamente USD 1/mes más llamadas API (S3 Bucket Keys reducen solicitudes
-KMS). Los repositorios, buckets y roles no implican un cargo por hora.
+cargos mensuales fijos, y no hay NAT, endpoints ni cómputo. Los seis secretos
+añaden aproximadamente USD 2.40/mes y la CMK USD 1/mes; por tanto, la parte fija
+estimada es **USD 3.40/mes**, más llamadas de Secrets Manager/KMS y uso variable
+de ECR/S3. S3 Bucket Keys reducen solicitudes KMS. Los repositorios, buckets y
+roles no implican un cargo por hora.
 
 Las verificaciones de Fase 2B requeridas antes de considerar cualquier apply:
 
@@ -154,8 +158,9 @@ terraform validate -no-color
 terraform plan -var-file environments/demo.tfvars -input=false -no-color
 ```
 
-El plan remoto debe confirmar que no reemplaza ni destruye los 44 recursos de
-Fase 1 y que solo añade las foundations descritas. Aún no se realiza `apply`.
+El plan remoto confirma que no reemplaza ni destruye los 44 recursos de Fase 1;
+añade las foundations descritas y propone los cuatro cambios in-place anotados
+arriba. Aún no se realiza `apply`.
 
 La VPC pública no implica que todas las subnets/instancias tengan IP pública; las
 subnets no asignan IP pública automáticamente. El SG público con HTTP pertenece a
