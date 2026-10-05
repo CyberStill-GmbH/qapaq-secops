@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM --platform=linux/amd64 node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
+FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS build
 
 ENV COREPACK_HOME=/corepack
 WORKDIR /workspace
@@ -31,11 +31,16 @@ RUN pnpm --filter '@qapaq/worker...' run build \
     && pnpm --filter @qapaq/worker deploy --prod --legacy /runtime \
     && node scripts/docker/prune-deploy.mjs /runtime
 
-FROM --platform=linux/amd64 node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runtime
+FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS runtime
 
 ENV NODE_ENV=production \
     QAPAQ_PROFILE=production
 WORKDIR /app
+
+# npm/Corepack/Yarn are build tools and their CVEs must not ship in runtime.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY --from=build --chown=1000:1000 /runtime/ ./
 

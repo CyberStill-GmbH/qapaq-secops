@@ -50,10 +50,11 @@ solo recursos de la Fase 1, sin cómputo ni servicios de aplicación.
 Se añadieron [`apps/api/Dockerfile`](../../apps/api/Dockerfile) y
 [`apps/worker/Dockerfile`](../../apps/worker/Dockerfile), además del
 [`.dockerignore`](../../.dockerignore) y sus targets de escaneo en
-`.github/ci/containers.json`. Ambos usan Node 24.21.0 bookworm-slim fijado por
+`.github/ci/containers.json`. Ambos usan Node 24.21.0 trixie-slim fijado por
 digest, pnpm 12.4.2, build multi-stage, dependencias de producción desplegadas
-por workspace, usuario `1000:1000` y contexto de monorepo. API expone 3000 con
-healthcheck local; Worker no expone puertos. `scripts/docker/prune-deploy.mjs`
+por workspace, usuario `1000:1000` y contexto de monorepo. La etapa runtime
+elimina npm/Corepack/Yarn porque no son necesarios en producción. API expone
+3000 con healthcheck local; Worker no expone puertos. `scripts/docker/prune-deploy.mjs`
 quita material de desarrollo y pruebas de los directorios runtime.
 
 Antes de escribir Dockerfiles de producción hay que resolver y probar exactamente:
@@ -88,15 +89,17 @@ Validación local realizada el 5 de octubre de 2026:
 - `pnpm --filter '@qapaq/api...' run build` y
   `pnpm --filter '@qapaq/worker...' run build`: correctos.
 - `pnpm run smoke:api`: 5/5; `pnpm run smoke:worker`: 4/4.
-- `docker build -f apps/api/Dockerfile -t qapaq-secops-api:test .`: correcto;
-  83,887,809 bytes (aprox. 80.0 MiB), UID/GID 1000:1000. `/health/live` y
-  `/health/ready` contestaron HTTP 200; healthcheck pasó y SIGTERM produjo salida
-  limpia (código 0).
-- `docker build -f apps/worker/Dockerfile -t qapaq-secops-worker:test .`:
-  correcto; 84,106,322 bytes (aprox. 80.2 MiB), UID/GID 1000:1000, sin puertos
-  expuestos. Arrancó y terminó por SIGTERM con código 0.
-- El escaneo de imagen Trivy aún debe ejecutarse en GitHub Actions tras subir
-  estos Dockerfiles; no se afirma que haya pasado antes del workflow.
+- Las primeras imágenes bookworm se construyeron y ejecutaron localmente como
+  UID/GID 1000:1000; API respondió 200 en sus health endpoints y ambas terminaron
+  limpiamente con SIGTERM. Esos tamaños/resultados no representan el digest
+  Trixie actual.
+- CI Security #202 confirmó que los tres builds Docker compilan, pero Trivy
+  bloqueó las dos imágenes Node: detectó ocho vulnerabilidades HIGH en npm
+  incluido por la imagen base, además de CVE del Debian Bookworm fijado. KrakenD
+  pasó el escaneo. Los Dockerfiles se actualizaron a Node 24.21.0 Trixie, se
+  quitaron los gestores de paquetes del runtime y CI ahora ejecuta smoke tests
+  de contenedor para API y Worker. La ejecución de CI del nuevo commit debe
+  confirmar el resultado final de build, runtime y Trivy.
 
 Estas pruebas validan build y ciclo de vida local, no un despliegue. La API
 todavía no demuestra conectividad con M365 ni con infraestructura AWS y el health
@@ -108,7 +111,11 @@ consume colas. No se publica ninguna imagen en ECR.
 La API smoke usó IDs ficticios y un URI de referencia de secreto, sin valores
 secretos ni credenciales reales. No demuestra integración con Microsoft 365.
 Además, las subnets privadas aún no tienen ruta de salida ni VPC endpoints, por
-lo que Fase 1 no permite a ECS recuperar imágenes ni leer Secrets Manager.
+lo que Fase 1 no permite a ECS recuperar imágenes ni leer Secrets Manager. El
+script local `infra:repair-docker` falló en el último reinicio: Docker Desktop
+reportó que su engine WSL no respondió y el `docker-desktop` distro quedó
+detenido. Por eso no se repitió el smoke local contra el digest Trixie; CI corre
+esa validación en runners limpios.
 
 ## Riesgos y costo de Fase 1
 
