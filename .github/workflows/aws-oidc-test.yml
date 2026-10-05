@@ -1,0 +1,27 @@
+name: AWS OIDC Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  oidc-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-github-actions
+          allowed-account-ids: 955200662475
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
