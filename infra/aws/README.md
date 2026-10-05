@@ -103,7 +103,8 @@ sin desplegar workloads:
   como `sha-<commit>` permite identificar y volver a fijar una versión.
 - **S3 privado:** tres buckets separados para `raw`, `evidence` y `artifacts`,
   nombrados con el ID de cuenta para evitar colisiones globales. Se bloquea acceso
-  público, se impone TLS, se usa cifrado SSE-S3 y ownership `BucketOwnerEnforced`.
+  público, se impone TLS, se usa una CMK compartida con rotación automática,
+  SSE-KMS y S3 Bucket Keys; ownership `BucketOwnerEnforced`.
   Solo el bucket de evidencia tiene versionado. Se abortan multipart uploads
   incompletos después de siete días; no se expiran objetos automáticamente porque
   falta definir retención de eventos y evidencias.
@@ -113,7 +114,7 @@ sin desplegar workloads:
 - **IAM:** rol de publicación de imágenes de GitHub OIDC, confiado únicamente al
   repositorio configurado en `main` y con `aud=sts.amazonaws.com`. Puede publicar
   solo en los tres repositorios ECR; `GetAuthorizationToken` requiere `Resource
-  = "*"` por la semántica de AWS. No se crea rol de tareas, política de lectura de
+= "*"` por la semántica de AWS. No se crea rol de tareas, política de lectura de
   secretos para aplicaciones ni permiso S3 de runtime antes de implementar y
   desplegar esas aplicaciones. El rol no está conectado aún a un workflow de
   publicación.
@@ -124,18 +125,26 @@ no hace que API/Worker sean desplegables y no se publican imágenes en esta fase
 
 ### Costo estimado y delta de recursos
 
-El plan remoto de Terraform Demo #4 (commit `97174e3`) registró **33 recursos
-nuevos, 0 cambios y 0 destrucciones**, para un total previsto de 77 recursos
-frente a los 44 aplicados de Fase 1. El plan no se aplicó. Incluye 6 recursos
-ECR, 19 S3, 6 placeholders de Secrets Manager y 2 IAM (rol y política inline);
-no reemplaza ni modifica recursos de Fase 1. La verificación remota se repetirá
-tras alinear los nombres de ECR pedidos exactamente, antes de cualquier apply. Si se aplica
+El plan remoto Terraform Demo #5 (commit `0ac696a`) detectó el hallazgo HIGH
+AWS-0132: Trivy exige una CMK administrada por el cliente para los buckets. Se
+incorporó una CMK compartida para los tres buckets, con rotación y Bucket Keys;
+no se redujeron severidades ni se añadieron excepciones. Ese plan registró 33
+altas, 4 cambios in-place y 0 destrucciones; no se aplicó. Los cambios in-place
+son de los security groups de ALB, API, KrakenD y Worker: el plan propone retirar
+los bloques de egress que aparecen en el recurso SG, mientras mantiene reglas
+egress explícitas modeladas con `aws_vpc_security_group_egress_rule`. Debe
+revisarse ese delta antes de aplicar para evitar que la coexistencia de ambos
+modelos cambie reglas de red. Se volverá a ejecutar el plan con la CMK añadida.
+No hay reemplazos ni destrucciones de los 44 recursos de Fase 1. Ejecución:
+[Terraform Demo #5 — plan](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37353080315).
+Si se aplica
 el metadata de seis secretos, Secrets Manager factura por secreto almacenado; la
 tarifa pública actual de referencia es USD 0.40 por secreto/mes, o USD 2.40/mes
 por seis, antes de llamadas API. ECR cobra por almacenamiento de imágenes; S3 por
 almacenamiento, solicitudes y transferencia. VPC/route tables/IAM no agregan
-cargos mensuales fijos, y no hay NAT, endpoints, KMS customer-managed keys ni
-cómputo. Los repositorios, buckets y roles no implican un cargo por hora.
+cargos mensuales fijos, y no hay NAT, endpoints ni cómputo. Una CMK de KMS añade
+aproximadamente USD 1/mes más llamadas API (S3 Bucket Keys reducen solicitudes
+KMS). Los repositorios, buckets y roles no implican un cargo por hora.
 
 Las verificaciones de Fase 2B requeridas antes de considerar cualquier apply:
 

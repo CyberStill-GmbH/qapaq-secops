@@ -92,6 +92,17 @@ resource "aws_s3_bucket" "this" {
   }
 }
 
+resource "aws_kms_key" "s3" {
+  description             = "Customer-managed key for QAPAQ SECOPS demo S3 buckets."
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  tags = {
+    Name    = "${var.project}-${var.environment}-s3"
+    Purpose = "encrypt-demo-storage"
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "this" {
   for_each = aws_s3_bucket.this
 
@@ -119,8 +130,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.s3.arn
     }
+
+    bucket_key_enabled = true
   }
 }
 
