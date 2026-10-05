@@ -1,17 +1,22 @@
 # Arquitectura cloud demo de QAPAQ-SECOPS
 
-**Estado:** arquitectura de referencia para demo/staging; la mayoría de los
-recursos AWS del dibujo aún no está provisionada.  
-**Actualizado:** 2026-10-05.  
-**Fuente visual:** diagrama compartido por el equipo, incorporado sin alterar.
+**Estado:** arquitectura original de referencia para demo/staging; la mayoría de
+los recursos AWS del dibujo aún no está provisionada.
+
+**Actualizado:** 2026-10-05.
+
+**Fuente visual:** diagrama original compartido por el equipo el 2026-10-05,
+incorporado sin alterar y en reemplazo de la versión anterior.
 
 ## Resumen ejecutivo
 
-La propuesta mantiene la interfaz React/TypeScript en Vercel y coloca el backend
-de la demo en AWS. Un Application Load Balancer sería la única entrada pública a
-la capa de aplicación; API y worker correrían separados en ECS Fargate dentro de
-subredes privadas. PostgreSQL, Redis/Valkey y S3 cubrirían persistencia, colas/cache
-y objetos/evidencias. Wazuh se representa temporalmente en una EC2 single-node.
+La propuesta mantiene la interfaz React/TypeScript en Vercel y despliega en AWS
+todo el backend, gateway, SIEM temporal y observabilidad SOC. Un Application Load
+Balancer sería la única entrada pública a la aplicación; KrakenD CE, API y worker
+correrían en ECS Fargate. PostgreSQL, Redis/Valkey y S3 cubrirían persistencia,
+colas/cache y objetos/evidencias. Wazuh se representa temporalmente en una EC2
+single-node. La observabilidad SOC principal sería autogestionada con OpenTelemetry,
+Prometheus, Loki y Grafana; CloudWatch queda opcional para señales AWS aprobadas.
 
 El alcance actual de fuentes es menor que el del dibujo: **QAPAQ-SECOPS solo
 consume Microsoft 365 mediante Wazuh**. Wazuh recolecta y analiza los eventos de
@@ -40,10 +45,11 @@ integraciones activas. Este recorrido sigue
 
 ## Diagrama de referencia
 
-![Arquitectura cloud demo de QAPAQ-SECOPS: frontend Vercel, backend de aplicación y zona SIEM temporal en AWS. Microsoft 365 es la única fuente consumida actualmente; las demás fuentes son opciones piloto.](assets/aws-demo-cloud-architecture.png)
+![Diagrama original de arquitectura cloud demo de QAPAQ-SECOPS: frontend en Vercel; gateway, API, worker, datos, Wazuh y observabilidad SOC en AWS. Microsoft 365 es la única fuente consumida actualmente; las demás fuentes son opciones piloto.](assets/aws-demo-cloud-architecture.png)
 
-*La imagen describe una topología objetivo de demo. Sus componentes y flujos deben
-leerse junto con los estados y salvedades de esta página.*
+*Esta es la imagen original de referencia vigente, reemplaza el diagrama anterior y
+describe una topología objetivo. Sus componentes y flujos deben leerse junto con
+los estados y salvedades de esta página.*
 
 ## Recorrido de datos previsto
 
@@ -63,25 +69,26 @@ leerse junto con los estados y salvedades de esta página.*
 6. Wazuh Dashboard se mantiene restringido a administración por VPN/IP allowlist;
    no se expone como otra interfaz pública de la demo.
 
-### Alineación pendiente sobre KrakenD y observabilidad
+### Alineación con las decisiones de arquitectura
 
-El dibujo sitúa KrakenD junto a la aplicación en AWS. **ADR-026 selecciona
-KrakenD CE on-premises como gateway para APIs consumidas directamente** y
-especifica que la consulta QAPAQ → Wazuh Indexer atraviesa ese gateway. La imagen
-y ADR-026 no coinciden sobre su ubicación. Se conserva la topología aprobada por
-ADR-026 hasta que una decisión actualice expresamente esa ubicación; no desplegar
-ambas rutas por accidente.
+El diagrama original fija la intención de la demo: **KrakenD CE como API Gateway
+en ECS Fargate dentro de AWS**. ADR-026 todavía registra KrakenD CE on-premises
+como gateway para APIs consumidas directamente y especifica que la consulta QAPAQ
+→ Wazuh Indexer atraviesa ese gateway. Por tanto, la ubicación del gateway en
+esta arquitectura demo difiere de la decisión vigente de ADR-026; antes de
+provisionar KrakenD debe actualizarse el ADR o documentarse una excepción de demo.
+No desplegar ambas rutas por accidente.
 
-El dibujo también propone CloudWatch para logs, métricas y trazas. La baseline de
-[ADR-025](../adr/025-security-access-observability-hardening.md) selecciona
-Prometheus, Loki y Grafana autogestionados para conservar control sobre
-información SOC. CloudWatch puede evaluarse para métricas operacionales de AWS,
-pero clasificar y aprobar campos, región y retención antes de enviar datos; no
-duplicar raw SOC events por defecto.
+El diagrama original coincide con la baseline de
+[ADR-025](../adr/025-security-access-observability-hardening.md): OpenTelemetry,
+Prometheus, Loki y Grafana autogestionados forman la observabilidad SOC principal.
+CloudWatch es opcional para métricas, health y alarmas de AWS. Clasificar y aprobar
+campos, región y retención antes de enviar datos; no duplicar eventos SOC crudos
+por defecto.
 
 ## Motivos de diseño y tradeoffs
 
-### Vercel para la web, AWS para servicios de aplicación
+### Vercel para la web, AWS para backend, SIEM y observabilidad
 
 Separar frontend y plano de datos permite entregar cambios de interfaz con
 rapidez y mantener base de datos, colas y servicios de integración en una red
@@ -150,10 +157,10 @@ privilege en las políticas del role.
 
 ## Límites y decisiones antes de desplegar la pila
 
-1. **Resolver KrakenD:** reconciliar la ubicación de la imagen con ADR-026 y
-   actualizar un ADR antes de provisionar ese servicio.
-2. **Fijar observabilidad:** clasificar métricas/logs AWS y decidir qué señales
-   pueden ir a CloudWatch, manteniendo la política SOC de ADR-025.
+1. **Resolver KrakenD:** actualizar ADR-026 o registrar una excepción de demo para
+   reconciliar la ubicación en ECS con el gateway on-premises aprobado.
+2. **Configurar observabilidad:** desplegar la baseline SOC autogestionada y
+   clasificar qué señales operacionales de AWS pueden ir a CloudWatch.
 3. **Acotar permisos:** revisar permisos efectivos del role GitHub OIDC; reemplazar
    permisos amplios por permisos mínimos antes de cualquier `apply`.
 4. **Cerrar seguridad de red:** confirmar CIDR, subredes, egress, endpoints,
