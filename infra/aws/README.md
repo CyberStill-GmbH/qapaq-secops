@@ -69,6 +69,19 @@ En local no hay credenciales AWS; ejecutar el plan con el workflow manual desde
 asociaciones y security groups. Revisar que no aparezca ningún servicio fuera de
 esta lista. No ejecutar `apply` todavía.
 
+### Verificación registrada
+
+El workflow manual **Terraform Demo #2** terminó correctamente el 5 de octubre de
+2026 sobre `main` (commit `def9f03`). OIDC autenticó en la cuenta AWS
+`955200662475`, región `us-east-1`; Terraform resolvió las AZ
+`us-east-1a` y `us-east-1b`. `fmt`, `validate` y `plan` pasaron. El plan mostró
+**44 para crear, 0 para cambiar y 0 para destruir**: 18 recursos de red y 26 de
+security groups/reglas. No incluyó API, Worker, KrakenD, ALB, RDS, Redis, Wazuh,
+ECR, NAT ni endpoints. No se ejecutó `apply`; no hay infraestructura de esta
+fase desplegada por este workflow.
+
+Ejecución y salida: [Terraform Demo #2 en GitHub Actions](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37339466733).
+
 ## Costo, límites y siguientes gates
 
 VPC, subnets, IGW, route tables, asociaciones y Security Groups no introducen un

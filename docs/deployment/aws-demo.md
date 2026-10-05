@@ -36,6 +36,13 @@ El plan real necesita identidad AWS; ejecutar `Terraform Demo` manualmente en
 `apply` hasta revisar ese plan. No hay resultado `apply` ni prueba de conectividad
 de aplicación.
 
+Verificación completada en [Terraform Demo #2](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37339466733)
+el 5 de octubre de 2026, sobre `main` en `us-east-1`: `fmt`, `validate` y `plan`
+pasaron. El plan reportó 44 recursos por crear, ninguno por cambiar o destruir
+(18 de red y 26 de security groups/reglas), y solo recursos de Fase 1. OIDC
+consultó la cuenta `955200662475` y las AZ `us-east-1a`/`us-east-1b`. No se hizo
+`apply`; la infraestructura sigue sin desplegar.
+
 ## Dockerfiles API y Worker: inventario para la siguiente fase
 
 `apps/api` y `apps/worker` tienen scripts `build`/`typecheck`, pero no Dockerfiles.
