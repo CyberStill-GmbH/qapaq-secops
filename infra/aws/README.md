@@ -1,8 +1,8 @@
-# AWS Terraform demo — fase 1
+# AWS Terraform demo — fases 1 y 2B
 
-**Estado:** fase 1 de red y seguridad aplicada en `main`. No crea aplicación,
-datos, ECR, ECS, Wazuh, observabilidad ni balanceador. El apply se hizo desde el
-plan revisado de esta fase; no aplicar fases posteriores sin revisar sus planes.
+**Estado:** fase 1 de red y seguridad aplicada en `main` (44 recursos). Fase 2B
+está preparada para plan, sin apply. Ninguna de las dos fases crea ECS, RDS,
+Redis/Valkey, Wazuh, ALB ni servicios de aplicación.
 
 ## Arquitectura de esta fase
 
@@ -90,6 +90,59 @@ VPC, subnets, IGW, route tables, asociaciones y Security Groups no introducen un
 cargo horario fijo. No se crea NAT Gateway, ALB, endpoints, instancia ni servicio
 administrado en esta fase. Aplican cargos por transferencia de datos si se usan
 recursos futuros.
+
+## Fase 2B — foundations de aplicación (plan, sin apply)
+
+Esta fase agrega recursos base para publicar imágenes y almacenar datos de demo,
+sin desplegar workloads:
+
+- **ECR privado:** repositorios `qapaq-secops-demo-api`,
+  `qapaq-secops-demo-worker` y `qapaq-secops-demo-krakend`, cifrado AES-256 de
+  ECR, scan on push y tags inmutables. La política conserva los 20 tags `sha-*`
+  más recientes y vence imágenes sin tag luego de un día. Publicar tags de commit
+  como `sha-<commit>` permite identificar y volver a fijar una versión.
+- **S3 privado:** tres buckets separados para `raw`, `evidence` y `artifacts`,
+  nombrados con el ID de cuenta para evitar colisiones globales. Se bloquea acceso
+  público, se impone TLS, se usa cifrado SSE-S3 y ownership `BucketOwnerEnforced`.
+  Solo el bucket de evidencia tiene versionado. Se abortan multipart uploads
+  incompletos después de siete días; no se expiran objetos automáticamente porque
+  falta definir retención de eventos y evidencias.
+- **Secrets Manager:** seis entradas de metadata para Entra y credenciales de
+  lectura/Wazuh, cursor y fingerprint. Terraform no define `secret_version`, ni
+  valor de secreto. La carga inicial/rotación requiere un paso operativo separado.
+- **IAM:** rol de publicación de imágenes de GitHub OIDC, confiado únicamente al
+  repositorio configurado en `main` y con `aud=sts.amazonaws.com`. Puede publicar
+  solo en los tres repositorios ECR; `GetAuthorizationToken` requiere `Resource
+  = "*"` por la semántica de AWS. No se crea rol de tareas, política de lectura de
+  secretos para aplicaciones ni permiso S3 de runtime antes de implementar y
+  desplegar esas aplicaciones. El rol no está conectado aún a un workflow de
+  publicación.
+
+El Worker sigue siendo solo un proceso de ciclo de vida en espera: BullMQ e
+ioredis están en dependencias, pero no existe consumidor ni conexión Redis. ECR
+no hace que API/Worker sean desplegables y no se publican imágenes en esta fase.
+
+### Costo estimado y delta de recursos
+
+El delta exacto frente al estado aplicado de fase 1 se registrará aquí después de
+la ejecución del workflow de plan desde `main`. El plan no se aplica. Si se aplica
+el metadata de seis secretos, Secrets Manager factura por secreto almacenado; la
+tarifa pública actual de referencia es USD 0.40 por secreto/mes, o USD 2.40/mes
+por seis, antes de llamadas API. ECR cobra por almacenamiento de imágenes; S3 por
+almacenamiento, solicitudes y transferencia. VPC/route tables/IAM no agregan
+cargos mensuales fijos, y no hay NAT, endpoints, KMS customer-managed keys ni
+cómputo. Los repositorios, buckets y roles no implican un cargo por hora.
+
+Las verificaciones de Fase 2B requeridas antes de considerar cualquier apply:
+
+```sh
+terraform fmt -check -recursive
+terraform validate -no-color
+terraform plan -var-file environments/demo.tfvars -input=false -no-color
+```
+
+El plan remoto debe confirmar que no reemplaza ni destruye los 44 recursos de
+Fase 1 y que solo añade las foundations descritas. Aún no se realiza `apply`.
 
 La VPC pública no implica que todas las subnets/instancias tengan IP pública; las
 subnets no asignan IP pública automáticamente. El SG público con HTTP pertenece a

@@ -16,6 +16,12 @@ variable "environment" {
   default     = "demo"
 }
 
+variable "github_repository" {
+  description = "GitHub repository allowed to assume the demo image-publisher role."
+  type        = string
+  default     = "CyberStill-GmbH/qapaq-secops"
+}
+
 variable "vpc_cidr" {
   description = "CIDR range for the demo VPC."
   type        = string

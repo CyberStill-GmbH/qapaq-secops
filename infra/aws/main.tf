@@ -28,3 +28,12 @@ module "security" {
   wazuh_indexer_port   = var.wazuh_indexer_port
   wazuh_dashboard_port = var.wazuh_dashboard_port
 }
+
+module "application_foundations" {
+  source = "./modules/application_foundations"
+
+  project           = var.project
+  environment       = var.environment
+  account_id        = data.aws_caller_identity.current.account_id
+  github_repository = var.github_repository
+}
