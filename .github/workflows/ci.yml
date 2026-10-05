@@ -260,25 +260,16 @@ jobs:
     if: needs.discover.outputs.has_containers == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.discover.outputs.containers) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: bash .github/ci/install-scanner.sh trivy
-      - name: Build local image without publishing
-        env:
-          DOCKERFILE: ${{ matrix.dockerfile }}
-          BUILD_CONTEXT: ${{ matrix.context }}
-        run: docker build --file "$DOCKERFILE" --tag qapaq-ci:scan "$BUILD_CONTEXT"
-      - name: Verify production Node runtime version
-        if: matrix.dockerfile == 'apps/api/Dockerfile' || matrix.dockerfile == 'apps/worker/Dockerfile'
-        run: test "$(docker run --rm --entrypoint node qapaq-ci:scan --version)" = v24.21.0
-      - name: Smoke API container lifecycle
-        if: matrix.dockerfile == 'apps/api/Dockerfile'
+      - name: Build API image without publishing
+        run: docker build --file apps/api/Dockerfile --tag qapaq-ci:api .
+      - name: Verify API production Node runtime version
+        run: test "$(docker run --rm qapaq-ci:api --version)" = v24.21.0
+      - name: Smoke API health and container lifecycle
         run: |
           docker run --detach --name qapaq-ci-api \
             --publish 127.0.0.1:3000:3000 \
@@ -312,10 +303,15 @@ jobs:
           test "$(docker inspect --format '{{.State.Health.Status}}' qapaq-ci-api)" = healthy
           docker stop --time 10 qapaq-ci-api
           test "$(docker inspect --format '{{.State.ExitCode}}' qapaq-ci-api)" = 0
-      - name: Smoke Worker container lifecycle
-        if: matrix.dockerfile == 'apps/worker/Dockerfile'
+      - name: Scan API image
+        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:api
+      - name: Build Worker image without publishing
+        run: docker build --file apps/worker/Dockerfile --tag qapaq-ci:worker .
+      - name: Verify Worker production Node runtime version
+        run: test "$(docker run --rm qapaq-ci:worker --version)" = v24.21.0
+      - name: Smoke Worker lifecycle
         run: |
-          docker run --detach --name qapaq-ci-worker qapaq-ci:scan
+          docker run --detach --name qapaq-ci-worker qapaq-ci:worker
           trap 'docker rm --force qapaq-ci-worker >/dev/null 2>&1 || true' EXIT
           sleep 3
           test "$(docker inspect --format '{{.State.Running}}' qapaq-ci-worker)" = true
@@ -323,8 +319,12 @@ jobs:
           docker logs qapaq-ci-worker | grep -q '"event":"application.ready"'
           docker stop --time 10 qapaq-ci-worker
           test "$(docker inspect --format '{{.State.ExitCode}}' qapaq-ci-worker)" = 0
-      - name: Scan built image
-        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:scan
+      - name: Scan Worker image
+        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:worker
+      - name: Build KrakenD image without publishing
+        run: docker build --file platform/gateway/krakend/Dockerfile --tag qapaq-ci:krakend platform/gateway/krakend
+      - name: Scan KrakenD image
+        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:krakend
 
   gate:
     name: CI / required
