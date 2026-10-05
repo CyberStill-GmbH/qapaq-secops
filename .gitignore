@@ -233,3 +233,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Terraform local cache, state, and crash logs
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
