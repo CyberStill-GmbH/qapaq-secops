@@ -281,7 +281,7 @@ jobs:
             --env QAPAQ_ACCESS_ALLOWED_CIDRS=127.0.0.1/32 \
             --env QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS=127.0.0.1/32 \
             --env QAPAQ_CONSOLE_BASE_URL=https://example.invalid \
-            qapaq-ci:scan
+            qapaq-ci:api
           trap 'docker rm --force qapaq-ci-api >/dev/null 2>&1 || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3000/health/live >/dev/null; then
