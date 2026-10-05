@@ -31,18 +31,13 @@ RUN pnpm --filter '@qapaq/api...' run build \
     && pnpm --filter @qapaq/api deploy --prod --legacy /runtime \
     && node scripts/docker/prune-deploy.mjs /runtime
 
-FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS runtime
+FROM --platform=linux/amd64 gcr.io/distroless/nodejs24-debian13:nonroot@sha256:9eeb7f5887d0e239e78264b06f7f11d2e14be534050481803a9e4728fcdd278e AS runtime
 
 ENV NODE_ENV=production \
     QAPAQ_PROFILE=production \
     QAPAQ_API_HOST=0.0.0.0 \
     QAPAQ_API_PORT=3000
 WORKDIR /app
-
-# npm/Corepack/Yarn are build tools and their CVEs must not ship in runtime.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
-    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
-    /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY --from=build --chown=1000:1000 /runtime/ ./
 
@@ -51,4 +46,4 @@ EXPOSE 3000
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
-CMD ["node", "dist/main.js"]
+CMD ["dist/main.js"]

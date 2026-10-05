@@ -50,12 +50,12 @@ solo recursos de la Fase 1, sin cómputo ni servicios de aplicación.
 Se añadieron [`apps/api/Dockerfile`](../../apps/api/Dockerfile) y
 [`apps/worker/Dockerfile`](../../apps/worker/Dockerfile), además del
 [`.dockerignore`](../../.dockerignore) y sus targets de escaneo en
-`.github/ci/containers.json`. Ambos usan Node 24.21.0 trixie-slim fijado por
-digest, pnpm 12.4.2, build multi-stage, dependencias de producción desplegadas
-por workspace, usuario `1000:1000` y contexto de monorepo. La etapa runtime
-elimina npm/Corepack/Yarn porque no son necesarios en producción. API expone
-3000 con healthcheck local; Worker no expone puertos. `scripts/docker/prune-deploy.mjs`
-quita material de desarrollo y pruebas de los directorios runtime.
+`.github/ci/containers.json`. Ambos usan Node 24.21.0 y pnpm 12.4.2 para
+compilar, despliegue multi-stage filtrado por workspace, y un runtime Distroless
+Node 24 Debian 13 fijado por digest sin shell ni package managers. Se ejecutan
+como UID/GID `1000:1000` con contexto de monorepo. API expone 3000 con healthcheck
+local; Worker no expone puertos. `scripts/docker/prune-deploy.mjs` quita material
+de desarrollo y pruebas de los directorios runtime.
 
 Antes de escribir Dockerfiles de producción hay que resolver y probar exactamente:
 
@@ -94,12 +94,13 @@ Validación local realizada el 5 de octubre de 2026:
   limpiamente con SIGTERM. Esos tamaños/resultados no representan el digest
   Trixie actual.
 - CI Security #202 confirmó que los tres builds Docker compilan, pero Trivy
-  bloqueó las dos imágenes Node: detectó ocho vulnerabilidades HIGH en npm
-  incluido por la imagen base, además de CVE del Debian Bookworm fijado. KrakenD
-  pasó el escaneo. Los Dockerfiles se actualizaron a Node 24.21.0 Trixie, se
-  quitaron los gestores de paquetes del runtime y CI ahora ejecuta smoke tests
-  de contenedor para API y Worker. La ejecución de CI del nuevo commit debe
-  confirmar el resultado final de build, runtime y Trivy.
+  bloqueó las imágenes Node: detectó vulnerabilidades HIGH en npm incluido por
+  la imagen Bookworm y CVE de paquetes del sistema. KrakenD pasó el escaneo. El
+  cambio a Trixie quitó las CVE del npm base, aunque Trivy siguió encontrando
+  CVE de util-linux/OpenSSL en la distribución. Por eso el runtime cambió a
+  Distroless Node 24 sobre Debian 13. CI comprueba versión exacta `v24.21.0`,
+  arranque/health/SIGTERM de ambos servicios y ejecuta Trivy. El workflow del
+  commit más reciente debe confirmar los resultados de ese runtime.
 
 Estas pruebas validan build y ciclo de vida local, no un despliegue. La API
 todavía no demuestra conectividad con M365 ni con infraestructura AWS y el health
@@ -114,8 +115,8 @@ Además, las subnets privadas aún no tienen ruta de salida ni VPC endpoints, po
 lo que Fase 1 no permite a ECS recuperar imágenes ni leer Secrets Manager. El
 script local `infra:repair-docker` falló en el último reinicio: Docker Desktop
 reportó que su engine WSL no respondió y el `docker-desktop` distro quedó
-detenido. Por eso no se repitió el smoke local contra el digest Trixie; CI corre
-esa validación en runners limpios.
+detenido. Por eso el runtime Distroless no se volvió a ejecutar localmente; CI
+corre esa validación en runners limpios.
 
 ## Riesgos y costo de Fase 1
 

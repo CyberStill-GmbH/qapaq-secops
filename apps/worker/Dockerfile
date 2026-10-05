@@ -31,19 +31,14 @@ RUN pnpm --filter '@qapaq/worker...' run build \
     && pnpm --filter @qapaq/worker deploy --prod --legacy /runtime \
     && node scripts/docker/prune-deploy.mjs /runtime
 
-FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS runtime
+FROM --platform=linux/amd64 gcr.io/distroless/nodejs24-debian13:nonroot@sha256:9eeb7f5887d0e239e78264b06f7f11d2e14be534050481803a9e4728fcdd278e AS runtime
 
 ENV NODE_ENV=production \
     QAPAQ_PROFILE=production
 WORKDIR /app
 
-# npm/Corepack/Yarn are build tools and their CVEs must not ship in runtime.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
-    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
-    /usr/local/bin/yarn /usr/local/bin/yarnpkg
-
 COPY --from=build --chown=1000:1000 /runtime/ ./
 
 USER 1000:1000
 STOPSIGNAL SIGTERM
-CMD ["node", "dist/main.js"]
+CMD ["dist/main.js"]

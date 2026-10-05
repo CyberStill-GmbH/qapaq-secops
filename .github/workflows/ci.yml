@@ -274,8 +274,9 @@ jobs:
           DOCKERFILE: ${{ matrix.dockerfile }}
           BUILD_CONTEXT: ${{ matrix.context }}
         run: docker build --file "$DOCKERFILE" --tag qapaq-ci:scan "$BUILD_CONTEXT"
-      - name: Scan built image
-        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:scan
+      - name: Verify production Node runtime version
+        if: matrix.dockerfile == 'apps/api/Dockerfile' || matrix.dockerfile == 'apps/worker/Dockerfile'
+        run: test "$(docker run --rm --entrypoint node qapaq-ci:scan --version)" = v24.21.0
       - name: Smoke API container lifecycle
         if: matrix.dockerfile == 'apps/api/Dockerfile'
         run: |
@@ -322,6 +323,8 @@ jobs:
           docker logs qapaq-ci-worker | grep -q '"event":"application.ready"'
           docker stop --time 10 qapaq-ci-worker
           test "$(docker inspect --format '{{.State.ExitCode}}' qapaq-ci-worker)" = 0
+      - name: Scan built image
+        run: trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:scan
 
   gate:
     name: CI / required
