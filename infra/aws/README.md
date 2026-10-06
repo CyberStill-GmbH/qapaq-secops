@@ -164,7 +164,11 @@ terraform plan -var-file environments/demo.tfvars -input=false -no-color
 
 El plan remoto confirmó que no reemplazaba ni destruía los 44 recursos de Fase 1;
 añadía las foundations descritas y proponía los cuatro cambios in-place anotados
-arriba. Fase 2B fue aplicada posteriormente y el CI `main` #210 terminó verde.
+arriba. Una auditoría posterior encontró que esos recursos aún no estaban en AWS
+ni en el state remoto; el apply correcto se ejecutó desde `main` en **Terraform
+Demo #9**: 34 recursos añadidos, 4 cambios in-place y 0 destruidos, para un total
+de 78 recursos. El plan no incluyó ECS, ALB, RDS, Redis/Valkey ni Wazuh. La
+ejecución terminó correctamente: [Terraform Demo #15 — apply Fase 2B](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37404363686).
 
 La VPC pública no implica que todas las subnets/instancias tengan IP pública; las
 subnets no asignan IP pública automáticamente. El SG público con HTTP pertenece a
@@ -199,6 +203,13 @@ en nombres hace que STS rechace `AssumeRoleWithWebIdentity`. Los IDs son variabl
 Terraform validadas como numéricas, con valores predeterminados correspondientes
 a los IDs reales del repositorio y su propietario. La rama sigue restringida a
 `main`.
+
+La publicación quedó validada en GitHub Actions: `CI / required`, builds,
+smokes, SIGTERM, escaneos Trivy y push a las tres imágenes pasaron. El run guardó
+el artifact `image-manifest-cb7787d19aaf2dd404183b306b64f9bef09d1992` con los
+digests leídos de ECR: [Publish verified images](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37404087949).
+El worker sigue siendo una imagen que inicia correctamente pero permanece en
+espera; todavía no consume BullMQ.
 
 Antes de publicar, ejecuta el mismo script de gates que `CI / required`
 (`.github/ci/verify-container-images.sh`): builds API/Worker/KrakenD, Node
