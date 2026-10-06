@@ -12,10 +12,10 @@ y el dashboard no aparecen aquí porque pertenecen al stack oficial Wazuh.
 
 Con el stack iniciado en el host Docker, abre el [Dashboard de Wazuh](https://localhost)
 (HTTPS, puerto 443). El certificado local puede producir una advertencia del
-navegador. La URL solo vale en el host donde corre Docker; el dashboard no está
-publicado en AWS. El hostname público solicitado para AWS es
-`https://wazuh.qapaq.secops.com`; sigue pendiente desplegar Wazuh y resolver la
-zona DNS. Consulta [URLs y permisos requeridos](../../docs/integrations/urls-permisos-microsoft-wazuh.md)
+navegador. La URL solo vale en el host donde corre Docker; el dashboard de AWS
+se publicará con una IP elástica y HTTPS de Let's Encrypt. Después del apply,
+Terraform mostrará `wazuh_dashboard_url`; el primer arranque tarda varios minutos.
+Consulta [URLs y permisos requeridos](../../docs/integrations/urls-permisos-microsoft-wazuh.md)
 para las APIs y el estado de acceso remoto.
 
 QAPAQ consulta el Wazuh Indexer mediante una credencial de solo lectura que se

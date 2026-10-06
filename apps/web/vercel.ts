@@ -14,7 +14,7 @@ const rewrites = apiOrigin
           'QAPAQ_API_ORIGIN must be an HTTP(S) origin without credentials, path, query, or fragment.',
         );
       }
-      return [{ source: '/api/:path*', destination: `${origin.origin}/api/:path*` }];
+      return [{ source: '/api/:path*', destination: `${origin.origin}/qapaq-api/:path*` }];
     })()
   : [];
 

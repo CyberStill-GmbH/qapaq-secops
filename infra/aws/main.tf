@@ -114,3 +114,21 @@ module "runtime" {
     module.private_endpoints,
   ]
 }
+
+module "wazuh_public" {
+  source = "./modules/wazuh_public"
+
+  project                        = var.project
+  environment                    = var.environment
+  region                         = var.aws_region
+  vpc_id                         = module.networking.vpc_id
+  public_subnet_id               = module.networking.public_subnet_ids[0]
+  public_proxy_security_group_id = module.security.security_group_ids.public_proxy
+  wazuh_security_group_id        = module.security.security_group_ids.wazuh
+  api_origin                     = module.runtime.load_balancer_dns_name
+  wazuh_version                  = var.wazuh_version
+  instance_type                  = var.wazuh_instance_type
+  volume_size_gb                 = var.wazuh_volume_size_gb
+
+  depends_on = [module.runtime]
+}

@@ -1,5 +1,5 @@
 resource "aws_route53_zone" "public_api" {
-  count = var.enable_https ? 1 : 0
+  count = var.public_route53_zone_name != null ? 1 : 0
 
   name = local.public_route53_zone_name
 
@@ -11,7 +11,7 @@ resource "aws_route53_zone" "public_api" {
 }
 
 locals {
-  public_route53_zone_name = var.enable_https && var.public_route53_zone_name != null ? trimsuffix(lower(var.public_route53_zone_name), ".") : ""
+  public_route53_zone_name = var.public_route53_zone_name != null ? trimsuffix(lower(var.public_route53_zone_name), ".") : ""
   public_api_hostname      = var.enable_https && var.public_api_hostname != null ? lower(var.public_api_hostname) : ""
   public_api_hostname_in_zone = var.enable_https ? (
     local.public_api_hostname == local.public_route53_zone_name ||
@@ -82,11 +82,11 @@ resource "aws_route53_record" "public_api" {
 }
 
 output "public_api_url" {
-  description = "HTTPS URL routed by Route 53 to the public KrakenD ALB."
-  value       = var.enable_https ? "https://${var.public_api_hostname}" : null
+  description = "Public QAPAQ API URL."
+  value       = var.enable_https ? "https://${var.public_api_hostname}" : module.wazuh_public.api_url
 }
 
 output "public_route53_zone_name_servers" {
   description = "Delegate the public child zone at its parent DNS provider to these Route 53 name servers."
-  value       = var.enable_https ? aws_route53_zone.public_api[0].name_servers : []
+  value       = var.public_route53_zone_name != null ? aws_route53_zone.public_api[0].name_servers : []
 }

@@ -3,7 +3,7 @@ output "cluster_name" {
 }
 
 output "load_balancer_dns_name" {
-  description = "Public ALB hostname; HTTPS terminates at the ALB when enabled, and port 80 redirects to HTTPS."
+  description = "ALB origin hostname; HTTP is restricted to the public proxy when ACM HTTPS is disabled."
   value       = aws_lb.this.dns_name
 }
 

@@ -31,7 +31,7 @@ concurrency:
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: infra/aws
@@ -76,6 +76,15 @@ jobs:
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
         run: terraform apply -input=false -auto-approve -no-color tfplan
+
+      - name: Show public deployment URLs
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Wazuh Dashboard: $(terraform output -raw wazuh_dashboard_url)"
+          echo "QAPAQ API URL: $(terraform output -raw public_api_url)"
+          echo "Wazuh admin secret ARN: $(terraform output -raw wazuh_dashboard_admin_secret_arn)"
 
       - name: Show DNS delegation details
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'

@@ -199,6 +199,29 @@ variable "wazuh_dashboard_port" {
   default     = 443
 }
 
+variable "wazuh_version" {
+  description = "Pinned Wazuh version for the official single-host installer."
+  type        = string
+  default     = "4.14.8"
+}
+
+variable "wazuh_instance_type" {
+  description = "EC2 instance type for the Wazuh all-in-one demo host."
+  type        = string
+  default     = "t3.xlarge"
+}
+
+variable "wazuh_volume_size_gb" {
+  description = "Encrypted gp3 root volume for Wazuh services and indexed data."
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.wazuh_volume_size_gb >= 50
+    error_message = "Wazuh needs at least 50 GiB; 100 GiB is configured for the demo."
+  }
+}
+
 variable "postgres_engine_version" {
   description = "Amazon RDS for PostgreSQL engine version; keep aligned with local/test PostgreSQL where AWS supports it."
   type        = string

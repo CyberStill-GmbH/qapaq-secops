@@ -109,8 +109,18 @@ output "ecs_cluster_name" {
 }
 
 output "runtime_load_balancer_dns_name" {
-  description = "Public HTTP demo endpoint; configure Vercel same-origin rewrite after review and apply."
+  description = "Private-to-edge application origin. Only the public proxy security group can reach it over HTTP."
   value       = module.runtime.load_balancer_dns_name
+}
+
+output "wazuh_dashboard_url" {
+  description = "Public Wazuh Dashboard URL with trusted HTTPS."
+  value       = module.wazuh_public.dashboard_url
+}
+
+output "wazuh_dashboard_admin_secret_arn" {
+  description = "Secrets Manager secret containing the generated Wazuh admin credential."
+  value       = module.wazuh_public.admin_secret_arn
 }
 
 output "runtime_private_api_hostname" {

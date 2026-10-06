@@ -54,13 +54,78 @@ resource "aws_security_group" "wazuh" {
   tags = { Name = "${var.project}-${var.environment}-wazuh" }
 }
 
+resource "aws_security_group" "public_proxy" {
+  name        = "${var.project}-${var.environment}-public-proxy"
+  description = "Public HTTPS edge for Wazuh and QAPAQ API; no SSH ingress."
+  vpc_id      = var.vpc_id
+
+  tags = { Name = "${var.project}-${var.environment}-public-proxy" }
+}
+
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
+  count             = var.enable_https ? 1 : 0
   security_group_id = aws_security_group.alb.id
   description       = "Public HTTP demo entry point."
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 80
   ip_protocol       = "tcp"
   to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_http_from_proxy" {
+  count = var.enable_https ? 0 : 1
+
+  security_group_id            = aws_security_group.alb.id
+  referenced_security_group_id = aws_security_group.public_proxy.id
+  description                  = "HTTP from the HTTPS public edge only."
+  from_port                    = 80
+  ip_protocol                  = "tcp"
+  to_port                      = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "public_proxy_http" {
+  security_group_id = aws_security_group.public_proxy.id
+  description       = "ACME HTTP-01 validation and HTTP to HTTPS redirect."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  ip_protocol       = "tcp"
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "public_proxy_https" {
+  security_group_id = aws_security_group.public_proxy.id
+  description       = "Public HTTPS for Wazuh Dashboard and the QAPAQ web API."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_egress_rule" "public_proxy_https" {
+  security_group_id = aws_security_group.public_proxy.id
+  description       = "HTTPS egress for package repositories, AWS APIs, and ACME certificate issuance/renewal."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_egress_rule" "public_proxy_http" {
+  security_group_id = aws_security_group.public_proxy.id
+  description       = "HTTP egress for package mirrors and ACME IP certificate validation."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  ip_protocol       = "tcp"
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_egress_rule" "public_proxy_to_alb" {
+  security_group_id            = aws_security_group.public_proxy.id
+  referenced_security_group_id = aws_security_group.alb.id
+  description                  = "HTTPS edge proxy to the private-by-SG HTTP ALB origin."
+  from_port                    = 80
+  ip_protocol                  = "tcp"
+  to_port                      = 80
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {

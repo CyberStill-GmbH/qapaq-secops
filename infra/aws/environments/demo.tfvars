@@ -9,9 +9,12 @@ allowed_admin_cidrs = []
 
 # Public application traffic must terminate TLS at the ALB; Terraform requires
 # an ACM certificate ARN in this region before planning or applying.
-enable_https             = true
-public_api_hostname      = "api.qapaq.secops.com"
+enable_https             = false
+public_api_hostname      = null
 public_route53_zone_name = "qapaq.secops.com"
+wazuh_version            = "4.14.8"
+wazuh_instance_type      = "t3.xlarge"
+wazuh_volume_size_gb     = 100
 
 # Phase 3: small, temporary data plane in isolated private data subnets.
 postgres_engine_version            = "18.6"

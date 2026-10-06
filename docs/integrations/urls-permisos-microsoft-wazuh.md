@@ -46,33 +46,27 @@ una identidad de workload autorizada, bearer token administrado mediante
 credenciales administrativas o de escritura del Indexer no se deben entregar a
 QAPAQ.
 
-### URL de producción pendiente
+### URL pública de QAPAQ
 
-La infraestructura Terraform define el output `runtime_load_balancer_dns_name`,
-que identifica el balanceador público que recibe KrakenD. No se puede incluir
-aquí un hostname concreto hasta que Terraform pueda consultar el state remoto de
-AWS y el despliegue esté aplicado. Para obtenerlo después de configurar las
-credenciales AWS y reconciliar el state, ejecutar desde `infra/aws`:
+El despliegue sin dominio usa la IP elástica de la instancia Wazuh como proxy
+HTTPS. El API queda publicado bajo `/qapaq-api`; el proxy reenvía esa ruta al ALB,
+cuyo security group solo acepta HTTP desde la instancia proxy. Después de aplicar,
+obtener los valores desde `infra/aws` con `terraform output -raw public_api_url`
+y `terraform output -raw wazuh_dashboard_url`. El certificado Let's Encrypt para
+IP es de corta duración y se renueva automáticamente.
 
-```powershell
-terraform output -raw runtime_load_balancer_dns_name
-```
-
-El entorno Terraform requiere HTTPS (`enable_https = true`) y usa
-`api.qapaq.secops.com` en la zona pública de Route 53 `qapaq.secops.com`.
-Terraform solicitará y validará en ACM el certificado DNS, creará el alias A
-hacia el ALB y redirigirá HTTP a HTTPS. No usar el DNS nativo del ALB como
-hostname HTTPS porque no estará cubierto por el certificado. La base URL será
-`https://api.qapaq.secops.com` y las rutas de lectura serán:
+La base URL pública del API tendrá esta forma (la IP concreta se conoce al
+aplicar Terraform):
 
 ```text
-https://api.qapaq.secops.com/wazuh/_cluster/health
-https://api.qapaq.secops.com/wazuh/_search
+https://<IP-elastica>/qapaq-api/wazuh/_cluster/health
+https://<IP-elastica>/qapaq-api/wazuh/_search
 ```
 
-El acceso de red al Indexer solo debe permitir el puerto/configuración necesaria
-desde el security group de KrakenD. No se debe abrir el Indexer a Internet ni
-conceder acceso directo desde QAPAQ.
+El gateway de KrakenD conserva sus rutas Wazuh (`/wazuh/...`). El proxy elimina
+el prefijo `/qapaq-api` antes de enviar cada petición al ALB. El acceso al
+Indexer solo permite el puerto/configuración necesaria desde KrakenD; no se abre
+a Internet ni se concede acceso directo desde QAPAQ.
 
 ## 3. Dashboard de Wazuh
 
@@ -84,28 +78,20 @@ Dashboard por HTTPS en el puerto 443 del host Docker. En ese host, abre
 expongas ese puerto a Internet. El certificado local es propio del stack y el
 navegador puede avisar que no es de confianza.
 
-**AWS:** la URL pública solicitada para el Dashboard será
-[`https://wazuh.qapaq.secops.com`](https://wazuh.qapaq.secops.com), con inicio de
-sesión de Wazuh obligatorio. Todavía no está activa: el despliegue AWS actual no
-instala Wazuh ni el Dashboard, y el piloto de Wazuh en Railway fue eliminado.
-`https://api.qapaq.secops.com` es el gateway/API de QAPAQ, no el Dashboard.
-Terraform tampoco puede publicar aún el hostname del API: la cuenta AWS
-`955200662475` no tenía la zona pública Route 53 `qapaq.secops.com`. La zona se
-creó en `us-east-1` (ID `Z0272614GRQWIB80KR5J`), pero la cuenta no contiene una
-zona padre pública `secops.com`; aún hay que delegar este subdominio en el DNS
-externo del dominio. En el proveedor DNS del dominio raíz, crea el registro
-delegado `qapaq.secops.com` de tipo `NS` con estos cuatro valores:
+**AWS:** después de aplicar y completar el bootstrap, la URL pública será el
+output `wazuh_dashboard_url` (formato `https://<IP-elastica>/`). El certificado
+HTTPS de Let's Encrypt se solicita para la IP y se renueva cada pocos días. El
+Dashboard requiere autenticación; la contraseña inicial generada se guarda en
+AWS Secrets Manager. Obtén el ARN con
+`terraform output -raw wazuh_dashboard_admin_secret_arn` y consulta el valor en
+Secrets Manager con una identidad autorizada. Terraform termina antes de que el
+bootstrap de Wazuh y la emisión del certificado acaben, por lo que el URL puede
+demorar unos minutos en responder.
 
-```text
-ns-1045.awsdns-02.org.
-ns-1638.awsdns-12.co.uk.
-ns-456.awsdns-57.com.
-ns-692.awsdns-22.net.
-```
-
-Después de propagarse la delegación, Terraform puede validar el certificado ACM
-y crear el alias público del API. Hasta entonces `api.qapaq.secops.com` seguirá
-sin resolver.
+La IP elástica también sirve QAPAQ API por `/qapaq-api`. Puertos 80/443 quedan
+públicos para el proxy; SSH, Dashboard 5601, Manager 55000 e Indexer 9200 no se
+abren a Internet. La zona Route 53 hija que se había creado se conserva, pero no
+se usa en este despliegue sin dominio.
 
 ## Estado y referencias del proyecto
 

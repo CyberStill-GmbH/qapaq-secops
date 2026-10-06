@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+exec > >(tee -a /var/log/qapaq-wazuh-bootstrap.log | logger -t qapaq-wazuh-bootstrap -s 2>/dev/console) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y nginx snapd curl tar python3 awscli
+systemctl enable --now nginx snapd
+mkdir -p /var/www/certbot/.well-known/acme-challenge
+
+cat >/etc/nginx/sites-available/default <<'NGINX_HTTP'
+server {
+  listen 80 default_server;
+  server_name _;
+  location ^~ /.well-known/acme-challenge/ { root /var/www/certbot; default_type text/plain; }
+  location / { return 404; }
+}
+NGINX_HTTP
+nginx -t
+systemctl reload nginx
+
+snap install certbot --classic
+ln -sf /snap/bin/certbot /usr/local/bin/certbot
+
+curl -fsSLo /root/wazuh-install.sh "https://packages.wazuh.com/$${wazuh_version%.*}/wazuh-install.sh"
+bash /root/wazuh-install.sh -a > /var/log/wazuh-install.log 2>&1
+
+python3 - <<'PY'
+from pathlib import Path
+import json
+import subprocess
+
+archive = Path('/root/wazuh-install-files.tar')
+result = subprocess.run(
+    ['tar', '-O', '-xf', str(archive), 'wazuh-install-files/wazuh-passwords.txt'],
+    check=True, capture_output=True, text=True,
+)
+admin_password = next(
+    line.split(':', 1)[1].strip()
+    for line in result.stdout.splitlines()
+    if line.strip().startswith('admin:')
+)
+secret = json.dumps({'username': 'admin', 'password': admin_password})
+subprocess.run([
+    'aws', 'secretsmanager', 'put-secret-value',
+    '--region', '${aws_region}',
+    '--secret-id', '${admin_secret_arn}',
+    '--secret-string', secret,
+], check=True, stdout=subprocess.DEVNULL)
+PY
+chmod 600 /root/wazuh-install-files.tar /var/log/wazuh-install.log
+rm -f /root/wazuh-install.sh
+
+sed -i -E 's/^server\.port:[[:space:]]*443/server.port: 5601/' /etc/wazuh-dashboard/opensearch_dashboards.yml
+systemctl restart wazuh-dashboard
+for attempt in $(seq 1 60); do
+  if curl -ksf https://127.0.0.1:5601/ >/dev/null; then break; fi
+  sleep 10
+done
+
+PUBLIC_IP=""
+for attempt in $(seq 1 30); do
+  TOKEN=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token || true)
+  if [ -n "$TOKEN" ]; then
+    PUBLIC_IP=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 || true)
+  fi
+  [ -n "$PUBLIC_IP" ] && break
+  sleep 3
+done
+if [ -z "$PUBLIC_IP" ]; then echo 'Elastic IP was not available in EC2 metadata.' >&2; exit 1; fi
+
+certbot certonly --non-interactive --agree-tos --register-unsafely-without-email \
+  --webroot --webroot-path /var/www/certbot \
+  --preferred-profile shortlived --ip-address "$PUBLIC_IP"
+
+cat >/etc/nginx/sites-available/default <<NGINX_TLS
+server {
+  listen 80 default_server;
+  server_name _;
+  location ^~ /.well-known/acme-challenge/ { root /var/www/certbot; default_type text/plain; }
+  location / { return 301 https://\$host\$request_uri; }
+}
+server {
+  listen 443 ssl default_server;
+  server_name _;
+  ssl_certificate /etc/letsencrypt/live/$PUBLIC_IP/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/$PUBLIC_IP/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  client_max_body_size 50m;
+
+  location ^~ /qapaq-api/ {
+    rewrite ^/qapaq-api/(.*)$ /\$1 break;
+    proxy_pass http://${api_origin};
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-Host \$host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_read_timeout 60s;
+  }
+
+  location / {
+    proxy_pass https://127.0.0.1:5601;
+    proxy_http_version 1.1;
+    proxy_ssl_verify off;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 300s;
+  }
+}
+NGINX_TLS
+
+cat >/etc/letsencrypt/renewal-hooks/deploy/20-reload-nginx <<'HOOK'
+#!/bin/sh
+systemctl reload nginx
+HOOK
+chmod 700 /etc/letsencrypt/renewal-hooks/deploy/20-reload-nginx
+nginx -t
+systemctl reload nginx
+systemctl enable --now snap.certbot.renew.timer || true
+sed -i 's/^deb /#deb /' /etc/apt/sources.list.d/wazuh.list || true
+echo "Wazuh ${wazuh_version} bootstrap complete at https://$$PUBLIC_IP/"
