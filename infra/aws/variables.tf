@@ -22,6 +22,28 @@ variable "github_repository" {
   default     = "CyberStill-GmbH/qapaq-secops"
 }
 
+variable "github_repository_owner_id" {
+  description = "Immutable GitHub owner ID used in the OIDC subject claim."
+  type        = string
+  default     = "220633794"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repository_owner_id))
+    error_message = "github_repository_owner_id must be a numeric GitHub ID."
+  }
+}
+
+variable "github_repository_id" {
+  description = "Immutable GitHub repository ID used in the OIDC subject claim."
+  type        = string
+  default     = "1374673243"
+
+  validation {
+    condition     = can(regex("^[0-9]+$", var.github_repository_id))
+    error_message = "github_repository_id must be a numeric GitHub ID."
+  }
+}
+
 variable "vpc_cidr" {
   description = "CIDR range for the demo VPC."
   type        = string

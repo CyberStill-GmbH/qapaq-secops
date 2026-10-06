@@ -32,8 +32,10 @@ module "security" {
 module "application_foundations" {
   source = "./modules/application_foundations"
 
-  project           = var.project
-  environment       = var.environment
-  account_id        = data.aws_caller_identity.current.account_id
-  github_repository = var.github_repository
+  project                    = var.project
+  environment                = var.environment
+  account_id                 = data.aws_caller_identity.current.account_id
+  github_repository          = var.github_repository
+  github_repository_owner_id = var.github_repository_owner_id
+  github_repository_id       = var.github_repository_id
 }

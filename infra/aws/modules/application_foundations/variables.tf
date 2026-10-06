@@ -22,3 +22,13 @@ variable "github_repository" {
     error_message = "github_repository must use the owner/repository format."
   }
 }
+
+variable "github_repository_owner_id" {
+  description = "Immutable GitHub owner ID used in the OIDC subject claim."
+  type        = string
+}
+
+variable "github_repository_id" {
+  description = "Immutable GitHub repository ID used in the OIDC subject claim."
+  type        = string
+}

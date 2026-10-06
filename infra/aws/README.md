@@ -112,7 +112,10 @@ sin desplegar workloads:
   lectura/Wazuh, cursor y fingerprint. Terraform no define `secret_version`, ni
   valor de secreto. La carga inicial/rotación requiere un paso operativo separado.
 - **IAM:** rol de publicación de imágenes de GitHub OIDC, confiado únicamente al
-  repositorio configurado en `main` y con `aud=sts.amazonaws.com`. Puede publicar
+  repositorio configurado en `main` y con `aud=sts.amazonaws.com`. El `sub` usa
+  los IDs inmutables del propietario y del repositorio de GitHub, además de
+  `refs/heads/main`, porque este repositorio se creó después del cambio de
+  formato de OIDC de GitHub. Puede publicar
   solo en los tres repositorios ECR; `GetAuthorizationToken` requiere `Resource
 = "*"` por la semántica de AWS. Sus acciones de push siguen la política
   recomendada por AWS: `BatchGetImage`, `BatchCheckLayerAvailability`,
@@ -187,6 +190,15 @@ Hace checkout del SHA exacto que pasó CI. Usa GitHub OIDC con el rol
 repositorio `AWS_ECR_PUBLISHER_ROLE_ARN`, copiada del output de Terraform. El
 account ID se obtiene de ese ARN y la región es `us-east-1`, igual a
 `environments/demo.tfvars`. No hay access keys estáticas.
+
+El rol verifica el `sub` inmutable de este repositorio:
+`repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:ref:refs/heads/main`.
+GitHub introdujo este formato como valor predeterminado para repositorios nuevos
+creados desde el 15 de julio de 2026; confiar en el formato anterior basado solo
+en nombres hace que STS rechace `AssumeRoleWithWebIdentity`. Los IDs son variables
+Terraform validadas como numéricas, con valores predeterminados correspondientes
+a los IDs reales del repositorio y su propietario. La rama sigue restringida a
+`main`.
 
 Antes de publicar, ejecuta el mismo script de gates que `CI / required`
 (`.github/ci/verify-container-images.sh`): builds API/Worker/KrakenD, Node
