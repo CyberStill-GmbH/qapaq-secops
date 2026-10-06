@@ -77,6 +77,28 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
         run: terraform apply -input=false -auto-approve -no-color tfplan
 
+      - name: Show DNS delegation details
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '## Route 53 name servers for qapaq.secops.com'
+          terraform output -json public_route53_zone_name_servers
+          echo '## Parent secops.com zone in this AWS account (if managed here)'
+          parent_zone_id="$(aws route53 list-hosted-zones-by-name \
+            --dns-name secops.com. \
+            --query "HostedZones[?Name == 'secops.com.'] | [0].Id" \
+            --output text)"
+          if [ "$parent_zone_id" = "None" ] || [ -z "$parent_zone_id" ]; then
+            echo 'No public secops.com parent zone is visible to the deployment role; delegate the child NS at the domain DNS provider.'
+          else
+            echo "Parent hosted zone: $parent_zone_id"
+            aws route53 list-resource-record-sets \
+              --hosted-zone-id "$parent_zone_id" \
+              --query "ResourceRecordSets[?Name == 'qapaq.secops.com.' && Type == 'NS']" \
+              --output json
+          fi
+
       - name: Audit Phase 2B resources and remote state
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'audit'
         shell: bash
