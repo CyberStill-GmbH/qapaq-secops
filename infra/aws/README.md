@@ -179,9 +179,10 @@ inactiva sin consumidor BullMQ. Más detalles en
 
 ## Fase 2C — publicación verificada en ECR
 
-`.github/workflows/publish-images.yml` se activa únicamente al terminar con éxito
-`CI Security` en `main` por `push`, y comprueba que el commit provenga de este
-repositorio. Hace checkout del SHA exacto que pasó CI. Usa GitHub OIDC con el rol
+`.github/workflows/publish-images.yml` se activa en los pushes a `main` y espera
+el check `CI / required` exitoso para ese mismo SHA antes de pedir credenciales
+OIDC; también permite despacho manual solo en `main`, con la misma comprobación.
+Hace checkout del SHA exacto que pasó CI. Usa GitHub OIDC con el rol
 `github_ecr_publisher_role_arn`; el ARN se configura como variable no secreta del
 repositorio `AWS_ECR_PUBLISHER_ROLE_ARN`, copiada del output de Terraform. El
 account ID se obtiene de ese ARN y la región es `us-east-1`, igual a
