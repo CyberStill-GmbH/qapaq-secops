@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {
+      "path": "/api/health/live",
+      "method": "GET",
+      "upstream": "/health/live",
+      "query_parameters": [],
+      "auth": "none",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/health/ready",
+      "method": "GET",
+      "upstream": "/health/ready",
+      "query_parameters": [],
+      "auth": "none",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/auth/start",
+      "method": "GET",
+      "upstream": "/api/auth/start",
+      "query_parameters": [
+        "returnTo"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/auth/callback",
+      "method": "GET",
+      "upstream": "/api/auth/callback",
+      "query_parameters": [
+        "state",
+        "code",
+        "error"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/auth/session",
+      "method": "GET",
+      "upstream": "/api/auth/session",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/auth/logout",
+      "method": "POST",
+      "upstream": "/api/auth/logout",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/alerts",
+      "method": "GET",
+      "upstream": "/api/alerts",
+      "query_parameters": [
+        "cursor",
+        "pageSize",
+        "status"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/alerts/{id}",
+      "method": "GET",
+      "upstream": "/api/alerts/{id}",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/alerts/{id}/commands",
+      "method": "POST",
+      "upstream": "/api/alerts/{id}/commands",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents",
+      "method": "GET",
+      "upstream": "/api/incidents",
+      "query_parameters": [
+        "cursor",
+        "pageSize"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents",
+      "method": "POST",
+      "upstream": "/api/incidents",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/commands",
+      "method": "POST",
+      "upstream": "/api/incidents/{id}/commands",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/notifications",
+      "method": "GET",
+      "upstream": "/api/notifications",
+      "query_parameters": [
+        "cursor",
+        "pageSize"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/notifications/{id}/acknowledge",
+      "method": "POST",
+      "upstream": "/api/notifications/{id}/acknowledge",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/audit/events",
+      "method": "GET",
+      "upstream": "/api/audit/events",
+      "query_parameters": [
+        "from",
+        "to",
+        "pageSize",
+        "action"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/audit/verify",
+      "method": "GET",
+      "upstream": "/api/audit/verify",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    }
+  ]
+}

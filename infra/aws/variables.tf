@@ -230,3 +230,61 @@ variable "valkey_engine_version" {
   type        = string
   default     = "8.0"
 }
+
+variable "runtime_image_manifest_commit" {
+  description = "Full commit SHA recorded in the verified image manifest used by the demo task definitions."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}$", var.runtime_image_manifest_commit))
+    error_message = "runtime_image_manifest_commit must be the full 40-character commit SHA from the verified image manifest."
+  }
+}
+
+variable "runtime_image_digests" {
+  description = "Verified image digests copied from the Fase 2C manifest; mutable tags are not accepted."
+  type = object({
+    api     = string
+    worker  = string
+    krakend = string
+  })
+
+  validation {
+    condition = alltrue([
+      for digest in values(var.runtime_image_digests) : can(regex("^sha256:[0-9a-f]{64}$", digest))
+    ])
+    error_message = "Each runtime image reference must be a sha256 digest copied from the verified manifest."
+  }
+}
+
+variable "ecs_desired_counts" {
+  description = "Fargate task counts for the demo runtime."
+  type = object({
+    krakend = number
+    api     = number
+    worker  = number
+  })
+  default = {
+    krakend = 1
+    api     = 1
+    worker  = 1
+  }
+}
+
+variable "runtime_api_environment" {
+  description = "Non-secret production API values supplied from approved deployment configuration; no credentials."
+  type        = map(string)
+  default     = {}
+}
+
+variable "runtime_krakend_environment" {
+  description = "Non-secret KrakenD values supplied from approved deployment configuration; no credentials."
+  type        = map(string)
+  default     = {}
+}
+
+variable "ecs_health_check_grace_period_seconds" {
+  description = "Grace period for ALB health checks while the KrakenD task starts."
+  type        = number
+  default     = 60
+}

@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 const routes = JSON.parse(await readFile(new URL('routes.json', root), 'utf8'));
+const applicationRoutes = JSON.parse(await readFile(new URL('application-routes.json', root), 'utf8'));
 const template = await readFile(new URL('krakend.tmpl', root), 'utf8');
 const compose = await readFile(new URL('compose.yaml', root), 'utf8');
 const envExample = await readFile(new URL('.env.example', root), 'utf8');
@@ -18,22 +19,18 @@ const dashboard = JSON.parse(
   ),
 );
 
-const declaredEndpoints = [...template.matchAll(/"endpoint"\s*:\s*"([^"]+)"/g)].map(
-  (match) => match[1],
-);
+const declaredEndpoints = [...template.matchAll(/"endpoint"\s*:\s*"([^"]+)"/g)].map((match) => match[1]);
+const declaredApiRoutes = [...template.matchAll(/"endpoint"\s*:\s*"([^"]+)"[\s\S]*?"method"\s*:\s*"(GET|POST)"[\s\S]*?"url_pattern"\s*:\s*"([^"]+)"/g)]
+  .filter(([ , path ]) => path.startsWith('/api/'))
+  .map(([ , path, method, upstream ]) => ({ path, method, upstream }));
 
-test('explicit route inventory and KrakenD endpoint set are identical', () => {
+test('C-28 Wazuh route inventory and KrakenD endpoint set remain identical', () => {
   const inventoryPaths = routes.routes.map(({ path }) => path.replaceAll('*', ':wildcard'));
   assert.equal(new Set(inventoryPaths).size, inventoryPaths.length, 'duplicate route path');
-  assert.equal(
-    new Set(declaredEndpoints).size,
-    declaredEndpoints.length,
-    'duplicate configured endpoint',
-  );
-  assert.deepEqual([...declaredEndpoints].sort(), [...inventoryPaths].sort());
+  assert.deepEqual(declaredEndpoints.filter((path) => path.startsWith('/wazuh/')).sort(), [...inventoryPaths].sort());
 });
 
-test('each route has explicit method, auth, rate, timeout, backend, classification and owner', () => {
+test('each C-28 route has explicit method, auth, rate, timeout, backend, classification and owner', () => {
   for (const route of routes.routes) {
     assert.match(route.path, /^\/(?!\/)/);
     assert.ok(['GET', 'POST'].includes(route.method));
@@ -45,6 +42,21 @@ test('each route has explicit method, auth, rate, timeout, backend, classificati
     assert.ok(route.owner);
     assert.ok(!route.path.includes('*'), 'wildcard exposure is prohibited');
   }
+});
+
+test('application BFF allowlist matches explicit KrakenD proxy routes', () => {
+  const expected = applicationRoutes.routes.map(({ path, method, upstream }) => ({ path, method, upstream }));
+  assert.deepEqual(declaredApiRoutes, expected);
+  assert.equal(new Set(expected.map(({ path, method }) => `${method} ${path}`)).size, expected.length);
+  for (const route of applicationRoutes.routes) {
+    assert.ok(['api-session', 'none'].includes(route.auth));
+    if (route.path.startsWith('/api/health/')) assert.equal(route.auth, 'none');
+    else assert.equal(route.auth, 'api-session', `${route.method} ${route.path} is authenticated by the API session contract`);
+    assert.equal(route.encoding, 'no-op', 'BFF must preserve redirects, cookies, status and body');
+    assert.ok(!route.path.includes('*'), 'wildcard exposure is prohibited');
+  }
+  assert.match(template, /"input_headers": \[[^\]]*"Cookie"[^\]]*"Origin"[^\]]*"X-Csrf-Token"/s);
+  assert.doesNotMatch(template, /"endpoint"\s*:\s*"\/api\/ingest\//);
 });
 
 test('configuration denies broad CORS, accepts no arbitrary upstream and keeps secrets out of tracked config', () => {
@@ -66,8 +78,9 @@ test('finite timeout and bounded per-instance rate policy are explicitly wired',
   assert.match(template, /"propagate_claims"\s*:\s*\[\["sub",\s*"X-Qapaq-Workload"\]\]/);
   assert.equal(
     (template.match(/"timeout": "\{\{ env "GATEWAY_ENDPOINT_TIMEOUT" \}\}"/g) ?? []).length,
-    3,
+    3 + applicationRoutes.routes.length,
   );
+  assert.match(template, /"host": \[\s*"\{\{ env "QAPAQ_API_UPSTREAM" \}\}"\s*\]/);
 });
 
 test('production infrastructure dependencies stay explicitly TO_BE_PROVIDED', () => {

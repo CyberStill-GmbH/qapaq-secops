@@ -102,3 +102,23 @@ output "s3_gateway_endpoint_id" {
   description = "S3 gateway endpoint ID for application private route tables."
   value       = module.private_endpoints.s3_gateway_endpoint_id
 }
+
+output "ecs_cluster_name" {
+  description = "Demo ECS cluster using Fargate capacity only."
+  value       = module.runtime.cluster_name
+}
+
+output "runtime_load_balancer_dns_name" {
+  description = "Public HTTP demo endpoint; configure Vercel same-origin rewrite after review and apply."
+  value       = module.runtime.load_balancer_dns_name
+}
+
+output "runtime_private_api_hostname" {
+  description = "Private Cloud Map hostname for API, consumed by KrakenD after the image contract is updated."
+  value       = module.runtime.private_api_hostname
+}
+
+output "runtime_nat_gateway_id" {
+  description = "Single-AZ NAT used only for API HTTPS egress to Microsoft Entra in this demo."
+  value       = module.runtime.nat_gateway_id
+}

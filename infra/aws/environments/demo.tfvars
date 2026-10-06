@@ -20,3 +20,11 @@ postgres_skip_final_snapshot       = true
 postgres_final_snapshot_identifier = null
 valkey_node_type                   = "cache.t4g.micro"
 valkey_engine_version              = "8.0"
+
+# Verified Fase 2C manifest: image digests are immutable and must not be replaced by tags.
+runtime_image_manifest_commit = "5ea083bd6dccf12580d00b43ee66d1086c0e06ea"
+runtime_image_digests = {
+  api     = "sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068"
+  worker  = "sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624"
+  krakend = "sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460"
+}

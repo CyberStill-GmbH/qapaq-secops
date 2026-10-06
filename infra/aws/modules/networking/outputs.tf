@@ -21,3 +21,7 @@ output "availability_zones" {
 output "app_route_table_id" {
   value = aws_route_table.app.id
 }
+
+output "internet_gateway_id" {
+  value = aws_internet_gateway.this.id
+}

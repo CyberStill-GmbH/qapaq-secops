@@ -281,7 +281,7 @@ los datos de prueba. Para conservarlos, habilitar deletion protection y final
 snapshot de PostgreSQL, exportar/verificar la información necesaria y luego
 retirar la protección de forma controlada.
 
-## Fase 3 — base de datos y egress privado (plan verde, no aplicado)
+## Fase 3 — base de datos y egress privado (aplicación reportada; state pendiente de re-auditar)
 
 El diseño y Terraform de esta fase añaden RDS PostgreSQL 18.6 Single-AZ
 (`db.t4g.micro`, gp3 cifrado de 20 GiB, `rds.force_ssl=1`, backup de 1 día,
@@ -326,11 +326,12 @@ endpoints y almacenamiento llevan el delta Fase 3 a ~USD 85/mes. Precio real
 depende de I/O, backups/snapshots, transferencia, créditos CPU, impuestos y free
 tier; destruir al terminar la demo.
 
-El plan remoto [Terraform Demo #14](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412251901) terminó correctamente sobre `main` (commit `d95170532501290f5e445b91036a3e3133f475b3`): `terraform fmt -check -recursive`, `terraform validate` y `terraform plan` quedaron verdes. Delta exacto frente a los 87 recursos existentes: **19 por añadir, 0 cambios, 0 destrucciones y 0 reemplazos**. Los 19 son 3 recursos RDS, 4 Valkey y 12 de egress privado (SG, 6 reglas, 4 endpoints de interfaz y 1 gateway S3). [CI / required](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412251883/job/112103959095) y [evidence](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412551653/job/112103995310) también terminaron en verde. Terraform Apply y Audit quedaron omitidos: el state de AWS no cambió y esta fase **no está aplicada**. Revisar este delta antes de autorizar cualquier apply.
+El plan remoto [Terraform Demo #14](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412251901) terminó correctamente sobre `main` (commit `d95170532501290f5e445b91036a3e3133f475b3`): `terraform fmt -check -recursive`, `terraform validate` y `terraform plan` quedaron verdes. Delta exacto frente a los 87 recursos registrados en ese plan: **19 por añadir, 0 cambios, 0 destrucciones y 0 reemplazos**. Los 19 son 3 recursos RDS, 4 Valkey y 12 de egress privado (SG, 6 reglas, 4 endpoints de interfaz y 1 gateway S3). [CI / required](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412251883/job/112103959095) y [evidence](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412551653/job/112103995310) también terminaron en verde. En esa corrida, Terraform Apply y Audit quedaron omitidos; luego el usuario confirmó que Fase 3 se aplicó. Falta recuperar un apply/audit o consultar el state vivo por OIDC para registrar el delta actual sin inferirlo de ese plan antiguo.
 
-Aunque una futura fase ECS pueda tirar imágenes, esta no habilita un despliegue:
-la API todavía depende de configuración MinIO y no tiene readiness real; Worker
-no consume BullMQ; falta crear usuario PostgreSQL de aplicación y probar TLS/CA;
-falta smoke Valkey TLS/AUTH; las referencias/roles runtime se cablearán con IAM
-mínimo en Fase 4; y Wazuh requiere salida aprobada hacia Microsoft 365. Esta fase
-no crea ECS, ALB, Wazuh, Grafana, Prometheus, Loki ni runtime OpenTelemetry.
+Fase 3 no habilita por sí sola el runtime: la API todavía no tiene persistencia
+PostgreSQL/S3 ni readiness de dependencias; Worker no consume BullMQ; la
+integración real de datos/TLS/Valkey necesita smoke desde la aplicación; Wazuh
+requiere salida aprobada hacia Microsoft 365. El usuario confirmó que Fase 3 se
+aplicó después del plan #14, pero el state actual debe comprobarse con el nuevo
+plan remoto de Fase 4. Esta fase no crea ECS, ALB, Wazuh, Grafana, Prometheus,
+Loki ni runtime OpenTelemetry.
