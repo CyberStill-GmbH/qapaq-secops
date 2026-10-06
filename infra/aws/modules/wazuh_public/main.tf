@@ -86,6 +86,10 @@ resource "aws_instance" "this" {
     delete_on_termination = true
   }
 
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = {
     Name        = "${var.project}-${var.environment}-wazuh"
     Project     = var.project
