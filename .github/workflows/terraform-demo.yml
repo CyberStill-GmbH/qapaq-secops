@@ -82,9 +82,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Wazuh Dashboard: $(terraform output -raw wazuh_dashboard_url)"
-          echo "QAPAQ API URL: $(terraform output -raw public_api_url)"
+          dashboard_url="$(terraform output -raw wazuh_dashboard_url)"
+          api_url="$(terraform output -raw public_api_url)"
+          echo "Wazuh Dashboard: $dashboard_url"
+          echo "QAPAQ API URL: $api_url"
           echo "Wazuh admin secret ARN: $(terraform output -raw wazuh_dashboard_admin_secret_arn)"
+
+          echo 'Waiting for Wazuh HTTPS bootstrap to finish...'
+          ready=false
+          for attempt in $(seq 1 80); do
+            if curl --fail --silent --max-time 15 "$dashboard_url" -o /dev/null; then
+              ready=true
+              echo "Wazuh Dashboard HTTPS: ready (attempt $attempt)"
+              break
+            fi
+            if (( attempt % 4 == 0 )); then
+              echo "Still waiting for Wazuh bootstrap ($attempt/80 checks)."
+            fi
+            sleep 15
+          done
+
+          if [ "$ready" != true ]; then
+            echo '::error::Wazuh Dashboard did not become reachable over HTTPS within 20 minutes.'
+            curl --fail --show-error --max-time 15 "$dashboard_url" -o /dev/null || true
+            exit 1
+          fi
 
       - name: Show DNS delegation details
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
