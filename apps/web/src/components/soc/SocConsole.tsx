@@ -184,6 +184,7 @@ export function SocConsole({
   }
 
   const pathname = path.split('?')[0] || '/';
+  const profileLabel = session.displayName || session.email || session.subjectId;
   const currentItem = navigation
     .flatMap((group) => group.items)
     .find((item) => item.path === pathname);
@@ -285,11 +286,9 @@ export function SocConsole({
             </Button>
             <details className="soc-profile">
               <summary>
-                <span className="soc-profile__mark">
-                  {session.subjectId.slice(0, 1).toUpperCase()}
-                </span>
+                <span className="soc-profile__mark">{profileLabel.slice(0, 1).toUpperCase()}</span>
                 <span className="soc-profile__name">
-                  <strong>{session.subjectId}</strong>
+                  <strong>{profileLabel}</strong>
                   <small>{roleLabel(session.roles[0] ?? 'Sesión institucional')}</small>
                 </span>
                 <SocIcon name="chevron" size={15} />

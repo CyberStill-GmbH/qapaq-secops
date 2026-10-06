@@ -50,7 +50,24 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'audit.read',
   ],
   'qapaq.auditor': ['audit.read', 'audit.read_sensitive', 'audit.verify', 'incidents.read'],
-  'qapaq.platform.admin': ['secrets.write', 'audit.read', 'audit.verify'],
+  // La solicitud del producto define al administrador de plataforma como el rol
+  // operativo con acceso a todos los módulos actuales. El enforcement sigue siendo
+  // capability-by-capability y queda limitado por los scopes que el BFF solicita.
+  'qapaq.platform.admin': [
+    'events.read',
+    'events.read_raw',
+    'alerts.read',
+    'alerts.triage',
+    'alerts.assign',
+    'incidents.read',
+    'incidents.write',
+    'incidents.close',
+    'notifications.read',
+    'audit.read',
+    'audit.read_sensitive',
+    'audit.verify',
+    'secrets.write',
+  ],
 });
 
 /** Scopes OAuth del BFF. El scope acota al cliente; la capability acota a la persona. */

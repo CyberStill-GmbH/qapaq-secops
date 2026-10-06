@@ -41,8 +41,9 @@
     display: none;
   }
   .soc-command-button {
-    min-width: 38px;
-    width: 38px;
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
     padding: 0;
     justify-content: center;
   }
@@ -109,6 +110,20 @@
   }
   .soc-filter-bar > label {
     flex: 1 1 145px;
+  }
+  .soc-filter-bar input,
+  .soc-filter-bar select,
+  .soc-actions input,
+  .soc-actions select,
+  .soc-actions textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-button,
+  .soc-tabs button,
+  .soc-row-link,
+  .soc-profile summary {
+    min-height: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

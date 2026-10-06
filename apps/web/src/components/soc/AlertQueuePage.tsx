@@ -27,6 +27,10 @@ const alertStatus: Readonly<Record<string, string>> = {
   escalated: 'Escalada',
   closed: 'Cerrada',
 };
+type AlertPriority = 'P1' | 'P2' | 'P3' | 'P4';
+function isAlertPriority(value: string | null): value is AlertPriority {
+  return value !== null && ['P1', 'P2', 'P3', 'P4'].includes(value);
+}
 const stateTone = (value: string): 'ok' | 'warn' | 'fail' | 'info' | 'neutral' =>
   value === 'triaged'
     ? 'ok'
@@ -62,7 +66,7 @@ function Header({
     <div className="soc-page-heading">
       <div>
         <h1>Alertas</h1>
-        <p>Cola de análisis priorizada por severidad y estado.</p>
+        <p>Filtra alertas por estado, prioridad o texto de investigación.</p>
       </div>
       <div className="soc-page-heading__meta">
         {updated ? (
@@ -91,9 +95,19 @@ export function AlertQueuePage({
     const value = new URLSearchParams(path.split('?')[1] ?? '').get('status');
     return isAlertTab(value) ? value : 'open';
   });
+  const initialQuery = new URLSearchParams(path.split('?')[1] ?? '').get('q') ?? '';
+  const initialPriority = new URLSearchParams(path.split('?')[1] ?? '').get('priority') ?? '';
   const [items, setItems] = useState<readonly AlertView[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
+  const [appliedQuery, setAppliedQuery] = useState(initialQuery);
+  const [priority, setPriority] = useState<'' | AlertPriority>(
+    isAlertPriority(initialPriority) ? initialPriority : '',
+  );
+  const [appliedPriority, setAppliedPriority] = useState<'' | AlertPriority>(
+    isAlertPriority(initialPriority) ? initialPriority : '',
+  );
   const [selected, setSelected] = useState<AlertView | null>(null);
   const [error, setError] = useState<ApiErrorBody | null>(null);
   const [updated, setUpdated] = useState<string | null>(null);
@@ -102,11 +116,18 @@ export function AlertQueuePage({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(
-    async (nextStatus: 'open' | AlertStatus = status, nextCursor?: string) => {
+    async (
+      nextStatus: 'open' | AlertStatus = status,
+      nextCursor?: string,
+      nextQuery: string = appliedQuery,
+      nextPriority: '' | AlertPriority = appliedPriority,
+    ) => {
       setLoading(true);
       const result = await api.alertsByStatus(
-        nextStatus === 'open' ? undefined : nextStatus,
+        nextStatus,
         nextCursor,
+        nextQuery,
+        nextPriority || undefined,
       );
       setLoading(false);
       if (!result.ok) {
@@ -118,26 +139,35 @@ export function AlertQueuePage({
           ? result.data.items.filter((alert) => alert.status !== 'closed')
           : result.data.items;
       setItems((current) => (nextCursor ? [...current, ...rows] : rows));
+      setTotalCount(result.data.totalCount ?? rows.length);
       setCursor(result.data.nextCursor);
       setError(null);
       setUpdated(new Date().toISOString());
     },
-    [status],
+    [appliedPriority, appliedQuery, status],
   );
 
   useEffect(() => {
-    void load(status);
-  }, [status]);
+    void load(status, undefined, appliedQuery, appliedPriority);
+  }, [appliedPriority, appliedQuery, status]);
   useEffect(() => {
     const value = new URLSearchParams(path.split('?')[1] ?? '').get('status');
     if (isAlertTab(value)) setStatus(value);
+    const nextQuery = new URLSearchParams(path.split('?')[1] ?? '').get('q') ?? '';
+    setQuery(nextQuery);
+    setAppliedQuery(nextQuery);
+    const nextPriority = new URLSearchParams(path.split('?')[1] ?? '').get('priority');
+    const safePriority = isAlertPriority(nextPriority) ? nextPriority : '';
+    setPriority(safePriority);
+    setAppliedPriority(safePriority);
   }, [path]);
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !selected) void load(status);
+      if (document.visibilityState === 'visible' && !selected)
+        void load(status, undefined, appliedQuery, appliedPriority);
     }, 15_000);
     return () => window.clearInterval(timer);
-  }, [load, selected, status]);
+  }, [appliedPriority, appliedQuery, load, selected, status]);
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const target = event.target;
@@ -153,15 +183,17 @@ export function AlertQueuePage({
       }
       if (event.key === 'Escape' && selected) {
         setSelected(null);
-        onNavigate(`/alerts?status=${status}`);
+        onNavigate(listPath(status));
         return;
       }
       if (event.key === 'j' || event.key === 'k') {
-        const rows = [...document.querySelectorAll<HTMLTableRowElement>('.soc-alert-row')];
+        const rows = [
+          ...document.querySelectorAll<HTMLButtonElement>('.soc-alert-row .soc-row-link'),
+        ];
         if (rows.length === 0) return;
         const activeRow =
           document.activeElement instanceof HTMLElement
-            ? document.activeElement.closest<HTMLTableRowElement>('tr')
+            ? document.activeElement.closest<HTMLButtonElement>('.soc-row-link')
             : null;
         const current = activeRow ? rows.indexOf(activeRow) : -1;
         const next =
@@ -173,7 +205,7 @@ export function AlertQueuePage({
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onNavigate, selected, status]);
+  }, [appliedPriority, appliedQuery, onNavigate, selected, status]);
   useEffect(() => {
     const id = decodeURIComponent(path.split('/alerts/')[1]?.split('?')[0] ?? '');
     if (!id) return;
@@ -228,51 +260,96 @@ export function AlertQueuePage({
     onNavigate(`/incidents/${encodeURIComponent(result.data.incident.id)}`);
   }
 
-  const visible = items.filter(
-    (item) =>
-      !query ||
-      `${item.title} ${item.id} ${item.assigneeId ?? ''}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-  );
+  const visible = items;
+
+  function listPath(
+    nextStatus: 'open' | AlertStatus,
+    nextQuery = appliedQuery,
+    nextPriority = appliedPriority,
+  ): string {
+    const params = new URLSearchParams({ status: nextStatus });
+    if (nextQuery) params.set('q', nextQuery);
+    if (nextPriority) params.set('priority', nextPriority);
+    return `/alerts?${params.toString()}`;
+  }
 
   return (
     <div className="soc-page">
       <Header updated={updated} onRefresh={() => void load()} />
-      <div className="soc-tabs" role="tablist" aria-label="Estado de las alertas">
+      <div className="soc-tabs" role="group" aria-label="Filtrar alertas por estado">
         {statuses.map((entry) => (
           <button
             key={entry.value}
             type="button"
-            role="tab"
-            aria-selected={status === entry.value}
+            aria-pressed={status === entry.value}
             className={status === entry.value ? 'is-active' : ''}
             onClick={() => {
               setStatus(entry.value);
               setSelected(null);
-              onNavigate(`/alerts?status=${entry.value}`);
+              onNavigate(listPath(entry.value));
             }}
           >
             {entry.label}
           </button>
         ))}
       </div>
-      <div className="soc-filter-bar">
+      <form
+        className="soc-filter-bar"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const normalized = query.trim();
+          setAppliedPriority(priority);
+          setAppliedQuery(normalized);
+          setSelected(null);
+          onNavigate(listPath(status, normalized, priority));
+        }}
+      >
         <label className="soc-search-field">
           <SocIcon name="search" />
-          <span className="visually-hidden">Filtrar título o responsable</span>
+          <span className="visually-hidden">Buscar alertas por título, ID o responsable</span>
           <input
             ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Filtrar título o responsable"
+            placeholder="Buscar alertas por título, ID o responsable"
           />
           <kbd>/</kbd>
         </label>
+        <label className="soc-priority-filter">
+          Prioridad
+          <select
+            value={priority}
+            onChange={(event) => setPriority(event.target.value as '' | AlertPriority)}
+          >
+            <option value="">Todas</option>
+            <option value="P1">P1 · Crítica</option>
+            <option value="P2">P2 · Alta</option>
+            <option value="P3">P3 · Media</option>
+            <option value="P4">P4 · Baja</option>
+          </select>
+        </label>
+        <Button type="submit" variant="primary" disabled={loading}>
+          Buscar
+        </Button>
+        {appliedQuery || appliedPriority ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setQuery('');
+              setAppliedQuery('');
+              setPriority('');
+              setAppliedPriority('');
+              onNavigate(listPath(status, '', ''));
+            }}
+          >
+            Limpiar búsqueda
+          </Button>
+        ) : null}
         <span className="soc-page-note">
-          La búsqueda se aplica a la página cargada · j / k para recorrer.
+          Busca en toda la cola autorizada · j / k para recorrer.
         </span>
-      </div>
+      </form>
       {error && !selected ? <ErrorState error={error} onRetry={() => void load()} /> : null}
       <div className={`soc-table-panel${selected ? ' soc-table-panel--with-drawer' : ''}`}>
         <div className="soc-table-scroll">
@@ -291,26 +368,23 @@ export function AlertQueuePage({
               {visible.map((alert) => (
                 <tr
                   key={alert.id}
-                  tabIndex={0}
                   data-alert-id={alert.id}
                   className={`soc-alert-row${selected?.id === alert.id ? ' is-selected' : ''}`}
-                  aria-selected={selected?.id === alert.id}
-                  onClick={() => {
-                    setSelected(alert);
-                    onNavigate(`/alerts/${encodeURIComponent(alert.id)}`);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      setSelected(alert);
-                      onNavigate(`/alerts/${encodeURIComponent(alert.id)}`);
-                    }
-                  }}
                 >
                   <td>
                     <Severity value={alert.priority} score={alert.score} />
                   </td>
                   <td>
-                    <strong>{alert.title}</strong>
+                    <button
+                      className="soc-row-link"
+                      type="button"
+                      onClick={() => {
+                        setSelected(alert);
+                        onNavigate(`/alerts/${encodeURIComponent(alert.id)}`);
+                      }}
+                    >
+                      {alert.title}
+                    </button>
                     <small>{alert.id.slice(0, 8)}…</small>
                   </td>
                   <td>
@@ -356,15 +430,24 @@ export function AlertQueuePage({
         ) : null}
         {!loading && visible.length === 0 && !error ? (
           <EmptyState>
-            {query
-              ? 'Ninguna alerta coincide con el filtro de esta página.'
-              : 'No hay alertas en este estado.'}
+            {appliedQuery
+              ? 'No hay alertas que coincidan con la búsqueda. Revisa el término o limpia el filtro.'
+              : 'No hay alertas para este estado.'}
           </EmptyState>
         ) : null}
-        {cursor ? (
+        {items.length > 0 ? (
           <div className="soc-table-footer">
-            <Button onClick={() => void load(status, cursor)}>Cargar más</Button>
-            <span>Se muestran {items.length} alertas recibidas.</span>
+            {cursor ? (
+              <Button
+                onClick={() => void load(status, cursor, appliedQuery, appliedPriority)}
+                disabled={loading}
+              >
+                Cargar más
+              </Button>
+            ) : null}
+            <span>
+              Mostrando {items.length} de {totalCount} alertas.
+            </span>
           </div>
         ) : null}
       </div>
@@ -376,7 +459,7 @@ export function AlertQueuePage({
           busy={busy}
           onClose={() => {
             setSelected(null);
-            onNavigate(`/alerts?status=${status}`);
+            onNavigate(listPath(status));
           }}
           onRetry={() => void load()}
           onCommand={execute}

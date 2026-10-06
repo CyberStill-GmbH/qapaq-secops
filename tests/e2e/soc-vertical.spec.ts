@@ -68,7 +68,7 @@ test('recorrido completo: evento controlado, promoción, triaje y auditoría', a
     .getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u })
     .first();
   await expect(alertRow).toBeVisible();
-  await alertRow.click();
+  await alertRow.getByRole('button', { name: /Acceso sospechoso desde Microsoft 365/u }).click();
   const drawer = page.getByRole('complementary', { name: /Detalle de alerta/u });
   await expect(drawer).toBeVisible();
   await expect(drawer.locator('.soc-drawer__status')).toContainText('Nueva');
@@ -89,6 +89,11 @@ test('recorrido completo: evento controlado, promoción, triaje y auditoría', a
   expect(audit.status()).toBe(404);
 
   await page.screenshot({ path: 'test-results/c21-triage.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: 'test-results/c21-triage-mobile.png', fullPage: true });
 });
 
 test('la repetición del mismo evento no duplica la alerta', async ({ page }) => {
@@ -111,6 +116,7 @@ test('el crudo se deniega por API, no por la interfaz', async ({ page }) => {
   await page
     .getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u })
     .first()
+    .getByRole('button', { name: /Acceso sospechoso desde Microsoft 365/u })
     .click();
   const drawer = page.getByRole('complementary', { name: /Detalle de alerta/u });
   await expect(drawer.getByText('Evento original', { exact: true })).toHaveCount(0);
@@ -128,6 +134,7 @@ test('el líder ve el crudo y el auditor verifica la cadena', async ({ page }) =
   await page
     .getByRole('row', { name: /Acceso sospechoso desde Microsoft 365/u })
     .first()
+    .getByRole('button', { name: /Acceso sospechoso desde Microsoft 365/u })
     .click();
 
   await expect(page.getByRole('complementary', { name: /Detalle de alerta/u })).toContainText(

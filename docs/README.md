@@ -64,7 +64,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Endurecimiento de acceso, secretos y stack Grafana OSS/Loki/Prometheus](architecture/security-access-observability-baseline.md).
 - [Control interno de logs SOC y análisis SBS](compliance/sbs-observability-rationale.md).
 - [Catálogo de errores](error-catalog.md).
-- [Diseño de frontend: dashboard por rol e inventario de componentes](frontend-design/README.md) — **propuesta**, no decisión aceptada.
+- [Diseño de frontend e inventario de componentes](frontend-design/README.md) — **propuesta**, no decisión aceptada; incluye la [evaluación de brechas UI/UX y administración SOC](frontend-design/09-evaluacion-frontend-soc.md).
 - [API Gateway KrakenD de proveedores](architecture/provider-api-gateway.md).
 - [Arquitectura cloud demo AWS y estado de despliegue](architecture/aws-demo.md).
 - [Terraform AWS demo: fase 1 de red y seguridad](deployment/aws-demo.md).

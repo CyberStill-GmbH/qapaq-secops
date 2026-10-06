@@ -36,6 +36,10 @@ describe('C-18 · capabilities por rol y scope', () => {
     expect([...capabilitiesForRoles(['qapaq.soc.analyst'])]).toContain('alerts.triage');
     expect([...capabilitiesForRoles(['qapaq.soc.analyst'])]).not.toContain('events.read_raw');
     expect([...capabilitiesForRoles(['qapaq.soc.lead'])]).toContain('incidents.close');
+    const administrator = capabilitiesForRoles(['qapaq.platform.admin']);
+    expect(administrator).toContain('alerts.triage');
+    expect(administrator).toContain('audit.read_sensitive');
+    expect(administrator).toContain('secrets.write');
   });
 
   it('no concede nada ante un rol desconocido', () => {

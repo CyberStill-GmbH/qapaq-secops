@@ -84,6 +84,8 @@ export class AuthController {
     if (!resolved.ok) throw new ApiError(resolved.reason, correlationId);
     return {
       subjectId: resolved.actor.subjectId,
+      displayName: resolved.session.displayName ?? null,
+      email: resolved.session.email ?? null,
       tenantId: resolved.actor.tenantId,
       roles: resolved.actor.roles,
       capabilities: [...resolved.actor.capabilities].sort(),

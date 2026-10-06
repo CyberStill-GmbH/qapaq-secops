@@ -23,7 +23,18 @@ export class AuditController {
   @Get('events')
   public async events(
     @Req() request: IncomingRequest,
-    @Query() query: { from?: string; to?: string; pageSize?: string; action?: string },
+    @Query()
+    query: {
+      from?: string;
+      to?: string;
+      pageSize?: string;
+      cursor?: string;
+      action?: string;
+      actorId?: string;
+      resourceType?: string;
+      resourceId?: string;
+      outcome?: string | string[];
+    },
   ) {
     const correlationId = correlationIdOf(request);
     const resolved = await this.runtime.resolveActor(sessionIdOf(request), originOf(request));
@@ -33,7 +44,14 @@ export class AuditController {
         ...(query.from === undefined ? {} : { from: query.from }),
         ...(query.to === undefined ? {} : { to: query.to }),
         ...(query.pageSize === undefined ? {} : { pageSize: Number(query.pageSize) }),
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
         ...(query.action === undefined ? {} : { action: query.action }),
+        ...(query.actorId === undefined ? {} : { actorId: query.actorId }),
+        ...(query.resourceType === undefined ? {} : { resourceType: query.resourceType }),
+        ...(query.resourceId === undefined ? {} : { resourceId: query.resourceId }),
+        ...(query.outcome === undefined
+          ? {}
+          : { outcome: Array.isArray(query.outcome) ? query.outcome : [query.outcome] }),
       },
       { tenantId: resolved.actor.tenantId, capabilities: resolved.actor.capabilities },
     );

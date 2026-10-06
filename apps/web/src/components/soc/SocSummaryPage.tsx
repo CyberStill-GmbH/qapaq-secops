@@ -28,7 +28,9 @@ export function SummaryPage({
   readonly onNavigate: (path: string) => void;
 }): React.JSX.Element {
   const [alerts, setAlerts] = useState<readonly AlertView[]>([]);
+  const [openAlertsCount, setOpenAlertsCount] = useState<number | null>(null);
   const [incidents, setIncidents] = useState<readonly IncidentView[]>([]);
+  const [activeIncidentsCount, setActiveIncidentsCount] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<readonly NotificationView[]>([]);
   const [integrity, setIntegrity] = useState<AuditIntegrityView | null>(null);
   const [activity, setActivity] = useState<readonly AuditEventView[]>([]);
@@ -42,16 +44,20 @@ export function SummaryPage({
     const tasks: Promise<void>[] = [];
     if (session.capabilities.includes('alerts.read'))
       tasks.push(
-        api.alertsByStatus().then((result) => {
-          if (result.ok) setAlerts(result.data.items);
-          else setErrors((value) => ({ ...value, alerts: result.error }));
+        api.alertsByStatus('open').then((result) => {
+          if (result.ok) {
+            setAlerts(result.data.items);
+            setOpenAlertsCount(result.data.totalCount ?? result.data.items.length);
+          } else setErrors((value) => ({ ...value, alerts: result.error }));
         }),
       );
     if (session.capabilities.includes('incidents.read'))
       tasks.push(
-        api.incidents().then((result) => {
-          if (result.ok) setIncidents(result.data.items);
-          else setErrors((value) => ({ ...value, incidents: result.error }));
+        api.incidents(undefined, 'active').then((result) => {
+          if (result.ok) {
+            setIncidents(result.data.items);
+            setActiveIncidentsCount(result.data.totalCount ?? result.data.items.length);
+          } else setErrors((value) => ({ ...value, incidents: result.error }));
         }),
       );
     if (session.capabilities.includes('notifications.read'))
@@ -92,7 +98,7 @@ export function SummaryPage({
     }, 15_000);
     return () => window.clearInterval(timer);
   }, [refresh]);
-  const openAlerts = alerts.filter((alert) => alert.status !== 'closed');
+  const openAlerts = alerts;
   const criticalNotAcked = notifications.filter((notification) =>
     ['sent', 'indeterminate', 'fallback'].includes(notification.status),
   );
@@ -133,7 +139,7 @@ export function SummaryPage({
       <div className="soc-summary-grid">
         {session.capabilities.includes('alerts.read') ? (
           <Panel
-            title="Alertas recientes"
+            title={`Alertas activas${openAlertsCount === null ? '' : ` · ${openAlertsCount}`}`}
             action={
               <button className="soc-text-link" onClick={() => onNavigate('/alerts')}>
                 Ver alertas <SocIcon name="arrow" size={14} />
@@ -160,13 +166,13 @@ export function SummaryPage({
                 ))}
               </div>
             ) : (
-              <EmptyState>No hay alertas en la página consultada.</EmptyState>
+              <EmptyState>No hay alertas activas en la consulta completa.</EmptyState>
             )}
           </Panel>
         ) : null}
         {session.capabilities.includes('notifications.read') ? (
           <Panel
-            title="Notificaciones pendientes de acuse"
+            title="Notificaciones pendientes · página consultada"
             action={
               <button className="soc-text-link" onClick={() => onNavigate('/notifications')}>
                 Ver notificaciones <SocIcon name="arrow" size={14} />
@@ -197,14 +203,14 @@ export function SummaryPage({
               </div>
             ) : (
               <EmptyState>
-                No hay notificaciones pendientes de acuse en la página consultada.
+                No hay notificaciones pendientes de acuse en las entregas consultadas.
               </EmptyState>
             )}
           </Panel>
         ) : null}
         {session.capabilities.includes('incidents.read') ? (
           <Panel
-            title="Incidentes activos"
+            title={`Incidentes activos${activeIncidentsCount === null ? '' : ` · ${activeIncidentsCount}`}`}
             action={
               <button className="soc-text-link" onClick={() => onNavigate('/incidents')}>
                 Ver incidentes <SocIcon name="arrow" size={14} />
@@ -215,27 +221,23 @@ export function SummaryPage({
               <ErrorState error={errors.incidents} onRetry={() => void refresh()} />
             ) : loading ? (
               <div className="soc-table-placeholder">Cargando incidentes…</div>
-            ) : incidents.filter((incident) => !['resolved', 'closed'].includes(incident.status))
-                .length ? (
+            ) : incidents.length ? (
               <div className="soc-compact-list">
-                {incidents
-                  .filter((incident) => !['resolved', 'closed'].includes(incident.status))
-                  .slice(0, 5)
-                  .map((incident) => (
-                    <button
-                      key={incident.id}
-                      type="button"
-                      onClick={() => onNavigate(`/incidents/${encodeURIComponent(incident.id)}`)}
-                    >
-                      <Severity value={incident.severity} />
-                      <strong>{incident.title}</strong>
-                      <StateCell value={incident.status} />
-                      <RelativeTime value={incident.openedAt} />
-                    </button>
-                  ))}
+                {incidents.slice(0, 5).map((incident) => (
+                  <button
+                    key={incident.id}
+                    type="button"
+                    onClick={() => onNavigate(`/incidents/${encodeURIComponent(incident.id)}`)}
+                  >
+                    <Severity value={incident.severity} />
+                    <strong>{incident.title}</strong>
+                    <StateCell value={incident.status} />
+                    <RelativeTime value={incident.openedAt} />
+                  </button>
+                ))}
               </div>
             ) : (
-              <EmptyState>No hay incidentes activos en la página consultada.</EmptyState>
+              <EmptyState>No hay incidentes activos en la consulta completa.</EmptyState>
             )}
           </Panel>
         ) : null}

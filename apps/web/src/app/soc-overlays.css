@@ -125,7 +125,7 @@
 .soc-actions textarea,
 .soc-filter-bar input,
 .soc-filter-bar select {
-  min-height: 36px;
+  min-height: 40px;
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--border-control);

@@ -147,12 +147,15 @@ export function SocIcon({
 export function Button({
   children,
   variant = 'secondary',
+  buttonRef,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  readonly buttonRef?: React.Ref<HTMLButtonElement>;
 }): React.JSX.Element {
   return (
     <button
+      ref={buttonRef}
       {...props}
       className={`soc-button soc-button--${variant}${props.className ? ` ${props.className}` : ''}`}
     >

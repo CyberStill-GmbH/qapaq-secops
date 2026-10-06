@@ -64,6 +64,10 @@ export function SessionPage({
           <h2>Identidad institucional</h2>
         </header>
         <dl className="soc-description-list">
+          <dt>Nombre</dt>
+          <dd>{session.displayName || 'No informado por la identidad institucional'}</dd>
+          <dt>Correo</dt>
+          <dd>{session.email || 'No informado por la identidad institucional'}</dd>
           <dt>Identificador</dt>
           <dd>
             <code>{session.subjectId}</code>

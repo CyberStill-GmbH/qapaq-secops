@@ -469,6 +469,14 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
       status: 'open',
       severity: 'critical',
     });
+    const incidentId = (JSON.parse(incident.body) as { incident: { id: string } }).incident.id;
+    const incidentDetail = await server().inject({
+      method: 'GET',
+      url: `/api/incidents/${encodeURIComponent(incidentId)}`,
+      headers: { cookie: lead.cookie },
+      remoteAddress: OFFICE_IP,
+    });
+    expect(JSON.parse(incidentDetail.body).incident).toMatchObject({ id: incidentId });
   });
 
   it('devuelve conflicto ante una revisión obsoleta', async () => {
@@ -924,6 +932,7 @@ describe('B-02 · paginación por cursor de los listados', () => {
 
     expect(body.items).toHaveLength(1);
     expect(body.nextCursor).toBeNull();
+    expect(body.totalCount).toBe(1);
   });
 
   it.each(['0', '201', 'abc', '-1', '1.5'])(
@@ -975,5 +984,42 @@ describe('B-02 · paginación por cursor de los listados', () => {
 
     expect(JSON.parse(incidents.body)).toMatchObject({ items: [], nextCursor: null });
     expect(notifications.statusCode).toBe(422);
+  });
+
+  it('busca alertas en todo el conjunto y liga el cursor al término', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c251');
+    await ingest('01890f47-7abc-7def-8abc-00000000c252');
+    const analyst = await signIn('analista@qapaq.pe');
+    const firstResponse = await listAlerts(analyst.cookie, '?q=Acceso+sospechoso&pageSize=1');
+    const first = JSON.parse(firstResponse.body) as {
+      items: { title: string }[];
+      nextCursor: string;
+      totalCount: number;
+    };
+
+    expect(first.totalCount).toBe(2);
+    expect(first.items[0]?.title).toContain('Acceso sospechoso');
+    expect(first.nextCursor).toBeTruthy();
+
+    const pageTwo = await listAlerts(
+      analyst.cookie,
+      `?q=Acceso+sospechoso&pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
+    );
+    expect(JSON.parse(pageTwo.body).items).toHaveLength(1);
+
+    const changedFilter = await listAlerts(
+      analyst.cookie,
+      `?q=otro&pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
+    );
+    expect(changedFilter.statusCode).toBe(422);
+    expect(JSON.parse(changedFilter.body).fields).toContain('cursor');
+  });
+
+  it('limita la longitud de búsqueda del servidor', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const response = await listAlerts(analyst.cookie, `?q=${'a'.repeat(121)}`);
+
+    expect(response.statusCode).toBe(422);
+    expect(JSON.parse(response.body).fields).toEqual(['q']);
   });
 });

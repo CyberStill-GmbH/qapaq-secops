@@ -38,6 +38,8 @@ export type SessionRevocationReason = (typeof SESSION_REVOCATION_REASONS)[number
 export interface Session {
   readonly id: string;
   readonly subjectId: string;
+  readonly displayName?: string;
+  readonly email?: string;
   readonly tenantId: string;
   readonly state: SessionState;
   readonly roles: readonly string[];
@@ -57,6 +59,8 @@ export interface Session {
 
 export interface OpenSessionInput {
   readonly subjectId: string;
+  readonly displayName?: string;
+  readonly email?: string;
   readonly tenantId: string;
   readonly roles: readonly string[];
   readonly scopes: readonly string[];
@@ -85,6 +89,8 @@ export function openSession(
   const session: Session = {
     id: newSessionId(randomSource),
     subjectId: input.subjectId,
+    ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
+    ...(input.email === undefined ? {} : { email: input.email }),
     tenantId: input.tenantId,
     state: 'active',
     roles: [...input.roles],

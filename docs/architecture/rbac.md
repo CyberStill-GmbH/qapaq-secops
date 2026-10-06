@@ -19,7 +19,10 @@ Evaluación: identidad activa → asignaciones vigentes → capabilities explíc
 scope del recurso → restricciones de campo/estado → decisión. Deny por defecto.
 Múltiples roles aportan unión de grants válidos dentro de sus scopes; prohibiciones
 globales (suspensión, hold, segregación) prevalecen. No inferir jerarquías por nombre
-ni usar wildcard * persistente para administradores.
+ni usar wildcard * persistente para administradores. Desde la actualización
+operativa de 2026-10-06, `qapaq.platform.admin` recibe la unión explícita de
+todas las capabilities SOC registradas actualmente en el runtime. Es una lista
+finita y probada, no una herencia automática de capabilities futuras.
 
 ## Catálogo por concretar
 
@@ -47,7 +50,7 @@ Cada endpoint declarará un conjunto con semántica allOf/anyOf explícita.
 - DETECTION_ENGINEER: diseño/prueba/versionado de reglas; publicación crítica revisada.
 - AUDITOR: audit.read y reportes aprobados; exports requieren permiso explícito y propósito; sin mutaciones SOC.
 - VIEWER: lectura de vistas/alertas permitidas; sin raw, secrets, exports ni administración.
-- PLATFORM_ADMIN: salud, configuración técnica permitida y operación; no obtiene lectura de evidencia ni roles.manage automáticamente.
+- PLATFORM_ADMIN: recibe las capabilities SOC actualmente registradas, incluidas las de auditoría sensible y escritura de secretos; no obtiene capabilities futuras, administración de usuarios/roles ni control de identidad hasta que se implementen y autoricen explícitamente.
 - ACCESS_ADMIN: grants, scopes, suspensión y sesiones; no puede autoasignarse ni aprobar solo privilegios.
 
 Son bundles aceptados; cada capability y endpoint requiere matriz y prueba antes

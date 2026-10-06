@@ -156,7 +156,7 @@ desconocido no concede nada.
 | `qapaq.soc.analyst` | `events.read`, `alerts.read`, `alerts.triage`, `alerts.assign`, `incidents.read`, `incidents.write`, `notifications.read` |
 | `qapaq.soc.lead` | lo anterior + `events.read_raw`, `incidents.close`, `audit.read` |
 | `qapaq.auditor` | `audit.read`, `audit.read_sensitive`, `audit.verify`, `incidents.read` |
-| `qapaq.platform.admin` | `audit.read`, `audit.verify` (`secrets.write` no se vuelve efectiva: ningún scope la incluye) |
+| `qapaq.platform.admin` | Unión explícita de las capabilities SOC actuales, incluidas auditoría sensible y escritura de secretos; lista finita, no incluye futuras capabilities ni administración de identidades. |
 
 **La interfaz decide por capability, nunca por rol.** El rol se muestra en el
 perfil; no se usa en un `if`.
@@ -165,7 +165,7 @@ Consecuencias de diseño directas:
 
 - El **auditor no ve alertas** (`alerts.read` ausente): su navegación no tiene
   "Alertas".
-- El **administrador de plataforma** solo tiene auditoría hoy: su consola es
+- El **administrador de plataforma** recibe las capabilities SOC actuales: su consola es
   "Auditoría" y "Mi sesión". No se rellena con pantallas vacías.
 - `events.read` existe pero **ninguna ruta lo usa**: la búsqueda de eventos es
   nivel DOMINIO.

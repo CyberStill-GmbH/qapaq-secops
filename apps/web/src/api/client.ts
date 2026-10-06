@@ -79,6 +79,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
 export interface SessionView {
   readonly subjectId: string;
+  readonly displayName?: string | null;
+  readonly email?: string | null;
   readonly tenantId: string;
   readonly roles: readonly string[];
   readonly capabilities: readonly string[];
@@ -89,6 +91,7 @@ export interface SessionView {
 export interface Page<T> {
   readonly items: readonly T[];
   readonly nextCursor: string | null;
+  readonly totalCount?: number;
 }
 
 export interface AlertView {
@@ -185,10 +188,17 @@ export const api = {
       cursor ? `/api/alerts?cursor=${encodeURIComponent(cursor)}` : '/api/alerts',
     ),
   alert: (id: string) => apiFetch<{ alert: AlertView }>(`/api/alerts/${encodeURIComponent(id)}`),
-  alertsByStatus: (status?: AlertStatus, cursor?: string) => {
+  alertsByStatus: (
+    status?: 'open' | AlertStatus,
+    cursor?: string,
+    search?: string,
+    priority?: 'P1' | 'P2' | 'P3' | 'P4',
+  ) => {
     const query = new URLSearchParams({ pageSize: '50' });
     if (status) query.set('status', status);
     if (cursor) query.set('cursor', cursor);
+    if (search?.trim()) query.set('q', search.trim());
+    if (priority) query.set('priority', priority);
     return apiFetch<Page<AlertView>>(`/api/alerts?${query.toString()}`);
   },
   command: (id: string, body: Record<string, unknown>) =>
@@ -196,9 +206,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  incidents: (cursor?: string) => {
+  incident: (id: string) =>
+    apiFetch<{ incident: IncidentView }>(`/api/incidents/${encodeURIComponent(id)}`),
+  incidents: (cursor?: string, status?: string, search?: string) => {
     const query = new URLSearchParams({ pageSize: '50' });
     if (cursor) query.set('cursor', cursor);
+    if (status) query.set('status', status);
+    if (search?.trim()) query.set('q', search.trim());
     return apiFetch<Page<IncidentView>>(`/api/incidents?${query.toString()}`);
   },
   createIncident: (body: {

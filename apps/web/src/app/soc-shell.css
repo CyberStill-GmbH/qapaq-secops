@@ -29,6 +29,14 @@
   --motion-base: 160ms;
   --motion-panel: 220ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
   --rail-width: 232px;
 }
 
@@ -121,7 +129,6 @@ body:has(.soc-app) {
   padding: 12px 12px 10px;
   border-right: 1px solid var(--border-default);
   background: var(--surface-rail);
-  transition: width var(--motion-panel) var(--ease-out);
 }
 .soc-brand {
   display: flex;

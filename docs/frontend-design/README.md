@@ -26,6 +26,7 @@ no coinciden con el código.
 | 06 | [Patrones de interacción](06-patrones-de-interaccion.md) | ¿Cómo se comporta? Autorización, estados de datos, errores, concurrencia, confirmación, código de estilos |
 | 07 | [Accesibilidad y calidad](07-accesibilidad-y-calidad.md) | ¿Cuándo está bien hecho? WCAG, rendimiento, navegadores, lista de revisión, pruebas |
 | 08 | [Brechas y decisiones](08-brechas-y-decisiones.md) | ¿Qué falta en el backend y qué contradicciones hay que cerrar? |
+| 09 | [Evaluación del frontend SOC](09-evaluacion-frontend-soc.md) | ¿Qué falencias tiene la implementación actual y qué hace falta para una consola SOC y administración operativas? |
 
 Orden de lectura para quien construye: 01 → 06 → 04 → 05. Para quien diseña:
 02 → 03 → 04.

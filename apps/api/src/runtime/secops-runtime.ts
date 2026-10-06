@@ -376,6 +376,8 @@ export class SecOpsRuntime {
     const plan = openSession(
       {
         subjectId: claims!.sub,
+        ...(claims!.name ? { displayName: claims!.name } : {}),
+        ...(claims!.preferred_username ? { email: claims!.preferred_username } : {}),
         tenantId: this.tenantId,
         roles,
         scopes: [...this.options.access.scopes],

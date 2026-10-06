@@ -17,6 +17,7 @@ import {
   executeAlertCommand,
   executeIncidentCommand,
   openIncidentFromAlert,
+  INCIDENT_STATUSES,
   type Alert,
   type Incident,
   type TriageVerdict,
@@ -71,26 +72,53 @@ export class SocController {
   @Get('alerts')
   public async alerts(
     @Req() request: IncomingRequest,
-    @Query() query: PageQuery & { status?: string },
+    @Query() query: PageQuery & { status?: string; q?: string; priority?: string },
   ) {
     const { actor, correlationId } = await readingActor(this.runtime, request);
     if (!actor.capabilities.has('alerts.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
+    const search = (query.q ?? '').trim().toLocaleLowerCase();
+    if (search.length > 120) throw new ApiError('VALIDATION_FAILED', correlationId, ['q']);
+    if (
+      query.status &&
+      query.status !== 'active' &&
+      !INCIDENT_STATUSES.includes(query.status as (typeof INCIDENT_STATUSES)[number])
+    ) {
+      throw new ApiError('VALIDATION_FAILED', correlationId, ['status']);
+    }
+    if (query.priority && !['P1', 'P2', 'P3', 'P4'].includes(query.priority)) {
+      throw new ApiError('VALIDATION_FAILED', correlationId, ['priority']);
+    }
     const alerts = [...this.runtime.soc.alertRows.values()]
       .filter((alert) => alert.tenantId === actor.tenantId)
-      .filter((alert) => !query.status || alert.status === query.status);
+      .filter((alert) =>
+        query.status === 'open'
+          ? alert.status !== 'closed'
+          : !query.status || alert.status === query.status,
+      )
+      .filter(
+        (alert) =>
+          !search ||
+          `${alert.title} ${alert.id} ${alert.assigneeId ?? ''}`
+            .toLocaleLowerCase()
+            .includes(search),
+      );
+    const filteredAlerts = alerts.filter(
+      (alert) => !query.priority || alert.priority === query.priority,
+    );
     const page = paginate(
-      alerts,
+      filteredAlerts,
       (alert) => ({ at: alert.occurredAt.getTime(), id: alert.id }),
       query,
-      `alerts:status=${query.status ?? ''}`,
+      `alerts:status=${query.status ?? ''}:q=${search}:priority=${query.priority ?? ''}`,
       correlationId,
     );
     return {
       correlationId,
       items: page.items.map((alert) => alertView(alert, actor.capabilities)),
       nextCursor: page.nextCursor,
+      totalCount: filteredAlerts.length,
     };
   }
 
@@ -182,22 +210,54 @@ export class SocController {
     return { correlationId, incident: incidentView(result.value) };
   }
 
+  @Get('incidents/:id')
+  public async incident(@Req() request: IncomingRequest, @Param('id') id: string) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
+    const incident = this.runtime.soc.incidentRows.get(`${actor.tenantId}|${id}`);
+    if (!incident || !actor.capabilities.has('incidents.read')) {
+      throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
+    }
+    return { correlationId, incident: incidentView(incident) };
+  }
+
   @Get('incidents')
-  public async incidents(@Req() request: IncomingRequest, @Query() query: PageQuery) {
+  public async incidents(
+    @Req() request: IncomingRequest,
+    @Query() query: PageQuery & { status?: string; q?: string },
+  ) {
     const { actor, correlationId } = await readingActor(this.runtime, request);
     if (!actor.capabilities.has('incidents.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
+    const search = (query.q ?? '').trim().toLocaleLowerCase();
+    if (search.length > 120) throw new ApiError('VALIDATION_FAILED', correlationId, ['q']);
+    const incidents = [...this.runtime.soc.incidentRows.values()]
+      .filter((incident) => incident.tenantId === actor.tenantId)
+      .filter((incident) => {
+        if (query.status === 'active') return !['resolved', 'closed'].includes(incident.status);
+        if (query.status) return incident.status === query.status;
+        return true;
+      })
+      .filter(
+        (incident) =>
+          !search ||
+          `${incident.title} ${incident.id} ${incident.ownerId} ${incident.summary}`
+            .toLocaleLowerCase()
+            .includes(search),
+      );
     const page = paginate(
-      [...this.runtime.soc.incidentRows.values()].filter(
-        (incident) => incident.tenantId === actor.tenantId,
-      ),
+      incidents,
       (incident) => ({ at: incident.openedAt.getTime(), id: incident.id }),
       query,
-      'incidents',
+      `incidents:status=${query.status ?? ''}:q=${search}`,
       correlationId,
     );
-    return { correlationId, items: page.items.map(incidentView), nextCursor: page.nextCursor };
+    return {
+      correlationId,
+      items: page.items.map(incidentView),
+      nextCursor: page.nextCursor,
+      totalCount: incidents.length,
+    };
   }
 
   @Post('incidents/:id/commands')
