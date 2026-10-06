@@ -40,6 +40,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 21. [Catálogo de errores para usuarios y soporte](error-catalog.md).
 22. [KrakenD on-premises y admisión antes de BullMQ](architecture/provider-api-gateway.md).
 23. [Arquitectura cloud demo AWS, estado real, tradeoffs y fuentes](architecture/aws-demo.md).
+24. [Operación DevOps, secretos externos y retiro del demo](operations/devops-secrets-and-teardown.md).
 
 ## Diseño
 

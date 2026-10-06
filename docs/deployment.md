@@ -1,25 +1,30 @@
 # Operación y entrega de software
 
-Estado: infraestructura PROPOSAL; continuidad CONDITIONALLY ACCEPTED por ADR-020;
-CI/release/despliegue CONDITIONALLY ACCEPTED por ADR-023. La
-[arquitectura cloud demo](architecture/aws-demo.md) describe el target y distingue
-lo planificado de lo comprobado.
+Estado observado el 6 de octubre de 2026: CI/release y plan Terraform pasan en
+GitHub Actions, pero no hay apply reciente acreditando Fases 3–5. El último run
+de Terraform [#19](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37418984196)
+propuso 44 altas, 0 cambios y 0 bajas; el paso Apply quedó omitido. Por eso este
+checkout no demuestra si recursos declarados en ejecuciones anteriores siguen en
+AWS. La [arquitectura cloud demo](architecture/aws-demo.md) documenta target,
+tradeoffs y los gates de cada fase.
 
-El repositorio contiene un bootstrap Terraform de demo bajo `infra/aws` y un
-workflow manual `Terraform Demo`. El run verificado autentica por OIDC desde
-`main`, inicializa el backend S3, valida y ejecuta `plan`; no crea recursos de
-aplicación ni ejecuta `apply`. No hay VPC, ALB, ECS, RDS, Redis, bucket de
-artefactos ni EC2 de Wazuh provisionados por ese Terraform. La pila descrita en el
-diagrama permanece PROPOSAL.
+El workflow `Terraform Demo` usa OIDC y un backend S3 remoto. El bucket de state
+es bootstrap externo a este stack. Para afirmar que AWS quedó vacío se debe
+ejecutar un plan de destrucción sobre el state remoto vigente y auditar recursos
+fuera del state; no basta con observar un plan sin cambios o con altas.
+El [runbook DevOps](operations/devops-secrets-and-teardown.md) registra el
+estado observado de Vercel, los límites de secretos, la autorización Microsoft
+365 y el procedimiento de retiro.
 
 ## Responsabilidades
 
 Desarrollo entrega artefactos versionados, migraciones, contratos, configuración
 documentada, health y runbooks. Infraestructura provisiona compute/red, stores,
 certificados, llaves, IdP técnico, backups y egress. Seguridad define/valida
-políticas; SOC acuerda prioridades y continuidad. Terraform actualmente solo
-comprueba la identidad AWS y el acceso al backend remoto; el aprovisionamiento
-requiere módulos/configuración, permisos mínimos y gates específicos.
+políticas; SOC acuerda prioridades y continuidad. Terraform contiene módulos
+para red, security groups, foundations y runtime, y usa un backend remoto. El
+state vigente y el destino real deben comprobarse con OIDC antes de aplicar o
+retirar recursos.
 
 La unidad de producto es el monolito modular. API y runner pueden ejecutarse
 separados con el mismo release para aislar carga; número de instancias y HA dependen
