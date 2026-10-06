@@ -90,8 +90,22 @@ sesión de Wazuh obligatorio. Todavía no está activa: el despliegue AWS actual
 instala Wazuh ni el Dashboard, y el piloto de Wazuh en Railway fue eliminado.
 `https://api.qapaq.secops.com` es el gateway/API de QAPAQ, no el Dashboard.
 Terraform tampoco puede publicar aún el hostname del API: la cuenta AWS
-`955200662475` no tiene la zona pública Route 53 `qapaq.secops.com`; se debe
-resolver la delegación DNS antes de solicitar el certificado y crear los alias.
+`955200662475` no tenía la zona pública Route 53 `qapaq.secops.com`. La zona se
+creó en `us-east-1` (ID `Z0272614GRQWIB80KR5J`), pero la cuenta no contiene una
+zona padre pública `secops.com`; aún hay que delegar este subdominio en el DNS
+externo del dominio. En el proveedor DNS del dominio raíz, crea el registro
+delegado `qapaq.secops.com` de tipo `NS` con estos cuatro valores:
+
+```text
+ns-1045.awsdns-02.org.
+ns-1638.awsdns-12.co.uk.
+ns-456.awsdns-57.com.
+ns-692.awsdns-22.net.
+```
+
+Después de propagarse la delegación, Terraform puede validar el certificado ACM
+y crear el alias público del API. Hasta entonces `api.qapaq.secops.com` seguirá
+sin resolver.
 
 ## Estado y referencias del proyecto
 
