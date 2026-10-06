@@ -340,9 +340,7 @@ resource "aws_ecs_service" "api" {
   }
 
   service_registries {
-    registry_arn   = aws_service_discovery_service.api.arn
-    container_name = "api"
-    container_port = 3000
+    registry_arn = aws_service_discovery_service.api.arn
   }
 
   deployment_circuit_breaker {
