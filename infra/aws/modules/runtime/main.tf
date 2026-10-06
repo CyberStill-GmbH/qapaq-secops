@@ -196,8 +196,8 @@ resource "aws_service_discovery_service" "api" {
   tags = { Project = var.project, Environment = var.environment }
 }
 
-# trivy:ignore:AVD-AWS-0053 — El ALB público es el punto de entrada requerido para esta demo.
-# Retirar esta excepción cuando el tráfico de entrada pase por un origen privado.
+# El ALB público es el punto de entrada requerido para esta demo; retirar al migrar a origen privado.
+#trivy:ignore:AWS-0053
 resource "aws_lb" "this" {
   name                       = "${var.project}-${var.environment}-alb"
   internal                   = false
@@ -232,8 +232,8 @@ resource "aws_lb_target_group" "krakend" {
   tags = { Project = var.project, Environment = var.environment, Service = "krakend" }
 }
 
-# trivy:ignore:AVD-AWS-0054 — Listener HTTP temporal solicitado mientras no haya dominio/certificado ACM.
-# No transportar sesiones ni credenciales reales hasta sustituirlo por HTTPS.
+# HTTP es temporal mientras no haya dominio/certificado ACM; no transportar sesiones ni credenciales reales.
+#trivy:ignore:AWS-0054
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
