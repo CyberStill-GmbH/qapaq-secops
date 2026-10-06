@@ -235,10 +235,10 @@ Trivy HIGH/CRITICAL dio código de salida 0 para API, Worker y KrakenD. El artif
 El worker sigue siendo una imagen que inicia correctamente pero permanece en
 espera; todavía no consume BullMQ.
 
-| Imagen | URI ECR | Tag | Digest |
-| --- | --- | --- | --- |
-| API | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-api` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068` |
-| Worker | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-worker` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624` |
+| Imagen  | URI ECR                                                             | Tag                                            | Digest                                                                    |
+| ------- | ------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| API     | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-api`     | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068` |
+| Worker  | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-worker`  | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624` |
 | KrakenD | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-krakend` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460` |
 
 El job recuperó cada digest por `ecr:BatchGetImage`, confirmó que el tag
