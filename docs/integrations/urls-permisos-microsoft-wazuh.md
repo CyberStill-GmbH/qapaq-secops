@@ -84,13 +84,14 @@ Dashboard por HTTPS en el puerto 443 del host Docker. En ese host, abre
 expongas ese puerto a Internet. El certificado local es propio del stack y el
 navegador puede avisar que no es de confianza.
 
-**AWS:** no hay URL pública del Dashboard que entregar. El despliegue AWS actual
-no instala Wazuh ni el Dashboard; el Security Group administrativo permanece
-cerrado (`allowed_admin_cidrs = []`). El piloto de Wazuh en Railway fue eliminado
-y no dejó un endpoint activo. El hostname `https://api.qapaq.secops.com` es el
-gateway/API de QAPAQ y no es el Dashboard. Cuando se despliegue Wazuh, publicar
-el Dashboard detrás de acceso privado o de una allowlist administrativa y añadir
-su URL aquí; no reutilizar el ALB de QAPAQ como si ya alojara Wazuh.
+**AWS:** la URL pública solicitada para el Dashboard será
+[`https://wazuh.qapaq.secops.com`](https://wazuh.qapaq.secops.com), con inicio de
+sesión de Wazuh obligatorio. Todavía no está activa: el despliegue AWS actual no
+instala Wazuh ni el Dashboard, y el piloto de Wazuh en Railway fue eliminado.
+`https://api.qapaq.secops.com` es el gateway/API de QAPAQ, no el Dashboard.
+Terraform tampoco puede publicar aún el hostname del API: la cuenta AWS
+`955200662475` no tiene la zona pública Route 53 `qapaq.secops.com`; se debe
+resolver la delegación DNS antes de solicitar el certificado y crear los alias.
 
 ## Estado y referencias del proyecto
 

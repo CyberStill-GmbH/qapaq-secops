@@ -1,14 +1,18 @@
-data "aws_route53_zone" "public_api" {
+resource "aws_route53_zone" "public_api" {
   count = var.enable_https ? 1 : 0
 
-  name         = local.public_route53_zone_lookup_name
-  private_zone = false
+  name = local.public_route53_zone_name
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+    Purpose     = "public-dns"
+  }
 }
 
 locals {
-  public_route53_zone_lookup_name = var.enable_https && var.public_route53_zone_name != null ? "${trimsuffix(lower(var.public_route53_zone_name), ".")}." : null
-  public_route53_zone_name        = var.enable_https && var.public_route53_zone_name != null ? trimsuffix(lower(var.public_route53_zone_name), ".") : ""
-  public_api_hostname             = var.enable_https && var.public_api_hostname != null ? lower(var.public_api_hostname) : ""
+  public_route53_zone_name = var.enable_https && var.public_route53_zone_name != null ? trimsuffix(lower(var.public_route53_zone_name), ".") : ""
+  public_api_hostname      = var.enable_https && var.public_api_hostname != null ? lower(var.public_api_hostname) : ""
   public_api_hostname_in_zone = var.enable_https ? (
     local.public_api_hostname == local.public_route53_zone_name ||
     endswith(local.public_api_hostname, ".${local.public_route53_zone_name}")
@@ -46,7 +50,7 @@ resource "aws_route53_record" "acm_validation" {
     }
   } : {}
 
-  zone_id         = data.aws_route53_zone.public_api[0].zone_id
+  zone_id         = aws_route53_zone.public_api[0].zone_id
   name            = each.value.name
   type            = each.value.type
   records         = [each.value.record]
@@ -66,7 +70,7 @@ resource "aws_acm_certificate_validation" "public_api" {
 resource "aws_route53_record" "public_api" {
   count = var.enable_https ? 1 : 0
 
-  zone_id = data.aws_route53_zone.public_api[0].zone_id
+  zone_id = aws_route53_zone.public_api[0].zone_id
   name    = var.public_api_hostname
   type    = "A"
 
@@ -80,4 +84,9 @@ resource "aws_route53_record" "public_api" {
 output "public_api_url" {
   description = "HTTPS URL routed by Route 53 to the public KrakenD ALB."
   value       = var.enable_https ? "https://${var.public_api_hostname}" : null
+}
+
+output "public_route53_zone_name_servers" {
+  description = "Delegate the public child zone at its parent DNS provider to these Route 53 name servers."
+  value       = var.enable_https ? aws_route53_zone.public_api[0].name_servers : []
 }

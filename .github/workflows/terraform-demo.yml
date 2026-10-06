@@ -18,6 +18,7 @@ on:
           - plan
           - apply
           - audit
+          - bootstrap-dns
 
 permissions:
   contents: read
@@ -64,11 +65,16 @@ jobs:
       - name: Terraform Validate
         run: terraform validate -no-color
 
+      - name: Terraform Plan (DNS zone bootstrap)
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
+        run: terraform plan -target=aws_route53_zone.public_api[0] -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
+
       - name: Terraform Plan
+        if: github.event_name != 'workflow_dispatch' || inputs.action != 'bootstrap-dns'
         run: terraform plan -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
 
       - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
         run: terraform apply -input=false -auto-approve -no-color tfplan
 
       - name: Audit Phase 2B resources and remote state
