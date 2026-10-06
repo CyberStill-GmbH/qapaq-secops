@@ -34,6 +34,14 @@ variable "security_group_ids" {
   type = map(string)
 }
 
+variable "enable_https" {
+  type = bool
+}
+
+variable "alb_certificate_arn" {
+  type = string
+}
+
 variable "image_digests" {
   description = "Immutable SHA-256 digests from the verified image manifest."
   type        = map(string)

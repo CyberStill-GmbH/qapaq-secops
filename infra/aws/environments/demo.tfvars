@@ -7,8 +7,11 @@ az_count    = 2
 # Empty means no inbound path to the Wazuh Dashboard.
 allowed_admin_cidrs = []
 
-# Phase 1 uses the temporary public HTTP ALB ingress only.
-enable_https = false
+# Public application traffic must terminate TLS at the ALB; Terraform requires
+# an ACM certificate ARN in this region before planning or applying.
+enable_https = true
+public_api_hostname    = "api.qapaq.secops.com"
+public_route53_zone_name = "qapaq.secops.com"
 
 # Phase 3: small, temporary data plane in isolated private data subnets.
 postgres_engine_version            = "18.6"

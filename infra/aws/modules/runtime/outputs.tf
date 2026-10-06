@@ -3,12 +3,17 @@ output "cluster_name" {
 }
 
 output "load_balancer_dns_name" {
-  description = "Public temporary HTTP demo endpoint; only KrakenD is registered."
+  description = "Public ALB hostname; HTTPS terminates at the ALB when enabled, and port 80 redirects to HTTPS."
   value       = aws_lb.this.dns_name
 }
 
 output "load_balancer_arn" {
   value = aws_lb.this.arn
+}
+
+output "load_balancer_zone_id" {
+  description = "Canonical Route 53 hosted zone ID of the public ALB, used for alias records."
+  value       = aws_lb.this.zone_id
 }
 
 output "private_api_hostname" {

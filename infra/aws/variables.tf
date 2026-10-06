@@ -125,9 +125,42 @@ variable "allowed_admin_cidrs" {
 }
 
 variable "enable_https" {
-  description = "Enable ALB HTTPS ingress. Listener and certificate resources are added in a later phase."
+  description = "Serve the ALB through an ACM certificate and redirect HTTP requests to HTTPS."
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "public_api_hostname" {
+  description = "Public DNS hostname for the application ALB, such as api.example.com."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_https || (
+      var.public_api_hostname != null &&
+      length(split(".", var.public_api_hostname)) >= 2 &&
+      can(regex("^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])$", var.public_api_hostname)) &&
+      !can(regex("\\.vercel\\.app$", var.public_api_hostname))
+    )
+    error_message = "HTTPS requires a public API hostname you control; Vercel's shared hostname cannot be used for this ACM certificate."
+  }
+}
+
+variable "public_route53_zone_name" {
+  description = "DNS name of the public Route 53 hosted zone that owns public_api_hostname."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = !var.enable_https || (
+      var.public_route53_zone_name != null &&
+      length(split(".", trimsuffix(var.public_route53_zone_name, "."))) >= 2 &&
+      can(regex("^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])\\.?$", var.public_route53_zone_name))
+    )
+    error_message = "HTTPS requires the DNS name of the public Route 53 zone for public_api_hostname."
+  }
 }
 
 variable "krakend_port" {

@@ -96,6 +96,8 @@ module "runtime" {
   app_subnet_ids                    = module.networking.app_subnet_ids
   app_route_table_id                = module.networking.app_route_table_id
   security_group_ids                = module.security.security_group_ids
+  enable_https                      = var.enable_https
+  alb_certificate_arn               = var.enable_https ? aws_acm_certificate_validation.public_api[0].certificate_arn : null
   image_digests                     = var.runtime_image_digests
   image_manifest_commit             = var.runtime_image_manifest_commit
   desired_counts                    = var.ecs_desired_counts
