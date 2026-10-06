@@ -56,14 +56,12 @@ for index, line in enumerate(password_lines):
 if not admin_password:
     raise RuntimeError('Wazuh admin password entry was not found in the installation archive')
 secret = json.dumps({'username': 'admin', 'password': admin_password})
-result = subprocess.run([
+subprocess.run([
     'aws', 'secretsmanager', 'put-secret-value',
     '--region', '${aws_region}',
     '--secret-id', '${admin_secret_arn}',
     '--secret-string', secret,
-], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-if result.returncode != 0:
-    raise RuntimeError('Could not synchronize Wazuh admin credential to Secrets Manager')
+], check=True, stdout=subprocess.DEVNULL)
 PY
 chmod 600 /root/wazuh-install-files.tar /var/log/wazuh-install.log
 rm -f /root/wazuh-install.sh
