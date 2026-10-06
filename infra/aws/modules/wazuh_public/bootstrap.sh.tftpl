@@ -27,7 +27,8 @@ unzip -q /tmp/awscliv2.zip -d /tmp
 /tmp/aws/install
 rm -rf /tmp/aws /tmp/awscliv2.zip
 
-curl -fsSLo /root/wazuh-install.sh "https://packages.wazuh.com/$${wazuh_version%.*}/wazuh-install.sh"
+WAZUH_VERSION='${wazuh_version}'
+curl -fsSLo /root/wazuh-install.sh "https://packages.wazuh.com/$${WAZUH_VERSION%.*}/wazuh-install.sh"
 bash /root/wazuh-install.sh -a > /var/log/wazuh-install.log 2>&1
 
 python3 - <<'PY'
