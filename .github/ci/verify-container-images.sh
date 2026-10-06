@@ -2,6 +2,7 @@
 set -euo pipefail
 
 bash .github/ci/install-scanner.sh trivy
+export PATH="$RUNNER_TEMP/scanners:$PATH"
 
 docker build --file apps/api/Dockerfile --tag qapaq-ci:api .
 test "$(docker run --rm qapaq-ci:api --version)" = v24.21.0
