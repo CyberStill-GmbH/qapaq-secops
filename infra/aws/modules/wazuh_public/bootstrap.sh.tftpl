@@ -4,7 +4,7 @@ exec > >(tee -a /var/log/qapaq-wazuh-bootstrap.log | logger -t qapaq-wazuh-boots
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y nginx snapd curl tar python3 awscli
+apt-get install -y nginx snapd curl tar python3 unzip
 systemctl enable --now nginx snapd
 mkdir -p /var/www/certbot/.well-known/acme-challenge
 
@@ -21,6 +21,11 @@ systemctl reload nginx
 
 snap install certbot --classic
 ln -sf /snap/bin/certbot /usr/local/bin/certbot
+
+curl -fsSLo /tmp/awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install
+rm -rf /tmp/aws /tmp/awscliv2.zip
 
 curl -fsSLo /root/wazuh-install.sh "https://packages.wazuh.com/$${wazuh_version%.*}/wazuh-install.sh"
 bash /root/wazuh-install.sh -a > /var/log/wazuh-install.log 2>&1
