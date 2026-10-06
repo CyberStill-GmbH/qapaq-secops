@@ -11,6 +11,7 @@ on:
         options:
           - plan
           - apply
+          - audit
 
 permissions:
   contents: read
@@ -63,4 +64,40 @@ jobs:
       - name: Terraform Apply
         if: inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve -no-color tfplan
+
+      - name: Audit Phase 2B resources and remote state
+        if: inputs.action == 'audit'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '## Terraform state addresses'
+          terraform state list
+
+          echo '## Existing ECR repositories'
+          if ! aws ecr describe-repositories \
+            --repository-names qapaq-secops-api qapaq-secops-worker qapaq-secops-krakend \
+            --query 'repositories[].{name:repositoryName,uri:repositoryUri,tagMutability:imageTagMutability,scanOnPush:imageScanningConfiguration.scanOnPush}' \
+            --output json; then
+            echo 'One or more expected ECR repositories are absent.'
+          fi
+
+          echo '## Publisher role and trust policy'
+          if ! aws iam get-role \
+            --role-name qapaq-secops-demo-github-ecr-publisher \
+            --query 'Role.{Arn:Arn,Trust:AssumeRolePolicyDocument}' \
+            --output json; then
+            echo 'Publisher IAM role is absent.'
+          fi
+
+          echo '## Phase 2B S3 buckets'
+          for bucket in \
+            qapaq-secops-demo-raw-955200662475 \
+            qapaq-secops-demo-evidence-955200662475 \
+            qapaq-secops-demo-artifacts-955200662475; do
+            if aws s3api head-bucket --bucket "$bucket" >/dev/null 2>&1; then
+              echo "$bucket: present"
+            else
+              echo "$bucket: absent or inaccessible"
+            fi
+          done
 
