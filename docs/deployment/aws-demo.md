@@ -56,7 +56,7 @@ API y Worker pasan las validaciones de imagen, pero aún no se declaran desplega
 
 ## Fase 3 — PostgreSQL, Valkey y conectividad privada (planificada; no aplicada)
 
-La Fase 3 añade únicamente la capa de datos y conectividad saliente de runtime. El workflow debe ejecutar `terraform fmt -check -recursive`, `terraform validate` y `terraform plan` desde `main`; no se autoriza `apply` como parte de esta entrega.
+La Fase 3 añade únicamente la capa de datos y conectividad saliente de runtime. Un push a `main` que cambie `infra/aws/**` ejecuta `terraform fmt -check -recursive`, `terraform validate` y `terraform plan`. El `apply` solo puede iniciarse por despacho manual con la opción explícita; no se autoriza `apply` como parte de esta entrega.
 
 ### PostgreSQL
 

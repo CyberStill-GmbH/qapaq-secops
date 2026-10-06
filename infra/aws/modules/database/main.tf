@@ -36,9 +36,9 @@ resource "aws_db_instance" "this" {
   manage_master_user_password = true
   port                        = 5432
 
-  allocated_storage     = var.allocated_storage_gb
-  storage_type          = "gp3"
-  storage_encrypted     = true
+  allocated_storage = var.allocated_storage_gb
+  storage_type      = "gp3"
+  storage_encrypted = true
 
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [var.security_group_id]

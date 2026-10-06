@@ -1,6 +1,12 @@
 name: Terraform Demo
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/aws/**"
+      - ".github/workflows/terraform-demo.yml"
   workflow_dispatch:
     inputs:
       action:
@@ -62,11 +68,11 @@ jobs:
         run: terraform plan -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
 
       - name: Terraform Apply
-        if: inputs.action == 'apply'
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve -no-color tfplan
 
       - name: Audit Phase 2B resources and remote state
-        if: inputs.action == 'audit'
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'audit'
         shell: bash
         run: |
           set -euo pipefail

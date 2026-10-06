@@ -55,8 +55,9 @@ El backend existente usa el bucket bootstrap
 `us-east-1`, cifrado y lockfile S3. El stack no declara ni destruye ese bucket.
 GitHub Actions usa OIDC con el role existente
 `arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo`; no se usan
-access keys permanentes. El workflow manual ejecuta formato, init, validate y
-plan con `environments/demo.tfvars`.
+access keys permanentes. Los cambios en `infra/aws/**` en `main` ejecutan
+automáticamente fmt, init, validate y plan con `environments/demo.tfvars`. Apply
+y auditoría solo se ejecutan mediante despacho manual con la opción explícita.
 
 ## Ejecutar verificaciones
 
