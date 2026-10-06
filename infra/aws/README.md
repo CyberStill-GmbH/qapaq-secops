@@ -16,6 +16,12 @@ servicios de aplicación.
 - No hay NAT Gateway ni endpoints VPC en fase 1. El state remoto existente no es
   parte del stack.
 
+Los Security Groups no declaran reglas egress inline. Cada salida permitida se
+administra con `aws_vpc_security_group_egress_rule`; esto evita mezclar los dos
+métodos en el mismo grupo y sus diffs perpetuos. El provider elimina la regla
+allow-all predeterminada al crear un Security Group; cualquier salida necesaria
+se reintroduce explícitamente por SG y destino.
+
 Las subnets usan `/24`: públicas `10.0.0.0/24` y `10.0.1.0/24`; aplicación
 `10.0.16.0/24` y `10.0.17.0/24`; datos `10.0.32.0/24` y `10.0.33.0/24`.
 Terraform elige las dos primeras AZ disponibles de `us-east-1`; se pueden fijar
@@ -217,7 +223,10 @@ que faltaban en AWS, tres reemplazos de lifecycle ECR (`sha-`→`git-`) y un cam
 in-place de policy IAM. Tras revisar que no incluía workloads, el [apply Terraform
 Demo #11](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407657228)
 completó exactamente ese plan: 12 añadidos, 1 cambiado y 3 reemplazados; el state
-queda con 87 recursos. Ningún recurso de aplicación se creó.
+queda con 87 recursos. Ningún recurso de aplicación se creó. Una auditoría
+posterior volvió a mostrar cuatro diffs in-place porque `egress = []` en el
+recurso SG competía con las reglas standalone; se eliminó ese argumento inline.
+El plan de auditoría de `main` debe quedar sin cambios antes de cerrar la revisión.
 
 La publicación manual [Publish verified images #8](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407871065)
 pasó todos los gates y publicó las tres imágenes de `5ea083bd6dccf12580d00b43ee66d1086c0e06ea`.

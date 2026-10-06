@@ -2,7 +2,6 @@ resource "aws_security_group" "alb" {
   name        = "${var.project}-${var.environment}-alb"
   description = "Public web ingress terminates at the ALB."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-alb" }
 }
@@ -11,7 +10,6 @@ resource "aws_security_group" "krakend" {
   name        = "${var.project}-${var.environment}-krakend"
   description = "KrakenD accepts public application traffic from the ALB and internal Wazuh queries from API/worker."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-krakend" }
 }
@@ -20,7 +18,6 @@ resource "aws_security_group" "api" {
   name        = "${var.project}-${var.environment}-api"
   description = "QAPAQ API accepts traffic only from KrakenD."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-api" }
 }
@@ -29,7 +26,6 @@ resource "aws_security_group" "worker" {
   name        = "${var.project}-${var.environment}-worker"
   description = "QAPAQ worker has no inbound listeners."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-worker" }
 }
@@ -38,7 +34,6 @@ resource "aws_security_group" "postgres" {
   name        = "${var.project}-${var.environment}-postgres"
   description = "RDS PostgreSQL accepts traffic only from API and worker."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-postgres" }
 }
@@ -47,7 +42,6 @@ resource "aws_security_group" "redis" {
   name        = "${var.project}-${var.environment}-redis"
   description = "Redis/Valkey accepts traffic only from API and worker."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-redis" }
 }
@@ -56,7 +50,6 @@ resource "aws_security_group" "wazuh" {
   name        = "${var.project}-${var.environment}-wazuh"
   description = "Wazuh dashboard is closed by default; Indexer is reachable only through KrakenD."
   vpc_id      = var.vpc_id
-  egress      = []
 
   tags = { Name = "${var.project}-${var.environment}-wazuh" }
 }

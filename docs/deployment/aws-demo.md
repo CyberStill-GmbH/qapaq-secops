@@ -14,6 +14,8 @@ Terraform aplica VPC `10.0.0.0/16`, dos subnets públicas, dos privadas de aplic
 
 No hay NAT Gateway. Solo el ALB futuro tiene reglas HTTP/HTTPS públicas. El dashboard administrativo Wazuh parte cerrado: `allowed_admin_cidrs=[]`.
 
+Los Security Groups omiten las reglas egress inline: el provider elimina la regla allow-all predeterminada y cada salida necesaria se declara con una regla standalone restringida por destino. Así no se mezclan las reglas inline con `aws_vpc_security_group_egress_rule`, combinación que el provider AWS documenta como fuente de conflictos y diferencias perpetuas.
+
 ## Fase 2B — foundations (aplicada)
 
 El apply remoto de [Terraform Demo #9](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37404363686) agregó 34 recursos, cambió 4 reglas in-place y no destruyó recursos, llevando el state a 78 recursos. Incluye tres repositorios ECR privados con scan-on-push y tags inmutables, tres buckets S3 privados, una CMK con rotación, seis entradas de metadata vacías de Secrets Manager y el IAM role dedicado de publicación por GitHub OIDC. No creó ECS, ALB, RDS, Redis/Valkey, Wazuh ni servicios de aplicación.
@@ -43,6 +45,8 @@ La ejecución [Publish verified images #8](https://github.com/CyberStill-GmbH/qa
 La política lifecycle conserva los 20 tags más recientes `git-*` y elimina imágenes sin tag tras un día. El role tiene una policy inline y ninguna policy administrada adjunta. Incluye `ecr:GetAuthorizationToken` con `Resource: "*"` por requisito de ECR, y acciones de publicación/consulta limitadas a los tres ARNs: `BatchGetImage`, `BatchCheckLayerAvailability`, `CompleteLayerUpload`, `DescribeRepositories`, `InitiateLayerUpload`, `PutImage` y `UploadLayerPart`. No concede administración ECR, permisos S3 ni lectura de secretos. Su trust policy restringe OIDC al subject inmutable del repo y `main`.
 
 Para el tag nuevo, el plan remoto [Terraform Demo #10](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407190420) mostró 12 altas, 1 cambio y 3 bajas. Las 9 reglas egress ausentes eran recursos del baseline de seguridad declarados en Terraform; los restantes cambios actualizaron los 3 lifecycle policies y el permiso mínimo para `DescribeRepositories`. El [apply #11](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407657228) pasó y no creó workloads; el state resultó con 87 recursos.
+
+La auditoría siguiente detectó cuatro diffs in-place en los Security Groups porque se combinaban `egress = []` con reglas standalone. Se removió el argumento inline; el siguiente `fmt`, `validate` y plan remoto verificará que la configuración quede convergente.
 
 ### Límite del Worker
 
