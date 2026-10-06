@@ -224,9 +224,11 @@ in-place de policy IAM. Tras revisar que no incluía workloads, el [apply Terraf
 Demo #11](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407657228)
 completó exactamente ese plan: 12 añadidos, 1 cambiado y 3 reemplazados; el state
 queda con 87 recursos. Ningún recurso de aplicación se creó. Una auditoría
-posterior volvió a mostrar cuatro diffs in-place porque `egress = []` en el
-recurso SG competía con las reglas standalone; se eliminó ese argumento inline.
-El plan de auditoría de `main` debe quedar sin cambios antes de cerrar la revisión.
+posterior detectó cuatro diffs in-place porque `egress = []` en el recurso SG
+competía con las reglas standalone; se eliminó ese argumento inline. La nueva
+auditoría [Terraform Demo #13](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37409018924)
+reportó “No changes. Your infrastructure matches the configuration.” y verificó
+las políticas IAM activas del publisher.
 
 La publicación manual [Publish verified images #8](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407871065)
 pasó todos los gates y publicó las tres imágenes de `5ea083bd6dccf12580d00b43ee66d1086c0e06ea`.

@@ -46,7 +46,7 @@ La política lifecycle conserva los 20 tags más recientes `git-*` y elimina im�
 
 Para el tag nuevo, el plan remoto [Terraform Demo #10](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407190420) mostró 12 altas, 1 cambio y 3 bajas. Las 9 reglas egress ausentes eran recursos del baseline de seguridad declarados en Terraform; los restantes cambios actualizaron los 3 lifecycle policies y el permiso mínimo para `DescribeRepositories`. El [apply #11](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407657228) pasó y no creó workloads; el state resultó con 87 recursos.
 
-La auditoría siguiente detectó cuatro diffs in-place en los Security Groups porque se combinaban `egress = []` con reglas standalone. Se removió el argumento inline; el siguiente `fmt`, `validate` y plan remoto verificará que la configuración quede convergente.
+La auditoría siguiente detectó cuatro diffs in-place en los Security Groups porque se combinaban `egress = []` con reglas standalone. Se removió el argumento inline y [Terraform Demo #13](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37409018924) confirmó `terraform fmt`, `terraform validate` y un plan con “No changes. Your infrastructure matches the configuration.” La misma auditoría consultó las policies reales del publisher en IAM.
 
 ### Límite del Worker
 
