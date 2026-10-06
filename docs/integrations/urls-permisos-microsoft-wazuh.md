@@ -74,6 +74,24 @@ El acceso de red al Indexer solo debe permitir el puerto/configuración necesari
 desde el security group de KrakenD. No se debe abrir el Indexer a Internet ni
 conceder acceso directo desde QAPAQ.
 
+## 3. Dashboard de Wazuh
+
+El stack oficial single-node que levanta
+[`scripts/dev/setup-wazuh.ps1`](../../scripts/dev/setup-wazuh.ps1) publica el
+Dashboard por HTTPS en el puerto 443 del host Docker. En ese host, abre
+[https://localhost](https://localhost). Desde otro equipo de la misma red usa
+`https://<host-docker>` solo si el administrador habilitó el acceso de red; no
+expongas ese puerto a Internet. El certificado local es propio del stack y el
+navegador puede avisar que no es de confianza.
+
+**AWS:** no hay URL pública del Dashboard que entregar. El despliegue AWS actual
+no instala Wazuh ni el Dashboard; el Security Group administrativo permanece
+cerrado (`allowed_admin_cidrs = []`). El piloto de Wazuh en Railway fue eliminado
+y no dejó un endpoint activo. El hostname `https://api.qapaq.secops.com` es el
+gateway/API de QAPAQ y no es el Dashboard. Cuando se despliegue Wazuh, publicar
+el Dashboard detrás de acceso privado o de una allowlist administrativa y añadir
+su URL aquí; no reutilizar el ALB de QAPAQ como si ya alojara Wazuh.
+
 ## Estado y referencias del proyecto
 
 - El permiso `ActivityFeed.Read` y el admin consent aparecen como la dependencia

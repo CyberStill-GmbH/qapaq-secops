@@ -10,6 +10,12 @@ y el dashboard no aparecen aquí porque pertenecen al stack oficial Wazuh.
 - Wazuh Indexer basado en OpenSearch;
 - Wazuh Dashboard, basado en OpenSearch Dashboards y conectado al Indexer.
 
+Con el stack iniciado en el host Docker, abre el [Dashboard de Wazuh](https://localhost)
+(HTTPS, puerto 443). El certificado local puede producir una advertencia del
+navegador. La URL solo vale en el host donde corre Docker; el dashboard no está
+publicado en AWS. Consulta [URLs y permisos requeridos](../../docs/integrations/urls-permisos-microsoft-wazuh.md)
+para las APIs y el estado de acceso remoto.
+
 QAPAQ consulta el Wazuh Indexer mediante una credencial de solo lectura que se
 creará al implementar C-08/C-10. Las credenciales por defecto del stack oficial no
 se copian al repositorio ni se aceptan para un ambiente compartido.
