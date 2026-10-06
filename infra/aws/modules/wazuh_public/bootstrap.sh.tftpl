@@ -44,18 +44,10 @@ result = subprocess.run(
 )
 password_lines = result.stdout.splitlines()
 admin_password = None
-for index, line in enumerate(password_lines):
-    if "'admin'" not in line.lower():
-        continue
-    for candidate in password_lines[index + 1:index + 4]:
-        candidate = candidate.strip()
-        if not candidate or candidate.startswith('#'):
-            continue
-        match = re.match(r"^['\"]?admin['\"]?\s*:\s*(.+?)\s*$", candidate, re.IGNORECASE)
-        if match:
-            admin_password = match.group(1).strip().strip("'\"")
-            break
-    if admin_password:
+for line in password_lines:
+    match = re.match(r"^\s*['\"]?admin['\"]?\s*[:=]\s*(.+?)\s*$", line, re.IGNORECASE)
+    if match:
+        admin_password = match.group(1).strip().strip("'\"")
         break
 if not admin_password:
     raise RuntimeError('Wazuh admin password entry was not found in the installation archive')
