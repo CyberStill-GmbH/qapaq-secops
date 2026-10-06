@@ -23,9 +23,7 @@
       "path": "/api/auth/start",
       "method": "GET",
       "upstream": "/api/auth/start",
-      "query_parameters": [
-        "returnTo"
-      ],
+      "query_parameters": ["returnTo"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"
@@ -34,11 +32,7 @@
       "path": "/api/auth/callback",
       "method": "GET",
       "upstream": "/api/auth/callback",
-      "query_parameters": [
-        "state",
-        "code",
-        "error"
-      ],
+      "query_parameters": ["state", "code", "error"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"
@@ -65,11 +59,7 @@
       "path": "/api/alerts",
       "method": "GET",
       "upstream": "/api/alerts",
-      "query_parameters": [
-        "cursor",
-        "pageSize",
-        "status"
-      ],
+      "query_parameters": ["cursor", "pageSize", "status"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"
@@ -96,10 +86,7 @@
       "path": "/api/incidents",
       "method": "GET",
       "upstream": "/api/incidents",
-      "query_parameters": [
-        "cursor",
-        "pageSize"
-      ],
+      "query_parameters": ["cursor", "pageSize"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"
@@ -126,10 +113,7 @@
       "path": "/api/notifications",
       "method": "GET",
       "upstream": "/api/notifications",
-      "query_parameters": [
-        "cursor",
-        "pageSize"
-      ],
+      "query_parameters": ["cursor", "pageSize"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"
@@ -147,12 +131,7 @@
       "path": "/api/audit/events",
       "method": "GET",
       "upstream": "/api/audit/events",
-      "query_parameters": [
-        "from",
-        "to",
-        "pageSize",
-        "action"
-      ],
+      "query_parameters": ["from", "to", "pageSize", "action"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"

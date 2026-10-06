@@ -10,7 +10,9 @@ const rewrites = apiOrigin
         origin.username ||
         origin.password
       ) {
-        throw new Error('QAPAQ_API_ORIGIN must be an HTTP(S) origin without credentials, path, query, or fragment.');
+        throw new Error(
+          'QAPAQ_API_ORIGIN must be an HTTP(S) origin without credentials, path, query, or fragment.',
+        );
       }
       return [{ source: '/api/:path*', destination: `${origin.origin}/api/:path*` }];
     })()

@@ -103,7 +103,7 @@ Gates pendientes antes de Fase 4: revisar y autorizar el apply de esos 19 recurs
 
 No crear ni desplegar en esta fase ECS Services, ALB, Wazuh, Grafana, Prometheus, Loki ni runtime OpenTelemetry.
 
-## Fase 4 — runtime de aplicación (Terraform implementado; plan remoto pendiente; no aplicada)
+## Fase 4 — runtime de aplicación (Terraform plan remoto verde; no aplicada)
 
 El módulo `infra/aws/modules/runtime` define un clúster ECS `qapaq-secops-demo` exclusivamente con Fargate, tres Task Definitions y tres Services (KrakenD/API/Worker), cada uno con desired count configurable y valor demo 1. Consume los digests del manifiesto de Fase 2C y registra el SHA del manifiesto como tag de las task definitions. API, Worker y KrakenD usan las subnets privadas de aplicación, sin IP pública ni ingreso directo; el Worker no publica puertos ni usa Target Group. Un namespace Cloud Map privado registra API como `api.demo.qapaq.internal`; KrakenD tiene upstream fijo a ese DNS, nunca a una IP de task.
 
@@ -123,7 +123,7 @@ La API en subnets privadas debe obtener los metadatos/JWKS de Microsoft Entra y 
 
 Se añadió `apps/web/vercel.ts` para enrutar `/api/*` al origen `QAPAQ_API_ORIGIN` como rewrite same-origin sin CORS ni base URL local embebida. La variable debe apuntar al output DNS del ALB después de aplicarlo, y luego Vercel debe completar un nuevo build/deployment. El proyecto actual conocido es `qapaq-secops.vercel.app`; el callback resultante sería `https://qapaq-secops.vercel.app/api/auth/callback`. No se ha escrito configuración en Vercel ni se ha desplegado.
 
-El listener permanece HTTP porque no hay dominio propio ni certificado ACM confirmado. Aunque el navegador habla HTTPS con Vercel, la conexión del rewrite entre Vercel y el ALB viaja por HTTP público; cookies/datos del BFF podrían quedar expuestos en tránsito. Es una excepción de demo que no debe mantenerse al transportar sesiones reales; antes de habilitar Entra hace falta un hostname y un certificado ACM para el ALB y listener HTTPS, o una conexión privada soportada desde Vercel.
+El listener permanece HTTP porque no hay dominio propio ni certificado ACM confirmado. Aunque el navegador habla HTTPS con Vercel, la conexión del rewrite entre Vercel y el ALB viaja por HTTP público; cookies/datos del BFF podrían quedar expuestos en tránsito. Trivy identifica el ALB público (AVD-AWS-0053) y la ausencia de TLS en listener (AVD-AWS-0054). Se mantienen ambos controles activos; solo se anotan esas dos excepciones en sus recursos Terraform concretos, con la razón temporal y la condición para retirarlas. No se permite transportar sesiones ni credenciales reales hasta sustituir el listener por HTTPS con certificado ACM, o usar un origen privado soportado por Vercel.
 
 No se deben aplicar los Services todavía. Entra Tenant ID y Client ID no constan en el repositorio y los placeholders de Secrets Manager solo contienen metadata, sin versiones cargadas. La API exige además redirect URI, allowlist de redirect, base URL de consola, CIDRs de acceso y trusted proxies. El task bootstrap aún no inyecta client secret en `SecOpsRuntime` (el `EntraTokenExchange` recibiría cadena vacía), por lo que agregar el ARN a una task definition no arregla el flujo por sí solo. Hace falta adapter runtime de Secrets Manager o una forma equivalente que resuelva el secreto bajo IAM mínimo y una prueba de callback real.
 
@@ -145,11 +145,11 @@ Ejecutado localmente en este checkout:
 
 ```text
 terraform -chdir=infra/aws fmt -check -recursive  PASS
-terraform -chdir=infra/aws validate -no-color         PASS (inicialmente mostró la advertencia de Cloud Map; se quitó el campo deprecado y falta repetir la validación final)
+terraform -chdir=infra/aws validate -no-color         PASS (repetido; sin advertencias)
 node --test platform/gateway/krakend/test/contract.test.mjs  PASS (7/7)
 ```
 
-El `terraform plan` local no llegó a consultar state: el equipo no tiene credenciales AWS (`No valid credential sources found`). `infra/aws/README.md` registra que el workflow de Fase 3 #14 fue solo plan, aunque el usuario confirma que la fase sí se aplicó después; hasta ejecutar un plan remoto con OIDC el delta contra los recursos actuales no está verificado. El push de estos cambios a `main` debe producir el plan remoto; revisar adds/changes/destroys/replacements y costos antes de autorizar el apply manual. No ejecutar `terraform apply` automáticamente ni marcar Fase 4 DONE.
+El workflow remoto [Terraform Demo #16](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37417294194) pasó fmt, validate y plan, pero el plan detectó **44 recursos por añadir, 0 cambios y 0 destrucciones**. El stack anterior registra 19 recursos de Fase 3 y el módulo nuevo suma 25 de Fase 4; por tanto el state remoto consultado no muestra aplicada Fase 3, aunque el usuario reportó su aplicación. Este delta difiere de la corrida anterior que veía 87 recursos. No ejecutar `terraform apply` automáticamente: antes hay que reconciliar state/configuración de Fase 3 y revisar el plan vigente. El job CI #226 falló inicialmente por formato Prettier y los dos hallazgos de Trivy sobre el ALB/HTTP; los cambios correctivos quedan pendientes de una nueva corrida verde. Fase 4 no está DONE.
 
 Gates antes de aplicar/encender tasks:
 
