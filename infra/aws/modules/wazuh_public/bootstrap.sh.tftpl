@@ -34,6 +34,7 @@ bash /root/wazuh-install.sh -a > /var/log/wazuh-install.log 2>&1
 python3 - <<'PY'
 from pathlib import Path
 import json
+import re
 import subprocess
 
 archive = Path('/root/wazuh-install-files.tar')
@@ -41,11 +42,23 @@ result = subprocess.run(
     ['tar', '-O', '-xf', str(archive), 'wazuh-install-files/wazuh-passwords.txt'],
     check=True, capture_output=True, text=True,
 )
-admin_password = next(
-    line.split(':', 1)[1].strip()
-    for line in result.stdout.splitlines()
-    if line.strip().startswith('admin:')
-)
+password_lines = result.stdout.splitlines()
+admin_password = None
+for index, line in enumerate(password_lines):
+    if "'admin'" not in line.lower():
+        continue
+    for candidate in password_lines[index + 1:index + 4]:
+        candidate = candidate.strip()
+        if not candidate or candidate.startswith('#'):
+            continue
+        match = re.match(r"^['\"]?admin['\"]?\s*:\s*(.+?)\s*$", candidate, re.IGNORECASE)
+        if match:
+            admin_password = match.group(1).strip().strip("'\"")
+            break
+    if admin_password:
+        break
+if not admin_password:
+    raise RuntimeError('Wazuh admin password entry was not found in the installation archive')
 secret = json.dumps({'username': 'admin', 'password': admin_password})
 subprocess.run([
     'aws', 'secretsmanager', 'put-secret-value',
