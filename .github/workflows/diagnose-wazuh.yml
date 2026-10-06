@@ -76,9 +76,10 @@ jobs:
           for index, raw in enumerate(stream):
               line = raw.decode('utf-8', errors='replace').rstrip('\n')
               if line.lstrip().startswith('#'):
-                  print(f'{index}: comment ({len(line)} chars)')
+                  print(f'{index}: comment has_admin={"admin" in line.lower()} ({len(line)} chars)')
               elif line.strip():
-                  print(f'{index}: row tokens={len(line.split())} lengths={[len(token) for token in line.split()]} colon={line.find(":")}')
+                  key, separator, value = line.partition(':')
+                  print(f'{index}: key={key.strip()!r} value_chars={len(value.strip())} colon={bool(separator)}')
           PY
           REMOTE
           )"
