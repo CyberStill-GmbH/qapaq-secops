@@ -7,7 +7,7 @@
  * distribuido debe conseguirla con la base o con Redis.
  */
 
-import type { PendingHandshake } from './oidc-handshake.js';
+import { constantTimeEquals, type PendingHandshake } from './oidc-handshake.js';
 import type { Session } from './session.js';
 import type { AttemptCounter, RateLimitState } from './lockout.js';
 import type { AttemptStore, HandshakeStore, RateLimitStore, SessionStore } from './ports.js';
@@ -20,9 +20,20 @@ export class InMemoryHandshakeStore implements HandshakeStore {
     return Promise.resolve();
   }
 
-  public consume(state: string, now: Date): Promise<PendingHandshake | undefined> {
+  public consume(
+    state: string,
+    browserBinding: string | undefined,
+    now: Date,
+  ): Promise<PendingHandshake | undefined> {
     const stored = this.entries.get(state);
     if (!stored) return Promise.resolve(undefined);
+    if (
+      !browserBinding ||
+      !constantTimeEquals(browserBinding, stored.browserBinding) ||
+      stored.consumedAt
+    ) {
+      return Promise.resolve(stored);
+    }
     this.entries.set(state, { ...stored, consumedAt: stored.consumedAt ?? now });
     return Promise.resolve(stored);
   }

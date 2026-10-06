@@ -18,8 +18,11 @@ import { csrfAccepted } from '../http/csrf.js';
 import {
   clearSessionCookie,
   correlationIdOf,
+  expiredOidcFlowCookie,
+  oidcFlowBindingOf,
   originOf,
   sessionIdOf,
+  setOidcFlowCookie,
   setSessionCookie,
 } from '../http/request-context.js';
 import { safeReturnTo, withAuthError, withSupersededNotice } from '../http/return-to.js';
@@ -37,11 +40,17 @@ export class AuthController {
     @Res() reply: OutgoingReply,
   ) {
     const begun = await this.runtime.beginSignIn(originOf(request), safeReturnTo(query.returnTo));
+    setOidcFlowCookie(reply, begun.state, begun.browserBinding, this.runtime.secureCookies);
     // 302 al emisor: el `state` queda del lado servidor, no en un campo oculto.
     const target = this.runtime.isLocalIdentity
       ? `/api/auth/local/login?state=${encodeURIComponent(begun.state)}`
       : begun.url;
-    await reply.status(302).header('location', target).send();
+    await reply
+      .status(302)
+      .header('cache-control', 'no-store')
+      .header('referrer-policy', 'no-referrer')
+      .header('location', target)
+      .send();
   }
 
   @Get('callback')
@@ -51,13 +60,23 @@ export class AuthController {
     @Res() reply: OutgoingReply,
   ) {
     const correlationId = correlationIdOf(request);
-    const returnTo = this.runtime.takeReturnTo(query.state);
-    const result = await this.runtime.completeSignIn(query, originOf(request), correlationId);
+    const browserBinding = oidcFlowBindingOf(request, query.state);
+    const returnTo = this.runtime.takeReturnTo(query.state, browserBinding);
+    const result = await this.runtime.completeSignIn(
+      { ...query, ...(browserBinding ? { browserBinding } : {}) },
+      originOf(request),
+      correlationId,
+    );
     if (!result.ok) {
       const code = signInDenialCode(result.failure.reason);
+      const expiredCookie = query.state
+        ? expiredOidcFlowCookie(query.state, this.runtime.secureCookies)
+        : '';
+      if (expiredCookie) reply.header('set-cookie', expiredCookie);
       await reply
         .status(303)
         .header('cache-control', 'no-store')
+        .header('referrer-policy', 'no-referrer')
         .header('location', withAuthError(returnTo, code, correlationId))
         .send();
       return;
@@ -69,10 +88,14 @@ export class AuthController {
       Math.floor(
         (result.value.session.absoluteExpiresAt.getTime() - this.runtime.now().getTime()) / 1000,
       ),
+      query.state
+        ? [expiredOidcFlowCookie(query.state, this.runtime.secureCookies)].filter(Boolean)
+        : [],
     );
     await reply
       .status(303)
       .header('cache-control', 'no-store')
+      .header('referrer-policy', 'no-referrer')
       .header('location', withSupersededNotice(returnTo, result.value.supersededSessions.length))
       .send();
   }

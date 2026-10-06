@@ -38,6 +38,8 @@ export interface AuthorizationRequest {
   readonly state: string;
   readonly nonce: string;
   readonly codeVerifier: string;
+  /** Secreto independiente del `state`, enlazado al navegador que inició el flujo. */
+  readonly browserBinding: string;
   readonly codeChallenge: string;
   readonly expiresAt: Date;
 }
@@ -46,6 +48,7 @@ export interface PendingHandshake {
   readonly state: string;
   readonly nonce: string;
   readonly codeVerifier: string;
+  readonly browserBinding: string;
   readonly redirectUri: string;
   readonly createdAt: Date;
   readonly expiresAt: Date;
@@ -66,6 +69,7 @@ export interface CallbackInput {
   readonly code?: string;
   readonly error?: string;
   readonly errorDescription?: string;
+  readonly browserBinding?: string;
 }
 
 export type CallbackResult =
@@ -103,6 +107,7 @@ export function beginAuthorization(
   const state = base64Url(randomSource(HANDSHAKE_LIMITS.stateBytes));
   const nonce = base64Url(randomSource(HANDSHAKE_LIMITS.nonceBytes));
   const codeVerifier = base64Url(randomSource(HANDSHAKE_LIMITS.verifierBytes));
+  const browserBinding = base64Url(randomSource(HANDSHAKE_LIMITS.stateBytes));
   const url = new URL(config.authorizationEndpoint);
   url.searchParams.set('client_id', config.clientId);
   url.searchParams.set('response_type', 'code');
@@ -118,6 +123,7 @@ export function beginAuthorization(
     state,
     nonce,
     codeVerifier,
+    browserBinding,
     codeChallenge: pkceChallenge(codeVerifier),
     expiresAt: new Date(now.getTime() + HANDSHAKE_LIMITS.stateTtlMs),
   };
@@ -128,15 +134,18 @@ export function resolveCallback(
   stored: PendingHandshake | undefined,
   now: Date,
 ): CallbackResult {
-  if (input.error) {
-    return { ok: false, code: 'PROVIDER_ERROR', detail: input.error };
-  }
   if (!input.state) return { ok: false, code: 'STATE_MISMATCH' };
   if (!stored) return { ok: false, code: 'STATE_UNKNOWN' };
   if (!constantTimeEquals(input.state, stored.state)) return { ok: false, code: 'STATE_MISMATCH' };
   // El orden importa: un `state` ya consumido se rechaza aunque siga vigente.
   if (stored.consumedAt) return { ok: false, code: 'STATE_REPLAYED' };
   if (stored.expiresAt.getTime() <= now.getTime()) return { ok: false, code: 'STATE_EXPIRED' };
+  if (!constantTimeEquals(input.browserBinding ?? '', stored.browserBinding)) {
+    return { ok: false, code: 'STATE_MISMATCH' };
+  }
+  if (input.error) {
+    return { ok: false, code: 'PROVIDER_ERROR', detail: input.error };
+  }
   if (!input.code) return { ok: false, code: 'CODE_REQUIRED' };
   return { ok: true, handshake: stored, code: input.code };
 }

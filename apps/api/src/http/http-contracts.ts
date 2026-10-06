@@ -17,6 +17,6 @@ export interface IncomingRequest {
 
 export interface OutgoingReply {
   status(code: number): OutgoingReply;
-  header(name: string, value: string): OutgoingReply;
+  header(name: string, value: string | readonly string[]): OutgoingReply;
   send(body?: unknown): unknown;
 }

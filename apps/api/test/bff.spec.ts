@@ -34,6 +34,12 @@ function server() {
   return application.getHttpAdapter().getInstance();
 }
 
+function cookiePair(response: { headers: Record<string, unknown> }, prefix: string): string {
+  const header = response.headers['set-cookie'];
+  const cookies = Array.isArray(header) ? (header as string[]) : header ? [header as string] : [];
+  return cookies.find((cookie) => cookie.startsWith(prefix))?.split(';', 1)[0] ?? '';
+}
+
 async function signIn(
   username: string,
   remoteAddress = officeIp,
@@ -49,12 +55,24 @@ async function signIn(
     remoteAddress,
     headers,
   });
+  const startSetCookies = Array.isArray(start.headers['set-cookie'])
+    ? (start.headers['set-cookie'] as string[])
+    : start.headers['set-cookie']
+      ? [start.headers['set-cookie'] as string]
+      : [];
+  const flowCookie = startSetCookies[0]?.split(';', 1)[0] ?? '';
+  const flowHeaders = {
+    ...headers,
+    ...(flowCookie
+      ? { cookie: [headers.cookie, flowCookie].filter(Boolean).join('; ') }
+      : {}),
+  };
   const state = new URL(start.headers.location as string, 'http://local').searchParams.get('state');
   const authorize = await server().inject({
     method: 'GET',
     url: `/api/auth/local/authorize?state=${encodeURIComponent(state ?? '')}&username=${encodeURIComponent(username)}`,
     remoteAddress,
-    headers,
+    headers: flowHeaders,
   });
   // El emisor local devuelve una ruta relativa: la API y la consola comparten origen.
   const callbackUrl = new URL(authorize.headers.location as string, 'http://local');
@@ -62,9 +80,15 @@ async function signIn(
     method: 'GET',
     url: `/api/auth/callback${callbackUrl.search}`,
     remoteAddress,
-    headers,
+    headers: flowHeaders,
   });
-  const cookie = (response.headers['set-cookie'] as string | undefined)?.split(';')[0] ?? '';
+  const responseCookies = Array.isArray(response.headers['set-cookie'])
+    ? (response.headers['set-cookie'] as string[])
+    : response.headers['set-cookie']
+      ? [response.headers['set-cookie'] as string]
+      : [];
+  const cookie =
+    responseCookies.find((value) => value.startsWith('qapaq_session='))?.split(';', 1)[0] ?? '';
   const session = cookie
     ? await server().inject({
         method: 'GET',
@@ -201,16 +225,22 @@ describe('C-18 · inicio de sesión por el BFF', () => {
 
     expect(response.statusCode).toBe(302);
     expect(response.headers.location).toContain('state=');
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
     expect(response.body).not.toContain('id_token');
   });
 
   it('abre sesión, devuelve una cookie HttpOnly opaca y vuelve a la consola', async () => {
     const { response, cookie } = await signIn('analista@qapaq.pe');
-    const header = response.headers['set-cookie'] as string;
+    const headers = Array.isArray(response.headers['set-cookie'])
+      ? (response.headers['set-cookie'] as string[])
+      : [response.headers['set-cookie'] as string];
+    const header = headers.find((value) => value.startsWith('qapaq_session=')) ?? '';
 
     expect(response.statusCode).toBe(303);
     expect(new URL(response.headers.location as string, 'http://local').pathname).toBe('/');
     expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
     expect(response.body).toBe('');
     expect(header).toContain('HttpOnly');
     expect(header).toContain('SameSite=Lax');
@@ -242,6 +272,7 @@ describe('C-18 · inicio de sesión por el BFF', () => {
     const state = new URL(start.headers.location as string, 'http://local').searchParams.get(
       'state',
     );
+    const flowCookie = cookiePair(start, 'qapaq_oidc_flow_');
     const authorize = await server().inject({
       method: 'GET',
       url: `/api/auth/local/authorize?state=${state}&username=analista%40qapaq.pe`,
@@ -252,19 +283,57 @@ describe('C-18 · inicio de sesión por el BFF', () => {
     const first = await server().inject({
       method: 'GET',
       url: `/api/auth/callback${search}`,
+      headers: { cookie: flowCookie },
       remoteAddress: OFFICE_IP,
     });
     const replay = await server().inject({
       method: 'GET',
       url: `/api/auth/callback${search}`,
+      headers: { cookie: flowCookie },
       remoteAddress: OFFICE_IP,
     });
 
     expect(first.statusCode).toBe(303);
     expect(authErrorOf(first)).toBeNull();
     expect(replay.statusCode).toBe(303);
-    expect(replay.headers['set-cookie']).toBeUndefined();
+    expect(replay.headers['set-cookie']).toBeDefined();
+    expect(replay.headers['set-cookie']).not.toContain('qapaq_session=');
     expect(authErrorOf(replay)).toBe('AUTH_FAILED');
+  });
+
+  it('ata el callback al navegador iniciador y no consume el state desde otro browser', async () => {
+    const start = await server().inject({
+      method: 'GET',
+      url: '/api/auth/start',
+      remoteAddress: OFFICE_IP,
+    });
+    const state = new URL(start.headers.location as string, 'http://local').searchParams.get(
+      'state',
+    );
+    const flowCookie = cookiePair(start, 'qapaq_oidc_flow_');
+    const authorize = await server().inject({
+      method: 'GET',
+      url: `/api/auth/local/authorize?state=${encodeURIComponent(state ?? '')}&username=analista%40qapaq.pe`,
+      remoteAddress: OFFICE_IP,
+    });
+    const search = new URL(authorize.headers.location as string, 'http://local').search;
+
+    const injected = await server().inject({
+      method: 'GET',
+      url: `/api/auth/callback${search}`,
+      remoteAddress: OFFICE_IP,
+    });
+    expect(authErrorOf(injected)).toBe('AUTH_FAILED');
+    expect(injected.headers['set-cookie']).not.toContain('qapaq_session=');
+
+    const originalBrowser = await server().inject({
+      method: 'GET',
+      url: `/api/auth/callback${search}`,
+      headers: { cookie: flowCookie },
+      remoteAddress: OFFICE_IP,
+    });
+    expect(authErrorOf(originalBrowser)).toBeNull();
+    expect(cookiePair(originalBrowser, 'qapaq_session=')).toMatch(/^qapaq_session=/u);
   });
 
   it('cierra la sesión y la cookie deja de servir', async () => {
@@ -754,7 +823,7 @@ describe('B-03 · el callback devuelve al navegador a la consola', () => {
     expect(location.pathname).toBe('/console.html');
     expect(location.searchParams.get('authError')).toBe('PASSKEY_REQUIRED');
     expect(location.searchParams.get('correlationId')).toMatch(/^[0-9a-f-]{36}$/u);
-    expect(response.headers['set-cookie']).toBeUndefined();
+    expect(response.headers['set-cookie']).not.toContain('qapaq_session=');
   });
 
   it('avisa en el retorno cuando la nueva sesión cerró otra', async () => {

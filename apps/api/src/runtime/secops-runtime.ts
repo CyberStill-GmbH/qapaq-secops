@@ -11,6 +11,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 
 import {
   beginAuthorization,
+  constantTimeEquals,
   capabilitiesForRoles,
   decideSignIn,
   effectiveCapabilities,
@@ -234,6 +235,7 @@ export class SecOpsRuntime {
   ): Promise<{
     readonly url: string;
     readonly state: string;
+    readonly browserBinding: string;
     readonly network: ReturnType<typeof evaluateNetwork>;
   }> {
     const request = beginAuthorization(
@@ -248,11 +250,15 @@ export class SecOpsRuntime {
       this.now(),
     );
     this.rememberNonce(request.state, request.nonce);
-    this.pendingReturnTo.set(request.state, returnTo);
+    this.pendingReturnTo.set(request.state, {
+      returnTo,
+      browserBinding: request.browserBinding,
+    });
     await this.handshakes.save({
       state: request.state,
       nonce: request.nonce,
       codeVerifier: request.codeVerifier,
+      browserBinding: request.browserBinding,
       redirectUri: this.options.access.redirectUri,
       createdAt: this.now(),
       expiresAt: request.expiresAt,
@@ -260,6 +266,7 @@ export class SecOpsRuntime {
     return {
       url: request.authorizationUrl,
       state: request.state,
+      browserBinding: request.browserBinding,
       network: evaluateNetwork(origin, this.networkPolicy),
     };
   }
@@ -274,14 +281,20 @@ export class SecOpsRuntime {
 
   private readonly pendingNonces = new Map<string, { nonce: string }>();
   /** Destino ya validado por `safeReturnTo`, atado al `state` del handshake (B-03). */
-  private readonly pendingReturnTo = new Map<string, string>();
+  private readonly pendingReturnTo = new Map<
+    string,
+    { readonly returnTo: string; readonly browserBinding: string }
+  >();
 
   /** Se consume una sola vez, igual que el `state` al que pertenece. */
-  public takeReturnTo(state: string | undefined): string {
+  public takeReturnTo(state: string | undefined, browserBinding: string | undefined): string {
     if (!state) return DEFAULT_RETURN_TO;
-    const returnTo = this.pendingReturnTo.get(state) ?? DEFAULT_RETURN_TO;
+    const pending = this.pendingReturnTo.get(state);
+    if (!pending || !browserBinding || !constantTimeEquals(browserBinding, pending.browserBinding)) {
+      return DEFAULT_RETURN_TO;
+    }
     this.pendingReturnTo.delete(state);
-    return returnTo;
+    return pending.returnTo;
   }
 
   public rememberNonce(state: string, nonce: string): void {
@@ -293,7 +306,12 @@ export class SecOpsRuntime {
   }
 
   public async completeSignIn(
-    input: { readonly state?: string; readonly code?: string; readonly error?: string },
+    input: {
+      readonly state?: string;
+      readonly code?: string;
+      readonly error?: string;
+      readonly browserBinding?: string;
+    },
     origin: RequestOrigin,
     correlationId: string,
   ): Promise<
@@ -312,7 +330,9 @@ export class SecOpsRuntime {
     if (!rate.allowed) {
       return this.denied('RATE_LIMITED', originKey, correlationId, at, network.clientIp);
     }
-    const stored = input.state ? await this.handshakes.consume(input.state, at) : undefined;
+    const stored = input.state
+      ? await this.handshakes.consume(input.state, input.browserBinding, at)
+      : undefined;
     const callback = resolveCallback(input, stored, at);
     if (!callback.ok) {
       return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp);
@@ -333,9 +353,15 @@ export class SecOpsRuntime {
     } catch {
       return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp);
     }
+    let signingKeys: Awaited<ReturnType<JwksProvider['keys']>>;
+    try {
+      signingKeys = await this.jwks.keys();
+    } catch {
+      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp);
+    }
     const validation = validateIdToken(
       idToken,
-      await this.jwks.keys(),
+      signingKeys,
       {
         issuer: this.options.access.issuer,
         audience: this.options.access.clientId,

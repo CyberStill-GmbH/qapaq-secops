@@ -27,6 +27,7 @@ function pending(overrides: Partial<PendingHandshake> = {}): PendingHandshake {
     state: 'state-1',
     nonce: 'nonce-1',
     codeVerifier: 'verifier-1',
+    browserBinding: 'binding-1',
     redirectUri: config.redirectUri,
     createdAt: NOW,
     expiresAt: new Date(NOW.getTime() + 600_000),
@@ -75,21 +76,33 @@ describe('C-18 · inicio del flujo OIDC', () => {
 
 describe('C-18 · retorno del flujo OIDC', () => {
   it('acepta el retorno con state conocido y vigente', () => {
-    const result = resolveCallback({ state: 'state-1', code: 'auth-code' }, pending(), NOW);
+    const result = resolveCallback(
+      { state: 'state-1', code: 'auth-code', browserBinding: 'binding-1' },
+      pending(),
+      NOW,
+    );
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.handshake.codeVerifier).toBe('verifier-1');
   });
 
   it('rechaza un state desconocido', () => {
-    expect(resolveCallback({ state: 'state-x', code: 'c' }, undefined, NOW)).toMatchObject({
+    expect(
+      resolveCallback({ state: 'state-x', code: 'c', browserBinding: 'binding-1' }, undefined, NOW),
+    ).toMatchObject({
       ok: false,
       code: 'STATE_UNKNOWN',
     });
   });
 
   it('rechaza un state que no coincide con el almacenado', () => {
-    expect(resolveCallback({ state: 'otro-state', code: 'c' }, pending(), NOW)).toMatchObject({
+    expect(
+      resolveCallback(
+        { state: 'otro-state', code: 'c', browserBinding: 'binding-1' },
+        pending(),
+        NOW,
+      ),
+    ).toMatchObject({
       ok: false,
       code: 'STATE_MISMATCH',
     });
@@ -98,7 +111,13 @@ describe('C-18 · retorno del flujo OIDC', () => {
   it('rechaza un state caducado', () => {
     const later = new Date(NOW.getTime() + 601_000);
 
-    expect(resolveCallback({ state: 'state-1', code: 'c' }, pending(), later)).toMatchObject({
+    expect(
+      resolveCallback(
+        { state: 'state-1', code: 'c', browserBinding: 'binding-1' },
+        pending(),
+        later,
+      ),
+    ).toMatchObject({
       ok: false,
       code: 'STATE_EXPIRED',
     });
@@ -106,13 +125,21 @@ describe('C-18 · retorno del flujo OIDC', () => {
 
   it('rechaza el replay de un state ya consumido aunque siga vigente', () => {
     expect(
-      resolveCallback({ state: 'state-1', code: 'c' }, pending({ consumedAt: NOW }), NOW),
+      resolveCallback(
+        { state: 'state-1', code: 'c', browserBinding: 'binding-1' },
+        pending({ consumedAt: NOW }),
+        NOW,
+      ),
     ).toMatchObject({ ok: false, code: 'STATE_REPLAYED' });
   });
 
   it('propaga el error del proveedor sin intentar continuar', () => {
     expect(
-      resolveCallback({ state: 'state-1', error: 'access_denied' }, pending(), NOW),
+      resolveCallback(
+        { state: 'state-1', error: 'access_denied', browserBinding: 'binding-1' },
+        pending(),
+        NOW,
+      ),
     ).toMatchObject({ ok: false, code: 'PROVIDER_ERROR', detail: 'access_denied' });
   });
 
@@ -120,11 +147,23 @@ describe('C-18 · retorno del flujo OIDC', () => {
     const store = new InMemoryHandshakeStore();
     await store.save(pending());
 
-    const first = await store.consume('state-1', NOW);
-    const second = await store.consume('state-1', NOW);
+    const wrongBrowser = await store.consume('state-1', 'attacker-binding', NOW);
+    const first = await store.consume('state-1', 'binding-1', NOW);
+    const second = await store.consume('state-1', 'binding-1', NOW);
 
-    expect(resolveCallback({ state: 'state-1', code: 'c' }, first, NOW).ok).toBe(true);
-    expect(resolveCallback({ state: 'state-1', code: 'c' }, second, NOW)).toMatchObject({
+    expect(
+      resolveCallback(
+        { state: 'state-1', code: 'c', browserBinding: 'attacker-binding' },
+        wrongBrowser,
+        NOW,
+      ),
+    ).toMatchObject({ ok: false, code: 'STATE_MISMATCH' });
+    expect(
+      resolveCallback({ state: 'state-1', code: 'c', browserBinding: 'binding-1' }, first, NOW).ok,
+    ).toBe(true);
+    expect(
+      resolveCallback({ state: 'state-1', code: 'c', browserBinding: 'binding-1' }, second, NOW),
+    ).toMatchObject({
       ok: false,
       code: 'STATE_REPLAYED',
     });

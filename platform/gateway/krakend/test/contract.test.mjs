@@ -83,6 +83,7 @@ test('application BFF allowlist matches explicit KrakenD proxy routes', () => {
 });
 
 test('configuration denies broad CORS, accepts no arbitrary upstream and keeps secrets out of tracked config', () => {
+  assert.match(template, /"router":\s*\{\s*"disable_access_log":\s*true\s*\}/);
   assert.doesNotMatch(template, /security\/cors|allow_origins.*\*/);
   assert.doesNotMatch(template, /cache_ttl|cache\/http/);
   assert.doesNotMatch(template, /request\.URL|X-Forwarded-Host.*host/);

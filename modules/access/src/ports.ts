@@ -14,7 +14,11 @@ import type { AttemptCounter, RateLimitState } from './lockout.js';
 export interface HandshakeStore {
   save(handshake: PendingHandshake): Promise<void>;
   /** Devuelve y marca consumido en una sola operación atómica: el replay no puede ganar. */
-  consume(state: string, now: Date): Promise<PendingHandshake | undefined>;
+  consume(
+    state: string,
+    browserBinding: string | undefined,
+    now: Date,
+  ): Promise<PendingHandshake | undefined>;
 }
 
 export interface SessionStore {

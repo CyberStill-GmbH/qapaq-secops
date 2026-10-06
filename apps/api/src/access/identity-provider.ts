@@ -10,6 +10,25 @@ import type { JsonWebKey, JwksProvider, TokenExchange, TokenExchangeResult } fro
 
 import type { LocalDevelopmentIssuer } from './local-issuer.js';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isSigningKey(value: unknown): value is JsonWebKey {
+  return (
+    isRecord(value) &&
+    typeof value.kid === 'string' &&
+    value.kid.length > 0 &&
+    value.kty === 'RSA' &&
+    typeof value.n === 'string' &&
+    value.n.length > 0 &&
+    typeof value.e === 'string' &&
+    value.e.length > 0 &&
+    (value.alg === undefined || value.alg === 'RS256') &&
+    (value.use === undefined || value.use === 'sig')
+  );
+}
+
 export const JWKS_CACHE_TTL_MS = 10 * 60 * 1000;
 export const IDENTITY_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -32,8 +51,11 @@ export class EntraJwksProvider implements JwksProvider {
     try {
       const response = await this.fetchImplementation(this.jwksUri, { signal: controller.signal });
       if (!response.ok) throw new Error(`JWKS_UNAVAILABLE_${response.status}`);
-      const body = (await response.json()) as { keys?: readonly JsonWebKey[] };
-      this.cached = (body.keys ?? []).filter((key) => key.kty === 'RSA');
+      const body: unknown = await response.json();
+      if (!isRecord(body) || !Array.isArray(body.keys)) throw new Error('JWKS_INVALID_RESPONSE');
+      const keys = body.keys.filter(isSigningKey);
+      if (keys.length === 0) throw new Error('JWKS_WITHOUT_SIGNING_KEYS');
+      this.cached = keys;
       this.fetchedAt = this.now();
       return this.cached;
     } finally {
@@ -76,18 +98,26 @@ export class EntraTokenExchange implements TokenExchange {
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`TOKEN_EXCHANGE_FAILED_${response.status}`);
-      const body = (await response.json()) as {
-        id_token?: string;
-        access_token?: string;
-        refresh_token?: string;
-        expires_in?: number;
-      };
-      if (!body.id_token) throw new Error('TOKEN_EXCHANGE_WITHOUT_ID_TOKEN');
+      const body: unknown = await response.json();
+      if (
+        !isRecord(body) ||
+        typeof body.id_token !== 'string' ||
+        body.id_token.length === 0 ||
+        body.id_token.length > 65_536 ||
+        (body.access_token !== undefined && typeof body.access_token !== 'string') ||
+        (body.refresh_token !== undefined && typeof body.refresh_token !== 'string') ||
+        (body.expires_in !== undefined &&
+          (typeof body.expires_in !== 'number' ||
+            !Number.isFinite(body.expires_in) ||
+            body.expires_in <= 0))
+      ) {
+        throw new Error('TOKEN_EXCHANGE_INVALID_RESPONSE');
+      }
       return {
         idToken: body.id_token,
         ...(body.access_token ? { accessToken: body.access_token } : {}),
         ...(body.refresh_token ? { refreshToken: body.refresh_token } : {}),
-        expiresInSeconds: body.expires_in ?? 3600,
+        expiresInSeconds: (body.expires_in as number | undefined) ?? 3600,
       };
     } finally {
       clearTimeout(deadline);

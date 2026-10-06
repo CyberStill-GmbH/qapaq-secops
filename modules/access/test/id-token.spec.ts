@@ -80,9 +80,33 @@ describe('C-18 · validación del id_token', () => {
   });
 
   it('acepta la audiencia cuando viene como arreglo que incluye la aplicación', () => {
-    const result = validate(identity.sign(baseClaims(NOW, { aud: ['otra', CLIENT_ID] })));
+    const result = validate(
+      identity.sign(baseClaims(NOW, { aud: ['otra', CLIENT_ID], azp: CLIENT_ID })),
+    );
 
     expect(result.ok).toBe(true);
+  });
+
+  it('exige azp igual al cliente para audiencias múltiples', () => {
+    expect(
+      validate(identity.sign(baseClaims(NOW, { aud: ['otra', CLIENT_ID], azp: 'otra' }))),
+    ).toMatchObject({ ok: false, code: 'AZP_MISMATCH' });
+    expect(validate(identity.sign(baseClaims(NOW, { aud: CLIENT_ID, azp: 'otra' })))).toMatchObject(
+      { ok: false, code: 'AZP_MISMATCH' },
+    );
+  });
+
+  it('rechaza claims con tipos malformados sin lanzar excepciones', () => {
+    const malformed = {
+      ...baseClaims(NOW),
+      aud: 7,
+      roles: 'qapaq.platform.admin',
+    } as unknown as Partial<ReturnType<typeof baseClaims>>;
+
+    expect(validate(identity.sign(malformed))).toMatchObject({
+      ok: false,
+      code: 'CLAIMS_MALFORMED',
+    });
   });
 
   it('rechaza por ventana temporal fuera de la tolerancia de reloj', () => {
