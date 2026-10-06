@@ -70,7 +70,7 @@ resource "aws_ecr_lifecycle_policy" "this" {
         description  = "Keep the newest 20 immutable commit images."
         selection = {
           tagStatus     = "tagged"
-          tagPrefixList = ["sha-"]
+          tagPrefixList = ["git-"]
           countType     = "imageCountMoreThan"
           countNumber   = 20
         }
@@ -260,6 +260,7 @@ data "aws_iam_policy_document" "github_ecr_publish" {
       "ecr:BatchGetImage",
       "ecr:BatchCheckLayerAvailability",
       "ecr:CompleteLayerUpload",
+      "ecr:DescribeRepositories",
       "ecr:InitiateLayerUpload",
       "ecr:PutImage",
       "ecr:UploadLayerPart"

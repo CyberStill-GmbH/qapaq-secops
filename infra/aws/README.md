@@ -1,6 +1,6 @@
 # AWS Terraform demo — fases 1, 2B y 2C
 
-**Estado:** fase 1 (44 recursos) y fase 2B aplicadas. Fase 2C publica imágenes
+**Estado:** fases 1 (44 recursos), 2B aplicadas y 2C validada. Fase 2C publica imágenes
 verificadas a ECR. Estas fases no crean ECS, RDS, Redis/Valkey, Wazuh, ALB ni
 servicios de aplicación.
 
@@ -91,16 +91,17 @@ cargo horario fijo. No se crea NAT Gateway, ALB, endpoints, instancia ni servici
 administrado en esta fase. Aplican cargos por transferencia de datos si se usan
 recursos futuros.
 
-## Fase 2B — foundations de aplicación (plan, sin apply)
+## Fase 2B — foundations de aplicación (aplicada)
 
 Esta fase agrega recursos base para publicar imágenes y almacenar datos de demo,
-sin desplegar workloads:
+sin desplegar workloads de aplicación:
 
 - **ECR privado:** repositorios `qapaq-secops-api`,
   `qapaq-secops-worker` y `qapaq-secops-krakend`, cifrado AES-256 de
-  ECR, scan on push y tags inmutables. La política conserva los 20 tags `sha-*`
+  ECR, scan on push y tags inmutables. La política conserva los 20 tags `git-*`
   más recientes y vence imágenes sin tag luego de un día. Publicar tags de commit
-  como `sha-<commit>` permite identificar y volver a fijar una versión.
+  como `git-<commit>` permite identificar una versión; el manifiesto registra el
+  digest que debe fijar ECS.
 - **S3 privado:** tres buckets separados para `raw`, `evidence` y `artifacts`,
   nombrados con el ID de cuenta para evitar colisiones globales. Se bloquea acceso
   público, se impone TLS, se usa una CMK compartida con rotación automática,
@@ -117,25 +118,27 @@ sin desplegar workloads:
   `refs/heads/main`, porque este repositorio se creó después del cambio de
   formato de OIDC de GitHub. Puede publicar
   solo en los tres repositorios ECR; `GetAuthorizationToken` requiere `Resource
-= "*"` por la semántica de AWS. Sus acciones de push siguen la política
-  recomendada por AWS: `BatchGetImage`, `BatchCheckLayerAvailability`,
-  `CompleteLayerUpload`, `InitiateLayerUpload`, `PutImage` y `UploadLayerPart`.
-  No tiene acciones de administración ECR, S3 ni lectura de secretos. No se crea
+= "*"` por la semántica de AWS. Sus acciones limitadas por ARN son
+  `BatchGetImage`, `BatchCheckLayerAvailability`, `CompleteLayerUpload`,
+  `DescribeRepositories`, `InitiateLayerUpload`, `PutImage` y `UploadLayerPart`.
+  `DescribeRepositories` permite validar el gate previo al build. No tiene
+  acciones de administración ECR, S3 ni lectura de secretos. No se crea
   rol de tareas ni permisos runtime.
 
 El Worker sigue siendo solo un proceso de ciclo de vida en espera: BullMQ e
-ioredis están en dependencias, pero no existe consumidor ni conexión Redis. ECR
-no hace que API/Worker sean desplegables; la Fase 2B no publicó imágenes.
+ioredis están en dependencias, pero no existe consumidor ni conexión Redis. La
+publicación de sus imágenes no implementa procesamiento asíncrono ni hace
+desplegables API/Worker por sí sola.
 
 ### Costo estimado y delta de recursos
 
-El primer CI de Fase 2B encontró el hallazgo HIGH AWS-0132: Trivy exige una CMK
+El CI de Fase 2B encontró el hallazgo HIGH AWS-0132: Trivy exige una CMK
 administrada por el cliente para los buckets. Se incorporó una CMK compartida
 para los tres buckets, con rotación y Bucket Keys; no se redujeron severidades ni
 se añadieron excepciones. El plan remoto Terraform Demo #6 (commit `272d08d`)
 registró **34 recursos nuevos, 4 cambios in-place y 0 destrucciones**, para un
-total previsto de **78** frente a los 44 aplicados de Fase 1. No se ejecutó
-`apply`. Las altas son 6 recursos ECR, 19 S3, una CMK, 6 placeholders de Secrets
+total previsto de **78** frente a los 44 aplicados de Fase 1. Las altas son 6
+recursos ECR, 19 S3, una CMK, 6 placeholders de Secrets
 Manager y 2 IAM (rol y política inline). Los cuatro cambios in-place afectan a
 los security groups de ALB, API, KrakenD y Worker: Terraform propone retirar los
 bloques de egress declarados en el recurso SG mientras conserva reglas egress
@@ -154,7 +157,7 @@ estimada es **USD 3.40/mes**, más llamadas de Secrets Manager/KMS y uso variabl
 de ECR/S3. S3 Bucket Keys reducen solicitudes KMS. Los repositorios, buckets y
 roles no implican un cargo por hora.
 
-Las verificaciones de Fase 2B requeridas antes de considerar cualquier apply:
+Las verificaciones requeridas y ejecutadas para Fase 2B:
 
 ```sh
 terraform fmt -check -recursive
@@ -165,10 +168,10 @@ terraform plan -var-file environments/demo.tfvars -input=false -no-color
 El plan remoto confirmó que no reemplazaba ni destruía los 44 recursos de Fase 1;
 añadía las foundations descritas y proponía los cuatro cambios in-place anotados
 arriba. Una auditoría posterior encontró que esos recursos aún no estaban en AWS
-ni en el state remoto; el apply correcto se ejecutó desde `main` en **Terraform
+ni en el state remoto. El apply correcto se ejecutó desde `main` en **Terraform
 Demo #9**: 34 recursos añadidos, 4 cambios in-place y 0 destruidos, para un total
 de 78 recursos. El plan no incluyó ECS, ALB, RDS, Redis/Valkey ni Wazuh. La
-ejecución terminó correctamente: [Terraform Demo #15 — apply Fase 2B](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37404363686).
+ejecución terminó correctamente: [Terraform Demo #9 — apply Fase 2B](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37404363686).
 
 La VPC pública no implica que todas las subnets/instancias tengan IP pública; las
 subnets no asignan IP pública automáticamente. El SG público con HTTP pertenece a
@@ -179,21 +182,21 @@ Pendiente para desplegar aplicación: endpoints o egress explícito; permiso de
 egress HTTPS del Wazuh Manager para Microsoft 365; elección de HTTPS/certificado;
 reglas del Dashboard y acceso administrativo. API y Worker compilan, pasan sus
 smoke tests y arrancan como UID no root en contenedores locales, pero **no se
-consideran desplegables ni DONE**: no hay publicación en ECR ni despliegue ECS,
+consideran desplegables ni DONE**: no hay despliegue ECS,
 la API no tiene readiness real de dependencias y el Worker permanece en espera
 inactiva sin consumidor BullMQ. Más detalles en
 [`docs/deployment/aws-demo.md`](../../docs/deployment/aws-demo.md).
 
 ## Fase 2C — publicación verificada en ECR
 
-`.github/workflows/publish-images.yml` se activa en los pushes a `main` y espera
-el check `CI / required` exitoso para ese mismo SHA antes de pedir credenciales
-OIDC; también permite despacho manual solo en `main`, con la misma comprobación.
-Hace checkout del SHA exacto que pasó CI. Usa GitHub OIDC con el rol
+`.github/workflows/publish-images.yml` solo admite despacho manual y falla si la
+rama seleccionada no es `main`. Espera el check `CI / required` exitoso para ese
+mismo SHA antes de pedir credenciales OIDC. Hace checkout del SHA exacto que pasó
+CI. Usa GitHub OIDC con el rol
 `github_ecr_publisher_role_arn`; el ARN se configura como variable no secreta del
-repositorio `AWS_ECR_PUBLISHER_ROLE_ARN`, copiada del output de Terraform. El
-account ID se obtiene de ese ARN y la región es `us-east-1`, igual a
-`environments/demo.tfvars`. No hay access keys estáticas.
+repositorio `AWS_ECR_PUBLISHER_ROLE_ARN`, copiada del output de Terraform. La
+cuenta se fija en `955200662475` y se valida contra STS; la región es `us-east-1`,
+igual a `environments/demo.tfvars`. No hay access keys estáticas.
 
 El rol verifica el `sub` inmutable de este repositorio:
 `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:ref:refs/heads/main`.
@@ -215,13 +218,13 @@ Antes de publicar, ejecuta el mismo script de gates que `CI / required`
 (`.github/ci/verify-container-images.sh`): builds API/Worker/KrakenD, Node
 `v24.21.0`, smoke API live/ready, smoke y ciclo de vida Worker, SIGTERM con exit
 code 0 y Trivy HIGH/CRITICAL para las tres imágenes. Solo si todos pasan asigna
-el tag inmutable `sha-<commit>` y hace push. Recupera el digest de cada imagen de
+el tag inmutable `git-<full-commit-sha>` y hace push. Recupera el digest de cada imagen de
 ECR y adjunta `image-manifest-<commit>.json` con repositorio, tag, digest, commit,
-región y timestamp UTC.
+región y timestamp UTC. El artifact se conserva por 30 días.
 
 Las URLs siguen los nombres declarados por Terraform:
 `<cuenta>.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-{api,worker,krakend}`.
-No se publica `latest`. ECR escanea cada push y conserva los 20 tags `sha-*` más
+No se publica `latest`. ECR escanea cada push y conserva los 20 tags `git-*` más
 recientes. El futuro ECS debe referenciar las imágenes por digest. Esta fase no
 despliega ECS, ALB, RDS, Redis/Valkey ni Wazuh. El Worker sigue arrancando como
 proceso de ciclo de vida sin consumir BullMQ; publicar su imagen no significa que
