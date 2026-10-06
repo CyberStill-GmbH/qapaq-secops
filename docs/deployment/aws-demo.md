@@ -20,7 +20,7 @@ El apply remoto de [Terraform Demo #9](https://github.com/CyberStill-GmbH/qapaq-
 
 Los valores de secretos no están en Terraform. Su carga/rotación requiere un paso separado. Costo fijo estimado de foundations: aproximadamente USD 3.40/mes por la CMK y metadata de Secrets Manager, además del uso variable de ECR/S3, llamadas API y datos.
 
-## Fase 2C — publicación verificada en ECR
+## Fase 2C — publicación verificada en ECR (completada)
 
 `.github/workflows/publish-images.yml` permite únicamente `workflow_dispatch` desde `main`; si el ref no es `main`, falla explícitamente. Hace checkout del SHA exacto, espera `CI / required` verde para ese commit y ejecuta `.github/ci/verify-container-images.sh` antes de publicar. Se mantienen build, Node `v24.21.0`, smoke tests, SIGTERM/exit code y Trivy HIGH/CRITICAL para API, Worker y KrakenD.
 
@@ -32,7 +32,17 @@ Autenticación exclusivamente con GitHub OIDC y el role `qapaq-secops-demo-githu
 
 El workflow recupera el digest `sha256` de cada tag y adjunta `image-manifest-<commit>` por 30 días. El manifiesto contiene `schemaVersion`, proyecto, entorno demo, cuenta AWS, región, SHA, timestamp UTC y por imagen: nombre del repositorio, URI, tag y digest. El despliegue futuro deberá fijar `repository@sha256:...`; los tags sirven para localizar la release y el digest identifica el contenido exacto. Para rollback se selecciona un digest de un manifiesto anterior y se vuelve a desplegar ese digest, conservando trazabilidad con el SHA fuente.
 
-La política lifecycle conserva los 20 tags más recientes `git-*` y elimina imágenes sin tag tras un día. La policy del role incluye `ecr:GetAuthorizationToken` con `Resource: "*"` por requisito de ECR, y acciones de publicación/consulta limitadas a los tres ARNs: `BatchGetImage`, `BatchCheckLayerAvailability`, `CompleteLayerUpload`, `DescribeRepositories`, `InitiateLayerUpload`, `PutImage` y `UploadLayerPart`. No concede administración ECR, permisos S3 ni lectura de secretos.
+La ejecución [Publish verified images #8](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407871065) completó correctamente en `main`, commit `5ea083bd6dccf12580d00b43ee66d1086c0e06ea`. El check `CI / required` de ese SHA y los gates de release pasaron. Trivy HIGH/CRITICAL terminó con código 0 en API, Worker y KrakenD. El manifiesto quedó como artifact de GitHub con 30 días de retención.
+
+| Imagen | Tag | Digest |
+| --- | --- | --- |
+| API | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068` |
+| Worker | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624` |
+| KrakenD | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460` |
+
+La política lifecycle conserva los 20 tags más recientes `git-*` y elimina imágenes sin tag tras un día. El role tiene una policy inline y ninguna policy administrada adjunta. Incluye `ecr:GetAuthorizationToken` con `Resource: "*"` por requisito de ECR, y acciones de publicación/consulta limitadas a los tres ARNs: `BatchGetImage`, `BatchCheckLayerAvailability`, `CompleteLayerUpload`, `DescribeRepositories`, `InitiateLayerUpload`, `PutImage` y `UploadLayerPart`. No concede administración ECR, permisos S3 ni lectura de secretos. Su trust policy restringe OIDC al subject inmutable del repo y `main`.
+
+Para el tag nuevo, el plan remoto [Terraform Demo #10](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407190420) mostró 12 altas, 1 cambio y 3 bajas. Las 9 reglas egress ausentes eran recursos del baseline de seguridad declarados en Terraform; los restantes cambios actualizaron los 3 lifecycle policies y el permiso mínimo para `DescribeRepositories`. El [apply #11](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407657228) pasó y no creó workloads; el state resultó con 87 recursos.
 
 ### Límite del Worker
 

@@ -1,7 +1,7 @@
 # AWS Terraform demo — fases 1, 2B y 2C
 
-**Estado:** fases 1 (44 recursos), 2B aplicadas y 2C validada. Fase 2C publica imágenes
-verificadas a ECR. Estas fases no crean ECS, RDS, Redis/Valkey, Wazuh, ALB ni
+**Estado:** fases 1, 2B y 2C aplicadas/validadas. La publicación `git-<sha>` pasó
+CI, gates de imagen y push a ECR. No se crearon ECS, RDS, Redis/Valkey, Wazuh, ALB ni
 servicios de aplicación.
 
 ## Arquitectura de esta fase
@@ -207,18 +207,47 @@ Terraform validadas como numéricas, con valores predeterminados correspondiente
 a los IDs reales del repositorio y su propietario. La rama sigue restringida a
 `main`.
 
-La publicación quedó validada en GitHub Actions: `CI / required`, builds,
-smokes, SIGTERM, escaneos Trivy y push a las tres imágenes pasaron. El run guardó
-el artifact `image-manifest-cb7787d19aaf2dd404183b306b64f9bef09d1992` con los
-digests leídos de ECR: [Publish verified images](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37404087949).
+El commit `5ea083b` cambió el pipeline a despacho manual desde `main`, tags
+`git-<full-sha>`, validación explícita de cuenta/repositorios y manifiesto de 30
+días; también añadió `DescribeRepositories` al rol, limitado a los tres ARN ECR.
+El CI requerido pasó: [CI Security #218](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37406590291).
+El plan remoto [Terraform Demo #10](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407190420)
+fue de 12 altas, 1 cambio y 3 bajas: nueve reglas egress declaradas para la red
+que faltaban en AWS, tres reemplazos de lifecycle ECR (`sha-`→`git-`) y un cambio
+in-place de policy IAM. Tras revisar que no incluía workloads, el [apply Terraform
+Demo #11](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407657228)
+completó exactamente ese plan: 12 añadidos, 1 cambiado y 3 reemplazados; el state
+queda con 87 recursos. Ningún recurso de aplicación se creó.
+
+La publicación manual [Publish verified images #8](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37407871065)
+pasó todos los gates y publicó las tres imágenes de `5ea083bd6dccf12580d00b43ee66d1086c0e06ea`.
+Trivy HIGH/CRITICAL dio código de salida 0 para API, Worker y KrakenD. El artifact
+`image-manifest-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` expira el 5 de noviembre de 2026.
 El worker sigue siendo una imagen que inicia correctamente pero permanece en
 espera; todavía no consume BullMQ.
+
+| Imagen | URI ECR | Tag | Digest |
+| --- | --- | --- | --- |
+| API | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-api` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068` |
+| Worker | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-worker` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624` |
+| KrakenD | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-krakend` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460` |
+
+El job recuperó cada digest por `ecr:BatchGetImage`, confirmó que el tag
+correspondiera al commit y validó el patrón SHA-256 antes de crear el manifest.
+El role publisher confía solo en el subject OIDC inmutable de
+`CyberStill-GmbH/qapaq-secops` para `refs/heads/main`, con `aud=sts.amazonaws.com`.
+Tiene `ecr:GetAuthorizationToken` con `Resource: "*"`; las demás acciones
+(`BatchGetImage`, `BatchCheckLayerAvailability`, `CompleteLayerUpload`,
+`DescribeRepositories`, `InitiateLayerUpload`, `PutImage`, `UploadLayerPart`) se
+limitan a los ARN de los tres repositorios. No hay políticas administradas ni
+permisos para S3, Secrets Manager, ECS o administración ECR.
 
 Antes de publicar, ejecuta el mismo script de gates que `CI / required`
 (`.github/ci/verify-container-images.sh`): builds API/Worker/KrakenD, Node
 `v24.21.0`, smoke API live/ready, smoke y ciclo de vida Worker, SIGTERM con exit
 code 0 y Trivy HIGH/CRITICAL para las tres imágenes. Solo si todos pasan asigna
-el tag inmutable `git-<full-commit-sha>` y hace push. Recupera el digest de cada imagen de
+el tag inmutable `git-<full-commit-sha>` y hace push. Recupera el digest de cada
+imagen de
 ECR y adjunta `image-manifest-<commit>.json` con repositorio, tag, digest, commit,
 región y timestamp UTC. El artifact se conserva por 30 días.
 

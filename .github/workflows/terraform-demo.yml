@@ -89,6 +89,19 @@ jobs:
             echo 'Publisher IAM role is absent.'
           fi
 
+          echo '## Publisher role policies'
+          aws iam list-attached-role-policies \
+            --role-name qapaq-secops-demo-github-ecr-publisher \
+            --output json
+          aws iam list-role-policies \
+            --role-name qapaq-secops-demo-github-ecr-publisher \
+            --output json
+          aws iam get-role-policy \
+            --role-name qapaq-secops-demo-github-ecr-publisher \
+            --policy-name publish-demo-ecr-images \
+            --query PolicyDocument \
+            --output json
+
           echo '## Phase 2B S3 buckets'
           for bucket in \
             qapaq-secops-demo-raw-955200662475 \
