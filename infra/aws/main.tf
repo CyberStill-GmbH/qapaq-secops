@@ -81,6 +81,7 @@ module "private_endpoints" {
     module.security.security_group_ids.krakend,
     module.security.security_group_ids.api,
     module.security.security_group_ids.worker,
+    module.security.security_group_ids.wazuh,
   ]
 }
 
