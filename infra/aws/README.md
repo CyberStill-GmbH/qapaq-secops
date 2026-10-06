@@ -281,7 +281,7 @@ los datos de prueba. Para conservarlos, habilitar deletion protection y final
 snapshot de PostgreSQL, exportar/verificar la información necesaria y luego
 retirar la protección de forma controlada.
 
-## Fase 3 — base de datos y egress privado (plan pendiente, no aplicado)
+## Fase 3 — base de datos y egress privado (plan verde, no aplicado)
 
 El diseño y Terraform de esta fase añaden RDS PostgreSQL 18.6 Single-AZ
 (`db.t4g.micro`, gp3 cifrado de 20 GiB, `rds.force_ssl=1`, backup de 1 día,
@@ -326,11 +326,7 @@ endpoints y almacenamiento llevan el delta Fase 3 a ~USD 85/mes. Precio real
 depende de I/O, backups/snapshots, transferencia, créditos CPU, impuestos y free
 tier; destruir al terminar la demo.
 
-El delta esperado frente a 87 recursos convergidos es 19 nuevos, 0 cambios,
-0 bajas y 0 reemplazos. El plan real de GitHub Actions es autoridad para confirmar
-este conteo. Ejecutar `terraform fmt -check -recursive`, `terraform validate` y
-`terraform plan -var-file environments/demo.tfvars`; no usar `apply` hasta revisar
-con el usuario el plan completo.
+El plan remoto [Terraform Demo #14](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412251901) terminó correctamente sobre `main` (commit `d95170532501290f5e445b91036a3e3133f475b3`): `terraform fmt -check -recursive`, `terraform validate` y `terraform plan` quedaron verdes. Delta exacto frente a los 87 recursos existentes: **19 por añadir, 0 cambios, 0 destrucciones y 0 reemplazos**. Los 19 son 3 recursos RDS, 4 Valkey y 12 de egress privado (SG, 6 reglas, 4 endpoints de interfaz y 1 gateway S3). [CI / required](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412251883/job/112103959095) y [evidence](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37412551653/job/112103995310) también terminaron en verde. Terraform Apply y Audit quedaron omitidos: el state de AWS no cambió y esta fase **no está aplicada**. Revisar este delta antes de autorizar cualquier apply.
 
 Aunque una futura fase ECS pueda tirar imágenes, esta no habilita un despliegue:
 la API todavía depende de configuración MinIO y no tiene readiness real; Worker
