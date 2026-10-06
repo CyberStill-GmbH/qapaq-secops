@@ -165,3 +165,68 @@ variable "wazuh_dashboard_port" {
   type        = number
   default     = 443
 }
+
+variable "postgres_engine_version" {
+  description = "Amazon RDS for PostgreSQL engine version; keep aligned with local/test PostgreSQL where AWS supports it."
+  type        = string
+  default     = "18.6"
+}
+
+variable "postgres_instance_class" {
+  description = "Small Single-AZ DB instance class for the temporary demo."
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "postgres_allocated_storage_gb" {
+  description = "Encrypted gp3 storage allocated to the demo database."
+  type        = number
+  default     = 20
+
+  validation {
+    condition     = var.postgres_allocated_storage_gb >= 20
+    error_message = "RDS PostgreSQL gp3 storage must be at least 20 GiB."
+  }
+}
+
+variable "postgres_backup_retention_days" {
+  description = "RDS automated backup retention; zero disables backups, one is the minimum enabled retention."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.postgres_backup_retention_days >= 0 && var.postgres_backup_retention_days <= 7
+    error_message = "Demo backup retention must be between 0 and 7 days."
+  }
+}
+
+variable "postgres_deletion_protection" {
+  description = "Protect the RDS instance from deletion; disabled by default to keep short-lived demo teardown simple."
+  type        = bool
+  default     = false
+}
+
+variable "postgres_skip_final_snapshot" {
+  description = "Skip a final snapshot on destroy. Set false and provide an identifier if demo data must be retained."
+  type        = bool
+  default     = true
+}
+
+variable "postgres_final_snapshot_identifier" {
+  description = "Final snapshot identifier required when postgres_skip_final_snapshot is false."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "valkey_node_type" {
+  description = "Small node-based Valkey class for the temporary demo."
+  type        = string
+  default     = "cache.t4g.micro"
+}
+
+variable "valkey_engine_version" {
+  description = "Valkey version compatible with TLS and AUTH; validated by the AWS plan/apply workflow."
+  type        = string
+  default     = "8.0"
+}

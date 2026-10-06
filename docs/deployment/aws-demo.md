@@ -54,6 +54,51 @@ El contenedor Worker compila, inicia, pasa su smoke/lifecycle gate y finaliza li
 
 API y Worker pasan las validaciones de imagen, pero aún no se declaran desplegables: no hay ECS, la API no tiene readiness real de dependencias, las subnets privadas no tienen egress/endpoints y no se han cargado los secretos operativos.
 
-## Fases expresamente fuera de alcance
+## Fase 3 — PostgreSQL, Valkey y conectividad privada (planificada; no aplicada)
 
-No crear ni desplegar ECS, RDS, Redis/Valkey, ALB ni Wazuh en esta fase. Siguen pendientes el diseño de salida privada/endpoints, egress de Wazuh a Microsoft 365, certificado HTTPS, valores operativos de secretos y decisión de acceso administrativo.
+La Fase 3 añade únicamente la capa de datos y conectividad saliente de runtime. El workflow debe ejecutar `terraform fmt -check -recursive`, `terraform validate` y `terraform plan` desde `main`; no se autoriza `apply` como parte de esta entrega.
+
+### PostgreSQL
+
+- RDS PostgreSQL **18.6**, igual a `postgres:18.6` de Compose y a la versión aceptada en ADR-016. RDS publica 18.6 en la región elegida; no hay downgrade de major/minor que documentar.
+- Instancia `db.t4g.micro`, Single-AZ, gp3 cifrado de 20 GiB, no pública y solo en las dos subnets de datos (`10.0.32.0/24`, `10.0.33.0/24`). El security group existente permite TCP/5432 solo desde API y Worker.
+- `rds.force_ssl=1` obliga TLS en servidor. La aplicación debe conectar al hostname RDS con `sslmode=verify-full`, comprobar hostname y cadena de confianza usando el bundle CA vigente de RDS. El código de configuración actual valida que TLS esté activado, pero todavía no demuestra validación de CA/hostname; verificarlo antes de Fase 4.
+- RDS genera y rota el password master en Secrets Manager. Terraform expone solo endpoint, puerto, database name y ARN del secreto. El master sirve para bootstrap/migración; antes de ejecutar una API de producción se debe crear un usuario de aplicación con permisos mínimos, guardar su secreto en Secrets Manager y no usar el master para tráfico ordinario.
+- Backups automáticos por 1 día. No hay Performance Insights. `postgres_deletion_protection=false` y `postgres_skip_final_snapshot=true` simplifican el demo efímero; si se debe conservar información, activar protección y snapshot final con un identificador antes de `apply`/destrucción. La estrategia asume que los datos demo se pueden perder durante teardown.
+
+### Valkey
+
+- ElastiCache Valkey 8.0, `cache.t4g.micro`, replication group de **un solo nodo**, cluster mode deshabilitado, sin réplica ni failover, en subnets de datos y con el security group existente (API/Worker a TCP/6379).
+- Cifrado en reposo y TLS obligatorio (`transit_encryption_mode=required`); AUTH token de 64 caracteres. `ephemeral.random_password` lo genera solo durante el apply y se envía a ElastiCache por `auth_token_wo`; la misma operación lo escribe a Secrets Manager con argumento write-only. El valor no queda en `.tfvars`, plan ni state, y los outputs devuelven solo ARN.
+- La conexión será endpoint privado con TLS (`rediss://`) y AUTH. El token se refiere por ARN a través del provider de secretos del runtime. BullMQ/ioredis todavía no se ejercitan contra Valkey real; validar handshake TLS, AUTH y compatibilidad de comandos tras aplicar. El Worker sigue inactivo y no consume BullMQ.
+- Valkey es cache/estado de cola, no persistencia autoritativa. No se configura snapshot porque sus datos se pueden reconstruir desde PostgreSQL/outbox. Una sola instancia reduce costo, pero una falla de nodo deja el runtime sin cache/queue hasta recuperarse.
+
+### Egress privado de servicios AWS
+
+Se elige una red privada con **cuatro Interface Endpoints en dos AZ** y un Gateway Endpoint S3:
+
+| Endpoint | Uso previsto |
+| --- | --- |
+| `com.amazonaws.us-east-1.ecr.api` | autenticación/consulta ECR para Fargate |
+| `com.amazonaws.us-east-1.ecr.dkr` | descarga de manifests y capas ECR |
+| `com.amazonaws.us-east-1.s3` (Gateway) | capas ECR almacenadas en S3 y buckets de aplicación |
+| `com.amazonaws.us-east-1.secretsmanager` | resolución de secretos por el execution role |
+| `com.amazonaws.us-east-1.logs` | logs operativos de contenedores en CloudWatch Logs |
+
+Los cuatro Interface Endpoints usan private DNS y ENIs en las dos application subnets. Un SG dedicado acepta TCP/443 solo desde SG KrakenD/API/Worker; las reglas egress de esos runtimes permiten 443 solo hacia ese SG. El S3 Gateway Endpoint se asocia a la route table privada de aplicación existente y no tiene tarifa de endpoint. No se crea endpoint STS: ECS entrega credenciales temporales al task por su metadata endpoint; STS se añadirá solo si el código asume roles explícitamente.
+
+CloudWatch queda limitado a logs operativos (arranque, errores y salud). No se enviarán raw SOC events, payloads sensibles ni evidencias. El endpoint no crea log groups, retención, métricas ni plataforma SOC.
+
+**Trade-off frente a NAT para una demo de cuatro horas:** AWS publica aproximadamente USD 0.01 por ENI/hora para Interface Endpoints en us-east-1 y USD 0.045 por hora más USD 0.045/GB procesado para NAT Gateway. Cuatro endpoints en dos AZ cuestan unos **USD 0.08/h** (USD 0.32/4 h; USD 58.40/730 h), antes de USD 0.01/GB de procesamiento. Un NAT en una AZ cuesta **USD 0.18/4 h** antes de procesamiento y transferencia, o USD 32.85/730 h. Para esta demo corta, el NAT único ahorraría unos USD 0.14 en cuatro horas bajo volumen insignificante, pero daría egress HTTPS genérico, tendría cargo por GB y salida inter-AZ si tasks usan ambas AZ. Elegimos endpoints: la diferencia absoluta es pequeña frente a RDS/Valkey, y mantiene la salida confinada a los servicios AWS enumerados. No se implementan endpoints y NAT simultáneamente. Si las sesiones de demo crecen a uso permanente, revisar coste y número de AZ antes de mantenerlos.
+
+### IAM, costos, delta y gates
+
+No se crean roles/policies ECS todavía. En Fase 4 separar execution role (pull ECR, emitir logs y obtener secretos concretos) de task role (permisos concretos de aplicación: ARN de buckets, secretos y `elasticache:Connect` donde corresponda); nada de `secretsmanager:*`, `s3:*` o `kms:*`.
+
+Estimación on-demand orientativa para `us-east-1` (730 h/mes): RDS `db.t4g.micro` cerca de USD 0.019/h, gp3 20 GiB aproximadamente USD 2.30/mes y secreto administrado USD 0.40/mes; Valkey `cache.t4g.micro` cerca de USD 0.0128/h; endpoints USD 0.08/h + transferencia; Secrets Manager de Valkey USD 0.40/mes. Total incremental previsto **~USD 0.12/h y ~USD 85/mes** para la Fase 3, excluye la línea base Fase 2B (USD 3.40/mes), I/O/backups/snapshots excedentes, transferencia, impuestos y CPU credits. Una sesión de cuatro horas rondaría USD 0.48 incremental, con facturación mínima de 10 minutos de RDS por cada cambio de estado; endpoint-hours parciales redondean por endpoint. Eliminar los recursos al acabar la demo evita cargos continuos.
+
+El delta Terraform esperado es **19 recursos nuevos, 0 modificados, 0 destruidos y 0 reemplazos** frente a los 87 recursos convergidos de Fases 1/2B/2C. Incluye RDS (DB subnet group, parameter group, instancia), Valkey (subnet group, secreto + versión, replication group), VPC endpoints (SG, 3 ingress + 3 egress rules, 4 interfaces, 1 S3 gateway). La contraseña maestra que crea RDS es un objeto gestionado por RDS y no una dirección Terraform separada. Confirmar estas cantidades con el plan remoto real antes de cualquier apply.
+
+Gates pendientes antes de Fase 4: plan remoto limpio respecto a los 87 objetos; ejecutar apply solo tras revisión expresa del delta; esperar RDS/Valkey `available`; comprobar subnets privadas, cifrado y SG; probar PostgreSQL con `verify-full` y CA; probar Valkey `rediss` + AUTH desde una tarea autorizada; verificar los endpoint services y DNS privados. Además, la API aún está configurada alrededor de MinIO y no tiene wiring S3 de producción; readiness de dependencias no está implementada. El Worker sigue sin consumidor BullMQ. Wazuh necesitará un diseño separado de egress HTTPS a Microsoft 365. Ninguno de estos servicios se declara desplegable aquí.
+
+No crear ni desplegar en esta fase ECS Services, ALB, Wazuh, Grafana, Prometheus, Loki ni runtime OpenTelemetry.

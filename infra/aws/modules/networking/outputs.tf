@@ -17,3 +17,7 @@ output "data_subnet_ids" {
 output "availability_zones" {
   value = local.azs
 }
+
+output "app_route_table_id" {
+  value = aws_route_table.app.id
+}

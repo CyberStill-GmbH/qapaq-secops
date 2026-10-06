@@ -272,6 +272,68 @@ el procesamiento asíncrono esté implementado.
 
 ## Destrucción
 
-La fase 1 no contiene datos persistentes ni recursos bootstrap. `terraform destroy`
-no debe ejecutarse hasta confirmar que el estado contiene únicamente recursos de
-demo; el bucket de state, provider OIDC y role IAM están fuera del stack.
+`terraform destroy` no debe ejecutarse hasta confirmar que el estado contiene
+únicamente recursos de demo. El bucket de state, provider OIDC y role IAM están
+fuera del stack. La Fase 3 (aún sin apply) configura PostgreSQL con final snapshot
+omitido y Valkey sin snapshots para facilitar teardown breve; esto implica perder
+los datos de prueba. Para conservarlos, habilitar deletion protection y final
+snapshot de PostgreSQL, exportar/verificar la información necesaria y luego
+retirar la protección de forma controlada.
+
+## Fase 3 — base de datos y egress privado (plan pendiente, no aplicado)
+
+El diseño y Terraform de esta fase añaden RDS PostgreSQL 18.6 Single-AZ
+(`db.t4g.micro`, gp3 cifrado de 20 GiB, `rds.force_ssl=1`, backup de 1 día,
+secreto master administrado por RDS), ElastiCache Valkey 8.0 con un nodo
+`cache.t4g.micro` (TLS obligatorio, AUTH y cifrado en reposo), y conectividad
+privada de runtime. La versión PostgreSQL coincide exactamente con Compose
+(`postgres:18.6`) y ADR-016. La autenticación de Valkey usa un password temporal
+generado por un recurso efímero y los campos write-only de Terraform; la misma
+operación introduce el token en Secrets Manager. El valor no está en git, plan,
+state ni outputs.
+
+RDS/Valkey usan solo las dos data subnets `10.0.32.0/24` y `10.0.33.0/24`. RDS
+solo recibe TCP/5432 desde SG API/Worker; Valkey TCP/6379 desde API/Worker. RDS
+force SSL queda activado; la conexión futura debe usar el endpoint DNS, TLS
+`verify-full` y el CA bundle RDS actual. La API valida TLS a nivel de perfil,
+pero todavía hay que demostrar validación de CA/hostname en su driver. Valkey se
+consume por endpoint privado `rediss://`, con AUTH desde su ARN de Secrets
+Manager; su compatibilidad real con la versión de ioredis/BullMQ del repositorio
+requiere smoke de conexión tras apply. No hay snapshots de Valkey porque se trata
+de cache/cola reconstruible; su caída única deja el servicio sin cache/cola hasta
+recuperación. PostgreSQL master sirve para bootstrap, no para usuario ordinario de
+API: crear un principal de aplicación de permisos mínimos y su secreto runtime
+antes de ejecutar la API.
+
+Se elige S3 Gateway Endpoint gratuito más cuatro Interface Endpoints: ECR API,
+ECR DKR, Secrets Manager y CloudWatch Logs. Private DNS habilitado; endpoints en
+las dos application subnets; su SG acepta TCP/443 solo desde SG KrakenD/API/Worker,
+y esos runtimes solo egresan TCP/443 al SG de endpoints. S3 se asocia a la route
+table de app; las capas de imágenes ECR descargan desde S3 a través de esta ruta.
+CloudWatch queda para logs técnicos acotados, nunca raw SOC, payloads sensibles ni
+evidencia. No se agrega STS: los tasks Fargate consumen credenciales del task role
+por metadata; solo agregaremos endpoint STS si un servicio requiere AssumeRole.
+
+Para cuatro horas, cuatro endpoints por dos AZ cuestan aproximadamente USD 0.32
+antes de datos, frente a USD 0.18 de un NAT de una AZ más USD 0.045/GB procesado,
+transferencia y potencial tráfico inter-AZ. Aunque ese NAT sería ~USD 0.14 más
+barato bajo un volumen de datos muy bajo, introducimos endpoints para conservar
+egress específico a servicios AWS sin salida web genérica. El endpoint S3 no tiene
+cargo horario. El costo de los cuatro endpoints sería ~USD 58.40/730 horas. RDS
+con compute, 20 GiB, secreto master y Valkey se estima ~USD 26/mes; secretos,
+endpoints y almacenamiento llevan el delta Fase 3 a ~USD 85/mes. Precio real
+depende de I/O, backups/snapshots, transferencia, créditos CPU, impuestos y free
+tier; destruir al terminar la demo.
+
+El delta esperado frente a 87 recursos convergidos es 19 nuevos, 0 cambios,
+0 bajas y 0 reemplazos. El plan real de GitHub Actions es autoridad para confirmar
+este conteo. Ejecutar `terraform fmt -check -recursive`, `terraform validate` y
+`terraform plan -var-file environments/demo.tfvars`; no usar `apply` hasta revisar
+con el usuario el plan completo.
+
+Aunque una futura fase ECS pueda tirar imágenes, esta no habilita un despliegue:
+la API todavía depende de configuración MinIO y no tiene readiness real; Worker
+no consume BullMQ; falta crear usuario PostgreSQL de aplicación y probar TLS/CA;
+falta smoke Valkey TLS/AUTH; las referencias/roles runtime se cablearán con IAM
+mínimo en Fase 4; y Wazuh requiere salida aprobada hacia Microsoft 365. Esta fase
+no crea ECS, ALB, Wazuh, Grafana, Prometheus, Loki ni runtime OpenTelemetry.

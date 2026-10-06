@@ -39,3 +39,47 @@ module "application_foundations" {
   github_repository_owner_id = var.github_repository_owner_id
   github_repository_id       = var.github_repository_id
 }
+
+module "database" {
+  source = "./modules/database"
+
+  project                   = var.project
+  environment               = var.environment
+  subnet_ids                = module.networking.data_subnet_ids
+  security_group_id         = module.security.security_group_ids.postgres
+  engine_version            = var.postgres_engine_version
+  instance_class            = var.postgres_instance_class
+  allocated_storage_gb      = var.postgres_allocated_storage_gb
+  backup_retention_days     = var.postgres_backup_retention_days
+  deletion_protection       = var.postgres_deletion_protection
+  skip_final_snapshot       = var.postgres_skip_final_snapshot
+  final_snapshot_identifier = var.postgres_final_snapshot_identifier
+}
+
+module "cache" {
+  source = "./modules/cache"
+
+  project           = var.project
+  environment       = var.environment
+  region            = var.aws_region
+  subnet_ids        = module.networking.data_subnet_ids
+  security_group_id = module.security.security_group_ids.redis
+  node_type         = var.valkey_node_type
+  engine_version    = var.valkey_engine_version
+}
+
+module "private_endpoints" {
+  source = "./modules/private_endpoints"
+
+  project             = var.project
+  environment         = var.environment
+  region              = var.aws_region
+  vpc_id              = module.networking.vpc_id
+  app_subnet_ids      = module.networking.app_subnet_ids
+  app_route_table_ids = [module.networking.app_route_table_id]
+  runtime_security_group_ids = [
+    module.security.security_group_ids.krakend,
+    module.security.security_group_ids.api,
+    module.security.security_group_ids.worker,
+  ]
+}
