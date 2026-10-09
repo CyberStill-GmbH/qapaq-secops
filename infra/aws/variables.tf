@@ -163,6 +163,26 @@ variable "public_route53_zone_name" {
   }
 }
 
+variable "vercel_frontend_hostname" {
+  description = "Optional Vercel frontend hostname to publish in the public Route 53 zone."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.vercel_frontend_hostname == null || (
+      var.public_route53_zone_name != null &&
+      length(split(".", var.vercel_frontend_hostname)) >= 2 &&
+      can(regex("^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])$", var.vercel_frontend_hostname)) &&
+      (
+        lower(var.vercel_frontend_hostname) == trimsuffix(lower(var.public_route53_zone_name), ".") ||
+        endswith(lower(var.vercel_frontend_hostname), ".${trimsuffix(lower(var.public_route53_zone_name), ".")}")
+      )
+    )
+    error_message = "vercel_frontend_hostname must be a valid hostname inside public_route53_zone_name."
+  }
+}
+
 variable "krakend_port" {
   description = "KrakenD listener port."
   type        = number

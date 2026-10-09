@@ -81,6 +81,18 @@ resource "aws_route53_record" "public_api" {
   }
 }
 
+# Vercel's domain inspection recommends this A record for app.jappi.net.pe.
+# Keep the frontend hostname configurable so the Route 53 zone remains reusable.
+resource "aws_route53_record" "vercel_frontend" {
+  count = var.vercel_frontend_hostname != null ? 1 : 0
+
+  zone_id = aws_route53_zone.public_api[0].zone_id
+  name    = var.vercel_frontend_hostname
+  type    = "A"
+  ttl     = 60
+  records = ["76.76.21.21"]
+}
+
 output "public_api_url" {
   description = "Public QAPAQ API URL."
   value       = var.enable_https ? "https://${var.public_api_hostname}" : module.wazuh_public.api_url

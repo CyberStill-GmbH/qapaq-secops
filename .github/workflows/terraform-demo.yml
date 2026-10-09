@@ -88,10 +88,10 @@ jobs:
           echo "QAPAQ API URL: $api_url"
           echo "Wazuh admin secret ARN: $(terraform output -raw wazuh_dashboard_admin_secret_arn)"
 
-          echo 'Waiting for Wazuh HTTPS bootstrap to finish...'
+          echo 'Waiting for the Wazuh HTTPS endpoint to respond (certificate trust is checked separately on the ACM API hostname)...'
           ready=false
           for attempt in $(seq 1 80); do
-            if curl --fail --silent --max-time 15 "$dashboard_url" -o /dev/null; then
+            if curl --insecure --fail --silent --max-time 15 "$dashboard_url" -o /dev/null; then
               ready=true
               echo "Wazuh Dashboard HTTPS: ready (attempt $attempt)"
               break
@@ -104,31 +104,26 @@ jobs:
 
           if [ "$ready" != true ]; then
             echo '::error::Wazuh Dashboard did not become reachable over HTTPS within 20 minutes.'
-            curl --fail --show-error --max-time 15 "$dashboard_url" -o /dev/null || true
+            curl --insecure --fail --show-error --max-time 15 "$dashboard_url" -o /dev/null || true
             exit 1
           fi
+
+          echo 'Verifying the public API TLS certificate using the system trust store...'
+          api_status="$(curl --silent --show-error --output /dev/null --max-time 15 --write-out '%{http_code}' "$api_url/")"
+          if [ "$api_status" = '000' ]; then
+            echo '::error::Public API did not complete a trusted HTTPS request.'
+            exit 1
+          fi
+          echo "Public API TLS: certificate verified (HTTP $api_status)"
 
       - name: Show DNS delegation details
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
         shell: bash
         run: |
           set -euo pipefail
-          echo '## Route 53 name servers for qapaq.secops.com'
+          echo '## Route 53 name servers to enter at the registrar for jappi.net.pe'
           terraform output -json public_route53_zone_name_servers
-          echo '## Parent secops.com zone in this AWS account (if managed here)'
-          parent_zone_id="$(aws route53 list-hosted-zones-by-name \
-            --dns-name secops.com. \
-            --query "HostedZones[?Name == 'secops.com.'] | [0].Id" \
-            --output text)"
-          if [ "$parent_zone_id" = "None" ] || [ -z "$parent_zone_id" ]; then
-            echo 'No public secops.com parent zone is visible to the deployment role; delegate the child NS at the domain DNS provider.'
-          else
-            echo "Parent hosted zone: $parent_zone_id"
-            aws route53 list-resource-record-sets \
-              --hosted-zone-id "$parent_zone_id" \
-              --query "ResourceRecordSets[?Name == 'qapaq.secops.com.' && Type == 'NS']" \
-              --output json
-          fi
+          echo 'Enter these four nameservers in Punto.pe, then wait for DNS delegation before running the full apply.'
 
       - name: Audit Phase 2B resources and remote state
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'audit'
