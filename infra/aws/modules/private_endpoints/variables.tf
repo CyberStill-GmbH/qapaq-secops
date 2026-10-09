@@ -23,5 +23,5 @@ variable "app_route_table_ids" {
 }
 
 variable "runtime_security_group_ids" {
-  type = list(string)
+  type = map(string)
 }

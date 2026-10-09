@@ -19,7 +19,7 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "runtime_https" {
-  for_each = toset(var.runtime_security_group_ids)
+  for_each = var.runtime_security_group_ids
 
   security_group_id            = aws_security_group.this.id
   referenced_security_group_id = each.value
@@ -30,7 +30,7 @@ resource "aws_vpc_security_group_ingress_rule" "runtime_https" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "runtime_to_endpoints" {
-  for_each = toset(var.runtime_security_group_ids)
+  for_each = var.runtime_security_group_ids
 
   security_group_id            = each.value
   referenced_security_group_id = aws_security_group.this.id

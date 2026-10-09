@@ -77,12 +77,13 @@ module "private_endpoints" {
   vpc_id              = module.networking.vpc_id
   app_subnet_ids      = module.networking.app_subnet_ids
   app_route_table_ids = [module.networking.app_route_table_id]
-  runtime_security_group_ids = [
-    module.security.security_group_ids.krakend,
-    module.security.security_group_ids.api,
-    module.security.security_group_ids.worker,
-    module.security.security_group_ids.wazuh,
-  ]
+  # Keep stable keys so Terraform can plan these rules before SG IDs exist.
+  runtime_security_group_ids = {
+    krakend = module.security.security_group_ids.krakend
+    api     = module.security.security_group_ids.api
+    worker  = module.security.security_group_ids.worker
+    wazuh   = module.security.security_group_ids.wazuh
+  }
 }
 
 module "runtime" {
