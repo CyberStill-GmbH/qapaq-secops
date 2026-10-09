@@ -18,6 +18,8 @@ on:
           - plan
           - apply
           - audit
+          - plan-bootstrap-dns
+          - apply-bootstrap-dns
           - bootstrap-dns
 
 permissions:
@@ -66,15 +68,15 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Plan (DNS zone bootstrap)
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
+        if: github.event_name == 'workflow_dispatch' && (inputs.action == 'plan-bootstrap-dns' || inputs.action == 'apply-bootstrap-dns' || inputs.action == 'bootstrap-dns')
         run: terraform plan -target=aws_route53_zone.public_api[0] -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
 
       - name: Terraform Plan
-        if: github.event_name != 'workflow_dispatch' || inputs.action != 'bootstrap-dns'
+        if: github.event_name != 'workflow_dispatch' || (inputs.action != 'plan-bootstrap-dns' && inputs.action != 'apply-bootstrap-dns' && inputs.action != 'bootstrap-dns')
         run: terraform plan -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
 
       - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
+        if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'apply-bootstrap-dns' || inputs.action == 'bootstrap-dns')
         run: terraform apply -input=false -auto-approve -no-color tfplan
 
       - name: Show public deployment URLs
@@ -117,7 +119,7 @@ jobs:
           echo "Public API TLS: certificate verified (HTTP $api_status)"
 
       - name: Show DNS delegation details
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
+        if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply-bootstrap-dns' || inputs.action == 'bootstrap-dns')
         shell: bash
         run: |
           set -euo pipefail
