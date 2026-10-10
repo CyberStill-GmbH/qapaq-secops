@@ -77,12 +77,17 @@ module "private_endpoints" {
   vpc_id              = module.networking.vpc_id
   app_subnet_ids      = module.networking.app_subnet_ids
   app_route_table_ids = [module.networking.app_route_table_id]
-  runtime_security_group_ids = [
-    module.security.security_group_ids.krakend,
-    module.security.security_group_ids.api,
-    module.security.security_group_ids.worker,
-    module.security.security_group_ids.wazuh,
-  ]
+  runtime_security_group_ids = {
+    krakend = module.security.security_group_ids.krakend
+    api     = module.security.security_group_ids.api
+    worker  = module.security.security_group_ids.worker
+    wazuh   = module.security.security_group_ids.wazuh
+  }
+  ecr_image_pull_security_group_ids = {
+    krakend = module.security.security_group_ids.krakend
+    api     = module.security.security_group_ids.api
+    worker  = module.security.security_group_ids.worker
+  }
 }
 
 module "runtime" {
@@ -104,6 +109,7 @@ module "runtime" {
   desired_counts                    = var.ecs_desired_counts
   api_environment                   = var.runtime_api_environment
   krakend_environment               = var.runtime_krakend_environment
+  entra_client_secret_arn           = module.application_foundations.metadata_secret_arns["entra_client_secret"]
   health_check_grace_period_seconds = var.ecs_health_check_grace_period_seconds
 
   depends_on = [

@@ -8,13 +8,18 @@ export const API_SHUTDOWN_TIMEOUT_MS = 5_000;
 export async function buildApi(environment: EnvironmentInput, emit: ApiEvent) {
   const config = loadApiConfig(environment);
   const access = loadAccessConfig(environment);
+  const clientSecret = environment['QAPAQ_ENTRA_CLIENT_SECRET'];
   const lifecycle = new ApiLifecycle(emit);
   emit('starting');
   // La URL del Teams Workflow es un secreto y se resuelve por `SecretProvider`, no por
   // entorno. Mientras ese provider no esté disponible, el transporte queda sin destino
   // alcanzable y el crítico sale por el fallback de C-20, que es el comportamiento
   // declarado para esta condición.
-  const runtime = new SecOpsRuntime({ access, profile: config.profile });
+  const runtime = new SecOpsRuntime({
+    access,
+    profile: config.profile,
+    ...(clientSecret !== undefined ? { clientSecret } : {}),
+  });
   const application = await composeApi(config, lifecycle, runtime);
   let listening: Promise<unknown> | undefined;
   const stop = () =>

@@ -374,7 +374,17 @@ export class SecOpsRuntime {
     const counter =
       (await this.attempts.get(subjectKey, originKey)) ?? emptyCounter(subjectKey, originKey, at);
     const lockout = evaluateLockout(counter, at);
-    const roles = validation.ok ? (validation.claims.roles ?? []) : [];
+    const backendBinding = this.options.access.mvpRoleBinding;
+    const backendRole =
+      validation.ok &&
+      backendBinding &&
+      validation.claims.oid?.toLowerCase() === backendBinding.oid &&
+      at.getTime() < backendBinding.expiresAt.getTime()
+        ? backendBinding.role
+        : undefined;
+    const roles = validation.ok
+      ? [...new Set([...(validation.claims.roles ?? []), ...(backendRole ? [backendRole] : [])])]
+      : [];
     const capabilities = effectiveCapabilities(roles, BFF_SCOPES);
     const decision = decideSignIn({
       network: network.decision,
@@ -415,15 +425,31 @@ export class SecOpsRuntime {
       existing,
       at,
     );
+    // La sesión abierta con un rol temporal no debe sobrevivir al vencimiento de la asignación.
+    const session = backendRole
+      ? {
+          ...plan.session,
+          absoluteExpiresAt: new Date(
+            Math.min(plan.session.absoluteExpiresAt.getTime(), backendBinding!.expiresAt.getTime()),
+          ),
+        }
+      : plan.session;
     for (const id of plan.supersedes) {
       const previous = await this.sessions.byId(id);
       if (previous) {
         await this.sessions.update(revokeSession(previous, 'superseded', at), previous.revision);
       }
     }
-    await this.sessions.create(plan.session);
-    await this.auditSignIn('succeeded', claims!.sub, correlationId, at, network.clientIp);
-    return { ok: true, value: { session: plan.session, supersededSessions: plan.supersedes } };
+    await this.sessions.create(session);
+    await this.auditSignIn(
+      'succeeded',
+      claims!.sub,
+      correlationId,
+      at,
+      network.clientIp,
+      backendRole ? 'backend_mvp_role_binding' : undefined,
+    );
+    return { ok: true, value: { session, supersededSessions: plan.supersedes } };
   }
 
   private async denied(

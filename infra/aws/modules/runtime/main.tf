@@ -50,6 +50,9 @@ locals {
       memoryReservation = 768
       portMappings      = [{ containerPort = 3000, hostPort = 3000, protocol = "tcp" }]
       environment       = [for key, value in local.api_environment : { name = key, value = value }]
+      # ECS resolves this value at task startup with the execution role. The ARN
+      # points to a plain SecretString, not a JSON document.
+      secrets = [{ name = "QAPAQ_ENTRA_CLIENT_SECRET", valueFrom = var.entra_client_secret_arn }]
       healthCheck = {
         command     = ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
         interval    = 30
@@ -149,6 +152,12 @@ resource "aws_iam_role_policy" "execution" {
         Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = local.log_group_arns
+      },
+      {
+        Sid      = "ReadEntraClientSecretForApiStartup"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [var.entra_client_secret_arn]
       }
     ]
   })
@@ -284,6 +293,9 @@ resource "aws_ecs_task_definition" "this" {
     cpu_architecture        = "X86_64"
   }
   container_definitions = jsonencode([local.container_definitions[each.key]])
+
+  # The API task must not start before its execution role can fetch Entra's secret.
+  depends_on = [aws_iam_role_policy.execution]
 
   tags = {
     Project             = var.project

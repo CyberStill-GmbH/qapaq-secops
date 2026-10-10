@@ -19,7 +19,7 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "runtime_https" {
-  for_each = toset(var.runtime_security_group_ids)
+  for_each = var.runtime_security_group_ids
 
   security_group_id            = aws_security_group.this.id
   referenced_security_group_id = each.value
@@ -30,7 +30,7 @@ resource "aws_vpc_security_group_ingress_rule" "runtime_https" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "runtime_to_endpoints" {
-  for_each = toset(var.runtime_security_group_ids)
+  for_each = var.runtime_security_group_ids
 
   security_group_id            = each.value
   referenced_security_group_id = aws_security_group.this.id
@@ -38,6 +38,17 @@ resource "aws_vpc_security_group_egress_rule" "runtime_to_endpoints" {
   from_port                    = 443
   ip_protocol                  = "tcp"
   to_port                      = 443
+}
+
+resource "aws_vpc_security_group_egress_rule" "runtime_to_s3_image_layers" {
+  for_each = var.ecr_image_pull_security_group_ids
+
+  security_group_id = each.value
+  prefix_list_id    = aws_vpc_endpoint.s3.prefix_list_id
+  description       = "HTTPS to S3 for private ECR image layers."
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
 }
 
 resource "aws_vpc_endpoint" "interface" {

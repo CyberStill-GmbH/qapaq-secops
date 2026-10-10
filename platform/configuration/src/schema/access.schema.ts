@@ -11,7 +11,7 @@
 import { configurationError } from '../configuration.errors.js';
 import type { ConfigurationProfile } from '../profiles/index.js';
 import type { EnvironmentInput } from '../configuration.types.js';
-import { readValue, requireString } from './environment.schema.js';
+import { optionalString, readValue, requireString } from './environment.schema.js';
 
 export const IDENTITY_MODES = ['entra', 'local-development'] as const;
 export type IdentityMode = (typeof IDENTITY_MODES)[number];
@@ -28,6 +28,12 @@ export interface AccessConfig {
   readonly redirectUri: string;
   readonly allowedRedirectUris: readonly string[];
   readonly scopes: readonly string[];
+  /** Asignación temporal administrada por el backend para el MVP; desactivada si no se configura. */
+  readonly mvpRoleBinding?: {
+    readonly oid: string;
+    readonly role: string;
+    readonly expiresAt: Date;
+  };
   readonly clientSecretRef: string | null;
   readonly allowedCidrs: readonly string[];
   readonly trustedProxyCidrs: readonly string[];
@@ -100,6 +106,43 @@ export function parseAccess(
       profile.name,
     );
   }
+  const bindingOid = optionalString(environment, profile, 'QAPAQ_MVP_ROLE_BINDING_OID');
+  const bindingRole = optionalString(environment, profile, 'QAPAQ_MVP_ROLE_BINDING_ROLE');
+  const bindingExpiresAt = optionalString(
+    environment,
+    profile,
+    'QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT',
+  );
+  const bindingParts = [bindingOid, bindingRole, bindingExpiresAt];
+  const mvpRoleBinding = bindingParts.every((value) => value === undefined)
+    ? undefined
+    : (() => {
+        if (bindingParts.some((value) => value === undefined)) {
+          throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_MVP_ROLE_BINDING', profile.name);
+        }
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+            bindingOid!,
+          ) ||
+          ![
+            'qapaq.soc.analyst',
+            'qapaq.soc.lead',
+            'qapaq.auditor',
+            'qapaq.platform.admin',
+          ].includes(bindingRole!) ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(
+            bindingExpiresAt!,
+          ) ||
+          !Number.isFinite(Date.parse(bindingExpiresAt!))
+        ) {
+          throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_MVP_ROLE_BINDING', profile.name);
+        }
+        return Object.freeze({
+          oid: bindingOid!.toLowerCase(),
+          role: bindingRole!,
+          expiresAt: new Date(bindingExpiresAt!),
+        });
+      })();
   return Object.freeze({
     identityMode: mode,
     tenantId,
@@ -112,6 +155,7 @@ export function parseAccess(
     redirectUri,
     allowedRedirectUris,
     scopes: parseList(environment, profile, 'QAPAQ_ENTRA_SCOPES'),
+    ...(mvpRoleBinding ? { mvpRoleBinding } : {}),
     clientSecretRef,
     allowedCidrs: parseList(environment, profile, 'QAPAQ_ACCESS_ALLOWED_CIDRS'),
     trustedProxyCidrs: parseList(environment, profile, 'QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS'),

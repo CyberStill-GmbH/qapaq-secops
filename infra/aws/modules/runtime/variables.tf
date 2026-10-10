@@ -85,6 +85,11 @@ variable "krakend_environment" {
   default     = {}
 }
 
+variable "entra_client_secret_arn" {
+  description = "Secrets Manager ARN injected into the API container as QAPAQ_ENTRA_CLIENT_SECRET."
+  type        = string
+}
+
 variable "health_check_grace_period_seconds" {
   type    = number
   default = 60
