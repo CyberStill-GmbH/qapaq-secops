@@ -14,6 +14,10 @@ export const DEVELOPMENT_PROFILE: ConfigurationProfile = Object.freeze({
     QAPAQ_POSTGRES_POOL_MIN: '1',
     QAPAQ_POSTGRES_POOL_MAX: '10',
     QAPAQ_POSTGRES_TLS: 'false',
+    QAPAQ_POSTGRES_DATABASE: 'qapaq_secops',
+    QAPAQ_SOC_PERSISTENCE: 'memory',
+    // Clave conocida y sin valor fuera de desarrollo: producción exige la suya (D-10b).
+    QAPAQ_ENTITY_REF_KEY: 'qapaq-local-development-entity-ref-key-not-a-secret',
     QAPAQ_REDIS_HOST: '127.0.0.1',
     QAPAQ_REDIS_PORT: '6379',
     QAPAQ_REDIS_DATABASE: '0',

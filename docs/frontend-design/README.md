@@ -1,7 +1,7 @@
 # Diseño de frontend · QAPAQ SecOps
 
-Estado: **especificación de diseño**, verificada contra el código en `main` @
-`b5b2717`. Fecha: 2026-10-02.
+Estado: **especificación de diseño** verificada contra el código del repositorio.
+Última actualización: 2026-10-12.
 
 Especificación de la interfaz de la consola SOC: qué pantallas existen, qué
 datos muestran, cómo se ven y cómo se comportan. Parte de lo que el backend
@@ -27,6 +27,11 @@ no coinciden con el código.
 | 07 | [Accesibilidad y calidad](07-accesibilidad-y-calidad.md) | ¿Cuándo está bien hecho? WCAG, rendimiento, navegadores, lista de revisión, pruebas |
 | 08 | [Brechas y decisiones](08-brechas-y-decisiones.md) | ¿Qué falta en el backend y qué contradicciones hay que cerrar? |
 | 09 | [Evaluación del frontend SOC](09-evaluacion-frontend-soc.md) | ¿Qué falencias tiene la implementación actual y qué hace falta para una consola SOC y administración operativas? |
+| 10 | [Vistas por rol y referencias](10-vistas-por-rol-y-referencias.md) | ¿Qué puede ver cada perfil, qué está conectado y qué conceptos son futuros? |
+
+Diseño de la siguiente vista conectada: [Eventos e investigación](eventos-investigacion.md).
+
+Referencias generadas antes de implementar las vistas: [eventos/salud/cuarentena](references/eventos-salud-cuarentena-concepto.png), [operación SOC/casos](references/operacion-soc-y-casos-concepto.png), [admin Entra/auditoría](references/admin-entra-y-auditoria-concepto.png), [detección/SOAR futuro](references/deteccion-y-soar-futuro-concepto.png), [eventos y salud anterior](references/eventos-y-salud-concepto.png) y [usuarios Entra anterior](references/usuarios-entra-concepto.png). Son conceptos con información sintética; no son evidencia funcional ni assets finales de producto.
 
 Orden de lectura para quien construye: 01 → 06 → 04 → 05. Para quien diseña:
 02 → 03 → 04.
@@ -35,19 +40,23 @@ Orden de lectura para quien construye: 01 → 06 → 04 → 05. Para quien dise�
 
 ## Resumen en una página
 
-**Qué existe.** El BFF sirve 20 rutas: inicio de sesión con Entra (OIDC +
+**Qué existe.** La consola SOC activa usa rutas BFF para inicio de sesión con Entra (OIDC +
 PKCE, sesión opaca en cookie), alertas con seis comandos, incidentes con seis
 comandos, notificaciones críticas a Teams con acuse humano, y auditoría con
 verificación de cadena. Hay cuatro roles (`qapaq.soc.analyst`,
-`qapaq.soc.lead`, `qapaq.auditor`, `qapaq.platform.admin`) y trece
-capabilities.
+`qapaq.soc.lead`, `qapaq.auditor`, `qapaq.platform.admin`) y 16
+capabilities, incluidas las de observabilidad y `notifications.dispatch`.
 
-**Qué no existe todavía.** Búsqueda de eventos, salud del pipeline,
-cuarentena y credenciales tienen dominio pero no ruta HTTP. Reglas de
-detección, accesos, playbooks, casos, SLA y exportaciones solo están en
-documentación. La consola de producto actual (`index.html`) funciona entera
-sobre datos de demostración con un contrato (`/api/v1/*`) que el BFF no
-sirve.
+**Qué no existe todavía.** `/operations` ya consume health agregado con RBAC para
+frescura de alertas, outbox y runtime. La salud del pipeline por dataset/fuente
+(C-5), la búsqueda de eventos, cuarentena y credenciales aún no tienen recorrido
+HTTP operativo. Reglas de detección, accesos, playbooks, casos, SLA y exportaciones solo están en
+documentación. `apps/web/src/components/admin/*` y `mock-admin.ts` son legado
+desmontado que usa un contrato de demo (`/api/v1/*`) que el BFF no sirve. La
+nueva vista `/admin/users` pertenece a la consola SOC activa, pero queda oculta
+hasta que existan las rutas BFF, sincronización Entra, store persistente y
+capabilities de identidad de
+[entra-soc-user-admin.md](../architecture/entra-soc-user-admin.md).
 
 **Cómo se ve.** Negro `#080808`, cuatro niveles de gris, un único acento
 ámbar reservado a la marca y al ítem activo, tipografía del sistema (Segoe UI)

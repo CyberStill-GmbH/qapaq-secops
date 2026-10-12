@@ -96,6 +96,14 @@ se realizan en días laborables declarados. Planning ocurre el primer día labor
 Review y Retrospective, el último. No se usa un “Sprint 0”: la preparación técnica
 produce incrementos verificables desde Sprint 1.
 
+El corte 2026-10-12 detectó que Sprint 3 tiene código materializado, pero conserva
+gates `BLOCKED` de integración real y aceptación. El plan de
+[cierre operativo post-timebox](plan-operativo-sprints-post-mvp.md) extiende la
+numeración desde Sprint 4, propone owners Codex/Claude y DoD específico por incremento.
+Al aceptar el PO esa replanificación, el nuevo plan gobierna el forecast futuro; los
+tres sprints anteriores permanecen como registro histórico y no se reetiquetan como
+completos por fecha.
+
 ## Cadencia de eventos
 
 - Sprint Planning: máximo 90 minutos; confirma disponibilidad, Sprint Goal, PBIs
@@ -261,6 +269,7 @@ cifra. El burn-up del Product Goal muestra alcance total y trabajo Done.
 - [Sprint 1](sprints/01-base-ejecutable.md).
 - [Sprint 2](sprints/02-ingesta-microsoft-wazuh.md).
 - [Sprint 3](sprints/03-operacion-soc.md).
+- [Plan de cierre operativo post-timebox, Sprints 4–12](plan-operativo-sprints-post-mvp.md).
 - [ADR-024 — vertical Microsoft 365/Wazuh](../adr/024-microsoft-365-wazuh-mvp-vertical.md).
 
 El Product Owner puede reordenar el backlog. Cambiar Product Goal, fuente MVP,

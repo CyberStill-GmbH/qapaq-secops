@@ -497,10 +497,12 @@ glifo `!` en `--state-fail` y el texto "15 min sin acuse humano".
 Botón secundario por fila. Confirmación en línea (no diálogo): el botón pasa a
 "Confirmar acuse" durante 4 s. Un 409 recarga la fila.
 
-### 6.3 Lo que no se muestra
+### 6.3 Alcance del despacho
 
-- "Procesar cola" (`drain`) no se ofrece en esta pantalla: es una operación
-  técnica que en producción ejecuta un proceso, no una persona.
+- El despacho habitual es automático en el worker. El control secundario
+  "Despachar ahora" solo aparece con `notifications.dispatch` (SOC lead o
+  platform admin) para una pasada operativa acotada; el backend revalida la
+  capability y CSRF. No sustituye al worker ni cambia el acuse humano.
 - No hay botón "Reintentar": no existe en el backend.
 - La notificación no trae a qué alerta o incidente pertenece; la columna se
   agrega cuando el BFF la exponga ([08 · B-09](08-brechas-y-decisiones.md#2-brechas-que-bloquean-la-interfaz)).

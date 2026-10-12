@@ -19,6 +19,19 @@ export const CAPABILITIES = [
   'incidents.write',
   'incidents.close',
   'notifications.read',
+  /**
+   * Forzar una pasada del despacho de notificaciones. Es un efecto externo (Teams), así que
+   * no basta con poder leer la bandeja: el despacho normal lo hace el bucle del runtime.
+   */
+  'notifications.dispatch',
+  /** Salud del pipeline SOC (ingesta, cola de notificaciones, despacho). Agregado, sin PII. */
+  'observability.read_soc',
+  /** Salud del runtime de plataforma (proceso, base de datos). Solo administración. */
+  'observability.read_platform',
+  /** Ver sesiones del tenant (quién está dentro, desde dónde y con qué factor). */
+  'sessions.read',
+  /** Revocar una sesión ajena: acción administrativa auditada. */
+  'sessions.revoke',
   'audit.read',
   'audit.read_sensitive',
   'audit.verify',
@@ -47,6 +60,8 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.write',
     'incidents.close',
     'notifications.read',
+    'notifications.dispatch',
+    'observability.read_soc',
     'audit.read',
   ],
   'qapaq.auditor': ['audit.read', 'audit.read_sensitive', 'audit.verify', 'incidents.read'],
@@ -63,6 +78,11 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.write',
     'incidents.close',
     'notifications.read',
+    'notifications.dispatch',
+    'observability.read_soc',
+    'observability.read_platform',
+    'sessions.read',
+    'sessions.revoke',
     'audit.read',
     'audit.read_sensitive',
     'audit.verify',
@@ -81,8 +101,18 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'alerts.read',
     'incidents.read',
     'notifications.read',
+    'observability.read_soc',
+    'observability.read_platform',
+    'sessions.read',
   ],
-  'soc.write': ['alerts.triage', 'alerts.assign', 'incidents.write', 'incidents.close'],
+  'soc.write': [
+    'alerts.triage',
+    'alerts.assign',
+    'incidents.write',
+    'incidents.close',
+    'notifications.dispatch',
+    'sessions.revoke',
+  ],
   'audit.read': ['audit.read', 'audit.read_sensitive', 'audit.verify'],
 });
 

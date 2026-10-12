@@ -21,3 +21,13 @@ output "admin_secret_arn" {
 output "instance_id" {
   value = aws_instance.this.id
 }
+
+output "office365_client_secret_arn" {
+  description = "Secrets Manager ARN for the Office 365 collection client secret; populated out of band."
+  value       = aws_secretsmanager_secret.office365_client_secret.arn
+}
+
+output "break_glass_identities_secret_arn" {
+  description = "Secrets Manager ARN for the break-glass UPN list consumed by Wazuh rule 100530."
+  value       = aws_secretsmanager_secret.break_glass_identities.arn
+}

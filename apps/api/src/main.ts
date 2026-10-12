@@ -60,7 +60,20 @@ export async function main(): Promise<void> {
     void shutdown();
   };
   try {
-    runtime = await buildApi(process.env, (state) => log(`application.${state}`));
+    runtime = await buildApi(
+      process.env,
+      (state) => log(`application.${state}`),
+      // Solo el tipo de error: el mensaje podría citar datos del destino o de la alerta.
+      (error) =>
+        log('soar.dispatch.failed', error instanceof Error ? error.name : 'DISPATCH_FAILED'),
+      () => ({
+        uptimeSeconds: process.uptime(),
+        memoryRssBytes: process.memoryUsage().rss,
+        nodeVersion: process.version,
+      }),
+    );
+    // Solo el modo (`memory` o `postgres`), nunca datos de conexión.
+    log(`soc.persistence.${runtime.persistence}`);
     process.on('SIGINT', onSignal);
     process.on('SIGTERM', onSignal);
     process.on('uncaughtException', onException);

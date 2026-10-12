@@ -21,4 +21,5 @@
 /artifacts
 /docs
 /infra
-/platform/database/src/commit-admission.ts
+# `platform/database` entra a la imagen del API desde C-17 (estado SOC en PostgreSQL): no se
+# excluyen fuentes del paquete, o el build de `@qapaq/database` falla.

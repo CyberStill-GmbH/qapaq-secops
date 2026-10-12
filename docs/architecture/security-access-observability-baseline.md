@@ -164,6 +164,36 @@ Controles obligatorios:
 - Alertas por caída total salen por un canal independiente; Grafana no sustituye el
   Security Audit Trail append-only ni SecurityEvent/OpenSearch.
 
+### Acceso operativo por perfil
+
+La existencia de dashboards internos no satisface el requisito si los operadores
+carecen de una ruta y autorización reales para consultarlos. El acceso se deriva de
+identidad Entra y RBAC QAPAQ, y Grafana aplica la misma clasificación aunque se
+abra fuera de la consola:
+
+| Perfil | Observabilidad visible | Límite |
+| --- | --- | --- |
+| Analista SOC | Frescura/cobertura de fuentes, lag de ingesta y estado agregado del pipeline que afecta el triage | Sin logs de aplicación, configuración, identidades ni métricas de infraestructura |
+| SOC lead | Observabilidad operacional del flujo SOC: conectores, normalización, detección, outbox y notificaciones | Sin secretos; raw y auditoría mantienen sus capabilities propias |
+| Platform admin | Vistas SOC más salud del runtime, API, workers, base de datos, colas y Collector | Read-only; no recibe por ello acceso a secretos, raw ni detalle de auditoría restringido |
+| Auditor | Security Audit Trail y verificación autorizada | No hereda logs/traces de operación por su rol de auditoría |
+| Platform/Infraestructura | Salud técnica completa que necesita para operar plataforma y Collector | Entra group separado, acceso de operador; sin acceso implícito a raw SOC |
+
+La app runtime requiere capabilities explícitas `observability.read_soc` y
+`observability.read_platform`; las asignaciones objetivo son `qapaq.soc.lead` →
+SOC, `qapaq.platform.admin` → SOC + platform, y analista → únicamente el resumen
+operacional acotado del triage. La tabla no habilita por sí sola acceso: antes de
+activar se deben implementar enforcement BFF o SSO de Grafana, tenant isolation,
+pruebas de acceso/denegación y auditoría de consultas administrativas. Grafana no
+usa una cuenta compartida ni una regla basada solo en ocultar enlaces del frontend.
+
+QAPAQ debe presentar un resumen de salud con última actualización y estado
+`NO_DATA`/`STALE`/`DEGRADED` para que un SOC operator pueda saber si sus señales
+son confiables. El detalle técnico permanece en Grafana autenticado y respeta la
+matriz anterior. Hoy ni la vista de producto ni las capabilities de observabilidad
+están conectadas al runtime; se mantienen como gate de implementación, no como
+función entregada.
+
 El trío solicitado cubre métricas y logs, no un backend de trazas. QAPAQ mantiene
 W3C Trace Context y `traceId`/`spanId` en logs para correlación. Incorporar Tempo u
 otro almacén de trazas requiere decisión de capacidad/retención; no bloquea el

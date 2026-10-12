@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiErrorBody } from '@qapaq/contracts';
-import { api, type NotificationView } from '../../api/client.js';
+import { apiError, type ApiErrorBody } from '@qapaq/contracts';
+import { api, type NotificationView, type SessionView } from '../../api/client.js';
 import { Button, EmptyState, ErrorState, RelativeTime, SocIcon } from './soc-ui.js';
 import { NotificationStateCell, PageHeader } from './soc-data-ui.js';
 
@@ -12,22 +12,43 @@ const notificationTabs: readonly { readonly value: NotificationTab; readonly lab
   { value: 'acknowledged', label: 'Acusadas' },
 ];
 
-export function NotificationPage(): React.JSX.Element {
+export function NotificationPage({
+  session,
+}: {
+  readonly session: SessionView;
+}): React.JSX.Element {
   const [items, setItems] = useState<readonly NotificationView[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<ApiErrorBody | null>(null);
   const [updated, setUpdated] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+  const [dispatchResult, setDispatchResult] = useState<string | null>(null);
   const [tab, setTab] = useState<NotificationTab>('unacknowledged');
-  const load = useCallback(async () => {
-    const result = await api.notifications();
-    if (!result.ok) {
-      setError(result.error);
-      return;
+  const load = useCallback(async (cursor?: string, append = false) => {
+    setLoading(true);
+    try {
+      const result = await api.notifications(cursor);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setItems((current) => (append ? [...current, ...result.data.items] : result.data.items));
+      setNextCursor(result.data.nextCursor);
+      setError(null);
+      setUpdated(new Date().toISOString());
+    } catch {
+      setError({
+        ...apiError(
+          'DEPENDENCY_DEGRADED',
+          globalThis.crypto?.randomUUID?.() ?? `fallback-${Date.now().toString(16)}`,
+        ),
+      });
+    } finally {
+      setLoading(false);
     }
-    setItems(result.data.items);
-    setError(null);
-    setUpdated(new Date().toISOString());
   }, []);
   useEffect(() => {
     void load();
@@ -54,6 +75,33 @@ export function NotificationPage(): React.JSX.Element {
     }
     await load();
   }
+  async function dispatchNow(): Promise<void> {
+    setDispatching(true);
+    setDispatchResult(null);
+    try {
+      const result = await api.dispatchNotifications();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      setDispatchResult(
+        result.data.results.length
+          ? `Pasada inmediata: ${result.data.results.length} elementos procesados.`
+          : 'No hay elementos pendientes de despacho.',
+      );
+      await load();
+    } catch {
+      setError({
+        ...apiError(
+          'DEPENDENCY_DEGRADED',
+          globalThis.crypto?.randomUUID?.() ?? `fallback-${Date.now().toString(16)}`,
+        ),
+      });
+    } finally {
+      setDispatching(false);
+    }
+  }
   const notificationGroups: Readonly<Record<typeof tab, readonly string[]>> = {
     unacknowledged: ['sent', 'indeterminate', 'fallback'],
     progress: ['pending', 'sending'],
@@ -65,12 +113,20 @@ export function NotificationPage(): React.JSX.Element {
     <div className="soc-page">
       <PageHeader
         title="Notificaciones"
-        description="Entrega de avisos críticos y acuse humano."
+        description="El servicio despacha automáticamente. Revisa la entrega y registra el acuse humano."
         updated={updated}
         action={
-          <Button onClick={() => void load()}>
-            <SocIcon name="refresh" /> Actualizar
-          </Button>
+          <>
+            {session.capabilities.includes('notifications.dispatch') ? (
+              <Button onClick={() => void dispatchNow()} disabled={dispatching || loading}>
+                <SocIcon name="arrow" />
+                {dispatching ? 'Despachando…' : 'Despachar ahora'}
+              </Button>
+            ) : null}
+            <Button onClick={() => void load()} disabled={loading || dispatching}>
+              <SocIcon name="refresh" /> Actualizar
+            </Button>
+          </>
         }
       />
       <div className="soc-tabs" role="tablist" aria-label="Estado de notificaciones">
@@ -88,6 +144,16 @@ export function NotificationPage(): React.JSX.Element {
         ))}
       </div>
       {error ? <ErrorState error={error} onRetry={() => void load()} /> : null}
+      {loading && items.length > 0 ? (
+        <p className="soc-page-note" role="status">
+          Actualizando notificaciones…
+        </p>
+      ) : null}
+      {dispatchResult ? (
+        <p className="soc-page-note" role="status">
+          {dispatchResult}
+        </p>
+      ) : null}
       <div className="soc-table-panel">
         <div className="soc-table-scroll">
           <table className="soc-table">
@@ -159,7 +225,19 @@ export function NotificationPage(): React.JSX.Element {
           </table>
         </div>
         {visible.length === 0 && !error ? (
-          <EmptyState>No hay notificaciones en este estado en la página consultada.</EmptyState>
+          <EmptyState>
+            {nextCursor
+              ? 'No hay notificaciones de este estado entre las páginas cargadas.'
+              : 'No hay notificaciones de este estado en la consulta.'}
+          </EmptyState>
+        ) : null}
+        {nextCursor ? (
+          <div className="soc-table-footer">
+            <Button onClick={() => void load(nextCursor, true)} disabled={loading}>
+              {loading ? 'Cargando…' : 'Cargar más notificaciones'}
+            </Button>
+            <span>{items.length} cargadas · la consulta tiene más resultados</span>
+          </div>
         ) : null}
       </div>
       <p className="soc-page-note">

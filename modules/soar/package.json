@@ -8,6 +8,11 @@
       "types": "./src/index.ts",
       "development": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./postgres": {
+      "types": "./src/infrastructure/postgres-attempt-store.ts",
+      "development": "./src/infrastructure/postgres-attempt-store.ts",
+      "default": "./dist/infrastructure/postgres-attempt-store.js"
     }
   },
   "scripts": {
@@ -18,10 +23,14 @@
   "dependencies": {
     "@qapaq/audit": "workspace:*",
     "@qapaq/configuration": "workspace:*",
+    "@qapaq/database": "workspace:*",
     "@qapaq/soc": "workspace:*"
   },
   "devDependencies": {
+    "@qapaq/detection": "workspace:*",
     "@types/node": "24.13.6",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0",
     "typescript": "6.0.3",
     "vitest": "5.0.1"
   }

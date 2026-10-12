@@ -49,6 +49,7 @@ export {
   openIncidentFromAlert,
   SOC_FAILURE_CODES,
   type AlertCommandRequest,
+  type EntityRefFactory,
   type IdFactory,
   type IncidentCommandRequest,
   type OpenIncidentRequest,
@@ -59,9 +60,18 @@ export {
 } from './use-cases.js';
 export { InMemorySoc } from './memory-unit-of-work.js';
 export type {
+  AlertQuery,
   AlertStore,
+  ClaimedOutboxMessage,
+  IncidentQuery,
   IncidentStore,
+  OutboxHealth,
   OutboxStore,
+  QueryResult,
+  SocHealthQuery,
+  SocOutboxQueue,
+  SocPersistence,
+  SocReadModel,
   SocTransactionContext,
   SocUnitOfWork,
 } from './ports.js';

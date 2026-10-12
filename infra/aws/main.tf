@@ -93,23 +93,31 @@ module "private_endpoints" {
 module "runtime" {
   source = "./modules/runtime"
 
-  project                           = var.project
-  environment                       = var.environment
-  region                            = var.aws_region
-  account_id                        = data.aws_caller_identity.current.account_id
-  vpc_id                            = module.networking.vpc_id
-  public_subnet_ids                 = module.networking.public_subnet_ids
-  app_subnet_ids                    = module.networking.app_subnet_ids
-  app_route_table_id                = module.networking.app_route_table_id
-  security_group_ids                = module.security.security_group_ids
-  enable_https                      = var.enable_https
-  alb_certificate_arn               = var.enable_https ? aws_acm_certificate_validation.public_api[0].certificate_arn : null
-  image_digests                     = var.runtime_image_digests
-  image_manifest_commit             = var.runtime_image_manifest_commit
-  desired_counts                    = var.ecs_desired_counts
-  api_environment                   = var.runtime_api_environment
-  krakend_environment               = var.runtime_krakend_environment
-  entra_client_secret_arn           = module.application_foundations.metadata_secret_arns["entra_client_secret"]
+  project                 = var.project
+  environment             = var.environment
+  region                  = var.aws_region
+  account_id              = data.aws_caller_identity.current.account_id
+  vpc_id                  = module.networking.vpc_id
+  public_subnet_ids       = module.networking.public_subnet_ids
+  app_subnet_ids          = module.networking.app_subnet_ids
+  app_route_table_id      = module.networking.app_route_table_id
+  security_group_ids      = module.security.security_group_ids
+  enable_https            = var.enable_https
+  alb_certificate_arn     = var.enable_https ? aws_acm_certificate_validation.public_api[0].certificate_arn : null
+  image_digests           = var.runtime_image_digests
+  image_manifest_commit   = var.runtime_image_manifest_commit
+  desired_counts          = var.ecs_desired_counts
+  api_environment         = var.runtime_api_environment
+  krakend_environment     = var.runtime_krakend_environment
+  entra_client_secret_arn = module.application_foundations.metadata_secret_arns["entra_client_secret"]
+  # C-1: estado SOC durable, activado con `soc_database_enabled` (ver migrator.tf).
+  soc_database = var.soc_database_enabled ? {
+    host                      = module.database.endpoint
+    port                      = module.database.port
+    database                  = module.database.database_name
+    runtime_secret_arn        = module.database_migrator.runtime_secret_arn
+    entity_ref_key_secret_arn = module.database_migrator.entity_ref_key_secret_arn
+  } : null
   health_check_grace_period_seconds = var.ecs_health_check_grace_period_seconds
 
   depends_on = [

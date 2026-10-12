@@ -7,7 +7,10 @@ import {
   type DetectionCandidate,
 } from '../src/promotion.js';
 import type { DetectionCandidateStore } from '../src/ports.js';
-import type { PrioritizationContext } from '../src/prioritization.js';
+import {
+  PRIORITIZATION_RULESET_VERSION,
+  type PrioritizationContext,
+} from '../src/prioritization.js';
 import { withSeverity } from './support/events.js';
 
 const NOW = new Date('2026-10-07T15:31:00.000Z');
@@ -33,7 +36,7 @@ class MemoryCandidateStore implements DetectionCandidateStore {
 }
 
 async function promote(store: MemoryCandidateStore, event = withSeverity('high')) {
-  const key = promotionKey(event.tenant.id, event.recordId, '1.0.0');
+  const key = promotionKey(event.tenant.id, event.recordId, PRIORITIZATION_RULESET_VERSION);
   const existing = await store.byIdempotencyKey(event.tenant.id, key);
   const decision = decidePromotion(event, CONTEXT, existing, NOW);
   if (decision.outcome === 'promoted') await store.insertIfAbsent(decision.candidate);
@@ -130,7 +133,7 @@ describe('C-16 · promoción', () => {
     const event = withSeverity('high');
     const existing = await store.byIdempotencyKey(
       event.tenant.id,
-      promotionKey(event.tenant.id, event.recordId, '1.0.0'),
+      promotionKey(event.tenant.id, event.recordId, PRIORITIZATION_RULESET_VERSION),
     );
     const second = decidePromotion(
       event,

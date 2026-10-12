@@ -23,6 +23,13 @@ export interface AttemptStore {
   ): Promise<NotificationAttempt | undefined>;
   byId(tenantId: string, attemptId: string): Promise<NotificationAttempt | undefined>;
   save(attempt: NotificationAttempt): Promise<void>;
+  /** Bandeja de la consola: más recientes primero, acotada por `limit`. */
+  listByTenant(tenantId: string, limit: number): Promise<readonly NotificationAttempt[]>;
+  /**
+   * Conteo por estado de los intentos creados desde `since` (ventana fija, no "las últimas N
+   * filas"). Lo usa la salud operativa: la semántica debe ser estable entre llamadas.
+   */
+  countByStatusSince(tenantId: string, since: Date): Promise<Readonly<Record<string, number>>>;
 }
 
 export interface FallbackNotification {

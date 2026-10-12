@@ -24,6 +24,26 @@ const stateTone = (value: string): 'ok' | 'warn' | 'fail' | 'info' | 'neutral' =
       : value === 'acknowledged'
         ? 'info'
         : 'neutral';
+const signalLabels: Readonly<Record<string, string>> = {
+  credential_access: 'Acceso a credenciales',
+  initial_access: 'Acceso inicial',
+  persistence: 'Persistencia',
+  privilege_escalation: 'Escalamiento de privilegios',
+  defense_evasion: 'Evasión de defensas',
+  collection: 'Recolección',
+  exfiltration: 'Exfiltración',
+  other: 'Otra actividad',
+};
+const reasonLabels: Readonly<Record<string, string>> = {
+  BREAK_GLASS_IDENTITY: 'Identidad de emergencia',
+  CORRELATED_ENTITY: 'Entidad vinculada',
+  ATTACK_CHAIN: 'Cadena de ataque',
+};
+
+function entityLabel(entity: NonNullable<AlertView['entities']>[number]): string {
+  const kind = entity.kind === 'user' ? 'Usuario' : 'IP';
+  return `${kind} · ${entity.label}`;
+}
 
 interface AlertDetailDrawerProps {
   readonly selected: AlertView;
@@ -35,6 +55,7 @@ interface AlertDetailDrawerProps {
   readonly onCommand: (name: string, extra?: Record<string, unknown>) => Promise<void>;
   readonly onOpenIncident: (title: string, summary: string) => Promise<void>;
   readonly onNavigate: (path: string) => void;
+  readonly onEntityPivot: (entityRef: string) => void;
 }
 
 export function AlertDetailDrawer({
@@ -47,6 +68,7 @@ export function AlertDetailDrawer({
   onCommand,
   onOpenIncident,
   onNavigate,
+  onEntityPivot,
 }: AlertDetailDrawerProps): React.JSX.Element {
   const [verdict, setVerdict] = useState<TriageVerdict>('true_positive');
   const [note, setNote] = useState('');
@@ -89,6 +111,45 @@ export function AlertDetailDrawer({
             {alertStatus[selected.status] ?? selected.status}
           </StatusChip>
         </div>
+        {selected.signal ? (
+          <p className="soc-signal-label">
+            Táctica inferida ·{' '}
+            {signalLabels[selected.signal] ?? selected.signal.replaceAll('_', ' ')}
+          </p>
+        ) : null}
+        {selected.entities && selected.entities.length > 0 ? (
+          <section aria-labelledby="alert-entities-title">
+            <h3 id="alert-entities-title">Entidades relacionadas</h3>
+            <div className="soc-entity-list">
+              {selected.entities.map((entity) =>
+                entity.ref ? (
+                  <button
+                    key={entity.ref}
+                    type="button"
+                    className="soc-entity-chip"
+                    aria-label={`Filtrar alertas por ${entityLabel(entity)}`}
+                    title="Filtrar alertas relacionadas"
+                    onClick={() => onEntityPivot(entity.ref!)}
+                  >
+                    {entityLabel(entity)}
+                  </button>
+                ) : (
+                  <span
+                    key={`${entity.kind}:${entity.label}`}
+                    className="soc-entity-chip is-static"
+                  >
+                    {entityLabel(entity)}
+                  </span>
+                ),
+              )}
+            </div>
+            {selected.entities.some((entity) => !entity.ref) ? (
+              <p className="soc-entity-unavailable" role="status">
+                El pivote por entidad no está disponible para todas las referencias de esta alerta.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
         {error ? <ErrorState error={error} onRetry={onRetry} /> : null}
         <dl className="soc-description-list">
           <dt>Ocurrida</dt>
@@ -133,12 +194,33 @@ export function AlertDetailDrawer({
           <ul className="soc-reasons">
             {selected.reasons.map((reason) => (
               <li key={reason.code}>
-                <strong>{reason.code.replaceAll('_', ' ').toLowerCase()}</strong>
+                <strong>
+                  {reasonLabels[reason.code] ?? reason.code.replaceAll('_', ' ').toLowerCase()}
+                </strong>
                 <span>{reason.detail}</span>
               </li>
             ))}
           </ul>
         </section>
+        {selected.relatedAlertIds && selected.relatedAlertIds.length > 0 ? (
+          <section aria-labelledby="related-alerts-title">
+            <h3 id="related-alerts-title">Alertas relacionadas</h3>
+            <ul className="soc-related-alerts">
+              {selected.relatedAlertIds.map((alertId) => (
+                <li key={alertId}>
+                  <button
+                    type="button"
+                    className="soc-inline-link"
+                    onClick={() => onNavigate(`/alerts/${encodeURIComponent(alertId)}`)}
+                  >
+                    <code>{alertId}</code>
+                    <span>Ver alerta</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {canTriage || canAssign || canOpenIncident ? (
           <section className="soc-actions">
             <h3>Acciones</h3>

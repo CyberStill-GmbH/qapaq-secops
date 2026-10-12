@@ -15,7 +15,33 @@ locals {
     QAPAQ_API_HOST                = "0.0.0.0"
     QAPAQ_API_PORT                = "3000"
     QAPAQ_ENTRA_CLIENT_SECRET_REF = "secret://aws-secretsmanager/qapaq-secops/demo/entra/client-secret"
-  }, var.api_environment)
+    # El perfil de producción exige declarar la persistencia del estado SOC. Con
+    # `soc_database` activado pasa a PostgreSQL (docs/deployment/soc-postgres-rollout.md).
+    QAPAQ_SOC_PERSISTENCE = var.soc_database == null ? "memory" : "postgres"
+  }, local.soc_database_environment, var.api_environment)
+  # C-1: conexión no secreta al estado SOC. La contraseña es de `qapaq_soc_runtime` (DML sin
+  # DDL), nunca la master de RDS (D-6). TLS con verify-full contra el bundle de la imagen.
+  soc_database_environment = var.soc_database == null ? {} : {
+    QAPAQ_POSTGRES_HOST     = var.soc_database.host
+    QAPAQ_POSTGRES_PORT     = tostring(var.soc_database.port)
+    QAPAQ_POSTGRES_DATABASE = var.soc_database.database
+    QAPAQ_POSTGRES_USERNAME = "qapaq_soc_runtime"
+    QAPAQ_POSTGRES_TLS      = "true"
+  }
+  api_secrets = concat(
+    [{ name = "QAPAQ_ENTRA_CLIENT_SECRET", valueFrom = var.entra_client_secret_arn }],
+    var.soc_database == null ? [] : [
+      { name = "QAPAQ_POSTGRES_PASSWORD", valueFrom = "${var.soc_database.runtime_secret_arn}:password::" },
+      { name = "QAPAQ_ENTITY_REF_KEY", valueFrom = var.soc_database.entity_ref_key_secret_arn },
+    ],
+  )
+  api_secret_arns = concat(
+    [var.entra_client_secret_arn],
+    var.soc_database == null ? [] : [
+      var.soc_database.runtime_secret_arn,
+      var.soc_database.entity_ref_key_secret_arn,
+    ],
+  )
   krakend_environment = merge({
     QAPAQ_API_UPSTREAM        = "http://api.${var.environment}.qapaq.internal:3000"
     GATEWAY_ENDPOINT_TIMEOUT  = "4s"
@@ -52,7 +78,7 @@ locals {
       environment       = [for key, value in local.api_environment : { name = key, value = value }]
       # ECS resolves this value at task startup with the execution role. The ARN
       # points to a plain SecretString, not a JSON document.
-      secrets = [{ name = "QAPAQ_ENTRA_CLIENT_SECRET", valueFrom = var.entra_client_secret_arn }]
+      secrets = local.api_secrets
       healthCheck = {
         command     = ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
         interval    = 30
@@ -154,10 +180,12 @@ resource "aws_iam_role_policy" "execution" {
         Resource = local.log_group_arns
       },
       {
-        Sid      = "ReadEntraClientSecretForApiStartup"
+        # Solo los secretos que el API inyecta: Entra y, con estado durable, el runtime de
+        # PostgreSQL y la clave de referencias. Nunca la master de RDS.
+        Sid      = "ReadApiStartupSecrets"
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = [var.entra_client_secret_arn]
+        Resource = local.api_secret_arns
       }
     ]
   })

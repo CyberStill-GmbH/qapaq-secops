@@ -325,6 +325,11 @@ model DetectionCandidate {
   title          String   @db.Text
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  // C-16 1.1.0 — índice de correlación por entidad.
+  entityKeys      String[] @default([]) @map("entity_keys") @db.Text
+  signal          String?  @db.Text
+  ruleId          String?  @map("rule_id") @db.Text
+  relatedAlertIds String[] @default([]) @map("related_alert_ids") @db.Uuid
 
   alert SocAlert?
 
@@ -352,13 +357,47 @@ model SocAlert {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @map("updated_at") @db.Timestamptz(3)
   revision      Int
+  // C-16 1.1.0 — copia de la correlación del candidato para consultar sin join.
+  entityKeys      String[] @default([]) @map("entity_keys") @db.Text
+  // D-10b — referencias opacas de las mismas entidades: lo único que viaja en URLs.
+  entityRefs      String[] @default([]) @map("entity_refs") @db.Text
+  signal          String?  @db.Text
+  ruleId          String?  @map("rule_id") @db.Text
+  relatedAlertIds String[] @default([]) @map("related_alert_ids") @db.Uuid
 
   candidate DetectionCandidate @relation(fields: [candidateId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "soc_alerts_candidate_fkey")
   incident  SocIncident?       @relation(fields: [incidentId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "soc_alerts_incident_fkey")
 
   @@index([tenantId, status, occurredAt], map: "soc_alerts_board_idx")
   @@index([tenantId, incidentId], map: "soc_alerts_incident_idx")
+  @@index([entityKeys], map: "soc_alerts_entity_keys_idx", type: Gin)
+  @@index([entityRefs], map: "soc_alerts_entity_refs_idx", type: Gin)
+  @@index([tenantId, occurredAt(sort: Desc), id], map: "soc_alerts_tenant_time_idx")
+  @@index([tenantId, eventRecordId], map: "soc_alerts_event_record_idx")
   @@map("soc_alerts")
+}
+
+// C-17/C-20 — outbox del SOC: cola durable con lease que el despacho reclama de forma
+// atómica. Separado del outbox de admisión de C-04, que tiene FK a manifiestos de ingesta.
+model SocOutboxMessage {
+  messageId      String    @id @map("message_id") @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Text
+  aggregateType  String    @map("aggregate_type") @db.Text
+  aggregateId    String    @map("aggregate_id") @db.Uuid
+  messageType    String    @map("message_type") @db.Text
+  schemaVersion  String    @map("schema_version") @db.Text
+  idempotencyKey String    @unique(map: "soc_outbox_messages_idempotency_key") @map("idempotency_key") @db.Text
+  payload        Json      @db.JsonB
+  availableAt    DateTime  @map("available_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  status         String    @default("pending") @db.Text
+  attemptCount   Int       @default(0) @map("attempt_count")
+  leaseUntil     DateTime? @map("lease_until") @db.Timestamptz(3)
+  claimId        String?   @map("claim_id") @db.Uuid
+  lastErrorCode  String?   @map("last_error_code") @db.Text
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)
+
+  @@map("soc_outbox_messages")
 }
 
 // C-17 — incidente/caso mínimo.
@@ -405,4 +444,31 @@ model NotificationAttempt {
   @@unique([tenantId, idempotencyKey], map: "notification_attempts_idempotency_key")
   @@index([status, availableAt, id], map: "notification_attempts_pending_idx")
   @@map("notification_attempts")
+}
+
+// C-18/C-25 — sesiones del BFF. `idHash` es el SHA-256 del identificador de la cookie: el
+// valor original nunca se guarda.
+model AccessSession {
+  idHash            String    @id @map("id_hash") @db.Text
+  tenantId          String    @map("tenant_id") @db.Text
+  subjectId         String    @map("subject_id") @db.Text
+  displayName       String?   @map("display_name") @db.Text
+  email             String?   @db.Text
+  state             String    @db.Text
+  roles             String[]  @default([]) @db.Text
+  scopes            String[]  @default([]) @db.Text
+  capabilities      String[]  @default([]) @db.Text
+  amr               String[]  @default([]) @db.Text
+  createdAt         DateTime  @map("created_at") @db.Timestamptz(3)
+  lastSeenAt        DateTime  @map("last_seen_at") @db.Timestamptz(3)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.Timestamptz(3)
+  idpSessionId      String?   @map("idp_session_id") @db.Text
+  clientIp          String    @map("client_ip") @db.Text
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revocationReason  String?   @map("revocation_reason") @db.Text
+  revision          Int
+
+  @@index([tenantId, subjectId, state], map: "access_sessions_subject_idx")
+  @@index([tenantId, lastSeenAt(sort: Desc)], map: "access_sessions_tenant_seen_idx")
+  @@map("access_sessions")
 }

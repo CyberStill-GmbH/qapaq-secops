@@ -44,6 +44,46 @@ producto requiere decisión posterior de capacidad y retención.
 QAPAQ produce señales correctas y expone health seguro. No administra el
 Collector, su almacenamiento ni la infraestructura productiva.
 
+El dashboard no queda reservado a Infraestructura: `qapaq.soc.lead` debe poder
+consultar señales operativas del flujo SOC y `qapaq.platform.admin` esas señales
+más salud técnica de QAPAQ. El analista ve en la consola el resumen de frescura y
+cobertura que necesita para decidir si una búsqueda es confiable. El auditor no
+recibe logs operacionales por heredar permisos de audit. La matriz completa y sus
+límites están en el [baseline de acceso](security-access-observability-baseline.md).
+
+El runtime implementa `observability.read_soc` y
+`observability.read_platform`. `GET /api/operations/health` devuelve un resumen
+para sesiones con `alerts.read`, agrega `soc` al líder SOC y agrega `platform` al
+administrador de plataforma. El auditor queda denegado; la API omite secciones sin
+capability. `/operations` consume esa API por el BFF autenticado y no muestra logs
+operacionales crudos. La edad de la última alerta solo describe la señal observada;
+no declara sana la fuente. El resumen de cobertura es `NO_DATA` hasta C-5. Grafana no
+forma parte funcional de esta vista ni se habilita con un enlace sin SSO, tenant
+isolation y pruebas de denegación.
+
+### Acceso con Grafana OSS y Entra
+
+Grafana OSS ofrece roles básicos (`Viewer`, `Editor`, `Admin`) y organizaciones;
+los roles RBAC finos y personalizados pertenecen a Enterprise/Cloud. En QAPAQ,
+Entra asignará únicamente `Viewer` mediante `org_mapping`: `qapaq.soc.lead` entra
+en la organización de operación SOC y `qapaq.platform.admin` entra en las
+organizaciones SOC y plataforma. El admin de plataforma de QAPAQ no recibe el rol
+`GrafanaAdmin`; `allow_assign_grafana_admin` queda deshabilitado y el acceso
+requiere grupo Entra permitido y mapeo estricto. El analista consume el resumen
+redactado por la API QAPAQ, y el auditor sigue limitado al audit trail.
+
+Las organizaciones de Grafana separan dashboards y datasources; no son por sí
+solas un control de filas por tenant. Para cualquier fuente multi-tenant, el
+backend debe autenticar el acceso y fijar el tenant autorizado fuera del query del
+navegador. En Loki esto requiere `auth_enabled: true`, asignación servidor-side de
+`X-Scope-OrgID` y `multi_tenant_queries_enabled: false`, salvo una necesidad
+administrativa explícita y auditada. El datasource no puede aceptar un tenant
+arbitrario del usuario. La implementación requiere pruebas negativas entre tenant,
+grupo y organización, además de comprobar que un `Viewer` no puede editar
+dashboards, fuentes ni usuarios. Las [capacidades y mapeos de Entra de Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/configure-access/configure-authentication/entraid/)
+y [aislamiento multi-tenant de Loki](https://grafana.com/docs/loki/latest/operations/multi-tenancy/)
+son la base de esta decisión; no equivalen a autorización QAPAQ ya implementada.
+
 ## Métricas mínimas
 
 ```text
@@ -117,6 +157,33 @@ de Teams nunca aparece en logs, traces, métricas, auditoría ni errores.
 Nunca registrar tokens, cookies, passwords, API keys, client secrets,
 authorization headers, connection strings, cuerpos raw completos, evidencia, PII
 innecesaria ni parámetros SOAR sensibles. Redactar también excepciones de SDK.
+
+Para `/qapaq-api/`, el access log de Nginx registra método, `$uri`, status,
+request ID, bytes y duración solamente. No registrar `$request`, `$request_uri`,
+`$args`, `$query_string`, referer ni IP de cliente en esa ruta. La prueba local con
+un upstream 502 confirmó que el `error_log` estándar también puede escribir la
+request line con su query string. Por eso C-12 configura en esa ubicación
+`error_log /dev/null emerg;`: los errores de request de Nginx para este proxy se
+suprimen, mientras el access log redactado conserva status, request ID y duración.
+La telemetría de aplicación debe conservar causa y `correlationId` sin URL; el
+dashboard de errores debe alertar con las métricas del BFF/API. Este trade-off
+reduce detalle de diagnóstico Nginx por request y requiere comprobar que los 5xx
+siguen visibles por las métricas de aplicación y el access log seguro. No se
+suprimen errores globales de Nginx ni los de otras ubicaciones. La directiva
+`error_log` admite contexto `location` según la [documentación oficial de Nginx](https://nginx.org/en/docs/ngx_core_module.html#error_log).
+
+ALB access logs quedan deshabilitados hasta que exista redacción probada. El template actual de
+user data conserva el formato previo para nuevas instancias; la aplicación por
+SSM de esta política y la incorporación al próximo reemplazo planificado requieren
+verificación de `nginx -t`, reload y rollback. El cambio del demo se ejecuta por el
+workflow manual [.github/workflows/qapaq-api-no-query-logging.yml](../../.github/workflows/qapaq-api-no-query-logging.yml),
+que llama a [qapaq-api-no-query-logging.sh](../../infra/aws/scripts/qapaq-api-no-query-logging.sh)
+y ofrece `apply`/`rollback`; no se ha aplicado desde este checkout. La plantilla se
+actualiza en el próximo reemplazo planificado. Las decisiones de privacidad de
+correlación están en D-10b del canal de coordinación. La prueba en contenedor
+Nginx estable cubrió `nginx -t`, query canary ante 502, repetición y rollback
+idempotentes y rechazo de configuración conflictiva; no valida el host AWS ni
+CloudWatch.
 
 ## Traces y propagación
 

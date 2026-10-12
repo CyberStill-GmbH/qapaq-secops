@@ -7,6 +7,8 @@
  * distribuido debe conseguirla con la base o con Redis.
  */
 
+import { createHash } from 'node:crypto';
+
 import { constantTimeEquals, type PendingHandshake } from './oidc-handshake.js';
 import type { Session } from './session.js';
 import type { AttemptCounter, RateLimitState } from './lockout.js';
@@ -63,11 +65,43 @@ export class InMemorySessionStore implements SessionStore {
   }
 
   public update(session: Session, expectedRevision: number): Promise<boolean> {
-    const current = this.sessions.get(session.id);
-    if (!current || current.revision !== expectedRevision) return Promise.resolve(false);
-    this.sessions.set(session.id, session);
+    const id = this.idOf(session.id);
+    const current = id ? this.sessions.get(id) : undefined;
+    if (!id || !current || current.revision !== expectedRevision) return Promise.resolve(false);
+    this.sessions.set(id, { ...session, id });
     return Promise.resolve(true);
   }
+
+  public recentByTenant(tenantId: string, since: Date, limit: number): Promise<readonly Session[]> {
+    return Promise.resolve(
+      [...this.sessions.values()]
+        .filter(
+          (session) =>
+            session.tenantId === tenantId && session.lastSeenAt.getTime() >= since.getTime(),
+        )
+        .sort((left, right) => right.lastSeenAt.getTime() - left.lastSeenAt.getTime())
+        .slice(0, Math.max(limit, 1))
+        .map((session) => ({ ...session, id: `h:${sessionReference(session.id)}` })),
+    );
+  }
+
+  public byReference(reference: string): Promise<Session | undefined> {
+    const id = this.idOf(reference);
+    const session = id ? this.sessions.get(id) : undefined;
+    return Promise.resolve(session ? { ...session, id: reference } : undefined);
+  }
+
+  /** Resuelve una referencia `h:<hash>` al id interno; un id normal se usa tal cual. */
+  private idOf(idOrReference: string): string | undefined {
+    if (!idOrReference.startsWith('h:')) return idOrReference;
+    const hash = idOrReference.slice(2);
+    return [...this.sessions.keys()].find((id) => sessionReference(id) === hash);
+  }
+}
+
+/** SHA-256 del id: la misma referencia que usa el adapter durable. */
+function sessionReference(sessionId: string): string {
+  return createHash('sha256').update(sessionId, 'utf8').digest('hex');
 }
 
 export class InMemoryAttemptStore implements AttemptStore {

@@ -130,9 +130,7 @@ export function parseAccess(
             'qapaq.auditor',
             'qapaq.platform.admin',
           ].includes(bindingRole!) ||
-          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(
-            bindingExpiresAt!,
-          ) ||
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(bindingExpiresAt!) ||
           !Number.isFinite(Date.parse(bindingExpiresAt!))
         ) {
           throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_MVP_ROLE_BINDING', profile.name);

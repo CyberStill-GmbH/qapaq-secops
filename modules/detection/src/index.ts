@@ -23,3 +23,21 @@ export {
   type PromotionOutcomeCode,
 } from './promotion.js';
 export type { DetectionCandidateStore } from './ports.js';
+export {
+  ACCOUNT_COMPROMISE_CHAIN_ID,
+  correlate,
+  correlationHorizon,
+  CORRELATION_VERSION,
+  DEFAULT_CORRELATION_POLICY,
+  EMPTY_SIGNAL_CATALOG,
+  entityKeysOf,
+  signalOf,
+  SIGNAL_CLASSES,
+  type ChainMatch,
+  type CorrelatableAlert,
+  type CorrelationPolicy,
+  type CorrelationSignal,
+  type CorrelationWindowQuery,
+  type SignalCatalog,
+  type SignalClass,
+} from './correlation.js';

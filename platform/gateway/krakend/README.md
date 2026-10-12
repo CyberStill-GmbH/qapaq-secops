@@ -11,7 +11,7 @@ QAPAQ connector worker
   → adapter valida y admite durablemente → PostgreSQL/outbox → Redis/BullMQ
 ```
 
-El inventario C-28 `routes.json` conserva exactamente sus dos rutas de lectura: `GET /wazuh/_cluster/health` y `POST /wazuh/_search`. La ruta de búsqueda fija el patrón del índice mediante configuración confiable; el cliente no puede elegir upstream ni índice. Para Fase 4 se añade por separado `application-routes.json`, un allowlist de 16 rutas del BFF QAPAQ hacia el API privado. El test comprueba las dos superficies por separado para evitar cambiar el contrato C-28 sin detectarlo. No se publican APIs entrantes de proveedores, Graph/M365, Cato ni Sophos. Microsoft 365 continúa llegando a QAPAQ a través de Wazuh conforme a ADR-024.
+El inventario C-28 `routes.json` conserva exactamente sus dos rutas de lectura: `GET /wazuh/_cluster/health` y `POST /wazuh/_search`. La ruta de búsqueda fija el patrón del índice mediante configuración confiable; el cliente no puede elegir upstream ni índice. Para Fase 4 se añade por separado `application-routes.json`, un allowlist explícito de rutas del BFF QAPAQ hacia el API privado, incluida la pasada manual protegida del dispatcher. El test comprueba las dos superficies por separado para evitar cambiar el contrato C-28 sin detectarlo. No se publican APIs entrantes de proveedores, Graph/M365, Cato ni Sophos. Microsoft 365 continúa llegando a QAPAQ a través de Wazuh conforme a ADR-024.
 
 ## Versiones, rutas y controles
 

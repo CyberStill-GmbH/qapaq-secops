@@ -42,6 +42,355 @@
   font-size: 12px;
   white-space: nowrap;
 }
+
+.soc-user-admin__toolbar {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin: 16px 0;
+}
+.soc-user-admin__toolbar label,
+.soc-user-admin__role-request label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.soc-user-admin__search {
+  flex: 1;
+  min-width: 180px;
+}
+.soc-user-admin__filter {
+  width: 180px;
+}
+.soc-user-admin__toolbar input,
+.soc-user-admin__toolbar select,
+.soc-user-admin__role-request input,
+.soc-user-admin__role-request select,
+.soc-user-admin__role-request textarea,
+.soc-user-admin__reason textarea {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-control);
+  border-radius: 7px;
+  background: var(--surface-1);
+  color: var(--text-1);
+  font: inherit;
+}
+.soc-user-admin__scope {
+  margin-left: auto;
+  padding-bottom: 10px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.soc-user-admin__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 0.42fr);
+  gap: 14px;
+  align-items: start;
+}
+.soc-user-admin__person {
+  display: grid;
+  gap: 3px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+}
+.soc-user-admin__person strong {
+  font-weight: 550;
+}
+.soc-user-admin__person span,
+.soc-user-admin__session-count {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.soc-user-admin__role {
+  display: block;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.soc-user-admin__session-count {
+  display: block;
+  margin-top: 4px;
+}
+.soc-user-admin__detail-body {
+  display: grid;
+  gap: 18px;
+  padding: 14px;
+}
+.soc-user-admin__facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.soc-user-admin__facts div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.soc-user-admin__facts dt {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.soc-user-admin__facts dd {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.soc-user-admin__sessions h3,
+.soc-user-admin__role-request h3 {
+  margin: 0 0 10px;
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 550;
+}
+.soc-user-admin__sessions ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.soc-user-admin__sessions li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-2);
+  font-size: 11px;
+}
+.soc-user-admin__sessions li span {
+  display: grid;
+  gap: 4px;
+}
+.soc-user-admin__sessions li small {
+  color: var(--text-3);
+}
+.soc-user-admin__role-request {
+  padding-top: 14px;
+  border-top: 1px solid var(--border-default);
+}
+.soc-user-admin__role-request form {
+  display: grid;
+  gap: 10px;
+}
+.soc-user-admin__role-request textarea,
+.soc-user-admin__reason textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+.soc-user-admin__decision-reason {
+  display: grid;
+  min-width: 170px;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.soc-user-admin__decision-reason textarea {
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  background: var(--surface-1);
+  color: var(--text-1);
+  font: inherit;
+  resize: vertical;
+}
+.soc-user-admin__decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.soc-user-admin__decision-actions .soc-button {
+  min-height: 34px;
+  padding-inline: 10px;
+  font-size: 12px;
+}
+.soc-user-admin .soc-table tr.is-selected {
+  background: var(--surface-2);
+}
+
+.soc-admin-sessions__scope {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.soc-admin-sessions__notice {
+  margin: 0 0 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.soc-admin-sessions .soc-table tbody tr {
+  cursor: default;
+}
+.soc-admin-sessions__action {
+  width: 1%;
+  white-space: nowrap;
+}
+.soc-admin-sessions__confirm-row > td {
+  background: var(--surface-2);
+}
+.soc-admin-sessions__confirm-row form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  max-width: 900px;
+}
+.soc-admin-sessions__confirm-row label {
+  width: 100%;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.soc-admin-sessions__confirm-row textarea {
+  flex: 1 1 300px;
+  min-height: 72px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  background: var(--surface-1);
+  color: var(--text-1);
+  font: inherit;
+  resize: vertical;
+}
+.soc-admin-sessions__confirm-row textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.soc-operations-health {
+  display: grid;
+  gap: 14px;
+}
+.soc-health-summary,
+.soc-health-section {
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+.soc-health-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 0.8fr);
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+}
+.soc-health-summary h2,
+.soc-health-section h2 {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 560;
+}
+.soc-health-summary p,
+.soc-health-section header p {
+  margin: 5px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.soc-health-summary dl,
+.soc-health-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+.soc-health-summary dl div,
+.soc-health-facts div {
+  display: grid;
+  gap: 4px;
+}
+.soc-health-summary dt,
+.soc-health-facts dt {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.soc-health-summary dd,
+.soc-health-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-1);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.soc-health-section {
+  padding: 16px 18px;
+}
+.soc-health-section > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.soc-health-facts {
+  padding: 14px 0 2px;
+}
+.soc-health-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.soc-health-reasons li {
+  padding: 5px 8px;
+  border-left: 2px solid var(--status-warn, #c18a36);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+}
+.soc-health-counts {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+.soc-health-counts h3 {
+  margin: 0 0 9px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 550;
+}
+.soc-health-counts ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.soc-health-counts li {
+  display: flex;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.soc-health-counts strong {
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+.soc-health-footnote {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 11px;
+}
 .soc-button {
   display: inline-flex;
   min-height: 40px;

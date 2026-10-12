@@ -1,13 +1,21 @@
 /**
  * Composición del BFF: C-16, C-17, C-18, C-19, C-20 y C-25 en un solo objeto de runtime.
  *
- * Los adapters de persistencia son, en esta entrega, los de memoria que publican los
- * módulos. Están aquí y no inventados en `apps`: el contrato de almacenamiento pertenece
- * al dominio, y el adapter PostgreSQL se enchufa en el mismo punto sin tocar
- * controladores. La limitación está declarada en la matriz de evidencia de C-22.
+ * El estado SOC (candidatos, alertas, incidentes, auditoría y outbox) vive detrás de
+ * `SocPersistence`. El composition root elige el adapter: PostgreSQL donde el estado debe
+ * sobrevivir a un reinicio, memoria para specs y desarrollo. Los controladores solo ven
+ * el puerto, así que el cambio de adapter no los toca.
+ *
+ * El despacho de C-20 consume directamente la cola durable del outbox SOC (claim con
+ * lease) y guarda sus intentos en el `AttemptStore` inyectado; con PostgreSQL ambos
+ * sobreviven a un reinicio. Un bucle (`NotificationDispatcher`) despacha sin intervención.
+ *
+ * Siguen en memoria, y así lo declara la matriz de C-22: sesiones, handshakes OIDC y
+ * contadores de lockout/rate limit. Un reinicio cierra sesiones, pero no borra alertas,
+ * veredictos, incidentes, auditoría ni notificaciones pendientes.
  */
 
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import {
   beginAuthorization,
@@ -37,20 +45,42 @@ import {
   type NetworkPolicy,
   type RequestOrigin,
   type Session,
+  type SessionStore,
   type SignInDenialReason,
   type TokenExchange,
 } from '@qapaq/access';
-import { InMemoryAuditStore, recordAudit, type AuditEventDraft } from '@qapaq/audit';
+import { recordAudit, type AuditEventDraft, type AuditStore } from '@qapaq/audit';
 import type { AccessConfig } from '@qapaq/configuration';
-import { decidePromotion, promotionKey, type PrioritizationContext } from '@qapaq/detection';
-import { InMemorySoc, ingestCandidate, type SocDependencies } from '@qapaq/soc';
+import {
+  correlate,
+  correlationHorizon,
+  decidePromotion,
+  DEFAULT_CORRELATION_POLICY,
+  entityKeysOf,
+  PRIORITIZATION_RULESET_ID,
+  PRIORITIZATION_RULESET_VERSION,
+  promotionKey,
+  type CorrelationPolicy,
+  type PrioritizationContext,
+  type SignalCatalog,
+} from '@qapaq/detection';
+import {
+  InMemorySoc,
+  ingestCandidate,
+  type EntityRefFactory,
+  type SocDependencies,
+  type SocPersistence,
+} from '@qapaq/soc';
 import {
   ConsoleFallbackChannel,
+  drainOutbox,
   InMemoryAttemptStore as InMemoryNotificationStore,
-  InMemoryOutbox,
+  RETRY_POLICY,
   TeamsWorkflowTransport,
+  type AttemptStore,
   type DispatchDependencies,
   type NotificationTransport,
+  type OutboxReader,
 } from '@qapaq/soar';
 import type { SecurityEvent } from '@qapaq/contracts';
 
@@ -63,6 +93,9 @@ import {
 import { LocalDevelopmentIssuer, LOCAL_PRINCIPALS } from '../access/local-issuer.js';
 import { csrfTokenFor } from '../http/csrf.js';
 import { DEFAULT_RETURN_TO } from '../http/return-to.js';
+import type { ProcessInfo } from '../soc/operations-health.js';
+import { NotificationDispatcher } from './notification-dispatcher.js';
+import { CONNECTED_SOURCE_SIGNAL_CATALOG } from './signal-catalog.js';
 
 export interface RuntimeOptions {
   readonly access: AccessConfig;
@@ -71,7 +104,42 @@ export interface RuntimeOptions {
   readonly teamsWorkflowUrl?: string;
   readonly transport?: NotificationTransport;
   readonly clock?: () => Date;
+  /** Adapter de estado SOC. Sin él, memoria: válido para specs y desarrollo. */
+  readonly soc?: SocPersistence;
+  /** Contexto de negocio de C-16 cargado desde configuración. */
+  readonly detectionContext?: PrioritizationContext;
+  readonly correlationPolicy?: CorrelationPolicy;
+  /** Catálogo acción → señal de las fuentes conectadas; por defecto, el del MVP. */
+  readonly signalCatalog?: SignalCatalog;
+  /** Referencias opacas de entidad (D-10b). Sin ella, las alertas no se pueden pivotar. */
+  readonly entityRefs?: EntityRefFactory;
+  /** Sesiones del BFF (C-18). Sin él, memoria: un reinicio cierra todas las sesiones. */
+  readonly sessions?: SessionStore;
+  /** Intentos de notificación de C-20. Sin él, memoria. */
+  readonly notifications?: AttemptStore;
+  /** Intervalo del bucle de despacho; el bucle solo corre tras `startDispatcher()`. */
+  readonly dispatchIntervalMs?: number;
+  /** Reporte de fallos del bucle de despacho, sin datos del mensaje. */
+  readonly onDispatchError?: (error: unknown) => void;
+  /** Métricas del proceso; las inyecta el entrypoint, único que puede leer `process`. */
+  readonly processInfo?: () => ProcessInfo;
 }
+
+/** Tope de alertas que la correlación lee por evento; protege frente a entidades ruidosas. */
+const CORRELATION_READ_LIMIT = 500;
+/**
+ * Lote que el despacho reclama por pasada. Los envíos del lote son secuenciales: el peor caso
+ * de una pasada es `DISPATCH_BATCH × timeout del transporte` (5 × 10 s = 50 s).
+ */
+const DISPATCH_BATCH = 5;
+/**
+ * Lease del claim del outbox: al menos el doble del peor caso de una pasada, para que un
+ * despachador sano nunca pierda su claim a mitad de lote. Si el proceso muere, el lease
+ * vence, otro despachador reclama con un token nuevo (fencing) y el anterior ya no puede
+ * cerrar el mensaje.
+ */
+const OUTBOX_LEASE_MS = Math.max(120_000, 2 * DISPATCH_BATCH * RETRY_POLICY.requestTimeoutMs);
+const DEFAULT_DISPATCH_INTERVAL_MS = 5_000;
 
 /**
  * Scopes que el BFF, como cliente confidencial, siempre solicita. El recorte real lo
@@ -88,13 +156,12 @@ export interface SignInSuccess {
 
 export class SecOpsRuntime {
   public readonly handshakes = new InMemoryHandshakeStore();
-  public readonly sessions = new InMemorySessionStore();
+  public readonly sessions: SessionStore;
   public readonly attempts = new InMemoryAttemptStore();
   public readonly rateLimits = new InMemoryRateLimitStore();
-  public readonly audit = new InMemoryAuditStore();
-  public readonly soc = new InMemorySoc();
-  public readonly outbox = new InMemoryOutbox();
-  public readonly notifications = new InMemoryNotificationStore();
+  public readonly soc: SocPersistence;
+  public readonly notifications: AttemptStore;
+  public readonly dispatcher: NotificationDispatcher;
   public readonly fallback = new ConsoleFallbackChannel();
   public readonly localIssuer: LocalDevelopmentIssuer | undefined;
   public readonly networkPolicy: NetworkPolicy;
@@ -107,14 +174,30 @@ export class SecOpsRuntime {
    * invalida ambas a la vez. Con el adapter PostgreSQL de sesiones pasa a SecretProvider.
    */
   private readonly csrfKey = randomBytes(32);
-  /** Contexto de priorización de C-16; en esta entrega se declara, no se inventa. */
-  public detectionContext: PrioritizationContext = {
-    privilegedIdentities: new Set(),
-    criticalAssets: new Set(),
-  };
+  /**
+   * Contexto de priorización de C-16. Viene de configuración (`QAPAQ_DETECTION_*`); sin
+   * ella, listas vacías y la prioridad depende solo de severidad y correlación.
+   */
+  public detectionContext: PrioritizationContext;
+  private readonly correlationPolicy: CorrelationPolicy;
+  private readonly signalCatalog: SignalCatalog;
 
   public constructor(private readonly options: RuntimeOptions) {
     this.clock = options.clock ?? (() => new Date());
+    this.soc = options.soc ?? new InMemorySoc();
+    this.sessions = options.sessions ?? new InMemorySessionStore();
+    this.notifications = options.notifications ?? new InMemoryNotificationStore();
+    this.dispatcher = new NotificationDispatcher({
+      drain: async () => (await drainOutbox(this.dispatchDependencies(), DISPATCH_BATCH)).length,
+      intervalMs: options.dispatchIntervalMs ?? DEFAULT_DISPATCH_INTERVAL_MS,
+      onError: options.onDispatchError ?? (() => undefined),
+    });
+    this.detectionContext = options.detectionContext ?? {
+      privilegedIdentities: new Set(),
+      criticalAssets: new Set(),
+    };
+    this.correlationPolicy = options.correlationPolicy ?? DEFAULT_CORRELATION_POLICY;
+    this.signalCatalog = options.signalCatalog ?? CONNECTED_SOURCE_SIGNAL_CATALOG;
     this.networkPolicy = {
       allowedCidrs: options.access.allowedCidrs,
       trustedProxyCidrs: options.access.trustedProxyCidrs,
@@ -149,6 +232,15 @@ export class SecOpsRuntime {
     return this.clock();
   }
 
+  /**
+   * Cadena de auditoría única: la escriben los casos de uso SOC, el inicio de sesión y el
+   * despacho, y la lee C-19. Se resuelve en cada acceso porque el adapter en memoria
+   * reemplaza su store al deshacer una transacción.
+   */
+  public get audit(): AuditStore {
+    return this.soc.audit;
+  }
+
   /** La cookie solo se marca `Secure` donde el transporte lo es: si no, no viajaría. */
   public get secureCookies(): boolean {
     return this.options.profile === 'production';
@@ -171,29 +263,77 @@ export class SecOpsRuntime {
       unitOfWork: this.soc,
       clock: { now: () => this.now() },
       ids: { next: () => randomUUID() },
+      ...(this.options.entityRefs ? { entityRefs: this.options.entityRefs } : {}),
     };
   }
 
+  /** Referencia opaca de una clave de entidad, o `undefined` sin factory configurada. */
+  public entityRefOf(tenantId: string, entityKey: string): string | undefined {
+    return this.options.entityRefs?.(tenantId, entityKey);
+  }
+
+  /**
+   * Puerto `OutboxReader` de C-20 sobre la cola durable del SOC. No hay copia intermedia:
+   * lo que el despacho no publicó sigue en la cola y vuelve a ser reclamable al vencer el
+   * lease.
+   */
+  private get outboxReader(): OutboxReader {
+    return {
+      claimPending: async (limit, now) => {
+        const claimed = await this.soc.claimOutbox(now, limit, OUTBOX_LEASE_MS);
+        for (const message of claimed) this.claimTokens.set(message.messageId, message.claimToken);
+        return claimed;
+      },
+      // Sin token propio no hay nada que cerrar: el claim lo tiene otro despachador.
+      markPublished: async (messageId, at) => {
+        const token = this.claimTokens.get(messageId);
+        this.claimTokens.delete(messageId);
+        if (token) await this.soc.markOutboxPublished(messageId, token, at);
+      },
+      scheduleRetry: async (messageId, availableAt, errorCode) => {
+        const token = this.claimTokens.get(messageId);
+        this.claimTokens.delete(messageId);
+        if (token) await this.soc.scheduleOutboxRetry(messageId, token, availableAt, errorCode);
+      },
+    };
+  }
+
+  /**
+   * Tokens de los claims vivos de este proceso, por `messageId`. Es memoria de trabajo: si
+   * el proceso muere, los claims vencen solos y otro despachador los toma con token nuevo.
+   */
+  private readonly claimTokens = new Map<string, string>();
+
   public dispatchDependencies(): DispatchDependencies {
     return {
-      outbox: this.outbox,
+      outbox: this.outboxReader,
       attempts: this.notifications,
       transport: this.transport,
       fallback: this.fallback,
-      audit: this.audit,
+      audit: this.soc.audit,
       clock: { now: () => this.now() },
       ids: { next: () => randomUUID() },
       consoleBaseUrl: this.options.access.consoleBaseUrl,
     };
   }
 
-  /** Puente C-16 → C-17: promueve el evento y materializa la alerta si corresponde. */
+  /**
+   * Puente C-16 → C-17: correlaciona, prioriza y materializa la alerta si corresponde.
+   *
+   * Orden deliberado:
+   * 1. Idempotencia por evento: si ya hay alerta para este `recordId`, es `duplicate`
+   *    aunque el ruleset haya cambiado de versión. Una alerta por evento es la regla del
+   *    runtime; reevaluar con otra versión es un replay explícito, no un efecto lateral.
+   * 2. Correlación sobre la ventana de alertas previas de las mismas entidades, excluida
+   *    la propia alerta del evento si existiera.
+   * 3. Priorización con contexto de negocio + correlación, y promoción.
+   */
   public async promoteEvent(
     event: SecurityEvent,
   ): Promise<'promoted' | 'duplicate' | 'not_promoted'> {
-    const key = promotionKey(event.tenant.id, event.recordId, '1.0.0');
-    const alerts = [...this.soc.alertRows.values()];
-    const existingAlert = alerts.find((alert) => alert.eventRecordId === event.recordId);
+    const tenantId = event.tenant.id;
+    const key = promotionKey(tenantId, event.recordId, PRIORITIZATION_RULESET_VERSION);
+    const existingAlert = await this.soc.alertByEventRecordId(tenantId, event.recordId);
     const existing = existingAlert
       ? {
           id: existingAlert.id,
@@ -204,24 +344,54 @@ export class SecOpsRuntime {
           priority: existingAlert.priority,
           score: existingAlert.score,
           reasons: existingAlert.reasons,
-          rulesetId: 'qapaq.detection.prioritization',
-          rulesetVersion: '1.0.0',
+          rulesetId: PRIORITIZATION_RULESET_ID,
+          rulesetVersion: PRIORITIZATION_RULESET_VERSION,
           occurredAt: existingAlert.occurredAt,
           createdAt: existingAlert.createdAt,
           title: existingAlert.title,
+          entityKeys: existingAlert.entityKeys,
+          signal: existingAlert.signal ?? 'other',
+          ruleId: existingAlert.ruleId,
+          relatedAlertIds: existingAlert.relatedAlertIds,
         }
       : undefined;
-    const decision = decidePromotion(event, this.detectionContext, existing, this.now());
+    const recent = existing
+      ? []
+      : await this.soc.recentByEntities(
+          tenantId,
+          entityKeysOf(event),
+          correlationHorizon(event, this.correlationPolicy),
+          CORRELATION_READ_LIMIT,
+        );
+    const correlation = correlate(event, recent, this.correlationPolicy, this.signalCatalog);
+    const decision = decidePromotion(
+      event,
+      { ...this.detectionContext, correlation },
+      existing,
+      this.now(),
+    );
     if (decision.outcome !== 'promoted') return decision.outcome;
     await ingestCandidate(this.socDependencies(), decision.candidate);
-    // El outbox del SOC y el que lee el worker son el mismo flujo: se reenvía aquí
-    // hasta que el adapter PostgreSQL comparta la tabla.
-    for (const message of this.soc.outboxRows.values()) this.outbox.enqueue(message);
+    this.dispatcher.kick();
     return 'promoted';
   }
 
-  public pumpOutbox(): void {
-    for (const message of this.soc.outboxRows.values()) this.outbox.enqueue(message);
+  /** Referencia `h:<sha256>` de una sesión: la forma en que la administración la nombra. */
+  public sessionReferenceOf(sessionId: string): string {
+    return `h:${createHash('sha256').update(sessionId, 'utf8').digest('hex')}`;
+  }
+
+  public processInfo(): ProcessInfo | null {
+    return this.options.processInfo?.() ?? null;
+  }
+
+  /** Arranca el despacho continuo. Lo llama el entrypoint, no las specs. */
+  public startDispatcher(): void {
+    this.dispatcher.start();
+  }
+
+  public stopDispatcher(): Promise<void> {
+    return this.dispatcher.stop();
   }
 
   /** Token CSRF de la sesión: se entrega en `GET /api/auth/session` y se exige al mutar. */
@@ -290,7 +460,11 @@ export class SecOpsRuntime {
   public takeReturnTo(state: string | undefined, browserBinding: string | undefined): string {
     if (!state) return DEFAULT_RETURN_TO;
     const pending = this.pendingReturnTo.get(state);
-    if (!pending || !browserBinding || !constantTimeEquals(browserBinding, pending.browserBinding)) {
+    if (
+      !pending ||
+      !browserBinding ||
+      !constantTimeEquals(browserBinding, pending.browserBinding)
+    ) {
       return DEFAULT_RETURN_TO;
     }
     this.pendingReturnTo.delete(state);
@@ -434,8 +608,10 @@ export class SecOpsRuntime {
           ),
         }
       : plan.session;
+    // Se revoca con la sesión que ya devolvió `activeBySubject`, no releyendo por id: el
+    // store durable no conoce los ids originales (solo su hash) y `byId` solo acepta cookies.
     for (const id of plan.supersedes) {
-      const previous = await this.sessions.byId(id);
+      const previous = existing.find((candidate) => candidate.id === id);
       if (previous) {
         await this.sessions.update(revokeSession(previous, 'superseded', at), previous.revision);
       }

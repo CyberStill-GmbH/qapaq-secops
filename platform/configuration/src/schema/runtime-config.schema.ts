@@ -146,6 +146,68 @@ export function parseRedis(
   };
 }
 
+/* ------------------------------------------------- C-17 persistencia del BFF */
+
+export const SOC_PERSISTENCE_MODES = ['memory', 'postgres'] as const;
+export type SocPersistenceMode = (typeof SOC_PERSISTENCE_MODES)[number];
+
+export interface ParsedSocPersistence {
+  readonly mode: SocPersistenceMode;
+  readonly postgres?: {
+    readonly host: string;
+    readonly port: number;
+    readonly database: string;
+    readonly username: string;
+    readonly tls: boolean;
+    readonly connectionTimeoutMs: number;
+    readonly statementTimeoutMs: number;
+    readonly poolMaximum: number;
+  };
+}
+
+/**
+ * Modo de persistencia del estado SOC del BFF (alertas, incidentes, auditoría, outbox).
+ *
+ * No hay valor por defecto en producción: un ambiente productivo declara explícitamente
+ * si su estado es durable (`postgres`) o efímero (`memory`). Así un despliegue no queda
+ * en memoria por omisión, y si se decide así queda escrito y visible en readiness.
+ *
+ * La contraseña no pasa por aquí: la inyecta el orquestador como secreto
+ * (`QAPAQ_POSTGRES_PASSWORD`) y la lee el composition root, igual que el secreto de Entra.
+ */
+export function parseSocPersistence(
+  environment: EnvironmentInput,
+  profile: ConfigurationProfile,
+): ParsedSocPersistence {
+  const mode = requireString(environment, profile, 'QAPAQ_SOC_PERSISTENCE');
+  if (!(SOC_PERSISTENCE_MODES as readonly string[]).includes(mode)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_SOC_PERSISTENCE', profile.name);
+  }
+  if (mode === 'memory') return { mode: 'memory' };
+  const host = requireHost(environment, profile, 'QAPAQ_POSTGRES_HOST');
+  const tls = parseBoolean(environment, profile, 'QAPAQ_POSTGRES_TLS');
+  enforceTls(profile, tls, host, 'QAPAQ_POSTGRES_TLS');
+  return {
+    mode: 'postgres',
+    postgres: {
+      host,
+      port: parsePort(environment, profile, 'QAPAQ_POSTGRES_PORT'),
+      database: requireString(environment, profile, 'QAPAQ_POSTGRES_DATABASE'),
+      username: requireString(environment, profile, 'QAPAQ_POSTGRES_USERNAME'),
+      tls,
+      connectionTimeoutMs: parseDuration(environment, profile, 'QAPAQ_POSTGRES_CONNECTION_TIMEOUT'),
+      statementTimeoutMs: parseDuration(environment, profile, 'QAPAQ_POSTGRES_STATEMENT_TIMEOUT'),
+      poolMaximum: parseInteger(
+        environment,
+        profile,
+        'QAPAQ_POSTGRES_POOL_MAX',
+        1,
+        CONFIGURATION_LIMITS.poolMaximum,
+      ),
+    },
+  };
+}
+
 export function parseFullEnvironment(environment: EnvironmentInput, profile: ConfigurationProfile) {
   const postgresHost = requireHost(environment, profile, 'QAPAQ_POSTGRES_HOST');
   const postgresTls = parseBoolean(environment, profile, 'QAPAQ_POSTGRES_TLS');

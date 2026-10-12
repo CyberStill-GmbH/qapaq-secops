@@ -88,6 +88,30 @@ export class InMemoryAttemptStore implements AttemptStore {
     this.rows.set(`${attempt.tenantId}|${attempt.idempotencyKey}`, attempt);
     return Promise.resolve();
   }
+
+  public countByStatusSince(
+    tenantId: string,
+    since: Date,
+  ): Promise<Readonly<Record<string, number>>> {
+    const counts: Record<string, number> = {};
+    for (const attempt of this.rows.values()) {
+      if (attempt.tenantId !== tenantId || attempt.createdAt.getTime() < since.getTime()) continue;
+      counts[attempt.status] = (counts[attempt.status] ?? 0) + 1;
+    }
+    return Promise.resolve(counts);
+  }
+
+  public listByTenant(tenantId: string, limit: number): Promise<readonly NotificationAttempt[]> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((attempt) => attempt.tenantId === tenantId)
+        .sort(
+          (left, right) =>
+            right.createdAt.getTime() - left.createdAt.getTime() || right.id.localeCompare(left.id),
+        )
+        .slice(0, Math.max(limit, 1)),
+    );
+  }
 }
 
 /**

@@ -229,6 +229,102 @@
       ]
     },
     {
+      "endpoint": "/api/operations/health",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "Content-Type",
+        "Cookie",
+        "Origin",
+        "X-Correlation-Id",
+        "X-Csrf-Token"
+      ],
+      "input_query_strings": [],
+      "backend": [
+        {
+          "host": [
+            "{{ env "QAPAQ_API_UPSTREAM" }}"
+          ],
+          "url_pattern": "/api/operations/health",
+          "encoding": "no-op",
+          "method": "GET",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/admin/sessions",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "Content-Type",
+        "Cookie",
+        "Origin",
+        "X-Correlation-Id",
+        "X-Csrf-Token"
+      ],
+      "input_query_strings": ["pageSize", "cursor"],
+      "backend": [
+        {
+          "host": [
+            "{{ env "QAPAQ_API_UPSTREAM" }}"
+          ],
+          "url_pattern": "/api/admin/sessions",
+          "encoding": "no-op",
+          "method": "GET",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/admin/sessions/{ref}/revoke",
+      "method": "POST",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "Content-Type",
+        "Cookie",
+        "Origin",
+        "X-Correlation-Id",
+        "X-Csrf-Token"
+      ],
+      "input_query_strings": [],
+      "backend": [
+        {
+          "host": [
+            "{{ env "QAPAQ_API_UPSTREAM" }}"
+          ],
+          "url_pattern": "/api/admin/sessions/{ref}/revoke",
+          "encoding": "no-op",
+          "method": "POST",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/api/auth/start",
       "method": "GET",
       "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
@@ -378,7 +474,10 @@
       "input_query_strings": [
         "cursor",
         "pageSize",
-        "status"
+        "status",
+        "q",
+        "priority",
+        "entity"
       ],
       "backend": [
         {
@@ -477,7 +576,9 @@
       ],
       "input_query_strings": [
         "cursor",
-        "pageSize"
+        "pageSize",
+        "status",
+        "q"
       ],
       "backend": [
         {
@@ -485,6 +586,38 @@
             "{{ env "QAPAQ_API_UPSTREAM" }}"
           ],
           "url_pattern": "/api/incidents",
+          "encoding": "no-op",
+          "method": "GET",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/incidents/{id}",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "Content-Type",
+        "Cookie",
+        "Origin",
+        "X-Correlation-Id",
+        "X-Csrf-Token"
+      ],
+      "input_query_strings": [],
+      "backend": [
+        {
+          "host": [
+            "{{ env "QAPAQ_API_UPSTREAM" }}"
+          ],
+          "url_pattern": "/api/incidents/{id}",
           "encoding": "no-op",
           "method": "GET",
           "extra_config": {
@@ -629,6 +762,38 @@
       ]
     },
     {
+      "endpoint": "/api/notifications/drain",
+      "method": "POST",
+      "timeout": "15s",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "Content-Type",
+        "Cookie",
+        "Origin",
+        "X-Correlation-Id",
+        "X-Csrf-Token"
+      ],
+      "input_query_strings": [],
+      "backend": [
+        {
+          "host": [
+            "{{ env "QAPAQ_API_UPSTREAM" }}"
+          ],
+          "url_pattern": "/api/notifications/drain",
+          "encoding": "no-op",
+          "method": "POST",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/api/audit/events",
       "method": "GET",
       "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
@@ -645,7 +810,12 @@
         "from",
         "to",
         "pageSize",
-        "action"
+        "cursor",
+        "action",
+        "actorId",
+        "resourceType",
+        "resourceId",
+        "outcome"
       ],
       "backend": [
         {

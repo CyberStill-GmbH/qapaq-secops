@@ -1,104 +1,177 @@
-# URLs y permisos para la ingesta Microsoft 365 → Wazuh → QAPAQ
+# URL y permisos para el login SOC y la integración con Wazuh
 
-Este documento resume los accesos requeridos para recolectar actividad de
-Microsoft 365 en Wazuh y permitir que QAPAQ lea las alertas. Son dos permisos
-distintos y se conceden en sistemas diferentes.
+Este documento separa tres accesos: el inicio de sesión de las personas en QAPAQ
+SOC, la recolección de Microsoft 365 por Wazuh y la lectura/operación de alertas
+de Wazuh desde QAPAQ.
 
-## 1. Microsoft 365 → Wazuh
+## 1. Inicio de sesión SOC con Microsoft Entra ID
 
-Wazuh usa la integración Office 365 y la API de Office 365 Management Activity
-para recuperar actividad del tenant.
+### URL de QAPAQ SOC
+
+Configurar en Entra la URL pública HTTPS donde esté desplegado el frontend SOC.
+El repositorio no confirma un hostname SOC productivo. `https://soc.qapaq.pe`
+aparece en fixtures de pruebas y debe tratarse como ejemplo hasta que
+Infraestructura confirme que ese sitio existe y resuelve públicamente.
+
+Registrar la URL de retorno exacta que atiende la aplicación:
+
+```text
+https://<hostname-soc>/api/auth/callback
+```
+
+La URI debe coincidir exactamente en el registro de aplicación de Entra y en
+`QAPAQ_ENTRA_REDIRECT_URI` y `QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS`. No usar
+comodines ni permitir callbacks de otros dominios.
+
+### Endpoints de Entra
+
+Reemplazar `{tenant-id}` por el GUID del tenant de la organización. QAPAQ usa
+OpenID Connect v2:
+
+| Uso | URL |
+| --- | --- |
+| Inicio de autorización | `https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/authorize` |
+| Intercambio de código por tokens | `https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token` |
+| Issuer que debe validarse | `https://login.microsoftonline.com/{tenant-id}/v2.0` |
+| Claves públicas para validar tokens (JWKS) | `https://login.microsoftonline.com/{tenant-id}/discovery/v2.0/keys` |
+
+El flujo implementado es Authorization Code con PKCE S256, `state` y `nonce`.
+Solicita los scopes OIDC `openid`, `profile` y `offline_access`.
+
+### Permisos para el login y acceso a funciones SOC
+
+Para autenticación básica no se requieren permisos de Microsoft Graph. En el
+registro de aplicación se configura OIDC y la URI de retorno; no se debe agregar
+`User.Read` u otros permisos Graph salvo que una función adicional del producto
+los requiera expresamente.
+
+El administrador debe asignar a los usuarios el rol de aplicación QAPAQ y los
+scopes internos apropiados. Estos valores son autorización de QAPAQ, no permisos
+de Microsoft Graph. Las capacidades efectivas son la intersección del rol y los
+scopes:
+
+| Necesidad del usuario | Rol QAPAQ | Scope QAPAQ | Alcance |
+| --- | --- | --- | --- |
+| Analista SOC, lectura y triage | `qapaq.soc.analyst` | `soc.read` y, si hará triage/asignaciones, `soc.write` | Lee eventos, alertas e incidentes; puede triar/asignar alertas y actualizar incidentes. No puede cerrar incidentes ni leer eventos crudos. |
+| Líder SOC | `qapaq.soc.lead` | `soc.read` + `soc.write`; agregar `audit.read` solo si debe revisar auditoría | Incluye las funciones de SOC del rol, cierre de incidentes y lectura de eventos crudos. |
+| Auditor | `qapaq.auditor` | `audit.read` | Lectura/verificación de auditoría e incidentes, según las capacidades del rol. |
+| Administrador de plataforma | `qapaq.platform.admin` | `audit.read` solo si se requiere | Administración de secretos y capacidades de auditoría definidas para ese rol; no asignar a analistas de rutina. |
+
+No otorgar `soc.write` a una persona que solo necesita consultar. El código
+aplica tanto el rol como el scope: un scope por sí solo no concede capacidades
+que el rol no tenga.
+
+### Datos que se configuran en QAPAQ
+
+- `QAPAQ_ENTRA_TENANT_ID`: GUID del tenant.
+- `QAPAQ_ENTRA_CLIENT_ID`: ID de aplicación (cliente) de QAPAQ SOC.
+- `QAPAQ_ENTRA_REDIRECT_URI`: callback HTTPS exacto.
+- `QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS`: lista que incluye únicamente callbacks aprobados.
+- `QAPAQ_ENTRA_CLIENT_SECRET_REF`: referencia a secreto en AWS Secrets Manager; nunca pegar el secreto en el repositorio, tickets o comandos visibles.
+
+El secreto de esta aplicación es para el login SOC. Es distinto de la credencial
+que Wazuh usa para leer Microsoft 365 y de la cuenta de lectura del Indexer.
+
+## 2. Microsoft 365 → Wazuh
+
+Wazuh usa la API Office 365 Management Activity para obtener los registros de
+actividad del tenant.
 
 | Elemento | Valor |
 | --- | --- |
-| Host de la API de actividad | `https://manage.office.com` |
-| Endpoint verificado por el proyecto | `GET https://manage.office.com/api/v1.0/{tenant-id}/activity/feed/subscriptions/list` |
-| Autenticación | OAuth 2.0 `client_credentials` con Microsoft Entra ID; token para Office 365 Management APIs (`.default`) |
-| Permiso requerido | **Application permission** `ActivityFeed.Read` en **Office 365 Management APIs** |
-| Consentimiento | **Admin consent** otorgado por un administrador del tenant |
+| API de actividad | `https://manage.office.com` |
+| Endpoint de ejemplo | `GET https://manage.office.com/api/v1.0/{tenant-id}/activity/feed/subscriptions/list` |
+| Emisión de token | `https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token` |
+| Flujo | OAuth 2.0 `client_credentials`; audiencia/recurso Office 365 Management APIs |
+| Permiso mínimo requerido | **Application permission** `ActivityFeed.Read` en **Office 365 Management APIs** |
+| Consentimiento | **Grant admin consent** por un administrador del tenant |
+| Permiso opcional | `ActivityFeed.ReadDlp`, solo si se habilita la ingesta de eventos DLP |
 
-Reemplazar `{tenant-id}` por el GUID del tenant autorizado. La identidad de
-aplicación (client ID y secreto/certificado) debe ser la configurada para Wazuh;
-guardar el secreto en el gestor de secretos aprobado, no en el repositorio.
-El token puede emitirse aunque falte el permiso, por lo que un `200` al pedir
-token no demuestra que la API de actividad esté autorizada. El endpoint de
-actividad debe responder correctamente para validar el permiso.
+La aplicación registrada para esta integración necesita su propio `tenant ID`,
+`client ID` y secreto o certificado, almacenado en el gestor de secretos. Estos
+datos no son los del login de QAPAQ SOC. Autorizar salida HTTPS (TCP/443) desde
+Wazuh a `login.microsoftonline.com` y `manage.office.com`. El permiso se valida
+consultando la API de actividad; recibir un token no demuestra por sí solo que
+se haya otorgado el consentimiento.
 
-La obtención del token usa el endpoint de Microsoft Entra del tenant, con la
-forma `https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token`. Permitir
-la salida HTTPS (TCP/443) desde el host/servicio Wazuh a los hosts de Entra y
-Office 365 Management API que use la configuración aprobada.
+## 3. QAPAQ → Wazuh: leer alertas
 
-## 2. Wazuh Indexer → KrakenD → QAPAQ
+QAPAQ consulta las alertas a través del gateway KrakenD. No configurar acceso
+directo de QAPAQ al Indexer ni al Dashboard.
 
-QAPAQ consulta alertas del Wazuh Indexer únicamente a través de KrakenD. El
-adapter no debe conectarse directamente al Indexer.
+| Propósito | Ruta en el gateway | Método | Acceso |
+| --- | --- | --- | --- |
+| Estado acotado del cluster | `/wazuh/_cluster/health` | `GET` | Health check |
+| Buscar alertas | `/wazuh/_search` | `POST` | Búsquedas de solo lectura en `wazuh-alerts-*` |
 
-| Operación | Ruta relativa | Método y propósito |
-| --- | --- | --- |
-| Estado del cluster | `/wazuh/_cluster/health` | `GET`, health check acotado |
-| Lectura de alertas | `/wazuh/_search` | `POST`, búsqueda de solo lectura y paginada |
+Configurar `QAPAQ_WAZUH_GATEWAY_BASE_URL` con la base HTTPS del KrakenD del
+ambiente, sin sufijo de ruta, query ni credenciales. La URL concreta del
+gateway productivo debe confirmarse en el despliegue; el output
+`public_api_url` identifica la entrada pública de QAPAQ y no confirma por sí
+mismo que KrakenD tenga identidad y rutas Wazuh productivas habilitadas.
 
-La base URL debe ser la del **gateway KrakenD** y configurarse como
-`QAPAQ_WAZUH_GATEWAY_BASE_URL`. El acceso del servicio QAPAQ al gateway requiere
-una identidad de workload autorizada, bearer token administrado mediante
-`SecretProvider`, y permiso de lectura para las dos rutas indicadas. Las
-credenciales administrativas o de escritura del Indexer no se deben entregar a
-QAPAQ.
+Permisos que debe recibir la identidad de servicio de QAPAQ:
 
-### URL pública de QAPAQ
+- Invocar únicamente el health check y la búsqueda de alertas publicados por
+  KrakenD, con bearer token válido para issuer, audience y JWKS configurados.
+- En el Wazuh Indexer, usar una cuenta/rol de solo lectura limitado a
+  `wazuh-alerts-*` y a las operaciones necesarias para consultar/contar
+  documentos y verificar salud.
+- No conceder escritura, creación/eliminación de índices, cambios de mappings,
+  administración del cluster ni acceso de administrador.
+- Mantener la credencial Basic del backend en el proveedor de secretos de
+  runtime (`WAZUH_BASIC_AUTH_B64`) y validar TLS del Indexer con CA confiable.
 
-El despliegue sin dominio usa la IP elástica de la instancia Wazuh como proxy
-HTTPS. El API queda publicado bajo `/qapaq-api`; el proxy reenvía esa ruta al ALB,
-cuyo security group solo acepta HTTP desde la instancia proxy. Después de aplicar,
-obtener los valores desde `infra/aws` con `terraform output -raw public_api_url`
-y `terraform output -raw wazuh_dashboard_url`. El certificado Let's Encrypt para
-IP es de corta duración y se renueva automáticamente.
+El contrato del gateway define las rutas anteriores y la autenticación hacia
+el Indexer. En el estado del código revisado, el cableado del token OAuth del
+servicio y su renovación, la CA productiva y la identidad de lectura aún deben
+materializarse y verificarse antes de habilitar tráfico productivo. Los nombres
+de secretos en AWS no garantizan que tengan valores cargados.
 
-La base URL pública del API tendrá esta forma (la IP concreta se conoce al
-aplicar Terraform):
+## 4. Permisos para que un operador trabaje en Wazuh
 
-```text
-https://<IP-elastica>/qapaq-api/wazuh/_cluster/health
-https://<IP-elastica>/qapaq-api/wazuh/_search
+La identidad de QAPAQ descrita arriba solo lee alertas. Para que una persona
+configure integraciones, administre agentes, reglas o políticas de Wazuh, usar
+una cuenta individual del Dashboard con el rol de Wazuh que corresponda a las
+tareas autorizadas. Separar los permisos de lectura de alertas de los permisos
+administrativos; no reutilizar la cuenta de servicio de QAPAQ ni compartir la
+contraseña del administrador.
+
+La modificación de configuración del Manager y de las integraciones requiere
+permisos de administración en Wazuh Manager/API según la acción concreta. El
+repositorio no define un rol de operador de Wazuh ni enumera sus permisos API,
+así que el administrador de Wazuh debe mapearlos a los roles/policies de la
+versión instalada. No entregar permisos de escritura del Indexer a QAPAQ para
+que el SOC pueda triar o trabajar incidentes: esas acciones pertenecen a la
+API de QAPAQ y sus scopes `soc.write`.
+
+## 5. URLs del Dashboard Wazuh
+
+El Dashboard es una interfaz para personas y no es la URL de API que usa el
+conector QAPAQ. En AWS, copiar el output de Terraform:
+
+```powershell
+terraform output -raw wazuh_dashboard_url
 ```
 
-El gateway de KrakenD conserva sus rutas Wazuh (`/wazuh/...`). El proxy elimina
-el prefijo `/qapaq-api` antes de enviar cada petición al ALB. El acceso al
-Indexer solo permite el puerto/configuración necesaria desde KrakenD; no se abre
-a Internet ni se concede acceso directo desde QAPAQ.
+La salida tiene forma `https://<IP-elastica>/` en el despliegue sin dominio.
+El URL solo es públicamente accesible si la IP es enrutable desde Internet, el
+bootstrap completó y el certificado presentado es confiable. Obtener la
+credencial desde el secreto cuyo ARN devuelve:
 
-## 3. Dashboard de Wazuh
+```powershell
+terraform output -raw wazuh_dashboard_admin_secret_arn
+```
 
-El stack oficial single-node que levanta
-[`scripts/dev/setup-wazuh.ps1`](../../scripts/dev/setup-wazuh.ps1) publica el
-Dashboard por HTTPS en el puerto 443 del host Docker. En ese host, abre
-[https://localhost](https://localhost). Desde otro equipo de la misma red usa
-`https://<host-docker>` solo si el administrador habilitó el acceso de red; no
-expongas ese puerto a Internet. El certificado local es propio del stack y el
-navegador puede avisar que no es de confianza.
+En la instalación local Docker, el URL es `https://localhost`; desde otro
+equipo, usar el hostname del host Docker solo cuando la red lo permita. No
+exponer directamente los puertos del Indexer (`9200`) ni de la API Manager
+(`55000`) a Internet.
 
-**AWS:** después de aplicar y completar el bootstrap, la URL pública será el
-output `wazuh_dashboard_url` (formato `https://<IP-elastica>/`). El certificado
-HTTPS de Let's Encrypt se solicita para la IP y se renueva cada pocos días. El
-Dashboard requiere autenticación; la contraseña inicial generada se guarda en
-AWS Secrets Manager. Obtén el ARN con
-`terraform output -raw wazuh_dashboard_admin_secret_arn` y consulta el valor en
-Secrets Manager con una identidad autorizada. Terraform termina antes de que el
-bootstrap de Wazuh y la emisión del certificado acaben, por lo que el URL puede
-demorar unos minutos en responder.
+## Referencias del proyecto
 
-La IP elástica también sirve QAPAQ API por `/qapaq-api`. Puertos 80/443 quedan
-públicos para el proxy; SSH, Dashboard 5601, Manager 55000 e Indexer 9200 no se
-abren a Internet. La zona Route 53 hija que se había creado se conserva, pero no
-se usa en este despliegue sin dominio.
-
-## Estado y referencias del proyecto
-
-- El permiso `ActivityFeed.Read` y el admin consent aparecen como la dependencia
-  externa pendiente en el diagnóstico de PBI-007.
-- URL productiva del gateway, certificado e identidad read-only siguen pendientes
-  de confirmación por Infraestructura.
-- [Diagnóstico de Microsoft 365/Wazuh](../project-management/informes-de-avance/2026-09-28-informe-de-cierre.md)
 - [Contrato del adapter Wazuh (C-10)](../project-management/c-10/README.md)
+- [Diseño de KrakenD (C-28)](../architecture/c-28-krakend-system-design.md)
+- [Motor Wazuh y OpenSearch](../architecture/wazuh-engine-and-opensearch.md)
 - [Variables y outputs de Terraform AWS](../../infra/aws/outputs.tf)
+- [Wazuh: Monitoring Office 365 audit logs](https://documentation.wazuh.com/current/cloud-security/office365/monitoring-office365-activity.html)

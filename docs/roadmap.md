@@ -89,3 +89,9 @@ implementación inicial; cualquier nueva necesidad técnica requiere evidencia y
 Antes de producción: restore de PostgreSQL/búsqueda, replay, drenaje, revocación,
 SOAR en dry-run contra adapter autorizado, ownership y soporte 8x5/24x7 explícitos. Los 25 escenarios de ADR-020
 son gate; no basta que la aplicación arranque o que exista un backup.
+
+La construcción posterior al timebox, sus responsables Codex/Claude y el DoD por
+incremento están en el [plan de cierre operativo post-timebox](project-management/plan-operativo-sprints-post-mvp.md).
+La matriz de pantallas y capacidades por perfil, con el estado real de cada vista, está
+en [vistas por rol](frontend-design/10-vistas-por-rol-y-referencias.md). Estos planes
+organizan gates ya aceptados; no promueven capacidades futuras a runtime.

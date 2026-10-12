@@ -10,7 +10,7 @@
  * movimiento fuera de la tabla es un error de dominio, no un no-op silencioso.
  */
 
-import type { Priority, Reason } from '@qapaq/detection';
+import type { Priority, Reason, SignalClass } from '@qapaq/detection';
 
 export const ALERT_STATUSES = ['new', 'acknowledged', 'triaged', 'escalated', 'closed'] as const;
 export type AlertStatus = (typeof ALERT_STATUSES)[number];
@@ -47,6 +47,20 @@ export interface Alert {
   readonly updatedAt: Date;
   /** Compare-and-set del store. Dos analistas sobre la misma alerta es lo normal. */
   readonly revision: number;
+  /**
+   * Correlación de C-16 al momento de crear la alerta: claves `user:`/`ip:`, clase de
+   * señal, regla de origen y alertas relacionadas. Permiten agrupar por entidad en la
+   * consola y alimentan la correlación de las alertas siguientes.
+   */
+  readonly entityKeys: readonly string[];
+  /**
+   * Referencias opacas (`ent_…`) de `entityKeys`, en el mismo orden (D-10b). Son lo único
+   * que viaja en URLs y filtros: un UPN o una IP no deben quedar en historial ni en logs.
+   */
+  readonly entityRefs: readonly string[];
+  readonly signal: SignalClass | null;
+  readonly ruleId: string | null;
+  readonly relatedAlertIds: readonly string[];
 }
 
 /**
@@ -105,9 +119,19 @@ export function createAlert(input: {
   readonly reasons: readonly Reason[];
   readonly occurredAt: Date;
   readonly createdAt: Date;
+  readonly entityKeys?: readonly string[];
+  readonly entityRefs?: readonly string[];
+  readonly signal?: SignalClass | null;
+  readonly ruleId?: string | null;
+  readonly relatedAlertIds?: readonly string[];
 }): Alert {
   return {
     ...input,
+    entityKeys: input.entityKeys ?? [],
+    entityRefs: input.entityRefs ?? [],
+    signal: input.signal ?? null,
+    ruleId: input.ruleId ?? null,
+    relatedAlertIds: input.relatedAlertIds ?? [],
     status: 'new',
     assigneeId: null,
     verdict: null,

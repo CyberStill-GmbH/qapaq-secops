@@ -11,6 +11,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 import { buildApi } from '../src/bootstrap.js';
+import type { InMemoryAttemptStore } from '@qapaq/soar';
+import type { InMemorySoc } from '@qapaq/soc';
+
 import type { SecOpsRuntime } from '../src/runtime/secops-runtime.js';
 
 const ENVIRONMENT = { QAPAQ_PROFILE: 'test' } as const;
@@ -28,6 +31,8 @@ let officeSequence = 0;
 
 let application: NestFastifyApplication;
 let runtime: SecOpsRuntime;
+/** El harness usa el adapter en memoria; sus filas se inspeccionan directamente. */
+const memorySoc = () => runtime.soc as InMemorySoc;
 let stop: () => Promise<void>;
 
 function server() {
@@ -63,9 +68,7 @@ async function signIn(
   const flowCookie = startSetCookies[0]?.split(';', 1)[0] ?? '';
   const flowHeaders = {
     ...headers,
-    ...(flowCookie
-      ? { cookie: [headers.cookie, flowCookie].filter(Boolean).join('; ') }
-      : {}),
+    ...(flowCookie ? { cookie: [headers.cookie, flowCookie].filter(Boolean).join('; ') } : {}),
   };
   const state = new URL(start.headers.location as string, 'http://local').searchParams.get('state');
   const authorize = await server().inject({
@@ -204,11 +207,11 @@ afterAll(async () => {
 beforeEach(() => {
   officeSequence += 1;
   officeIp = `10.20.${100 + Math.floor(officeSequence / 250)}.${(officeSequence % 250) + 1}`;
-  runtime.soc.alertRows.clear();
-  runtime.soc.incidentRows.clear();
-  runtime.soc.outboxRows.clear();
-  runtime.outbox.rows.clear();
-  runtime.notifications.rows.clear();
+  memorySoc().alertRows.clear();
+  memorySoc().incidentRows.clear();
+  memorySoc().outboxRows.clear();
+  memorySoc().outboxState.clear();
+  (runtime.notifications as InMemoryAttemptStore).rows.clear();
   runtime.detectionContext = {
     privilegedIdentities: new Set(['jperez@qapaq.pe']),
     criticalAssets: new Set(['host-1']),
@@ -464,7 +467,7 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     const ingested = await ingest('01890f47-7abc-7def-8abc-00000000a002', 'low');
 
     expect(JSON.parse(ingested.body).outcome).toBe('not_promoted');
-    expect(runtime.soc.alertRows.size).toBe(0);
+    expect(memorySoc().alertRows.size).toBe(0);
   });
 
   it('repetir la ingesta no crea una segunda alerta', async () => {
@@ -472,7 +475,7 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     const repeated = await ingest('01890f47-7abc-7def-8abc-00000000a003');
 
     expect(JSON.parse(repeated.body).outcome).toBe('duplicate');
-    expect(runtime.soc.alertRows.size).toBe(1);
+    expect(memorySoc().alertRows.size).toBe(1);
   });
 
   it('recorre reconocer, triar, escalar y abrir caso', async () => {
@@ -621,7 +624,7 @@ describe('C-18/C-27 · denegación y no enumeración', () => {
   it('responde igual para un recurso inexistente y para uno no autorizado', async () => {
     await ingest('01890f47-7abc-7def-8abc-00000000a007');
     const auditor = await signIn('auditor@qapaq.pe');
-    const existingId = [...runtime.soc.alertRows.values()][0]!.id;
+    const existingId = [...memorySoc().alertRows.values()][0]!.id;
 
     const notAuthorized = await server().inject({
       method: 'GET',
@@ -644,7 +647,7 @@ describe('C-18/C-27 · denegación y no enumeración', () => {
   it('rechaza un comando mal formado con los campos afectados y sin el valor', async () => {
     await ingest('01890f47-7abc-7def-8abc-00000000a008');
     const analyst = await signIn('analista@qapaq.pe');
-    const alertId = [...runtime.soc.alertRows.values()][0]!.id;
+    const alertId = [...memorySoc().alertRows.values()][0]!.id;
 
     const response = await server().inject({
       method: 'POST',
@@ -738,7 +741,7 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
   it('drena el outbox y registra el intento de notificación crítica', async () => {
     await ingest('01890f47-7abc-7def-8abc-00000000a009');
     const analyst = await signIn('analista@qapaq.pe');
-    const alert = [...runtime.soc.alertRows.values()][0]!;
+    const alert = [...memorySoc().alertRows.values()][0]!;
     const acknowledged = await server().inject({
       method: 'POST',
       url: `/api/alerts/${alert.id}/commands`,
@@ -766,12 +769,32 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
       remoteAddress: OFFICE_IP,
     });
 
-    const drained = await server().inject({
+    // Forzar el despacho es un efecto externo: el analista no puede, el líder sí.
+    const deniedDrain = await server().inject({
       method: 'POST',
       url: '/api/notifications/drain',
       headers: analyst.mutation,
       remoteAddress: OFFICE_IP,
     });
+    const lead = await signIn('lider@qapaq.pe');
+    // La pasada manual procesa un mensaje por llamada (cabe en el timeout del gateway): se
+    // repite hasta que no quede nada reclamable.
+    let drained = await server().inject({
+      method: 'POST',
+      url: '/api/notifications/drain',
+      headers: lead.mutation,
+      remoteAddress: OFFICE_IP,
+    });
+    for (let pass = 0; pass < 10 && JSON.parse(drained.body).results?.length > 0; pass += 1) {
+      const next = await server().inject({
+        method: 'POST',
+        url: '/api/notifications/drain',
+        headers: lead.mutation,
+        remoteAddress: OFFICE_IP,
+      });
+      if (JSON.parse(next.body).results.length === 0) break;
+      drained = next;
+    }
     const listed = await server().inject({
       method: 'GET',
       url: '/api/notifications',
@@ -780,6 +803,7 @@ describe('C-19/C-20 · auditoría y notificación sobre HTTP', () => {
     });
     const attempts = JSON.parse(listed.body).items as { status: string }[];
 
+    expect(deniedDrain.statusCode).not.toBe(201);
     expect(drained.statusCode).toBe(201);
     expect(attempts.length).toBeGreaterThan(0);
     // Sin destino Teams alcanzable el crítico no se pierde: queda pendiente o en fallback.
@@ -837,7 +861,7 @@ describe('B-03 · el callback devuelve al navegador a la consola', () => {
 describe('B-01 · CSRF en las mutaciones', () => {
   async function newAlert(recordId: string) {
     await ingest(recordId);
-    return [...runtime.soc.alertRows.values()][0]!;
+    return [...memorySoc().alertRows.values()][0]!;
   }
 
   function acknowledge(alertId: string, revision: number, headers: Record<string, string>) {
@@ -869,7 +893,7 @@ describe('B-01 · CSRF en las mutaciones', () => {
       code: 'REQUEST_NOT_VERIFIED',
       action: 'reload_resource',
     });
-    expect(runtime.soc.alertRows.get(`${alert.tenantId}|${alert.id}`)!.status).toBe('new');
+    expect(memorySoc().alertRows.get(`${alert.tenantId}|${alert.id}`)!.status).toBe('new');
   });
 
   it('rechaza el token de otra sesión', async () => {
@@ -1004,6 +1028,43 @@ describe('B-02 · paginación por cursor de los listados', () => {
     expect(body.totalCount).toBe(1);
   });
 
+  it('busca alertas en todo el conjunto y liga el cursor al término', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c251');
+    await ingest('01890f47-7abc-7def-8abc-00000000c252');
+    const analyst = await signIn('analista@qapaq.pe');
+    const firstResponse = await listAlerts(analyst.cookie, '?q=Acceso+sospechoso&pageSize=1');
+    const first = JSON.parse(firstResponse.body) as {
+      items: { title: string }[];
+      nextCursor: string;
+      totalCount: number;
+    };
+
+    expect(first.totalCount).toBe(2);
+    expect(first.items[0]?.title).toContain('Acceso sospechoso');
+    expect(first.nextCursor).toBeTruthy();
+
+    const pageTwo = await listAlerts(
+      analyst.cookie,
+      `?q=Acceso+sospechoso&pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
+    );
+    expect(JSON.parse(pageTwo.body).items).toHaveLength(1);
+
+    const changedFilter = await listAlerts(
+      analyst.cookie,
+      `?q=otro&pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
+    );
+    expect(changedFilter.statusCode).toBe(422);
+    expect(JSON.parse(changedFilter.body).fields).toContain('cursor');
+  });
+
+  it('limita la longitud de búsqueda del servidor', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const response = await listAlerts(analyst.cookie, `?q=${'a'.repeat(121)}`);
+
+    expect(response.statusCode).toBe(422);
+    expect(JSON.parse(response.body).fields).toEqual(['q']);
+  });
+
   it.each(['0', '201', 'abc', '-1', '1.5'])(
     'rechaza pageSize=%s en lugar de recortarlo',
     async (pageSize) => {
@@ -1054,41 +1115,277 @@ describe('B-02 · paginación por cursor de los listados', () => {
     expect(JSON.parse(incidents.body)).toMatchObject({ items: [], nextCursor: null });
     expect(notifications.statusCode).toBe(422);
   });
+});
 
-  it('busca alertas en todo el conjunto y liga el cursor al término', async () => {
-    await ingest('01890f47-7abc-7def-8abc-00000000c251');
-    await ingest('01890f47-7abc-7def-8abc-00000000c252');
+describe('C-16 · correlación por entidad expuesta por la API', () => {
+  async function alerts(cookie: string, query = '') {
+    return server().inject({
+      method: 'GET',
+      url: `/api/alerts${query}`,
+      headers: { cookie },
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  it('la alerta declara sus claves de entidad y referencia las relacionadas previas', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c401');
+    await ingest('01890f47-7abc-7def-8abc-00000000c402');
     const analyst = await signIn('analista@qapaq.pe');
-    const firstResponse = await listAlerts(analyst.cookie, '?q=Acceso+sospechoso&pageSize=1');
-    const first = JSON.parse(firstResponse.body) as {
-      items: { title: string }[];
-      nextCursor: string;
-      totalCount: number;
+    const body = JSON.parse((await alerts(analyst.cookie)).body) as {
+      items: {
+        id: string;
+        entities: { label: string }[];
+        relatedAlertIds: string[];
+        entityKeys?: unknown;
+      }[];
     };
 
-    expect(first.totalCount).toBe(2);
-    expect(first.items[0]?.title).toContain('Acceso sospechoso');
-    expect(first.nextCursor).toBeTruthy();
-
-    const pageTwo = await listAlerts(
-      analyst.cookie,
-      `?q=Acceso+sospechoso&pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
-    );
-    expect(JSON.parse(pageTwo.body).items).toHaveLength(1);
-
-    const changedFilter = await listAlerts(
-      analyst.cookie,
-      `?q=otro&pageSize=1&cursor=${encodeURIComponent(first.nextCursor)}`,
-    );
-    expect(changedFilter.statusCode).toBe(422);
-    expect(JSON.parse(changedFilter.body).fields).toContain('cursor');
+    expect(body.items).toHaveLength(2);
+    expect(
+      body.items.every((item) =>
+        item.entities.some((entity) => entity.label === 'jperez@qapaq.pe'),
+      ),
+    ).toBe(true);
+    // Las claves internas `user:`/`ip:` no salen de la API (D-10b).
+    expect(body.items.every((item) => item.entityKeys === undefined)).toBe(true);
+    // La segunda en llegar ve a la primera en su ventana; la primera no tenía previas.
+    const later = body.items.find((item) => item.relatedAlertIds.length > 0);
+    const earlier = body.items.find((item) => item.relatedAlertIds.length === 0);
+    expect(later?.relatedAlertIds).toEqual([earlier?.id]);
   });
 
-  it('limita la longitud de búsqueda del servidor', async () => {
+  it('pivota por referencia opaca y rechaza UPN o IP crudos en la URL (D-10b)', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c403');
     const analyst = await signIn('analista@qapaq.pe');
-    const response = await listAlerts(analyst.cookie, `?q=${'a'.repeat(121)}`);
+    const listed = JSON.parse((await alerts(analyst.cookie)).body) as {
+      items: { entities: { ref: string; kind: string; label: string }[] }[];
+    };
+    const user = listed.items[0]!.entities.find((entity) => entity.kind === 'user')!;
 
-    expect(response.statusCode).toBe(422);
-    expect(JSON.parse(response.body).fields).toEqual(['q']);
+    const mine = JSON.parse((await alerts(analyst.cookie, `?entity=${user.ref}`)).body) as {
+      totalCount: number;
+    };
+    const unknownRef = JSON.parse(
+      (await alerts(analyst.cookie, `?entity=ent_${'A'.repeat(22)}`)).body,
+    ) as { totalCount: number };
+    const rawUpn = await alerts(analyst.cookie, '?entity=user%3Ajperez%40qapaq.pe');
+
+    expect(user.label).toBe('jperez@qapaq.pe');
+    expect(user.ref).toMatch(/^ent_[A-Za-z0-9_-]{22}$/u);
+    expect(user.ref).not.toContain('jperez');
+    expect(mine.totalCount).toBe(1);
+    expect(unknownRef.totalCount).toBe(0);
+    expect(rawUpn.statusCode).toBe(422);
+    expect(JSON.parse(rawUpn.body).fields).toEqual(['entity']);
+  });
+
+  it('acepta los estados reales de alerta como filtro', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c404');
+    const analyst = await signIn('analista@qapaq.pe');
+
+    const fresh = await alerts(analyst.cookie, '?status=new');
+    const unknown = await alerts(analyst.cookie, '?status=contained');
+
+    expect(fresh.statusCode).toBe(200);
+    expect(JSON.parse(fresh.body).totalCount).toBe(1);
+    expect(unknown.statusCode).toBe(422);
+  });
+
+  it('el despacho reclama de la cola durable y no vuelve a tomar lo publicado', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c405');
+    const dependencies = runtime.dispatchDependencies();
+    const now = runtime.now();
+
+    const first = await dependencies.outbox.claimPending(50, now);
+    for (const message of first) await dependencies.outbox.markPublished(message.messageId, now);
+    const second = await dependencies.outbox.claimPending(50, now);
+
+    expect(first.length).toBeGreaterThan(0);
+    expect(second).toHaveLength(0);
+    expect(
+      [...memorySoc().outboxState.values()].every((state) => state.status === 'published'),
+    ).toBe(true);
+  });
+
+  it('un mensaje reclamado y no publicado vuelve a la cola al vencer el lease', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c406');
+    const dependencies = runtime.dispatchDependencies();
+    const now = runtime.now();
+
+    const claimed = await dependencies.outbox.claimPending(50, now);
+    const whileLeased = await dependencies.outbox.claimPending(50, now);
+    // Tres minutos después el lease (2 min) venció: el despachador anterior se da por muerto.
+    const afterLease = await dependencies.outbox.claimPending(
+      50,
+      new Date(now.getTime() + 180_000),
+    );
+
+    expect(claimed.length).toBeGreaterThan(0);
+    expect(whileLeased).toHaveLength(0);
+    expect(afterLease.map((message) => message.messageId)).toEqual(
+      claimed.map((message) => message.messageId),
+    );
+  });
+});
+
+describe('Observabilidad · GET /api/operations/health por rol', () => {
+  async function health(cookie: string) {
+    return server().inject({
+      method: 'GET',
+      url: '/api/operations/health',
+      headers: { cookie },
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  it('el analista ve solo el resumen', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const body = JSON.parse((await health(analyst.cookie)).body);
+
+    expect(Object.keys(body.sections)).toEqual(['summary']);
+    expect(body.sections.summary.sourceCoverage).toBe('NO_DATA');
+  });
+
+  it('el líder ve resumen y SOC, pero no plataforma', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c501');
+    const lead = await signIn('lider@qapaq.pe');
+    const body = JSON.parse((await health(lead.cookie)).body);
+
+    expect(Object.keys(body.sections).sort()).toEqual(['soc', 'summary']);
+    expect(body.sections.soc).toMatchObject({ persistence: 'memory', dispatcherRunning: false });
+    expect(body.sections.soc.outbox.pending).toBeGreaterThan(0);
+    // El harness no arranca el bucle y usa memoria: se reporta, no se oculta.
+    expect(body.sections.soc.degradedReasons).toEqual(
+      expect.arrayContaining(['DISPATCHER_STOPPED', 'PERSISTENCE_EPHEMERAL']),
+    );
+  });
+
+  it('el administrador de plataforma ve las tres secciones', async () => {
+    const admin = await signIn('admin@qapaq.pe');
+    const body = JSON.parse((await health(admin.cookie)).body);
+
+    expect(Object.keys(body.sections).sort()).toEqual(['platform', 'soc', 'summary']);
+    expect(body.sections.platform.databaseLatencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('el auditor no tiene acceso y no se revela la existencia de la ruta', async () => {
+    const auditor = await signIn('auditor@qapaq.pe');
+    const response = await health(auditor.cookie);
+
+    expect(response.statusCode).not.toBe(200);
+    expect(JSON.parse(response.body).code).toBe('RESOURCE_UNAVAILABLE');
+  });
+
+  it('la respuesta no contiene identidades ni IPs de las alertas', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000c502');
+    const admin = await signIn('admin@qapaq.pe');
+    const text = (await health(admin.cookie)).body;
+
+    expect(text).not.toContain('jperez');
+    expect(text).not.toContain('@qapaq.pe');
+  });
+});
+
+describe('C-10(b) · administración de sesiones', () => {
+  async function listSessions(cookie: string) {
+    return server().inject({
+      method: 'GET',
+      url: '/api/admin/sessions',
+      headers: { cookie },
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  async function revoke(
+    mutation: Record<string, string>,
+    reference: string,
+    payload: Record<string, unknown>,
+  ) {
+    return server().inject({
+      method: 'POST',
+      url: `/api/admin/sessions/${encodeURIComponent(reference)}/revoke`,
+      headers: mutation,
+      payload,
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  type SessionRow = { ref: string; subjectId: string; current: boolean; revision: number };
+
+  it('el analista y el líder no pueden ver sesiones', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const lead = await signIn('lider@qapaq.pe');
+
+    expect(JSON.parse((await listSessions(analyst.cookie)).body).code).toBe('RESOURCE_UNAVAILABLE');
+    expect(JSON.parse((await listSessions(lead.cookie)).body).code).toBe('RESOURCE_UNAVAILABLE');
+  });
+
+  it('el administrador lista sesiones con referencias que no son cookies', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const admin = await signIn('admin@qapaq.pe');
+    const body = JSON.parse((await listSessions(admin.cookie)).body) as { items: SessionRow[] };
+
+    const own = body.items.find((row) => row.current);
+    expect(own?.subjectId).toBe('local-platform-admin-1');
+    expect(body.items.every((row) => /^h:[0-9a-f]{64}$/u.test(row.ref))).toBe(true);
+    // La referencia nunca funciona como cookie de sesión.
+    const target = body.items.find((row) => row.subjectId === 'local-analyst-1')!;
+    const asCookie = await server().inject({
+      method: 'GET',
+      url: '/api/alerts',
+      headers: { cookie: analyst.cookie.replace(/=[^;]+/u, `=${target.ref}`) },
+      remoteAddress: OFFICE_IP,
+    });
+    expect(asCookie.statusCode).toBe(401);
+  });
+
+  it('revoca la sesión de otra persona con motivo, la deja sin acceso y lo audita', async () => {
+    const analyst = await signIn('analista@qapaq.pe');
+    const admin = await signIn('admin@qapaq.pe');
+    const rows = JSON.parse((await listSessions(admin.cookie)).body).items as SessionRow[];
+    const target = rows.find((row) => row.subjectId === 'local-analyst-1' && !row.current)!;
+
+    const shortReason = await revoke(admin.mutation, target.ref, {
+      reason: 'corto',
+      expectedRevision: target.revision,
+    });
+    const revoked = await revoke(admin.mutation, target.ref, {
+      reason: 'Equipo reportado como perdido por el usuario.',
+      expectedRevision: target.revision,
+    });
+    const afterwards = await server().inject({
+      method: 'GET',
+      url: '/api/alerts',
+      headers: { cookie: analyst.cookie },
+      remoteAddress: OFFICE_IP,
+    });
+
+    expect(shortReason.statusCode).toBe(422);
+    expect(revoked.statusCode).toBe(201);
+    expect(JSON.parse(revoked.body).session).toMatchObject({
+      state: 'revoked',
+      revocationReason: 'administrative',
+    });
+    expect(afterwards.statusCode).toBe(401);
+    const audit = await memorySoc().allAudit();
+    expect(audit.some((event) => event.action === 'access.session.revoked')).toBe(true);
+  });
+
+  it('no permite revocar la propia sesión ni actuar sin CSRF', async () => {
+    const admin = await signIn('admin@qapaq.pe');
+    const rows = JSON.parse((await listSessions(admin.cookie)).body).items as SessionRow[];
+    const own = rows.find((row) => row.current)!;
+
+    const self = await revoke(admin.mutation, own.ref, {
+      reason: 'Prueba de auto-revocación bloqueada.',
+      expectedRevision: own.revision,
+    });
+    const withoutCsrf = await revoke({ cookie: admin.cookie }, own.ref, {
+      reason: 'Prueba sin token CSRF en la petición.',
+      expectedRevision: own.revision,
+    });
+
+    expect(self.statusCode).toBe(409);
+    expect(withoutCsrf.statusCode).toBe(403);
   });
 });

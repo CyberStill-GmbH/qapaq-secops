@@ -9,6 +9,9 @@ export {
   loadApiConfig,
   loadControlPlaneSecretConfig,
   loadConfigurationAndStart,
+  loadDetectionContextConfig,
+  loadEntityRefKey,
+  loadSocPersistenceConfig,
   loadLocalWorkerConfig,
   loadRuntimeConfig,
   loadWorkerConfig,
@@ -23,13 +26,19 @@ export type {
   RedisConfig,
   RuntimeConfig,
   SecretCredential,
+  SocPersistenceConfig,
   WorkerConfig,
   WazuhGatewayConfig,
 } from './configuration.types.js';
 export { SecretValue } from './configuration.types.js';
 export { CONFIGURATION_LIMITS, REDACTED_VALUE } from './limits.js';
-export { IDENTITY_MODES } from './schema/index.js';
-export type { AccessConfig, IdentityMode } from './schema/index.js';
+export { DETECTION_CONTEXT_LIMITS, IDENTITY_MODES } from './schema/index.js';
+export type {
+  AccessConfig,
+  DetectionContextConfig,
+  IdentityMode,
+  KnownBenignRule,
+} from './schema/index.js';
 export { CONFIGURATION_PROFILES } from './profiles/index.js';
 export { redactSecrets } from './redaction/index.js';
 export { SecretProviderError, parseSecretReference } from './secrets/index.js';

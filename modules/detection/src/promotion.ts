@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto';
 
 import type { SecurityEvent } from '@qapaq/contracts';
 
+import { entityKeysOf, signalOf, type SignalClass } from './correlation.js';
 import {
   prioritize,
   PROMOTION_THRESHOLD,
@@ -42,6 +43,17 @@ export interface DetectionCandidate {
   readonly occurredAt: Date;
   readonly createdAt: Date;
   readonly title: string;
+  /** Claves `user:`/`ip:` del evento: índice de la correlación posterior. */
+  readonly entityKeys: readonly string[];
+  readonly signal: SignalClass;
+  /** Regla del proveedor que originó el evento, para contar repeticiones. */
+  readonly ruleId: string | null;
+  /**
+   * Alertas relacionadas por entidad al momento de promover. Es una fotografía: no se
+   * recalcula si después llegan más alertas, porque la decisión de prioridad se tomó con
+   * esta vista y debe poder explicarse tal como fue.
+   */
+  readonly relatedAlertIds: readonly string[];
 }
 
 export type PromotionDecision =
@@ -131,6 +143,10 @@ export function decidePromotion(
       occurredAt,
       createdAt: now,
       title: titleFor(event),
+      entityKeys: context.correlation?.entityKeys ?? entityKeysOf(event),
+      signal: context.correlation?.signal ?? signalOf(event),
+      ruleId: event.detection?.rule.id ?? null,
+      relatedAlertIds: context.correlation?.relatedAlertIds ?? [],
     },
   };
 }

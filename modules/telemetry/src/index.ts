@@ -30,6 +30,13 @@ export {
   type WazuhNormalizationContext,
 } from './wazuh-normalization.js';
 export {
+  normalizeClientIp,
+  OFFICE365_EXTENSION_NAMESPACE,
+  office365ActionSlug,
+  projectOffice365,
+  type Office365Projection,
+} from './wazuh-office365.js';
+export {
   DEFAULT_RETRY_POLICY,
   decideInboxTransition,
   INBOX_STATUSES,

@@ -27,6 +27,15 @@
   .soc-summary-grid {
     grid-template-columns: 1fr;
   }
+  .soc-user-admin__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .soc-health-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .soc-health-summary dl {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 760px) {
   .soc-topbar {
@@ -61,6 +70,28 @@
     min-height: calc(100svh - 50px);
     padding: 17px 12px;
   }
+  .soc-health-summary {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 14px;
+  }
+  .soc-health-summary dl,
+  .soc-health-facts {
+    grid-template-columns: 1fr 1fr;
+  }
+  .soc-health-section {
+    padding: 14px;
+  }
+  .soc-admin-sessions__scope {
+    flex-direction: column;
+  }
+  .soc-admin-sessions__confirm-row form {
+    align-items: stretch;
+  }
+  .soc-admin-sessions__confirm-row .soc-button {
+    min-height: 44px;
+  }
   .soc-page-heading {
     align-items: flex-start;
     gap: 10px;
@@ -72,6 +103,33 @@
     display: grid;
     justify-items: end;
     gap: 5px;
+  }
+  .soc-user-admin__toolbar {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .soc-user-admin__search,
+  .soc-user-admin__filter {
+    flex: 1 1 145px;
+    width: auto;
+  }
+  .soc-user-admin__toolbar input,
+  .soc-user-admin__toolbar select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-user-admin__role-request input,
+  .soc-user-admin__role-request select,
+  .soc-user-admin__role-request textarea,
+  .soc-user-admin__reason textarea,
+  .soc-user-admin__decision-reason textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-user-admin__scope {
+    width: 100%;
+    margin-left: 0;
+    padding-bottom: 0;
   }
   .soc-operation-strip {
     align-items: flex-start;

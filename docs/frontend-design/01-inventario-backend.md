@@ -112,7 +112,7 @@ No se exponen `triageNote`, `eventRecordId`, `createdAt`, `updatedAt`.
 | --- | --- | --- | --- |
 | GET | `/api/notifications` | `notifications.read` | `{ items: [{ id, status, channel, attemptCount, sentAt, acknowledgedAt, acknowledgedBy, lastFailureClass }], nextCursor }`, orden de creación desc; admite `pageSize` y `cursor` |
 | POST | `/api/notifications/:id/acknowledge` | `notifications.read` | 201 `{ correlationId, status: 'acknowledged' }`; 409 si no fue entregada o ya fue acusada |
-| POST | `/api/notifications/drain` | `notifications.read` | 201 `{ results: DispatchResult[] }` (≤ 20). **Operación técnica**: no se expone a analistas ([04 · §6](04-pantallas.md#6-notificaciones)) |
+| POST | `/api/notifications/drain` | `notifications.dispatch` + CSRF | `{ correlationId, results: string[] }`; pasada manual acotada. El despacho habitual es automático. Solo se muestra a SOC lead/platform admin autorizados. |
 
 La notificación **no trae** la alerta o el incidente que la originó, ni
 severidad, ni destino. No hay reintento manual.

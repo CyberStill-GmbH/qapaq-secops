@@ -36,19 +36,33 @@ export function SummaryPage({
   const [activity, setActivity] = useState<readonly AuditEventView[]>([]);
   const [errors, setErrors] = useState<Readonly<Record<string, ApiErrorBody>>>({});
   const [updated, setUpdated] = useState<string | null>(null);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'ready' | 'failed'>('checking');
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
     setErrors({});
+    let complete = true;
     const tasks: Promise<void>[] = [];
+    tasks.push(
+      api.health().then((result) => {
+        const healthy = result.ok && result.data.status === 'ok';
+        setApiStatus(healthy ? 'ready' : 'failed');
+        if (!healthy) {
+          complete = false;
+          if (!result.ok) setErrors((value) => ({ ...value, health: result.error }));
+        }
+      }),
+    );
     if (session.capabilities.includes('alerts.read'))
       tasks.push(
         api.alertsByStatus('open').then((result) => {
           if (result.ok) {
             setAlerts(result.data.items);
             setOpenAlertsCount(result.data.totalCount ?? result.data.items.length);
-          } else setErrors((value) => ({ ...value, alerts: result.error }));
+          } else {
+            complete = false;
+            setErrors((value) => ({ ...value, alerts: result.error }));
+          }
         }),
       );
     if (session.capabilities.includes('incidents.read'))
@@ -57,21 +71,30 @@ export function SummaryPage({
           if (result.ok) {
             setIncidents(result.data.items);
             setActiveIncidentsCount(result.data.totalCount ?? result.data.items.length);
-          } else setErrors((value) => ({ ...value, incidents: result.error }));
+          } else {
+            complete = false;
+            setErrors((value) => ({ ...value, incidents: result.error }));
+          }
         }),
       );
     if (session.capabilities.includes('notifications.read'))
       tasks.push(
         api.notifications().then((result) => {
           if (result.ok) setNotifications(result.data.items);
-          else setErrors((value) => ({ ...value, notifications: result.error }));
+          else {
+            complete = false;
+            setErrors((value) => ({ ...value, notifications: result.error }));
+          }
         }),
       );
     if (session.capabilities.includes('audit.verify'))
       tasks.push(
         api.verifyAudit().then((result) => {
           if (result.ok) setIntegrity(result.data);
-          else setErrors((value) => ({ ...value, integrity: result.error }));
+          else {
+            complete = false;
+            setErrors((value) => ({ ...value, integrity: result.error }));
+          }
         }),
       );
     if (session.capabilities.includes('audit.read')) {
@@ -80,12 +103,15 @@ export function SummaryPage({
       tasks.push(
         api.audit(from.toISOString(), to.toISOString()).then((result) => {
           if (result.ok) setActivity(result.data.items.slice(-8).reverse());
-          else setErrors((value) => ({ ...value, activity: result.error }));
+          else {
+            complete = false;
+            setErrors((value) => ({ ...value, activity: result.error }));
+          }
         }),
       );
     }
     await Promise.all(tasks);
-    setUpdated(new Date().toISOString());
+    if (complete) setUpdated(new Date().toISOString());
     setLoading(false);
   }, [session.capabilities]);
 
@@ -120,8 +146,22 @@ export function SummaryPage({
       />
       <div className="soc-operation-strip">
         <div>
-          <StatusChip state="ok">API disponible</StatusChip>
-          <span>El BFF responde a la comprobación de disponibilidad.</span>
+          <StatusChip
+            state={apiStatus === 'ready' ? 'ok' : apiStatus === 'failed' ? 'fail' : 'neutral'}
+          >
+            {apiStatus === 'ready'
+              ? 'API disponible'
+              : apiStatus === 'failed'
+                ? 'API sin respuesta'
+                : 'Comprobando API'}
+          </StatusChip>
+          <span>
+            {errors.health?.correlationId
+              ? `No se pudo consultar · referencia ${errors.health.correlationId}`
+              : apiStatus === 'failed'
+                ? 'La comprobación de disponibilidad no fue exitosa.'
+                : 'Estado de disponibilidad del BFF.'}
+          </span>
         </div>
         <div>
           <StatusChip state="neutral">Ingesta sin datos de salud</StatusChip>

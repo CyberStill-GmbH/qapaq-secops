@@ -159,3 +159,29 @@ describe('B-01 · token CSRF en el cliente', () => {
     expect(headerOf(calls[2])).toBeUndefined();
   });
 });
+
+describe('D-10b · pivote de correlación con referencia opaca', () => {
+  it('envía la referencia opaca para el pivote de entidad', async () => {
+    let requestedUrl = '';
+    stubFetch(((url: string) => {
+      requestedUrl = url;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ correlationId: 'corr-entity', items: [], nextCursor: null }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    }) as typeof fetch);
+
+    const entityRef = 'ent_AAAAAAAAAAAAAAAAAAAAAA';
+    await api.alertsByStatus('open', undefined, '', undefined, entityRef);
+
+    const query = new URLSearchParams(requestedUrl.split('?')[1] ?? '');
+    expect(query.get('entity')).toBe(entityRef);
+    expect(requestedUrl).not.toContain('user:');
+    expect(requestedUrl).not.toContain('@');
+  });
+});

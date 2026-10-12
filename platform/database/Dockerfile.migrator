@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1.7
+# QAPAQ SecOps — imagen one-off de base de datos (C-1).
+#
+# Se construye desde el mismo commit que la imagen del API y contiene solo lo necesario para
+# `bootstrap-roles` y `migrate`: Prisma CLI, esquema, migraciones, SQL de roles, el driver pg,
+# el SDK de Secrets Manager y el bundle CA de RDS fijado por hash. No sirve tráfico.
+FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS build
+
+ENV COREPACK_HOME=/corepack
+WORKDIR /workspace
+
+RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .nvmrc ./
+COPY platform/database/package.json platform/database/package.json
+COPY platform/configuration/package.json platform/configuration/package.json
+
+RUN pnpm install --filter @qapaq/database... --frozen-lockfile
+
+# Bundle CA global de RDS, fijado por hash: si AWS lo rota, el build falla hasta revisar y
+# actualizar el hash a propósito. Se descarga aquí para fijar permisos legibles por el usuario
+# sin privilegios (directorio 0755, archivo 0644): `ADD --chmod` también cambia el directorio
+# y lo deja sin permiso de ejecución.
+ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /qapaq-certs/rds-global-bundle.pem
+RUN chmod 0755 /qapaq-certs && chmod 0644 /qapaq-certs/rds-global-bundle.pem
+
+COPY . .
+# Sin `--prod`: Prisma CLI y el SDK de Secrets Manager son dependencias de desarrollo del
+# paquete y aquí sí se necesitan. La imagen del API sigue sin ellos.
+RUN pnpm --filter @qapaq/database exec prisma generate \
+    && pnpm --filter @qapaq/database deploy --legacy /migrator \
+    && rm -rf /migrator/test /migrator/src /migrator/generated
+
+FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS runtime
+
+# Bundle CA de RDS con permisos ya fijados en la etapa de build (C-1).
+COPY --from=build /qapaq-certs/ /etc/qapaq/
+
+ENV NODE_ENV=production \
+    NODE_EXTRA_CA_CERTS=/etc/qapaq/rds-global-bundle.pem
+WORKDIR /migrator
+COPY --from=build --chown=1000:1000 /migrator/ ./
+
+USER 1000:1000
+ENTRYPOINT ["node", "migrator/entrypoint.mjs"]
+CMD ["migrate"]

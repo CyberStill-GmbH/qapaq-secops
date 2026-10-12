@@ -8,8 +8,19 @@ const capabilityGroups: readonly { readonly name: string; readonly values: reado
   },
   {
     name: 'Incidentes y notificaciones',
-    values: ['incidents.read', 'incidents.write', 'incidents.close', 'notifications.read'],
+    values: [
+      'incidents.read',
+      'incidents.write',
+      'incidents.close',
+      'notifications.read',
+      'notifications.dispatch',
+    ],
   },
+  {
+    name: 'Observabilidad',
+    values: ['observability.read_soc', 'observability.read_platform'],
+  },
+  { name: 'Acceso y sesiones', values: ['sessions.read', 'sessions.revoke'] },
   { name: 'Auditoría', values: ['audit.read', 'audit.read_sensitive', 'audit.verify'] },
   { name: 'Plataforma', values: ['secrets.write'] },
 ];
@@ -26,6 +37,11 @@ function capabilityLabel(value: string): string {
       'incidents.write': 'Operar incidentes',
       'incidents.close': 'Cerrar incidentes',
       'notifications.read': 'Consultar y acusar notificaciones',
+      'notifications.dispatch': 'Solicitar un despacho manual de notificaciones',
+      'observability.read_soc': 'Consultar salud de la operación SOC',
+      'observability.read_platform': 'Consultar salud del runtime y la base de datos',
+      'sessions.read': 'Consultar sesiones del tenant',
+      'sessions.revoke': 'Revocar sesiones ajenas con auditoría',
       'audit.read': 'Consultar auditoría',
       'audit.read_sensitive': 'Consultar datos sensibles de auditoría',
       'audit.verify': 'Verificar integridad',
@@ -115,10 +131,12 @@ export function UnavailablePage({
   title,
   message,
   action,
+  actionLabel = 'Ir al resumen',
 }: {
   readonly title: string;
   readonly message: string;
   readonly action?: () => void;
+  readonly actionLabel?: string;
 }): React.JSX.Element {
   return (
     <div className="soc-unavailable">
@@ -129,7 +147,7 @@ export function UnavailablePage({
       <p>{message}</p>
       {action ? (
         <Button variant="primary" onClick={action}>
-          Ir al resumen
+          {actionLabel}
         </Button>
       ) : null}
     </div>

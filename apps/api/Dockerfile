@@ -26,6 +26,13 @@ COPY platform/configuration/package.json platform/configuration/package.json
 
 RUN pnpm install --filter @qapaq/api... --frozen-lockfile
 
+# Bundle CA global de RDS, fijado por hash: si AWS lo rota, el build falla hasta revisar y
+# actualizar el hash a propósito. Se descarga aquí para fijar permisos legibles por el usuario
+# sin privilegios (directorio 0755, archivo 0644): `ADD --chmod` también cambia el directorio
+# y lo deja sin permiso de ejecución.
+ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /qapaq-certs/rds-global-bundle.pem
+RUN chmod 0755 /qapaq-certs && chmod 0644 /qapaq-certs/rds-global-bundle.pem
+
 COPY . .
 RUN pnpm --filter '@qapaq/api...' run build \
     && pnpm --filter @qapaq/api deploy --prod --legacy /runtime \
@@ -33,10 +40,14 @@ RUN pnpm --filter '@qapaq/api...' run build \
 
 FROM --platform=linux/amd64 gcr.io/distroless/nodejs24-debian13:nonroot@sha256:9eeb7f5887d0e239e78264b06f7f11d2e14be534050481803a9e4728fcdd278e AS runtime
 
+# Bundle CA de RDS con permisos ya fijados en la etapa de build (C-1).
+COPY --from=build /qapaq-certs/ /etc/qapaq/
+
 ENV NODE_ENV=production \
     QAPAQ_PROFILE=production \
     QAPAQ_API_HOST=0.0.0.0 \
-    QAPAQ_API_PORT=3000
+    QAPAQ_API_PORT=3000 \
+    NODE_EXTRA_CA_CERTS=/etc/qapaq/rds-global-bundle.pem
 WORKDIR /app
 
 COPY --from=build --chown=1000:1000 /runtime/ ./

@@ -41,6 +41,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 22. [KrakenD on-premises y admisión antes de BullMQ](architecture/provider-api-gateway.md).
 23. [Arquitectura cloud demo AWS, estado real, tradeoffs y fuentes](architecture/aws-demo.md).
 24. [Operación DevOps, secretos externos y retiro del demo](operations/devops-secrets-and-teardown.md).
+25. [Diferencial SOC sobre Wazuh: contexto, correlación, persistencia y M365 como código](development/soc-diferencial-m365.md).
 
 ## Diseño
 
@@ -61,10 +62,15 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Operación y continuidad](architecture/operations-and-continuity.md).
 - [API y políticas](api-guidelines.md).
 - [Observabilidad](architecture/observability.md).
+- [Salud operativa por fuente/dataset](architecture/source-health.md) — diseño C-5 aceptado; implementación posterior al P0.
+- [Consulta de eventos hacia Wazuh Indexer](architecture/events-read-through.md) — extensión D-9 del port y query DSL con límites reales.
+- [Administración de usuarios SOC de Entra](architecture/entra-soc-user-admin.md) — contrato solicitado para roster, presencia y grants locales.
 - [Endurecimiento de acceso, secretos y stack Grafana OSS/Loki/Prometheus](architecture/security-access-observability-baseline.md).
 - [Control interno de logs SOC y análisis SBS](compliance/sbs-observability-rationale.md).
 - [Catálogo de errores](error-catalog.md).
 - [Diseño de frontend e inventario de componentes](frontend-design/README.md) — **propuesta**, no decisión aceptada; incluye la [evaluación de brechas UI/UX y administración SOC](frontend-design/09-evaluacion-frontend-soc.md).
+- [Vistas por rol, estado funcional, dirección visual y referencias generadas](frontend-design/10-vistas-por-rol-y-referencias.md).
+- [Diseño de Eventos e investigación](frontend-design/eventos-investigacion.md) — contrato de lectura y aceptación para implementar `/events` cuando C-7 conecte el BFF.
 - [API Gateway KrakenD de proveedores](architecture/provider-api-gateway.md).
 - [Arquitectura cloud demo AWS y estado de despliegue](architecture/aws-demo.md).
 - [Terraform AWS demo: fase 1 de red y seguridad](deployment/aws-demo.md).
@@ -82,6 +88,7 @@ la ejecución ni los controles del workflow. Consultar su estado en ci-cd.md.
 - [Verificador existente](verification.md) y [validación documental](validation.md).
 - [CI de seguridad y preparación de CD](ci-cd.md).
 - [Plan Scrum, componentes, backlog, Definition of Done y Sprints](project-management/README.md).
+- [Plan de cierre operativo post-timebox: Sprints 4–12, owners Codex/Claude y DoD por Sprint](project-management/plan-operativo-sprints-post-mvp.md).
 - [Daily Scrum y registro operativo](project-management/daily-scrum.md).
 - [Entorno local y recuperación de Docker Desktop](development/local-environment.md).
 

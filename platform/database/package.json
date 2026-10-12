@@ -4,11 +4,30 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./admission-contract": "./src/admission-contract.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./admission-contract": {
+      "types": "./src/admission-contract.ts",
+      "development": "./src/admission-contract.ts",
+      "default": "./dist/src/admission-contract.js"
+    },
+    "./notification-stores": {
+      "types": "./src/notification-stores.ts",
+      "development": "./src/notification-stores.ts",
+      "default": "./dist/src/notification-stores.js"
+    },
+    "./session-stores": {
+      "types": "./src/session-stores.ts",
+      "development": "./src/session-stores.ts",
+      "default": "./dist/src/session-stores.js"
+    }
   },
   "scripts": {
     "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
     "validate": "prisma validate",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status",
@@ -24,6 +43,7 @@
     "pg": "8.23.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-secrets-manager": "3.1138.0",
     "@types/pg": "8.23.1",
     "prisma": "7.10.0",
     "testcontainers": "12.1.0",

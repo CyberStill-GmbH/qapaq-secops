@@ -21,6 +21,7 @@ const navigation: readonly NavigationGroup[] = [
     label: 'OPERACIÓN',
     items: [
       { label: 'Resumen', path: '/', icon: 'grid' },
+      { label: 'Salud operativa', path: '/operations', icon: 'clock', capability: 'alerts.read' },
       { label: 'Alertas', path: '/alerts', icon: 'alert', capability: 'alerts.read' },
       { label: 'Incidentes', path: '/incidents', icon: 'shield', capability: 'incidents.read' },
       {
@@ -33,11 +34,15 @@ const navigation: readonly NavigationGroup[] = [
   },
   {
     label: 'ANÁLISIS',
-    items: [{ label: 'Eventos', path: '/events', icon: 'search', capability: 'events.read' }],
+    // La capability existe, pero el BFF todavía no publica GET /api/events.
+    // No ofrecemos una entrada de navegación que termine en una pantalla no operativa.
+    items: [],
   },
   {
     label: 'GOBIERNO',
     items: [
+      { label: 'Usuarios', path: '/admin/users', icon: 'user', capability: 'users.read' },
+      { label: 'Sesiones', path: '/admin/sessions', icon: 'history', capability: 'sessions.read' },
       { label: 'Auditoría', path: '/audit', icon: 'history', capability: 'audit.read' },
       { label: 'Integridad', path: '/audit/integrity', icon: 'lock', capability: 'audit.verify' },
     ],
@@ -193,7 +198,9 @@ export function SocConsole({
       ? 'Resumen'
       : pathname === '/me'
         ? 'Mi sesión'
-        : (currentItem?.label ?? 'No disponible');
+        : pathname === '/events'
+          ? 'Eventos'
+          : (currentItem?.label ?? 'No disponible');
 
   return (
     <div className={`soc-app${collapsed ? ' soc-app--collapsed' : ''}`}>
@@ -346,15 +353,16 @@ export function SocConsole({
               }}
             />
             <div>
-              {allowedGroups
-                .flatMap((group) => group.items)
-                .map((item) => (
-                  <button key={item.path} type="button" onClick={() => navigate(item.path)}>
-                    <SocIcon name={item.icon} />
-                    {item.label}
-                    <SocIcon name="arrow" size={15} />
-                  </button>
-                ))}
+              {[
+                ...allowedGroups.flatMap((group) => group.items),
+                { label: 'Mi sesión', path: '/me', icon: 'user' as const },
+              ].map((item) => (
+                <button key={item.path} type="button" onClick={() => navigate(item.path)}>
+                  <SocIcon name={item.icon} />
+                  {item.label}
+                  <SocIcon name="arrow" size={15} />
+                </button>
+              ))}
             </div>
           </section>
         </div>

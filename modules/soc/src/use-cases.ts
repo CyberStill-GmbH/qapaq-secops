@@ -99,10 +99,18 @@ async function publish(
   }
 }
 
+/**
+ * Deriva la referencia opaca de una clave de entidad (D-10b). La implementa el composition
+ * root con un HMAC por tenant; el dominio no conoce la clave.
+ */
+export type EntityRefFactory = (tenantId: string, entityKey: string) => string;
+
 export interface SocDependencies {
   readonly unitOfWork: SocUnitOfWork;
   readonly clock: SocClock;
   readonly ids: IdFactory;
+  /** Sin factory, la alerta no tiene referencias y no se puede pivotar por entidad. */
+  readonly entityRefs?: EntityRefFactory;
 }
 
 /** Materializa un candidato de C-16 como alerta. Repetirlo no crea una segunda. */
@@ -113,6 +121,9 @@ export async function ingestCandidate(
 ): Promise<SocResult<{ readonly alert: Alert; readonly created: boolean }>> {
   const at = dependencies.clock.now();
   return dependencies.unitOfWork.run(async (context) => {
+    // El candidato se persiste primero: es la evidencia de por qué existe la alerta y su
+    // unicidad por clave de idempotencia es la segunda barrera contra duplicados.
+    await context.candidates.insertIfAbsent(candidate);
     const alert = createAlert({
       id: candidate.id,
       tenantId: candidate.tenantId,
@@ -124,6 +135,13 @@ export async function ingestCandidate(
       reasons: candidate.reasons,
       occurredAt: candidate.occurredAt,
       createdAt: at,
+      entityKeys: candidate.entityKeys,
+      entityRefs: dependencies.entityRefs
+        ? candidate.entityKeys.map((key) => dependencies.entityRefs!(candidate.tenantId, key))
+        : [],
+      signal: candidate.signal,
+      ruleId: candidate.ruleId,
+      relatedAlertIds: candidate.relatedAlertIds,
     });
     const created = await context.alerts.insertIfAbsent(alert);
     if (!created) {
@@ -148,7 +166,12 @@ export async function ingestCandidate(
         outcome: 'succeeded',
         correlationId: candidate.idempotencyKey,
         at,
-        metadata: { priority: alert.priority, score: alert.score },
+        metadata: {
+          priority: alert.priority,
+          score: alert.score,
+          signal: alert.signal,
+          relatedAlerts: alert.relatedAlertIds.length,
+        },
       }),
     );
     await publish(
