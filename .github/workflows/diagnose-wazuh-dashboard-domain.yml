@@ -1,6 +1,9 @@
 name: Diagnose Wazuh dashboard domain
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/diagnose-wazuh-dashboard-domain.yml]
   workflow_dispatch:
 
 permissions:
