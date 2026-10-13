@@ -16,7 +16,7 @@ el SHA, el comando, la versión del proveedor y la salida redactada, registrada 
 
 | Tarea | Archivos | Acepta cuando |
 | --- | --- | --- |
-| Edge nginx con `auth_request` en el host Wazuh y `/soc` estático | `wazuh/edge/` y el workflow de aplicación | `curl` sin cookie da 302 a Entra. Con sesión, el dashboard abre como el usuario Entra con sus roles |
+| Plataforma unificada operativa: Terraform del edge a la API privada, `apply-security.sh`, build del fork para OSD 2.19.6 y `apply-edge.sh` (orden en `wazuh/README.md`) | `wazuh/edge/`, `wazuh/indexer/security/`, `infra/aws/modules/security` | `curl` sin cookie da 302 a `/qapaq/login`. Con sesión, el dashboard abre como el usuario Entra con su rol. Revocar la sesión la saca del dashboard en ≤ 5 s |
 | Proxy auth en el Indexer y el Dashboard, más el mapeo de roles | `wazuh/indexer/security/`, `wazuh/dashboard/` | Un analista ve `wazuh-alerts-*` pero no puede gestionar la seguridad. Un admin sí |
 | Marca QAPAQ | `wazuh/dashboard/opensearch_dashboards.qapaq.yml` y los assets | Login y header con la marca QAPAQ |
 | Retención hot/warm/cold y repo S3 | `wazuh/indexer/ism/`, el bucket en `infra/aws` | `_plugins/_ism/explain` muestra la política. Un snapshot manual al repo responde OK |

@@ -133,6 +133,13 @@ sesión al instante, en la consola y en el dashboard.**
 
 ## Pendientes y riesgos
 
+0. **IP del cliente detrás del edge (corregido en esta rama).** El edge del host Wazuh llegaba a
+   la API por el ALB **público** (`/qapaq-api/`). La API veía la EIP del host como cliente, fuera de
+   la cadena de proxies confiables (`10.0.0.0/16`), así que la política de red trataba a todos como
+   externos y exigía passkey. Ahora el edge usa Cloud Map dentro de la VPC (reglas
+   `public_proxy_to_api` y `api_from_public_proxy`, salida `qapaq_edge_api_origin`), y la API ve la
+   IP real del usuario.
+
 1. **Stores en memoria.** El handshake OIDC, el lockout y la clave CSRF se crean en memoria al
    arrancar (`secops-runtime.ts:246-275`). Con más de una réplica, o tras un reinicio, el login y
    el CSRF fallan. Hay que moverlos a Postgres y a Secrets Manager antes de escalar la API.
