@@ -100,3 +100,14 @@ jobs:
             echo "API stream: $stream"
             aws logs get-log-events --log-group-name /qapaq-secops/demo/api --log-stream-name "$stream" --limit 12 --query 'events[].message' --output json
           done < <(printf '%s\n' "$streams" | jq -r '.[]')
+
+      - name: Check required secret versions without reading values
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for suffix in entra/client-secret postgres/soc-runtime api/entity-ref-key api/vapid-private-key wazuh/indexer-reader wazuh/indexer-proxy-ca wazuh/dashboard-admin-user wazuh/dashboard-analyst-user; do
+            secret_id="qapaq-secops/demo/$suffix"
+            count="$(aws secretsmanager list-secret-version-ids --secret-id "$secret_id" --query "length(Versions[?contains(VersionStages, 'AWSCURRENT')])" --output text)"
+            echo "$secret_id: current_version_count=$count"
+          done
