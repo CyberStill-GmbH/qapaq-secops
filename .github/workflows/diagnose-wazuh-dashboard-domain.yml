@@ -111,3 +111,8 @@ jobs:
             count="$(aws secretsmanager list-secret-version-ids --secret-id "$secret_id" --query "length(Versions[?contains(VersionStages, 'AWSCURRENT')])" --output text)"
             echo "$secret_id: current_version_count=$count"
           done
+
+      - name: Inspect deployment OIDC trust conditions
+        if: always()
+        shell: bash
+        run: aws iam get-role --role-name qapaq-secops-github-terraform-demo --query 'Role.AssumeRolePolicyDocument.Statement[].Condition' --output json
