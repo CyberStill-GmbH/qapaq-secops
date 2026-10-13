@@ -1,0 +1,43 @@
+# Bloque QAPAQ para /etc/wazuh-dashboard/opensearch_dashboards.yml (Wazuh 4.14.8 / OSD 2.19.6).
+# Se inserta entre marcadores QAPAQ:dashboard:begin/end. Reiniciar wazuh-dashboard después.
+
+# El dashboard solo escucha en local: el único acceso es por el edge nginx (wazuh/edge).
+server.host: '127.0.0.1'
+server.port: 5601
+server.ssl.enabled: false
+
+# --- Identidad: la sesión QAPAQ por proxy auth (docs/04-identidad-y-acceso.md) ---
+opensearch_security.auth.type: 'proxy'
+opensearch_security.proxycache.user_header: 'x-proxy-user'
+opensearch_security.proxycache.roles_header: 'x-proxy-roles'
+opensearch.requestHeadersAllowlist:
+  ['securitytenant', 'Authorization', 'x-forwarded-for', 'x-proxy-user', 'x-proxy-roles']
+opensearch_security.multitenancy.enabled: false
+# Cerrar sesión en el dashboard cierra la sesión QAPAQ.
+opensearch_security.logout_url: '/api/auth/logout'
+
+# --- Fallback: OIDC nativo contra Entra. Solo si el edge QAPAQ no está disponible ---
+# opensearch_security.auth.type: "openid"
+# opensearch_security.openid.connect_url: "https://login.microsoftonline.com/<tenant-id>/v2.0/.well-known/openid-configuration"
+# opensearch_security.openid.client_id: "<client-id>"
+# opensearch_security.openid.base_redirect_url: "https://<dominio-soc>/"
+# opensearch_security.openid.roles_key: "roles"
+# client_secret por keystore: bin/opensearch-dashboards-keystore add opensearch_security.openid.client_secret
+
+# --- Marca QAPAQ (assets en wazuh/dashboard/assets, servidos por el plugin qapaq-ops) ---
+opensearchDashboards.branding:
+  applicationTitle: 'QAPAQ SecOps'
+  useExpandedHeader: false
+  logo:
+    defaultUrl: '/plugins/qapaqOps/assets/qapaq-logo.svg'
+    darkModeUrl: '/plugins/qapaqOps/assets/qapaq-logo.svg'
+  mark:
+    defaultUrl: '/plugins/qapaqOps/assets/qapaq-mark.svg'
+    darkModeUrl: '/plugins/qapaqOps/assets/qapaq-mark.svg'
+  loadingLogo:
+    defaultUrl: '/plugins/qapaqOps/assets/qapaq-mark.svg'
+  faviconUrl: '/plugins/qapaqOps/assets/favicon-32.png'
+
+uiSettings:
+  overrides:
+    'theme:darkMode': true
