@@ -24,13 +24,6 @@ const root = new URL('../', import.meta.url);
 const ha = await readFile(new URL('compose.ha.yaml', root), 'utf8');
 const nginx = await readFile(new URL('lb/nginx.conf', root), 'utf8');
 const envExample = await readFile(new URL('.env.example', root), 'utf8');
-const routes = JSON.parse(await readFile(new URL('routes.json', root), 'utf8'));
-const routeDashboard = JSON.parse(
-  await readFile(
-    new URL('../../../observability/grafana/dashboards/qapaq-krakend-routes.json', import.meta.url),
-    'utf8',
-  ),
-);
 
 function envValue(name) {
   return Number(new RegExp(`^${name}=(\\d+)$`, 'm').exec(envExample)?.[1]);
@@ -133,17 +126,4 @@ test('el balanceador no decide autorización ni reescribe la ruta', () => {
   assert.doesNotMatch(nginx, /auth_|rewrite\s+/);
   assert.match(nginx, /proxy_pass http:\/\/krakend;/);
   assert.match(nginx, /server_tokens off/);
-});
-
-test('cada ruta de la allowlist tiene paneles de tasa y latencia', () => {
-  for (const route of routes.routes) {
-    const panels = routeDashboard.panels.filter((panel) =>
-      panel.targets.some((target) => target.expr.includes(`endpoint="${route.path}"`)),
-    );
-
-    assert.equal(panels.length, 2, `ruta sin observabilidad completa: ${route.path}`);
-    assert.ok(panels.some((panel) => panel.targets[0].expr.includes('requests_total')));
-    assert.ok(panels.some((panel) => panel.targets[0].expr.includes('histogram_quantile')));
-  }
-  assert.equal(routeDashboard.panels.length, routes.routes.length * 2);
 });

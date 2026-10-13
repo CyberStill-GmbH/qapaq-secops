@@ -21,7 +21,6 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY platform/audit/package.json platform/audit/package.json
 COPY platform/configuration/package.json platform/configuration/package.json
 COPY platform/database/package.json platform/database/package.json
-COPY platform/observability/package.json platform/observability/package.json
 COPY platform/testing/package.json platform/testing/package.json
 
 RUN pnpm install --filter @qapaq/worker... --frozen-lockfile

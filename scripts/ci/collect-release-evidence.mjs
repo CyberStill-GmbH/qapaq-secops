@@ -78,20 +78,6 @@ const CHECKS = [
     command: ['exec', 'vitest', 'run', '--config', 'vitest.config.ts', 'packages/contracts/test'],
   },
   {
-    id: 'C-26-observability',
-    component: 'C-26',
-    priority: 'P1',
-    requirement: 'Señales SOC, dashboards versionados, hardening y retención.',
-    command: [
-      'exec',
-      'vitest',
-      'run',
-      '--config',
-      'vitest.config.ts',
-      'platform/observability/test',
-    ],
-  },
-  {
     id: 'C-23-coupling',
     component: 'C-23',
     priority: 'P1',

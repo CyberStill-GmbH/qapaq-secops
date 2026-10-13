@@ -29,8 +29,6 @@ provider_gateway:
   production_oidc_audience: TO_BE_PROVIDED
   wazuh_indexer_backend_url: TO_BE_PROVIDED
   wazuh_indexer_ca_ref: TO_BE_PROVIDED
-  prometheus_scrape_target: TO_BE_PROVIDED
-  grafana_provisioning_destination: TO_BE_PROVIDED
   image_registry_mirror: TO_BE_PROVIDED
   invariant: durable_admission_before_downstream_bullmq
 connectors:
