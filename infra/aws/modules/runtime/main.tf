@@ -575,3 +575,13 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_api_auth" {
   ip_protocol                  = "tcp"
   to_port                      = 3000
 }
+
+# Workload JWT validation retrieves Microsoft's public signing keys over HTTPS.
+resource "aws_vpc_security_group_egress_rule" "krakend_to_entra_https" {
+  security_group_id = var.security_group_ids.krakend
+  description       = "HTTPS egress for Entra JWKS retrieval through the demo NAT gateway."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}
