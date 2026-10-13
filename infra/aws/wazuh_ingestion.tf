@@ -128,7 +128,7 @@ locals {
     gateway_scope       = coalesce(var.wazuh_ingestion_gateway_scope, "${local.entra_client_id}/.default")
     # Referencia a la inicialización de Wazuh: KrakenD se actualiza después de que la credencial
     # del lector y la CA existen, y se redespliega si la inicialización cambia.
-    access_revision = var.wazuh_bootstrap_enabled ? aws_ssm_association.wazuh_bootstrap[0].association_id : "manual"
+    access_revision = var.wazuh_bootstrap_enabled ? "${aws_ssm_association.wazuh_bootstrap[0].association_id}:${aws_ssm_document.wazuh_bootstrap[0].latest_version}" : "manual"
   } : null
 }
 
