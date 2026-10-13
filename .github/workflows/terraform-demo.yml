@@ -43,7 +43,7 @@ jobs:
       # repositorio de GitHub, no del repositorio git; vacía = sin dueños declarados.
       TF_VAR_soc_group_owner_oids: ${{ vars.QAPAQ_GROUP_OWNER_OIDS }}
       # Sprint 5 · fase 3: grupo de admisión para el padrón por Graph (vacío = deshabilitado).
-      TF_VAR_soc_directory_group_id: ${{ vars.QAPAQ_DIRECTORY_GROUP_ID }}
+      TF_VAR_soc_directory_group_id: ${{ vars.QAPAQ_DIRECTORY_GROUP_ID || vars.SOC_DIRECTORY_GROUP_ID }}
 
     steps:
       - name: Checkout
@@ -181,7 +181,11 @@ jobs:
             done
             aws ecs update-service --cluster qapaq-secops-demo --service qapaq-secops-demo-krakend --force-new-deployment --query 'service.serviceName' --output text
           fi
+          # ECS injects Secrets Manager values at task startup; refresh the API after sync.
+          aws ecs update-service --cluster qapaq-secops-demo --service qapaq-secops-demo-api --force-new-deployment --query 'service.serviceName' --output text
           aws ecs wait services-stable --cluster qapaq-secops-demo --services qapaq-secops-demo-api qapaq-secops-demo-krakend
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://api.jappi.net.pe/api/health/ready -o /dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://app.jappi.net.pe/api/health/ready -o /dev/null
 
       - name: Show public deployment URLs
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
