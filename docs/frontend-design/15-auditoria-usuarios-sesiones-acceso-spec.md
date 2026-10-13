@@ -527,8 +527,9 @@ responsiva propia), `login-motion.css` (animación + reduced-motion), `error-ban
 
 ```
 ┌─ main.auth-screen  (grid 1fr | 0.96fr, min-height:100svh, #080808) ───────┐
-│ header.auth-topbar (absolute, inset:0 48% auto 0, min-height:76px)        │
-│   .login-brand-cycle «QAPAQ SecOps» ⇄ «Listos para defender» (humo)      │
+│ header.auth-topbar (centrado arriba, inset:0 48% auto 0)                  │
+│   .login-brand-name «QAPAQ SecOps» grande                                 │
+│   .login-brand-tagline «Bienvenido de nuevo» (humo)                       │
 │                                                                           │
 │ section.login-core (col 1, width min(100%-48px,440px), pad 88px 0 100px)  │
 │   h1#login-title «Inicia sesión en tu cuenta» (clamp 25–32px/480)         │
@@ -539,7 +540,7 @@ responsiva propia), `login-motion.css` (animación + reduced-motion), `error-ban
 │     p.auth-message solo con error o durante redirección                  │
 │                                                                           │
 │ footer.auth-footer (absolute, inset:auto 48% 24px 18px)                   │
-│   «Ciberseguridad defensiva para el sector financiero.»                  │
+│   «© QAPAQ SecOps»                                                       │
 │ <HeroArt/>  → .brand-panel (col 2) · <CookieNotice/>                      │
 └───────────────────────────────────────────────────────────────────────────┘
 
@@ -554,9 +555,10 @@ ErrorBanner (catálogo):  section.qapaq-error[data-error-code]
 | Elemento | Clase | Medidas | Color |
 | --- | --- | --- | --- |
 | Lienzo | `.auth-screen` | `display:grid`; `grid-template-columns:minmax(0,1fr) minmax(0,0.96fr)`; `min-height:100svh`; `overflow:hidden` | `#080808` |
-| Topbar | `.auth-topbar` | `position:absolute`; `inset:0 48% auto 0`; `min-height:76px`; `padding:0 clamp(20px,2vw,34px)` | — |
-| Marca rotativa | `.login-brand-cycle` dentro de `.auth-topbar` | Dos frases superpuestas a 16px, ciclo 8 s, disolución con blur/opacity/traslación; alineación izquierda | primera `#d7d4cf`; segunda `#c49a5a` |
-| Núcleo | `.login-core` | `width:min(100% - 48px, 440px)`; `padding:88px 0 100px`; `justify-self:center`; centrado | — |
+| Topbar | `.auth-topbar` | `position:absolute`; `inset:0 48% auto 0`; alineada al centro con 28px de espacio superior | — |
+| Marca | `.login-brand-name` dentro de `.auth-topbar` | «QAPAQ SecOps», centrado, `font-size:clamp(28px,3vw,40px)` | `#f4f4f5` |
+| Frase | `.login-brand-tagline` | «Bienvenido de nuevo», centrada debajo; ciclo de 8 s con disolución y blur | `#c49a5a` |
+| Núcleo | `.login-core` | `width:min(100% - 48px, 440px)`; `padding:148px 0 100px`; `justify-self:center`; centrado | — |
 | H1 | `.login-core h1` | `font-size:clamp(25px,2.1vw,32px)`; `font-weight:480`; `letter-spacing:-0.035em`; `line-height:1.3`; `text-wrap:balance` | `#f5f5f5` |
 | Grupo de acción | `.login-action-group` | `width:min(100%,392px)`; `margin-top:54px` | — |
 | Botón Entra | `.entra-button` | `width:100%`; `min-height:52px`; `gap:12px`; `padding:12px 20px`; borde `1px #49494e`; `border-radius:999px`; `font:14px/550` | `bg #09090a`, `color #b5b5b9` |
@@ -564,7 +566,7 @@ ErrorBanner (catálogo):  section.qapaq-error[data-error-code]
 | Marca Microsoft | `.microsoft-mark` | `18×18`; cuatro cuadros `#f25022/#7fba00/#00a4ef/#ffb900` | — |
 | Mensaje | `.auth-message` | `margin-top:13px`; `font-size:13px`; `line-height:1.5`; solo durante redirección o con error | `#9d9da2` |
 | Mensaje error | `.auth-message-error` | (modificador) | `#f4a6a6` |
-| Pie | `.auth-footer` | `position:absolute`; `inset:auto 48% 24px 18px`; `font-size:12px`; `text-align:center` | `#89898e`; «Ciberseguridad defensiva para el sector financiero.» |
+| Pie | `.auth-footer` | `position:absolute`; `inset:auto 48% 24px 18px`; `font-size:12px`; `text-align:center` | `#89898e`; «© QAPAQ SecOps» |
 | Panel marca | `.brand-panel` | `grid`; `min-height:100svh`; `col 2`; `place-items:center`; borde luminoso `::before` 1px gradiente blanco 7% | `#080808` |
 | Splash | `.auth-splash` / `--waiting` | `fixed inset:0`; `place-items:center`; `auth-splash-out 1050ms`; `--waiting` detiene la animación | `#080808` |
 | Marca splash | `.auth-splash-mark` | `width:clamp(64px,7vw,96px)`; `aspect-ratio:1`; `opacity:0.76`; `drop-shadow 0 0 16px rgb(255 255 255 /12%)` | `#fff` |
@@ -627,16 +629,17 @@ Independiente de los breakpoints SOC (1100/760). Umbrales propios: **800px**, **
 - **`@media (min-width:1440px) and (min-height:800px)`** (holgura en pantallas grandes):
   `.login-action-group{margin-top:60px}`; `.api-check-row{margin-top:48px}`.
 - **`@media (max-width:800px)`:** `.auth-screen{grid-template-columns:minmax(0,1fr) minmax(0,0.68fr)}`
-  (el panel de marca se estrecha); `.auth-topbar{right:40%; min-height:68px; padding-inline:18px}`;
-  `.brand-destination{font-size:14px}`; `.login-core{width:min(100% - 36px,400px)}`;
+  (el panel de marca se estrecha); `.auth-topbar{right:40%; min-height:120px; padding:25px 18px 0}`;
+  `.login-core{width:min(100% - 36px,400px)}`;
   `.auth-footer{right:40%; left:12px; font-size:11px}`.
-- **`@media (max-width:620px)`** (una sola columna, se oculta la marca):
-  `.auth-screen{display:block; min-height:100svh}`; `.auth-topbar{right:0; min-height:66px}`;
-  `.brand-destination{max-width:calc(100vw - 36px); font-size:13px}`;
-  `.login-core{position:relative; min-height:100svh; width:min(100% - 36px,460px); margin:0 auto; padding:130px 0 120px}`;
+- **`@media (max-width:620px)`** (una sola columna, se oculta la imagen):
+  `.auth-screen{display:block; min-height:100svh}`; `.auth-topbar{right:0; min-height:128px; padding:28px 18px 0}`;
+  `.login-brand-name{font-size:clamp(29px,9vw,38px)}`;
+  `.login-core{position:relative; min-height:100svh; width:min(100% - 36px,460px); margin:0 auto; padding:158px 0 120px}`;
   `.login-core h1{max-width:360px; font-size:clamp(25px,7vw,31px)}`;
   `.login-action-group{margin-top:46px}`; `.api-check-row{flex-direction:column; gap:8px; margin-top:34px}`;
-  **`.brand-panel{display:none}`**; `.auth-footer{z-index:2; right:20px; bottom:16px; left:20px; font-size:11px}`.
+  **`.brand-panel{display:none}`**; `.auth-footer{z-index:2; right:20px; bottom:calc(178px + env(safe-area-inset-bottom)); left:20px; font-size:11px}`
+  para mantener visible el copyright sobre el aviso fijo de cookies.
 - **`@media (max-height:680px) and (min-width:621px)`** (pantallas bajas, no móvil estrecho):
   `.login-core{padding-block:82px 76px}`; `.login-action-group{margin-top:32px}`;
   `.api-check-row{margin-top:25px}`; `.auth-footer{bottom:10px}`.
@@ -652,8 +655,8 @@ Independiente de los breakpoints SOC (1100/760). Umbrales propios: **800px**, **
   `auth-splash-out`/`auth-mark-out` 1050ms. Destellos de marca:
   `login-light-flash`/`login-amber-arrival`/`login-core-arrival`/`login-mark-relight`.
 - El retrato de `HeroArt` (`qapaq-secops-analyst.webp`) entra con `login-analyst-arrival` en
-  1700ms. Las dos frases de marca alternan cada 4 s con una disolución suave de 8 s total; el
-  contenido accesible presenta ambas en una frase estática.
+  1700ms. El nombre de marca permanece grande y centrado sobre «Bienvenido de nuevo», que usa
+  una disolución suave en un ciclo de 8 s; el contenido accesible presenta ambos de forma estática.
 - **`prefers-reduced-motion: reduce`:** todas las animaciones a `0.01ms !important`;
   `.auth-splash{display:none}` salvo dentro de `.auth-startup`; `auth-topbar/login-core/
   auth-footer/…::after` con `animation:none; opacity:1`; el retrato queda fijo y se muestra

@@ -12,38 +12,40 @@
   z-index: 2;
   inset: 0 48% auto 0;
   display: flex;
-  min-height: 76px;
+  min-height: 128px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 28px clamp(20px, 2vw, 34px) 0;
+}
+
+.login-brand-lockup {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 0 clamp(20px, 2vw, 34px);
+  gap: 5px;
+  text-align: center;
 }
 
-.brand-destination {
-  color: #d7d4cf;
-  font-size: 16px;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.login-brand-cycle {
-  display: grid;
-  min-height: 22px;
-  align-items: center;
-}
-
-.login-brand-cycle > span {
-  grid-area: 1 / 1;
-  font-weight: 550;
-  letter-spacing: 0.015em;
-}
-
-.login-brand-cycle > span + span {
-  color: #c49a5a;
-}
-
-.login-brand-cycle > span:first-child strong {
+.login-brand-name {
   color: #f4f4f5;
-  font-weight: 600;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+  white-space: nowrap;
+}
+
+.login-brand-name strong {
+  font-weight: 650;
+}
+
+.login-brand-tagline {
+  color: #c49a5a;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  line-height: 1.5;
+  text-transform: uppercase;
 }
 
 .login-core {
@@ -56,7 +58,7 @@
   grid-column: 1;
   grid-row: 1;
   justify-self: center;
-  padding: 88px 0 100px;
+  padding: 148px 0 100px;
   text-align: center;
 }
 
@@ -229,6 +231,7 @@
   inset: auto 48% 24px 18px;
   color: #89898e;
   font-size: 12px;
+  letter-spacing: 0.04em;
   line-height: 1.5;
   text-align: center;
 }
@@ -280,12 +283,8 @@
 
   .auth-topbar {
     right: 40%;
-    min-height: 68px;
-    padding-inline: 18px;
-  }
-
-  .brand-destination {
-    font-size: 14px;
+    min-height: 120px;
+    padding: 25px 18px 0;
   }
 
   .login-core {
@@ -307,12 +306,12 @@
 
   .auth-topbar {
     right: 0;
-    min-height: 66px;
+    min-height: 128px;
+    padding: 28px 18px 0;
   }
 
-  .brand-destination {
-    max-width: calc(100vw - 36px);
-    font-size: 13px;
+  .login-brand-name {
+    font-size: clamp(29px, 9vw, 38px);
   }
 
   .login-core {
@@ -320,7 +319,7 @@
     min-height: 100svh;
     width: min(100% - 36px, 460px);
     margin: 0 auto;
-    padding: 130px 0 120px;
+    padding: 158px 0 120px;
   }
 
   .login-core h1 {
@@ -353,7 +352,7 @@
   .auth-footer {
     z-index: 2;
     right: 20px;
-    bottom: 16px;
+    bottom: calc(178px + env(safe-area-inset-bottom));
     left: 20px;
     font-size: 11px;
   }
@@ -361,7 +360,7 @@
 
 @media (max-height: 680px) and (min-width: 621px) {
   .login-core {
-    padding-block: 82px 76px;
+    padding-block: 132px 76px;
   }
 
   .login-action-group {

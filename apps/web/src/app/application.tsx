@@ -64,13 +64,13 @@ export default function Application({ config }: { config: PublicConfig }): React
   return (
     <main className="auth-screen" data-base-path={config.basePath}>
       <header className="auth-topbar" aria-label="Acceso QAPAQ SecOps">
-        <div className="brand-destination login-brand-cycle" aria-hidden="true">
-          <span>
+        <div className="login-brand-lockup" aria-hidden="true">
+          <span className="login-brand-name">
             QAPAQ <strong>SecOps</strong>
           </span>
-          <span>Listos para defender</span>
+          <span className="login-brand-tagline">Bienvenido de nuevo</span>
         </div>
-        <span className="sr-only">QAPAQ SecOps. Listos para defender.</span>
+        <span className="sr-only">QAPAQ SecOps. Bienvenido de nuevo.</span>
       </header>
       <section className="login-core" aria-labelledby="login-title">
         <h1 id="login-title">Inicia sesión en tu cuenta</h1>
@@ -94,7 +94,7 @@ export default function Application({ config }: { config: PublicConfig }): React
         </div>
       </section>
       <footer className="auth-footer">
-        <span>Ciberseguridad defensiva para el sector financiero.</span>
+        <span>© QAPAQ SecOps</span>
       </footer>
       <HeroArt />
       <CookieNotice />

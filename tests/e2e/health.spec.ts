@@ -31,7 +31,11 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Continuar con Microsoft Entra/u })).toBeVisible();
-  await expect(page.getByText('Ciberseguridad defensiva para el sector financiero.')).toBeVisible();
+  await expect(page.getByText('© QAPAQ SecOps')).toBeVisible();
+  await expect(page.locator('.auth-topbar .login-brand-name')).toHaveText('QAPAQ SecOps');
+  await expect(page.locator('.auth-topbar .login-brand-tagline')).toHaveText('Bienvenido de nuevo');
+  await expect(page.locator('.login-brand-name')).toHaveCSS('text-align', 'center');
+  await expect(page.locator('.auth-topbar')).toHaveCSS('justify-content', 'center');
   await expect(page.getByText('Usa tu cuenta institucional para continuar.')).toHaveCount(0);
   const portrait = page.locator('.login-analyst');
   await expect(portrait).toHaveJSProperty('naturalWidth', 1254);
@@ -42,7 +46,7 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
       ),
     ),
   );
-  await expect(page.locator('.login-brand-cycle > span').nth(1)).toHaveCSS('opacity', '1', {
+  await expect(page.locator('.login-brand-tagline')).toHaveCSS('opacity', '1', {
     timeout: 5_000,
   });
   expect(requests.filter((url) => url.includes('/api/'))).toEqual([
@@ -56,6 +60,11 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  const footerBounds = await page.locator('.auth-footer').boundingBox();
+  const cookieNoticeBounds = await page.locator('.qapaq-cookie-notice').boundingBox();
+  expect(footerBounds).not.toBeNull();
+  expect(cookieNoticeBounds).not.toBeNull();
+  expect(footerBounds!.y + footerBounds!.height).toBeLessThan(cookieNoticeBounds!.y);
   await page.screenshot({ path: 'test-results/c02-web-mobile.png', fullPage: true });
 });
 
@@ -73,7 +82,7 @@ test('el login presenta una versión estática cuando se reduce el movimiento', 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
-  await expect(page.locator('.login-brand-cycle > span').first()).toHaveCSS('opacity', '1');
-  await expect(page.locator('.login-brand-cycle > span').nth(1)).toHaveCSS('opacity', '0');
+  await expect(page.locator('.login-brand-name')).toHaveCSS('opacity', '1');
+  await expect(page.locator('.login-brand-tagline')).toHaveCSS('opacity', '1');
   await expect(page.locator('.login-analyst')).toHaveCSS('opacity', '0.9');
 });
