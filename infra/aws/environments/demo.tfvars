@@ -29,14 +29,15 @@ postgres_final_snapshot_identifier = null
 valkey_node_type                   = "cache.t4g.micro"
 valkey_engine_version              = "8.0"
 
-# Verified Fase 2C manifest: image digests are immutable and must not be replaced by tags.
-runtime_image_manifest_commit = "3dd5fcb0f1afbade3b4454e88456ca22bb27a770"
+# Verified Fase 2C manifest from Publish verified images run 38382680802.
+# All digests below are immutable and must not be replaced by tags.
+runtime_image_manifest_commit = "16997ec53cabf5084c847174a3fe9148891cc734"
 runtime_image_digests = {
-  api     = "sha256:f651fb8a0e961503ddf5ab28cb5ff39e214d9936c89d487aa9df869f020f5550"
-  worker  = "sha256:cfd30e222acf54e86ff0f59a1e6884efbbd5bdafc21a7861c6e83095c1c8c342"
-  krakend = "sha256:491cc5cb797f4757a0c58e52679ebb9ab3f8a06b268c9540171f2dc1043b23ed"
+  api     = "sha256:b31a6e1b11fba2f807003da4a4ef41318e2a80895feae239d4dd988ac105d589"
+  worker  = "sha256:e82f8c58e4c256c4173f85d2ae9cff173bc3f6dfee9c12a1b05501c9e4aefe45"
+  krakend = "sha256:08094e935a1acd4c874acb6c4694106d789f6ef293293e40011fd6af2d22646f"
 }
-migrator_image_digest = "sha256:4dc9cc9f440a7f5769efcb50acf53d598b603e0306067cf90eca8aeb187bcf22"
+migrator_image_digest = "sha256:0b5cefb39b31f342b02729724e8d47812700f99889ef289f9387823e2667de84"
 # Estado SOC durable (PostgreSQL). Solo tras `bootstrap-roles` y `migrate` exitosos.
 soc_database_enabled = true
 
@@ -56,8 +57,8 @@ runtime_api_environment = {
 }
 
 runtime_krakend_environment = {
-  OIDC_ISSUER   = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/v2.0"
-  OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/discovery/v2.0/keys"
+  OIDC_ISSUER   = "https://login.microsoftonline.com/45f2f938-dbe-3a4e-8a54-930893f94ef8/v2.0"
+  OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe-3a4e-8a54-930893f94ef8/discovery/v2.0/keys"
   OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
 }
 
