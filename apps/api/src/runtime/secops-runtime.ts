@@ -120,6 +120,7 @@ import { CONNECTED_SOURCE_SIGNAL_CATALOG } from './signal-catalog.js';
 
 export interface RuntimeOptions {
   readonly access: AccessConfig;
+  readonly demoMfaExceptionUntil?: Date;
   readonly profile: string;
   readonly clientSecret?: string;
   readonly teamsWorkflowUrl?: string;
