@@ -1,0 +1,45 @@
+<!-- QAPAQ:integrations:begin — bloque administrado; no editar a mano. docs/07 y docs/06.
+     Sustituir ${...} al aplicar. Los secretos se leen de Secrets Manager en el host. -->
+<ossec_config>
+
+  <!-- Fase 2 · Push de alertas a QAPAQ (best-effort; el pull reconcilia). -->
+  <integration>
+    <name>custom-qapaq</name>
+    <hook_url>${QAPAQ_INGEST_URL}</hook_url>   <!-- https://<api interna>/api/ingest/wazuh -->
+    <api_key>${QAPAQ_INGEST_HMAC_KEY}</api_key>
+    <level>7</level>
+    <alert_format>json</alert_format>
+  </integration>
+
+  <!-- Fase 3 · Shuffle SOLO para enriquecimiento sin efectos (reputación de IP, etc.).
+       Las acciones con efectos NO salen de aquí: las dispara QAPAQ tras la aprobación. -->
+  <!--
+  <integration>
+    <name>shuffle</name>
+    <hook_url>${SHUFFLE_ENRICH_HOOK_URL}</hook_url>
+    <level>10</level>
+    <alert_format>json</alert_format>
+  </integration>
+  -->
+
+  <!-- Fase 1 · Observabilidad sin Grafana (N1): logs de la API y del ALB hacia Wazuh.
+       Credenciales: rol IAM de la instancia (logs:FilterLogEvents/GetLogEvents, s3:GetObject). -->
+  <wodle name="aws-s3">
+    <disabled>no</disabled>
+    <interval>5m</interval>
+    <run_on_start>yes</run_on_start>
+    <skip_on_error>yes</skip_on_error>
+    <service type="cloudwatchlogs">
+      <aws_log_groups>${QAPAQ_API_LOG_GROUP}</aws_log_groups>   <!-- /qapaq-secops/demo/api -->
+      <regions>${QAPAQ_AWS_REGION}</regions>
+      <only_logs_after>${QAPAQ_LOGS_SINCE}</only_logs_after>    <!-- p. ej. 2026-OCT-13 -->
+    </service>
+    <bucket type="alb">
+      <name>${QAPAQ_ALB_LOGS_BUCKET}</name>
+      <regions>${QAPAQ_AWS_REGION}</regions>
+      <only_logs_after>${QAPAQ_LOGS_SINCE}</only_logs_after>
+    </bucket>
+  </wodle>
+
+</ossec_config>
+<!-- QAPAQ:integrations:end -->
