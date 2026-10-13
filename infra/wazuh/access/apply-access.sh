@@ -185,10 +185,14 @@ map_users() { # rol usuario...
 
 # ------------------------------------------------------------- 2. usuarios
 
-upsert_user() { # usuario contraseña descripción
+upsert_user() { # usuario contraseña descripción [roles-directos-json]
+  # Built-in role mappings can be reserved. Assign their existing roles directly
+  # to the managed internal user instead of rewriting a protected mapping.
+  local direct_roles="${4:-[]}"
   indexer PUT "/_plugins/_security/api/internalusers/$1" "$(jq -n \
-    --arg password "$2" --arg description "$3" \
-    '{password: $password, description: $description, backend_roles: []}' | json_file)"
+    --arg password "$2" --arg description "$3" --argjson roles "$direct_roles" \
+    '{password: $password, description: $description, backend_roles: [],
+      opendistro_security_roles: $roles}' | json_file)"
 }
 
 info 'usuario de ingesta'
@@ -199,11 +203,9 @@ map_users qapaq_alerts_read "$READER_USER"
 info 'usuarios del Dashboard'
 admin_password="$(password_for "${QAPAQ_ADMIN_USER_SECRET_ID:-admin-user}" "$QAPAQ_ADMIN_USERNAME")"
 analyst_password="$(password_for "${QAPAQ_ANALYST_USER_SECRET_ID:-analyst-user}" "$QAPAQ_ANALYST_USERNAME")"
-upsert_user "$QAPAQ_ADMIN_USERNAME" "$admin_password" 'QAPAQ: dueño del grupo de admisión (administrador)'
-upsert_user "$QAPAQ_ANALYST_USERNAME" "$analyst_password" 'QAPAQ: analista (solo lectura)'
-map_users all_access "$QAPAQ_ADMIN_USERNAME"
+upsert_user "$QAPAQ_ADMIN_USERNAME" "$admin_password" 'QAPAQ: dueño del grupo de admisión (administrador)' '["all_access"]'
+upsert_user "$QAPAQ_ANALYST_USERNAME" "$analyst_password" 'QAPAQ: analista (solo lectura)' '["kibana_user"]'
 map_users qapaq_wazuh_readonly "$QAPAQ_ANALYST_USERNAME"
-map_users kibana_user "$QAPAQ_ANALYST_USERNAME"
 
 # ------------------------------------------------- 3. roles de la API de Wazuh
 
