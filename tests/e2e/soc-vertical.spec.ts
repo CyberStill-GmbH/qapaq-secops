@@ -50,11 +50,10 @@ test.afterAll(async () => {
 test('la consola exige sesión antes de mostrar alertas', async ({ page }) => {
   await page.goto(`${stack.baseUrl}/console.html`);
 
-  await expect(
-    page.getByRole('heading', { name: 'No fue posible abrir la consola' }),
-  ).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('Inicie sesión para continuar.');
-  await expect(page.getByRole('link', { name: 'Continuar con Microsoft Entra' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${stack.baseUrl}/$`, 'u'));
+  await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continuar con Microsoft Entra' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toHaveCount(0);
 });
 
