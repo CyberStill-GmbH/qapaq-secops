@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PublicConfig } from '../bootstrap/public-config.js';
+import { API_ERROR_CODES, apiError, type ApiErrorCode } from '@qapaq/contracts';
 import { api } from '../api/client.js';
 import HeroArt from '../components/login/HeroArt.js';
 import { QapaqSplash } from '../components/login/QapaqSplash.js';
@@ -18,6 +19,12 @@ function MicrosoftMark(): React.JSX.Element {
 }
 
 export default function Application({ config }: { config: PublicConfig }): React.JSX.Element {
+  const params = new URLSearchParams(window.location.search);
+  const errorCode = params.get('authError');
+  const signInError =
+    errorCode && (API_ERROR_CODES as readonly string[]).includes(errorCode)
+      ? apiError(errorCode as ApiErrorCode, params.get('correlationId') ?? '')
+      : null;
   const [redirecting, setRedirecting] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -74,10 +81,10 @@ export default function Application({ config }: { config: PublicConfig }): React
               {redirecting ? 'Conectando con Microsoft Entra…' : 'Continuar con Microsoft Entra'}
             </span>
           </button>
-          <p className="auth-message" role="status">
+          <p className="auth-message" role={signInError ? 'alert' : 'status'}>
             {redirecting
               ? 'Conectando de forma segura…'
-              : 'Usa tu cuenta institucional para continuar.'}
+              : (signInError?.message ?? 'Usa tu cuenta institucional para continuar.')}
           </p>
         </div>
       </section>
