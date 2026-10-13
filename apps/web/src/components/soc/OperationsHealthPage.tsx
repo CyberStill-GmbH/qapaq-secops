@@ -99,8 +99,11 @@ export function OperationsHealthPage(): React.JSX.Element {
   }
 
   const summary = result?.sections.summary;
+  const isPlatformAdmin = Boolean(result?.sections.platform);
   return (
-    <div className="soc-page soc-operations-health">
+    <div
+      className={`soc-page soc-operations-health${isPlatformAdmin ? ' soc-operations-health--admin' : ''}`}
+    >
       <PageHeader
         title="Salud operativa"
         description="Frescura de alertas y estado de los servicios que sostienen la operación."
@@ -121,10 +124,13 @@ export function OperationsHealthPage(): React.JSX.Element {
       {error ? <ErrorState error={error} onRetry={() => void refresh()} /> : null}
 
       {summary ? (
-        <section className="soc-health-summary" aria-labelledby="soc-health-summary-title">
-          <div>
-            <h2 id="soc-health-summary-title">Señal de alertas</h2>
-            <p>
+        <section className="soc-health-overview" aria-label="Señales principales">
+          <article className="soc-health-overview-card">
+            <span className="soc-health-overview-card__label">Señal de alertas</span>
+            <strong className="soc-health-overview-card__value">
+              {summary.status === 'OK' ? 'Encontrada' : statusCopy[summary.status].label}
+            </strong>
+            <span className="soc-health-overview-card__detail">
               {summary.lastAlertAt ? (
                 <>
                   Última alerta <RelativeTime value={summary.lastAlertAt} />
@@ -132,25 +138,26 @@ export function OperationsHealthPage(): React.JSX.Element {
               ) : (
                 'No hay alertas para calcular frescura.'
               )}
-            </p>
-          </div>
-          {summary.status === 'OK' ? (
-            <HealthStatus value={summary.status} label="Señal encontrada" tone="info" />
-          ) : (
+            </span>
             <HealthStatus value={summary.status} />
-          )}
-          <dl>
-            <div>
-              <dt>Antigüedad de la última alerta</dt>
-              <dd>{ageLabel(summary.alertFreshnessSeconds)}</dd>
-            </div>
-            <div>
-              <dt>Cobertura de fuentes</dt>
-              <dd>
-                <HealthStatus value={summary.sourceCoverage} />
-              </dd>
-            </div>
-          </dl>
+          </article>
+          <article className="soc-health-overview-card">
+            <span className="soc-health-overview-card__label">Antigüedad de la última alerta</span>
+            <strong className="soc-health-overview-card__value">
+              {ageLabel(summary.alertFreshnessSeconds)}
+            </strong>
+            <span className="soc-health-overview-card__detail">Frescura de la señal recibida</span>
+          </article>
+          <article className="soc-health-overview-card">
+            <span className="soc-health-overview-card__label">Cobertura de fuentes</span>
+            <strong className="soc-health-overview-card__value">
+              {statusCopy[summary.sourceCoverage].label}
+            </strong>
+            <span className="soc-health-overview-card__detail">
+              Estado reportado por el servicio
+            </span>
+            <HealthStatus value={summary.sourceCoverage} />
+          </article>
         </section>
       ) : null}
 
@@ -221,7 +228,7 @@ export function OperationsHealthPage(): React.JSX.Element {
             </div>
             <HealthStatus value={result.sections.platform.status} />
           </header>
-          <dl className="soc-health-facts">
+          <dl className="soc-health-facts soc-health-facts--platform">
             <div>
               <dt>Base de datos</dt>
               <dd>
@@ -241,10 +248,6 @@ export function OperationsHealthPage(): React.JSX.Element {
             <div>
               <dt>Tiempo activo</dt>
               <dd>{ageLabel(result.sections.platform.uptimeSeconds)}</dd>
-            </div>
-            <div>
-              <dt>Runtime</dt>
-              <dd>{result.sections.platform.nodeVersion ?? 'Sin dato'}</dd>
             </div>
           </dl>
           {result.sections.platform.degradedReasons.length > 0 ? (

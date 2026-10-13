@@ -87,7 +87,13 @@ jobs:
           fi
 
           # Scripts versionados embebidos en el comando; ningún secreto viaja en él.
-          bundle="$(tar -C infra/wazuh -czf - access office365 | base64 -w0)"
+          # SSM limits the commands parameter size. Ship only runtime inputs: including the
+          # module READMEs and test fixtures made the base64 archive exceed that limit.
+          bundle="$(tar -C infra/wazuh -czf - \
+            access/apply-access.sh \
+            office365/apply-office365.sh \
+            office365/ossec-office365.xml.tmpl \
+            office365/rules/qapaq_office365_rules.xml | base64 -w0)"
           office365_step=''
           if [[ -n "$O365_CLIENT_ID" ]]; then
             office365_step="QAPAQ_APPLY_MODE=apply QAPAQ_O365_TENANT_ID='${M365_TENANT_ID}' \
@@ -115,6 +121,11 @@ jobs:
           REMOTE
           )"
           payload="$(jq -cn --arg command "$remote_script" '{commands: [$command]}')"
+          payload_size="$(LC_ALL=C printf '%s' "$payload" | wc -c)"
+          if (( payload_size > 24000 )); then
+            echo "SSM command payload is ${payload_size} bytes; limit is 24000. Reduce the bundled runtime files." >&2
+            exit 1
+          fi
           command_id="$(aws ssm send-command \
             --instance-ids "$instance_id" \
             --document-name AWS-RunShellScript \

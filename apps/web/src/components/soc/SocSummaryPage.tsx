@@ -7,6 +7,7 @@ import {
   type AuditIntegrityView,
   type IncidentView,
   type NotificationView,
+  type SourceHealthView,
   type SessionView,
 } from '../../api/client.js';
 import {
@@ -20,6 +21,7 @@ import {
 } from './soc-ui.js';
 import { PageHeader, Panel, StateCell, statusLabel } from './soc-data-ui.js';
 import { useChanges } from './use-changes.js';
+import { SocSourceConfidence } from './SocSourceConfidence.js';
 
 export function SummaryPage({
   session,
@@ -33,6 +35,7 @@ export function SummaryPage({
   const [incidents, setIncidents] = useState<readonly IncidentView[]>([]);
   const [activeIncidentsCount, setActiveIncidentsCount] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<readonly NotificationView[]>([]);
+  const [sources, setSources] = useState<readonly SourceHealthView[]>([]);
   const [integrity, setIntegrity] = useState<AuditIntegrityView | null>(null);
   const [activity, setActivity] = useState<readonly AuditEventView[]>([]);
   const [errors, setErrors] = useState<Readonly<Record<string, ApiErrorBody>>>({});
@@ -88,6 +91,16 @@ export function SummaryPage({
           }
         }),
       );
+    if (session.capabilities.includes('sources.health.read'))
+      tasks.push(
+        api.sourcesHealth().then((result) => {
+          if (result.ok) setSources(result.data.sources);
+          else {
+            complete = false;
+            setErrors((value) => ({ ...value, sources: result.error }));
+          }
+        }),
+      );
     if (session.capabilities.includes('audit.verify'))
       tasks.push(
         api.verifyAudit().then((result) => {
@@ -120,7 +133,7 @@ export function SummaryPage({
     void refresh();
   }, [refresh]);
   useChanges({
-    resourceTypes: ['alert', 'incident', 'notification'],
+    resourceTypes: ['alert', 'incident', 'notification', 'source'],
     onChange: () => void refresh(),
   });
   const openAlerts = alerts;
@@ -135,47 +148,36 @@ export function SummaryPage({
     <div className="soc-page">
       <PageHeader
         title={title}
-        description="Prioridades del turno y estado de la información disponible."
+        description=""
         updated={updated}
         action={
-          <Button onClick={() => void refresh()} aria-label="Actualizar resumen">
-            <SocIcon name="refresh" /> Actualizar
-          </Button>
+          <div className="soc-page-heading__tools">
+            <StatusChip
+              state={apiStatus === 'ready' ? 'ok' : apiStatus === 'failed' ? 'fail' : 'neutral'}
+            >
+              {apiStatus === 'ready'
+                ? 'API disponible'
+                : apiStatus === 'failed'
+                  ? 'API sin respuesta'
+                  : 'Comprobando API'}
+            </StatusChip>
+            <Button onClick={() => void refresh()} aria-label="Actualizar resumen">
+              <SocIcon name="refresh" /> Actualizar
+            </Button>
+          </div>
         }
       />
-      <div className="soc-operation-strip">
-        <div>
-          <StatusChip
-            state={apiStatus === 'ready' ? 'ok' : apiStatus === 'failed' ? 'fail' : 'neutral'}
-          >
-            {apiStatus === 'ready'
-              ? 'API disponible'
-              : apiStatus === 'failed'
-                ? 'API sin respuesta'
-                : 'Comprobando API'}
-          </StatusChip>
-          <span>
-            {errors.health?.correlationId
-              ? `No se pudo consultar · referencia ${errors.health.correlationId}`
-              : apiStatus === 'failed'
-                ? 'La comprobación de disponibilidad no fue exitosa.'
-                : 'Estado de disponibilidad del BFF.'}
-          </span>
-        </div>
-        <div>
-          <StatusChip state="neutral">Ingesta sin datos de salud</StatusChip>
-          <span>No hay una API de cobertura del pipeline.</span>
-        </div>
-        {integrity ? (
-          <div>
-            <StatusChip state={integrity.ok ? 'ok' : 'fail'}>
-              {integrity.ok ? 'Cadena íntegra' : `${integrity.violations.length} violaciones`}
-            </StatusChip>
-            <span>{integrity.checked.toLocaleString('es-PE')} eventos verificados</span>
-          </div>
-        ) : null}
-      </div>
+      {errors.health ? <ErrorState error={errors.health} onRetry={() => void refresh()} /> : null}
       <div className="soc-summary-grid">
+        {session.capabilities.includes('sources.health.read') ? (
+          <SocSourceConfidence
+            sources={sources}
+            loading={loading}
+            error={errors.sources}
+            onRetry={() => void refresh()}
+            onNavigate={onNavigate}
+          />
+        ) : null}
         {session.capabilities.includes('alerts.read') ? (
           <Panel
             title={`Alertas activas${openAlertsCount === null ? '' : ` · ${openAlertsCount}`}`}
