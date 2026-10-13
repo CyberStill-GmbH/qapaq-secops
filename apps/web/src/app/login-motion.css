@@ -89,12 +89,8 @@
   animation: login-analyst-arrival 1700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
 }
 
-.login-brand-cycle > span {
+.login-brand-tagline {
   animation: login-brand-dissolve 8s ease-in-out infinite both;
-}
-
-.login-brand-cycle > span + span {
-  animation-delay: -4s;
 }
 
 @keyframes auth-splash-out {
@@ -279,14 +275,10 @@
     transform: none;
   }
 
-  .login-brand-cycle > span {
+  .login-brand-tagline {
     animation: none !important;
     filter: none;
-    opacity: 0;
-    transform: none;
-  }
-
-  .login-brand-cycle > span:first-child {
     opacity: 1;
+    transform: none;
   }
 }
