@@ -9,7 +9,7 @@ Inventario hecho sobre el código real (HEAD `050f9fa`), no sobre la documentaci
 | --- | --- | --- | --- |
 | `wazuh/wazuh` (manager, C/C++/Python) | GPLv2 (reglas y decoders incluidos) | **No** | Todo lo que necesitamos se hace por configuración: reglas, decoders, integraciones, Active Response y wodles. Además Wazuh 5.0 (RC1, 5-oct-2026) reemplaza `analysisd` por un motor nuevo basado en Sigma. Un fork de 4.x heredaría una arquitectura que el upstream descarta, y redistribuir binarios modificados nos obligaría a publicar fuentes GPL |
 | `wazuh/wazuh-indexer` (OpenSearch) | Apache-2.0 | **No** | ISM, snapshots S3, Anomaly Detection, Security Analytics y Alerting ya vienen como plugins. Se configuran con JSON versionado |
-| `wazuh/wazuh-dashboard` (OSD) | Apache-2.0 | **Fase 1 no; fase 4 opcional** | Marca, login y plugin se instalan sobre el build oficial. Hace falta fork solo para recompilar el tema OUI con colores QAPAQ. Ese fork se haría como repo `qapaq-dashboard` sobre Wazuh 5.x GA, no sobre 4.x |
+| `wazuh/wazuh-dashboard` (OSD) | Apache-2.0 | **Sí: fork `qapaq_ops-dashboard`, en curso** | Se hace fork porque el tema, el login propio (`/qapaq/login`) y las vistas nativas tocan el núcleo de OSD. Está en `../wazuh-dashboard-src`, rama `qapaq/identity`. Debe fijarse a un tag GA de Wazuh 5.0.x ([08](08-frontend-unificado.md#riesgos-detectados)) |
 | `wazuh/wazuh-dashboard-plugins` | Apache-2.0 (verificar LICENSE) | **No** | Nuestro plugin es independiente y se instala con `opensearch-dashboards-plugin install` |
 
 **Qué significa "poner el backend de Wazuh en qapaq-secops":** el directorio `wazuh/` en la raíz
@@ -18,10 +18,10 @@ decoders, `ossec.conf`, seguridad del Indexer, ISM, detectores ML, integraciones
 y lo aplica con scripts idempotentes sobre la versión oficial fijada en `wazuh/VERSION`. Se
 comporta como un fork, pero se puede rebasear en minutos cuando sale un parche de Wazuh.
 
-> **Desalineación detectada:** el clon local `../wazuh-dashboard-src` está en `main` = Wazuh
-> 5.1.0 / OSD 3.6.0, pero la demo corre **Wazuh 4.14.8 (OSD 2.19.6)**. Un plugin de OSD tiene que
-> compilarse contra la versión **exacta**, así que lo que se compile sobre ese clon no instala en
-> la demo. El plugin de fase 2 se compila contra 2.19.6 y se recompila para 3.6.0 al migrar.
+> **Desalineación detectada:** el fork parte de `main` = Wazuh 5.1.0 / OSD 3.6.0, pero la demo corre
+> **Wazuh 4.14.8 (OSD 2.19.6)**. Un dashboard o plugin compilado para 3.6 no funciona con un Indexer
+> 2.19. Recomendación: fijar el fork a un tag 5.0.x GA y desplegar un cluster Wazuh 5 nuevo para la
+> plataforma unificada.
 
 ## 2. Componentes QAPAQ: conservar, migrar o retirar
 

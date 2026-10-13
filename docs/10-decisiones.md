@@ -31,7 +31,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | A3 | Mutación, auditoría y outbox en una transacción. Auditoría append-only con cadena hash | Vigente | ADR-012/021 |
 | A4 | Secretos solo por `secretRef` y control plane write-only | Vigente | ADR-013/027 |
 | A5 | **Sin fork del manager ni del Indexer de Wazuh.** El overlay QAPAQ se versiona en `wazuh/` sobre la versión oficial fijada | Vigente | 2026-10-13 |
-| A6 | **El dashboard de Wazuh es el frontend único.** QAPAQ entra por un plugin y `/soc` | Vigente | 2026-10-13 |
+| A6 | **El dashboard de Wazuh es el frontend único.** Fork `qapaq_ops-dashboard` con el plugin nativo `qapaq_ops` (login QAPAQ y vistas de casos). `apps/web` se congela | Vigente | 2026-10-13 (revisado) |
 | A7 | **El login TS de QAPAQ es la identidad del dashboard** (nginx `auth_request` más proxy auth). OIDC nativo de OSD queda solo como fallback | Vigente | 2026-10-13 |
 | A8 | **Retirar KrakenD del runtime.** La API lee el Indexer por el proxy nginx allowlist | Vigente | 2026-10-13 (sustituye ADR-026) |
 | A9 | **Retirar Valkey/Redis, BullMQ y `apps/worker`.** El outbox y los leases viven en Postgres | Vigente | 2026-10-13 (sustituye ADR-006) |
@@ -41,7 +41,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | A13 | SOAR: QAPAQ aprueba y audita; ejecutan Wazuh AR y Shuffle. QAPAQ no tiene credenciales de escritura de Graph | Gate: fencing, step-up y aval de Legal sobre AGPL | 2026-10-13 |
 | A14 | Ingesta push (`custom-qapaq`) más pull de reconciliación | Vigente (fase 2) | 2026-10-13 |
 | A15 | Fuentes nuevas por módulos de Wazuh, no por adaptadores TS | Vigente | 2026-10-13 |
-| A16 | Wazuh 4.14.8 para lanzar. Wazuh 5 como cluster nuevo cuando haya GA | Vigente | 2026-10-13 |
+| A16 | Plataforma unificada sobre **Wazuh 5.0.x GA** en un cluster nuevo, porque el fork del dashboard está en OSD 3.6. La demo 4.14.8 sigue hasta el corte | Vigente (antes: lanzar en 4.14.8) | 2026-10-13 (revisado) |
 | A17 | CI, candidato, publicación y despliegue separados. Imágenes inmutables `git-<sha>` | Vigente | ADR-023 |
 
 ## Abiertas

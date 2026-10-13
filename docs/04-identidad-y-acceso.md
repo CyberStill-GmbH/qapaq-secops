@@ -21,7 +21,8 @@ sequenceDiagram
   B->>N: GET /app/wz-home
   N->>Q: auth_request /api/auth/introspect (cookie qapaq_session)
   Q-->>N: 401
-  N-->>B: 302 /api/auth/start?return=/app/wz-home
+  N-->>B: 302 /qapaq/login?nextUrl=/app/wz-home (plugin qapaq_ops)
+  B->>Q: GET /api/auth/start?returnTo=/app/wz-home
   B->>E: Authorization Code + PKCE
   E-->>B: /api/auth/callback?code&state
   B->>Q: callback → valida id_token, amr/passkey, grupo, roles
