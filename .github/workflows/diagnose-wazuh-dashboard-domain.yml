@@ -136,3 +136,21 @@ jobs:
           set -euo pipefail
           stream="$(aws logs describe-log-streams --log-group-name /qapaq-secops/demo/krakend --order-by LastEventTime --descending --limit 1 --query 'logStreams[0].logStreamName' --output text)"
           aws logs get-log-events --log-group-name /qapaq-secops/demo/krakend --log-stream-name "$stream" --limit 30 --query 'events[].message' --output json
+
+      - name: Read authentication audit and directory configuration
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          service="$(aws ecs describe-services --cluster qapaq-secops-demo --services qapaq-secops-demo-api --query 'services[0]' --output json)"
+          network="$(jq -c '.networkConfiguration' <<< "$service")"
+          definition="$(jq -r '.taskDefinition' <<< "$service")"
+          cat > /tmp/auth-diagnostic-overrides.json <<'OVERRIDES'
+          {"containerOverrides":[{"name":"api","command":["-e","const {createRequire}=require('node:module'); const {readFileSync}=require('node:fs');\n(async()=>{const sr=createRequire(require.resolve('@qapaq/soc'));const dr=createRequire(sr.resolve('@qapaq/database'));const {Client}=dr('pg');const e=process.env;\nconst db=new Client({host:e.QAPAQ_POSTGRES_HOST,port:Number(e.QAPAQ_POSTGRES_PORT),database:e.QAPAQ_POSTGRES_DATABASE,user:e.QAPAQ_POSTGRES_USERNAME,password:e.QAPAQ_POSTGRES_PASSWORD,ssl:{rejectUnauthorized:true,ca:readFileSync('/etc/qapaq/rds-global-bundle.pem','utf8')},connectionTimeoutMillis:10000});\nawait db.connect();await db.query('BEGIN READ ONLY');const q=await db.query(\"select occurred_at, correlation_id, outcome, reason from audit_events where action='access.sign_in' order by occurred_at desc limit 12\");console.log(JSON.stringify({auth_audit:q.rows}));await db.query('ROLLBACK');await db.end();\nconst body=new URLSearchParams({client_id:e.QAPAQ_ENTRA_CLIENT_ID,client_secret:e.QAPAQ_ENTRA_CLIENT_SECRET,grant_type:'client_credentials',scope:'https://graph.microsoft.com/.default'});\nconst tr=await fetch('https://login.microsoftonline.com/'+e.QAPAQ_ENTRA_TENANT_ID+'/oauth2/v2.0/token',{method:'POST',body,signal:AbortSignal.timeout(15000)});const t=await tr.json();console.log(JSON.stringify({token_status:tr.status,error:t.error,error_codes:t.error_codes}));if(t.access_token){for(const route of [\"/v1.0/groups/bbf1d58b-19e6-4261-b196-5ebcd8176d85?$select=id,displayName\",\"/v1.0/groups?$filter=\"+encodeURIComponent(\"displayName eq 'QAPAQ-SecOps-Users'\")+\"&$select=id\"]){const rr=await fetch('https://graph.microsoft.com'+route,{headers:{Authorization:'Bearer '+t.access_token},signal:AbortSignal.timeout(15000)});const j=await rr.json();console.log(JSON.stringify({graph_status:rr.status,group_id:j.id,group_name:j.displayName,match_count:j.value?.length,error_code:j.error?.code}));}}\n})().catch(e=>{console.error(JSON.stringify({diagnostic_error:e.code||e.name}));process.exitCode=1;});"]}]}
+          OVERRIDES
+          result="$(aws ecs run-task --cluster qapaq-secops-demo --task-definition "$definition" --launch-type FARGATE --network-configuration "$network" --overrides file:///tmp/auth-diagnostic-overrides.json --output json)"
+          task="$(jq -r '.tasks[0].taskArn // empty' <<< "$result")"
+          [[ -n "$task" ]] || { jq '.failures' <<< "$result"; exit 1; }
+          aws ecs wait tasks-stopped --cluster qapaq-secops-demo --tasks "$task"
+          aws ecs describe-tasks --cluster qapaq-secops-demo --tasks "$task" --query 'tasks[].containers[].{Name:name,ExitCode:exitCode,Reason:reason}' --output json
+          aws logs get-log-events --log-group-name /qapaq-secops/demo/api --log-stream-name "ecs/api/${task##*/}" --query 'events[].message' --output json
