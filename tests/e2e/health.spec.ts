@@ -31,7 +31,20 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Continuar con Microsoft Entra/u })).toBeVisible();
-  await expect(page.getByText('Usa tu cuenta institucional para continuar.')).toBeVisible();
+  await expect(page.getByText('Ciberseguridad defensiva para el sector financiero.')).toBeVisible();
+  await expect(page.getByText('Usa tu cuenta institucional para continuar.')).toHaveCount(0);
+  const portrait = page.locator('.login-analyst');
+  await expect(portrait).toHaveJSProperty('naturalWidth', 1254);
+  await Promise.all(
+    [portrait, page.locator('.login-core'), page.locator('.auth-topbar')].map((locator) =>
+      locator.evaluate((element) =>
+        Promise.all(element.getAnimations().map((animation) => animation.finished)),
+      ),
+    ),
+  );
+  await expect(page.locator('.login-brand-cycle > span').nth(1)).toHaveCSS('opacity', '1', {
+    timeout: 5_000,
+  });
   expect(requests.filter((url) => url.includes('/api/'))).toEqual([
     expect.stringContaining('/api/auth/session'),
   ]);
@@ -54,4 +67,13 @@ test('el boundary captura fallos reales de carga y permite recuperarse', async (
   await page.unroute('**/assets/application-*.js');
   await page.getByRole('button', { name: 'Recargar página' }).click();
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
+});
+
+test('el login presenta una versión estática cuando se reduce el movimiento', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(baseURL);
+  await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
+  await expect(page.locator('.login-brand-cycle > span').first()).toHaveCSS('opacity', '1');
+  await expect(page.locator('.login-brand-cycle > span').nth(1)).toHaveCSS('opacity', '0');
+  await expect(page.locator('.login-analyst')).toHaveCSS('opacity', '0.9');
 });

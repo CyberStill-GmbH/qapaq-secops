@@ -36,10 +36,10 @@ export default function HeroArt(): React.JSX.Element {
         style={{ backgroundImage: grainTexture, opacity: GRAIN_OPACITY }}
       />
       <img
-        src="/qapaq-analyst.webp"
+        src="/qapaq-secops-analyst.webp"
         alt=""
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 right-[2%] z-[5] h-[82%] w-auto max-w-[70%] object-contain object-bottom opacity-90"
+        className="login-analyst pointer-events-none absolute bottom-0 right-[-3%] z-[5] h-[96%] w-auto max-w-[92%] object-contain object-bottom opacity-90"
         style={{
           maskImage:
             'linear-gradient(90deg, transparent 0%, black 25%, black 92%, transparent 100%)',

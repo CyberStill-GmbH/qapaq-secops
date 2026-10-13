@@ -85,6 +85,18 @@
   animation: login-mark-relight 1700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
 }
 
+.login-analyst {
+  animation: login-analyst-arrival 1700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+}
+
+.login-brand-cycle > span {
+  animation: login-brand-dissolve 8s ease-in-out infinite both;
+}
+
+.login-brand-cycle > span + span {
+  animation-delay: -4s;
+}
+
 @keyframes auth-splash-out {
   0%,
   42% {
@@ -185,6 +197,44 @@
   }
 }
 
+@keyframes login-analyst-arrival {
+  0% {
+    filter: blur(12px);
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  48% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    filter: blur(0);
+    opacity: 0.9;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes login-brand-dissolve {
+  0%,
+  38% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50%,
+  92% {
+    filter: blur(8px);
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  100% {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -219,6 +269,24 @@
   .login-glass-mark,
   .brand-panel::after {
     animation: none !important;
+    opacity: 1;
+  }
+
+  .login-analyst {
+    animation: none !important;
+    filter: none;
+    opacity: 0.9;
+    transform: none;
+  }
+
+  .login-brand-cycle > span {
+    animation: none !important;
+    filter: none;
+    opacity: 0;
+    transform: none;
+  }
+
+  .login-brand-cycle > span:first-child {
     opacity: 1;
   }
 }
