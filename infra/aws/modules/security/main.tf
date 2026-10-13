@@ -134,6 +134,27 @@ resource "aws_vpc_security_group_egress_rule" "public_proxy_to_alb" {
   to_port                      = 80
 }
 
+# Edge unificado (wazuh/edge): nginx del host Wazuh -> API por Cloud Map, dentro de la VPC.
+# Por el ALB público la API vería la EIP del host como cliente (fuera de la cadena de
+# proxies confiables) y la política de red trataría a todos como externos.
+resource "aws_vpc_security_group_egress_rule" "public_proxy_to_api" {
+  security_group_id            = aws_security_group.public_proxy.id
+  referenced_security_group_id = aws_security_group.api.id
+  description                  = "Unified edge to QAPAQ API over the private network."
+  from_port                    = var.api_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.api_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "api_from_public_proxy" {
+  security_group_id            = aws_security_group.api.id
+  referenced_security_group_id = aws_security_group.public_proxy.id
+  description                  = "QAPAQ API from the unified edge on the Wazuh host."
+  from_port                    = var.api_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.api_port
+}
+
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
   for_each = var.enable_https ? toset(["enabled"]) : toset([])
 
