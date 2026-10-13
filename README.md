@@ -92,7 +92,7 @@ representan controles activos ni funciones listas para producción.
 | Cómo se comporta y presenta cada pantalla               | [Diseño de frontend](docs/frontend-design/README.md)                                                                                         |
 | Qué datos, permisos y servicios respalda cada vista     | [Inventario funcional](docs/frontend-design/01-inventario-backend.md)                                                                        |
 | Cómo trabaja el equipo SOC en incidentes                | [Investigación de incidentes](docs/frontend-design/incidentes-investigacion.md)                                                              |
-| Qué integra QAPAQ y dónde termina su responsabilidad    | [Arquitectura y fronteras](docs/architecture/system-context.md)                                                                             |
+| Qué integra QAPAQ y dónde termina su responsabilidad    | [Arquitectura y fronteras](docs/architecture/system-context.md)                                                                              |
 | Qué decisiones y límites de seguridad guían el sistema  | [ADRs y decisiones](docs/adr/README.md) · [Seguridad y cumplimiento](docs/security/)                                                         |
 | Qué falta para cerrar la demo y las siguientes entregas | [Plan operativo y sprints](docs/project-management/plan-operativo-sprints-post-mvp.md) · [Estado de AWS demo](docs/architecture/aws-demo.md) |
 | Cómo preparar un entorno de trabajo                     | [Guía del entorno local](docs/development/local-environment.md)                                                                              |

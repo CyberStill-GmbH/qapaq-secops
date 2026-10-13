@@ -34,7 +34,7 @@ const categoryLabels: Readonly<Record<string, string>> = {
   malware: 'Malware',
   host: 'Host',
   file: 'Archivos',
-  'process': 'Procesos',
+  process: 'Procesos',
   configuration: 'Configuración',
   email: 'Correo',
   web: 'Web',

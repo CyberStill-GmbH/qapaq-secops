@@ -192,7 +192,9 @@ describe('Eventos · gramática segura de búsqueda', () => {
     let requestedUrl = '';
     stubFetch(((url: string) => {
       requestedUrl = url;
-      return Promise.resolve(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+      return Promise.resolve(
+        new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
+      );
     }) as unknown as typeof fetch);
 
     await api.events({
@@ -210,9 +212,18 @@ describe('Eventos · gramática segura de búsqueda', () => {
   });
 
   it('presenta ambos modos y mantiene los filtros visuales disponibles', () => {
-    const html = renderToStaticMarkup(createElement(EventsPage, {
-      session: { subjectId: 'analyst-1', tenantId: 'tenant-1', roles: [], capabilities: ['events.read'], amr: [], csrfToken: 'csrf' },
-    }));
+    const html = renderToStaticMarkup(
+      createElement(EventsPage, {
+        session: {
+          subjectId: 'analyst-1',
+          tenantId: 'tenant-1',
+          roles: [],
+          capabilities: ['events.read'],
+          amr: [],
+          csrfToken: 'csrf',
+        },
+      }),
+    );
 
     expect(html).toContain('Filtros');
     expect(html).toContain('Consulta');
