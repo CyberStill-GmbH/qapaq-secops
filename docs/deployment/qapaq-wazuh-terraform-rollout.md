@@ -28,7 +28,11 @@ separa el código y el historial de Git, pero **no** aísla el state ni los recu
 El workflow `terraform-demo.yml` fue ajustado para que `apply` solo verifique que el secreto Entra
 existente tenga una versión `AWSCURRENT`; ya no publica valores de GitHub a Secrets Manager. No
 leer ni reemplazar secretos durante esta migración. La carga o rotación explícita queda fuera del
-workflow de Terraform.
+workflow de Terraform. El bootstrap SSM de Wazuh también puede publicar secretos si cambia la
+versión del documento/asociación; revisar que el plan no los ejecute. Su script reutiliza
+contraseñas cuando coincide el usuario guardado, pero genera otra si el secreto falta o el nombre
+de usuario no coincide. Antes de cambiar ese bootstrap, debe agregarse una protección que falle
+ante diferencias y evite crear una nueva versión de Secrets Manager con el mismo valor.
 
 La zona declarada actualmente es `jappi.net.pe` y el dashboard es `wazuh.jappi.net.pe`. Cambiar la
 zona raíz a `secops.net.pe` puede reemplazar la hosted zone y afectar delegación y registros. Antes
