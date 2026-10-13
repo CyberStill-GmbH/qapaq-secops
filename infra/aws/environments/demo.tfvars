@@ -36,6 +36,8 @@ runtime_image_digests = {
   krakend = "sha256:491cc5cb797f4757a0c58e52679ebb9ab3f8a06b268c9540171f2dc1043b23ed"
 }
 migrator_image_digest = "sha256:4dc9cc9f440a7f5769efcb50acf53d598b603e0306067cf90eca8aeb187bcf22"
+# Estado SOC durable (PostgreSQL). Solo tras `bootstrap-roles` y `migrate` exitosos.
+soc_database_enabled = true
 
 # Public Vercel-origin requests pass through the private KrakenD/API tasks.
 runtime_api_environment = {
