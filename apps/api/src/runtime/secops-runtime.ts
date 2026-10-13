@@ -776,27 +776,10 @@ export class SecOpsRuntime {
       roles,
       capabilities: capabilities as ReadonlySet<string>,
     });
-    // Excepción temporal, solo para el demo: una identidad que QAPAQ ya autorizó (tiene al
-    // menos una capacidad: dueño o miembro del grupo de admisión, o asignación del deploy)
-    // entra aunque el `amr` del token no pruebe MFA/passkey. Nunca inventa evidencia de AMR
-    // ni salta las comprobaciones de token, red, bloqueo o rol: la pertenencia a Accesos_SOC
-    // es el control de admisión. Acotada a este despliegue (tenant/client/redirect fijos) y
-    // con vencimiento obligatorio, con tope de 30 días para que no se vuelva permanente.
-    const exceptionUntil = this.options.demoMfaExceptionUntil?.getTime() ?? Number.NaN;
-    const demoMfaException =
-      !decision.admitted &&
-      (decision.reason === 'MFA_REQUIRED' || decision.reason === 'PASSKEY_REQUIRED') &&
-      validation.ok &&
-      capabilities.size > 0 &&
-      this.options.access.redirectUri === 'https://app.jappi.net.pe/api/auth/callback' &&
-      this.options.access.tenantId === '45f2f938-dbe3-4a3e-8a54-930893f94ef8' &&
-      this.options.access.clientId === '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998' &&
-      Number.isFinite(exceptionUntil) &&
-      exceptionUntil <= at.getTime() + 30 * 86_400_000 &&
-      at.getTime() < exceptionUntil;
-    if (demoMfaException) {
-      decision = { admitted: true, requiredAmr: [] };
-    }
+    // Admisión estricta: la prueba de MFA/passkey en el token es obligatoria. No hay excepción
+    // de MFA; el acceso depende de que Entra exija el método (Conditional Access o MFA por
+    // usuario) para los miembros de Accesos_SOC. Esta es la rama a fusionar cuando el admin
+    // configure el `amr` en Entra.
     if (!decision.admitted) {
       await this.attempts.save(registerFailure(counter, at));
       await this.auditSignIn(
@@ -836,7 +819,7 @@ export class SecOpsRuntime {
       at,
     );
     // La sesión abierta con un rol temporal no debe sobrevivir al vencimiento de la asignación.
-    let session = backendRole
+    const session = backendRole
       ? {
           ...plan.session,
           absoluteExpiresAt: new Date(
@@ -844,12 +827,6 @@ export class SecOpsRuntime {
           ),
         }
       : plan.session;
-    if (demoMfaException) {
-      session = {
-        ...session,
-        absoluteExpiresAt: new Date(Math.min(session.absoluteExpiresAt.getTime(), exceptionUntil)),
-      };
-    }
     // Se revoca con la sesión que ya devolvió `activeBySubject`, no releyendo por id: el
     // store durable no conoce los ids originales (solo su hash) y `byId` solo acepta cookies.
     for (const id of plan.supersedes) {
@@ -865,11 +842,7 @@ export class SecOpsRuntime {
       correlationId,
       at,
       network.clientIp,
-      demoMfaException
-        ? 'temporary_demo_mfa_exception'
-        : backendRole
-          ? 'backend_mvp_role_binding'
-          : undefined,
+      backendRole ? 'backend_mvp_role_binding' : undefined,
     );
     return { ok: true, value: { session, supersededSessions: plan.supersedes } };
   }
