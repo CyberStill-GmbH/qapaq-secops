@@ -2,6 +2,10 @@
 @import './login.css';
 @import './admin.css';
 @import './login-motion.css';
+@import './soc-shell.css';
+@import './soc-data.css';
+@import './soc-overlays.css';
+@import './soc-responsive.css';
 
 @theme {
   --color-qapaq-black: #080808;
