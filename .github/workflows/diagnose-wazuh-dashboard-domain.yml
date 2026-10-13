@@ -1,0 +1,51 @@
+name: Diagnose Wazuh dashboard domain
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      AWS_PAGER: ""
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-dashboard-diagnose
+          allowed-account-ids: 955200662475
+
+      - name: Read failed dashboard command output
+        shell: bash
+        run: |
+          set -euo pipefail
+          association_id="$(aws ssm list-associations --query "Associations[?AssociationName=='qapaq-secops-demo-wazuh-dashboard-domain'] | [0].AssociationId" --output text)"
+          if [[ -z "$association_id" || "$association_id" == None ]]; then
+            echo '::error::Dashboard domain association was not found.'
+            exit 1
+          fi
+          execution_id="$(aws ssm describe-association-executions --association-id "$association_id" --query 'sort_by(AssociationExecutions, &CreatedTime)[-1].ExecutionId' --output text)"
+          if [[ -z "$execution_id" || "$execution_id" == None ]]; then
+            echo '::error::No execution history was found for the dashboard association.'
+            exit 1
+          fi
+          targets="$(aws ssm describe-association-execution-targets --association-id "$association_id" --execution-id "$execution_id" --output json)"
+          printf '%s\n' "$targets" | jq '.AssociationExecutionTargets[] | {ResourceId, Status, DetailedStatus, OutputSource}'
+          found=false
+          while IFS=$'\t' read -r command_id instance_id; do
+            [[ -n "$command_id" ]] || continue
+            found=true
+            aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" --query '{Status:Status,ExitCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          done < <(printf '%s\n' "$targets" | jq -r '.AssociationExecutionTargets[] | select(.OutputSource.OutputSourceType == "RunCommand") | [.OutputSource.OutputSourceId, .ResourceId] | @tsv')
+          if [[ "$found" != true ]]; then
+            echo '::error::The association did not provide a Run Command output ID.'
+            exit 1
+          fi
