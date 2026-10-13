@@ -116,6 +116,10 @@ export function cachedOwnerSource(
 ): GroupOwnerSource {
   let cached: { readonly owners: ReadonlySet<string>; readonly until: number } | undefined;
   return {
+    groupId: groupId.toLowerCase(),
+    async isMember(oid) {
+      return (await store.member(tenantId, groupId, oid))?.membership === 'member';
+    },
     async owners() {
       if (cached && cached.until > now()) return cached.owners;
       const owners: readonly DirectoryPerson[] = await store.owners(tenantId, groupId);

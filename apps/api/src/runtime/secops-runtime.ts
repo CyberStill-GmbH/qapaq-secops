@@ -118,6 +118,45 @@ export type RuntimeDirectory =
 import { NotificationDispatcher } from './notification-dispatcher.js';
 import { CONNECTED_SOURCE_SIGNAL_CATALOG } from './signal-catalog.js';
 
+/**
+ * Diagnóstico de un inicio de sesión rechazado. Solo códigos: ni tokens, ni claims, ni texto
+ * del proveedor. `stage` dice dónde se cortó y `code` el motivo técnico (p. ej. el AADSTS del
+ * intercambio o la validación del ID token que falló).
+ */
+export interface SignInDiagnostic {
+  readonly reason: SignInDenialReason;
+  readonly stage: 'rate_limit' | 'callback' | 'network' | 'token_exchange' | 'jwks' | 'decision';
+  readonly code?: string;
+  readonly correlationId: string;
+}
+
+const DIAGNOSTIC_CODE = /^[A-Za-z0-9_.,-]{1,80}$/u;
+
+function diagnosticCode(value: unknown): string | undefined {
+  return typeof value === 'string' && DIAGNOSTIC_CODE.test(value) ? value : undefined;
+}
+
+/** Código técnico de un rechazo por decisión: qué faltó en el token o en los roles. */
+function decisionDiagnostic(
+  reason: SignInDenialReason,
+  validation: ReturnType<typeof validateIdToken>,
+): string {
+  if (reason === 'LOCKED_OUT') return reason;
+  if (!validation.ok) {
+    return validation.code === 'AMR_NOT_ACCEPTED' && diagnosticCode(validation.detail)
+      ? `AMR_NOT_ACCEPTED:${validation.detail}`
+      : validation.code;
+  }
+  if (reason === 'MFA_REQUIRED' || reason === 'PASSKEY_REQUIRED') {
+    return `amr:${(validation.claims.amr ?? []).join(',') || 'none'}`;
+  }
+  if (reason === 'NO_ROLE_ASSIGNED') {
+    // Sin claim `groups`, la pertenencia al grupo admin solo puede salir del padrón de Graph.
+    return `groups_claim:${validation.claims.groups === undefined ? 'absent' : 'present'}`;
+  }
+  return reason;
+}
+
 export interface RuntimeOptions {
   readonly access: AccessConfig;
   readonly demoMfaExceptionUntil?: Date;
@@ -143,13 +182,18 @@ export interface RuntimeOptions {
   readonly dispatchIntervalMs?: number;
   /** Reporte de fallos del bucle de despacho, sin datos del mensaje. */
   readonly onDispatchError?: (error: unknown) => void;
+  /** Motivo técnico de cada inicio de sesión rechazado, para el log del proceso. */
+  readonly onSignInDenied?: (diagnostic: SignInDiagnostic) => void;
   /** Métricas del proceso; las inyecta el entrypoint, único que puede leer `process`. */
   readonly processInfo?: () => ProcessInfo;
   /**
    * Roles concedidos por QAPAQ (asignaciones del deploy y dueños del grupo). Se suman a los
    * app roles del token; sin resolvedor, solo cuentan el token y la asignación temporal.
    */
-  readonly roleGrants?: (oid: string | undefined) => Promise<readonly string[]>;
+  readonly roleGrants?: (
+    oid: string | undefined,
+    groups?: readonly string[],
+  ) => Promise<readonly string[]>;
   /** Explorador de eventos (fase 1). Sin lector, la fuente de eventos está deshabilitada. */
   readonly events?: EventsReader;
   /** Fuente vigilada por la salud por fuente (fase 2); existe aunque esté deshabilitada. */
@@ -639,18 +683,29 @@ export class SecOpsRuntime {
     );
     await this.rateLimits.save(rate.state);
     if (!rate.allowed) {
-      return this.denied('RATE_LIMITED', originKey, correlationId, at, network.clientIp);
+      return this.denied('RATE_LIMITED', originKey, correlationId, at, network.clientIp, {
+        stage: 'rate_limit',
+      });
     }
     const stored = input.state
       ? await this.handshakes.consume(input.state, input.browserBinding, at)
       : undefined;
     const callback = resolveCallback(input, stored, at);
     if (!callback.ok) {
-      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp);
+      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp, {
+        stage: 'callback',
+        code:
+          callback.code === 'PROVIDER_ERROR' && diagnosticCode(callback.detail)
+            ? `PROVIDER_ERROR:${callback.detail}`
+            : callback.code,
+      });
     }
     const policy = policyForNetwork(network.decision);
     if (!policy) {
-      return this.denied('NETWORK_UNTRUSTED', originKey, correlationId, at, network.clientIp);
+      return this.denied('NETWORK_UNTRUSTED', originKey, correlationId, at, network.clientIp, {
+        stage: 'network',
+        code: network.decision,
+      });
     }
     let idToken: string;
     try {
@@ -661,14 +716,20 @@ export class SecOpsRuntime {
           redirectUri: callback.handshake.redirectUri,
         })
       ).idToken;
-    } catch {
-      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp);
+    } catch (error) {
+      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp, {
+        stage: 'token_exchange',
+        code: diagnosticCode(error instanceof Error ? error.message : undefined) ?? 'UNKNOWN',
+      });
     }
     let signingKeys: Awaited<ReturnType<JwksProvider['keys']>>;
     try {
       signingKeys = await this.jwks.keys();
-    } catch {
-      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp);
+    } catch (error) {
+      return this.denied('TOKEN_INVALID', originKey, correlationId, at, network.clientIp, {
+        stage: 'jwks',
+        code: diagnosticCode(error instanceof Error ? error.message : undefined) ?? 'UNKNOWN',
+      });
     }
     const validation = validateIdToken(
       idToken,
@@ -695,7 +756,7 @@ export class SecOpsRuntime {
         : undefined;
     const granted =
       validation.ok && this.options.roleGrants
-        ? await this.options.roleGrants(validation.claims.oid)
+        ? await this.options.roleGrants(validation.claims.oid, validation.claims.groups)
         : [];
     const roles = validation.ok
       ? [
@@ -743,6 +804,12 @@ export class SecOpsRuntime {
         network.clientIp,
         decision.reason,
       );
+      this.options.onSignInDenied?.({
+        reason: decision.reason,
+        stage: 'decision',
+        correlationId,
+        code: decisionDiagnostic(decision.reason, validation),
+      });
       return { ok: false, failure: { reason: decision.reason, message: decision.publicMessage } };
     }
     await this.attempts.save(registerSuccess(counter, at));
@@ -806,7 +873,9 @@ export class SecOpsRuntime {
     correlationId: string,
     at: Date,
     clientIp: string | null,
+    diagnostic: Pick<SignInDiagnostic, 'stage' | 'code'>,
   ): Promise<{ readonly ok: false; readonly failure: SignInFailure }> {
+    this.options.onSignInDenied?.({ reason, correlationId, ...diagnostic });
     const decision = decideSignIn({
       network: reason === 'NETWORK_UNTRUSTED' ? 'untrusted_chain' : 'inside',
       locked: reason === 'LOCKED_OUT',

@@ -48,6 +48,39 @@ describe('roles concedidos por QAPAQ', () => {
     expect(await failing(GRAPH_OWNER)).toEqual([]);
   });
 
+  it('los miembros de un grupo admin son admin, por claim `groups` o por el padrón', async () => {
+    const ADMIN_GROUP = 'aaaaaaaa-0000-0000-0000-00000000000a';
+    const withGroup = loadRoleGrantsConfig({
+      QAPAQ_PROFILE: 'test',
+      QAPAQ_ADMIN_GROUP_IDS: ADMIN_GROUP.toUpperCase(),
+    });
+    const byClaim = createRoleGrantResolver(withGroup);
+    expect(await byClaim(STRANGER, [ADMIN_GROUP])).toEqual(['qapaq.platform.admin']);
+    expect(await byClaim(STRANGER, ['bbbbbbbb-0000-0000-0000-00000000000b'])).toEqual([]);
+
+    const byDirectory = createRoleGrantResolver(withGroup, {
+      groupId: ADMIN_GROUP,
+      owners: async () => new Set(),
+      isMember: async (oid) => oid === STRANGER,
+    });
+    expect(await byDirectory(STRANGER)).toEqual(['qapaq.platform.admin']);
+    expect(await byDirectory(ANALYST)).toEqual([]);
+
+    // El padrón de otro grupo no concede admin aunque la persona sea miembro.
+    const otherGroup = createRoleGrantResolver(withGroup, {
+      groupId: 'bbbbbbbb-0000-0000-0000-00000000000b',
+      owners: async () => new Set(),
+      isMember: async () => true,
+    });
+    expect(await otherGroup(STRANGER)).toEqual([]);
+  });
+
+  it('rechaza grupos admin que no son GUID', () => {
+    expect(() =>
+      loadRoleGrantsConfig({ QAPAQ_PROFILE: 'test', QAPAQ_ADMIN_GROUP_IDS: 'admins' }),
+    ).toThrow();
+  });
+
   it('rechaza asignaciones mal formadas o con roles inexistentes', () => {
     for (const value of [`${ANALYST}=qapaq.root`, 'no-es-oid=qapaq.soc.analyst', `${ANALYST}`]) {
       expect(() =>

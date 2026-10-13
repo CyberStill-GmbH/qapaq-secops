@@ -97,7 +97,17 @@ export class EntraTokenExchange implements TokenExchange {
         }).toString(),
         signal: controller.signal,
       });
-      if (!response.ok) throw new Error(`TOKEN_EXCHANGE_FAILED_${response.status}`);
+      if (!response.ok) {
+        // Solo el código AADSTS numérico: el texto de Entra puede citar datos de la cuenta.
+        const failure: unknown = await response.json().catch(() => undefined);
+        const aadsts =
+          isRecord(failure) &&
+          Array.isArray(failure.error_codes) &&
+          Number.isInteger(failure.error_codes[0])
+            ? `_AADSTS${failure.error_codes[0] as number}`
+            : '';
+        throw new Error(`TOKEN_EXCHANGE_FAILED_${response.status}${aadsts}`);
+      }
       const body: unknown = await response.json();
       if (
         !isRecord(body) ||

@@ -2,7 +2,8 @@
  * Sprint 5 · fase 3 — padrón del grupo de admisión para la administración (`users.read`).
  *
  * - `GET /api/admin/users`: miembros y dueños del grupo con rol efectivo y su origen
- *   (`group_owner`, `deploy_binding`, `entra_app_role` o `none` = «sin acceso asignado»), estado
+ *   (`group_owner`, `admin_group`, `deploy_binding`, `entra_app_role` o `none` = «sin acceso
+ *   asignado»), estado
  *   de cuenta y actividad QAPAQ (última solicitud autenticada y sesiones activas). Incluye el
  *   estado de la sincronización y si el padrón está viejo.
  * - `GET /api/admin/users/:oid`: la misma fila más sus sesiones recientes (las referencias
@@ -96,12 +97,22 @@ export class AdminUsersController {
   private view(row: UserRow, owners: ReadonlySet<string>, sessions: readonly Session[]) {
     const active = sessions.filter((session) => session.state === 'active');
     const latest = [...sessions].sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())[0];
-    const grants = this.runtime.roleGrantsConfig ?? { bindings: {}, groupOwnerOids: [] };
+    const grants = this.runtime.roleGrantsConfig ?? {
+      bindings: {},
+      groupOwnerOids: [],
+      adminGroupIds: [],
+    };
+    const directory = this.runtime.directory;
+    const adminGroupMember =
+      row.membership === 'member' &&
+      directory?.mode === 'graph' &&
+      grants.adminGroupIds.includes(directory.groupId.toLowerCase());
     const role: { roles: readonly string[]; origin: RoleOrigin } = explainRole(
       grants,
       owners,
       row.oid,
       latest?.roles ?? [],
+      adminGroupMember,
     );
     return {
       oid: row.oid,

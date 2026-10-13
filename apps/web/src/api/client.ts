@@ -367,7 +367,7 @@ export interface SocAdminUser {
   readonly membership: 'member' | 'removed' | null;
   readonly isOwner: boolean;
   readonly roles: readonly SocAdminRole[];
-  readonly roleOrigin: 'group_owner' | 'deploy_binding' | 'entra_app_role' | 'none';
+  readonly roleOrigin: 'group_owner' | 'admin_group' | 'deploy_binding' | 'entra_app_role' | 'none';
   readonly lastSeenAt: string | null;
   readonly activeSessions: number;
 }

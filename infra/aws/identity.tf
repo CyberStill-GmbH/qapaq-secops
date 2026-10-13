@@ -48,8 +48,30 @@ variable "soc_directory_group_name" {
   }
 }
 
+variable "soc_admin_group_ids" {
+  description = <<-EOT
+    Object ID de los grupos de Entra cuyos miembros reciben qapaq.platform.admin, separados por
+    coma. La pertenencia se toma del claim `groups` del token o, si es el grupo de admisión, del
+    padrón de Graph. Variable de GitHub QAPAQ_ADMIN_GROUP_IDS; si no existe, el workflow usa
+    QAPAQ_DIRECTORY_GROUP_ID (todo miembro del grupo de admisión es admin).
+  EOT
+  type        = string
+  default     = ""
+
+  validation {
+    condition = var.soc_admin_group_ids == "" || alltrue([
+      for id in split(",", var.soc_admin_group_ids) :
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", trimspace(id)))
+    ])
+    error_message = "soc_admin_group_ids debe ser una lista de GUID separados por coma."
+  }
+}
+
 locals {
   identity_api_environment = merge(
+    var.soc_admin_group_ids == "" ? {} : {
+      QAPAQ_ADMIN_GROUP_IDS = join(",", [for id in split(",", var.soc_admin_group_ids) : lower(trimspace(id))])
+    },
     var.soc_group_owner_oids == "" ? {} : {
       QAPAQ_GROUP_OWNER_OIDS = join(",", [for oid in split(",", var.soc_group_owner_oids) : lower(trimspace(oid))])
     },

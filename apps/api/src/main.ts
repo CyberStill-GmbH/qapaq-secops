@@ -2,13 +2,18 @@ import { pathToFileURL } from 'node:url';
 import { ConfigurationError } from '@qapaq/configuration';
 import { buildApi } from './bootstrap.js';
 
-function log(event: string, errorCode?: string): void {
+function log(
+  event: string,
+  errorCode?: string,
+  fields: Readonly<Record<string, string>> = {},
+): void {
   process.stdout.write(
     `${JSON.stringify({
       service: 'qapaq-secops-api',
       event,
       timestamp: new Date().toISOString(),
       ...(errorCode ? { errorCode } : {}),
+      ...fields,
     })}\n`,
   );
 }
@@ -86,6 +91,13 @@ export async function main(): Promise<void> {
         log('directory.sync.failed', typeof code === 'string' ? code : 'DIRECTORY_FAILED');
       },
       demoMfaExceptionUntil,
+      // Motivo técnico del rechazo, buscable por el correlationId que ve la persona en la URL.
+      (diagnostic) =>
+        log('auth.sign_in.denied', diagnostic.reason, {
+          stage: diagnostic.stage,
+          correlationId: diagnostic.correlationId,
+          ...(diagnostic.code ? { detail: diagnostic.code } : {}),
+        }),
     );
     // Solo el modo (`memory` o `postgres`), nunca datos de conexión.
     log(`soc.persistence.${runtime.persistence}`);

@@ -22,7 +22,7 @@ import { composeApi } from './composition-root.js';
 import { ApiLifecycle, type ApiEvent } from './lifecycle.js';
 import { entityRefFactory } from './runtime/entity-refs.js';
 import type { ProcessInfo } from './soc/operations-health.js';
-import { SecOpsRuntime } from './runtime/secops-runtime.js';
+import { SecOpsRuntime, type SignInDiagnostic } from './runtime/secops-runtime.js';
 import {
   createWazuhEventProvider,
   createWazuhEventsReader,
@@ -168,6 +168,8 @@ export async function buildApi(
   onDirectoryError?: (error: unknown) => void,
   /** Excepción demo con vencimiento, leída por el entrypoint en el límite del proceso. */
   demoMfaExceptionUntil?: Date,
+  /** Inicios de sesión rechazados: etapa y código técnico, sin datos de la cuenta. */
+  onSignInDenied?: (diagnostic: SignInDiagnostic) => void,
 ) {
   const config = loadApiConfig(environment);
   const access = loadAccessConfig(environment);
@@ -271,6 +273,7 @@ export async function buildApi(
       ? { soc: durable.soc, notifications: durable.notifications, sessions: durable.sessions }
       : {}),
     ...(onDispatchError ? { onDispatchError } : {}),
+    ...(onSignInDenied ? { onSignInDenied } : {}),
     ...(processInfo ? { processInfo } : {}),
     ...(clientSecret !== undefined ? { clientSecret } : {}),
     roleGrants: createRoleGrantResolver(

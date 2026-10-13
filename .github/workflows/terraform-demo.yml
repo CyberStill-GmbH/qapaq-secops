@@ -44,6 +44,8 @@ jobs:
       TF_VAR_soc_group_owner_oids: ${{ vars.QAPAQ_GROUP_OWNER_OIDS }}
       # Sprint 5 · fase 3: grupo de admisión para el padrón por Graph (vacío = deshabilitado).
       TF_VAR_soc_directory_group_id: ${{ vars.QAPAQ_DIRECTORY_GROUP_ID || vars.SOC_DIRECTORY_GROUP_ID }}
+      # Grupos cuyos miembros son admin; sin variable propia, el grupo de admisión.
+      TF_VAR_soc_admin_group_ids: ${{ vars.QAPAQ_ADMIN_GROUP_IDS || vars.QAPAQ_DIRECTORY_GROUP_ID || vars.SOC_DIRECTORY_GROUP_ID }}
 
     steps:
       - name: Checkout

@@ -13,6 +13,7 @@ const roleLabels: Readonly<Record<string, string>> = {
 };
 const originLabels: Readonly<Record<SocAdminUser['roleOrigin'], string>> = {
   group_owner: 'Dueño del grupo',
+  admin_group: 'Miembro del grupo admin',
   deploy_binding: 'Asignado en el deploy',
   entra_app_role: 'App role de Entra',
   none: 'Sin acceso',
