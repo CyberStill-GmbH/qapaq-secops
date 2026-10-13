@@ -66,3 +66,25 @@ jobs:
               aws ecs describe-tasks --cluster qapaq-secops-demo --tasks "${task_list[@]}" --query 'tasks[].{Task:taskArn,TaskDefinition:taskDefinitionArn,StopCode:stopCode,StoppedReason:stoppedReason,Containers:containers[].{Name:name,ExitCode:exitCode,Reason:reason}}' --output json
             fi
           done
+
+      - name: Read Wazuh initialization and API startup errors
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          association_id="$(aws ssm list-associations --query "Associations[?AssociationName=='qapaq-secops-demo-wazuh-bootstrap'] | [0].AssociationId" --output text)"
+          if [[ -n "$association_id" && "$association_id" != None ]]; then
+            execution_id="$(aws ssm describe-association-executions --association-id "$association_id" --query 'sort_by(AssociationExecutions, &CreatedTime)[-1].ExecutionId' --output text)"
+            if [[ -n "$execution_id" && "$execution_id" != None ]]; then
+              targets="$(aws ssm describe-association-execution-targets --association-id "$association_id" --execution-id "$execution_id" --output json)"
+              printf '%s\n' "$targets" | jq '.AssociationExecutionTargets[] | {ResourceId, Status, DetailedStatus, OutputSource}'
+              while IFS=$'\t' read -r command_id instance_id; do
+                [[ -n "$command_id" ]] || continue
+                aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" --query '{Status:Status,ExitCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+              done < <(printf '%s\n' "$targets" | jq -r '.AssociationExecutionTargets[] | select(.OutputSource.OutputSourceType == "RunCommand") | [.OutputSource.OutputSourceId, .ResourceId] | @tsv')
+            fi
+          fi
+          log_stream="$(aws logs describe-log-streams --log-group-name /qapaq-secops/demo/api --order-by LastEventTime --descending --limit 1 --query 'logStreams[0].logStreamName' --output text)"
+          if [[ -n "$log_stream" && "$log_stream" != None ]]; then
+            aws logs get-log-events --log-group-name /qapaq-secops/demo/api --log-stream-name "$log_stream" --limit 30 --query 'events[].message' --output json
+          fi
