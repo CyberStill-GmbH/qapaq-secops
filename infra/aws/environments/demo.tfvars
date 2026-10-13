@@ -29,12 +29,13 @@ valkey_node_type                   = "cache.t4g.micro"
 valkey_engine_version              = "8.0"
 
 # Verified Fase 2C manifest: image digests are immutable and must not be replaced by tags.
-runtime_image_manifest_commit = "5ea083bd6dccf12580d00b43ee66d1086c0e06ea"
+runtime_image_manifest_commit = "3dd5fcb0f1afbade3b4454e88456ca22bb27a770"
 runtime_image_digests = {
-  api     = "sha256:400a87f68017d2726927f2266aef22c9e425dd5456a9157c8acd2eba26ae5bac"
-  worker  = "sha256:b55d7073deb4cc2895e625e70a81289f351983be66cc61146fd7a815d07e534e"
-  krakend = "sha256:f0ff76bc10211244b85b5cc27c51f21b6c34587469f79af0b5f824c6075671b3"
+  api     = "sha256:f651fb8a0e961503ddf5ab28cb5ff39e214d9936c89d487aa9df869f020f5550"
+  worker  = "sha256:cfd30e222acf54e86ff0f59a1e6884efbbd5bdafc21a7861c6e83095c1c8c342"
+  krakend = "sha256:491cc5cb797f4757a0c58e52679ebb9ab3f8a06b268c9540171f2dc1043b23ed"
 }
+migrator_image_digest = "sha256:4dc9cc9f440a7f5769efcb50acf53d598b603e0306067cf90eca8aeb187bcf22"
 
 # Public Vercel-origin requests pass through the private KrakenD/API tasks.
 runtime_api_environment = {
