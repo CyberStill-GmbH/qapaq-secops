@@ -2,20 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ApiErrorBody } from '@qapaq/contracts';
 import { api, type SessionView } from '../../api/client.js';
 import { SocWorkspaceViews } from './SocWorkspaceViews.js';
-import { Button, ErrorState, SocIcon, StatusChip, type IconName } from './soc-ui.js';
+import { ErrorState, SocIcon } from './soc-ui.js';
+import { SocNavigationRail, type NavigationGroup } from './SocNavigationRail.js';
+import { SocTopbar } from './SocTopbar.js';
 import { QapaqSplash } from '../login/QapaqSplash.js';
 import { CookieNotice } from '../CookieNotice.js';
-
-interface NavigationItem {
-  readonly label: string;
-  readonly path: string;
-  readonly icon: IconName;
-  readonly capability?: string;
-}
-interface NavigationGroup {
-  readonly label: string;
-  readonly items: readonly NavigationItem[];
-}
 
 const navigation: readonly NavigationGroup[] = [
   {
@@ -65,17 +56,6 @@ const navigation: readonly NavigationGroup[] = [
   },
 ];
 
-function roleLabel(role: string): string {
-  return (
-    {
-      'qapaq.soc.analyst': 'Analista SOC',
-      'qapaq.soc.lead': 'Líder SOC',
-      'qapaq.auditor': 'Auditor',
-      'qapaq.platform.admin': 'Administrador de plataforma',
-    }[role] ?? role
-  );
-}
-
 function pathFromLocation(basePath: '/' | '/secops/'): string {
   const prefix = basePath === '/' ? '' : basePath.slice(0, -1);
   const pathname = window.location.pathname.replace(/\/console\.html$/u, '/');
@@ -97,7 +77,7 @@ export function SocConsole({
     () => window.localStorage.getItem('qapaq.rail.collapsed') === 'true',
   );
   const [commandOpen, setCommandOpen] = useState(false);
-  const [apiState, setApiState] = useState<'checking' | 'ready' | 'failed'>('checking');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const loadSession = useCallback(async () => {
     const result = await api.session();
@@ -128,16 +108,6 @@ export function SocConsole({
   }, [basePath, loadSession]);
 
   useEffect(() => {
-    let active = true;
-    void api.health().then((result) => {
-      if (active) setApiState(result.ok ? 'ready' : 'failed');
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const target = event.target;
       const editing =
@@ -147,7 +117,10 @@ export function SocConsole({
         event.preventDefault();
         setCommandOpen((open) => !open);
       } else if (!editing && event.key === '[') setCollapsed((value) => !value);
-      else if (event.key === 'Escape') setCommandOpen(false);
+      else if (event.key === 'Escape') {
+        setCommandOpen(false);
+        setMobileNavOpen(false);
+      }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -176,6 +149,7 @@ export function SocConsole({
     window.history.pushState({}, '', `${prefix}${pathname}${search ? `?${search}` : ''}`);
     setPath(`${pathname}${search ? `?${search}` : ''}`);
     setCommandOpen(false);
+    setMobileNavOpen(false);
   }
 
   async function logout(): Promise<void> {
@@ -191,131 +165,31 @@ export function SocConsole({
 
   const pathname = path.split('?')[0] || '/';
   const profileLabel = session.displayName || session.email || session.subjectId;
-  const currentItem = navigation
-    .flatMap((group) => group.items)
-    .find((item) => item.path === pathname);
-  const pageTitle =
-    pathname === '/'
-      ? 'Resumen'
-      : pathname === '/me'
-        ? 'Mi sesión'
-        : pathname === '/events'
-          ? 'Eventos'
-          : (currentItem?.label ?? 'No disponible');
-
   return (
     <>
-      <div className={`soc-app${collapsed ? ' soc-app--collapsed' : ''}`}>
-        <a className="soc-skip-link" href="#soc-main">
-          Saltar al contenido
-        </a>
-        <aside className="soc-rail" aria-label="Navegación principal">
-          <a
-            className="soc-brand"
-            href="/"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate('/');
-            }}
-            aria-label="QAPAQ SecOps, Resumen"
-          >
-            <span className="soc-brand__q">Q</span>
-            <span className="soc-brand__name">SecOps</span>
-          </a>
-          <nav className="soc-nav">
-            {allowedGroups.map((group) => (
-              <div className="soc-nav__group" key={group.label}>
-                <h2>{group.label}</h2>
-                {group.items.map((item) => (
-                  <a
-                    key={item.path}
-                    href={item.path}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate(item.path);
-                    }}
-                    className={`soc-nav__item${pathname === item.path ? ' is-active' : ''}`}
-                    aria-current={pathname === item.path ? 'page' : undefined}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <SocIcon name={item.icon} />
-                    <span>{item.label}</span>
-                  </a>
-                ))}
-              </div>
-            ))}
-          </nav>
-          <div className="soc-rail__footer">
-            <a
-              className={`soc-nav__item${pathname === '/me' ? ' is-active' : ''}`}
-              href="/me"
-              onClick={(event) => {
-                event.preventDefault();
-                navigate('/me');
-              }}
-              title={collapsed ? 'Mi sesión' : undefined}
-            >
-              <SocIcon name="user" />
-              <span>Mi sesión</span>
-            </a>
-            <button
-              className="soc-rail__collapse"
-              type="button"
-              onClick={() => setCollapsed((value) => !value)}
-              aria-label={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
-              title={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
-            >
-              <SocIcon name="menu" />
-              <span>Contraer</span>
-              <kbd>[</kbd>
-            </button>
-          </div>
-        </aside>
+      <div
+        className={`soc-app${collapsed ? ' soc-app--collapsed' : ''}${mobileNavOpen ? ' soc-app--mobile-open' : ''}`}
+      >
+        <SocNavigationRail
+          groups={allowedGroups}
+          pathname={pathname}
+          collapsed={collapsed}
+          mobileOpen={mobileNavOpen}
+          onNavigate={navigate}
+          onToggleCollapse={() => setCollapsed((value) => !value)}
+          onCloseMobile={() => setMobileNavOpen(false)}
+        />
         <div className="soc-main-column">
-          <header className="soc-topbar">
-            <div className="soc-breadcrumb">
-              <span>QAPAQ SecOps</span>
-              <span aria-hidden="true">/</span>
-              <strong>{pageTitle}</strong>
-            </div>
-            <div className="soc-topbar__tools">
-              <StatusChip
-                state={apiState === 'ready' ? 'ok' : apiState === 'failed' ? 'fail' : 'neutral'}
-              >
-                {apiState === 'ready'
-                  ? 'API disponible'
-                  : apiState === 'failed'
-                    ? 'API sin respuesta'
-                    : 'Conectando'}
-              </StatusChip>
-              <Button className="soc-command-button" onClick={() => setCommandOpen(true)}>
-                <SocIcon name="search" size={15} />
-                <span>Ir a</span>
-                <kbd>Ctrl K</kbd>
-              </Button>
-              <details className="soc-profile">
-                <summary>
-                  <span className="soc-profile__mark">
-                    {profileLabel.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="soc-profile__name">
-                    <strong>{profileLabel}</strong>
-                    <small>{roleLabel(session.roles[0] ?? 'Sesión institucional')}</small>
-                  </span>
-                  <SocIcon name="chevron" size={15} />
-                </summary>
-                <div className="soc-profile__menu">
-                  <p>{session.tenantId}</p>
-                  {session.roles.map((role) => (
-                    <span key={role}>{roleLabel(role)}</span>
-                  ))}
-                  <Button variant="ghost" onClick={() => void logout()}>
-                    Cerrar sesión
-                  </Button>
-                </div>
-              </details>
-            </div>
-          </header>
+          <SocTopbar
+            profileLabel={profileLabel}
+            session={session}
+            notificationsEnabled={session.capabilities.includes('notifications.read')}
+            mobileNavOpen={mobileNavOpen}
+            onOpenCommand={() => setCommandOpen(true)}
+            onNavigate={navigate}
+            onToggleMobileNav={() => setMobileNavOpen((open) => !open)}
+            onLogout={() => void logout()}
+          />
           <main id="soc-main" className="soc-workspace" tabIndex={-1}>
             {sessionError ? <ErrorState error={sessionError} onRetry={() => void logout()} /> : null}
             <SocWorkspaceViews

@@ -239,7 +239,7 @@ function ToggleGroup({
 export function EventsPage({ session }: { readonly session: SessionView }): React.JSX.Element {
   const [range, setRange] = useState<RangeHours>(24);
   const [windowEnd, setWindowEnd] = useState(() => new Date().toISOString());
-  const [mode, setMode] = useState<FilterMode>('filters');
+  const [mode, setMode] = useState<FilterMode>('query');
   const [draftFilters, setDraftFilters] = useState<EventsQueryFilters>({});
   const [queryDraft, setQueryDraft] = useState('');
   const [querySubmitted, setQuerySubmitted] = useState<string | undefined>();
@@ -348,7 +348,7 @@ export function EventsPage({ session }: { readonly session: SessionView }): Reac
   }
 
   return (
-    <div className="soc-page">
+    <div className="soc-page soc-events-page">
       <PageHeader
         title="Eventos de seguridad"
         description="Actividad normalizada de Wazuh. La telemetría permanece en su fuente."
@@ -520,20 +520,22 @@ export function EventsPage({ session }: { readonly session: SessionView }): Reac
               <tbody>
                 {items.map((event) => (
                   <tr key={event.recordId}>
-                    <td>
+                    <td data-label="Hora">
                       <RelativeTime value={event.occurredAt} />
                     </td>
-                    <td>{severityLabels[event.severity] ?? event.severity}</td>
-                    <td>{event.kind}</td>
-                    <td>{outcomeLabels[event.outcome] ?? 'Desconocido'}</td>
-                    <td>
+                    <td data-label="Severidad">
+                      {severityLabels[event.severity] ?? event.severity}
+                    </td>
+                    <td data-label="Tipo">{event.kind}</td>
+                    <td data-label="Resultado">{outcomeLabels[event.outcome] ?? 'Desconocido'}</td>
+                    <td data-label="Regla">
                       {event.rule
                         ? `${event.rule.id}${event.title ? ` · ${event.title}` : ''}`
                         : '—'}
                     </td>
-                    <td>{display(event.identities[0])}</td>
-                    <td>{sourceLabel(event.source)}</td>
-                    <td>
+                    <td data-label="Identidad">{display(event.identities[0])}</td>
+                    <td data-label="Fuente">{sourceLabel(event.source)}</td>
+                    <td data-label="Detalle">
                       <Button variant="ghost" onClick={() => setSelected(event)}>
                         Ver evento
                       </Button>

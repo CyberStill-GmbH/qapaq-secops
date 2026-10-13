@@ -416,19 +416,19 @@
 }
 .soc-page-heading {
   display: flex;
-  min-height: 48px;
+  min-height: 39px;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-6);
-  margin: 0 0 var(--space-6);
+  margin: 0 0 12px;
 }
 .soc-page-heading h1 {
   margin: 0;
   color: var(--text-1);
-  font-size: 20px;
-  font-weight: 480;
-  letter-spacing: -0.025em;
-  line-height: 28px;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 25px;
 }
 .soc-page-heading p {
   margin: 4px 0 0;
@@ -442,6 +442,11 @@
   color: var(--text-3);
   font-size: 12px;
   white-space: nowrap;
+}
+.soc-page-heading__tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .soc-user-admin__toolbar {
@@ -676,51 +681,84 @@
   display: grid;
   gap: 14px;
 }
-.soc-health-summary,
+.soc-operations-health--admin {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.soc-operations-health--admin > .soc-page-heading,
+.soc-operations-health--admin > .soc-health-overview,
+.soc-operations-health--admin > .soc-health-footnote {
+  grid-column: 1 / -1;
+}
+.soc-operations-health--admin > .soc-health-overview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.soc-health-overview-card,
 .soc-health-section {
   min-width: 0;
   border: 1px solid var(--border-default);
   border-radius: 8px;
   background: var(--surface-1);
 }
-.soc-health-summary {
+.soc-health-overview {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto minmax(250px, 0.8fr);
-  align-items: center;
-  gap: 20px;
-  padding: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
-.soc-health-summary h2,
+.soc-health-overview-card {
+  position: relative;
+  display: grid;
+  min-height: 118px;
+  align-content: center;
+  justify-items: start;
+  gap: 7px;
+  padding: 16px 18px;
+}
+.soc-health-overview-card__label {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.soc-health-overview-card__value {
+  color: var(--text-1);
+  font-size: 21px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.soc-health-overview-card__detail {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.soc-health-overview-card .soc-status {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
 .soc-health-section h2 {
   margin: 0;
   color: var(--text-1);
   font-size: 14px;
   font-weight: 560;
 }
-.soc-health-summary p,
 .soc-health-section header p {
   margin: 5px 0 0;
   color: var(--text-3);
   font-size: 12px;
 }
-.soc-health-summary dl,
 .soc-health-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 20px;
   margin: 0;
 }
-.soc-health-summary dl div,
 .soc-health-facts div {
   display: grid;
   gap: 4px;
 }
-.soc-health-summary dt,
 .soc-health-facts dt {
   color: var(--text-3);
   font-size: 11px;
 }
-.soc-health-summary dd,
 .soc-health-facts dd {
   min-width: 0;
   margin: 0;
@@ -730,7 +768,7 @@
   overflow-wrap: anywhere;
 }
 .soc-health-section {
-  padding: 16px 18px;
+  padding: 16px;
 }
 .soc-health-section > header {
   display: flex;
@@ -742,6 +780,9 @@
 }
 .soc-health-facts {
   padding: 14px 0 2px;
+}
+.soc-health-facts--platform {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .soc-health-reasons {
   display: flex;
@@ -1233,11 +1274,11 @@
   flex-wrap: wrap;
   gap: 10px 28px;
   align-items: center;
-  min-height: 54px;
-  margin-bottom: 20px;
-  padding: 8px 12px;
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 7px 12px;
   border: 1px solid var(--border-default);
-  border-radius: 9px;
+  border-radius: 4px;
   background: var(--surface-1);
 }
 .soc-operation-strip > div {
@@ -1252,29 +1293,69 @@
 .soc-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
   align-items: start;
+}
+.soc-summary-grid > .soc-panel--wide {
+  grid-column: 1 / -1;
+}
+.soc-source-confidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0;
+  padding: 8px 0;
+}
+.soc-source-confidence > div {
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 3px 11px;
+  border-right: 1px solid var(--border-subtle);
+}
+.soc-source-confidence > div:last-child {
+  border-right: 0;
+}
+.soc-source-confidence strong,
+.soc-source-confidence small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.soc-source-confidence strong {
+  color: var(--text-1);
+  font-size: 11px;
+  font-weight: 550;
+}
+.soc-source-confidence small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+.soc-source-confidence__empty {
+  padding: 13px;
+  color: var(--text-3);
 }
 .soc-panel {
   min-width: 0;
   border: 1px solid var(--border-default);
-  border-radius: 9px;
+  border-radius: 4px;
   background: var(--surface-1);
 }
 .soc-panel__header {
   display: flex;
-  min-height: 44px;
+  min-height: 38px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 14px;
+  padding: 0 11px;
   border-bottom: 1px solid var(--border-default);
 }
 .soc-panel__header h2 {
   margin: 0;
   color: var(--text-1);
-  font-size: 15px;
-  font-weight: 550;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 .soc-panel__header > span {
@@ -1293,11 +1374,11 @@
 .soc-compact-list > button,
 .soc-compact-list--notifications > div {
   display: grid;
-  min-height: 40px;
+  min-height: 34px;
   grid-template-columns: 90px minmax(0, 1fr) 136px 84px;
   align-items: center;
   gap: 10px;
-  padding: 5px 14px;
+  padding: 4px 11px;
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
   background: transparent;
@@ -1450,18 +1531,17 @@
   background: var(--surface-1);
 }
 .soc-table th {
-  height: 32px;
+  height: 29px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border-default);
   color: var(--text-3);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 .soc-table td {
-  height: 40px;
+  height: 35px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-2);
@@ -1476,6 +1556,7 @@
 }
 .soc-table tbody tr.is-selected {
   background: var(--surface-selected);
+  box-shadow: inset 3px 0 var(--brand-amber);
 }
 .soc-table tbody tr:last-child td {
   border-bottom: 0;

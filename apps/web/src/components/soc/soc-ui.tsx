@@ -1,4 +1,24 @@
 import { useState, type ReactNode } from 'react';
+import {
+  ArrowRight,
+  Bell,
+  Check,
+  Clock,
+  Copy,
+  FileText,
+  Key,
+  LockKey,
+  List,
+  MagnifyingGlass,
+  ShieldCheck,
+  SquaresFour,
+  User,
+  Warning,
+  X,
+  CaretDown,
+  ArrowsClockwise,
+  ClockCounterClockwise,
+} from '@phosphor-icons/react';
 import type { ApiErrorBody } from '@qapaq/contracts';
 
 export type IconName =
@@ -21,104 +41,26 @@ export type IconName =
   | 'lock'
   | 'key';
 
-const paths: Readonly<Record<IconName, ReactNode>> = {
-  grid: (
-    <>
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
-    </>
-  ),
-  bell: (
-    <>
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-      <path d="M10 21h4" />
-    </>
-  ),
-  shield: (
-    <>
-      <path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" />
-      <path d="m9 12 2 2 4-4" />
-    </>
-  ),
-  search: (
-    <>
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </>
-  ),
-  history: (
-    <>
-      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M12 7v5l3 2" />
-    </>
-  ),
-  user: (
-    <>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21a8 8 0 0 1 16 0" />
-    </>
-  ),
-  chevron: <path d="m7 10 5 5 5-5" />,
-  close: <path d="m18 6-12 12M6 6l12 12" />,
-  copy: (
-    <>
-      <rect x="8" y="8" width="12" height="12" rx="2" />
-      <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
-    </>
-  ),
-  check: <path d="m5 12 4 4L19 6" />,
-  alert: (
-    <>
-      <path d="M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-      <path d="M12 9v4m0 4h.01" />
-    </>
-  ),
-  clock: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </>
-  ),
-  arrow: (
-    <>
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
-    </>
-  ),
-  refresh: (
-    <>
-      <path d="M20 7v5h-5" />
-      <path d="M4 17v-5h5" />
-      <path d="M5.6 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.4-3" />
-    </>
-  ),
-  menu: (
-    <>
-      <path d="M4 6h16M4 12h16M4 18h16" />
-    </>
-  ),
-  file: (
-    <>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6M8 13h8M8 17h8" />
-    </>
-  ),
-  lock: (
-    <>
-      <rect x="4" y="10" width="16" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 1 1 8 0v3" />
-    </>
-  ),
-  key: (
-    <>
-      <circle cx="8" cy="15" r="5" />
-      <path d="m12 11 8-8m-3 3 3 3m-6-1 3 3" />
-    </>
-  ),
-};
+const icons = {
+  grid: SquaresFour,
+  bell: Bell,
+  shield: ShieldCheck,
+  search: MagnifyingGlass,
+  history: ClockCounterClockwise,
+  user: User,
+  chevron: CaretDown,
+  close: X,
+  copy: Copy,
+  check: Check,
+  alert: Warning,
+  clock: Clock,
+  arrow: ArrowRight,
+  refresh: ArrowsClockwise,
+  menu: List,
+  file: FileText,
+  lock: LockKey,
+  key: Key,
+} satisfies Record<IconName, typeof SquaresFour>;
 
 export function SocIcon({
   name,
@@ -127,21 +69,8 @@ export function SocIcon({
   readonly name: IconName;
   readonly size?: number;
 }): React.JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.65"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {paths[name]}
-    </svg>
-  );
+  const Icon = icons[name];
+  return <Icon aria-hidden="true" size={size} weight="regular" />;
 }
 
 export function Button({

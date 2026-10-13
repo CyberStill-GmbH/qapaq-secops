@@ -15,7 +15,7 @@ export function PageHeader({
     <div className="soc-page-heading">
       <div>
         <h1>{title}</h1>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
       </div>
       <div className="soc-page-heading__meta">
         {updated ? (
@@ -75,13 +75,15 @@ export function Panel({
   title,
   children,
   action,
+  className,
 }: {
   readonly title: string;
   readonly children: React.ReactNode;
   readonly action?: React.ReactNode;
+  readonly className?: string;
 }): React.JSX.Element {
   return (
-    <section className="soc-panel">
+    <section className={`soc-panel${className ? ` ${className}` : ''}`}>
       <header className="soc-panel__header">
         <h2>{title}</h2>
         {action}
