@@ -1,0 +1,70 @@
+name: Repair Wazuh ingestion
+
+# Reinicia filebeat y wazuh-manager en la EC2 de Wazuh por SSM (camino sancionado, rol OIDC) y
+# reporta el estado del envío filebeat→indexer, las últimas alertas y las líneas office365.
+# Objetivo: destapar el pipeline cuando el API reporta PROVIDER_RESPONSE_INVALID por falta de
+# índice wazuh-alerts-* (filebeat no envía) tras conectar M365.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: repair-ingestion
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-repair-ingestion
+          allowed-account-ids: 955200662475
+
+      - name: Restart filebeat and wazuh-manager, report pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          instance_id="$(aws ec2 describe-instances \
+            --filters 'Name=tag:Name,Values=qapaq-secops-demo-wazuh' 'Name=instance-state-name,Values=running' \
+            --query 'Reservations[].Instances[].InstanceId | [0]' --output text)"
+          if [[ -z "$instance_id" || "$instance_id" == None ]]; then
+            echo 'No running Wazuh EC2 instance found.'; exit 1
+          fi
+          echo "Instance: $instance_id"
+
+          remote_script="$(cat <<'REMOTE'
+          set +e
+          echo '--- filebeat (antes) ---'; systemctl is-active filebeat
+          echo '--- restart filebeat ---'; systemctl restart filebeat; sleep 12
+          echo '--- filebeat (despues) ---'; systemctl is-active filebeat
+          echo '--- filebeat test output ---'; filebeat test output 2>&1 | tail -n 15
+          echo '--- restart wazuh-manager ---'; systemctl restart wazuh-manager; sleep 25
+          echo '--- wazuh-manager ---'; systemctl is-active wazuh-manager
+          echo '--- alerts.json (ultimas) ---'; tail -n 3 /var/ossec/logs/alerts/alerts.json 2>/dev/null | cut -c1-200
+          echo '--- ossec office365 ---'; grep -i office365 /var/ossec/logs/ossec.log 2>/dev/null | tail -n 20
+          echo '--- ossec errores recientes ---'; grep -iE 'error|critical|wm_office365|cannot|unable|denied' /var/ossec/logs/ossec.log 2>/dev/null | tail -n 20
+          REMOTE
+          )"
+          payload="$(jq -cn --arg c "$remote_script" '{commands: [$c]}')"
+          command_id="$(aws ssm send-command --instance-ids "$instance_id" \
+            --document-name AWS-RunShellScript --comment 'Repair Wazuh ingestion (filebeat + manager)' \
+            --parameters "$payload" --query 'Command.CommandId' --output text)"
+          echo "SSM command: $command_id"
+          for attempt in $(seq 1 36); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "$instance_id" --query Status --output text 2>/dev/null || true)"
+            case "$status" in Success|Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;; esac
+            sleep 5
+          done
+          echo "Status: ${status:-unknown}"
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json || true
