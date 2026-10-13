@@ -187,6 +187,27 @@ jobs:
           curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://api.jappi.net.pe/api/health/ready -o /dev/null
           curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://app.jappi.net.pe/api/health/ready -o /dev/null
 
+      - name: Verify browser sign-in redirect
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error, urllib.parse
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args):
+                  return None
+          opener = urllib.request.build_opener(NoRedirect)
+          try:
+              response = opener.open("https://app.jappi.net.pe/api/auth/start", timeout=20)
+          except urllib.error.HTTPError as error:
+              response = error
+          target = urllib.parse.urlsplit(response.headers.get("Location", ""))
+          assert response.code == 302, f"Expected login redirect, received HTTP {response.code}"
+          assert target.scheme == "https" and target.hostname == "login.microsoftonline.com", "Invalid identity-provider redirect"
+          assert response.headers.get("Set-Cookie"), "Missing browser OIDC binding cookie"
+          print("Browser sign-in: Microsoft redirect and binding cookie verified")
+          PY
+
       - name: Show public deployment URLs
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         shell: bash
