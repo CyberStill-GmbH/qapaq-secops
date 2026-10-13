@@ -19,7 +19,7 @@ function MicrosoftMark(): React.JSX.Element {
 }
 
 export default function Application({ config }: { config: PublicConfig }): React.JSX.Element {
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
   const errorCode = params.get('authError');
   const signInError =
     errorCode && (API_ERROR_CODES as readonly string[]).includes(errorCode)
