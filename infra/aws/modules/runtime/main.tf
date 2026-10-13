@@ -14,7 +14,7 @@ locals {
     QAPAQ_PROFILE                 = "production"
     QAPAQ_API_HOST                = "0.0.0.0"
     QAPAQ_API_PORT                = "3000"
-    QAPAQ_ENTRA_CLIENT_SECRET_REF  = "secret://aws-secretsmanager/qapaq-secops/demo/entra/client-secret"
+    QAPAQ_ENTRA_CLIENT_SECRET_REF = "secret://aws-secretsmanager/qapaq-secops/demo/entra/client-secret"
     # El perfil de producción exige declarar la persistencia del estado SOC. Con
     # `soc_database` activado pasa a PostgreSQL (docs/deployment/soc-postgres-rollout.md).
     QAPAQ_SOC_PERSISTENCE = var.soc_database == null ? "memory" : "postgres"
