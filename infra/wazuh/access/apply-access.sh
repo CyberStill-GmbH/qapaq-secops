@@ -162,7 +162,8 @@ JSON
 indexer PUT /_plugins/_security/api/roles/qapaq_wazuh_readonly "$(json_file <<'JSON'
 {"description":"QAPAQ: analista con solo lectura en el Dashboard",
  "cluster_permissions":["cluster_composite_ops_ro"],
- "index_permissions":[{"index_patterns":["wazuh-*"],"allowed_actions":["read"]}]}
+ "index_permissions":[{"index_patterns":["wazuh-*"],"allowed_actions":["read"]}],
+ "tenant_permissions":[{"tenant_patterns":["global_tenant"],"allowed_actions":["kibana_all_read"]}]}
 JSON
 )"
 
