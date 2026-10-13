@@ -115,7 +115,8 @@ output "runtime_load_balancer_dns_name" {
 
 output "wazuh_dashboard_url" {
   description = "Public Wazuh Dashboard URL with trusted HTTPS."
-  value       = module.wazuh_public.dashboard_url
+  value       = var.wazuh_dashboard_hostname != null ? "https://${var.wazuh_dashboard_hostname}/" : module.wazuh_public.dashboard_url
+  depends_on  = [aws_ssm_association.wazuh_dashboard_domain]
 }
 
 output "wazuh_dashboard_admin_secret_arn" {

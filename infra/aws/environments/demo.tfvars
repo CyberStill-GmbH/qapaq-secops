@@ -13,6 +13,7 @@ enable_https                  = true
 public_api_hostname           = "api.jappi.net.pe"
 public_route53_zone_name      = "api.jappi.net.pe"
 public_root_route53_zone_name = "jappi.net.pe"
+wazuh_dashboard_hostname      = "wazuh.jappi.net.pe"
 wazuh_version                 = "4.14.8"
 wazuh_instance_type           = "t3.xlarge"
 wazuh_volume_size_gb          = 100
