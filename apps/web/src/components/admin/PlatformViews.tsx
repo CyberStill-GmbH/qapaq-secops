@@ -5,14 +5,7 @@ import type {
   ServiceHealth,
   SourceSummary,
 } from '../../api/admin.js';
-import {
-  Icon,
-  SectionHeader,
-  Severity,
-  Status,
-  TableFrame,
-  formatDate,
-} from './admin-ui.js';
+import { Icon, SectionHeader, Severity, Status, TableFrame, formatDate } from './admin-ui.js';
 export function SourcesView({
   sources,
   onReplay,
