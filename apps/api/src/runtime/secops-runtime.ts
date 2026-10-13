@@ -716,7 +716,7 @@ export class SecOpsRuntime {
     });
     // Temporary demo-only exception authorized for the existing analyst identity.
     // This never invents AMR evidence or bypasses token, network, lockout or role checks.
-    const exceptionUntil = Date.parse(process.env.QAPAQ_DEMO_MFA_EXCEPTION_UNTIL ?? '');
+    const exceptionUntil = this.options.demoMfaExceptionUntil?.getTime() ?? Number.NaN;
     const demoMfaException =
       !decision.admitted &&
       decision.reason === 'MFA_REQUIRED' &&
