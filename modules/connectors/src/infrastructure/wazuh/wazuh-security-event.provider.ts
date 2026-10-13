@@ -368,9 +368,7 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
     const order = query.order ?? 'asc';
     // El orden entra en la huella: un cursor de una lectura descendente no continúa una
     // ascendente. Sin filtros y en orden ascendente no hay huella (compatibilidad).
-    const fingerprint = filterFingerprint(
-      order === 'desc' ? { ...filters, order } : filters,
-    );
+    const fingerprint = filterFingerprint(order === 'desc' ? { ...filters, order } : filters);
     const compiled = filters ? this.options.compileFilters?.(filters) : [];
     if (!compiled)
       throw new SecurityEventProviderError('PROVIDER_QUERY_REJECTED', 'readPage', false);
