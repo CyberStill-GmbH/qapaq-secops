@@ -82,7 +82,31 @@ jobs:
           persist-credentials: false
       - run: bash .github/ci/install-scanner.sh gitleaks
       - name: Scan full fetched history with redaction
-        run: gitleaks git --redact=100 --exit-code=1 --log-opts="--all" .
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="${RUNNER_TEMP}/gitleaks-report.json"
+          if gitleaks git --redact=100 --report-format json --report-path "$report" --exit-code=1 --log-opts="--all" .; then
+            echo "No secret findings in fetched history."
+          else
+            python3 - "$report" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as report_file:
+              findings = json.load(report_file)
+          for finding in findings:
+              print(
+                  "Redacted finding:"
+                  f" fingerprint={finding.get('Fingerprint', '')}"
+                  f" file={finding.get('File', '')}"
+                  f" rule={finding.get('RuleID', '')}"
+                  f" commit={finding.get('Commit', '')}"
+                  f" line={finding.get('StartLine', '')}"
+              )
+          PY
+            exit 1
+          fi
 
   filesystem:
     runs-on: ubuntu-24.04
