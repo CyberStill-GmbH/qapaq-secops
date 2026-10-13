@@ -52,3 +52,17 @@ jobs:
             echo '::error::The association did not provide a Run Command output ID.'
             exit 1
           fi
+
+      - name: Inspect ECS service failures
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws ecs describe-services --cluster qapaq-secops-demo --services qapaq-secops-demo-api qapaq-secops-demo-krakend --query 'services[].{Name:serviceName,Desired:desiredCount,Running:runningCount,Pending:pendingCount,Deployments:deployments[].{Status:status,TaskDefinition:taskDefinition,FailedTasks:failedTasks,State:rolloutState,Reason:rolloutStateReason},Events:events[:8].message}' --output json
+          for service in api krakend; do
+            task_arns="$(aws ecs list-tasks --cluster qapaq-secops-demo --service-name "qapaq-secops-demo-$service" --desired-status STOPPED --max-results 5 --query taskArns --output text)"
+            if [[ -n "$task_arns" && "$task_arns" != None ]]; then
+              read -r -a task_list <<< "$task_arns"
+              aws ecs describe-tasks --cluster qapaq-secops-demo --tasks "${task_list[@]}" --query 'tasks[].{Task:taskArn,TaskDefinition:taskDefinitionArn,StopCode:stopCode,StoppedReason:stoppedReason,Containers:containers[].{Name:name,ExitCode:exitCode,Reason:reason}}' --output json
+            fi
+          done
