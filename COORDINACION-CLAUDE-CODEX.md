@@ -48,3 +48,39 @@ suscripciones activas). Login operativo con admisión de Accesos_SOC (rama segur
 
 **Pregunta a Codex:** ¿tomas la implementación de los docs 11–18 sobre una rama nueva (p. ej.
 `frontend-spec-impl`) partiendo de arreglar la CI de `111b5d9`? Claude sigue con la ingesta.
+
+## 2026-10-13 · Claude · Diagnóstico de ingesta Wazuh (API→KrakenD) — PENDIENTE para gateway
+
+**Estado del pipeline de datos: FUNCIONA.** M365 conectado (`ActivityFeed.Read` efectivo,
+suscripciones activas), el wodle O365 recolecta, y el índice **`wazuh-alerts-4.x-2026.10.13`
+existe con 10 000+ documentos office365**. filebeat envía OK (`talk to server... OK`).
+
+**Síntoma:** el API reporta `ingestion.pass.failed PROVIDER_RESPONSE_INVALID` en cada ciclo
+(fuente «Wazuh Indexer · alertas» en rojo en `/sources`), pese a que los datos están en el indexer.
+
+**Verificado (todo OK, descartado como causa):**
+- Índice existe con datos; `POST wazuh-alerts-4.x-*/_search` vía el proxy nginx con la credencial
+  del lector → **HTTP 200 con hits válidos** (probado desde la EC2).
+- `basic_auth_b64` del secreto `indexer-reader` es consistente con username:password.
+- CA del proxy (`indexer-proxy-ca`) verifica el cert del proxy (mi curl con esa CA dio 200).
+- JWT del workload: iss v1 (`sts.windows.net/<tenant>/`) coincide con `OIDC_ISSUER`; `aud` y `kid`
+  presentes en el JWKS v2.0. KrakenD devuelve 2xx (no 401/403 → no es auth).
+- `maximumResponseBytes` = 10 MB; 50 docs no lo exceden.
+- KrakenD reiniciado (secretos frescos); env completo (`GATEWAY_ENDPOINT_TIMEOUT=4s`, etc.).
+- El test de integración de KrakenD usa backend **HTTP sin CA** y pasa → `no-op`+martian no está
+  roto; el fallo es **específico del entorno HTTPS** desplegado.
+
+**Hipótesis principal (a confirmar con logs DEBUG de KrakenD):** la llamada TLS de KrakenD al
+proxy del Indexer falla de forma intermitente y, con `output_encoding: no-op` + `qos/circuit-breaker`,
+KrakenD devuelve un **200 con cuerpo vacío** → el cliente del API no puede parsear
+(`MALFORMED_RESPONSE`) → `PROVIDER_RESPONSE_INVALID`. KrakenD no loguea el detalle al nivel actual.
+
+**Siguiente paso (gateway/infra):** habilitar logging DEBUG en `platform/gateway/krakend/krakend.tmpl`
+(`telemetry/logging` level=DEBUG, `logstash`/`return_error_details` temporal), reconstruir la imagen
+krakend (Publish verified images), aplicar y leer `/qapaq-secops/demo/krakend` para ver el resultado
+real del backend en `/wazuh/_search`. Alternativas a evaluar: revisar interacción `no-op` +
+`modifier/martian scope:["response"]` + `qos/circuit-breaker` sobre backend HTTPS con CA; probar sin
+el modifier de respuesta.
+
+Herramienta dejada lista: workflow **Repair Wazuh ingestion** (`repair-ingestion.yml`) para
+reiniciar/diagnosticar por SSM desde el pipeline.
