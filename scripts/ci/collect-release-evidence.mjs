@@ -191,7 +191,7 @@ function run(check) {
 
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 const blocked = JSON.parse(
-  readFileSync(resolve(root, 'docs/project-management/c-22/blocked-gates.json'), 'utf8'),
+  readFileSync(resolve(root, 'docs/reference/release-gates/blocked-gates.json'), 'utf8'),
 ).items;
 
 const items = [...CHECKS.map(run), ...blocked];
@@ -212,7 +212,7 @@ const evidence = buildReleaseEvidence(
   items,
 );
 
-const directory = resolve(root, 'docs/project-management/c-22');
+const directory = resolve(root, 'docs/reference/release-gates');
 mkdirSync(directory, { recursive: true });
 writeFileSync(
   resolve(directory, 'release-evidence.json'),

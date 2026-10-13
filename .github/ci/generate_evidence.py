@@ -84,7 +84,7 @@ def main() -> None:
             "finding_counts": "not exported by source workflow",
         },
         "repository-policy.json": json.loads(
-            (REPO_ROOT / "docs/project-management/c-09/repository-policy.json").read_text(encoding="utf-8")
+            (REPO_ROOT / "docs/reference/repository-policy.json").read_text(encoding="utf-8")
         ),
     }
     for name, value in data.items():

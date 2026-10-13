@@ -40,7 +40,7 @@ OpenSearch requiere completar su configuración TLS aprobada. Wazuh requiere
 ejecutar Compose oficial con capacidad suficiente; esos perfiles permanecen
 `BLOCKED`.
 
-Las imágenes y tags provienen de la baseline de [toolchain y capacidad](../../docs/architecture/toolchain-and-capacity.md)
+Las imágenes y tags provienen de la baseline de [toolchain y capacidad](../../docs/reference/toolchain-and-capacity.md)
 y se declaran en `integration-environment.lock.json`. El perfil `postgres`
 requiere su digest fijado y verificado. Los perfiles que aún tengan digests
 `null` no producen evidencia reproducible para CI.

@@ -27,7 +27,7 @@ const paginationSource = await readFile(
 const compose = await readFile(new URL('compose.yaml', root), 'utf8');
 const envExample = await readFile(new URL('.env.example', root), 'utf8');
 const inventory = await readFile(
-  new URL('../../../../docs/integrations/source-inventory.yaml', import.meta.url),
+  new URL('../../../../docs/reference/source-inventory.yaml', import.meta.url),
   'utf8',
 );
 const dashboard = JSON.parse(
