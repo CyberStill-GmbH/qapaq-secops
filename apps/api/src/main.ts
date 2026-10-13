@@ -60,6 +60,10 @@ export async function main(): Promise<void> {
     void shutdown();
   };
   try {
+    const demoMfaExceptionUntilRaw = process.env.QAPAQ_DEMO_MFA_EXCEPTION_UNTIL;
+    const demoMfaExceptionUntil = demoMfaExceptionUntilRaw
+      ? new Date(demoMfaExceptionUntilRaw)
+      : undefined;
     runtime = await buildApi(
       process.env,
       (state) => log(`application.${state}`),
@@ -81,6 +85,7 @@ export async function main(): Promise<void> {
         const code = (error as { code?: unknown } | undefined)?.code;
         log('directory.sync.failed', typeof code === 'string' ? code : 'DIRECTORY_FAILED');
       },
+      demoMfaExceptionUntil,
     );
     // Solo el modo (`memory` o `postgres`), nunca datos de conexión.
     log(`soc.persistence.${runtime.persistence}`);
