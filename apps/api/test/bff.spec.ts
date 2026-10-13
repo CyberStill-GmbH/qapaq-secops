@@ -1521,7 +1521,10 @@ describe('Sprint 5 · tareas, bitácora y timeline del incidente', () => {
 
     const notes = JSON.parse((await call('GET', `${base}/notes`)).body);
     expect(notes.totalCount).toBe(2);
-    expect(notes.items[1]).toMatchObject({ id: firstId, body: 'IP de origen 203.0.113.9.' });
+    // Dos notas en el mismo milisegundo empatan en la hora; se busca por id, no por posición.
+    expect(notes.items.find((note: { id: string }) => note.id === firstId)).toMatchObject({
+      body: 'IP de origen 203.0.113.9.',
+    });
 
     const timeline = JSON.parse((await call('GET', `${base}/timeline`)).body) as {
       transitions: string;
