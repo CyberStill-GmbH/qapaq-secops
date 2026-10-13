@@ -90,9 +90,24 @@ test('recorrido completo: evento controlado, promoción, triaje y auditoría', a
 
   await page.screenshot({ path: 'test-results/c21-triage.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
+  // Tras el cambio de viewport el layout puede tardar un frame; si persiste el desborde, el
+  // mensaje nombra los elementos que se salen para no depender de la captura.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.documentElement.scrollWidth <= window.innerWidth
+          ? 'ok'
+          : [...document.querySelectorAll('body *')]
+              .filter((element) => {
+                const box = element.getBoundingClientRect();
+                return box.right > window.innerWidth + 1 && !element.closest('[class*="table"]');
+              })
+              .slice(0, 8)
+              .map((element) => `${element.tagName}.${element.className}`)
+              .join(' | '),
+      ),
+    )
+    .toBe('ok');
   await page.screenshot({ path: 'test-results/c21-triage-mobile.png', fullPage: true });
 });
 

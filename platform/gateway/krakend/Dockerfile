@@ -1,8 +1,33 @@
-FROM krakend:3.0.0@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f
+# KrakenD CE 3.0.0 compilado desde su etiqueta oficial con Go y golang.org/x/net parcheados.
+#
+# La imagen oficial `krakend:3.0.0` trae Go 1.26.8 y x/net 0.58.0, con CVEs HIGH de denegación
+# de servicio (CVE-2026-78667, CVE-2026-78669, CVE-2026-97031). KrakenD es el borde detrás del
+# ALB público, así que esos CVEs no se ignoran: se recompila la misma versión con Go 1.26.9
+# y x/net 0.60.0. Cuando KrakenD publique una imagen corregida, se vuelve a `FROM krakend:<versión>`.
+# Pasos de compilación tomados del Dockerfile y el Makefile de krakend-ce v3.0.0 (Apache 2.0).
+
+FROM golang:1.26.9-alpine3.23@sha256:6750308561953d451210ed1a8086d36c8c8bdcbf672d38d9d0d424b8a7a0216c AS build
+ARG KRAKEND_VERSION=3.0.0
+# Commit de la etiqueta v3.0.0; si la etiqueta se moviera, la compilación falla.
+ARG KRAKEND_COMMIT=1bd4af95102cef14795f60f4201de72130fc6423
+ENV GOTOOLCHAIN=local
+RUN apk add --no-cache git make gcc musl-dev binutils-gold
+WORKDIR /src
+RUN git clone --depth 1 --branch "v${KRAKEND_VERSION}" https://github.com/krakend/krakend-ce.git . \
+  && test "$(git rev-parse HEAD)" = "${KRAKEND_COMMIT}"
+RUN go get golang.org/x/net@v0.60.0 && go mod tidy && make build GLIBC_VERSION=musl \
+  && ./krakend version
+
+FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
+RUN apk upgrade --no-cache --no-interactive && apk add --no-cache ca-certificates tzdata \
+  && adduser -u 1000 -S -D -H krakend && mkdir /etc/krakend && chown 1000:1000 /etc/krakend
+COPY --from=build /src/krakend /usr/bin/krakend
 COPY --chown=1000:1000 --chmod=0555 entrypoint.sh /usr/local/bin/qapaq-krakend-entrypoint
 USER 1000:1000
+WORKDIR /etc/krakend
 COPY --chown=1000:1000 krakend.tmpl /etc/krakend/krakend.tmpl
 ENV FC_ENABLE=1
 # El entrypoint solo materializa la CA del Indexer cuando llega como secreto (Sprint 5).
 ENTRYPOINT ["/usr/local/bin/qapaq-krakend-entrypoint"]
 CMD ["run", "-c", "/etc/krakend/krakend.tmpl"]
+EXPOSE 8080 8090
