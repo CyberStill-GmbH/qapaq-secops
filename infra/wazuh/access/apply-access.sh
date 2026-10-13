@@ -282,13 +282,21 @@ if [[ "${QAPAQ_SKIP_PROXY:-false}" != true ]]; then
   chmod 0640 "$PROXY_DIR/key.pem"; chmod 0644 "$PROXY_DIR/cert.pem"
   chgrp www-data "$PROXY_DIR" "$PROXY_DIR/key.pem" 2>/dev/null || true
 
-  # Nombre que el proxy verifica en el certificado del Indexer: el primer DNS del SAN o, si no
-  # hay, su IP. Se lee del certificado vivo para no suponer cómo lo generó el instalador.
-  upstream_san="$(openssl s_client -connect "$PROXY_UPSTREAM" </dev/null 2>/dev/null     | openssl x509 -noout -ext subjectAltName 2>/dev/null | tr ',' '
-' | sed 's/^ *//')"
-  ssl_name="$(sed -n 's/^DNS://p' <<<"$upstream_san" | head -1)"
-  [[ -n "$ssl_name" ]] || ssl_name="$(sed -n 's/^IP Address://p' <<<"$upstream_san" | head -1)"
-  [[ "$ssl_name" =~ ^[A-Za-z0-9.:-]+$ ]] || fail 'no se pudo leer el SAN del certificado del Indexer'
+  # nginx verifies DNS names (X509_check_host), not IP SANs. The all-in-one
+  # certificate has only IP:127.0.0.1 and CN=wazuh-indexer. Prefer a DNS SAN;
+  # when none exists use its CN, then verify that identity against the trusted CA.
+  upstream_cert="$work/upstream.pem"
+  openssl s_client -connect "$PROXY_UPSTREAM" </dev/null 2>/dev/null \
+    | openssl x509 -out "$upstream_cert"
+  ssl_name="$(openssl x509 -in "$upstream_cert" -noout -ext subjectAltName 2>/dev/null \
+    | tr ',' '\n' | sed -n 's/^[[:space:]]*DNS://p' | head -1)"
+  if [[ -z "$ssl_name" ]]; then
+    ssl_name="$(openssl x509 -in "$upstream_cert" -noout -subject -nameopt sep_multiline \
+      | sed -n 's/^[[:space:]]*CN[[:space:]]*=[[:space:]]*//p' | head -1)"
+  fi
+  [[ "$ssl_name" =~ ^[A-Za-z0-9.-]+$ ]] || fail 'el certificado del Indexer no tiene un nombre TLS válido'
+  openssl verify -CAfile "$INDEXER_CA" -verify_hostname "$ssl_name" "$upstream_cert" >/dev/null \
+    || fail 'no se pudo verificar la identidad TLS del Indexer'
 
   previous="$work/previous.conf"
   [[ -f "$PROXY_CONF" ]] && cp "$PROXY_CONF" "$previous"
