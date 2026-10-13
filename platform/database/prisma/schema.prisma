@@ -416,9 +416,53 @@ model SocIncident {
   revision      Int
 
   alerts SocAlert[]
+  tasks  IncidentTask[]
+  notes  IncidentNote[]
 
   @@index([tenantId, status, openedAt], map: "soc_incidents_board_idx")
   @@map("soc_incidents")
+}
+
+// Sprint 5 · fase 4 — tarea asignable del incidente. `revision` sostiene compare-and-set.
+model IncidentTask {
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Text
+  incidentId         String    @map("incident_id") @db.Uuid
+  title              String    @db.Text
+  description        String    @default("") @db.Text
+  status             String    @db.Text
+  required           Boolean
+  assigneeId         String?   @map("assignee_id") @db.Text
+  dueAt              DateTime? @map("due_at") @db.Timestamptz(3)
+  createdBy          String    @map("created_by") @db.Text
+  createdAt          DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @map("updated_at") @db.Timestamptz(3)
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz(3)
+  cancellationReason String?   @map("cancellation_reason") @db.Text
+  revision           Int
+
+  incident SocIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict, map: "incident_tasks_incident_fk")
+
+  @@index([tenantId, incidentId, createdAt(sort: Desc)], map: "incident_tasks_incident_idx")
+  @@map("incident_tasks")
+}
+
+// Sprint 5 · fase 4 — bitácora append-only; una corrección es otra fila (`correctsNoteId`).
+model IncidentNote {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Text
+  incidentId     String   @map("incident_id") @db.Uuid
+  authorId       String   @map("author_id") @db.Text
+  body           String   @db.Text
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+  correctsNoteId String?  @map("corrects_note_id") @db.Uuid
+
+  incident    SocIncident    @relation(fields: [incidentId], references: [id], onDelete: Restrict, map: "incident_notes_incident_fk")
+  corrects    IncidentNote?  @relation("NoteCorrections", fields: [correctsNoteId], references: [id], onDelete: Restrict, map: "incident_notes_corrects_fk")
+  correctedBy IncidentNote[] @relation("NoteCorrections")
+
+  @@index([tenantId, incidentId, createdAt(sort: Desc)], map: "incident_notes_incident_idx")
+  @@map("incident_notes")
 }
 
 // C-20 — intento de notificación. `client_request_id` es estable entre reintentos
@@ -449,6 +493,7 @@ model NotificationAttempt {
 // C-18/C-25 — sesiones del BFF. `idHash` es el SHA-256 del identificador de la cookie: el
 // valor original nunca se guarda.
 model AccessSession {
+  subjectOid        String?   @map("subject_oid") @db.Text
   idHash            String    @id @map("id_hash") @db.Text
   tenantId          String    @map("tenant_id") @db.Text
   subjectId         String    @map("subject_id") @db.Text
@@ -472,3 +517,130 @@ model AccessSession {
   @@index([tenantId, lastSeenAt(sort: Desc)], map: "access_sessions_tenant_seen_idx")
   @@map("access_sessions")
 }
+
+// Sprint 5 · fase 0 — cursor de ingesta por fuente, con lease y fencing (`claimId`).
+model SocIngestionCursor {
+  tenantId   String    @map("tenant_id") @db.Text
+  sourceId   String    @map("source_id") @db.Text
+  dataset    String    @db.Text
+  watermark  DateTime? @db.Timestamptz(3)
+  leaseUntil DateTime? @map("lease_until") @db.Timestamptz(3)
+  claimId    String?   @map("claim_id") @db.Uuid
+  updatedAt  DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@id([tenantId, sourceId, dataset], map: "soc_ingestion_cursors_pkey")
+  @@map("soc_ingestion_cursors")
+}
+
+// Sprint 5 · fase 0 — observación de cada pasada de ingesta; base de la salud por fuente.
+model SourcePollObservation {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Text
+  sourceId      String    @map("source_id") @db.Text
+  dataset       String    @db.Text
+  attemptedAt   DateTime  @map("attempted_at") @db.Timestamptz(3)
+  completedAt   DateTime  @map("completed_at") @db.Timestamptz(3)
+  outcome       String    @db.Text
+  recordsSeen   Int       @map("records_seen")
+  promoted      Int
+  quarantined   Int
+  newestEventAt DateTime? @map("newest_event_at") @db.Timestamptz(3)
+  errorClass    String?   @map("error_class") @db.Text
+
+  @@index([tenantId, sourceId, dataset, attemptedAt(sort: Desc)], map: "source_poll_observations_recent_idx")
+  @@map("source_poll_observations")
+}
+
+// Sprint 5 · fase 2 — bitácora append-only de la salud de cada fuente.
+model SourceHealthTransition {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Text
+  sourceId  String   @map("source_id") @db.Text
+  dataset   String   @db.Text
+  fromState String?  @map("from_state") @db.Text
+  toState   String   @map("to_state") @db.Text
+  reason    String   @db.Text
+  at        DateTime @db.Timestamptz(3)
+
+  @@index([tenantId, sourceId, dataset, at(sort: Desc)], map: "source_health_transitions_recent_idx")
+  @@map("source_health_transitions")
+}
+
+// Sprint 5 · fase 3 — estado de sincronización del padrón, con lease y enlace delta.
+model DirectorySyncState {
+  tenantId       String    @map("tenant_id") @db.Text
+  groupId        String    @map("group_id") @db.Uuid
+  deltaLink      String?   @map("delta_link") @db.Text
+  status         String    @db.Text
+  lastAttemptAt  DateTime? @map("last_attempt_at") @db.Timestamptz(3)
+  lastSuccessAt  DateTime? @map("last_success_at") @db.Timestamptz(3)
+  lastErrorClass String?   @map("last_error_class") @db.Text
+  leaseUntil     DateTime? @map("lease_until") @db.Timestamptz(3)
+  claimId        String?   @map("claim_id") @db.Uuid
+
+  @@id([tenantId, groupId], map: "directory_sync_state_pkey")
+  @@map("directory_sync_state")
+}
+
+// Sprint 5 · fase 3 — miembros del grupo de admisión (bajas como estado, no como borrado).
+model DirectoryMember {
+  tenantId       String   @map("tenant_id") @db.Text
+  groupId        String   @map("group_id") @db.Uuid
+  oid            String   @db.Uuid
+  displayName    String?  @map("display_name") @db.Text
+  upn            String?  @db.Text
+  accountEnabled Boolean? @map("account_enabled")
+  membership     String   @db.Text
+  syncedAt       DateTime @map("synced_at") @db.Timestamptz(3)
+
+  @@id([tenantId, groupId, oid], map: "directory_members_pkey")
+  @@map("directory_members")
+}
+
+// Sprint 5 · fase 3 — dueños del grupo; `active = false` cuando dejan de serlo.
+model DirectoryOwner {
+  tenantId    String   @map("tenant_id") @db.Text
+  groupId     String   @map("group_id") @db.Uuid
+  oid         String   @db.Uuid
+  displayName String?  @map("display_name") @db.Text
+  upn         String?  @db.Text
+  active      Boolean
+  syncedAt    DateTime @map("synced_at") @db.Timestamptz(3)
+
+  @@id([tenantId, groupId, oid], map: "directory_owners_pkey")
+  @@map("directory_owners")
+}
+
+// Sprint 5 · fase 2 — actividad medida por stream de la fuente (informativa).
+model SourceStreamActivity {
+  tenantId       String    @map("tenant_id") @db.Text
+  sourceId       String    @map("source_id") @db.Text
+  dataset        String    @db.Text
+  stream         String    @db.Text
+  lastEventAt    DateTime? @map("last_event_at") @db.Timestamptz(3)
+  eventsInWindow Int       @map("events_in_window")
+  windowHours    Int       @map("window_hours")
+  measuredAt     DateTime  @map("measured_at") @db.Timestamptz(3)
+
+  @@id([tenantId, sourceId, dataset, stream], map: "source_stream_activity_pkey")
+  @@map("source_stream_activity")
+}
+
+// Sprint 5 — dispositivos para avisos Web Push (sin contenido); revocar = `revokedAt`.
+model PushSubscription {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Text
+  subjectKey       String    @map("subject_key") @db.Text
+  endpoint         String    @db.Text
+  p256dh           String    @db.Text
+  auth             String    @db.Text
+  label            String    @db.Text
+  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
+  lastSuccessAt    DateTime? @map("last_success_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revocationReason String?   @map("revocation_reason") @db.Text
+
+  @@unique([tenantId, endpoint], map: "push_subscriptions_endpoint_key")
+  @@map("push_subscriptions")
+}
+

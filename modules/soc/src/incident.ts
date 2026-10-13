@@ -69,6 +69,7 @@ export const INCIDENT_ERROR_CODES = [
   'OWNER_REQUIRED',
   'CLOSURE_REASON_REQUIRED',
   'OPEN_ALERTS_PENDING',
+  'REQUIRED_TASKS_OPEN',
   'ALERT_ALREADY_ATTACHED',
   'ALERT_TENANT_MISMATCH',
 ] as const;
@@ -84,6 +85,8 @@ export interface IncidentCommand {
   readonly alert?: { readonly id: string; readonly tenantId: string; readonly triaged: boolean };
   /** Alertas aún sin triar al momento de cerrar; el caso de uso las aporta. */
   readonly untriagedAlertIds?: readonly string[];
+  /** Tareas obligatorias aún abiertas al cerrar (S5-D9); el caso de uso las aporta. */
+  readonly openRequiredTaskIds?: readonly string[];
 }
 
 export type IncidentTransition =
@@ -168,6 +171,13 @@ export function applyIncidentCommand(
       return fail(
         'OPEN_ALERTS_PENDING',
         `Quedan ${pending.length} alerta(s) sin triar: ${pending.join(', ')}.`,
+      );
+    }
+    const openTasks = command.openRequiredTaskIds ?? [];
+    if (openTasks.length > 0) {
+      return fail(
+        'REQUIRED_TASKS_OPEN',
+        `Quedan ${openTasks.length} tarea(s) obligatoria(s) sin terminar ni cancelar.`,
       );
     }
     return {

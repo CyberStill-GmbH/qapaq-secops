@@ -107,9 +107,13 @@ module "runtime" {
   image_digests           = var.runtime_image_digests
   image_manifest_commit   = var.runtime_image_manifest_commit
   desired_counts          = var.ecs_desired_counts
-  api_environment         = var.runtime_api_environment
+  api_environment         = merge(var.runtime_api_environment, local.identity_api_environment, local.notification_api_environment)
+  api_extra_secrets       = local.notification_api_secrets
   krakend_environment     = var.runtime_krakend_environment
   entra_client_secret_arn = module.application_foundations.metadata_secret_arns["entra_client_secret"]
+  # Sprint 5 · fase 0: ingesta Wazuh → SOC, activada con `wazuh_ingestion_enabled`
+  # (ver wazuh_ingestion.tf).
+  wazuh_ingestion = local.wazuh_ingestion
   # C-1: estado SOC durable, activado con `soc_database_enabled` (ver migrator.tf).
   soc_database = var.soc_database_enabled ? {
     host                      = module.database.endpoint
@@ -117,6 +121,7 @@ module "runtime" {
     database                  = module.database.database_name
     runtime_secret_arn        = module.database_migrator.runtime_secret_arn
     entity_ref_key_secret_arn = module.database_migrator.entity_ref_key_secret_arn
+    vapid_key_secret_arn      = module.database_migrator.vapid_key_secret_arn
   } : null
   health_check_grace_period_seconds = var.ecs_health_check_grace_period_seconds
 
@@ -145,5 +150,7 @@ module "wazuh_public" {
   instance_type                  = var.wazuh_instance_type
   volume_size_gb                 = var.wazuh_volume_size_gb
 
-  depends_on = [module.runtime]
+  # Sin `depends_on = [module.runtime]`: la instancia ya depende del ALB por `api_origin`, y el
+  # runtime necesita la IP privada de esta instancia para la ingesta (wazuh_ingestion.tf). Un
+  # depends_on de módulo completo crearía un ciclo.
 }

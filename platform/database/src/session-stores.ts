@@ -12,6 +12,7 @@ export interface SessionRow {
   readonly idHash: string;
   readonly tenantId: string;
   readonly subjectId: string;
+  readonly subjectOid: string | null;
   readonly displayName: string | null;
   readonly email: string | null;
   readonly state: string;
@@ -57,6 +58,13 @@ export class PrismaSessionStore {
   ): Promise<readonly SessionRow[]> {
     return this.client.accessSession.findMany({
       where: { tenantId, subjectId, state: 'active' },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+  }
+
+  public async activeByOid(tenantId: string, oid: string): Promise<readonly SessionRow[]> {
+    return this.client.accessSession.findMany({
+      where: { tenantId, subjectOid: oid.toLowerCase(), state: 'active' },
       orderBy: [{ createdAt: 'asc' }],
     });
   }

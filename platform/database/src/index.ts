@@ -41,3 +41,26 @@ export {
   type SocOutboxRow,
   type SocStores,
 } from './soc-stores.js';
+export {
+  INCIDENT_WORK_QUERY_LIMIT,
+  PrismaIncidentNoteStore,
+  PrismaIncidentTaskStore,
+  PrismaIncidentWorkQueries,
+  type IncidentNoteRow,
+  type IncidentTaskRow,
+} from './incident-work-stores.js';
+export {
+  PrismaIngestionStateStore,
+  type IngestionCursorKeyRow,
+  type SourceHealthTransitionRow,
+  type StreamActivityRow,
+  type SourcePollObservationRow,
+} from './ingestion-stores.js';
+export {
+  DIRECTORY_QUERY_LIMIT,
+  PrismaDirectoryStore,
+  type DirectoryCycleRow,
+  type DirectoryMemberRow,
+  type DirectoryPersonRow,
+  type DirectorySyncStateRow,
+} from './directory-stores.js';

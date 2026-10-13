@@ -134,6 +134,20 @@ describe.skipIf(!databaseUrl)('C-1 · roles de mínimo privilegio', () => {
     await expect(run(runtimeUrl, 'SELECT count(*) FROM _prisma_migrations')).resolves.toBeDefined();
   });
 
+  it('la bitácora de incidente es append-only también por permiso (S5-D8)', async () => {
+    await expect(run(runtimeUrl, 'SELECT count(*) FROM incident_notes')).resolves.toBeDefined();
+    await expect(run(runtimeUrl, "UPDATE incident_notes SET body = 'x'")).rejects.toThrow(
+      /permission/iu,
+    );
+    await expect(run(runtimeUrl, 'SELECT count(*) FROM incident_tasks')).resolves.toBeDefined();
+    await expect(
+      run(runtimeUrl, "UPDATE source_health_transitions SET reason = 'X'"),
+    ).rejects.toThrow(/permission/iu);
+    await expect(
+      run(runtimeUrl, 'SELECT count(*) FROM source_poll_observations'),
+    ).resolves.toBeDefined();
+  });
+
   it('ninguno de los dos roles puede crear roles ni bases', async () => {
     const attributes = await run(
       adminUrl,

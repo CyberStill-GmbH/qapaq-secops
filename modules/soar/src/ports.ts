@@ -9,6 +9,7 @@
 import type { OutboxMessageDraft } from '@qapaq/soc';
 
 import type { NotificationAttempt, NotificationChannel } from './notification.js';
+import type { NotificationRecipient } from './notification-routing.js';
 
 export interface OutboxReader {
   claimPending(limit: number, now: Date): Promise<readonly OutboxMessageDraft[]>;
@@ -34,11 +35,19 @@ export interface AttemptStore {
 
 export interface FallbackNotification {
   readonly tenantId: string;
+  readonly aggregateType: 'alert' | 'incident';
   readonly aggregateId: string;
   readonly title: string;
   readonly severity: string;
   readonly reason: string;
   readonly at: Date;
+  /**
+   * Personas del SOC que debían recibir el aviso en Teams (Sprint 5): el respaldo por correo se
+   * dirige a ellas. Vacío si no hay padrón.
+   */
+  readonly recipients?: readonly NotificationRecipient[];
+  /** Enlace a QAPAQ para abrir el recurso (requiere sesión). */
+  readonly link?: string;
 }
 
 export interface FallbackChannel {

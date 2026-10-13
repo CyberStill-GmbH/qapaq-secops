@@ -83,6 +83,8 @@ function incidentView(incident: Incident) {
 
 /** Filtro de estado de alertas: `open` (y su alias histórico `active`) o un estado real. */
 const ALERT_STATUS_FILTERS: readonly string[] = ['open', 'active', ...ALERT_STATUSES];
+/** Tope de alertas vinculadas que se resuelven por incidente en una consulta. */
+const LINKED_ALERT_LIMIT = 200;
 /** Incidentes `active`: todo lo que todavía requiere trabajo. */
 const ACTIVE_INCIDENT_STATUSES: readonly IncidentStatus[] = INCIDENT_STATUSES.filter(
   (status) => status !== 'resolved' && status !== 'closed',
@@ -235,6 +237,51 @@ export class SocController {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
     return { correlationId, incident: incidentView(incident) };
+  }
+
+  /**
+   * Alertas vinculadas a un incidente, con la misma proyección redactada que `GET /alerts`,
+   * para que la consola no tenga que pedirlas una por una. Exige `incidents.read` y
+   * `alerts.read`; sin alguna de las dos responde igual que un incidente inexistente.
+   * Una sola consulta por tenant e incidente: las `LINKED_ALERT_LIMIT` más recientes y el
+   * total real; `truncated` avisa si había más y `totalCount` es siempre el total real, no
+   * el de la página. `unavailableCount` cuenta los ids que el incidente declara y que no se
+   * pudieron leer en el tenant; nunca se describen.
+   */
+  @Get('incidents/:id/alerts')
+  public async incidentAlerts(
+    @Req() request: IncomingRequest,
+    @Param('id') id: string,
+    @Query() query: PageQuery,
+  ) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
+    if (!actor.capabilities.has('incidents.read') || !actor.capabilities.has('alerts.read')) {
+      throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
+    }
+    const incident = await this.runtime.soc.incidentById(actor.tenantId, id);
+    if (!incident) throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
+    const linked = await this.runtime.soc.listIncidentAlerts(
+      actor.tenantId,
+      incident.id,
+      LINKED_ALERT_LIMIT,
+    );
+    const declared = new Set(incident.alertIds).size;
+    const page = paginate(
+      linked.items,
+      (alert) => ({ at: alert.occurredAt.getTime(), id: alert.id }),
+      query,
+      `incident-alerts:${incident.id}`,
+      correlationId,
+    );
+    return {
+      correlationId,
+      incidentId: incident.id,
+      items: page.items.map((alert) => alertView(alert, actor.capabilities)),
+      nextCursor: page.nextCursor,
+      totalCount: linked.total,
+      unavailableCount: Math.max(declared - linked.total, 0),
+      truncated: linked.total > linked.items.length,
+    };
   }
 
   @Get('incidents')

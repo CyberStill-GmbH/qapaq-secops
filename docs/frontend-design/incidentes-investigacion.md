@@ -1,107 +1,92 @@
 # Investigación de incidentes en QAPAQ
 
-**Estado:** primera capa conectada; workbench de investigación pendiente de backend.
-**Revisado:** 2026-10-12. Este documento separa estado implementado de diseño objetivo.
+**Estado:** primera entrega de investigación operativa conectada a API.
+**Revisado:** 2026-10-12. Fuente de contratos: [inventario de backend](01-inventario-backend.md#141-tareas-bitácora-y-timeline-del-incidente-sprint-5--fase-4).
 
-## Qué hace la vista actual
+## Decisión de arquitectura
 
-`/incidents` permite buscar y paginar incidentes, abrir el detalle, leer severidad,
-propietario, resumen, alertas vinculadas y estado; los usuarios autorizados pueden avanzar
-el lifecycle. Desde el detalle, la UI carga los registros de alertas referenciados por el
-incidente (`GET /api/alerts/:id`) y, cuando la sesión incluye `audit.read`, consulta
-`GET /api/audit/events` filtrando por recurso `incident` y su ID. El historial usa el
-cursor del BFF. El botón de cierre requiere confirmar los veredictos de todas las alertas
-vinculadas cargadas; el BFF/dominio conserva la validación autoritativa.
+`Incident` es el caso canónico. No se crea una entidad `Case` paralela: duplicaría
+asignación, estados y auditoría. Una alerta pertenece a un incidente como máximo. Wazuh
+sigue siendo la autoridad de telemetría, alertas y reglas; QAPAQ registra la investigación,
+el trabajo asignado y las decisiones humanas. `contained` y `eradicated` describen el estado
+del incidente en QAPAQ y no confirman una acción ejecutada por Wazuh, Entra o un endpoint.
 
-Los estados `contained` y `eradicated` describen el registro del incidente en QAPAQ. No
-prueban ejecución en Wazuh, Entra, EDR ni hosts. Esta vista no ejecuta respuestas externas.
+## Flujo disponible
 
-## Resultado de investigar plataformas SOC abiertas
+`/incidents` ofrece lista, filtros por estado y búsqueda; su detalle enlaza alertas mediante
+una lectura paginada por cursor. El workbench tiene cuatro pestañas: Resumen, Tareas,
+Bitácora y Timeline.
 
-La referencia de gestión de casos de TheHive estructura una investigación con alertas,
-observables, tareas asignadas, TTPs/ATT&CK y adjuntos; sus tareas documentan acciones,
-observaciones y decisiones mediante logs y permiten exigir tareas antes del cierre. La
-documentación de DFIR-IRIS describe un registro de caso colaborativo con assets, IOCs,
-tareas, evidencia, timeline, access control y reportes. Wazuh Dashboard se enfoca en
-telemetría, detección y consultas; la investigación de caso y su cadena de decisiones
-necesitan un plano complementario como QAPAQ.
+- **Tareas:** creación, responsable, vencimiento, indicador obligatoria y transiciones
+  `start`, `complete`, `reopen`, `cancel` y `assign`. Cancelar una tarea obligatoria exige
+  motivo. El cierre permanece bloqueado mientras haya tareas obligatorias abiertas o la
+  vista no haya podido consultarlas; el backend aplica la guarda autoritativa.
+- **Bitácora:** notas append-only. «Corregir» crea otra nota con `correctsNoteId`; no se
+  editan ni borran notas. El autor aparece como «Tú» para la sesión actual o como ID abreviado
+  si no hay directorio disponible.
+- **Timeline:** combina apertura/cierre, alertas vinculadas, tareas, notas y transiciones
+  auditadas. En alertas distingue `at` (hora de la fuente) de `recordedAt` (alta en QAPAQ).
+  Si las transiciones no son legibles o el historial es parcial, la UI declara ese límite.
+- **Actualización en vivo:** `/api/changes` long-poll pausa cuando la pestaña está oculta.
+  Las vistas recargan el recurso afectado, muestran «Dato nuevo entrando» y animan filas
+  durante 200 ms; se respeta `prefers-reduced-motion`.
+- **Cierre:** requiere motivo, revisión de todas las alertas vinculadas y veredicto en cada
+  una; también exige cero tareas obligatorias abiertas. La UI falla cerrada si el listado está
+  truncado, hay vínculos no disponibles o la API de tareas no responde.
 
-Referencias primarias:
+## Acceso por rol runtime
 
-- [TheHive: About Cases](https://docs.strangebee.com/thehive/user-guides/analyst-corner/cases/about-cases/)
-- [TheHive: About Tasks](https://docs.strangebee.com/thehive/user-guides/analyst-corner/tasks/about-tasks/)
-- [DFIR-IRIS: documentación de la plataforma](https://docs.dfir-iris.org/)
-- [DFIR-IRIS: API v2](https://docs.dfir-iris.org/latest/_static/iris_api_reference_v2.1.0.html)
-- [Wazuh Dashboard: repositorio y licencia](https://github.com/wazuh/wazuh-dashboard)
-- [DFIR-IRIS: licencia y avisos de seguridad](https://github.com/dfir-iris/iris-web/security)
+La UI usa capabilities de la sesión; el servidor vuelve a autorizar cada lectura y mutación.
 
-La dirección adecuada para QAPAQ es adaptar capacidades y límites al monolito modular,
-no copiar una aplicación ni incrustar código ajeno. DFIR-IRIS declara LGPL-3.0; el
-repositorio de plantillas de TheHive declara AGPL-3.0; Wazuh Dashboard declara Apache-2.0.
-La licencia de la función que se toma debe verificarse en su archivo y versión exacta,
-con atribución y obligaciones aplicables antes de redistribuir derivados. Además, los
-avisos publicados para DFIR-IRIS (incluidos autorización, CSRF y cargas de archivo) son
-razón adicional para usarlo como referencia funcional y mantener revisiones de seguridad
-propias, no para transplantar código sin una auditoría.
-
-## Composición por rol
-
-Solo existen hoy los cuatro roles runtime de `modules/access/src/capabilities.ts`:
-
-| Rol runtime | Investigación disponible | Límite efectivo |
+| Rol runtime | Investigar | Límite |
 | --- | --- | --- |
-| `qapaq.soc.analyst` | Consultar incidente y alertas; operar comandos de incidente permitidos; revisar resumen y fases. | No tiene `audit.read` ni cierre. No hay tareas ni notas colaborativas. |
-| `qapaq.soc.lead` | Capacidades de analista, historial de auditoría, cierre y despacho de notificaciones. | No convierte un cambio de estado en respuesta ejecutada en infraestructura. |
-| `qapaq.auditor` | Incidente en lectura y verificación/consulta de auditoría conforme a su sesión. | Sin acciones mutantes de incidentes, alertas o notificaciones. |
-| `qapaq.platform.admin` | Unión explícita actual: lectura/escritura/cierre SOC, observabilidad, sesiones y secretos. | No es Access Admin; no obtiene padrón de Entra ni gestión de grants. |
+| `qapaq.soc.analyst` | Leer alertas/incidentes, operar transiciones permitidas, escribir tareas y notas. | No tiene cierre ni lectura de transiciones de auditoría. |
+| `qapaq.soc.lead` | Funciones de analista, `incidents.close`, `audit.read`; lectura raw/eventos según sesión. | El cierre sigue sujeto a alertas con veredicto y tareas requeridas. |
+| `qapaq.auditor` | Lectura de incidente y auditoría según sesión. | Sin escritura de tareas/notas ni transiciones operativas. |
+| `qapaq.platform.admin` | Unión explícita de capabilities SOC que entregue su sesión. | El nombre «admin» no permite saltar aislamiento de tenant/caso ni sustituye capabilities. |
 
-Los roles de producto `SOC_L1`, `SOC_L2`, `SOC_MANAGER` y `DETECTION_ENGINEER` figuran
-en ADR-017 y la matriz objetivo, pero no se emiten en el runtime. No se les asigna una
-pantalla o permiso ejecutable hasta que access publique grants/scopes y pruebas allow/deny.
-Dirección propuesta: L1 trabaja triage y tareas acotadas; L2 lleva investigación y evidencia
-con permisos separados; SOC Manager supervisa asignación, escalamiento y reportes; Detection
-Engineer relaciona señales y versiones de reglas sin obtener administración de casos ni
-respuesta técnica por defecto.
+No hay bundles runtime `SOC_L1`, `SOC_L2`, `SOC_MANAGER` ni `DETECTION_ENGINEER`.
+Las personas y permisos futuros siguen siendo propuestas hasta implementarse y probarse en
+el catálogo y en servidor.
 
-## Brechas funcionales y contratos requeridos
+## Referencias SOC abiertas
 
-Estas capacidades no están implementadas por la vista actual ni deben mostrarse como
-controles activos:
+La selección adapta conceptos y contratos; no copia código, assets ni la UI de terceros.
 
-1. **Trabajo asignable:** entidades de tarea con responsable, estado, prioridad, fecha,
-   requisito/criterio, notas de actividad y auditoría. Cerrar solo si las tareas
-   obligatorias están completas o se registró excepción autorizada.
-2. **Bitácora de analista:** notas append-only con actor, hora, revisión, visibilidad y
-   referencia a evidencia/evento; correcciones como nuevos eventos, no edición silenciosa.
-3. **Timeline de caso:** consulta paginada que combine transiciones y acciones auditadas,
-   alertas/eventos asociados y notas/evidencia con tipo, timestamp de origen/recepción,
-   actor y correlation ID; mantener orden estable y distinguir tiempo del proveedor de
-   tiempo de registro.
-4. **Observables y activos:** IP, dominio, identidad y hash tipados, con normalización,
-   enmascaramiento, scope de tenant, procedencia y pivotes autorizados. Una coincidencia
-   no prueba que dos casos sean el mismo incidente.
-5. **Evidencia:** carga desde el BFF con límites de tamaño/tipo, cuarentena de archivo,
-   SHA-256, metadata mínima, almacenamiento versionado, eventos de custodia inmutables,
-   clasificación, retención/hold y reevaluación de autorización al descargar.
-6. **Informes:** exportación asíncrona con ventana, alcance, manifiesto, hash, expiración,
-   propósito y capability de export separada de lectura.
-7. **Respuesta externa:** playbook versionado, dry-run, permisos por destino, idempotencia,
-   aprobación/step-up por riesgo, resultado comprobable del proveedor, estado ambiguo,
-   rollback cuando exista y audit event. No inferir remediación de `incidents.write`.
+- [TheHive: casos](https://docs.strangebee.com/thehive/user-guides/analyst-corner/cases/about-cases/),
+  [tareas](https://docs.strangebee.com/thehive/user-guides/analyst-corner/tasks/about-tasks/) y
+  [observables](https://docs.strangebee.com/thehive/user-guides/analyst-corner/cases/observables/about-observables/):
+  trabajo asignable, logs de tarea y pivotes; verificar edición/capability antes de adoptar
+  funciones dependientes de producto.
+- [DFIR-IRIS docs](https://docs.dfir-iris.org/) y repositorios
+  [`iris-web`](https://github.com/dfir-iris/iris-web) /
+  [`iris-backend`](https://github.com/dfir-iris/iris-backend): casos colaborativos, tareas,
+  evidencia, timeline y reportes. Revisar la licencia exacta del tag y avisos de seguridad
+  antes de usar una dependencia o código.
+- [Wazuh: alert management](https://documentation.wazuh.com/current/user-manual/manager/alert-management.html)
+  y [API](https://documentation.wazuh.com/current/user-manual/api/index.html): Wazuh conserva
+  el ownership de alertas, agentes y reglas.
+- [Shuffle](https://github.com/Shuffle/Shuffle) sirve como referencia futura de workflows,
+  no de registro de caso ni cadena de custodia. La respuesta externa no forma parte de este
+  workbench.
 
-Antes de habilitarlas, el backend debe decidir si incidente sigue siendo el contenedor de
-investigación o si se separa `Case`; resolver U-008 para vínculos, publicar capabilities
-específicas de tarea/nota/IOC/evidencia/export, scopes por recurso y auditoría, persistencia,
-migración/retención, límites/paginación y pruebas tenant-cross/deny/CSRF/concurrencia.
-El contrato objetivo vive en `docs/architecture/data-model-mer.md`, ADR-017, ADR-018,
-ADR-024 y U-008.
+## Brechas restantes
 
-## Entrega
+| Capacidad | Estado y gate |
+| --- | --- |
+| Observables normalizados/correlación | No hay entidad QAPAQ dedicada ni enriquecimiento externo. Se muestran únicamente entidades que ya vienen en las alertas. |
+| Evidencia y cadena de custodia | Bloqueada: el demo no tiene almacenamiento privado de objetos. No aceptar bytes en disco local ni PostgreSQL. Requiere storage seguro, SHA-256, eventos append-only, límites, retención y pruebas de integridad. |
+| Métricas de cola e informes | Pendiente de contrato de métricas/series, definición de período, permisos y procedencia. No inferir cifras desde una página incompleta. |
+| Respuesta externa | Futura. Requiere motor duradero, allowlist, aprobación humana, idempotencia, resultado confirmado y auditoría. Un comando de incidente no ejecuta contención. |
 
-| Etapa | Resultado | Estado |
-| --- | --- | --- |
-| UI base | Alertas vinculadas más actividad auditada en detalle; acceso limitado por capabilities; guardia visible de cierre. | Implementada en esta entrega sobre rutas existentes. |
-| Contrato de investigación | Timeline unificada, tareas, bitácora, observables y assets persistentes. | Backend required; asignar C-xx tras cerrar U-008 y RBAC. |
-| Custodia y reportes | Evidencia inmutable, exportación gobernada y reportes con procedencia. | Backend required; requiere ADR/retención y pruebas integrales. |
-| SOAR | Ejecución externa verificable y controles por riesgo. | Futuro; dispatcher de notificaciones no lo satisface. |
+El software facilita evidencia y proceso; no certifica cumplimiento SBS/ISO ni sustituye la
+validación institucional de alcance, retención y controles.
 
+## Entrega Sprint 5
+
+| Etapa | Estado |
+| --- | --- |
+| I-1: alertas, tareas, notas, timeline y audit trail | Contrato backend LISTO; frontend conectado en este cambio; queda revisión estática de Claude y aceptación de release. |
+| I-2: observables | Diferido; reutiliza por ahora `AlertView.entities[]` sin catálogo ni enriquecimiento. |
+| I-3: evidencia | Bloqueada por falta de object storage privado y política de retención. |
+| I-4: métricas/reportes | Pendiente de API de métricas y diseño del reporte auditable. |

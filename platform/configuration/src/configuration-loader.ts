@@ -14,6 +14,10 @@ import { selectProfile } from './profiles/index.js';
 import { rejectUnknownQapaqVariables } from './schema/environment.schema.js';
 import { parseAccess, type AccessConfig } from './schema/access.schema.js';
 import { parseDetectionContext, type DetectionContextConfig } from './schema/detection.schema.js';
+import { parseIngestionConfig, type IngestionConfig } from './schema/ingestion.schema.js';
+import { parseRoleGrants, type RoleGrantsConfig } from './schema/role-grants.schema.js';
+import { parseDirectoryConfig, type DirectoryConfig } from './schema/directory.schema.js';
+import { parseAlertMailSender, parseTeamsWorkflowUrl } from './schema/notifications.schema.js';
 import {
   parseApi,
   parseControlPlaneSecretConfig,
@@ -152,6 +156,48 @@ export function loadEntityRefKey(environment: EnvironmentInput): SecretValue | u
 export function loadDetectionContextConfig(environment: EnvironmentInput): DetectionContextConfig {
   const profile = profileFrom(environment);
   return deepFreeze(parseDetectionContext(environment, profile));
+}
+
+/** Sprint 5 · fase 0 — fuente de ingesta del SOC; `disabled` si el ambiente no la declara. */
+export function loadIngestionConfig(environment: EnvironmentInput): IngestionConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseIngestionConfig(environment, profile));
+}
+
+/** Sprint 5 — roles concedidos por el deploy (asignaciones y dueños del grupo). */
+export function loadRoleGrantsConfig(environment: EnvironmentInput): RoleGrantsConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseRoleGrants(environment, profile));
+}
+
+/** Sprint 5 · fase 3 — sincronización del padrón; `disabled` si el ambiente no la declara. */
+export function loadDirectoryConfig(environment: EnvironmentInput): DirectoryConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseDirectoryConfig(environment, profile));
+}
+
+/** Sprint 5 — URL del Teams Workflow (secreto); `undefined` si el ambiente no la declara. */
+export function loadTeamsWorkflowUrl(environment: EnvironmentInput): string | undefined {
+  return parseTeamsWorkflowUrl(environment, profileFrom(environment));
+}
+
+/** Sprint 5 — buzón remitente del respaldo por correo; `undefined` = solo consola. */
+export function loadAlertMailSender(environment: EnvironmentInput): string | undefined {
+  return parseAlertMailSender(environment, profileFrom(environment));
+}
+
+/**
+ * Sprint 5 — clave privada VAPID para Web Push (`QAPAQ_VAPID_PRIVATE_KEY`, PKCS#8 en base64,
+ * desde Secrets Manager). `undefined` si el ambiente no la declara: el push queda deshabilitado.
+ */
+export function loadVapidPrivateKey(environment: EnvironmentInput): SecretValue | undefined {
+  const profile = profileFrom(environment);
+  const value = environment['QAPAQ_VAPID_PRIVATE_KEY'];
+  if (value === undefined || value === '') return undefined;
+  if (!/^[A-Za-z0-9+/=]{100,400}$/u.test(value)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_VAPID_PRIVATE_KEY', profile.name);
+  }
+  return new SecretValue(value);
 }
 
 /** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */

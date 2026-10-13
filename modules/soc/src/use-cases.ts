@@ -31,6 +31,16 @@ import {
   type IncidentErrorCode,
   type IncidentSeverity,
 } from './incident.js';
+import {
+  applyTaskCommand,
+  blocksClosure,
+  createNote,
+  createTask,
+  type IncidentNote,
+  type IncidentTask,
+  type TaskCommand,
+  type TaskErrorCode,
+} from './incident-work.js';
 import { alertEvent, incidentEvent, toOutboxMessage, type SocDomainEvent } from './events.js';
 import type { SocTransactionContext, SocUnitOfWork } from './ports.js';
 
@@ -58,7 +68,9 @@ function failure(code: SocFailureCode, reason: string, detail: string): SocResul
   return { ok: false, code, reason, detail };
 }
 
-function mapTransitionCode(code: AlertErrorCode | IncidentErrorCode): SocFailureCode {
+function mapTransitionCode(
+  code: AlertErrorCode | IncidentErrorCode | TaskErrorCode,
+): SocFailureCode {
   return code === 'REVISION_STALE' ? 'CONFLICT' : 'INVALID_COMMAND';
 }
 
@@ -427,7 +439,10 @@ export interface IncidentCommandRequest {
   readonly actor: Actor;
   readonly incidentId: string;
   readonly correlationId: string;
-  readonly command: Omit<IncidentCommand, 'actorId' | 'at' | 'untriagedAlertIds'>;
+  readonly command: Omit<
+    IncidentCommand,
+    'actorId' | 'at' | 'untriagedAlertIds' | 'openRequiredTaskIds'
+  >;
 }
 
 export async function executeIncidentCommand(
@@ -467,11 +482,16 @@ export async function executeIncidentCommand(
     if (!incident) return failure('NOT_FOUND', 'INCIDENT_NOT_FOUND', 'El caso no existe.');
 
     const linked = await context.alerts.byIncident(incident.tenantId, incident.id);
+    const tasks =
+      request.command.name === 'close'
+        ? await context.tasks.byIncident(incident.tenantId, incident.id)
+        : [];
     const transition = applyIncidentCommand(incident, {
       ...request.command,
       actorId: request.actor.subjectId,
       at,
       untriagedAlertIds: linked.filter((alert) => alert.verdict === null).map((alert) => alert.id),
+      openRequiredTaskIds: tasks.filter(blocksClosure).map((task) => task.id),
     });
     if (!transition.ok) {
       await recordAudit(
@@ -531,3 +551,279 @@ export async function executeIncidentCommand(
 }
 
 export type { TriageVerdict };
+
+/* ------------------------------------------------- Trabajo del incidente (S5-D8) */
+
+interface IncidentWorkScope {
+  readonly actor: Actor;
+  readonly incidentId: string;
+  readonly correlationId: string;
+}
+
+/**
+ * Autoriza y carga el incidente para una operación de tareas o notas. Un incidente cerrado
+ * no admite trabajo nuevo: primero se reabre, y eso queda auditado. El rechazo por permiso
+ * se audita como `denied`; hacia afuera, el inexistente responde igual.
+ */
+async function incidentForWork(
+  dependencies: SocDependencies,
+  context: SocTransactionContext,
+  scope: IncidentWorkScope,
+  capability: 'incidents.tasks.write' | 'incidents.notes.write',
+  action: string,
+  at: Date,
+): Promise<SocResult<Incident>> {
+  const incident = await context.incidents.byId(scope.actor.tenantId, scope.incidentId);
+  const decision = authorize({
+    actor: scope.actor,
+    capability,
+    resource: {
+      type: 'incident',
+      id: scope.incidentId,
+      tenantId: incident?.tenantId ?? scope.actor.tenantId,
+      closed: incident?.status === 'closed',
+    },
+    rejectWhenClosed: true,
+  });
+  if (!decision.allowed) {
+    await recordAudit(
+      context.audit,
+      auditDraft({
+        id: dependencies.ids.next(),
+        actor: scope.actor,
+        action,
+        resource: { type: 'incident', id: scope.incidentId },
+        outcome: 'denied',
+        correlationId: scope.correlationId,
+        at,
+        reason: decision.reason,
+      }),
+    );
+    return failure('FORBIDDEN', decision.reason, decision.detail);
+  }
+  if (!incident) return failure('NOT_FOUND', 'INCIDENT_NOT_FOUND', 'El caso no existe.');
+  return { ok: true, value: incident };
+}
+
+async function auditWorkFailure(
+  dependencies: SocDependencies,
+  context: SocTransactionContext,
+  scope: IncidentWorkScope,
+  action: string,
+  resource: { readonly type: string; readonly id: string },
+  at: Date,
+  code: TaskErrorCode,
+  detail: string,
+): Promise<SocResult<never>> {
+  await recordAudit(
+    context.audit,
+    auditDraft({
+      id: dependencies.ids.next(),
+      actor: scope.actor,
+      action,
+      resource,
+      outcome: 'failed',
+      correlationId: scope.correlationId,
+      at,
+      reason: code,
+      metadata: { detail, incidentId: scope.incidentId },
+    }),
+  );
+  return failure(mapTransitionCode(code), code, detail);
+}
+
+export interface CreateTaskRequest extends IncidentWorkScope {
+  readonly title: string;
+  readonly description?: string;
+  readonly required: boolean;
+  readonly assigneeId?: string | null;
+  readonly dueAt?: Date | null;
+}
+
+export async function createIncidentTask(
+  dependencies: SocDependencies,
+  request: CreateTaskRequest,
+): Promise<SocResult<IncidentTask>> {
+  const at = dependencies.clock.now();
+  const action = 'soc.incident.task.created';
+  return dependencies.unitOfWork.run(async (context) => {
+    const loaded = await incidentForWork(
+      dependencies,
+      context,
+      request,
+      'incidents.tasks.write',
+      action,
+      at,
+    );
+    if (!loaded.ok) return loaded;
+    const created = createTask({
+      id: dependencies.ids.next(),
+      tenantId: loaded.value.tenantId,
+      incidentId: loaded.value.id,
+      title: request.title,
+      ...(request.description === undefined ? {} : { description: request.description }),
+      required: request.required,
+      ...(request.assigneeId === undefined ? {} : { assigneeId: request.assigneeId }),
+      ...(request.dueAt === undefined ? {} : { dueAt: request.dueAt }),
+      createdBy: request.actor.subjectId,
+      at,
+    });
+    if (!created.ok) {
+      return auditWorkFailure(
+        dependencies,
+        context,
+        request,
+        action,
+        { type: 'incident', id: loaded.value.id },
+        at,
+        created.code,
+        created.detail,
+      );
+    }
+    await context.tasks.insert(created.value);
+    await recordAudit(
+      context.audit,
+      auditDraft({
+        id: dependencies.ids.next(),
+        actor: request.actor,
+        action,
+        resource: { type: 'incident_task', id: created.value.id },
+        outcome: 'succeeded',
+        correlationId: request.correlationId,
+        at,
+        metadata: { incidentId: loaded.value.id, required: created.value.required },
+      }),
+    );
+    return { ok: true as const, value: created.value };
+  });
+}
+
+export interface TaskCommandRequest extends IncidentWorkScope {
+  readonly taskId: string;
+  readonly command: Omit<TaskCommand, 'at'>;
+}
+
+export async function executeTaskCommand(
+  dependencies: SocDependencies,
+  request: TaskCommandRequest,
+): Promise<SocResult<IncidentTask>> {
+  const at = dependencies.clock.now();
+  const action = `soc.incident.task.${request.command.name}`;
+  return dependencies.unitOfWork.run(async (context) => {
+    const loaded = await incidentForWork(
+      dependencies,
+      context,
+      request,
+      'incidents.tasks.write',
+      action,
+      at,
+    );
+    if (!loaded.ok) return loaded;
+    const task = await context.tasks.byId(loaded.value.tenantId, request.taskId);
+    if (!task || task.incidentId !== loaded.value.id) {
+      return failure('NOT_FOUND', 'TASK_NOT_FOUND', 'La tarea no existe en este caso.');
+    }
+    const transition = applyTaskCommand(task, { ...request.command, at });
+    if (!transition.ok) {
+      return auditWorkFailure(
+        dependencies,
+        context,
+        request,
+        action,
+        { type: 'incident_task', id: task.id },
+        at,
+        transition.code,
+        transition.detail,
+      );
+    }
+    if (!(await context.tasks.update(transition.value, task.revision))) {
+      return failure('CONFLICT', 'REVISION_STALE', 'Otra escritura modificó la tarea.');
+    }
+    const reason = request.command.reason?.trim();
+    await recordAudit(
+      context.audit,
+      auditDraft({
+        id: dependencies.ids.next(),
+        actor: request.actor,
+        action,
+        resource: { type: 'incident_task', id: task.id },
+        outcome: 'succeeded',
+        correlationId: request.correlationId,
+        at,
+        ...(reason ? { reason } : {}),
+        metadata: { incidentId: loaded.value.id, from: task.status, to: transition.value.status },
+      }),
+    );
+    return { ok: true as const, value: transition.value };
+  });
+}
+
+export interface AddNoteRequest extends IncidentWorkScope {
+  readonly body: string;
+  readonly correctsNoteId?: string | null;
+}
+
+export async function addIncidentNote(
+  dependencies: SocDependencies,
+  request: AddNoteRequest,
+): Promise<SocResult<IncidentNote>> {
+  const at = dependencies.clock.now();
+  const action = 'soc.incident.note.added';
+  return dependencies.unitOfWork.run(async (context) => {
+    const loaded = await incidentForWork(
+      dependencies,
+      context,
+      request,
+      'incidents.notes.write',
+      action,
+      at,
+    );
+    if (!loaded.ok) return loaded;
+    if (request.correctsNoteId) {
+      const corrected = await context.notes.byId(loaded.value.tenantId, request.correctsNoteId);
+      if (!corrected || corrected.incidentId !== loaded.value.id) {
+        return failure('NOT_FOUND', 'NOTE_NOT_FOUND', 'La nota a corregir no existe en este caso.');
+      }
+    }
+    const created = createNote({
+      id: dependencies.ids.next(),
+      tenantId: loaded.value.tenantId,
+      incidentId: loaded.value.id,
+      authorId: request.actor.subjectId,
+      body: request.body,
+      correctsNoteId: request.correctsNoteId ?? null,
+      at,
+    });
+    if (!created.ok) {
+      return auditWorkFailure(
+        dependencies,
+        context,
+        request,
+        action,
+        { type: 'incident', id: loaded.value.id },
+        at,
+        created.code,
+        created.detail,
+      );
+    }
+    await context.notes.insert(created.value);
+    // La auditoría registra que hubo nota y qué corrige; el cuerpo vive solo en la bitácora.
+    await recordAudit(
+      context.audit,
+      auditDraft({
+        id: dependencies.ids.next(),
+        actor: request.actor,
+        action,
+        resource: { type: 'incident_note', id: created.value.id },
+        outcome: 'succeeded',
+        correlationId: request.correlationId,
+        at,
+        metadata: {
+          incidentId: loaded.value.id,
+          ...(created.value.correctsNoteId ? { correctsNoteId: created.value.correctsNoteId } : {}),
+        },
+      }),
+    );
+    return { ok: true as const, value: created.value };
+  });
+}

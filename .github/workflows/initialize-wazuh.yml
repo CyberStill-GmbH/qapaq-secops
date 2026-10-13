@@ -1,0 +1,138 @@
+name: Initialize Wazuh
+
+# Sprint 5 — deja el Wazuh del demo operativo para QAPAQ en una sola ejecución, por SSM y sin
+# reemplazar la instancia (user_data no cambia). Idempotente: reejecutarlo no rota contraseñas.
+#
+#   1. infra/wazuh/access/apply-access.sh
+#      - `qapaq_reader` (solo lectura de alertas) y proxy TLS del Indexer en la IP privada;
+#      - usuario del Dashboard del dueño del grupo de admisión (administrador) y de la persona
+#        analista (solo lectura);
+#      - publica credenciales y certificado en Secrets Manager; autoprueba de permisos.
+#   2. infra/wazuh/office365/apply-office365.sh (si hay app de Entra declarada): módulo office365,
+#      reglas QAPAQ y lista break-glass.
+#
+# Variables de repositorio de GitHub (no secretas, no versionadas):
+#   WAZUH_ADMIN_USERNAME    usuario del Dashboard del dueño del grupo (p. ej. su UPN)
+#   WAZUH_ANALYST_USERNAME  usuario del Dashboard de la persona analista
+#   M365_TENANT_ID          tenant de Microsoft 365 autorizado
+#   WAZUH_O365_CLIENT_ID    app de Entra con ActivityFeed.Read (vacío = se omite el paso 2)
+# Secretos (cargados con `Sync deploy secrets`): office365-client-secret, break-glass-identities.
+# Las contraseñas generadas quedan solo en Secrets Manager:
+#   qapaq-secops/demo/wazuh/dashboard-admin-user y …/dashboard-analyst-user.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rotate:
+        description: Rotar las contraseñas gestionadas (lector y usuarios del Dashboard)
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: initialize-wazuh
+  cancel-in-progress: false
+
+jobs:
+  initialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ADMIN_USERNAME: ${{ vars.WAZUH_ADMIN_USERNAME }}
+      ANALYST_USERNAME: ${{ vars.WAZUH_ANALYST_USERNAME }}
+      M365_TENANT_ID: ${{ vars.M365_TENANT_ID }}
+      O365_CLIENT_ID: ${{ vars.WAZUH_O365_CLIENT_ID }}
+      ROTATE: ${{ inputs.rotate }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -eu
+          user='^[A-Za-z0-9._@-]{3,64}$'
+          guid='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+          [[ "$ADMIN_USERNAME" =~ $user ]] || { echo 'WAZUH_ADMIN_USERNAME no está definida o es inválida.' >&2; exit 1; }
+          [[ "$ANALYST_USERNAME" =~ $user ]] || { echo 'WAZUH_ANALYST_USERNAME no está definida o es inválida.' >&2; exit 1; }
+          if [[ -n "$O365_CLIENT_ID" ]]; then
+            [[ "$O365_CLIENT_ID" =~ $guid ]] || { echo 'WAZUH_O365_CLIENT_ID no es un GUID.' >&2; exit 1; }
+            [[ "$M365_TENANT_ID" =~ $guid ]] || { echo 'M365_TENANT_ID no es un GUID.' >&2; exit 1; }
+          fi
+          bash -n infra/wazuh/access/apply-access.sh
+          bash -n infra/wazuh/office365/apply-office365.sh
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-initialize-wazuh
+          allowed-account-ids: 955200662475
+
+      - name: Apply through SSM
+        shell: bash
+        run: |
+          set -eu
+          instance_id="$(aws ec2 describe-instances \
+            --filters 'Name=tag:Name,Values=qapaq-secops-demo-wazuh' 'Name=instance-state-name,Values=running' \
+            --query 'Reservations[].Instances[].InstanceId | [0]' --output text)"
+          if [[ -z "$instance_id" || "$instance_id" == None ]]; then
+            echo 'No running Wazuh EC2 instance found.' >&2
+            exit 1
+          fi
+
+          # Scripts versionados embebidos en el comando; ningún secreto viaja en él.
+          bundle="$(tar -C infra/wazuh -czf - access office365 | base64 -w0)"
+          office365_step=''
+          if [[ -n "$O365_CLIENT_ID" ]]; then
+            office365_step="QAPAQ_APPLY_MODE=apply QAPAQ_O365_TENANT_ID='${M365_TENANT_ID}' \
+          QAPAQ_O365_CLIENT_ID='${O365_CLIENT_ID}' QAPAQ_O365_API_TYPE=commercial QAPAQ_O365_ENABLE_DLP=false \
+          QAPAQ_AWS_REGION=us-east-1 \
+          QAPAQ_O365_SECRET_SOURCE='aws-secretsmanager:qapaq-secops/demo/wazuh/office365-client-secret' \
+          QAPAQ_BREAK_GLASS_SOURCE='aws-secretsmanager:qapaq-secops/demo/wazuh/break-glass-identities' \
+          bash \"\$work/office365/apply-office365.sh\""
+          fi
+          remote_script="$(cat <<REMOTE
+          set -eu
+          work="\$(mktemp -d)"
+          trap 'rm -rf "\$work"' EXIT
+          printf '%s' '${bundle}' | base64 -d | tar -C "\$work" -xzf -
+          QAPAQ_AWS_REGION=us-east-1 \
+          QAPAQ_ADMIN_USERNAME='${ADMIN_USERNAME}' \
+          QAPAQ_ANALYST_USERNAME='${ANALYST_USERNAME}' \
+          QAPAQ_ROTATE='${ROTATE}' \
+          QAPAQ_READER_SECRET_ID=qapaq-secops/demo/wazuh/indexer-reader \
+          QAPAQ_PROXY_CA_SECRET_ID=qapaq-secops/demo/wazuh/indexer-proxy-ca \
+          QAPAQ_ADMIN_USER_SECRET_ID=qapaq-secops/demo/wazuh/dashboard-admin-user \
+          QAPAQ_ANALYST_USER_SECRET_ID=qapaq-secops/demo/wazuh/dashboard-analyst-user \
+            bash "\$work/access/apply-access.sh"
+          ${office365_step}
+          REMOTE
+          )"
+          payload="$(jq -cn --arg command "$remote_script" '{commands: [$command]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$instance_id" \
+            --document-name AWS-RunShellScript \
+            --comment 'QAPAQ Wazuh initialization' \
+            --timeout-seconds 900 \
+            --parameters "$payload" \
+            --query 'Command.CommandId' --output text)"
+
+          for attempt in $(seq 1 170); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "$instance_id" --query Status --output text 2>/dev/null || true)"
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;;
+            esac
+            sleep 5
+          done
+          # La salida del script nunca contiene credenciales: solo pasos y códigos.
+          aws ssm get-command-invocation --command-id "$command_id" \
+            --instance-id "$instance_id" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          [[ "$status" == Success ]]

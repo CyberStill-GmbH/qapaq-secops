@@ -21,13 +21,17 @@ import {
   closeDatabaseClient,
   createDatabaseClient,
   PrismaAuditStore,
+  PrismaIncidentWorkQueries,
+  PrismaIngestionStateStore,
   PrismaSocQueries,
   PrismaSocUnitOfWork,
   PrismaStandaloneAuditStore,
   type AlertRow,
   type CandidateRow,
   type DatabaseConnectionOptions,
+  type IncidentNoteRow,
   type IncidentRow,
+  type IncidentTaskRow,
   type IncidentWithAlertsRow,
   type SealedAuditRow,
 } from '@qapaq/database';
@@ -44,14 +48,29 @@ import {
 
 import { ALERT_STATUSES, TRIAGE_VERDICTS, type Alert } from '../alert.js';
 import { INCIDENT_SEVERITIES, INCIDENT_STATUSES, type Incident } from '../incident.js';
+import {
+  POLL_OUTCOMES,
+  type ClaimedIngestionCursor,
+  type IngestionCursorKey,
+  type IngestionStateStore,
+  type SourcePollObservation,
+} from '../ingestion.js';
+import {
+  SOURCE_HEALTH_REASONS,
+  SOURCE_HEALTH_STATES,
+  type SourceHealthTransition,
+} from '../source-health.js';
+import { TASK_STATUSES, type IncidentNote, type IncidentTask } from '../incident-work.js';
 import type { OutboxMessageDraft, SocEventType } from '../events.js';
 import type {
   AlertQuery,
   AlertStore,
   ClaimedOutboxMessage,
   OutboxHealth,
+  IncidentNoteStore,
   IncidentQuery,
   IncidentStore,
+  IncidentTaskStore,
   OutboxStore,
   QueryResult,
   SocPersistence,
@@ -119,6 +138,14 @@ function toAlert(row: AlertRow): Alert {
 
 function fromAlert(alert: Alert): AlertRow {
   return { ...alert, reasons: alert.reasons };
+}
+
+function toTask(row: IncidentTaskRow): IncidentTask {
+  return { ...row, status: oneOf(TASK_STATUSES, row.status, 'incident_tasks', 'status') };
+}
+
+function toNote(row: IncidentNoteRow): IncidentNote {
+  return { ...row };
 }
 
 function toIncident(row: IncidentWithAlertsRow): Incident {
@@ -201,18 +228,55 @@ function auditPort(store: PrismaAuditStore | PrismaStandaloneAuditStore): AuditS
   };
 }
 
+/* ---------------------------------------------------------------- Ingesta */
+
+function ingestionPort(store: PrismaIngestionStateStore): IngestionStateStore {
+  return {
+    claimCursor: async (key: IngestionCursorKey, at: Date, leaseMs: number) => {
+      const claim = await store.claimCursor(key, at, leaseMs);
+      return claim ? { key, watermark: claim.watermark, claimId: claim.claimId } : undefined;
+    },
+    advanceCursor: (claim: ClaimedIngestionCursor, watermark: Date, at: Date) =>
+      store.advanceCursor(claim.key, claim.claimId, watermark, at),
+    releaseCursor: (claim: ClaimedIngestionCursor) => store.releaseCursor(claim.key, claim.claimId),
+    recordObservation: (observation: SourcePollObservation) => store.recordObservation(observation),
+    recentTransitions: async (key: IngestionCursorKey, limit: number) =>
+      (await store.recentTransitions(key, limit)).map((row) => ({
+        ...row,
+        fromState:
+          row.fromState === null
+            ? null
+            : oneOf(SOURCE_HEALTH_STATES, row.fromState, 'source_health_transitions', 'from_state'),
+        toState: oneOf(SOURCE_HEALTH_STATES, row.toState, 'source_health_transitions', 'to_state'),
+        reason: oneOf(SOURCE_HEALTH_REASONS, row.reason, 'source_health_transitions', 'reason'),
+      })),
+    appendTransition: (transition: SourceHealthTransition) => store.appendTransition(transition),
+    saveActivity: (key: IngestionCursorKey, records) => store.saveActivity(key, records),
+    activity: (key: IngestionCursorKey) => store.activity(key),
+    recentObservations: async (key: IngestionCursorKey, limit: number) =>
+      (await store.recentObservations(key, limit)).map((row) => ({
+        ...row,
+        outcome: oneOf(POLL_OUTCOMES, row.outcome, 'source_poll_observations', 'outcome'),
+      })),
+  };
+}
+
 /* ------------------------------------------------------------------ Adapter */
 
 export class PostgresSocPersistence implements SocPersistence {
   public readonly kind = 'postgres' as const;
   public readonly audit: AuditStore;
+  public readonly ingestion: IngestionStateStore;
   private readonly unitOfWork: PrismaSocUnitOfWork;
   private readonly queries: PrismaSocQueries;
+  private readonly workQueries: PrismaIncidentWorkQueries;
 
   private constructor(private readonly client: ReturnType<typeof createDatabaseClient>) {
     this.unitOfWork = new PrismaSocUnitOfWork(client);
     this.queries = new PrismaSocQueries(client);
+    this.workQueries = new PrismaIncidentWorkQueries(client);
     this.audit = auditPort(new PrismaStandaloneAuditStore(client));
+    this.ingestion = ingestionPort(new PrismaIngestionStateStore(client));
   }
 
   public static connect(options: DatabaseConnectionOptions): PostgresSocPersistence {
@@ -243,6 +307,23 @@ export class PostgresSocPersistence implements SocPersistence {
         update: (incident, expectedRevision) =>
           stores.incidents.update(fromIncident(incident), expectedRevision),
       };
+      const tasks: IncidentTaskStore = {
+        byId: async (tenantId, taskId) => {
+          const row = await stores.tasks.byId(tenantId, taskId);
+          return row ? toTask(row) : undefined;
+        },
+        byIncident: async (tenantId, incidentId) =>
+          (await stores.tasks.byIncident(tenantId, incidentId)).map(toTask),
+        insert: (task) => stores.tasks.insert(task),
+        update: (task, expectedRevision) => stores.tasks.update(task, expectedRevision),
+      };
+      const notes: IncidentNoteStore = {
+        byId: async (tenantId, noteId) => {
+          const row = await stores.notes.byId(tenantId, noteId);
+          return row ? toNote(row) : undefined;
+        },
+        insert: (note) => stores.notes.insert(note),
+      };
       const outbox: OutboxStore = {
         enqueueIfAbsent: (message) => stores.outbox.enqueueIfAbsent(message),
       };
@@ -256,6 +337,8 @@ export class PostgresSocPersistence implements SocPersistence {
       return work({
         alerts,
         incidents,
+        tasks,
+        notes,
         outbox,
         candidates,
         audit: auditPort(stores.audit),
@@ -290,6 +373,29 @@ export class PostgresSocPersistence implements SocPersistence {
   public async incidentById(tenantId: string, incidentId: string): Promise<Incident | undefined> {
     const row = await this.queries.incidentById(tenantId, incidentId);
     return row ? toIncident(row) : undefined;
+  }
+
+  public async listIncidentAlerts(
+    tenantId: string,
+    incidentId: string,
+    limit: number,
+  ): Promise<QueryResult<Alert>> {
+    const result = await this.queries.alertsByIncident(tenantId, incidentId, limit);
+    return { items: result.rows.map(toAlert), total: result.total };
+  }
+
+  public async listIncidentTasks(
+    tenantId: string,
+    incidentId: string,
+  ): Promise<readonly IncidentTask[]> {
+    return (await this.workQueries.tasksByIncident(tenantId, incidentId)).map(toTask);
+  }
+
+  public async listIncidentNotes(
+    tenantId: string,
+    incidentId: string,
+  ): Promise<readonly IncidentNote[]> {
+    return (await this.workQueries.notesByIncident(tenantId, incidentId)).map(toNote);
   }
 
   public async listIncidents(query: IncidentQuery): Promise<QueryResult<Incident>> {

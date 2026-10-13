@@ -32,12 +32,22 @@ export const SESSION_REVOCATION_REASONS = [
   'absolute_timeout',
   'identity_revoked',
   'administrative',
+  /** La persona salió del grupo de admisión (padrón, Sprint 5 · fase 3). */
+  'membership_removed',
+  /** Dejó de ser dueña del grupo: la sesión tenía un rol admin derivado que ya no le corresponde. */
+  'ownership_removed',
 ] as const;
 export type SessionRevocationReason = (typeof SESSION_REVOCATION_REASONS)[number];
 
 export interface Session {
   readonly id: string;
   readonly subjectId: string;
+  /**
+   * Object ID de Entra (claim `oid`): la clave con que el padrón conoce a la persona. `sub` es
+   * propio de cada aplicación y no sirve para cruzar con el grupo. Ausente en sesiones abiertas
+   * antes del Sprint 5 o sin el claim.
+   */
+  readonly oid?: string;
   readonly displayName?: string;
   readonly email?: string;
   readonly tenantId: string;
@@ -59,6 +69,7 @@ export interface Session {
 
 export interface OpenSessionInput {
   readonly subjectId: string;
+  readonly oid?: string;
   readonly displayName?: string;
   readonly email?: string;
   readonly tenantId: string;
@@ -89,6 +100,7 @@ export function openSession(
   const session: Session = {
     id: newSessionId(randomSource),
     subjectId: input.subjectId,
+    ...(input.oid === undefined ? {} : { oid: input.oid.toLowerCase() }),
     ...(input.displayName === undefined ? {} : { displayName: input.displayName }),
     ...(input.email === undefined ? {} : { email: input.email }),
     tenantId: input.tenantId,

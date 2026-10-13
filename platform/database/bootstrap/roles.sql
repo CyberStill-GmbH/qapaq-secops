@@ -89,11 +89,19 @@ $grants$;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO qapaq_soc_runtime;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO qapaq_soc_runtime;
 
--- Excepciones: auditoría append-only y el historial de migraciones de solo lectura.
+-- Excepciones: tablas append-only (auditoría y bitácora de incidente) y el historial de
+-- migraciones de solo lectura. Deben repetir las de `post-migrate.sql`: el GRANT de arriba se
+-- reaplica al repetir el bootstrap (D-11) y, sin esto, devolvería UPDATE a esas tablas.
 DO $exceptions$
 BEGIN
   IF to_regclass('public.audit_events') IS NOT NULL THEN
     REVOKE UPDATE ON public.audit_events FROM qapaq_soc_runtime;
+  END IF;
+  IF to_regclass('public.incident_notes') IS NOT NULL THEN
+    REVOKE UPDATE ON public.incident_notes FROM qapaq_soc_runtime;
+  END IF;
+  IF to_regclass('public.source_health_transitions') IS NOT NULL THEN
+    REVOKE UPDATE ON public.source_health_transitions FROM qapaq_soc_runtime;
   END IF;
   IF to_regclass('public._prisma_migrations') IS NOT NULL THEN
     REVOKE INSERT, UPDATE ON public._prisma_migrations FROM qapaq_soc_runtime;

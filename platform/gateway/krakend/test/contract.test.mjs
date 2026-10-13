@@ -16,6 +16,10 @@ const auditController = await readFile(
   new URL('../../../../apps/api/src/soc/audit.controller.ts', import.meta.url),
   'utf8',
 );
+const eventsController = await readFile(
+  new URL('../../../../apps/api/src/soc/events.controller.ts', import.meta.url),
+  'utf8',
+);
 const paginationSource = await readFile(
   new URL('../../../../apps/api/src/http/pagination.ts', import.meta.url),
   'utf8',
@@ -117,6 +121,12 @@ test('SOC query allowlists match controller @Query contracts and are forwarded b
   const contracts = [
     { path: '/api/alerts', controller: socController, method: 'alerts' },
     { path: '/api/incidents', controller: socController, method: 'incidents' },
+    {
+      path: '/api/incidents/{id}/alerts',
+      controller: socController,
+      method: 'incidents/:id/alerts',
+    },
+    { path: '/api/events', controller: eventsController, method: 'events' },
     { path: '/api/audit/events', controller: auditController, method: 'events' },
   ];
 

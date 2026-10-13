@@ -76,3 +76,6 @@ export class PostgresNotificationAttemptStore implements AttemptStore {
     return this.closeClient();
   }
 }
+
+// Sprint 5: dispositivos Web Push en el mismo subpath `@qapaq/soar/postgres`.
+export { PostgresPushSubscriptionStore } from './postgres-push-store.js';

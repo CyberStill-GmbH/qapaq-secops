@@ -231,21 +231,19 @@ se ofrece un control que prometa filtrarlo.
 
 ---
 
-### 2.3 Estado de Eventos y Salud · 2026-10-12
+### 2.3 Estado de Eventos y Salud · 2026-10-13
 
-B-15 continúa **abierta en backend**. El dominio C-14 ya valida `events.read`, tenant,
-ventana de 90 días, página máxima de 200, filtros canónicos y ocultamiento de `raw`, pero
-no hay `GET /api/events`. El contrato para la futura vista está especificado en
-[eventos-investigacion.md](eventos-investigacion.md) según C-7; el BFF lo implementa Claude
-después del P0. Hasta entonces `/events` conserva el estado no disponible.
+B-15 **resuelta para contrato y ruta del BFF**: existe `GET /api/events`, requiere
+`events.read`, pagina con cursor y acepta filtros tipados o la gramática acotada
+`qapaq-events-v1`. El editor web consume el parser compartido y no persiste la consulta
+en la ruta. Pruebas de parser/HTTP/build existen; aceptación contra la versión real de
+Wazuh Indexer 4.14.7 sigue siendo gate de activación y no se infiere de pruebas unitarias.
 
-B-16 continúa **abierta para salud por fuente**. `/api/health/ready` informa la salud básica
-del servicio API y no reemplaza `GET /api/platform/health`. Diseño C-5 aceptado en
-[source-health.md](../architecture/source-health.md): consulta QAPAQ a Indexer por dataset
-Office 365 y errores del módulo, transiciones durables por tenant/dataset con retención de
-un año, umbrales configurables y cola aparte. La ausencia de eventos/errores no demuestra
-poll exitoso; el resultado se queda `unknown` mientras no haya observación de éxito.
-Claude reclama API/job después del P0. La UI no debe mostrar estado verde por defecto.
+B-16 **resuelta para salud por fuente**: existe `GET /api/sources/health` y la interfaz
+presenta evaluación, observaciones, transiciones y medición de suscripciones separada de
+la salud de fuente. `unknown`/`disabled` se mantienen neutrales; ausencia de eventos no
+demuestra poll exitoso. Aceptación de integración y operación en el entorno demo siguen
+dependiendo de runtime, DB y proveedor autorizados.
 
 ---
 

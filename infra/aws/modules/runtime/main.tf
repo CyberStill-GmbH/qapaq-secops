@@ -18,7 +18,29 @@ locals {
     # El perfil de producción exige declarar la persistencia del estado SOC. Con
     # `soc_database` activado pasa a PostgreSQL (docs/deployment/soc-postgres-rollout.md).
     QAPAQ_SOC_PERSISTENCE = var.soc_database == null ? "memory" : "postgres"
-  }, local.soc_database_environment, var.api_environment)
+  }, local.soc_database_environment, local.ingestion_api_environment, var.api_environment)
+  # Sprint 5 · fase 0: el API lee el Indexer por KrakenD con service discovery privado. Sin
+  # ingesta declara `disabled` explícitamente (el perfil de producción no adivina).
+  ingestion_api_environment = var.wazuh_ingestion == null ? {
+    QAPAQ_INGESTION_SOURCE = "disabled"
+    } : {
+    QAPAQ_INGESTION_SOURCE        = "wazuh"
+    QAPAQ_WAZUH_GATEWAY_BASE_URL  = "http://krakend.${var.environment}.qapaq.internal:8080"
+    QAPAQ_INGESTION_GATEWAY_SCOPE = var.wazuh_ingestion.gateway_scope
+  }
+  # KrakenD publica /wazuh/* solo con WAZUH_INDEXER_URL. La CA del proxy llega como secreto y el
+  # entrypoint de la imagen la escribe en WAZUH_INDEXER_CA_FILE antes de arrancar.
+  ingestion_krakend_environment = var.wazuh_ingestion == null ? {} : {
+    WAZUH_INDEXER_URL     = var.wazuh_ingestion.indexer_url
+    WAZUH_INDEX_PATTERN   = var.wazuh_ingestion.index_pattern
+    WAZUH_INDEXER_CA_FILE = "/tmp/qapaq/indexer-ca.pem"
+    # No lo lee KrakenD: ata la task definition a la inicialización de Wazuh (orden y redespliegue).
+    QAPAQ_WAZUH_ACCESS_REVISION = var.wazuh_ingestion.access_revision
+  }
+  krakend_secrets = var.wazuh_ingestion == null ? [] : [
+    { name = "WAZUH_BASIC_AUTH_B64", valueFrom = "${var.wazuh_ingestion.reader_secret_arn}:basic_auth_b64::" },
+    { name = "WAZUH_INDEXER_CA_PEM", valueFrom = var.wazuh_ingestion.proxy_ca_secret_arn },
+  ]
   # C-1: conexión no secreta al estado SOC. La contraseña es de `qapaq_soc_runtime` (DML sin
   # DDL), nunca la master de RDS (D-6). TLS con verify-full contra el bundle de la imagen.
   soc_database_environment = var.soc_database == null ? {} : {
@@ -33,14 +55,22 @@ locals {
     var.soc_database == null ? [] : [
       { name = "QAPAQ_POSTGRES_PASSWORD", valueFrom = "${var.soc_database.runtime_secret_arn}:password::" },
       { name = "QAPAQ_ENTITY_REF_KEY", valueFrom = var.soc_database.entity_ref_key_secret_arn },
+      { name = "QAPAQ_VAPID_PRIVATE_KEY", valueFrom = var.soc_database.vapid_key_secret_arn },
     ],
+    var.api_extra_secrets,
   )
   api_secret_arns = concat(
     [var.entra_client_secret_arn],
     var.soc_database == null ? [] : [
       var.soc_database.runtime_secret_arn,
       var.soc_database.entity_ref_key_secret_arn,
+      var.soc_database.vapid_key_secret_arn,
     ],
+    var.wazuh_ingestion == null ? [] : [
+      var.wazuh_ingestion.reader_secret_arn,
+      var.wazuh_ingestion.proxy_ca_secret_arn,
+    ],
+    [for secret in var.api_extra_secrets : secret.valueFrom],
   )
   krakend_environment = merge({
     QAPAQ_API_UPSTREAM        = "http://api.${var.environment}.qapaq.internal:3000"
@@ -49,9 +79,10 @@ locals {
     GATEWAY_RATE_PER_SECOND   = "20"
     GATEWAY_RATE_BURST        = "40"
     OIDC_DISABLE_JWK_SECURITY = "false"
-  }, var.krakend_environment)
+  }, local.ingestion_krakend_environment, var.krakend_environment)
   container_definitions = {
-    krakend = {
+    # `secrets` solo con ingesta: una lista vacía crearía revisiones de task sin cambio real.
+    krakend = merge({
       name              = "krakend"
       image             = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.repository_names.krakend}@${var.image_digests.krakend}"
       essential         = true
@@ -67,7 +98,7 @@ locals {
           "awslogs-stream-prefix" = "ecs"
         }
       }
-    }
+    }, { for key, value in { secrets = local.krakend_secrets } : key => value if length(value) > 0 })
     api = {
       name              = "api"
       image             = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.repository_names.api}@${var.image_digests.api}"
@@ -180,8 +211,9 @@ resource "aws_iam_role_policy" "execution" {
         Resource = local.log_group_arns
       },
       {
-        # Solo los secretos que el API inyecta: Entra y, con estado durable, el runtime de
-        # PostgreSQL y la clave de referencias. Nunca la master de RDS.
+        # Solo los secretos que inyectan las tareas: Entra; con estado durable, el runtime de
+        # PostgreSQL y la clave de referencias; con ingesta, la credencial de solo lectura del
+        # Indexer y la CA del proxy (solo los recibe KrakenD). Nunca la master de RDS.
         Sid      = "ReadApiStartupSecrets"
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
@@ -216,6 +248,24 @@ resource "aws_service_discovery_private_dns_namespace" "this" {
   description = "Private ECS service discovery for QAPAQ SECOPS demo."
   vpc         = var.vpc_id
   tags        = { Project = var.project, Environment = var.environment }
+}
+
+# Sprint 5 · fase 0: nombre privado de KrakenD para que el API lea el Indexer por el gateway.
+# Solo existe con ingesta; agregarlo reemplaza el servicio ECS de KrakenD una vez.
+resource "aws_service_discovery_service" "krakend" {
+  count = var.wazuh_ingestion == null ? 0 : 1
+  name  = "krakend"
+
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.this.id
+    routing_policy = "MULTIVALUE"
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+
+  tags = { Project = var.project, Environment = var.environment }
 }
 
 resource "aws_service_discovery_service" "api" {
@@ -350,6 +400,13 @@ resource "aws_ecs_service" "krakend" {
     target_group_arn = aws_lb_target_group.krakend.arn
     container_name   = "krakend"
     container_port   = 8080
+  }
+
+  dynamic "service_registries" {
+    for_each = aws_service_discovery_service.krakend
+    content {
+      registry_arn = service_registries.value.arn
+    }
   }
 
   deployment_circuit_breaker {

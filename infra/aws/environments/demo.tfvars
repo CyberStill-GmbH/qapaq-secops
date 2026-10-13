@@ -45,9 +45,9 @@ runtime_api_environment = {
   QAPAQ_ENTRA_REDIRECT_URI          = "https://app.jappi.net.pe/api/auth/callback"
   QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS = "https://app.jappi.net.pe/api/auth/callback"
   QAPAQ_CONSOLE_BASE_URL            = "https://app.jappi.net.pe"
-  QAPAQ_MVP_ROLE_BINDING_OID        = "707e3194-cdbe-4072-b17e-712c4e5fdadb"
-  QAPAQ_MVP_ROLE_BINDING_ROLE       = "qapaq.soc.analyst"
-  QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT = "2026-10-11T04:59:59Z"
+  # Sprint 5: asignación permanente (sin vencimiento) de la persona analista del demo. El dueño
+  # del grupo de admisión recibe admin por `soc_group_owner_oids` (variable de GitHub).
+  QAPAQ_ROLE_BINDINGS = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
 }
 
 runtime_krakend_environment = {
@@ -55,3 +55,19 @@ runtime_krakend_environment = {
   OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/discovery/v2.0/keys"
   OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
 }
+
+# Sprint 5 — demo operativo sin pasos manuales (docs/deployment/sprint5-activacion.md).
+# Wazuh se inicializa por SSM en el apply: lector del Indexer, proxy TLS privado, usuario admin
+# local (`qapaq-admin`, contraseña en Secrets Manager) y usuario analista de solo lectura, más la
+# recolección de Office 365 con la misma app de Entra del API.
+wazuh_bootstrap_enabled = true
+wazuh_analyst_username  = "cguevara@qapaq.pe"
+wazuh_office365_enabled = true
+# Ingesta Wazuh → SOC por KrakenD con token de workload de la app del API.
+wazuh_ingestion_enabled = true
+# Padrón por Graph: el API resuelve el grupo por nombre; los dueños son admin automáticamente.
+soc_directory_group_name = "QAPAQ-SecOps-Users"
+# Avisos: si Teams no confirma la entrega, el aviso sale por correo desde este buzón (Mail.Send
+# de la app del API). Teams se activa con teams_notifications_enabled cuando exista el secreto.
+alert_mail_sender = "cguevara@qapaq.pe"
+

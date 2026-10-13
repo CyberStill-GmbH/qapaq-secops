@@ -101,6 +101,9 @@ resource "aws_vpc_security_group_ingress_rule" "public_proxy_https" {
   to_port           = 443
 }
 
+# La instancia Wazuh all-in-one necesita salida a internet: paquetes del SO y de Wazuh, APIs de AWS (SSM, Secrets Manager) y renovación ACME por HTTPS. Los destinos no son
+# fijos (CDN de paquetes, endpoints regionales de AWS, ACME), así que no se puede acotar por IP.
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "public_proxy_https" {
   security_group_id = aws_security_group.public_proxy.id
   description       = "HTTPS egress for package repositories, AWS APIs, and ACME certificate issuance/renewal."
@@ -110,6 +113,9 @@ resource "aws_vpc_security_group_egress_rule" "public_proxy_https" {
   to_port           = 443
 }
 
+# La instancia Wazuh all-in-one necesita salida a internet: espejos de paquetes y validación ACME HTTP-01 del certificado por IP. Los destinos no son
+# fijos (CDN de paquetes, endpoints regionales de AWS, ACME), así que no se puede acotar por IP.
+#trivy:ignore:AWS-0104
 resource "aws_vpc_security_group_egress_rule" "public_proxy_http" {
   security_group_id = aws_security_group.public_proxy.id
   description       = "HTTP egress for package mirrors and ACME IP certificate validation."

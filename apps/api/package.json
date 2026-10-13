@@ -21,7 +21,9 @@
     "@qapaq/contracts": "workspace:*",
     "@qapaq/detection": "workspace:*",
     "@qapaq/soar": "workspace:*",
-    "@qapaq/soc": "workspace:*"
+    "@qapaq/soc": "workspace:*",
+    "@qapaq/connectors": "workspace:*",
+    "@qapaq/telemetry": "workspace:*"
   },
   "devDependencies": {
     "tsx": "4.23.15",

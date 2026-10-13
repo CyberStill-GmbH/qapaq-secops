@@ -55,6 +55,18 @@ Trivy, el worker y KrakenD se verifican en CI, no en esta corrida.
 | 3.4 | Verificar el API | Readiness 200; log `soc.persistence.postgres`; `GET /api/operations/health` como admin → `soc.persistence = postgres`, `platform.databaseLatencyMs` numérico; iniciar sesión, reiniciar el servicio y seguir con la sesión abierta |
 | 3.5 | Verificar sesiones de administración (C-10(b)) | Como admin, `/admin/sessions` lista la sesión propia marcada como actual y sin botón de revocar; revocar una sesión de prueba de otro usuario deja `access.session.revoked` en auditoría y esa sesión recibe 401 en su siguiente request |
 
+### 3.6 Sprint 5
+
+Después de 3.5, seguir [sprint5-activacion.md](sprint5-activacion.md):
+1. secretos sin exponerlos;
+2. Initialize Wazuh;
+3. Entra (token de workload y Graph);
+4. ingesta, eventos y salud;
+5. padrón.
+
+Las migraciones pasan a ser 10: 6 anteriores y 4 del Sprint 5, que son tareas y bitácora, estado
+de ingesta y salud, padrón, y OID en la sesión.
+
 ## 4. Microsoft 365 → Wazuh
 
 | # | Paso | Quién |

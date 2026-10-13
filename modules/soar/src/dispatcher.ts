@@ -12,7 +12,7 @@
  */
 
 import { recordAudit, type AuditStore } from '@qapaq/audit';
-import { requiresCriticalNotification, type OutboxMessageDraft } from '@qapaq/soc';
+import type { OutboxMessageDraft } from '@qapaq/soc';
 
 import { nextDelayMs, shouldRetry, type DeliveryFailure } from './delivery-policy.js';
 import {
@@ -20,6 +20,12 @@ import {
   type NotificationAttempt,
   type NotificationStatus,
 } from './notification.js';
+import {
+  MAXIMUM_MENTIONS,
+  rolesToNotify,
+  type NotificationRecipient,
+  type RecipientDirectory,
+} from './notification-routing.js';
 import { buildTeamsMessage } from './teams-payload.js';
 import type { NotificationTransport } from './teams-adapter.js';
 import type { AttemptStore, FallbackChannel, OutboxReader } from './ports.js';
@@ -33,6 +39,16 @@ export interface DispatchDependencies {
   readonly clock: { now(): Date };
   readonly ids: { next(): string };
   readonly consoleBaseUrl: string;
+  /**
+   * Destinatarios por rol (Sprint 5). Sin directorio, la tarjeta sale al canal sin menciones:
+   * el aviso llega igual, sin dirigirse a nadie en particular.
+   */
+  readonly recipients?: RecipientDirectory;
+  /**
+   * Aviso a los dispositivos de los destinatarios (Web Push, Sprint 5). Independiente de Teams:
+   * se intenta en el primer intento de cada mensaje y nunca bloquea ni cambia su resultado.
+   */
+  readonly devices?: { notify(tenantId: string, subjectKeys: readonly string[]): Promise<number> };
 }
 
 export const DISPATCH_RESULTS = [
@@ -93,7 +109,9 @@ export async function dispatchMessage(
   message: OutboxMessageDraft,
 ): Promise<DispatchResult> {
   const at = dependencies.clock.now();
-  if (!requiresCriticalNotification(domainEventOf(message))) {
+  // La política de ruteo decide si el evento se notifica y a qué roles.
+  const roles = rolesToNotify(message);
+  if (roles.length === 0) {
     await dependencies.outbox.markPublished(message.messageId, at);
     return { code: 'skipped_not_critical' };
   }
@@ -123,6 +141,29 @@ export async function dispatchMessage(
   };
   await dependencies.attempts.save(sending);
 
+  // Un directorio caído no bloquea el aviso: sale sin menciones antes que no salir.
+  let mentions: readonly NotificationRecipient[] = [];
+  try {
+    mentions = dependencies.recipients
+      ? (await dependencies.recipients.recipientsFor(message.tenantId, roles)).slice(
+          0,
+          MAXIMUM_MENTIONS,
+        )
+      : [];
+  } catch {
+    mentions = [];
+  }
+  // Dispositivos: una vez por mensaje (primer intento), en paralelo con Teams. Se espera antes
+  // de terminar la pasada (el apagado ordenado lo incluye) y nunca cambia el resultado.
+  const devicesNotified =
+    dependencies.devices && sending.attemptCount === 1
+      ? dependencies.devices
+          .notify(
+            message.tenantId,
+            mentions.flatMap((recipient) => (recipient.subjectKey ? [recipient.subjectKey] : [])),
+          )
+          .catch(() => 0)
+      : Promise.resolve(0);
   const payload = buildTeamsMessage({
     tenantId: message.tenantId,
     messageType: message.messageType,
@@ -133,8 +174,12 @@ export async function dispatchMessage(
     occurredAt: message.availableAt,
     consoleBaseUrl: dependencies.consoleBaseUrl,
     clientRequestId: sending.clientRequestId,
+    mentions,
   });
-  const outcome = await dependencies.transport.send(payload, sending.clientRequestId);
+  const [outcome] = await Promise.all([
+    dependencies.transport.send(payload, sending.clientRequestId),
+    devicesNotified,
+  ]);
 
   if (outcome.delivered) {
     const sent: NotificationAttempt = {
@@ -176,11 +221,14 @@ export async function dispatchMessage(
 
   const fallbackRef = await dependencies.fallback.notify({
     tenantId: message.tenantId,
+    aggregateType: message.aggregateType,
     aggregateId: message.aggregateId,
     title: String(message.payload.title ?? message.messageType),
     severity: String(message.payload.severity ?? message.payload.priority ?? 'critical'),
     reason: failure.code,
     at,
+    recipients: mentions,
+    link: `${dependencies.consoleBaseUrl.replace(/\/+$/u, '')}/${message.aggregateType === 'incident' ? 'incidents' : 'alerts'}/${encodeURIComponent(message.aggregateId)}`,
   });
   const fallen: NotificationAttempt = {
     ...sending,

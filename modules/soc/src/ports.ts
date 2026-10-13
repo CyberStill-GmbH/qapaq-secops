@@ -17,7 +17,9 @@ import type { CorrelationWindowQuery, DetectionCandidateStore } from '@qapaq/det
 
 import type { Alert, AlertStatus } from './alert.js';
 import type { Incident, IncidentStatus } from './incident.js';
+import type { IncidentNote, IncidentTask } from './incident-work.js';
 import type { OutboxMessageDraft } from './events.js';
+import type { IngestionStateStore } from './ingestion.js';
 
 export interface AlertStore {
   byId(tenantId: string, alertId: string): Promise<Alert | undefined>;
@@ -33,6 +35,20 @@ export interface IncidentStore {
   update(incident: Incident, expectedRevision: number): Promise<boolean>;
 }
 
+/** Tareas del incidente (S5-D8). `update` es compare-and-set sobre `revision`. */
+export interface IncidentTaskStore {
+  byId(tenantId: string, taskId: string): Promise<IncidentTask | undefined>;
+  byIncident(tenantId: string, incidentId: string): Promise<readonly IncidentTask[]>;
+  insert(task: IncidentTask): Promise<void>;
+  update(task: IncidentTask, expectedRevision: number): Promise<boolean>;
+}
+
+/** Bitácora append-only: no hay `update` ni borrado por contrato. */
+export interface IncidentNoteStore {
+  byId(tenantId: string, noteId: string): Promise<IncidentNote | undefined>;
+  insert(note: IncidentNote): Promise<void>;
+}
+
 export interface OutboxStore {
   /** `false` si la `idempotencyKey` ya existía: el hecho ya se publicó una vez. */
   enqueueIfAbsent(message: OutboxMessageDraft): Promise<boolean>;
@@ -41,6 +57,8 @@ export interface OutboxStore {
 export interface SocTransactionContext {
   readonly alerts: AlertStore;
   readonly incidents: IncidentStore;
+  readonly tasks: IncidentTaskStore;
+  readonly notes: IncidentNoteStore;
   readonly outbox: OutboxStore;
   readonly audit: AuditStore;
   /**
@@ -87,8 +105,18 @@ export interface SocReadModel {
   /** Una alerta por evento: base de la idempotencia de la promoción en el runtime. */
   alertByEventRecordId(tenantId: string, eventRecordId: string): Promise<Alert | undefined>;
   listAlerts(query: AlertQuery): Promise<QueryResult<Alert>>;
+  /** Alertas de un incidente: las `limit` más recientes y el total real de vínculos. */
+  listIncidentAlerts(
+    tenantId: string,
+    incidentId: string,
+    limit: number,
+  ): Promise<QueryResult<Alert>>;
   incidentById(tenantId: string, incidentId: string): Promise<Incident | undefined>;
   listIncidents(query: IncidentQuery): Promise<QueryResult<Incident>>;
+  /** Tareas de un incidente, más recientes primero; como máximo el tope del adapter. */
+  listIncidentTasks(tenantId: string, incidentId: string): Promise<readonly IncidentTask[]>;
+  /** Notas de un incidente, más recientes primero; como máximo el tope del adapter. */
+  listIncidentNotes(tenantId: string, incidentId: string): Promise<readonly IncidentNote[]>;
 }
 
 /* -------------------------------------------------------------------- Outbox */
@@ -148,6 +176,8 @@ export interface SocPersistence
    * despacho) y para la consulta de C-19. Es la misma cadena que escribe `run`.
    */
   readonly audit: AuditStore;
+  /** Cursor y observaciones de la ingesta de fuentes (Sprint 5 · fase 0). */
+  readonly ingestion: IngestionStateStore;
   /** Comprueba conectividad y esquema; lanza si el adapter no puede atender. */
   ready(): Promise<void>;
   close(): Promise<void>;

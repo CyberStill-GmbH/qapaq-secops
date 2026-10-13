@@ -21,14 +21,18 @@ import type {
 
 import type { Alert } from './alert.js';
 import type { Incident } from './incident.js';
+import type { IncidentNote, IncidentTask } from './incident-work.js';
+import { InMemoryIngestionState } from './memory-ingestion.js';
 import type { OutboxMessageDraft } from './events.js';
 import type {
   AlertQuery,
   AlertStore,
   ClaimedOutboxMessage,
   OutboxHealth,
+  IncidentNoteStore,
   IncidentQuery,
   IncidentStore,
+  IncidentTaskStore,
   OutboxStore,
   QueryResult,
   SocPersistence,
@@ -38,6 +42,8 @@ import type {
 interface Snapshot {
   readonly alerts: ReadonlyMap<string, Alert>;
   readonly incidents: ReadonlyMap<string, Incident>;
+  readonly tasks: ReadonlyMap<string, IncidentTask>;
+  readonly notes: ReadonlyMap<string, IncidentNote>;
   readonly outbox: ReadonlyMap<string, OutboxMessageDraft>;
   readonly candidates: ReadonlyMap<string, DetectionCandidate>;
 }
@@ -62,11 +68,15 @@ export class InMemorySoc implements SocPersistence {
   public readonly kind = 'memory' as const;
   public readonly alertRows = new Map<string, Alert>();
   public readonly incidentRows = new Map<string, Incident>();
+  public readonly taskRows = new Map<string, IncidentTask>();
+  public readonly noteRows = new Map<string, IncidentNote>();
   public readonly outboxRows = new Map<string, OutboxMessageDraft>();
   public readonly candidateRows = new Map<string, DetectionCandidate>();
   /** Estado de cola por `messageId`: equivale a las columnas de lease de PostgreSQL. */
   public readonly outboxState = new Map<string, OutboxQueueState>();
   private auditStoreRef = new InMemoryAuditStore();
+  /** Estado de ingesta; fuera de la unidad de trabajo, como en PostgreSQL. */
+  public readonly ingestion = new InMemoryIngestionState();
   /** Fuerza el fallo del commit en la siguiente transacción, para specs de rollback. */
   public failNextCommit = false;
 
@@ -109,6 +119,38 @@ export class InMemorySoc implements SocPersistence {
     },
   };
 
+  private readonly tasks: IncidentTaskStore = {
+    byId: (tenantId, taskId) => Promise.resolve(this.taskRows.get(`${tenantId}|${taskId}`)),
+    byIncident: (tenantId, incidentId) =>
+      Promise.resolve(
+        [...this.taskRows.values()].filter(
+          (task) => task.tenantId === tenantId && task.incidentId === incidentId,
+        ),
+      ),
+    insert: (task) => {
+      this.taskRows.set(`${task.tenantId}|${task.id}`, task);
+      return Promise.resolve();
+    },
+    update: (task, expectedRevision) => {
+      const key = `${task.tenantId}|${task.id}`;
+      const current = this.taskRows.get(key);
+      if (!current || current.revision !== expectedRevision) return Promise.resolve(false);
+      this.taskRows.set(key, task);
+      return Promise.resolve(true);
+    },
+  };
+
+  /** Append-only, igual que la tabla: sin update ni borrado. */
+  private readonly notes: IncidentNoteStore = {
+    byId: (tenantId, noteId) => Promise.resolve(this.noteRows.get(`${tenantId}|${noteId}`)),
+    insert: (note) => {
+      const key = `${note.tenantId}|${note.id}`;
+      if (this.noteRows.has(key)) return Promise.reject(new Error('NOTE_ALREADY_EXISTS'));
+      this.noteRows.set(key, note);
+      return Promise.resolve();
+    },
+  };
+
   private readonly outbox: OutboxStore = {
     enqueueIfAbsent: (message) => {
       if (this.outboxRows.has(message.idempotencyKey)) return Promise.resolve(false);
@@ -132,6 +174,8 @@ export class InMemorySoc implements SocPersistence {
     return {
       alerts: new Map(this.alertRows),
       incidents: new Map(this.incidentRows),
+      tasks: new Map(this.taskRows),
+      notes: new Map(this.noteRows),
       outbox: new Map(this.outboxRows),
       candidates: new Map(this.candidateRows),
     };
@@ -153,6 +197,8 @@ export class InMemorySoc implements SocPersistence {
     };
     replace(this.alertRows, snapshot.alerts);
     replace(this.incidentRows, snapshot.incidents);
+    replace(this.taskRows, snapshot.tasks);
+    replace(this.noteRows, snapshot.notes);
     replace(this.outboxRows, snapshot.outbox);
     replace(this.candidateRows, snapshot.candidates);
     this.auditRollback(auditBefore);
@@ -176,6 +222,8 @@ export class InMemorySoc implements SocPersistence {
       const result = await work({
         alerts: this.alerts,
         incidents: this.incidents,
+        tasks: this.tasks,
+        notes: this.notes,
         outbox: this.outbox,
         audit: this.auditStoreRef as AuditStore,
         candidates: this.candidates,
@@ -239,6 +287,39 @@ export class InMemorySoc implements SocPersistence {
 
   public incidentById(tenantId: string, incidentId: string): Promise<Incident | undefined> {
     return Promise.resolve(this.incidentRows.get(`${tenantId}|${incidentId}`));
+  }
+
+  public listIncidentAlerts(
+    tenantId: string,
+    incidentId: string,
+    limit: number,
+  ): Promise<QueryResult<Alert>> {
+    const linked = [...this.alertRows.values()]
+      .filter((alert) => alert.tenantId === tenantId && alert.incidentId === incidentId)
+      .sort((left, right) =>
+        newestFirst({ at: left.occurredAt, id: left.id }, { at: right.occurredAt, id: right.id }),
+      );
+    return Promise.resolve({ items: linked.slice(0, limit), total: linked.length });
+  }
+
+  public listIncidentTasks(tenantId: string, incidentId: string): Promise<readonly IncidentTask[]> {
+    return Promise.resolve(
+      [...this.taskRows.values()]
+        .filter((task) => task.tenantId === tenantId && task.incidentId === incidentId)
+        .sort((left, right) =>
+          newestFirst({ at: left.createdAt, id: left.id }, { at: right.createdAt, id: right.id }),
+        ),
+    );
+  }
+
+  public listIncidentNotes(tenantId: string, incidentId: string): Promise<readonly IncidentNote[]> {
+    return Promise.resolve(
+      [...this.noteRows.values()]
+        .filter((note) => note.tenantId === tenantId && note.incidentId === incidentId)
+        .sort((left, right) =>
+          newestFirst({ at: left.createdAt, id: left.id }, { at: right.createdAt, id: right.id }),
+        ),
+    );
   }
 
   public listIncidents(query: IncidentQuery): Promise<QueryResult<Incident>> {

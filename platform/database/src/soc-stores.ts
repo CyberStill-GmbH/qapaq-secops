@@ -17,6 +17,7 @@
  */
 
 import type { Prisma, PrismaClient } from '../generated/client/client.js';
+import { PrismaIncidentNoteStore, PrismaIncidentTaskStore } from './incident-work-stores.js';
 import { runDatabaseTransaction } from './transaction.js';
 
 type Tx = Prisma.TransactionClient;
@@ -443,6 +444,8 @@ export class PrismaSocOutboxStore {
 export interface SocStores {
   readonly alerts: PrismaAlertStore;
   readonly incidents: PrismaIncidentStore;
+  readonly tasks: PrismaIncidentTaskStore;
+  readonly notes: PrismaIncidentNoteStore;
   readonly audit: PrismaAuditStore;
   readonly candidates: PrismaCandidateStore;
   readonly outbox: PrismaSocOutboxStore;
@@ -457,6 +460,8 @@ export class PrismaSocUnitOfWork {
       work({
         alerts: new PrismaAlertStore(tx),
         incidents: new PrismaIncidentStore(tx),
+        tasks: new PrismaIncidentTaskStore(tx),
+        notes: new PrismaIncidentNoteStore(tx),
         audit: new PrismaAuditStore(tx),
         candidates: new PrismaCandidateStore(tx),
         outbox: new PrismaSocOutboxStore(tx),
@@ -533,6 +538,28 @@ export class PrismaSocQueries {
     if (!UUID_PATTERN.test(alertId)) return undefined;
     const row = await this.client.socAlert.findFirst({ where: { id: alertId, tenantId } });
     return row ? (row as unknown as AlertRow) : undefined;
+  }
+
+  /**
+   * Alertas vinculadas a un incidente en una sola consulta: las `limit` más recientes y el
+   * total real de vínculos, para que el llamador sepa si recortó.
+   */
+  public async alertsByIncident(
+    tenantId: string,
+    incidentId: string,
+    limit: number,
+  ): Promise<{ readonly rows: readonly AlertRow[]; readonly total: number }> {
+    if (!UUID_PATTERN.test(incidentId)) return { rows: [], total: 0 };
+    const where = { tenantId, incidentId };
+    const [rows, total] = await Promise.all([
+      this.client.socAlert.findMany({
+        where,
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        take: Math.min(Math.max(limit, 1), SOC_QUERY_LIMITS.maximumListRows),
+      }),
+      this.client.socAlert.count({ where }),
+    ]);
+    return { rows: rows as unknown as readonly AlertRow[], total };
   }
 
   public async alertByEventRecordId(

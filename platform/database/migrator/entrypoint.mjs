@@ -16,14 +16,15 @@
  *   QAPAQ_POSTGRES_HOST, QAPAQ_POSTGRES_PORT, QAPAQ_POSTGRES_DATABASE, QAPAQ_POSTGRES_TLS
  *   bootstrap-roles: QAPAQ_MASTER_USERNAME, QAPAQ_MASTER_PASSWORD (inyectadas por ECS desde
  *                    el secret administrado por RDS), QAPAQ_MIGRATOR_SECRET_ID,
- *                    QAPAQ_RUNTIME_SECRET_ID, QAPAQ_ENTITY_REF_SECRET_ID, AWS_REGION
+ *                    QAPAQ_RUNTIME_SECRET_ID, QAPAQ_ENTITY_REF_SECRET_ID,
+ *                    QAPAQ_VAPID_SECRET_ID, AWS_REGION
  *   migrate:         QAPAQ_MIGRATOR_PASSWORD (inyectada por ECS)
  *
  * Salida: una línea JSON por fase, sin secretos. Código distinto de cero si algo falla: el
  * pipeline de release no despliega el API sin una migración exitosa.
  */
 
-import { randomBytes } from 'node:crypto';
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +107,32 @@ async function ensureEntityRefKey({ sdk, client }) {
   log('bootstrap.entity_ref_key_created');
 }
 
+/**
+ * Sprint 5 — crea la clave privada VAPID (P-256, PKCS#8 en base64) del Web Push si el secreto no
+ * tiene versión vigente. Si existe no se toca: rotarla invalidaría las suscripciones de todos
+ * los dispositivos registrados.
+ */
+async function ensureVapidKey({ sdk, client }) {
+  const secretId = process.env.QAPAQ_VAPID_SECRET_ID;
+  if (!secretId) return;
+  const described = await client.send(new sdk.DescribeSecretCommand({ SecretId: secretId }));
+  const hasCurrent = Object.values(described.VersionIdsToStages ?? {}).some((stages) =>
+    stages.includes('AWSCURRENT'),
+  );
+  if (hasCurrent) {
+    log('bootstrap.vapid_key_kept');
+    return;
+  }
+  const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  await client.send(
+    new sdk.PutSecretValueCommand({
+      SecretId: secretId,
+      SecretString: privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64'),
+    }),
+  );
+  log('bootstrap.vapid_key_created');
+}
+
 async function bootstrapRoles() {
   const { sdk, client } = await secretsClient();
   const sql = await readFile(new URL('../bootstrap/roles.sql', import.meta.url), 'utf8');
@@ -138,6 +165,7 @@ async function bootstrapRoles() {
       ),
   });
   await ensureEntityRefKey({ sdk, client });
+  await ensureVapidKey({ sdk, client });
   log('bootstrap.completed', {
     note: 'Forzar un nuevo despliegue del API para que tome la contraseña rotada.',
   });

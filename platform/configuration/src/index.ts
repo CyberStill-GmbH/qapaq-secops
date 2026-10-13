@@ -10,7 +10,13 @@ export {
   loadControlPlaneSecretConfig,
   loadConfigurationAndStart,
   loadDetectionContextConfig,
+  loadDirectoryConfig,
   loadEntityRefKey,
+  loadIngestionConfig,
+  loadRoleGrantsConfig,
+  loadTeamsWorkflowUrl,
+  loadAlertMailSender,
+  loadVapidPrivateKey,
   loadSocPersistenceConfig,
   loadLocalWorkerConfig,
   loadRuntimeConfig,
@@ -32,11 +38,22 @@ export type {
 } from './configuration.types.js';
 export { SecretValue } from './configuration.types.js';
 export { CONFIGURATION_LIMITS, REDACTED_VALUE } from './limits.js';
-export { DETECTION_CONTEXT_LIMITS, IDENTITY_MODES } from './schema/index.js';
+export {
+  DETECTION_CONTEXT_LIMITS,
+  GRANTABLE_ROLES,
+  GROUP_OWNER_ROLE,
+  IDENTITY_MODES,
+  INGESTION_SOURCES,
+} from './schema/index.js';
 export type {
   AccessConfig,
   DetectionContextConfig,
   IdentityMode,
+  DirectoryConfig,
+  GrantableRole,
+  IngestionConfig,
+  IngestionSource,
+  RoleGrantsConfig,
   KnownBenignRule,
 } from './schema/index.js';
 export { CONFIGURATION_PROFILES } from './profiles/index.js';

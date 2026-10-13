@@ -71,9 +71,20 @@ export async function main(): Promise<void> {
         memoryRssBytes: process.memoryUsage().rss,
         nodeVersion: process.version,
       }),
+      // Solo el código del catálogo (p. ej. PROVIDER_TIMEOUT): nunca el mensaje del proveedor.
+      (error) => {
+        const code = (error as { code?: unknown } | undefined)?.code;
+        log('ingestion.pass.failed', typeof code === 'string' ? code : 'INGESTION_FAILED');
+      },
+      // Padrón: solo el código (p. ej. DIRECTORY_FORBIDDEN = falta consentimiento de Graph).
+      (error) => {
+        const code = (error as { code?: unknown } | undefined)?.code;
+        log('directory.sync.failed', typeof code === 'string' ? code : 'DIRECTORY_FAILED');
+      },
     );
     // Solo el modo (`memory` o `postgres`), nunca datos de conexión.
     log(`soc.persistence.${runtime.persistence}`);
+    log(`ingestion.source.${runtime.ingestion}`);
     process.on('SIGINT', onSignal);
     process.on('SIGTERM', onSignal);
     process.on('uncaughtException', onException);

@@ -157,4 +157,19 @@ describe.skipIf(!databaseUrl)('C-18 · sesiones en PostgreSQL', () => {
     expect(await store.byId(reference)).toBeUndefined();
     expect(await store.recentByTenant('otro-tenant', new Date(0), 10)).toHaveLength(0);
   });
+
+  it('S5 · busca sesiones activas por OID de Entra, sin distinguir mayúsculas', async () => {
+    const oid = '44444444-4444-4444-8444-444444444444';
+    const created = session({
+      tenantId: 'tenant-oid',
+      subjectId: 'sub-oid',
+      oid: oid.toUpperCase(),
+    });
+    await store.create(created);
+    const active = await store.activeByOid('tenant-oid', oid);
+    expect(active).toHaveLength(1);
+    expect(active[0]!.oid).toBe(oid);
+    expect(active[0]!.id).toBe(`h:${sessionIdHash(created.id)}`);
+    expect(await store.activeByOid('otro-tenant', oid)).toHaveLength(0);
+  });
 });

@@ -27,7 +27,17 @@ import { recordAudit } from '@qapaq/audit';
 import { candidateId, promotionKey, type DetectionCandidate } from '@qapaq/detection';
 
 import { PostgresSocPersistence, SocIntegrityError } from '../src/infrastructure/postgres-soc.js';
-import { ingestCandidate, type SocDependencies } from '../src/use-cases.js';
+import { capabilitiesForRoles } from '@qapaq/access';
+
+import { openIncident } from '../src/incident.js';
+import {
+  addIncidentNote,
+  createIncidentTask,
+  executeIncidentCommand,
+  executeTaskCommand,
+  ingestCandidate,
+  type SocDependencies,
+} from '../src/use-cases.js';
 
 const exec = promisify(execFile);
 const databaseUrl = process.env['DATABASE_URL'];
@@ -338,5 +348,238 @@ describe.skipIf(!databaseUrl)('C-17 · persistencia SOC sobre PostgreSQL', () =>
       await admin.query(`UPDATE soc_alerts SET priority = 'P2' WHERE id = $1`, [target.id]);
       await admin.end();
     }
+  });
+
+  it('S5 · tareas con compare-and-set, cierre bloqueado y bitácora append-only', async () => {
+    const lead = {
+      subjectId: 'sub-lider',
+      tenantId: TENANT,
+      sessionId: 'session-s5',
+      capabilities: capabilitiesForRoles(['qapaq.soc.lead']),
+    };
+    const incidentId = randomUUID();
+    await persistence.run((context) =>
+      context.incidents.insert({
+        ...openIncident({
+          id: incidentId,
+          tenantId: TENANT,
+          title: 'Caso sintético S5',
+          severity: 'high',
+          ownerId: 'sub-lider',
+          summary: 'Tareas y bitácora sobre PostgreSQL.',
+          alertIds: [],
+          openedAt: new Date('2026-10-11T12:00:00.000Z'),
+        }),
+        status: 'resolved',
+      }),
+    );
+    const deps = dependencies(persistence);
+    const created = await createIncidentTask(deps, {
+      actor: lead,
+      incidentId,
+      correlationId: 'corr-s5-1',
+      title: 'Eliminar la regla de reenvío',
+      required: true,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const closeBlocked = await executeIncidentCommand(deps, {
+      actor: lead,
+      incidentId,
+      correlationId: 'corr-s5-2',
+      command: { name: 'close', expectedRevision: 1, closureReason: 'Contenido y verificado.' },
+    });
+    expect(closeBlocked).toMatchObject({ ok: false, reason: 'REQUIRED_TASKS_OPEN' });
+
+    const [first, second] = await Promise.all([
+      executeTaskCommand(deps, {
+        actor: lead,
+        incidentId,
+        taskId: created.value.id,
+        correlationId: 'corr-s5-3',
+        command: { name: 'start', expectedRevision: 1 },
+      }),
+      executeTaskCommand(deps, {
+        actor: lead,
+        incidentId,
+        taskId: created.value.id,
+        correlationId: 'corr-s5-4',
+        command: { name: 'complete', expectedRevision: 1 },
+      }),
+    ]);
+    // Dos escrituras sobre la misma revisión: exactamente una gana.
+    expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
+
+    const note = await addIncidentNote(deps, {
+      actor: lead,
+      incidentId,
+      correlationId: 'corr-s5-5',
+      body: 'Usuario confirmó que no creó la regla.',
+    });
+    expect(note.ok).toBe(true);
+    if (!note.ok) return;
+    expect(await persistence.listIncidentNotes(TENANT, incidentId)).toHaveLength(1);
+    expect((await persistence.listIncidentTasks(TENANT, incidentId))[0]?.revision).toBe(2);
+    // Lectura en bloque de alertas vinculadas: un caso sin alertas devuelve total 0.
+    expect(await persistence.listIncidentAlerts(TENANT, incidentId, 200)).toEqual({
+      items: [],
+      total: 0,
+    });
+    expect(await persistence.listIncidentAlerts(TENANT, 'no-es-uuid', 200)).toEqual({
+      items: [],
+      total: 0,
+    });
+
+    const admin = new Client(database!.url);
+    await admin.connect();
+    try {
+      await expect(
+        admin.query(`UPDATE incident_notes SET body = 'editada' WHERE id = $1`, [note.value.id]),
+      ).rejects.toThrow(/append-only/u);
+      await expect(
+        admin.query(`DELETE FROM incident_notes WHERE id = $1`, [note.value.id]),
+      ).rejects.toThrow(/append-only/u);
+      // Cancelar una obligatoria sin motivo tampoco pasa en la base.
+      await expect(
+        admin.query(
+          `UPDATE incident_tasks SET status = 'cancelled', cancellation_reason = NULL, completed_at = NULL WHERE id = $1`,
+          [created.value.id],
+        ),
+      ).rejects.toThrow(/incident_tasks_required_cancel_reason/u);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('S5 · cursor de ingesta: un solo claim concurrente, fencing y marca que no retrocede', async () => {
+    const key = { tenantId: TENANT, sourceId: 'wazuh-indexer', dataset: 'wazuh-alerts' };
+    const at = new Date('2026-10-12T18:00:00.000Z');
+    const claims = await Promise.all(
+      Array.from({ length: 5 }, () => persistence.ingestion.claimCursor(key, at, 60_000)),
+    );
+    const winners = claims.filter((claim) => claim !== undefined);
+    expect(winners).toHaveLength(1);
+    const claim = winners[0]!;
+    expect(claim.watermark).toBeNull();
+
+    const later = new Date('2026-10-12T17:30:00.000Z');
+    const earlier = new Date('2026-10-12T17:00:00.000Z');
+    expect(await persistence.ingestion.advanceCursor(claim, later, at)).toBe(true);
+    expect(await persistence.ingestion.advanceCursor(claim, earlier, at)).toBe(true);
+    // Un claim ajeno no avanza.
+    expect(
+      await persistence.ingestion.advanceCursor({ ...claim, claimId: randomUUID() }, at, at),
+    ).toBe(false);
+    await persistence.ingestion.releaseCursor(claim);
+
+    const next = await persistence.ingestion.claimCursor(key, at, 60_000);
+    expect(next?.watermark?.toISOString()).toBe(later.toISOString());
+    await persistence.ingestion.releaseCursor(next!);
+
+    const observation = {
+      id: randomUUID(),
+      ...key,
+      attemptedAt: at,
+      completedAt: at,
+      outcome: 'success' as const,
+      recordsSeen: 0,
+      promoted: 0,
+      quarantined: 0,
+      newestEventAt: null,
+      errorClass: null,
+    };
+    await persistence.ingestion.recordObservation(observation);
+    await persistence.ingestion.recordObservation(observation);
+    expect(await persistence.ingestion.recentObservations(key, 10)).toHaveLength(1);
+    // Un error sin código viola la coherencia de la tabla.
+    await expect(
+      persistence.ingestion.recordObservation({
+        ...observation,
+        id: randomUUID(),
+        outcome: 'retryable_error',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('S5 · la bitácora de salud por fuente es append-only e idempotente', async () => {
+    const key = { tenantId: TENANT, sourceId: 'wazuh-indexer', dataset: 'wazuh-alerts' };
+    const transition = {
+      id: randomUUID(),
+      ...key,
+      fromState: null,
+      toState: 'unknown' as const,
+      reason: 'NO_OBSERVATIONS' as const,
+      at: new Date('2026-10-12T20:00:00.000Z'),
+    };
+    await persistence.ingestion.appendTransition(transition);
+    await persistence.ingestion.appendTransition(transition);
+    expect(await persistence.ingestion.recentTransitions(key, 10)).toEqual([transition]);
+
+    const admin = new Client(database!.url);
+    await admin.connect();
+    try {
+      await expect(
+        admin.query(`UPDATE source_health_transitions SET to_state = 'healthy' WHERE id = $1`, [
+          transition.id,
+        ]),
+      ).rejects.toThrow(/append-only/u);
+      // Una «transición» sin cambio de estado no es una transición.
+      await expect(
+        admin.query(
+          `INSERT INTO source_health_transitions VALUES ($1, $2, 'wazuh-indexer', 'wazuh-alerts', 'unknown', 'unknown', 'NO_OBSERVATIONS', now())`,
+          [randomUUID(), TENANT],
+        ),
+      ).rejects.toThrow(/source_health_transitions_is_change/u);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('S5 · actividad por stream: los no medidos quedan en cero y conservan su último evento', async () => {
+    const key = { tenantId: TENANT, sourceId: 'wazuh-indexer', dataset: 'wazuh-alerts' };
+    const first = new Date('2026-10-12T20:00:00.000Z');
+    await persistence.ingestion.saveActivity(key, [
+      {
+        stream: 'Audit.Exchange',
+        lastEventAt: new Date('2026-10-12T19:00:00.000Z'),
+        eventsInWindow: 4,
+        windowHours: 24,
+        measuredAt: first,
+      },
+      {
+        stream: 'Audit.General',
+        lastEventAt: null,
+        eventsInWindow: 0,
+        windowHours: 24,
+        measuredAt: first,
+      },
+    ]);
+    const second = new Date('2026-10-12T20:10:00.000Z');
+    await persistence.ingestion.saveActivity(key, [
+      {
+        stream: 'Audit.General',
+        lastEventAt: new Date('2026-10-12T20:05:00.000Z'),
+        eventsInWindow: 1,
+        windowHours: 24,
+        measuredAt: second,
+      },
+    ]);
+    expect(await persistence.ingestion.activity(key)).toEqual([
+      {
+        stream: 'Audit.Exchange',
+        lastEventAt: new Date('2026-10-12T19:00:00.000Z'),
+        eventsInWindow: 0,
+        windowHours: 24,
+        measuredAt: second,
+      },
+      {
+        stream: 'Audit.General',
+        lastEventAt: new Date('2026-10-12T20:05:00.000Z'),
+        eventsInWindow: 1,
+        windowHours: 24,
+        measuredAt: second,
+      },
+    ]);
   });
 });

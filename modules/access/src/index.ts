@@ -112,3 +112,21 @@ export type {
   TokenExchange,
   TokenExchangeResult,
 } from './ports.js';
+export {
+  applyMemberCycle,
+  DIRECTORY_ERROR_CODES,
+  DIRECTORY_SYNC_STATUSES,
+  DirectoryError,
+  type DirectoryClaim,
+  type DirectoryErrorCode,
+  type DirectoryMemberRecord,
+  type DirectoryPerson,
+  type DirectoryReader,
+  type DirectoryStore,
+  type DirectorySyncCycle,
+  type DirectorySyncState,
+  type DirectorySyncStatus,
+  type MemberChange,
+  type MemberDeltaPage,
+} from './directory.js';
+export { InMemoryDirectoryStore } from './memory-directory-store.js';

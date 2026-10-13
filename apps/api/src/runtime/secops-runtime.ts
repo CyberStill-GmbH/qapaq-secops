@@ -94,6 +94,27 @@ import { LocalDevelopmentIssuer, LOCAL_PRINCIPALS } from '../access/local-issuer
 import { csrfTokenFor } from '../http/csrf.js';
 import { DEFAULT_RETURN_TO } from '../http/return-to.js';
 import type { ProcessInfo } from '../soc/operations-health.js';
+import type { EventsReader } from './events-reader.js';
+import type { SourceHealthMonitor } from './source-health.js';
+import type { RoleGrantsConfig } from '@qapaq/configuration';
+import type { DirectoryStore } from '@qapaq/access';
+import {
+  notifyDevices,
+  type FallbackChannel,
+  type PushSender,
+  type PushSubscriptionStore,
+  type RecipientDirectory,
+} from '@qapaq/soar';
+
+/** Padrón disponible para la administración. */
+export type RuntimeDirectory =
+  | { readonly mode: 'disabled' }
+  | {
+      readonly mode: 'graph';
+      readonly groupId: string;
+      readonly intervalMs: number;
+      readonly store: DirectoryStore;
+    };
 import { NotificationDispatcher } from './notification-dispatcher.js';
 import { CONNECTED_SOURCE_SIGNAL_CATALOG } from './signal-catalog.js';
 
@@ -123,6 +144,28 @@ export interface RuntimeOptions {
   readonly onDispatchError?: (error: unknown) => void;
   /** Métricas del proceso; las inyecta el entrypoint, único que puede leer `process`. */
   readonly processInfo?: () => ProcessInfo;
+  /**
+   * Roles concedidos por QAPAQ (asignaciones del deploy y dueños del grupo). Se suman a los
+   * app roles del token; sin resolvedor, solo cuentan el token y la asignación temporal.
+   */
+  readonly roleGrants?: (oid: string | undefined) => Promise<readonly string[]>;
+  /** Explorador de eventos (fase 1). Sin lector, la fuente de eventos está deshabilitada. */
+  readonly events?: EventsReader;
+  /** Fuente vigilada por la salud por fuente (fase 2); existe aunque esté deshabilitada. */
+  readonly sourceHealth?: SourceHealthMonitor;
+  /** Padrón del grupo de admisión (fase 3); sin él, la sincronización está deshabilitada. */
+  readonly directory?: RuntimeDirectory;
+  /** Roles concedidos por el deploy, para explicar el origen de cada rol en la administración. */
+  readonly roleGrantsConfig?: RoleGrantsConfig;
+  /** Destinatarios de Teams por rol (Sprint 5); sin él, la tarjeta sale sin menciones. */
+  readonly recipients?: RecipientDirectory;
+  /**
+   * Respaldo cuando Teams no confirma la entrega (Sprint 5: correo). Recibe la bandeja de la
+   * consola como siguiente eslabón; sin él, el respaldo es solo la consola.
+   */
+  readonly fallbackChain?: (consoleFallback: FallbackChannel) => FallbackChannel;
+  /** Avisos al dispositivo (Web Push, Sprint 5); sin él la consola los muestra deshabilitados. */
+  readonly push?: { readonly store: PushSubscriptionStore; readonly sender: PushSender };
 }
 
 /** Tope de alertas que la correlación lee por evento; protege frente a entidades ruidosas. */
@@ -162,7 +205,18 @@ export class SecOpsRuntime {
   public readonly soc: SocPersistence;
   public readonly notifications: AttemptStore;
   public readonly dispatcher: NotificationDispatcher;
-  public readonly fallback = new ConsoleFallbackChannel();
+  /** Bandeja de la consola: último eslabón del respaldo, siempre presente. */
+  public readonly consoleFallback = new ConsoleFallbackChannel();
+
+  /** Cadena de respaldo efectiva: correo → consola, o solo consola. */
+  public get fallback(): FallbackChannel {
+    this.#fallback ??= this.options.fallbackChain
+      ? this.options.fallbackChain(this.consoleFallback)
+      : this.consoleFallback;
+    return this.#fallback;
+  }
+
+  #fallback: FallbackChannel | undefined;
   public readonly localIssuer: LocalDevelopmentIssuer | undefined;
   public readonly networkPolicy: NetworkPolicy;
   private readonly jwks: JwksProvider;
@@ -246,6 +300,37 @@ export class SecOpsRuntime {
     return this.options.profile === 'production';
   }
 
+  public get directory(): RuntimeDirectory | undefined {
+    return this.options.directory;
+  }
+
+  public get roleGrantsConfig(): RoleGrantsConfig | undefined {
+    return this.options.roleGrantsConfig;
+  }
+
+  /** Tenant del padrón: el del app registration (instalación de un solo tenant). */
+  public get tenantIdForDirectory(): string {
+    return this.options.access.tenantId;
+  }
+
+  /** Fuente vigilada por la salud por fuente; `undefined` solo en specs que no la declaran. */
+  public get sourceHealth(): SourceHealthMonitor | undefined {
+    return this.options.sourceHealth;
+  }
+
+  public get push(): RuntimeOptions['push'] {
+    return this.options.push;
+  }
+
+  public get access(): AccessConfig {
+    return this.options.access;
+  }
+
+  /** Lector del explorador de eventos; `undefined` si no hay fuente configurada. */
+  public get events(): EventsReader | undefined {
+    return this.options.events;
+  }
+
   public get isLocalIdentity(): boolean {
     return this.options.access.identityMode === 'local-development';
   }
@@ -314,6 +399,21 @@ export class SecOpsRuntime {
       clock: { now: () => this.now() },
       ids: { next: () => randomUUID() },
       consoleBaseUrl: this.options.access.consoleBaseUrl,
+      ...(this.options.recipients ? { recipients: this.options.recipients } : {}),
+      ...(this.options.push
+        ? {
+            devices: {
+              notify: (tenantId: string, subjectKeys: readonly string[]) =>
+                notifyDevices({
+                  store: this.options.push!.store,
+                  sender: this.options.push!.sender,
+                  tenantId,
+                  subjectKeys,
+                  now: () => this.now(),
+                }),
+            },
+          }
+        : {}),
     };
   }
 
@@ -377,6 +477,42 @@ export class SecOpsRuntime {
   }
 
   /** Referencia `h:<sha256>` de una sesión: la forma en que la administración la nombra. */
+  /**
+   * Sprint 5 · fase 3 — revoca las sesiones activas de personas que perdieron acceso por un cambio
+   * en el padrón (baja del grupo o pérdida de la propiedad). Idempotente: sin sesiones activas no
+   * hace nada, así puede correr en cada ciclo de sincronización. Cada revocación queda auditada
+   * con el motivo; un conflicto de revisión (la sesión cambió en paralelo) se reintenta en el
+   * ciclo siguiente.
+   */
+  public async revokeSessionsByOid(
+    oids: readonly string[],
+    reason: 'membership_removed' | 'ownership_removed',
+  ): Promise<number> {
+    let revoked = 0;
+    for (const oid of new Set(oids.map((value) => value.toLowerCase()))) {
+      for (const session of await this.sessions.activeByOid(this.tenantId, oid)) {
+        const at = this.now();
+        if (!(await this.sessions.update(revokeSession(session, reason, at), session.revision))) {
+          continue;
+        }
+        revoked += 1;
+        await recordAudit(this.audit, {
+          id: randomUUID(),
+          tenantId: this.tenantId,
+          occurredAt: at,
+          actor: { id: 'system:directory-sync', type: 'service' },
+          action: 'access.session.revoked',
+          resource: { type: 'session', id: session.subjectId },
+          outcome: 'succeeded',
+          correlationId: randomUUID(),
+          reason,
+          metadata: { reference: session.id },
+        });
+      }
+    }
+    return revoked;
+  }
+
   public sessionReferenceOf(sessionId: string): string {
     return `h:${createHash('sha256').update(sessionId, 'utf8').digest('hex')}`;
   }
@@ -556,8 +692,18 @@ export class SecOpsRuntime {
       at.getTime() < backendBinding.expiresAt.getTime()
         ? backendBinding.role
         : undefined;
+    const granted =
+      validation.ok && this.options.roleGrants
+        ? await this.options.roleGrants(validation.claims.oid)
+        : [];
     const roles = validation.ok
-      ? [...new Set([...(validation.claims.roles ?? []), ...(backendRole ? [backendRole] : [])])]
+      ? [
+          ...new Set([
+            ...(validation.claims.roles ?? []),
+            ...(backendRole ? [backendRole] : []),
+            ...granted,
+          ]),
+        ]
       : [];
     const capabilities = effectiveCapabilities(roles, BFF_SCOPES);
     const decision = decideSignIn({
@@ -586,6 +732,7 @@ export class SecOpsRuntime {
     const plan = openSession(
       {
         subjectId: claims!.sub,
+        ...(claims!.oid ? { oid: claims!.oid } : {}),
         ...(claims!.name ? { displayName: claims!.name } : {}),
         ...(claims!.preferred_username ? { email: claims!.preferred_username } : {}),
         tenantId: this.tenantId,

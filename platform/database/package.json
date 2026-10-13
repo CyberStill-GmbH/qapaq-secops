@@ -23,6 +23,16 @@
       "types": "./src/session-stores.ts",
       "development": "./src/session-stores.ts",
       "default": "./dist/src/session-stores.js"
+    },
+    "./directory-stores": {
+      "types": "./src/directory-stores.ts",
+      "development": "./src/directory-stores.ts",
+      "default": "./dist/src/directory-stores.js"
+    },
+    "./push-stores": {
+      "types": "./src/push-stores.ts",
+      "development": "./src/push-stores.ts",
+      "default": "./dist/src/push-stores.js"
     }
   },
   "scripts": {

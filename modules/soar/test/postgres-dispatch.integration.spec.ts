@@ -134,7 +134,8 @@ describe.skipIf(!databaseUrl)('C-20 · despacho durable sobre PostgreSQL', () =>
       maxConnections: 2,
     });
 
-    // Una alerta P1 escalada por un analista genera el hecho que exige notificación.
+    // Una alerta P1 avisa dos veces por política (Sprint 5): al crearse, para el triage
+    // (analista y lead), y al escalarse, para la decisión de caso (lead y admin).
     const eventRecordId = '0199c20d-0000-7000-8000-000000000001';
     const key = promotionKey(TENANT, eventRecordId, '1.1.0');
     const id = candidateId(key, AT);
@@ -216,18 +217,24 @@ describe.skipIf(!databaseUrl)('C-20 · despacho durable sobre PostgreSQL', () =>
     const recovered = await drainOutbox(dispatchDependencies(healthy, later));
     const critical = recovered.filter((result) => result.code !== 'skipped_not_critical');
 
-    expect(critical.map((result) => result.code)).toEqual(['delivered']);
-    expect(healthy.sent).toBe(1);
+    // El aviso de alta (el que cayó) se reenvía con su mismo `clientRequestId` y el de escalada
+    // se entrega por primera vez: dos entregas, una por mensaje, ninguna duplicada.
+    expect(critical.map((result) => result.code)).toEqual(['delivered', 'delivered']);
+    expect(healthy.sent).toBe(2);
 
-    // Ya publicado: otra pasada no encuentra nada y no vuelve a enviar.
+    // Ya publicados: otra pasada no encuentra nada y no vuelve a enviar.
     expect(await drainOutbox(dispatchDependencies(healthy, later))).toHaveLength(0);
-    expect(healthy.sent).toBe(1);
+    expect(healthy.sent).toBe(2);
   });
 
   it('el intento entregado queda persistido y visible en la bandeja del tenant', async () => {
     const listed = await attempts.listByTenant(TENANT, 10);
 
-    expect(listed).toHaveLength(1);
-    expect(listed[0]).toMatchObject({ status: 'sent', channel: 'teams', attemptCount: 2 });
+    // Un intento por mensaje: el de alta tuvo dos intentos (caída y recuperación).
+    expect(listed).toHaveLength(2);
+    expect(
+      listed.every((attempt) => attempt.status === 'sent' && attempt.channel === 'teams'),
+    ).toBe(true);
+    expect(listed.map((attempt) => attempt.attemptCount).sort()).toEqual([1, 2]);
   });
 });

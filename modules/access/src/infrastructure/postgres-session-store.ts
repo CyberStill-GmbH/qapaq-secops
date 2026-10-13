@@ -59,6 +59,7 @@ function toRow(session: Session): SessionRow {
     idHash: sessionIdHash(session.id),
     tenantId: session.tenantId,
     subjectId: session.subjectId,
+    subjectOid: session.oid?.toLowerCase() ?? null,
     displayName: session.displayName ?? null,
     email: session.email ?? null,
     state: session.state,
@@ -81,6 +82,7 @@ function toSession(row: SessionRow, id: string): Session {
   return {
     id,
     subjectId: row.subjectId,
+    ...(row.subjectOid === null ? {} : { oid: row.subjectOid }),
     ...(row.displayName === null ? {} : { displayName: row.displayName }),
     ...(row.email === null ? {} : { email: row.email }),
     tenantId: row.tenantId,
@@ -142,6 +144,11 @@ export class PostgresSessionStore implements SessionStore {
     return rows.map((row) => toSession(row, `${HASHED_PREFIX}${row.idHash}`));
   }
 
+  public async activeByOid(tenantId: string, oid: string): Promise<readonly Session[]> {
+    const rows = await this.store.activeByOid(tenantId, oid);
+    return rows.map((row) => toSession(row, `${HASHED_PREFIX}${row.idHash}`));
+  }
+
   public update(session: Session, expectedRevision: number): Promise<boolean> {
     return this.store.update(toRow(session), expectedRevision);
   }
@@ -165,3 +172,6 @@ export class PostgresSessionStore implements SessionStore {
     return this.closeClient();
   }
 }
+
+// Sprint 5 · fase 3: el padrón comparte el subpath `@qapaq/access/postgres`.
+export { DirectoryIntegrityError, PostgresDirectoryStore } from './postgres-directory-store.js';

@@ -6,6 +6,12 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 
 import { AdminSessionsController } from './admin-sessions.controller.js';
+import { ChangesController } from './changes.controller.js';
+import { EventsController } from './events.controller.js';
+import { SourcesHealthController } from './sources-health.controller.js';
+import { AdminUsersController } from './admin-users.controller.js';
+import { MePushController } from './me-push.controller.js';
+import { IncidentWorkController } from './incident-work.controller.js';
 import { AuditController } from './audit.controller.js';
 import { AuthController } from './auth.controller.js';
 import { LocalAuthController } from './local-auth.controller.js';
@@ -25,6 +31,12 @@ export class SocModule {
         AuditController,
         OperationsController,
         AdminSessionsController,
+        IncidentWorkController,
+        ChangesController,
+        EventsController,
+        SourcesHealthController,
+        AdminUsersController,
+        MePushController,
         // Las rutas del emisor local solo se registran cuando ese emisor existe.
         ...(runtime.isLocalIdentity ? [LocalAuthController] : []),
       ],

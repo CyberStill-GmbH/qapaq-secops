@@ -1,6 +1,8 @@
 # 01 · Inventario funcional del backend
 
-Estado: **verificado contra el código** en `main` @ `b5b2717`. Fecha: 2026-10-02.
+Estado: baseline funcional actualizado al 2026-10-13 para la revisión de demo. Los
+cambios locales del sprint aún requieren CI, integración real y publicación; no implica
+release aceptado.
 
 Este documento enumera **lo que el backend hace hoy**, con los nombres exactos
 que la interfaz debe consumir. Es la fuente para el resto de la carpeta: si una
@@ -12,14 +14,15 @@ construye la pantalla ([06 · §1](06-patrones-de-interaccion.md#1-niveles-de-di
 | Nivel | Significado | Cómo se construye en el frontend |
 | --- | --- | --- |
 | **API** | Ruta HTTP servida por el BFF (`apps/api`) | Contra el BFF real. Sin mock. |
-| **DOMINIO** | Lógica en `modules/*` o `platform/*` sin ruta HTTP | Pantalla diseñada, construida tras `MockAdapter` con el contrato del dominio, marcada como demostración |
-| **DOC** | Solo existe en `docs/` o en el mock web | Se diseña la ubicación, no la pantalla. No se construye hasta que exista dominio |
+| **DOMINIO** | Lógica en `modules/*` o `platform/*` sin ruta HTTP | No se presenta como una operación disponible. Se documenta la brecha y se ocultan controles sin API. |
+| **DOC** | Solo existe en `docs/` o en el mock web | Se documenta como futuro; no se anuncia ni se simula como activo. |
 
 ---
 
 ## 1. Rutas HTTP reales
 
-El BFF sirve **20 rutas**. No hay prefijo `/api/v1`. Todas las del mock
+Las rutas vigentes se enumeran por superficie debajo; el total histórico de 20 ya quedó
+obsoleto por los incrementos de Sprint 5. No hay prefijo `/api/v1`. Las del mock
 ([`admin.ts`](../../apps/web/src/api/admin.ts),
 [`API_CONTRACT.md`](../../apps/web/API_CONTRACT.md)) bajo `/api/v1/*` **no
 existen** ([08 · §1](08-brechas-y-decisiones.md#1-contrato-de-api)).
@@ -97,10 +100,57 @@ No se exponen `triageNote`, `eventRecordId`, `createdAt`, `updatedAt`.
 | --- | --- | --- | --- | --- |
 | POST | `/api/incidents` | `incidents.write` | `{ alertId, title, severity, summary, expectedAlertRevision }` todos obligatorios | 201 `{ correlationId, incident }` |
 | GET | `/api/incidents` | `incidents.read` | `pageSize`, `cursor` | `{ correlationId, items: IncidentView[], nextCursor }`, orden `openedAt` desc |
+| GET | `/api/incidents/:id` | `incidents.read` | — | `{ correlationId, incident: IncidentView }` |
+| GET | `/api/incidents/:id/alerts` | `incidents.read` y `alerts.read` | `pageSize`, `cursor` | `{ correlationId, incidentId, items: AlertView[], nextCursor, totalCount, unavailableCount, truncated }`, orden `occurredAt` desc |
 | POST | `/api/incidents/:id/commands` | `close` → `incidents.close`; resto → `incidents.write` | `{ name, expectedRevision, closureReason?, ownerId? }` | 201 `{ correlationId, incident }` |
 
-**No existe `GET /api/incidents/:id`.** El detalle se resuelve desde la lista
-([08 · B-05](08-brechas-y-decisiones.md#2-brechas-que-bloquean-la-interfaz)).
+`GET /api/incidents/:id` cierra la brecha
+[08 · B-05](08-brechas-y-decisiones.md#2-brechas-que-bloquean-la-interfaz).
+
+`GET /api/incidents/:id/alerts` resuelve las alertas vinculadas con la misma proyección
+redactada de `GET /api/alerts` (sin `rawRef` para quien no tiene `events.read_raw`), así la
+consola no consulta alerta por alerta:
+- resuelve como máximo 200 vínculos y `truncated` indica si había más;
+- un vínculo que no se puede leer en el tenant solo suma a `unavailableCount`;
+- sin una de las dos capabilities, o con un incidente inexistente, responde
+  `RESOURCE_UNAVAILABLE`.
+
+### 1.4.1 Tareas, bitácora y timeline del incidente (Sprint 5 · fase 4)
+
+| Método | Ruta | Capability | Entrada | Respuesta |
+| --- | --- | --- | --- | --- |
+| GET | `/api/incidents/:id/tasks` | `incidents.read` | `pageSize`, `cursor` | `{ correlationId, incidentId, items: TaskView[], nextCursor, totalCount, openRequiredCount }`, orden `createdAt` desc |
+| POST | `/api/incidents/:id/tasks` | `incidents.tasks.write` + CSRF | `{ title, required, description?, assigneeId?, dueAt? }` | 201 `{ correlationId, task }` |
+| POST | `/api/incidents/:id/tasks/:taskId/commands` | `incidents.tasks.write` + CSRF | `{ name: start\|complete\|reopen\|cancel\|assign, expectedRevision, assigneeId?, reason? }` | 201 `{ correlationId, task }` |
+| GET | `/api/incidents/:id/notes` | `incidents.read` | `pageSize`, `cursor` | `{ correlationId, incidentId, items: NoteView[], nextCursor, totalCount }`, orden `createdAt` desc |
+| POST | `/api/incidents/:id/notes` | `incidents.notes.write` + CSRF | `{ body, correctsNoteId? }` | 201 `{ correlationId, note }` |
+| GET | `/api/incidents/:id/timeline` | `incidents.read` | `pageSize`, `cursor` | `{ correlationId, incidentId, transitions, items: TimelineEntry[], nextCursor, totalCount }` |
+
+`TaskView`: `id`, `incidentId`, `title`, `description`, `status` (`open | in_progress |
+done | cancelled`), `required`, `assigneeId | null`, `dueAt | null`, `createdBy`, `createdAt`,
+`updatedAt`, `completedAt | null`, `cancellationReason | null`, `revision`.
+
+`NoteView`: `id`, `incidentId`, `authorId`, `body`, `createdAt`, `correctsNoteId | null`. No
+existe editar ni borrar: una corrección es otra nota con `correctsNoteId`.
+
+`TimelineEntry`:
+- `id`, `kind`, `at`, `actorId | null`, `summary`, `ref { type, id }`;
+- `kind` es uno de: `incident.opened`, `incident.transition`, `incident.closed`, `alert.linked`, `task.created`, `task.completed`, `task.cancelled` o `note.added`;
+- `timeSource` vale `provider` (hora del evento en la fuente: alertas) o `recorded` (hora en que QAPAQ lo registró).
+- `recordedAt`: hora en que QAPAQ registró la entrada. En alertas difiere de `at` (que es la hora en la fuente); en el resto coincide.
+
+`transitions` indica si el timeline incluye contener, erradicar, resolver, reabrir y
+reasignar, que salen de la auditoría:
+- `included`: el lector tiene `audit.read`;
+- `partial`: hay más de una página o el caso es más antiguo que el rango de auditoría;
+- `requires_audit_read`: el lector no puede leerlas. La UI debe decirlo, no ocultarlo.
+
+Reglas:
+- cerrar el incidente con una tarea obligatoria `open` o `in_progress` responde 422
+  (`VALIDATION_FAILED`). Cancelar una obligatoria exige `reason` de 10 a 500 caracteres;
+- un incidente `closed` no admite tareas ni notas nuevas hasta reabrirlo;
+- sin capability, inexistente o id que no es UUID: `RESOURCE_UNAVAILABLE`. Revisión obsoleta: 409 `STATE_CONFLICT`.
+- capabilities por rol: `incidents.tasks.write` e `incidents.notes.write` las tienen analista, lead y admin; el auditor solo lee.
 
 `IncidentView`: `id`, `title`, `severity`, `status`, `ownerId`, `alertIds[]`,
 `summary`, `openedAt`, `closedAt | null`, `revision`. No se expone
@@ -153,10 +203,10 @@ desconocido no concede nada.
 
 | Rol | Capabilities efectivas (rol ∩ scopes del BFF) |
 | --- | --- |
-| `qapaq.soc.analyst` | `events.read`, `alerts.read`, `alerts.triage`, `alerts.assign`, `incidents.read`, `incidents.write`, `notifications.read` |
-| `qapaq.soc.lead` | lo anterior + `events.read_raw`, `incidents.close`, `audit.read` |
-| `qapaq.auditor` | `audit.read`, `audit.read_sensitive`, `audit.verify`, `incidents.read` |
-| `qapaq.platform.admin` | Unión explícita de las capabilities SOC actuales, incluidas auditoría sensible y escritura de secretos; lista finita, no incluye futuras capabilities ni administración de identidades. |
+| `qapaq.soc.analyst` | `events.read`, `alerts.read`, `alerts.triage`, `alerts.assign`, `incidents.read`, `incidents.write`, `incidents.tasks.write`, `incidents.notes.write`, `notifications.read` |
+| `qapaq.soc.lead` | Analyst + `events.read_raw`, `incidents.close`, `notifications.dispatch`, `observability.read_soc`, `sources.health.read`, `audit.read` |
+| `qapaq.auditor` | `audit.read`, `audit.read_sensitive`, `audit.verify`, `incidents.read`, `sources.health.read` |
+| `qapaq.platform.admin` | Unión explícita de capabilities actuales, incluidas auditoría sensible, salud, `users.read`, `sessions.read`, `sessions.revoke` y `secrets.write`; no incluye futuras capabilities. |
 
 **La interfaz decide por capability, nunca por rol.** El rol se muestra en el
 perfil; no se usa en un `if`.
@@ -165,10 +215,10 @@ Consecuencias de diseño directas:
 
 - El **auditor no ve alertas** (`alerts.read` ausente): su navegación no tiene
   "Alertas".
-- El **administrador de plataforma** recibe las capabilities SOC actuales: su consola es
-  "Auditoría" y "Mi sesión". No se rellena con pantallas vacías.
-- `events.read` existe pero **ninguna ruta lo usa**: la búsqueda de eventos es
-  nivel DOMINIO.
+- El **administrador de plataforma** ve las superficies actuales que autoriza su sesión,
+  incluidas Usuarios SOC, Sesiones, Salud operativa/plataforma, fuentes y auditoría.
+- Eventos y salud de fuentes ya tienen rutas BFF; los controles visibles se limitan a las
+  capabilities efectivas y al contrato que el runtime habilite.
 
 ### 2.2 Inicio de sesión
 
@@ -381,3 +431,188 @@ navegación como ítem ausente (no deshabilitado) y se documenta qué haría.
 - SLA, métricas de equipo, exportaciones, reportes.
 - Reproceso masivo, replay de fuentes, configuración de conectores.
 - Bundles de rol (`SOC_L1`, `VIEWER`…) y scopes `ORGANIZATION`…`ASSIGNED_RESOURCES`.
+
+## Datos en vivo · `GET /api/changes` (S5-D10)
+
+| Método | Ruta | Capability | Entrada | Respuesta |
+| --- | --- | --- | --- | --- |
+| GET | `/api/changes` | sesión válida; cada tipo se filtra por su capability de lectura | `after` (cursor; omitido = punto de partida) | `{ correlationId, cursor, changes: Change[], resync }` |
+
+`Change`: `{ seq, resource: { type, id }, kind: 'created' | 'updated', at }`. Tipos y
+capability que los habilita:
+
+| Tipo | Capability |
+| --- | --- |
+| `alert` | `alerts.read` |
+| `incident`, `incident_task`, `incident_note` | `incidents.read` |
+| `notification` | `notifications.read` |
+| `session` | `sessions.read` |
+
+Uso:
+
+1. Al montar la vista, `GET /api/changes` sin `after` para obtener el cursor actual.
+2. En bucle, `GET /api/changes?after=<cursor>`. Si no hay cambios, la respuesta llega a los
+   ~2,5 s con `changes: []`; si los hay, llega de inmediato. Siempre se guarda el `cursor`
+   devuelto.
+3. Por cada cambio visible en la vista, se recarga ese recurso por su endpoint normal y se
+   anima su entrada o actualización.
+4. `resync: true` (cliente muy atrasado) significa recargar la vista una vez y seguir con el
+   cursor nuevo.
+5. Con la pestaña oculta se pausa el bucle; al volver se retoma con el último cursor.
+
+El feed nunca incluye contenido, actor ni motivo. Cursor mal formado: 422 `VALIDATION_FAILED`.
+Sin sesión: 401.
+
+## Explorador de eventos · `GET /api/events` (Sprint 5 · fase 1)
+
+| Método | Ruta | Capability | Entrada | Respuesta |
+| --- | --- | --- | --- | --- |
+| GET | `/api/events` | `events.read`; `raw` solo con `events.read_raw` | `from`, `to` (ISO 8601 UTC; por defecto las últimas 24 h; máximo 31 días), `severity` y `category` (lista separada por comas), `outcome` (`success \| failure`), `pageSize` (1–200; 50 por defecto), `cursor` | `{ correlationId, status, window: { from, to }, items: EventView[], unparsedCount, nextCursor }` |
+
+- `status: "ok"` significa que la fuente respondió. `status: "disabled"` significa que la fuente
+  no está configurada: llega sin filas, y la UI debe decir que no hay fuente, no «sin eventos».
+- Orden: lo más reciente primero. La paginación es solo por cursor (Anterior/Siguiente), sin
+  total ni números de página. El cursor queda ligado a los filtros y al orden; con otros
+  filtros responde 422 en `cursor`.
+- `EventView`: `recordId`, `eventUid`, `occurredAt`, `receivedAt`, `kind`, `severity`,
+  `category[]`, `outcome`, `action | null`, `title | null`, `rule { id, groups } | null`,
+  `identities[]`, `resources[]`, `source`, `extensions | null` y `raw` (solo con
+  `events.read_raw`: es el documento original del Indexer).
+- `unparsedCount`: documentos de la página que no se pudieron normalizar; la UI lo informa.
+- Límite de los filtros: `category` y `outcome` filtran por los grupos de la regla Wazuh. Lo que
+  la proyección de Office 365 agrega a partir del registro (por ejemplo `email` por
+  `Workload`) puede no quedar incluido. `unclassified` y `unknown` no son filtrables (422).
+- Errores: entrada inválida 422 con los campos; proveedor caído 503 `DEPENDENCY_DEGRADED`, sin
+  detalles internos.
+
+## Salud por fuente · `GET /api/sources/health` (Sprint 5 · fase 2)
+
+| Método | Ruta | Capability | Respuesta |
+| --- | --- | --- | --- |
+| GET | `/api/sources/health` | `sources.health.read` (lead, auditor, admin) | `{ correlationId, checkedAt, sources: SourceHealthView[] }` |
+
+`SourceHealthView`:
+
+| Campo | Contenido |
+| --- | --- |
+| `sourceId`, `dataset`, `displayName`, `enabled` | Identidad de la fuente y si la ingesta está habilitada |
+| `state` | `unknown \| healthy \| degraded \| failed \| disabled` |
+| `reason` | `DISABLED \| NO_OBSERVATIONS \| PERMANENT_ERROR \| NO_RECENT_SUCCESS \| CONSECUTIVE_FAILURES \| NEVER_SUCCEEDED \| RECENT_SUCCESS` |
+| `lastAttemptAt`, `lastSuccessAt`, `lastEventAt` | Instantes; `null` = «Sin dato» |
+| `consecutiveFailures`, `lastErrorClass` | Fallos seguidos y código neutral del último error (`null` si la última pasada fue bien) |
+| `policy` | `{ intervalMs, degradeAfterMs, failAfterMs }`: la UI puede explicar el umbral |
+| `subscriptions` | `{ measuredAt, windowHours, items: [{ stream, lastEventAt, eventsInWindow }] }` o `null` si todavía no hubo medición. Actividad por suscripción de Office 365 en 24 h; se mide como máximo cada 5 min. Es informativa: un stream callado (`eventsInWindow = 0`) puede ser normal y no decide el estado. `lastEventAt: null` = nunca tuvo eventos |
+| `transitions[]` | Últimas 20 transiciones, cada una `{ id, fromState, toState, reason, at }` |
+
+- El estado se evalúa al leer, con la hora actual: una ingesta detenida se ve degradada o
+  caída sin esperar una escritura.
+- `unknown` y `disabled` nunca van en verde. Un éxito con cero filas es salud
+  (`lastSuccessAt`), no actividad (`lastEventAt`).
+- Las transiciones también llegan por `GET /api/changes` como recurso `source` (con
+  `sources.health.read`).
+
+## Padrón del grupo de admisión · `/api/admin/users` (Sprint 5 · fase 3)
+
+| Método | Ruta | Capability | Respuesta |
+| --- | --- | --- | --- |
+| GET | `/api/admin/users` | `users.read` (admin) | `{ correlationId, sync, items: UserView[], totalCount }` |
+| GET | `/api/admin/users/:oid` | `users.read` | `{ correlationId, user: UserView, sessions: [{ ref, current, state, createdAt, lastSeenAt, revocationReason, amr, revision }] }` |
+
+`sync`: `{ mode: 'disabled' | 'graph', status: 'never' | 'ok' | 'failed' | null, lastAttemptAt,
+lastSuccessAt, lastErrorClass, stale }`.
+- Si `lastErrorClass` es `DIRECTORY_FORBIDDEN`, falta el consentimiento de Graph: la UI lo dice así.
+- `stale` significa que no hubo éxito en tres intervalos.
+
+`UserView`:
+
+| Campo | Contenido |
+| --- | --- |
+| `oid`, `displayName`, `upn`, `accountEnabled` | Datos del padrón. `accountEnabled: null` = no medido |
+| `membership` | `member \| removed \| null`. `null`: persona declarada en el deploy o dueño que no es miembro |
+| `isOwner` | Dueño del grupo |
+| `roles[]` | Rol efectivo |
+| `roleOrigin` | `group_owner \| deploy_binding \| entra_app_role \| none`; `none` = «Sin acceso asignado» |
+| `lastSeenAt` | Última solicitud autenticada en QAPAQ; no indica presencia en pantalla |
+| `activeSessions` | Sesiones activas en QAPAQ |
+
+- Con la sincronización deshabilitada no hay padrón. Solo aparecen las identidades declaradas en
+  el deploy (dueños y asignaciones), sin nombre: no se inventa nadie.
+- Las sesiones se asocian por UPN (la sesión guarda `preferred_username`). Para revocar se usa
+  `POST /api/admin/sessions/:ref/revoke`.
+- Reglas de rol del producto: el dueño del grupo es administrador; la persona analista tiene una
+  asignación del deploy; el resto de los miembros queda «Sin acceso asignado».
+- Pérdida de acceso: en cada ciclo de sincronización, toda baja del padrón pierde sus sesiones
+  activas (motivo `membership_removed`), y un dueño que deja de serlo pierde las suyas
+  (`ownership_removed`), salvo que siga declarado como dueño en el deploy. Queda un AuditEvent
+  `access.session.revoked` por cada sesión. Las sesiones abiertas antes de este cambio no traen
+  OID y vencen por su tope absoluto.
+
+### Consulta textual `q` (gramática `qapaq-events-v1`)
+
+`GET /api/events?q=<consulta>` es una alternativa a los filtros tipados; produce exactamente los
+mismos filtros.
+
+```text
+severity:high,critical AND category:authentication AND outcome:failure
+```
+
+- **Campos:**
+  - `severity`: `informational | low | medium | high | critical`;
+  - `category`: catálogo del contrato salvo `unclassified`;
+  - `outcome`: `success | failure`, un solo valor.
+- **Forma:** un predicado por campo, unidos solo con `AND`. Los valores van separados por coma
+  y significan «cualquiera de». No distingue mayúsculas.
+- **Límites:** 512 caracteres, 3 predicados, 16 valores por campo, 128 tokens. Solo ASCII
+  imprimible.
+- **Rechazado con posición:** `OR`, `NOT`, paréntesis, comillas, comodines, regex, `=`, `;`,
+  `|`, funciones, comentarios, texto libre, campos del proveedor (`rule.level`, `data.*`) y
+  palabras clave SQL.
+- **Exclusión:** `q` con `severity`, `category` u `outcome` en la misma petición → 422 sobre
+  esos cuatro campos. No hay precedencia silenciosa.
+- **Errores:**
+  - sintaxis → 422 `VALIDATION_FAILED` con `fields: ["q"]`, sin repetir la consulta;
+  - categoría válida en la gramática que la fuente no puede filtrar (p. ej. `threat`) → 422
+    sobre `q`.
+- **Detalle en la UI:** usar el mismo parser de `@qapaq/contracts` (`parseEventsQuery`). Da
+  `{ code, position, expected[] }` para marcar el error en línea. `formatEventsQuery(filters)`
+  sincroniza el editor con los filtros visuales.
+- **Respuesta:** `query: { grammar: "qapaq-events-v1", canonical }` con la forma canónica. El
+  cursor queda ligado a los filtros resultantes: cambiar la consulta lo invalida.
+- **Privacidad:** el API no registra peticiones (Fastify sin logger), KrakenD no tiene access
+  log, el borde nginx no registra query string (C-12) y el ALB no tiene access logs. En el
+  navegador, no persistir `q` en la URL ni en el historial.
+
+## Avisos del SOC: Teams por rol, correo de respaldo y dispositivo (Sprint 5)
+
+**Política de la organización** (`modules/soar/src/notification-routing.ts`):
+
+| Evento | Roles avisados |
+| --- | --- |
+| Alerta P1 creada | analista, lead |
+| Alerta P1 escalada | lead, admin |
+| Incidente crítico abierto | lead, admin |
+
+- **Teams:** una tarjeta en el canal del SOC con **@mención** de cada destinatario. Los correos
+  salen del padrón del grupo y su rol efectivo; «sin acceso asignado» no recibe nada.
+- **Correo de respaldo:** si Teams no confirma la entrega, el mismo aviso va por correo a los
+  mismos destinatarios. Si tampoco sale, queda en la bandeja de la consola, que exige acuse.
+- **Dispositivo (Web Push):** cada persona activa sus dispositivos. El push no lleva contenido:
+  el service worker pide el detalle a `GET /api/me/push/pending` con la sesión.
+
+### `/api/me/push` (`notifications.read`: analista, lead, admin)
+
+| Método | Ruta | Uso |
+| --- | --- | --- |
+| GET | `/api/me/push/config` | `{ enabled, vapidPublicKey, maximumDevices }` para `PushManager.subscribe({ userVisibleOnly: true, applicationServerKey })` |
+| GET | `/api/me/push/subscriptions` | Mis dispositivos: `{ id, label, service, createdAt, lastSuccessAt }` (sin endpoint ni claves) |
+| POST | `/api/me/push/subscriptions` | `{ endpoint, keys: { p256dh, auth }, label }` con CSRF. Solo endpoints de servicios de push conocidos (422 `endpoint`); máximo 10 dispositivos (409) |
+| POST | `/api/me/push/subscriptions/:id/revoke` | Quitar un dispositivo propio (CSRF) |
+| POST | `/api/me/push/test` | Aviso de prueba a mis dispositivos (CSRF) → `{ delivered }` |
+| GET | `/api/me/push/pending` | Lo que el service worker muestra: `items[{ type, id, title, severity, at, url }]` (P1 abiertas e incidentes críticos de los últimos 30 min que la sesión puede ver) |
+
+Reglas de UX, como en los SOC de referencia:
+- el permiso del navegador se pide **solo** al pulsar «Activar en este dispositivo», nunca al
+  cargar la página;
+- con `enabled: false` se muestra «Avisos al dispositivo no disponibles en este ambiente»;
+- en iOS, Web Push funciona solo con la consola instalada en la pantalla de inicio
+  (Safari 16.4 o superior); la UI debe explicarlo en ese caso.

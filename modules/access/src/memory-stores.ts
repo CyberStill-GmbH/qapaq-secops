@@ -64,6 +64,16 @@ export class InMemorySessionStore implements SessionStore {
     );
   }
 
+  public activeByOid(tenantId: string, oid: string): Promise<readonly Session[]> {
+    const key = oid.toLowerCase();
+    return Promise.resolve(
+      [...this.sessions.values()].filter(
+        (session) =>
+          session.tenantId === tenantId && session.oid === key && session.state === 'active',
+      ),
+    );
+  }
+
   public update(session: Session, expectedRevision: number): Promise<boolean> {
     const id = this.idOf(session.id);
     const current = id ? this.sessions.get(id) : undefined;

@@ -26,3 +26,8 @@ output "migrate_task_definition_arn" {
 output "log_group_name" {
   value = aws_cloudwatch_log_group.this.name
 }
+
+output "vapid_key_secret_arn" {
+  description = "Secreto con la clave privada VAPID del Web Push (la genera bootstrap-roles)."
+  value       = aws_secretsmanager_secret.vapid_private_key.arn
+}

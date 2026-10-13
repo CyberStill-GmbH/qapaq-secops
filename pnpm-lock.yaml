@@ -216,6 +216,9 @@ importers:
       '@qapaq/configuration':
         specifier: workspace:*
         version: link:../../platform/configuration
+      '@qapaq/connectors':
+        specifier: workspace:*
+        version: link:../../modules/connectors
       '@qapaq/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -228,6 +231,9 @@ importers:
       '@qapaq/soc':
         specifier: workspace:*
         version: link:../../modules/soc
+      '@qapaq/telemetry':
+        specifier: workspace:*
+        version: link:../../modules/telemetry
       fastify:
         specifier: 5.12.5
         version: 5.12.5

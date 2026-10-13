@@ -18,6 +18,10 @@ export const CAPABILITIES = [
   'incidents.read',
   'incidents.write',
   'incidents.close',
+  /** Crear y mover tareas del incidente (S5-D8). Cerrar el incidente sigue en `incidents.close`. */
+  'incidents.tasks.write',
+  /** Escribir en la bitácora append-only del incidente (S5-D8). */
+  'incidents.notes.write',
   'notifications.read',
   /**
    * Forzar una pasada del despacho de notificaciones. Es un efecto externo (Teams), así que
@@ -26,8 +30,12 @@ export const CAPABILITIES = [
   'notifications.dispatch',
   /** Salud del pipeline SOC (ingesta, cola de notificaciones, despacho). Agregado, sin PII. */
   'observability.read_soc',
+  /** Salud por fuente de telemetría (Sprint 5 · fase 2): estado, motivo y transiciones. */
+  'sources.health.read',
   /** Salud del runtime de plataforma (proceso, base de datos). Solo administración. */
   'observability.read_platform',
+  /** Ver el padrón del grupo de admisión y el origen de cada rol (Sprint 5 · fase 3). */
+  'users.read',
   /** Ver sesiones del tenant (quién está dentro, desde dónde y con qué factor). */
   'sessions.read',
   /** Revocar una sesión ajena: acción administrativa auditada. */
@@ -48,6 +56,8 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'alerts.assign',
     'incidents.read',
     'incidents.write',
+    'incidents.tasks.write',
+    'incidents.notes.write',
     'notifications.read',
   ],
   'qapaq.soc.lead': [
@@ -58,13 +68,22 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'alerts.assign',
     'incidents.read',
     'incidents.write',
+    'incidents.tasks.write',
+    'incidents.notes.write',
     'incidents.close',
     'notifications.read',
     'notifications.dispatch',
     'observability.read_soc',
+    'sources.health.read',
     'audit.read',
   ],
-  'qapaq.auditor': ['audit.read', 'audit.read_sensitive', 'audit.verify', 'incidents.read'],
+  'qapaq.auditor': [
+    'audit.read',
+    'audit.read_sensitive',
+    'audit.verify',
+    'incidents.read',
+    'sources.health.read',
+  ],
   // La solicitud del producto define al administrador de plataforma como el rol
   // operativo con acceso a todos los módulos actuales. El enforcement sigue siendo
   // capability-by-capability y queda limitado por los scopes que el BFF solicita.
@@ -76,11 +95,15 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'alerts.assign',
     'incidents.read',
     'incidents.write',
+    'incidents.tasks.write',
+    'incidents.notes.write',
     'incidents.close',
     'notifications.read',
     'notifications.dispatch',
     'observability.read_soc',
+    'sources.health.read',
     'observability.read_platform',
+    'users.read',
     'sessions.read',
     'sessions.revoke',
     'audit.read',
@@ -102,7 +125,9 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'incidents.read',
     'notifications.read',
     'observability.read_soc',
+    'sources.health.read',
     'observability.read_platform',
+    'users.read',
     'sessions.read',
   ],
   'soc.write': [
@@ -110,6 +135,8 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'alerts.assign',
     'incidents.write',
     'incidents.close',
+    'incidents.tasks.write',
+    'incidents.notes.write',
     'notifications.dispatch',
     'sessions.revoke',
   ],

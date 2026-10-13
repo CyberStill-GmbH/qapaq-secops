@@ -553,3 +553,53 @@ export function normalizeWazuhPage(
     },
   };
 }
+
+/* ------------------------------------------------- Traducción inversa (fase 1) */
+
+/**
+ * Sprint 5 · fase 1 — inversa de las tablas de normalización, para que el explorador de
+ * eventos filtre en el Indexer con los mismos criterios con que normalizamos. Vive junto a las
+ * tablas a propósito: si cambia una banda o un grupo, la inversa cambia en el mismo archivo.
+ *
+ * Límite declarado: la categoría y el resultado que la proyección de Office 365 agrega a partir
+ * del registro (p. ej. `email` por `Workload`, `failure` por `ResultStatus`) no se pueden
+ * empujar al Indexer como filtro sobre `rule.groups`. El filtro cubre lo que deriva de grupos;
+ * la UI lo declara y no promete exhaustividad.
+ */
+
+/** Rangos de `rule.level` (inclusivos) que producen las severidades pedidas. */
+export function wazuhLevelRangesFor(
+  severities: readonly SecurityEvent['severity']['normalized'][],
+): readonly { readonly gte: number; readonly lte: number }[] {
+  const ranges: { gte: number; lte: number }[] = [];
+  let lower = 0;
+  for (const band of SEVERITY_BY_LEVEL) {
+    if (severities.includes(band.normalized)) ranges.push({ gte: lower, lte: band.max });
+    lower = band.max + 1;
+  }
+  return ranges;
+}
+
+/**
+ * Grupos Wazuh que producen las categorías pedidas. `unclassified` no tiene grupos (es la
+ * ausencia de todos), así que no se puede empujar: devuelve `undefined` y el llamador rechaza
+ * el filtro en lugar de devolver un resultado engañoso.
+ */
+export function wazuhGroupsForCategories(
+  categories: readonly SecurityEventCategory[],
+): readonly string[] | undefined {
+  if (categories.includes('unclassified')) return undefined;
+  return Object.entries(CATEGORY_BY_GROUP)
+    .filter(([, category]) => categories.includes(category))
+    .map(([group]) => group)
+    .sort();
+}
+
+/** Grupos Wazuh que producen el resultado pedido; `unknown` no se puede empujar. */
+export function wazuhGroupsForOutcome(
+  outcome: SecurityEvent['outcome'],
+): readonly string[] | undefined {
+  if (outcome === 'success') return [...SUCCESS_GROUPS].sort();
+  if (outcome === 'failure') return [...FAILURE_GROUPS].sort();
+  return undefined;
+}

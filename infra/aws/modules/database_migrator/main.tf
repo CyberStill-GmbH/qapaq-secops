@@ -36,6 +36,20 @@ resource "aws_secretsmanager_secret" "role" {
 # D-10b — clave HMAC de las referencias opacas de entidad. La genera `bootstrap-roles` solo
 # si el secreto no tiene versión vigente; nunca se rota sola porque invalidaría las
 # referencias guardadas en `soc_alerts.entity_refs`.
+# Sprint 5 — clave privada VAPID del Web Push. La genera `bootstrap-roles` solo si no tiene
+# versión vigente; rotarla invalidaría las suscripciones de todos los dispositivos.
+resource "aws_secretsmanager_secret" "vapid_private_key" {
+  name                    = "${var.project}/${var.environment}/api/vapid-private-key"
+  description             = "Clave privada VAPID (P-256, PKCS#8 base64) para avisos Web Push del API."
+  recovery_window_in_days = 7
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+    Purpose     = "api-web-push"
+  }
+}
+
 resource "aws_secretsmanager_secret" "entity_ref_key" {
   name                    = "${var.project}/${var.environment}/api/entity-ref-key"
   description             = "Clave HMAC de las referencias opacas de entidad del API (D-10b)."
@@ -147,7 +161,7 @@ resource "aws_iam_role_policy" "task" {
       ]
       Resource = concat(
         [for secret in aws_secretsmanager_secret.role : secret.arn],
-        [aws_secretsmanager_secret.entity_ref_key.arn],
+        [aws_secretsmanager_secret.entity_ref_key.arn, aws_secretsmanager_secret.vapid_private_key.arn],
       )
     }]
   })
@@ -183,6 +197,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
       { name = "QAPAQ_MIGRATOR_SECRET_ID", value = aws_secretsmanager_secret.role["migrator"].arn },
       { name = "QAPAQ_RUNTIME_SECRET_ID", value = aws_secretsmanager_secret.role["soc_runtime"].arn },
       { name = "QAPAQ_ENTITY_REF_SECRET_ID", value = aws_secretsmanager_secret.entity_ref_key.arn },
+      { name = "QAPAQ_VAPID_SECRET_ID", value = aws_secretsmanager_secret.vapid_private_key.arn },
     ]
     # ECS lee las claves JSON del secret administrado por RDS al arrancar la tarea.
     secrets = [
