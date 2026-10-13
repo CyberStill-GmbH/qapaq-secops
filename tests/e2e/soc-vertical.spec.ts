@@ -167,11 +167,12 @@ test('la consola degrada con claridad cuando la API no responde', async ({ page 
   await page.route('**/api/auth/session', (route) => route.abort('failed'));
   await page.goto(`${stack.baseUrl}/console.html`);
 
+  await expect(page).toHaveURL(/\/\?authError=DEPENDENCY_DEGRADED&correlationId=/u);
   await expect(
-    page.getByRole('heading', { name: 'No fue posible abrir la consola' }),
+    page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' }),
   ).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('servicio está degradado');
-  await expect(page.getByRole('alert')).toContainText('Referencia:');
-  await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continuar con Microsoft Entra' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toHaveCount(0);
   await page.screenshot({ path: 'test-results/c21-degraded.png', fullPage: true });
 });
