@@ -317,7 +317,7 @@ export function SocConsole({
             </div>
           </header>
           <main id="soc-main" className="soc-workspace" tabIndex={-1}>
-            {sessionError ? <ErrorState error={sessionError} /> : null}
+            {sessionError ? <ErrorState error={sessionError} onRetry={() => void logout()} /> : null}
             <SocWorkspaceViews
               pathname={pathname}
               path={path}
