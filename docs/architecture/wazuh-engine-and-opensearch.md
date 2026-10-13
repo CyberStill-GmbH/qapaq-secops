@@ -86,10 +86,13 @@ Componentes relevantes para QAPAQ:
   `wazuh-archives-*` (eventos crudos recolectados, deshabilitado por defecto).
   QAPAQ únicamente lee `wazuh-alerts-*` con mínimo privilegio; no escribe ni
   modifica los índices que Wazuh gestiona.
-- **Wazuh Dashboard:** basado en OpenSearch Dashboards, operado por
-  Infraestructura. No es la interfaz de QAPAQ SecOps: los analistas de QAPAQ
-  trabajan en la Web SOC propia (ver [Modelo C4](c4-model.md), Nivel 2), no en
-  el dashboard nativo de Wazuh.
+- **Wazuh Dashboard:** la plataforma oficial basada en OpenSearch Dashboards y
+  sus plugins conforman la base de la consola QAPAQ. El fork `qapaq-dashboard`
+  aporta la plataforma; la UI de Wazuh se mantiene en `wazuh-kibana-app` y
+  requiere su propio fork para aplicar la navegación, tema y vistas de
+  investigación QAPAQ. El despliegue unificado es objetivo, no está publicado
+  todavía. Casos, RBAC, auditoría y SOAR siguen atendidos por la API QAPAQ;
+  ninguna de esas reglas se traslada al Manager ni se confía solo a la UI.
 - **Active response y remediación:** capacidad del producto Wazuh que QAPAQ no
   activa ni orquesta en el MVP; el módulo `SOAR, Playbooks & Ticketing` de
   QAPAQ es quien gobierna respuesta autorizada, no el Manager de Wazuh.
@@ -179,7 +182,7 @@ una decisión explícita de Infraestructura.
 | Manager, Indexer, Dashboard: operación, versión, licencia, disponibilidad | Sí | No |
 | Lectura read-only de `wazuh-alerts-*` con mínimo privilegio | — | Sí |
 | Normalización a `SecurityEvent`, enriquecimiento, priorización, correlación complementaria | No | Sí |
-| Casos, RBAC, dashboards propios, auditoría, reporting, SOAR | No | Sí |
+| Casos, RBAC, vistas/dashboards de investigación QAPAQ, auditoría, reporting, SOAR | No | Sí |
 | Active response / remediación automática | Wazuh (no activado) | No en el MVP |
 
 ## Gate productivo relevante

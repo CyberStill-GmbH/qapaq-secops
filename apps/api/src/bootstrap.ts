@@ -21,6 +21,7 @@ import type { SocPersistence } from '@qapaq/soc';
 import { composeApi } from './composition-root.js';
 import { ApiLifecycle, type ApiEvent } from './lifecycle.js';
 import { entityRefFactory } from './runtime/entity-refs.js';
+import { deriveCsrfKey } from './http/csrf.js';
 import type { ProcessInfo } from './soc/operations-health.js';
 import { SecOpsRuntime, type SignInDiagnostic } from './runtime/secops-runtime.js';
 import {
@@ -176,6 +177,7 @@ export async function buildApi(
   const detection = loadDetectionContextConfig(environment);
   const persistenceConfig = loadSocPersistenceConfig(environment);
   const entityRefKey = loadEntityRefKey(environment);
+  const entityRefSecret = entityRefKey?.reveal();
   const ingestionConfig = loadIngestionConfig(environment);
   const roleGrants = loadRoleGrantsConfig(environment);
   const directoryConfig = loadDirectoryConfig(environment);
@@ -268,7 +270,12 @@ export async function buildApi(
     ...(demoMfaExceptionUntil ? { demoMfaExceptionUntil } : {}),
     profile: config.profile,
     detectionContext: detectionContextFrom(detection),
-    ...(entityRefKey ? { entityRefs: entityRefFactory(entityRefKey.reveal()) } : {}),
+    ...(entityRefSecret
+      ? {
+          entityRefs: entityRefFactory(entityRefSecret),
+          csrfKey: deriveCsrfKey(entityRefSecret),
+        }
+      : {}),
     ...(durable
       ? { soc: durable.soc, notifications: durable.notifications, sessions: durable.sessions }
       : {}),

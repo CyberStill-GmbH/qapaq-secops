@@ -39,6 +39,7 @@ Solo iniciar después de cerrar los bloqueos anteriores y revisar el commit obje
 - Antes de habilitar persistencia, tomar backup consistente y verificar su restauración. El rollback de aplicación a memoria no revierte las migraciones ni copia datos; puede dejar divergencia entre almacenes.
 - No inyectar el secret master de RDS en API ni worker. No pasar secretos por Terraform state, variables de workflow o argumentos de proceso.
 - La `QAPAQ_ENTITY_REF_KEY` de D-10b debe sobrevivir backup/restore exactamente. Su ausencia puede dejar refs opacas inutilizables; no rotarla automáticamente. Al habilitar persistencia, el API debe fallar cerrado o deshabilitar explícitamente pivotes hasta que la key vigente esté disponible.
+- El API deriva de esa clave, con separación de propósito, la clave HMAC de CSRF. Todas las réplicas deben resolver exactamente el mismo secreto para aceptar mutaciones de una sesión persistida durante rolling update. Una rotación planificada invalida los tokens CSRF ya emitidos (el cliente obtiene uno nuevo en `GET /api/auth/session`); no expone ni almacena una segunda clave.
 - La rotación manual debe usar una operación recuperable, desplegar las tareas consumidoras y verificar conexiones antes de retirar credenciales anteriores.
 
 ## Referencias
