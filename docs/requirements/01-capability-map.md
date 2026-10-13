@@ -1,7 +1,6 @@
 # Mapa de capacidades
 
-La clasificación indica compromiso del producto, no estado de implementación.
-Todas las capacidades están **NO IMPLEMENTADAS** en la rama inspeccionada.
+La clasificación indica compromiso del producto, no estado de implementación. Para el estado real de rutas y módulos, consultar [inventario funcional del backend](../frontend-design/01-inventario-backend.md); esta tabla registra capacidades objetivo y gates, no declara que todo el código esté ausente.
 
 | Capacidad | Clasificación | Justificación y fuente |
 | --- | --- | --- |

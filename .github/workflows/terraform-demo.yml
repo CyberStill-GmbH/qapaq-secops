@@ -44,8 +44,9 @@ jobs:
       TF_VAR_soc_group_owner_oids: ${{ vars.QAPAQ_GROUP_OWNER_OIDS }}
       # Sprint 5 · fase 3: grupo de admisión para el padrón por Graph (vacío = deshabilitado).
       TF_VAR_soc_directory_group_id: ${{ vars.QAPAQ_DIRECTORY_GROUP_ID || vars.SOC_DIRECTORY_GROUP_ID }}
-      # Grupos cuyos miembros son admin; sin variable propia, el grupo de admisión.
-      TF_VAR_soc_admin_group_ids: ${{ vars.QAPAQ_ADMIN_GROUP_IDS || vars.QAPAQ_DIRECTORY_GROUP_ID || vars.SOC_DIRECTORY_GROUP_ID }}
+      # Grupos cuyos miembros reciben admin; solo los declarados explícitamente.
+      # Solo los grupos explícitamente declarados conceden admin; pertenecer al padrón SOC no basta.
+      TF_VAR_soc_admin_group_ids: ${{ vars.QAPAQ_ADMIN_GROUP_IDS }}
 
     steps:
       - name: Checkout
@@ -102,37 +103,14 @@ jobs:
           terraform plan "${plan_args[@]}"
 
 
-      - name: Synchronize configured external secrets
+      - name: Verify existing Entra secret without changing it
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         shell: bash
-        env:
-          ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
-          WAZUH_OFFICE365_CLIENT_SECRET: ${{ secrets.WAZUH_OFFICE365_CLIENT_SECRET }}
-          WAZUH_BREAK_GLASS_UPNS: ${{ secrets.WAZUH_BREAK_GLASS_UPNS }}
-          TEAMS_WORKFLOW_URL: ${{ secrets.TEAMS_WORKFLOW_URL }}
         run: |
           set -euo pipefail
-          umask 077
-          work="$(mktemp -d)"
-          trap 'rm -rf "$work"' EXIT
-          put_if_configured() {
-            local value="${!1:-}"
-            if [[ -n "$value" ]]; then
-              printf '%s' "$value" >"$work/value"
-              aws secretsmanager put-secret-value --secret-id "$2" --secret-string "file://$work/value" --query VersionId --output text >/dev/null
-              rm -f "$work/value"
-              echo "Updated configured secret: $2"
-            else
-              echo "Keeping existing AWS secret: $2"
-            fi
-          }
-          put_if_configured ENTRA_CLIENT_SECRET qapaq-secops/demo/entra/client-secret
-          put_if_configured WAZUH_OFFICE365_CLIENT_SECRET qapaq-secops/demo/wazuh/office365-client-secret
-          put_if_configured WAZUH_BREAK_GLASS_UPNS qapaq-secops/demo/wazuh/break-glass-identities
-          put_if_configured TEAMS_WORKFLOW_URL qapaq-secops/demo/teams/workflow-url
           current="$(aws secretsmanager list-secret-version-ids --secret-id qapaq-secops/demo/entra/client-secret --query "length(Versions[?contains(VersionStages, 'AWSCURRENT')])" --output text)"
           if [[ "$current" == 0 ]]; then
-            echo '::error::ENTRA_CLIENT_SECRET must be configured in GitHub or already loaded in AWS.'
+            echo '::error::The existing Entra secret must already have an AWSCURRENT version in Secrets Manager.'
             exit 1
           fi
 

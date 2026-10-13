@@ -51,9 +51,10 @@ variable "soc_directory_group_name" {
 variable "soc_admin_group_ids" {
   description = <<-EOT
     Object ID de los grupos de Entra cuyos miembros reciben qapaq.platform.admin, separados por
-    coma. La pertenencia se toma del claim `groups` del token o, si es el grupo de admisión, del
-    padrón de Graph. Variable de GitHub QAPAQ_ADMIN_GROUP_IDS; si no existe, el workflow usa
-    QAPAQ_DIRECTORY_GROUP_ID (todo miembro del grupo de admisión es admin).
+    coma. La pertenencia se toma del claim `groups` del token o, si coincide con el grupo
+    sincronizado, del padrón de Graph. Variable opcional de GitHub QAPAQ_ADMIN_GROUP_IDS. El grupo
+    de admisión no concede admin por sí solo; los dueños se asignan por separado y los analistas
+    conservan su rol explícito de deploy.
   EOT
   type        = string
   default     = ""

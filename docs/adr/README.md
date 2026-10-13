@@ -3,7 +3,7 @@
 ADR-007, ADR-011, ADR-015, ADR-016, ADR-017, ADR-022 y ADR-024 están Accepted;
 ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por resolución del
 2026-09-18, ADR-025 por los requerimientos del 2026-09-28, ADR-026 por la
-selección de KrakenD on-premises y ADR-027 por C-24. Fijan alcance,
+selección de KrakenD on-premises y ADR-027 por C-24 y ADR-028 por la selección de Shuffle como motor SOAR no-code. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad, separación
 de observabilidad/auditoría y CI/release/despliegue. ADR-001…014 mantienen
 Proposed salvo ADR-007, ADR-011 y aspectos sustituidos. Aceptación documental no equivale a software

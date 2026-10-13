@@ -20,7 +20,7 @@ Cada paso dice quién lo ejecuta y cómo se verifica.
 | Secreto del environment `demo` | `WAZUH_BREAK_GLASS_UPNS` | UPN de cuentas de emergencia, separados por coma |
 | Variable de repositorio | `QAPAQ_GROUP_OWNER_OIDS` | OID del dueño del grupo de admisión → admin en QAPAQ (respaldo hasta Graph) |
 | Variable de repositorio | `QAPAQ_DIRECTORY_GROUP_ID` | Object ID de `QAPAQ-SecOps-Users`; vacío = padrón deshabilitado |
-| Variable de repositorio | `QAPAQ_ADMIN_GROUP_IDS` | Object ID de los grupos cuyos miembros son admin, separados por coma. Sin ella se usa `QAPAQ_DIRECTORY_GROUP_ID`. La pertenencia se toma del claim `groups` del token o del padrón de Graph |
+| Variable de repositorio opcional | `QAPAQ_ADMIN_GROUP_IDS` | Object ID de grupos declarados explícitamente como administradores. No se infiere del grupo de admisión; sus dueños reciben admin por `QAPAQ_GROUP_OWNER_OIDS`, las demás personas conservan su asignación específica o quedan sin acceso |
 | Variable de repositorio | `WAZUH_ADMIN_USERNAME` | Usuario del Dashboard de Wazuh del dueño (p. ej. su UPN) |
 | Variable de repositorio | `WAZUH_ANALYST_USERNAME` | Usuario del Dashboard de la persona analista |
 | Variable de repositorio | `M365_TENANT_ID`, `WAZUH_O365_CLIENT_ID` | Colección de Office 365 |

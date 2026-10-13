@@ -1,6 +1,6 @@
 # Integración de la interfaz oficial de Wazuh con QAPAQ SecOps
 
-**Estado: arquitectura verificada; forks y adaptación aún no implementados.** Este documento
+**Estado: arquitectura verificada; primeras adaptaciones locales, aún sin CI ni despliegue.** Este documento
 reemplaza el plan anterior, que confundía la plataforma OpenSearch Dashboards con la UI de Wazuh y
 describía como existentes cambios que todavía no están en los repositorios.
 
@@ -28,23 +28,55 @@ consultando sus refs Git. No se validó el estado de sus workflows de CI ni un d
 
 ## Arquitectura objetivo
 
-```text
-Analista → UI QAPAQ (fork de Wazuh UI sobre qapaq-dashboard)
-             ├─ funciones SIEM nativas → Wazuh Indexer (solo lectura)
-             └─ casos, triaje, SOAR, auditoría → BFF/API QAPAQ
+La comparación de capacidades y el plan para integrar los diferenciales sin duplicar Case
+Management, detección ni Active Response están en
+[Migración de capacidades QAPAQ a Wazuh](qapaq-wazuh-capability-migration.md).
 
-Wazuh Manager → ingesta, decoders, reglas → Wazuh Indexer
-Microsoft Entra ID → identidad humana → BFF QAPAQ y sesión de Dashboard
+```text
+Analista → QAPAQ Wazuh Dashboard (qapaq-dashboard + plugins Wazuh adaptados)
+             ├─ funciones SIEM nativas → Wazuh Indexer (solo lectura)
+             └─ funciones SOC QAPAQ → módulo de servidor QAPAQ del Dashboard
+                                       └─ PostgreSQL (casos, grants y auditoría)
+
+Wazuh Manager → agentes, ingesta, decoders y reglas → Wazuh Indexer
+Microsoft Entra ID → BFF de identidad QAPAQ → sesión QAPAQ + sesión OpenID Dashboard
 ```
+
+### Decisión de producto
+
+QAPAQ se entrega como una edición integrada de Wazuh. No se incrusta la SPA actual de
+QAPAQ ni se copian sus vistas: la consola se construye como aplicaciones nativas de los
+plugins Wazuh y usa sus componentes, manteniendo el sistema visual y las referencias de
+QAPAQ. El login QAPAQ es la única pantalla existente cuya identidad visual y flujo de
+acceso se conservan en esta primera integración.
+
+`qapaq-secops` es la referencia funcional y de contratos para casos, investigación,
+RBAC/capabilities, auditoría y respuesta autorizada. Esas funciones se migran al módulo
+de servidor QAPAQ en los plugins del Dashboard, reutilizando contratos y reglas ya
+implementados. No se reimplementan funciones existentes de Wazuh para agentes, recolección,
+decoders, reglas y alertas. El Manager permanece enfocado en su motor; PostgreSQL mantiene
+el estado operacional QAPAQ y el Indexer se consulta con mínimo privilegio.
+
+El login llama al BFF existente en `/api/auth/start`; su callback crea la cookie de sesión
+QAPAQ y vuelve a la página de acceso del Dashboard. La página valida la sesión en
+`/api/auth/session` y entrega la navegación al flujo OpenID del Dashboard. Ambos canjes
+ocurren en servidor, con Entra como IdP y sin tokens en el navegador. El Dashboard debe
+usar el mismo tenant Entra y deshabilitar el acceso humano local. Roles/capabilities de
+QAPAQ continúan validándose en el servidor de cada operación.
+
+Para este flujo, el ingress debe servir el BFF y OpenSearch Dashboards bajo el mismo
+origen/base path, enrutar `/api/auth/*` al BFF y permitir ese `returnTo`. La integración
+de logout, la configuración OpenID del Dashboard y las pruebas con Entra son gates antes
+de producción.
 
 - Conservar el login visual QAPAQ y el flujo de autenticación aprobado en
   [identidad y autorización](../architecture/identity-and-authorization.md). No reemplazarlo por un
   formulario genérico de Wazuh ni entregar tokens de Entra al navegador. La integración entre la
   sesión del BFF y la sesión del Dashboard requiere diseño y prueba de SSO antes de producción.
-- Mantener la autorización de negocio en QAPAQ API. Las vistas de casos, SOAR y auditoría llaman al
-  BFF/API; cada operación protegida comprueba la capability en servidor y deja auditoría cuando
-  corresponde. La UI oculta acciones sin permiso como ayuda de navegación, nunca como control de
-  seguridad.
+- Mantener la autorización de negocio en las reglas y contratos QAPAQ durante la migración al
+  módulo de servidor de los plugins Wazuh. Cada operación protegida comprueba la capability en
+  servidor y deja auditoría cuando corresponde. La UI oculta acciones sin permiso como ayuda de
+  navegación, nunca como control de seguridad.
 - Mapear roles del Dashboard/Indexer con mínimo privilegio. No asignar `all_access` por defecto ni
   usar un claim de Entra como sustituto de las políticas por recurso de QAPAQ. El dueño del grupo
   recibe administración; `qapaq.soc.analyst` ve las herramientas de análisis autorizadas.
@@ -61,13 +93,13 @@ Microsoft Entra ID → identidad humana → BFF QAPAQ y sesión de Dashboard
 
 1. Mantener `CyberStill-GmbH/qapaq-dashboard` como fork de la **plataforma** y sincronizarlo desde
    `wazuh/wazuh-dashboard`; no volver a crear un repositorio con el mismo nombre.
-2. Crear en `CyberStill-GmbH` un fork del UI oficial `wazuh/wazuh-kibana-app` (nombre sugerido
-   `qapaq-wazuh-ui`) para aplicar el arte, navegación QAPAQ, integración BFF y dashboards iniciales.
-   Fijarlo al commit compatible con la versión Wazuh/OSD de `qapaq-dashboard`.
-3. Conservar `CyberStill-GmbH/qapaq-secops` como backend de negocio. Crear un fork de `wazuh/wazuh`
-   solo si un requisito probado exige cambiar el Manager; mantener ese delta mínimo, separado y
-   rebajable. No copiar RBAC, casos, SOAR o auditoría hacia el Manager: eso crearía dos fuentes de
-   verdad y más complejidad operacional.
+2. Adaptar forks QAPAQ de `wazuh/wazuh-dashboard-plugins` para las aplicaciones SOC, y
+   `wazuh/wazuh-security-dashboards-plugin` para el acceso visual y el puente de autenticación.
+   Fijar ambos a la versión compatible con `qapaq-dashboard`.
+3. Conservar `CyberStill-GmbH/qapaq-secops` como referencia funcional mientras sus funciones
+   diferenciales se migran al backend de los plugins del Dashboard. Modificar `wazuh/wazuh`
+   Manager solo ante un requisito probado; mantener ese delta mínimo, separado y rebajable.
+   No llevar casos, RBAC, SOAR o auditoría al motor Manager.
 4. Si la integración exige cambiar APIs internas del Indexer/security plugin, evaluar el repositorio
    oficial correspondiente por separado; no empaquetar esa lógica dentro del Manager sin una
    necesidad demostrada.
@@ -99,3 +131,41 @@ ningún fork. Se necesita que la credencial activa pueda crear forks en la organ
 política de `CyberStill-GmbH` lo permita. No se debe copiar un token desde el chat. La configuración
 AWS de esta sesión no contiene perfiles ni credenciales y no hay CLI de AWS/Terraform disponible;
 Terraform no se ejecutó.
+
+### Avance local del login QAPAQ en Wazuh Dashboard — 2026-10-13
+
+Se preparó un cambio local en `/workspace/qapaq-wazuh-security-dashboard-plugin`, rama
+`feat/qapaq-entra-login`, sobre `wazuh/wazuh-security-dashboards-plugin` (`b81e52f`). Reproduce
+el login QAPAQ —pantalla de bienvenida, ilustración Q, luz/grano, movimiento, aviso de cookies y
+layout responsive— y comienza el acceso en el BFF existente (`/api/auth/start`,
+`/api/auth/session`). Tras validar la cookie QAPAQ, el navegador continúa por OpenID del Dashboard
+para obtener su propia sesión. Entra mantiene ambos flujos; no se entregan tokens al navegador.
+
+Este cambio aún no está probado con el tenant Entra ni desplegado: requiere que el ingress enrute
+`/api/auth/*` al BFF bajo el mismo origen, que Dashboard tenga OpenID configurado y que se verifiquen
+callback, logout, SSO, cookie `Secure`/`SameSite`, CSRF y comportamiento tras fallos. La rama de login conserva solo la pantalla de acceso; la rama del plugin Wazuh ya tiene un primer puente al backend QAPAQ, pero aún no porta los módulos de dominio completos.
+
+El código local de Manager no es el backend de sesión del Dashboard. Sus credenciales de servicio
+se usan para las llamadas internas entre Dashboard y Manager y deben conservarse protegidas. La
+autenticación humana del Dashboard se controla en el Security plugin del Indexer/OpenSearch y en la
+configuración del Dashboard; esos archivos de despliegue no están en el checkout del plugin UI. Por
+eso todavía no se ha deshabilitado Basic Auth en el Security plugin. Antes de producción hay que
+deshabilitar el acceso humano local en esa capa, mantener la identidad de servicio de mínimo
+privilegio y comprobar que no exista una ruta de acceso alternativa; ocultar el formulario no basta.
+
+
+### Puente inicial a las capacidades QAPAQ
+
+El backend ya implementado en `qapaq-secops` se reutiliza mientras se migra por
+verticales al servidor del plugin Wazuh. La rama local del plugin incluye un cliente web
+same-origin y rutas `/api/qapaq/*` con allowlist, que reenvían solo la cookie de sesión
+QAPAQ (nunca las cookies de OpenSearch), CSRF y
+correlación al API privado configurado con `wazuh.qapaqApiUrl`. No se publica la URL del
+servicio al navegador ni se crea un segundo API de casos. Esta etapa conecta la consola
+nativa al código funcional existente; no equivale al port completo del dominio ni está
+lista para producción.
+
+Las primeras capacidades a portar son triage de alertas, incidente/case, tareas, notas,
+timeline, RBAC por capability/scope y audit trail. Se mantienen las funciones SIEM, agentes,
+ruleset y Active Response de Wazuh. Shuffle queda seleccionado como motor SOAR no-code por
+webhook; aprobaciones, idempotencia y auditoría permanecen bajo control QAPAQ.
