@@ -6,7 +6,6 @@ import type {
   SourceSummary,
 } from '../../api/admin.js';
 import {
-  Empty,
   Icon,
   SectionHeader,
   Severity,

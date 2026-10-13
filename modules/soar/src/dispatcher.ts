@@ -67,18 +67,6 @@ export interface DispatchResult {
   readonly failure?: DeliveryFailure;
 }
 
-function domainEventOf(message: OutboxMessageDraft) {
-  return {
-    type: message.messageType,
-    tenantId: message.tenantId,
-    aggregateType: message.aggregateType,
-    aggregateId: message.aggregateId,
-    occurredAt: message.availableAt,
-    actorId: 'system:soar',
-    payload: message.payload,
-  } as const;
-}
-
 async function auditDelivery(
   dependencies: DispatchDependencies,
   attempt: NotificationAttempt,

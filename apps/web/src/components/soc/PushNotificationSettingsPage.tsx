@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppleLogoIcon } from '@phosphor-icons/react/dist/csr/AppleLogo';
 import { BellSimpleIcon } from '@phosphor-icons/react/dist/csr/BellSimple';
-import { BrowserIcon } from '@phosphor-icons/react/dist/csr/Browser';
 import { DeviceMobileIcon } from '@phosphor-icons/react/dist/csr/DeviceMobile';
 import { EnvelopeSimpleIcon } from '@phosphor-icons/react/dist/csr/EnvelopeSimple';
 import { GoogleChromeLogoIcon } from '@phosphor-icons/react/dist/csr/GoogleChromeLogo';
