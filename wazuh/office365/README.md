@@ -106,14 +106,14 @@ Microsoft.
 ```bash
 docker run -d --rm --name qapaq-wazuh wazuh/wazuh-manager:4.14.7
 # Una vez iniciado: aplicar con la lista de ejemplo y un secreto sintético
-docker cp infra/wazuh/office365 qapaq-wazuh:/tmp/qapaq-office365
+docker cp wazuh/office365 qapaq-wazuh:/tmp/qapaq-office365
 docker exec qapaq-wazuh sh -c 'ln -sf /var/ossec/framework/python/bin/python3 /usr/local/bin/python3; printf secreto-sintetico > /tmp/o365-secret'
 docker exec -e QAPAQ_O365_TENANT_ID=00000000-0000-4000-8000-000000000001 \
   -e QAPAQ_O365_CLIENT_ID=00000000-0000-4000-8000-000000000002 \
   -e QAPAQ_O365_SECRET_SOURCE=file:/tmp/o365-secret \
   -e QAPAQ_BREAK_GLASS_SOURCE=file:/tmp/qapaq-office365/lists/qapaq-break-glass.example \
   qapaq-wazuh bash /tmp/qapaq-office365/apply-office365.sh
-bash infra/wazuh/office365/tests/run-logtest.sh qapaq-wazuh
+bash wazuh/office365/tests/run-logtest.sh qapaq-wazuh
 ```
 
 `tests/architecture/wazuh-office365-rules.spec.ts` verifica sin Wazuh el rango de IDs, MITRE,

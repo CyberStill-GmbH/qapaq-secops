@@ -6,10 +6,10 @@
 # apply falla y KrakenD no se actualiza con una credencial que no existe.
 #
 # Qué deja hecho, de forma idempotente (reejecutar no rota contraseñas):
-#   1. infra/wazuh/access/apply-access.sh: usuario `qapaq_reader` de solo lectura, proxy TLS
+#   1. wazuh/access/apply-access.sh: usuario `qapaq_reader` de solo lectura, proxy TLS
 #      del Indexer en la IP privada, usuario admin del Dashboard y usuario analista de solo
 #      lectura. Publica credenciales y certificado en Secrets Manager.
-#   2. infra/wazuh/office365/apply-office365.sh: módulo office365 y reglas QAPAQ, con el client
+#   2. wazuh/office365/apply-office365.sh: módulo office365 y reglas QAPAQ, con el client
 #      secret de la misma app de Entra del API (decisión del dueño del producto: una sola app).
 #
 # Cualquier cambio en un script crea una versión nueva del documento y la asociación vuelve a
@@ -50,7 +50,7 @@ variable "wazuh_office365_enabled" {
 }
 
 locals {
-  wazuh_scripts_root = "${path.module}/../wazuh"
+  wazuh_scripts_root = "${path.module}/../../wazuh"
   # Archivos que viajan a la instancia; las pruebas y la documentación no.
   wazuh_bootstrap_files = sort([
     for file in setunion(
