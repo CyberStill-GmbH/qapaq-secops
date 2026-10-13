@@ -26,3 +26,20 @@ en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes
   se redistribuyen binarios modificados.
 - **Versión:** al subir `VERSION`, recompilar el plugin del dashboard contra el
   `pluginPlatform.version` exacto de esa versión de Wazuh.
+
+## Orden de aplicación para dejar la plataforma unificada operativa
+
+Cada paso se detiene sin cambiar nada si falla su compuerta, y restaura lo que tocó si el cambio falla.
+
+1. **Terraform** (`infra/aws`): reglas `public_proxy_to_api` y `api_from_public_proxy`. El edge llega
+   a la API por Cloud Map (salida `qapaq_edge_api_origin`), no por el ALB público, para que la API
+   vea la IP real del usuario dentro de la cadena de proxies confiables.
+2. **API** con `GET /api/auth/introspect` desplegada (imagen `git-<sha>` que incluya ese commit).
+3. **Security plugin:** `indexer/security/apply-security.sh`. Hace backup, fusiona el proxy auth,
+   aplica roles, une los mapeos y se autoprueba.
+4. **Dashboard del fork** `qapaq_ops-dashboard`, compilado para la `OPENSEARCH_DASHBOARDS_VERSION`
+   de [`VERSION`](VERSION) e instalado en el host (release del fork).
+5. **Edge y dashboard:** `SOC_HOSTNAME=… QAPAQ_API=… edge/apply-edge.sh`. Escribe el bloque del
+   dashboard, el nginx y un smoke sin sesión.
+6. Prueba con una persona real del grupo SOC: login Entra → dashboard con su rol. Revocar su sesión
+   en QAPAQ → pierde el dashboard en ≤ 5 s.
