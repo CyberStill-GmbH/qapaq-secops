@@ -1,5 +1,7 @@
-# Bloque QAPAQ para /etc/wazuh-dashboard/opensearch_dashboards.yml (Wazuh 4.14.8 / OSD 2.19.6).
-# Se inserta entre marcadores QAPAQ:dashboard:begin/end. Reiniciar wazuh-dashboard después.
+# Bloque QAPAQ para /etc/wazuh-dashboard/opensearch_dashboards.yml del fork qapaq_ops-dashboard.
+# Fuente de verdad del código del fork: wazuh-dashboard-src (rama qapaq/identity),
+# config/opensearch_dashboards.qapaq.yml. Este archivo es lo que se despliega; mantenerlos iguales.
+# Se inserta entre marcadores QAPAQ:dashboard:begin/end. Reiniciar el dashboard después.
 
 # El dashboard solo escucha en local: el único acceso es por el edge nginx (wazuh/edge).
 server.host: '127.0.0.1'
@@ -10,11 +12,35 @@ server.ssl.enabled: false
 opensearch_security.auth.type: 'proxy'
 opensearch_security.proxycache.user_header: 'x-proxy-user'
 opensearch_security.proxycache.roles_header: 'x-proxy-roles'
-opensearch.requestHeadersAllowlist:
-  ['securitytenant', 'Authorization', 'x-forwarded-for', 'x-proxy-user', 'x-proxy-roles']
+# Logout = página del plugin, que obtiene el CSRF y hace POST /api/auth/logout.
+opensearch_security.auth.logout_url: '/qapaq/logout'
 opensearch_security.multitenancy.enabled: false
-# Cerrar sesión en el dashboard cierra la sesión QAPAQ.
-opensearch_security.logout_url: '/api/auth/logout'
+opensearch.requestHeadersAllowlist:
+  ['securitytenant', 'x-forwarded-for', 'x-proxy-user', 'x-proxy-roles']
+
+# --- Plugin qapaq_ops: login QAPAQ y vistas de casos (consume la API QAPAQ en el mismo origen) ---
+qapaq_ops.enabled: true
+qapaq_ops.apiPrefix: '/api'
+qapaq_ops.login.enabled: true
+qapaq_ops.login.defaultNextUrl: '/app/qapaq-alerts'
+qapaq_ops.login.destinationLabel: 'QAPAQ'
+
+# --- Marca QAPAQ (assets compilados en el fork, servidos bajo /ui) ---
+opensearchDashboards.branding:
+  applicationTitle: 'QAPAQ SecOps'
+  useExpandedHeader: false
+  helpMenuLinks:
+    - label: 'Mi sesión'
+      link: '/app/qapaq-session'
+    - label: 'Salud de fuentes'
+      link: '/app/qapaq-sources'
+    - label: 'Cerrar sesión'
+      link: '/qapaq/logout'
+
+uiSettings:
+  overrides:
+    'theme:version': 'v9'
+    'theme:darkMode': true
 
 # --- Fallback: OIDC nativo contra Entra. Solo si el edge QAPAQ no está disponible ---
 # opensearch_security.auth.type: "openid"
@@ -23,21 +49,3 @@ opensearch_security.logout_url: '/api/auth/logout'
 # opensearch_security.openid.base_redirect_url: "https://<dominio-soc>/"
 # opensearch_security.openid.roles_key: "roles"
 # client_secret por keystore: bin/opensearch-dashboards-keystore add opensearch_security.openid.client_secret
-
-# --- Marca QAPAQ (assets en wazuh/dashboard/assets, servidos por el plugin qapaq-ops) ---
-opensearchDashboards.branding:
-  applicationTitle: 'QAPAQ SecOps'
-  useExpandedHeader: false
-  logo:
-    defaultUrl: '/plugins/qapaqOps/assets/qapaq-logo.svg'
-    darkModeUrl: '/plugins/qapaqOps/assets/qapaq-logo.svg'
-  mark:
-    defaultUrl: '/plugins/qapaqOps/assets/qapaq-mark.svg'
-    darkModeUrl: '/plugins/qapaqOps/assets/qapaq-mark.svg'
-  loadingLogo:
-    defaultUrl: '/plugins/qapaqOps/assets/qapaq-mark.svg'
-  faviconUrl: '/plugins/qapaqOps/assets/favicon-32.png'
-
-uiSettings:
-  overrides:
-    'theme:darkMode': true

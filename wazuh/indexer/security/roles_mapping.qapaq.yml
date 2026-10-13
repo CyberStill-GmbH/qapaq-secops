@@ -20,7 +20,7 @@ qapaq_auditor:
   backend_roles: ['qapaq.auditor']
 
 # Todo usuario autenticado necesita leer la configuración del dashboard.
-opensearch_dashboards_user:
+kibana_user:
   backend_roles: ['qapaq.soc.analyst', 'qapaq.soc.lead', 'qapaq.auditor', 'qapaq.platform.admin']
 
 qapaq_reader_role:
