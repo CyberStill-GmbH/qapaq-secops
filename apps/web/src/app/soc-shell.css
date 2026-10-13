@@ -1,27 +1,31 @@
-:root {
-  --surface-0: #080909;
-  --surface-rail: #090a0a;
-  --surface-1: #0c0e0e;
-  --surface-2: #141616;
-  --surface-3: #1a1c1c;
-  --surface-selected: #2b210d;
-  --text-1: #f0f0ee;
-  --text-2: #c2c3c1;
-  --text-3: #929593;
-  --text-4: #686c69;
-  --border-subtle: #1c1f1e;
-  --border-default: #292d2b;
-  --border-control: #4b504d;
-  --border-control-hover: #858b87;
-  --brand-amber: #f2aa1d;
-  --state-ok: #4db883;
-  --state-warn: #f2c84b;
-  --state-fail: #f0473e;
-  --state-info: #aeb5b8;
-  --sev-1: #f0473e;
-  --sev-2: #f47729;
-  --sev-3: #f1c342;
-  --sev-4: #aeb5b8;
+body:has(.soc-app) {
+  --surface-0: #080808;
+  --surface-rail: #050505;
+  --surface-1: #0d0d0f;
+  --surface-2: #131315;
+  --surface-3: #1a1a1c;
+  --surface-selected: #17140f;
+  --text-1: #f4f4f5;
+  --text-2: #b0b0b5;
+  --text-3: #8f8f95;
+  --text-4: #6e6e74;
+  --border-subtle: #1f1f22;
+  --border-default: #29292d;
+  --border-control: #49494e;
+  --border-control-hover: #85858b;
+  --border-strong: #929297;
+  --focus-ring: #f5f5f5;
+  --text-inverse: #080808;
+  --brand-amber: #c49a5a;
+  --state-ok: #5fb98a;
+  --state-warn: #d8c35c;
+  --state-fail: #ff5f57;
+  --state-info: #8fb3d9;
+  --state-neutral: #8f8f95;
+  --sev-1: #ff5f57;
+  --sev-2: #f0904a;
+  --sev-3: #d8c35c;
+  --sev-4: #7f95aa;
   --font-sans: 'Segoe UI', Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono:
     'Cascadia Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
@@ -37,7 +41,10 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-12: 48px;
-  --rail-width: 136px;
+  --radius-panel: 9px;
+  --radius-control: 7px;
+  --radius-pill: 999px;
+  --rail-width: 232px;
 }
 
 body:has(.soc-app) {
@@ -68,7 +75,7 @@ body:has(.soc-app) {
   -webkit-tap-highlight-color: transparent;
 }
 .soc-app :focus-visible {
-  outline: 2px solid #f5f5f5;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 3px;
 }
 .soc-app ::selection {
@@ -122,7 +129,7 @@ body:has(.soc-app) {
 .soc-rail {
   position: fixed;
   z-index: 5;
-  inset: 39px auto 0 0;
+  inset: 52px auto 0 0;
   display: flex;
   width: var(--rail-width);
   flex-direction: column;
@@ -130,26 +137,46 @@ body:has(.soc-app) {
   border-right: 1px solid var(--border-default);
   background: var(--surface-rail);
 }
+.soc-rail__brand {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  color: var(--text-1);
+  text-decoration: none;
+}
+.soc-rail__brand img {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.soc-rail__brand span {
+  font-size: 15px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
 .soc-nav {
   display: grid;
-  gap: 13px;
+  gap: 16px;
   align-content: start;
-  margin-top: 9px;
+  margin-top: 0;
 }
 .soc-nav__group h2 {
-  margin: 0 10px 4px;
-  color: #6e7470;
-  font-size: 9px;
+  margin: 0 16px 4px;
+  color: var(--text-3);
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
 }
 .soc-nav__item {
   position: relative;
   display: flex;
-  min-height: 34px;
+  min-height: 36px;
   align-items: center;
   gap: 8px;
-  padding: 0 11px;
+  padding: 0 16px;
   border-radius: 0;
   color: var(--text-2);
   text-decoration: none;
@@ -163,12 +190,12 @@ body:has(.soc-app) {
 }
 .soc-nav__item.is-active {
   color: var(--brand-amber);
-  background: #241d0d;
+  background: var(--surface-2);
 }
 .soc-nav__item.is-active::before {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 3px;
+  width: 2px;
   background: var(--brand-amber);
   content: '';
 }
@@ -177,7 +204,7 @@ body:has(.soc-app) {
   color: var(--text-3);
 }
 .soc-nav__item.is-active > svg {
-  color: var(--brand-amber);
+  color: currentColor;
 }
 .soc-rail__footer {
   display: grid;
@@ -223,8 +250,13 @@ body:has(.soc-app) {
 .soc-app--collapsed .soc-nav__group h2,
 .soc-app--collapsed .soc-nav__item span,
 .soc-app--collapsed .soc-rail__collapse span,
-.soc-app--collapsed .soc-rail__collapse kbd {
+.soc-app--collapsed .soc-rail__collapse kbd,
+.soc-app--collapsed .soc-rail__brand span {
   display: none;
+}
+.soc-app--collapsed .soc-rail__brand {
+  justify-content: center;
+  padding-inline: 0;
 }
 .soc-app--collapsed .soc-nav__item,
 .soc-app--collapsed .soc-rail__collapse {
@@ -240,16 +272,15 @@ body:has(.soc-app) {
   z-index: 4;
   top: 0;
   right: 0;
-  left: 0;
+  left: var(--rail-width);
   display: flex;
-  height: 39px;
+  height: 52px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 16px;
+  padding: 0 24px;
   border-bottom: 1px solid var(--border-default);
-  background: rgb(8 9 9 / 96%);
-  backdrop-filter: blur(12px);
+  background: var(--surface-0);
 }
 .soc-breadcrumb {
   display: flex;
@@ -260,18 +291,16 @@ body:has(.soc-app) {
   white-space: nowrap;
 }
 .soc-breadcrumb > span:first-child {
-  color: var(--text-1);
-  font-size: 14px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 550;
 }
 .soc-breadcrumb > strong {
-  color: var(--brand-amber);
+  color: var(--text-3);
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 400;
 }
-.soc-breadcrumb strong {
+.soc-breadcrumb .soc-breadcrumb__current {
   overflow: hidden;
   color: var(--text-1);
   font-weight: 550;
@@ -317,11 +346,19 @@ body:has(.soc-app) {
   color: var(--state-info);
 }
 .soc-topbar .soc-command-button {
-  min-width: 29px;
-  width: 29px;
-  min-height: 29px;
+  min-height: 34px;
   justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+.soc-topbar .soc-command-button kbd {
+  margin-left: 4px;
+}
+.soc-pipeline-pill {
   padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 .soc-topbar .soc-notifications-button,
 .soc-topbar .soc-mobile-menu-button {
@@ -331,7 +368,7 @@ body:has(.soc-app) {
   justify-content: center;
   padding: 0;
 }
-.soc-mobile-menu-button {
+.soc-topbar .soc-mobile-menu-button {
   display: none;
 }
 .soc-command-button kbd {
@@ -405,6 +442,6 @@ body:has(.soc-app) {
   margin-top: 6px;
 }
 .soc-workspace {
-  min-height: calc(100svh - 39px);
-  padding: 53px 12px 24px;
+  min-height: calc(100svh - 52px);
+  padding: 68px 24px 24px;
 }

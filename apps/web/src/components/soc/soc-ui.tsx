@@ -18,6 +18,12 @@ import {
   CaretDown,
   ArrowsClockwise,
   ClockCounterClockwise,
+  Database,
+  Gear,
+  HardDrives,
+  Info,
+  PaperPlaneTilt,
+  TreeStructure,
 } from '@phosphor-icons/react';
 import type { ApiErrorBody } from '@qapaq/contracts';
 
@@ -39,7 +45,13 @@ export type IconName =
   | 'menu'
   | 'file'
   | 'lock'
-  | 'key';
+  | 'key'
+  | 'database'
+  | 'gear'
+  | 'server'
+  | 'send'
+  | 'flow'
+  | 'info';
 
 const icons = {
   grid: SquaresFour,
@@ -60,6 +72,12 @@ const icons = {
   file: FileText,
   lock: LockKey,
   key: Key,
+  database: Database,
+  gear: Gear,
+  server: HardDrives,
+  send: PaperPlaneTilt,
+  flow: TreeStructure,
+  info: Info,
 } satisfies Record<IconName, typeof SquaresFour>;
 
 export function SocIcon({
