@@ -6,8 +6,8 @@ description: Use for QAPAQ SecOps product, SOC workflow, UI, backend integration
 # QAPAQ SOC engineering
 
 Before changing code or plans, read `COORDINACION-CLAUDE-CODEX.md`, inspect `git status`,
-check file locks there, and read the applicable ADR, component delivery note, API/design
-contract and `docs/project-management/definition-of-done.md`. Follow the latest user
+check file locks there, and read the applicable decision in `docs/10-decisiones.md`, component doc, API/design
+contract and the acceptance rules in `docs/09-plan-de-lanzamiento.md`. Follow the latest user
 instruction if it updates an older coordination entry.
 
 ## Codex ownership
@@ -45,7 +45,7 @@ instruction if it updates an older coordination entry.
 
 ## Source of truth
 
-- Sprint owners and gates: `docs/project-management/plan-operativo-sprints-post-mvp.md`.
-- Screen/capability status and anti-patterns: `docs/frontend-design/10-vistas-por-rol-y-referencias.md`.
-- Frontend behavior: `docs/frontend-design/README.md` and its screen contracts.
+- Sprint owners and gates: `docs/09-plan-de-lanzamiento.md`.
+- Screen/capability status and anti-patterns: `docs/08-frontend-unificado.md`.
+- Frontend behavior: `docs/08-frontend-unificado.md` (Wazuh dashboard shell + `/soc`).
 - Coordination/locks: `COORDINACION-CLAUDE-CODEX.md`.

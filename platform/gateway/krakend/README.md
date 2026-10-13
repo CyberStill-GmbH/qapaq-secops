@@ -1,6 +1,10 @@
 # C-28 — KrakenD provider gateway
 
-Estado de entrega: **configuración y validación local implementadas; producción bloqueada por insumos operativos**. La decisión de producto sigue [ADR-026](../../../docs/adr/026-on-premises-krakend-provider-api-gateway.md). Este paquete no crea ni despliega infraestructura.
+> **Retirada del runtime (docs/10-decisiones.md A8, 2026-10-13).** La API lee el Indexer por el proxy
+> nginx allowlist de `wazuh/access`. Esta configuración se conserva hasta el PR de fase 1 que la quita
+> de Terraform, y se recupera de git si aparece una API de proveedor directa.
+
+Estado de entrega: **configuración y validación local implementadas; producción bloqueada por insumos operativos**. La decisión de producto sigue ADR-026 (sustituido por A8 en [docs/10-decisiones.md](../../../docs/10-decisiones.md)). Este paquete no crea ni despliega infraestructura.
 
 ## Límites y flujo
 
@@ -72,7 +76,7 @@ Rollout: versionar config + digest; ejecutar validación/checks; promover una in
 
 ## Observabilidad
 
-Se exportan métricas Prometheus de KrakenD con `service_name=qapaq-provider-gateway` y scrape dedicado al puerto 9091. El endpoint de métricas se debe restringir a red de monitoreo; no se publica al LB cliente. Los dashboards fuente viven en `platform/observability/grafana/dashboards/krakend-overview.json`; las series deben verificarse contra el exporter efectivo antes de asociar alertas productivas. No etiquetar IPs arbitrarias, tokens, usernames, IDs, query strings ni URLs completas.
+Se exportan métricas Prometheus de KrakenD con `service_name=qapaq-provider-gateway` y scrape dedicado al puerto 9091. El endpoint de métricas se debe restringir a red de monitoreo; no se publica al LB cliente. Los dashboards Grafana se retiraron (A10); las series deben verificarse contra el exporter efectivo antes de asociar alertas productivas. No etiquetar IPs arbitrarias, tokens, usernames, IDs, query strings ni URLs completas.
 
 El log de gateway se dirige a stdout para el colector de plataforma. No habilitar registro de bodies, headers de autorización, query string o configuración renderizada; el collector y destino Loki requieren política de retención/ACL y no están provisionados en este repo.
 
@@ -90,8 +94,8 @@ $env:BENCHMARK_SCENARIO = 'healthy'
 node platform/gateway/krakend/benchmark.mjs --confirm-nonprod=true --concurrency=8 --duration-seconds=10
 ```
 
-La corrida runtime satisfactoria del 2026-09-28 está incluida en el [registro de evidencia C-10/C-28](../../../docs/project-management/c-10/assets/2026-09-28-c10-c28-contract-run.json). Docker Desktop estaba disponible para esa ejecución. Este resultado cubre solo el gateway oficial en contenedor con mock Indexer y JWKS de prueba; no habilita producción ni aceptación con proveedores reales.
+La corrida runtime satisfactoria del 2026-09-28 está incluida en el registro de evidencia C-10/C-28 (histórico en git `050f9fa`). Docker Desktop estaba disponible para esa ejecución. Este resultado cubre solo el gateway oficial en contenedor con mock Indexer y JWKS de prueba; no habilita producción ni aceptación con proveedores reales.
 
 ## Pendientes de producción (`TO_BE_PROVIDED`)
 
-Ver el bloque `provider_gateway` del [inventario de fuentes](../../../docs/integrations/source-inventory.yaml): digest/mirror, balanceador, secret provider, TLS, issuer/JWKS/audience, URL/CA de Indexer, scrape Prometheus y destino de provisioning Grafana. Además, el owner de identidad deberá confirmar claim de workload, permisos mínimos y rotación. No promover a `enabled` hasta cerrar esos puntos y ejecutar integración con Indexer real autorizado.
+Ver el bloque `provider_gateway` del [inventario de fuentes](../../../docs/reference/source-inventory.yaml): digest/mirror, balanceador, secret provider, TLS, issuer/JWKS/audience, URL/CA de Indexer, scrape Prometheus y destino de provisioning Grafana. Además, el owner de identidad deberá confirmar claim de workload, permisos mínimos y rotación. No promover a `enabled` hasta cerrar esos puntos y ejecutar integración con Indexer real autorizado.

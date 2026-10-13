@@ -128,7 +128,7 @@ variable "wazuh_ingestion" {
     Sprint 5 · fase 0 — ingesta Wazuh → SOC. Null = sin ingesta (el API arranca con
     QAPAQ_INGESTION_SOURCE=disabled y KrakenD no publica /wazuh/*). Activarlo agrega a KrakenD
     service discovery privado, lo que reemplaza su servicio ECS una vez (ventana breve sin
-    gateway); ver docs/deployment/wazuh-ingestion-rollout.md.
+    gateway); ver docs/03-evaluacion-de-componentes.md.
   EOT
   type = object({
     indexer_url         = string

@@ -4,7 +4,7 @@
 # El Indexer del all-in-one escucha solo en 127.0.0.1, así que un proxy nginx en la instancia lo
 # publica en la IP privada con TLS propio (workflow `configure-wazuh-indexer-reader`).
 #
-# Orden (docs/deployment/wazuh-ingestion-rollout.md):
+# Orden (docs/03-evaluacion-de-componentes.md; KrakenD sale en fase 1, docs/09):
 #   1. apply con `wazuh_ingestion_enabled = false`: crea los secretos vacíos y el permiso de la
 #      instancia para poblarlos.
 #   2. workflow `configure-wazuh-indexer-reader`: crea `qapaq_reader` (solo lectura), el proxy y

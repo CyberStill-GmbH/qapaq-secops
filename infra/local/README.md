@@ -15,7 +15,7 @@ Con el stack iniciado en el host Docker, abre el [Dashboard de Wazuh](https://lo
 navegador. La URL solo vale en el host donde corre Docker; el dashboard de AWS
 se publicará con una IP elástica y HTTPS de Let's Encrypt. Después del apply,
 Terraform mostrará `wazuh_dashboard_url`; el primer arranque tarda varios minutos.
-Consulta [URLs y permisos requeridos](../../docs/integrations/urls-permisos-microsoft-wazuh.md)
+Consulta [inventario de fuentes](../../docs/reference/source-inventory.yaml)
 para las APIs y el estado de acceso remoto.
 
 QAPAQ consulta el Wazuh Indexer mediante una credencial de solo lectura que se

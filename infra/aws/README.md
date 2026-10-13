@@ -192,7 +192,7 @@ smoke tests y arrancan como UID no root en contenedores locales, pero **no se
 consideran desplegables ni DONE**: no hay despliegue ECS,
 la API no tiene readiness real de dependencias y el Worker permanece en espera
 inactiva sin consumidor BullMQ. Más detalles en
-[`docs/deployment/aws-demo.md`](../../docs/deployment/aws-demo.md).
+[`docs/06-operacion.md`](../../docs/06-operacion.md).
 
 ## Fase 2C — publicación verificada en ECR
 

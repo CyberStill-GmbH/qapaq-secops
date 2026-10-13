@@ -1,89 +1,30 @@
-# Documentación de QAPAQ SecOps
+# Documentación QAPAQ SecOps
 
-Este índice separa la guía del producto de los contratos de implementación,
-seguridad y entrega. Para una explicación no técnica de QAPAQ y de sus vistas,
-empieza en el [README del producto](../README.md). Las imágenes de interfaz son
-referencias sintéticas; el código, los contratos y la evidencia de cada entorno
-determinan qué está realmente disponible.
+Diez documentos cortos reemplazan los ~200 anteriores (sprints, informes de avance, auditorías
+C-0X, 31 ADR solapados, specs de pantallas). El histórico completo sigue en git:
+`git show 050f9fa:docs/<ruta>`.
 
-## Producto SOC y experiencia de uso
+| # | Documento | Pregunta que responde |
+| - | --- | --- |
+| 01 | [Producto](01-producto.md) | Qué es QAPAQ y qué añade sobre Wazuh |
+| 02 | [Arquitectura](02-arquitectura.md) | Cómo encajan las piezas y qué salió del diseño |
+| 03 | [Evaluación de componentes](03-evaluacion-de-componentes.md) | Qué se conserva, qué se migra y qué se retira, y por qué no hay fork del manager |
+| 04 | [Identidad y acceso](04-identidad-y-acceso.md) | Login Entra único para la consola y el dashboard |
+| 05 | [Datos y retención](05-datos-y-retencion.md) | Hot/warm/cold, evidencia y auditoría |
+| 06 | [Operación](06-operacion.md) | AWS, costos, observabilidad, despliegue |
+| 07 | [Detección, ML y SOAR](07-deteccion-ml-y-soar.md) | Correlación, anomalías y respuesta gobernada |
+| 08 | [Frontend unificado](08-frontend-unificado.md) | El dashboard de Wazuh como shell y QAPAQ dentro |
+| 09 | [Plan de lanzamiento](09-plan-de-lanzamiento.md) | Fases, criterios de aceptación y orden |
+| 10 | [Decisiones](10-decisiones.md) | Registro único de decisiones vigentes |
 
-- [Diseño de frontend](frontend-design/README.md): sistema visual, navegación,
-  componentes y patrones de interacción.
-- [Mapa de vistas y roles](frontend-design/10-vistas-por-rol-y-referencias.md):
-  cobertura visible, capacidades y referencias de escritorio/móvil.
-- [Pantallas](frontend-design/04-pantallas.md): contenido y aceptación de cada
-  vista.
-- [Inventario funcional](frontend-design/01-inventario-backend.md): contratos y
-  comportamiento disponible por superficie.
-- [Evaluación del frontend SOC](frontend-design/09-evaluacion-frontend-soc.md):
-  brechas de experiencia y operación.
-- [Investigación de incidentes](frontend-design/incidentes-investigacion.md) y
-  [eventos](frontend-design/eventos-investigacion.md): flujos de análisis.
-- [Avisos de incidentes críticos](architecture/critical-alert-notifications.md):
-  canales, acuse, entrega y escenarios de aceptación.
+`reference/` contiene archivos que el código o la CI leen (catálogo de errores, inventario de
+fuentes, guía de extensión de proveedores, baseline de toolchain y gates de release). Si se mueven,
+hay que actualizar los tests que los referencian.
 
-## Arquitectura e integraciones
+## Reglas de esta documentación
 
-- [Contexto y límites del sistema](architecture/system-context.md) y
-  [arquitectura general](architecture/overview.md).
-- [Módulos del producto](architecture/modules.md),
-  [flujo de datos](architecture/data-flow.md) y
-  [modelo de eventos](architecture/event-model.md).
-- [Integraciones](architecture/integrations.md),
-  [estrategia de fuentes](architecture/source-integration-strategy.md) y
-  [motor Wazuh/OpenSearch](architecture/wazuh-engine-and-opensearch.md).
-- [Consulta de eventos en Wazuh](architecture/events-read-through.md) y
-  [salud de fuentes](architecture/source-health.md).
-- [Modelo de datos](architecture/data-model-mer.md),
-  [almacenamiento](architecture/storage.md) y
-  [observabilidad](architecture/observability.md).
-- [Diferencial SOC frente a Wazuh](development/soc-diferencial-m365.md).
-
-## Identidad, seguridad y cumplimiento
-
-- [Identidad, sesiones y autorización](architecture/identity-and-authorization.md)
-  · [RBAC](architecture/rbac.md) · [matriz de permisos](requirements/04-rbac-matrix.md).
-- [Seguridad](architecture/security.md),
-  [auditoría](architecture/audit.md) y
-  [privacidad y custodia](architecture/retention-privacy-custody.md).
-- [Threat model](threat-model.md),
-  [auditoría de OIDC](security/auditoria-oidc.md) y
-  [catálogo de errores](error-catalog.md).
-- [Observabilidad interna y análisis SBS](compliance/sbs-observability-rationale.md)
-  · [baseline de acceso y observabilidad](architecture/security-access-observability-baseline.md).
-- [ADRs](adr/README.md): decisiones aceptadas, condicionales y abiertas.
-
-## Operación, demo y entrega
-
-- [Estado de la demo AWS](architecture/aws-demo.md) y
-  [plan Terraform](deployment/aws-demo.md).
-- [Checklist para la demo](deployment/release-demo-checklist.md),
-  [operación DevOps y secretos](operations/devops-secrets-and-teardown.md) y
-  [runbooks](runbooks.md).
-- [Entorno local](development/local-environment.md) y
-  [entorno de integración](development/integration-environment.md).
-- [CI y separación del despliegue](ci-cd.md),
-  [guía de despliegue](deployment.md) y
-  [verificación](verification.md).
-- [Plan de componentes](project-management/component-delivery-plan.md),
-  [backlog](project-management/product-backlog.md),
-  [sprints de cierre](project-management/plan-operativo-sprints-post-mvp.md) y
-  [Definition of Done](project-management/definition-of-done.md).
-
-## Requisitos y vocabulario
-
-- [Requisitos funcionales y no funcionales](requirements.md) ·
-  [matrices y trazabilidad](requirements/README.md).
-- [Roadmap](roadmap.md), [glosario de integraciones](integrations.md) y
-  [referencias consultadas](references.md).
-- [Diagramas](diagrams/README.md) y
-  [validación documental](validation.md).
-
-## Cómo interpretar los documentos
-
-Las pantallas conceptuales sirven para discutir composición; no acreditan
-conectividad ni autorización. Los planes de producto distinguen lo implementado,
-lo pendiente de aceptación en un entorno real y lo futuro. Cuando dos documentos
-parezcan discrepar, sigue la decisión vigente en su ADR y el contrato actual de
-la superficie, y registra la corrección en el documento afectado.
+- Un tema, un documento. Si algo ya está en el código o en git, se enlaza en vez de repetirse.
+- Cada afirmación de estado distingue **hecho y verificado**, **hecho sin verificar contra el
+  proveedor real** y **propuesto**.
+- Las decisiones nuevas se agregan como fila en [10-decisiones.md](10-decisiones.md), no como un
+  archivo ADR nuevo.
