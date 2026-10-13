@@ -74,15 +74,9 @@
           "extra_config": {
             "modifier/martian": {
               "fifo.Group": {
-                "scope": ["request", "response"],
+                "scope": ["request"],
                 "aggregateErrors": true,
                 "modifiers": [
-                  {
-                    "header.Blacklist": {
-                      "scope": ["response"],
-                      "names": ["X-Internal-Topology", "Server", "X-Powered-By"]
-                    }
-                  },
                   {
                     "header.Modifier": {
                       "scope": ["request"],
@@ -92,6 +86,9 @@
                   }
                 ]
               }
+            },
+            "backend/http": {
+              "return_error_code": true
             },
             "qos/circuit-breaker": {
               "interval": 10,
@@ -134,15 +131,9 @@
           "extra_config": {
             "modifier/martian": {
               "fifo.Group": {
-                "scope": ["request", "response"],
+                "scope": ["request"],
                 "aggregateErrors": true,
                 "modifiers": [
-                  {
-                    "header.Blacklist": {
-                      "scope": ["response"],
-                      "names": ["X-Internal-Topology", "Server", "X-Powered-By"]
-                    }
-                  },
                   {
                     "header.Modifier": {
                       "scope": ["request"],
@@ -152,6 +143,9 @@
                   }
                 ]
               }
+            },
+            "backend/http": {
+              "return_error_code": true
             },
             "qos/circuit-breaker": {
               "interval": 10,
