@@ -102,14 +102,23 @@ export function SocConsole({
   const loadSession = useCallback(async () => {
     const result = await api.session();
     if (!result.ok) {
-      setSessionError(result.error);
-      setCheckingSession(false);
+      const current = new URLSearchParams(window.location.search);
+      const login = new URL(basePath, window.location.origin);
+      const code = current.get('authError') ?? result.error.code;
+      if (code !== 'AUTH_REQUIRED') {
+        login.searchParams.set('authError', code);
+        login.searchParams.set(
+          'correlationId',
+          current.get('correlationId') ?? result.error.correlationId,
+        );
+      }
+      window.location.replace(login.pathname + login.search);
       return;
     }
     setSession(result.data);
     setSessionError(null);
     setCheckingSession(false);
-  }, []);
+  }, [basePath]);
 
   useEffect(() => {
     void loadSession();
@@ -178,34 +187,7 @@ export function SocConsole({
     setSessionError(result.error);
   }
 
-  if (!session) {
-    if (checkingSession) return <QapaqSplash waiting />;
-    const authError = new URLSearchParams(window.location.search).get('authError');
-    const route = path || '/';
-    const prefix = basePath === '/' ? '' : basePath.slice(0, -1);
-    const returnTo = route === '/' ? `${prefix}/console.html` : `${prefix}${route}`;
-    const signInHref = `/api/auth/start?returnTo=${encodeURIComponent(returnTo)}`;
-    return (
-      <>
-        <main className="soc-auth-state">
-          <div className="soc-auth-state__brand">
-            <span>Q</span>
-            <strong>QAPAQ SecOps</strong>
-          </div>
-          <h1>{sessionError ? 'No fue posible abrir la consola' : 'Acceso a la consola'}</h1>
-          {sessionError ? (
-            <ErrorState error={sessionError} onRetry={() => void loadSession()} />
-          ) : authError ? (
-            <p role="alert">Revisa el acceso institucional e intenta otra vez.</p>
-          ) : null}
-          <a className="soc-button soc-button--primary" href={signInHref}>
-            Continuar con Microsoft Entra
-          </a>
-        </main>
-        <CookieNotice />
-      </>
-    );
-  }
+  if (!session || checkingSession) return <QapaqSplash waiting />;
 
   const pathname = path.split('?')[0] || '/';
   const profileLabel = session.displayName || session.email || session.subjectId;
@@ -335,6 +317,7 @@ export function SocConsole({
             </div>
           </header>
           <main id="soc-main" className="soc-workspace" tabIndex={-1}>
+            {sessionError ? <ErrorState error={sessionError} /> : null}
             <SocWorkspaceViews
               pathname={pathname}
               path={path}
