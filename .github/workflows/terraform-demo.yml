@@ -99,6 +99,41 @@ jobs:
           fi
           terraform plan "${plan_args[@]}"
 
+
+      - name: Synchronize configured external secrets
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        env:
+          ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
+          WAZUH_OFFICE365_CLIENT_SECRET: ${{ secrets.WAZUH_OFFICE365_CLIENT_SECRET }}
+          WAZUH_BREAK_GLASS_UPNS: ${{ secrets.WAZUH_BREAK_GLASS_UPNS }}
+          TEAMS_WORKFLOW_URL: ${{ secrets.TEAMS_WORKFLOW_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          put_if_configured() {
+            local value="${!1:-}"
+            if [[ -n "$value" ]]; then
+              printf '%s' "$value" >"$work/value"
+              aws secretsmanager put-secret-value --secret-id "$2" --secret-string "file://$work/value" --query VersionId --output text >/dev/null
+              rm -f "$work/value"
+              echo "Updated configured secret: $2"
+            else
+              echo "Keeping existing AWS secret: $2"
+            fi
+          }
+          put_if_configured ENTRA_CLIENT_SECRET qapaq-secops/demo/entra/client-secret
+          put_if_configured WAZUH_OFFICE365_CLIENT_SECRET qapaq-secops/demo/wazuh/office365-client-secret
+          put_if_configured WAZUH_BREAK_GLASS_UPNS qapaq-secops/demo/wazuh/break-glass-identities
+          put_if_configured TEAMS_WORKFLOW_URL qapaq-secops/demo/teams/workflow-url
+          current="$(aws secretsmanager list-secret-version-ids --secret-id qapaq-secops/demo/entra/client-secret --query "length(Versions[?contains(VersionStages, 'AWSCURRENT')])" --output text)"
+          if [[ "$current" == 0 ]]; then
+            echo '::error::ENTRA_CLIENT_SECRET must be configured in GitHub or already loaded in AWS.'
+            exit 1
+          fi
+
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
         run: terraform apply -input=false -auto-approve -no-color tfplan
@@ -114,118 +149,15 @@ jobs:
             association_id="$(jq -r '.association' <<< "$bootstrap")"
             association_version="$(aws ssm describe-association --association-id "$association_id" --query 'AssociationDescription.AssociationVersion' --output text)"
             status=None
-            execution_id=None
             for attempt in $(seq 1 120); do
               execution="$(aws ssm describe-association-executions --association-id "$association_id" --query "sort_by(AssociationExecutions[?AssociationVersion=='$association_version'], &CreatedTime)[-1]" --output json)"
               status="$(jq -r '.Status // "None"' <<< "$execution")"
-              execution_id="$(jq -r '.ExecutionId // "None"' <<< "$execution")"
               case "$status" in
                 Success) break ;;
                 Failed|TimedOut|Cancelled)
+                  execution_id="$(jq -r '.ExecutionId' <<< "$execution")"
                   targets="$(aws ssm describe-association-execution-targets --association-id "$association_id" --execution-id "$execution_id" --output json)"
-                  while IFS=
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
-        shell: bash
-        run: |
-          set -euo pipefail
-          dashboard_url="$(terraform output -raw wazuh_dashboard_url)"
-          api_url="$(terraform output -raw public_api_url)"
-          echo "Wazuh Dashboard: $dashboard_url"
-          echo "QAPAQ API URL: $api_url"
-          echo "Wazuh admin secret ARN: $(terraform output -raw wazuh_dashboard_admin_secret_arn)"
-
-          echo 'Waiting for Wazuh HTTPS bootstrap to finish...'
-          ready=false
-          for attempt in $(seq 1 80); do
-            if curl --fail --silent --max-time 15 "$dashboard_url" -o /dev/null; then
-              ready=true
-              echo "Wazuh Dashboard HTTPS: ready (attempt $attempt)"
-              break
-            fi
-            if (( attempt % 4 == 0 )); then
-              echo "Still waiting for Wazuh bootstrap ($attempt/80 checks)."
-            fi
-            sleep 15
-          done
-
-          if [ "$ready" != true ]; then
-            echo '::error::Wazuh Dashboard did not become reachable over HTTPS within 20 minutes.'
-            curl --fail --show-error --max-time 15 "$dashboard_url" -o /dev/null || true
-            exit 1
-          fi
-
-      - name: Show DNS delegation details
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo '## Route 53 name servers for qapaq.secops.com'
-          terraform output -json public_route53_zone_name_servers
-          echo '## Parent secops.com zone in this AWS account (if managed here)'
-          parent_zone_id="$(aws route53 list-hosted-zones-by-name \
-            --dns-name secops.com. \
-            --query "HostedZones[?Name == 'secops.com.'] | [0].Id" \
-            --output text)"
-          if [ "$parent_zone_id" = "None" ] || [ -z "$parent_zone_id" ]; then
-            echo 'No public secops.com parent zone is visible to the deployment role; delegate the child NS at the domain DNS provider.'
-          else
-            echo "Parent hosted zone: $parent_zone_id"
-            aws route53 list-resource-record-sets \
-              --hosted-zone-id "$parent_zone_id" \
-              --query "ResourceRecordSets[?Name == 'qapaq.secops.com.' && Type == 'NS']" \
-              --output json
-          fi
-
-      - name: Audit Phase 2B resources and remote state
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'audit'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo '## Terraform state addresses'
-          terraform state list
-
-          echo '## Existing ECR repositories'
-          if ! aws ecr describe-repositories \
-            --repository-names qapaq-secops-api qapaq-secops-worker qapaq-secops-krakend \
-            --query 'repositories[].{name:repositoryName,uri:repositoryUri,tagMutability:imageTagMutability,scanOnPush:imageScanningConfiguration.scanOnPush}' \
-            --output json; then
-            echo 'One or more expected ECR repositories are absent.'
-          fi
-
-          echo '## Publisher role and trust policy'
-          if ! aws iam get-role \
-            --role-name qapaq-secops-demo-github-ecr-publisher \
-            --query 'Role.{Arn:Arn,Trust:AssumeRolePolicyDocument}' \
-            --output json; then
-            echo 'Publisher IAM role is absent.'
-          fi
-
-          echo '## Publisher role policies'
-          aws iam list-attached-role-policies \
-            --role-name qapaq-secops-demo-github-ecr-publisher \
-            --output json
-          aws iam list-role-policies \
-            --role-name qapaq-secops-demo-github-ecr-publisher \
-            --output json
-          aws iam get-role-policy \
-            --role-name qapaq-secops-demo-github-ecr-publisher \
-            --policy-name publish-demo-ecr-images \
-            --query PolicyDocument \
-            --output json
-
-          echo '## Phase 2B S3 buckets'
-          for bucket in \
-            qapaq-secops-demo-raw-955200662475 \
-            qapaq-secops-demo-evidence-955200662475 \
-            qapaq-secops-demo-artifacts-955200662475; do
-            if aws s3api head-bucket --bucket "$bucket" >/dev/null 2>&1; then
-              echo "$bucket: present"
-            else
-              echo "$bucket: absent or inaccessible"
-            fi
-          done
-
-\t' read -r command_id instance_id; do
+                  while IFS=$'\t' read -r command_id instance_id; do
                     [[ -n "$command_id" ]] || continue
                     aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" --query '{Status:Status,ExitCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
                   done < <(printf '%s\n' "$targets" | jq -r '.AssociationExecutionTargets[] | select(.OutputSource.OutputSourceType == "RunCommand") | [.OutputSource.OutputSourceId, .ResourceId] | @tsv')
@@ -239,8 +171,14 @@ jobs:
               echo "::error::Wazuh initialization did not complete: $status"
               exit 1
             fi
-            # ECS may exhaust its startup attempts before an updated association
-            # finishes publishing the secrets. Retry only after verified success.
+            for suffix in indexer-reader indexer-proxy-ca dashboard-admin-user dashboard-analyst-user; do
+              secret_id="qapaq-secops/demo/wazuh/$suffix"
+              current="$(aws secretsmanager list-secret-version-ids --secret-id "$secret_id" --query "length(Versions[?contains(VersionStages, 'AWSCURRENT')])" --output text)"
+              if [[ "$current" == 0 ]]; then
+                echo "::error::Required generated secret has no AWSCURRENT version: $secret_id"
+                exit 1
+              fi
+            done
             aws ecs update-service --cluster qapaq-secops-demo --service qapaq-secops-demo-krakend --force-new-deployment --query 'service.serviceName' --output text
           fi
           aws ecs wait services-stable --cluster qapaq-secops-demo --services qapaq-secops-demo-api qapaq-secops-demo-krakend
