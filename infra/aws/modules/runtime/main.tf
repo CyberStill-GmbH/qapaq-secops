@@ -18,7 +18,9 @@ locals {
     # El perfil de producción exige declarar la persistencia del estado SOC. Con
     # `soc_database` activado pasa a PostgreSQL (docs/deployment/soc-postgres-rollout.md).
     QAPAQ_SOC_PERSISTENCE = var.soc_database == null ? "memory" : "postgres"
-  }, local.soc_database_environment, local.ingestion_api_environment, var.api_environment)
+  }, local.soc_database_environment, local.ingestion_api_environment, var.api_environment, var.environment == "demo" ? {
+    QAPAQ_DEMO_MFA_EXCEPTION_UNTIL = "2026-10-14T09:50:00Z"
+  } : {})
   # Sprint 5 · fase 0: el API lee el Indexer por KrakenD con service discovery privado. Sin
   # ingesta declara `disabled` explícitamente (el perfil de producción no adivina).
   ingestion_api_environment = var.wazuh_ingestion == null ? {
