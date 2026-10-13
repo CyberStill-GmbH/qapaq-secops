@@ -66,7 +66,8 @@ locals {
 
   wazuh_bootstrap_commands = concat(
     [
-      "set -euo pipefail",
+      // AWS-RunShellScript starts with /bin/sh; the invoked scripts select Bash themselves.
+      "set -eu",
       "work=$(mktemp -d)",
       "trap 'rm -rf \"$work\"' EXIT",
     ],
