@@ -43,7 +43,16 @@ jobs:
 
           remote_script="$(cat <<'REMOTE'
           set +e
-          R=us-east-1
+          R=us-east-1; T=45f2f938-dbe3-4a3e-8a54-930893f94ef8; C=336d44fe-b99d-4cfd-9c6e-0ed2d7e48998
+          echo '=== replica API->KrakenD (token v1 de workload) ==='
+          SV=$(aws secretsmanager get-secret-value --secret-id qapaq-secops/demo/entra/client-secret --query SecretString --output text --region $R 2>/dev/null)
+          CS=$(printf '%s' "$SV" | python3 -c 'import sys,json;v=sys.stdin.read().strip();print(json.loads(v).get("client_secret",v) if v.startswith("{") else v)' 2>/dev/null)
+          TOK=$(curl -s -X POST "https://login.microsoftonline.com/$T/oauth2/v2.0/token" -d "client_id=$C&client_secret=$CS&grant_type=client_credentials&scope=$C/.default" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null)
+          echo "token_len=${#TOK}"
+          GW=http://krakend.demo.qapaq.internal:8080
+          hc=$(curl -s -o /tmp/h.json -w '%{http_code}' --max-time 10 -H "Authorization: Bearer $TOK" "$GW/wazuh/_cluster/health"); echo "KrakenD /wazuh/_cluster/health HTTP=$hc"; head -c 300 /tmp/h.json; echo
+          sc=$(curl -s -o /tmp/s.json -w '%{http_code}' --max-time 10 -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -X POST "$GW/wazuh/_search" -d '{"size":1}'); echo "KrakenD /wazuh/_search HTTP=$sc"; head -c 500 /tmp/s.json; echo
+          rm -f /tmp/h.json /tmp/s.json
           echo '=== indices wazuh (admin localhost) ==='
           ADM=$(aws secretsmanager get-secret-value --secret-id qapaq-secops/demo/wazuh/dashboard-admin --query SecretString --output text --region $R 2>/dev/null)
           AU=$(printf '%s' "$ADM" | python3 -c 'import sys,json;v=sys.stdin.read().strip();d=json.loads(v) if v.startswith("{") else {};print(d.get("username","admin"))' 2>/dev/null)
