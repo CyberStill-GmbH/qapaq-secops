@@ -706,7 +706,7 @@ export class SecOpsRuntime {
         ]
       : [];
     const capabilities = effectiveCapabilities(roles, BFF_SCOPES);
-    const decision = decideSignIn({
+    let decision = decideSignIn({
       network: network.decision,
       locked: !lockout.allowed,
       rateLimited: false,
@@ -714,6 +714,24 @@ export class SecOpsRuntime {
       roles,
       capabilities: capabilities as ReadonlySet<string>,
     });
+    // Temporary demo-only exception authorized for the existing analyst identity.
+    // This never invents AMR evidence or bypasses token, network, lockout or role checks.
+    const exceptionUntil = Date.parse(process.env.QAPAQ_DEMO_MFA_EXCEPTION_UNTIL ?? '');
+    const demoMfaException =
+      !decision.admitted &&
+      decision.reason === 'MFA_REQUIRED' &&
+      validation.ok &&
+      capabilities.size > 0 &&
+      this.options.access.redirectUri === 'https://app.jappi.net.pe/api/auth/callback' &&
+      this.options.access.tenantId === '45f2f938-dbe3-4a3e-8a54-930893f94ef8' &&
+      this.options.access.clientId === '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998' &&
+      validation.claims.oid?.toLowerCase() === '707e3194-cdbe-4072-b17e-712c4e5fdadb' &&
+      Number.isFinite(exceptionUntil) &&
+      exceptionUntil <= Date.parse('2026-10-14T09:50:00Z') &&
+      at.getTime() < exceptionUntil;
+    if (demoMfaException) {
+      decision = { admitted: true, requiredAmr: [] };
+    }
     if (!decision.admitted) {
       await this.attempts.save(registerFailure(counter, at));
       await this.auditSignIn(
@@ -747,7 +765,7 @@ export class SecOpsRuntime {
       at,
     );
     // La sesión abierta con un rol temporal no debe sobrevivir al vencimiento de la asignación.
-    const session = backendRole
+    let session = backendRole
       ? {
           ...plan.session,
           absoluteExpiresAt: new Date(
@@ -755,6 +773,12 @@ export class SecOpsRuntime {
           ),
         }
       : plan.session;
+    if (demoMfaException) {
+      session = {
+        ...session,
+        absoluteExpiresAt: new Date(Math.min(session.absoluteExpiresAt.getTime(), exceptionUntil)),
+      };
+    }
     // Se revoca con la sesión que ya devolvió `activeBySubject`, no releyendo por id: el
     // store durable no conoce los ids originales (solo su hash) y `byId` solo acepta cookies.
     for (const id of plan.supersedes) {
@@ -770,7 +794,7 @@ export class SecOpsRuntime {
       correlationId,
       at,
       network.clientIp,
-      backendRole ? 'backend_mvp_role_binding' : undefined,
+      demoMfaException ? 'temporary_demo_mfa_exception' : backendRole ? 'backend_mvp_role_binding' : undefined,
     );
     return { ok: true, value: { session, supersededSessions: plan.supersedes } };
   }
