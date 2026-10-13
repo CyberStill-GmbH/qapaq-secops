@@ -419,7 +419,9 @@ resource "aws_ecs_service" "krakend" {
   enable_ecs_managed_tags            = true
   propagate_tags                     = "SERVICE"
 
-  depends_on = [aws_lb_listener.http]
+  # With TLS enabled, HTTP only redirects; HTTPS associates this target group
+  # with the ALB. ECS must wait for both listeners before CreateService.
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
   tags       = { Project = var.project, Environment = var.environment, Service = "krakend" }
 }
 
