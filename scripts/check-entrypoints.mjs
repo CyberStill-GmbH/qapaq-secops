@@ -150,8 +150,17 @@ export function checkEntrypoints(root = process.cwd()) {
           if (argument && ts.isStringLiteralLike(argument)) inspectImport(argument.text);
           else report('statically-resolvable-imports-only');
         }
-        // Cubre accesos por propiedad o índice, desestructuración y alias de process.
-        if (!processMain && ts.isIdentifier(node) && node.text === 'process')
+        // Cubre accesos por propiedad o índice, desestructuración y alias de process. Un nombre de
+        // propiedad (`{ process: 'Procesos' }`, `x.process`) no es el global y no se reporta.
+        if (
+          !processMain &&
+          ts.isIdentifier(node) &&
+          node.text === 'process' &&
+          !(
+            (ts.isPropertyAssignment(node.parent) || ts.isPropertyAccessExpression(node.parent)) &&
+            node.parent.name === node
+          )
+        )
           report('environment-at-process-boundary');
         if (
           main &&
