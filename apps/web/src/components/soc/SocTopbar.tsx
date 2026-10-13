@@ -1,5 +1,5 @@
 import type { SessionView } from '../../api/client.js';
-import { Button, SocIcon } from './soc-ui.js';
+import { Button, SocIcon, StatusChip } from './soc-ui.js';
 
 function roleLabel(role: string): string {
   return (
@@ -16,6 +16,9 @@ export function SocTopbar({
   profileLabel,
   session,
   notificationsEnabled,
+  sectionLabel,
+  pageLabel,
+  apiStatus,
   mobileNavOpen,
   onOpenCommand,
   onNavigate,
@@ -25,6 +28,9 @@ export function SocTopbar({
   readonly profileLabel: string;
   readonly session: SessionView;
   readonly notificationsEnabled: boolean;
+  readonly sectionLabel: string;
+  readonly pageLabel: string;
+  readonly apiStatus: 'checking' | 'ready' | 'failed';
   readonly mobileNavOpen: boolean;
   readonly onOpenCommand: () => void;
   readonly onNavigate: (path: string) => void;
@@ -44,10 +50,33 @@ export function SocTopbar({
         <SocIcon name={mobileNavOpen ? 'close' : 'menu'} size={19} />
       </Button>
       <div className="soc-breadcrumb">
-        <span>QAPAQ</span>
-        <strong>SOC</strong>
+        <span>{sectionLabel}</span>
+        <strong aria-hidden="true">/</strong>
+        <strong className="soc-breadcrumb__current">{pageLabel}</strong>
       </div>
       <div className="soc-topbar__tools">
+        <button
+          className="soc-pipeline-pill"
+          type="button"
+          onClick={() => onNavigate('/operations')}
+          aria-label={
+            apiStatus === 'ready'
+              ? 'API disponible. Abrir salud operativa.'
+              : apiStatus === 'failed'
+                ? 'API sin respuesta. Abrir salud operativa.'
+                : 'Comprobando API. Abrir salud operativa.'
+          }
+        >
+          <StatusChip
+            state={apiStatus === 'ready' ? 'ok' : apiStatus === 'failed' ? 'fail' : 'neutral'}
+          >
+            {apiStatus === 'ready'
+              ? 'API disponible'
+              : apiStatus === 'failed'
+                ? 'API sin respuesta'
+                : 'Comprobando API'}
+          </StatusChip>
+        </button>
         <Button
           className="soc-command-button"
           onClick={onOpenCommand}
@@ -55,6 +84,8 @@ export function SocTopbar({
           title="Buscar una pantalla (Ctrl K)"
         >
           <SocIcon name="search" size={15} />
+          <span>Ir a</span>
+          <kbd>Ctrl K</kbd>
         </Button>
         {notificationsEnabled ? (
           <Button

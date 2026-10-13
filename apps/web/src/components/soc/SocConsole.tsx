@@ -31,7 +31,11 @@ const navigation: readonly NavigationGroup[] = [
     ],
   },
   {
-    label: 'CONFIGURACIÓN',
+    label: 'ANÁLISIS',
+    items: [{ label: 'Eventos', path: '/events', icon: 'search', capability: 'events.read' }],
+  },
+  {
+    label: 'PLATAFORMA',
     items: [
       {
         label: 'Avisos en dispositivos',
@@ -40,10 +44,6 @@ const navigation: readonly NavigationGroup[] = [
         capability: 'notifications.read',
       },
     ],
-  },
-  {
-    label: 'ANÁLISIS',
-    items: [{ label: 'Eventos', path: '/events', icon: 'search', capability: 'events.read' }],
   },
   {
     label: 'GOBIERNO',
@@ -78,6 +78,7 @@ export function SocConsole({
   );
   const [commandOpen, setCommandOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'checking' | 'ready' | 'failed'>('checking');
 
   const loadSession = useCallback(async () => {
     const result = await api.session();
@@ -130,6 +131,24 @@ export function SocConsole({
     window.localStorage.setItem('qapaq.rail.collapsed', String(collapsed));
   }, [collapsed]);
 
+  useEffect(() => {
+    let active = true;
+    let inFlight = false;
+    const check = async (): Promise<void> => {
+      if (inFlight) return;
+      inFlight = true;
+      const result = await api.health();
+      if (active) setApiStatus(result.ok && result.data.status === 'ok' ? 'ready' : 'failed');
+      inFlight = false;
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const allowedGroups = useMemo(
     () =>
       navigation
@@ -165,6 +184,13 @@ export function SocConsole({
 
   const pathname = path.split('?')[0] || '/';
   const profileLabel = session.displayName || session.email || session.subjectId;
+  const currentItem =
+    allowedGroups
+      .flatMap((group) => group.items.map((item) => ({ item, group: group.label })))
+      .find(({ item }) => item.path === pathname) ??
+    allowedGroups
+      .flatMap((group) => group.items.map((item) => ({ item, group: group.label })))
+      .find(({ item }) => item.path !== '/' && pathname.startsWith(`${item.path}/`));
   return (
     <>
       <div
@@ -175,6 +201,7 @@ export function SocConsole({
           pathname={pathname}
           collapsed={collapsed}
           mobileOpen={mobileNavOpen}
+          brandMarkUrl={`${basePath}qapaq-q-mask.png`}
           onNavigate={navigate}
           onToggleCollapse={() => setCollapsed((value) => !value)}
           onCloseMobile={() => setMobileNavOpen(false)}
@@ -184,6 +211,9 @@ export function SocConsole({
             profileLabel={profileLabel}
             session={session}
             notificationsEnabled={session.capabilities.includes('notifications.read')}
+            sectionLabel={currentItem?.group ?? 'OPERACIÓN'}
+            pageLabel={currentItem?.item.label ?? 'Resumen'}
+            apiStatus={apiStatus}
             mobileNavOpen={mobileNavOpen}
             onOpenCommand={() => setCommandOpen(true)}
             onNavigate={navigate}
@@ -191,7 +221,9 @@ export function SocConsole({
             onLogout={() => void logout()}
           />
           <main id="soc-main" className="soc-workspace" tabIndex={-1}>
-            {sessionError ? <ErrorState error={sessionError} onRetry={() => void logout()} /> : null}
+            {sessionError ? (
+              <ErrorState error={sessionError} onRetry={() => void logout()} />
+            ) : null}
             <SocWorkspaceViews
               pathname={pathname}
               path={path}

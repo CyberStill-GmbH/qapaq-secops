@@ -22,10 +22,15 @@
   .soc-rail {
     padding-inline: 8px;
   }
+  .soc-rail__brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
   .soc-nav__group h2,
   .soc-nav__item span,
   .soc-rail__collapse span,
-  .soc-rail__collapse kbd {
+  .soc-rail__collapse kbd,
+  .soc-rail__brand span {
     display: none;
   }
   .soc-nav__item,
@@ -40,9 +45,6 @@
     grid-template-columns: 1fr;
   }
   .soc-user-admin__layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .soc-operations-health--admin {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -69,10 +71,10 @@
     gap: 4px;
   }
   .soc-breadcrumb > span:first-child {
-    font-size: 14px;
+    font-size: 11px;
   }
   .soc-breadcrumb > strong {
-    font-size: 9px;
+    font-size: 12px;
   }
   .soc-topbar__tools {
     flex: 0 0 auto;
@@ -100,13 +102,18 @@
   }
   .soc-app .soc-rail .soc-nav__item span,
   .soc-app .soc-rail .soc-rail__collapse span,
-  .soc-app .soc-rail .soc-rail__collapse kbd {
+  .soc-app .soc-rail .soc-rail__collapse kbd,
+  .soc-app .soc-rail .soc-rail__brand span {
     display: inline;
   }
   .soc-app .soc-rail .soc-nav__item,
   .soc-app .soc-rail .soc-rail__collapse {
     justify-content: flex-start;
     padding-inline: 12px;
+  }
+  .soc-app .soc-rail .soc-rail__brand {
+    justify-content: flex-start;
+    padding-inline: 16px;
   }
   .soc-app .soc-rail .soc-rail__collapse {
     display: none;
@@ -188,29 +195,73 @@
   .soc-command-button kbd {
     display: none;
   }
+  .soc-topbar .soc-command-button > span {
+    display: none;
+  }
+  .soc-topbar .soc-pipeline-pill .soc-status {
+    max-width: 30px;
+    min-height: 26px;
+    justify-content: center;
+    overflow: hidden;
+    padding-inline: 5px;
+    font-size: 0;
+  }
+  .soc-topbar .soc-pipeline-pill .soc-status__mark {
+    flex: 0 0 14px;
+    font-size: 9px;
+  }
   .soc-status {
     max-width: 145px;
     overflow: hidden;
     font-size: 11px;
     text-overflow: ellipsis;
   }
-  .soc-health-overview,
-  .soc-operations-health--admin > .soc-health-overview {
+  .soc-health-signal {
+    min-height: 74px;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px;
+  }
+  .soc-health-signal > svg {
+    width: 24px;
+  }
+  .soc-health-signal__label {
+    font-size: 12px;
+  }
+  .soc-health-signal__value {
+    font-size: 17px;
+  }
+  .soc-health-flow,
+  .soc-health-platform {
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
   }
-  .soc-health-overview-card {
-    min-height: 98px;
-    padding: 14px 16px;
+  .soc-health-metric {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 3px 8px;
+    padding: 12px 4px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
   }
-  .soc-health-facts {
-    grid-template-columns: 1fr 1fr;
+  .soc-health-metric:last-child {
+    border-bottom: 0;
   }
-  .soc-health-facts--platform {
-    grid-template-columns: 1fr 1fr;
+  .soc-health-metric > svg {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    margin: 2px 0 0;
+  }
+  .soc-health-metric dt,
+  .soc-health-metric dd {
+    grid-column: 2;
+  }
+  .soc-health-metric dt {
+    grid-row: 1;
+  }
+  .soc-health-metric dd {
+    grid-row: 2;
   }
   .soc-health-section {
-    padding: 14px;
+    padding: 12px;
   }
   .soc-admin-sessions__scope {
     flex-direction: column;

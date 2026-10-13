@@ -17,6 +17,7 @@ export function SocNavigationRail({
   pathname,
   collapsed,
   mobileOpen,
+  brandMarkUrl,
   onNavigate,
   onToggleCollapse,
   onCloseMobile,
@@ -25,6 +26,7 @@ export function SocNavigationRail({
   readonly pathname: string;
   readonly collapsed: boolean;
   readonly mobileOpen: boolean;
+  readonly brandMarkUrl: string;
   readonly onNavigate: (path: string) => void;
   readonly onToggleCollapse: () => void;
   readonly onCloseMobile: () => void;
@@ -35,6 +37,18 @@ export function SocNavigationRail({
         Saltar al contenido
       </a>
       <aside id="soc-navigation" className="soc-rail" aria-label="Navegación principal">
+        <a
+          className="soc-rail__brand"
+          href={brandMarkUrl.replace(/qapaq-q-mask\.png$/u, '')}
+          aria-label="QAPAQ SecOps · Resumen"
+          onClick={(event) => {
+            event.preventDefault();
+            onNavigate('/');
+          }}
+        >
+          <img src={brandMarkUrl} alt="" width="28" height="28" />
+          <span>SecOps</span>
+        </a>
         <nav className="soc-nav">
           {groups.map((group) => (
             <div className="soc-nav__group" key={group.label}>

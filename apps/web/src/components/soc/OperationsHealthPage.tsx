@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { ApiErrorBody } from '@qapaq/contracts';
 import type { OperationsHealthStatus, OperationsHealthView } from '../../api/client.js';
 import { api } from '../../api/client.js';
-import { Button, ErrorState, RelativeTime, SocIcon, StatusChip } from './soc-ui.js';
+import { Button, ErrorState, SocIcon, StatusChip } from './soc-ui.js';
+import type { IconName } from './soc-ui.js';
 import { PageHeader, statusLabel } from './soc-data-ui.js';
 
 const statusCopy: Readonly<
@@ -14,7 +16,7 @@ const statusCopy: Readonly<
   OK: { label: 'Operativo', tone: 'ok' },
   NO_DATA: { label: 'Sin datos', tone: 'neutral' },
   STALE: { label: 'Atrasado', tone: 'warn' },
-  DEGRADED: { label: 'Degradado', tone: 'fail' },
+  DEGRADED: { label: 'Degradado', tone: 'warn' },
 };
 
 const reasonCopy: Readonly<Record<string, string>> = {
@@ -23,6 +25,9 @@ const reasonCopy: Readonly<Record<string, string>> = {
   PERSISTENCE_EPHEMERAL: 'Persistencia en memoria; los datos no sobreviven un reinicio',
   DATABASE_UNAVAILABLE: 'Base de datos sin respuesta',
   DATABASE_SLOW: 'Base de datos sobre el umbral de latencia',
+  NOTIFICATION_FAILED: 'Notificación fallida',
+  NOTIFICATION_INDETERMINATE: 'Entrega de notificación sin confirmar',
+  NOTIFICATION_FALLBACK: 'Notificación enviada por canal alternativo',
 };
 
 function HealthStatus({
@@ -38,6 +43,30 @@ function HealthStatus({
   return <StatusChip state={tone ?? status.tone}>{label ?? status.label}</StatusChip>;
 }
 
+function HealthMark({ value }: { readonly value: OperationsHealthStatus }): React.JSX.Element {
+  const status = statusCopy[value];
+  const mark =
+    status.tone === 'ok'
+      ? '✓'
+      : status.tone === 'warn'
+        ? '!'
+        : status.tone === 'fail'
+          ? '×'
+          : status.tone === 'info'
+            ? 'i'
+            : '–';
+  return (
+    <span
+      className={`soc-health-mark soc-health-mark--${status.tone}`}
+      role="img"
+      aria-label={status.label}
+      title={status.label}
+    >
+      {mark}
+    </span>
+  );
+}
+
 function ageLabel(seconds: number | null): string {
   if (seconds === null) return 'Sin actividad registrada';
   if (seconds < 60) return `${seconds} s`;
@@ -48,6 +77,24 @@ function ageLabel(seconds: number | null): string {
 
 function reasonLabels(reasons: readonly string[]): string[] {
   return reasons.map((reason) => reasonCopy[reason] ?? 'Condición degradada');
+}
+
+function HealthMetric({
+  icon,
+  label,
+  children,
+}: {
+  readonly icon: IconName;
+  readonly label: string;
+  readonly children: ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="soc-health-metric">
+      <SocIcon name={icon} size={20} />
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
 }
 
 export function OperationsHealthPage(): React.JSX.Element {
@@ -99,14 +146,11 @@ export function OperationsHealthPage(): React.JSX.Element {
   }
 
   const summary = result?.sections.summary;
-  const isPlatformAdmin = Boolean(result?.sections.platform);
   return (
-    <div
-      className={`soc-page soc-operations-health${isPlatformAdmin ? ' soc-operations-health--admin' : ''}`}
-    >
+    <div className="soc-page soc-operations-health">
       <PageHeader
         title="Salud operativa"
-        description="Frescura de alertas y estado de los servicios que sostienen la operación."
+        description="Estado general de los componentes del SOC."
         updated={result?.generatedAt ?? null}
         action={
           <Button onClick={() => void refresh()} disabled={loading || refreshing}>
@@ -124,39 +168,47 @@ export function OperationsHealthPage(): React.JSX.Element {
       {error ? <ErrorState error={error} onRetry={() => void refresh()} /> : null}
 
       {summary ? (
-        <section className="soc-health-overview" aria-label="Señales principales">
-          <article className="soc-health-overview-card">
-            <span className="soc-health-overview-card__label">Señal de alertas</span>
-            <strong className="soc-health-overview-card__value">
-              {summary.status === 'OK' ? 'Encontrada' : statusCopy[summary.status].label}
-            </strong>
-            <span className="soc-health-overview-card__detail">
-              {summary.lastAlertAt ? (
-                <>
-                  Última alerta <RelativeTime value={summary.lastAlertAt} />
-                </>
-              ) : (
-                'No hay alertas para calcular frescura.'
-              )}
-            </span>
-            <HealthStatus value={summary.status} />
+        <section className="soc-health-signals" aria-label="Estado de alertas y fuentes">
+          <article className="soc-health-signal">
+            <SocIcon name="search" size={30} />
+            <div>
+              <span className="soc-health-signal__label">Señal encontrada</span>
+              <span className="soc-health-signal__value-row">
+                <strong className="soc-health-signal__value">
+                  {summary.status === 'OK' ? 'Sí' : statusCopy[summary.status].label}
+                </strong>
+                <span
+                  className="soc-health-signal__info"
+                  role="img"
+                  title="Se calcula con la fecha de la última alerta registrada."
+                  aria-label="Se calcula con la fecha de la última alerta registrada."
+                >
+                  <SocIcon name="info" size={15} />
+                </span>
+              </span>
+            </div>
+            {summary.status !== 'OK' ? <HealthMark value={summary.status} /> : null}
           </article>
-          <article className="soc-health-overview-card">
-            <span className="soc-health-overview-card__label">Antigüedad de la última alerta</span>
-            <strong className="soc-health-overview-card__value">
-              {ageLabel(summary.alertFreshnessSeconds)}
-            </strong>
-            <span className="soc-health-overview-card__detail">Frescura de la señal recibida</span>
+          <article className="soc-health-signal">
+            <SocIcon name="clock" size={30} />
+            <div>
+              <span className="soc-health-signal__label">Antigüedad de la última alerta</span>
+              <strong className="soc-health-signal__value">
+                {ageLabel(summary.alertFreshnessSeconds)}
+              </strong>
+            </div>
           </article>
-          <article className="soc-health-overview-card">
-            <span className="soc-health-overview-card__label">Cobertura de fuentes</span>
-            <strong className="soc-health-overview-card__value">
-              {statusCopy[summary.sourceCoverage].label}
-            </strong>
-            <span className="soc-health-overview-card__detail">
-              Estado reportado por el servicio
-            </span>
-            <HealthStatus value={summary.sourceCoverage} />
+          <article className="soc-health-signal">
+            <SocIcon name="database" size={30} />
+            <div>
+              <span className="soc-health-signal__label">Cobertura de fuentes</span>
+              <span className="soc-health-signal__value-row">
+                <strong className="soc-health-signal__value">
+                  {statusCopy[summary.sourceCoverage].label}
+                </strong>
+                <HealthMark value={summary.sourceCoverage} />
+              </span>
+            </div>
           </article>
         </section>
       ) : null}
@@ -164,57 +216,58 @@ export function OperationsHealthPage(): React.JSX.Element {
       {result?.sections.soc ? (
         <section className="soc-health-section" aria-labelledby="soc-health-soc-title">
           <header>
-            <div>
-              <h2 id="soc-health-soc-title">Flujo SOC</h2>
-              <p>Persistencia, despacho y notificaciones.</p>
+            <div className="soc-health-section__heading">
+              <SocIcon name="flow" size={20} />
+              <div>
+                <h2 id="soc-health-soc-title">Flujo SOC</h2>
+                <p>Estado de los componentes del flujo de procesamiento.</p>
+              </div>
             </div>
             <HealthStatus value={result.sections.soc.status} />
           </header>
-          <dl className="soc-health-facts">
-            <div>
-              <dt>Persistencia</dt>
-              <dd>{result.sections.soc.persistence === 'postgres' ? 'PostgreSQL' : 'Memoria'}</dd>
-            </div>
-            <div>
-              <dt>Despachador</dt>
-              <dd>{result.sections.soc.dispatcherRunning ? 'En ejecución' : 'Detenido'}</dd>
-            </div>
-            <div>
-              <dt>Outbox pendiente</dt>
-              <dd>{result.sections.soc.outbox.pending}</dd>
-            </div>
-            <div>
-              <dt>En procesamiento</dt>
-              <dd>{result.sections.soc.outbox.processing}</dd>
-            </div>
-            <div>
-              <dt>Antigüedad del pendiente más viejo</dt>
-              <dd>{ageLabel(result.sections.soc.outbox.oldestPendingAgeSeconds)}</dd>
-            </div>
+          <dl className="soc-health-flow">
+            <HealthMetric icon="database" label="Persistencia">
+              {result.sections.soc.persistence === 'postgres' ? 'PostgreSQL' : 'Memoria'}
+            </HealthMetric>
+            <HealthMetric icon="gear" label="Despachador">
+              {result.sections.soc.dispatcherRunning ? 'En ejecución' : 'Detenido'}
+            </HealthMetric>
+            <HealthMetric icon="send" label="Outbox">
+              <span className="soc-health-count-line">
+                Pendientes <strong>{result.sections.soc.outbox.pending}</strong>
+              </span>
+              <span className="soc-health-count-line">
+                Procesando <strong>{result.sections.soc.outbox.processing}</strong>
+              </span>
+            </HealthMetric>
+            <HealthMetric icon="bell" label="Notificaciones">
+              {Object.entries(result.sections.soc.notifications.byStatus).filter(
+                ([, count]) => count > 0,
+              ).length > 0 ? (
+                Object.entries(result.sections.soc.notifications.byStatus)
+                  .filter(([, count]) => count > 0)
+                  .map(([status, count]) => (
+                    <span className="soc-health-count-line" key={status}>
+                      {statusLabel(status)} <strong>{count}</strong>
+                    </span>
+                  ))
+              ) : (
+                <span className="soc-health-count-line soc-health-count-line--muted">
+                  Sin intentos registrados · últimas {result.sections.soc.notifications.windowHours}{' '}
+                  h
+                </span>
+              )}
+            </HealthMetric>
           </dl>
           {result.sections.soc.degradedReasons.length > 0 ? (
             <ul className="soc-health-reasons">
               {reasonLabels(result.sections.soc.degradedReasons).map((reason) => (
-                <li key={reason}>{reason}</li>
+                <li key={reason}>
+                  <span aria-hidden="true">!</span>
+                  {reason}
+                </li>
               ))}
             </ul>
-          ) : null}
-          {Object.keys(result.sections.soc.notifications.byStatus).length > 0 ? (
-            <div className="soc-health-counts" aria-label="Intentos de notificación por estado">
-              <h3>
-                Intentos por estado · últimas {result.sections.soc.notifications.windowHours} h
-              </h3>
-              <ul>
-                {Object.entries(result.sections.soc.notifications.byStatus).map(
-                  ([status, count]) => (
-                    <li key={status}>
-                      <span>{statusLabel(status)}</span>
-                      <strong>{count}</strong>
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
           ) : null}
         </section>
       ) : null}
@@ -222,47 +275,41 @@ export function OperationsHealthPage(): React.JSX.Element {
       {result?.sections.platform ? (
         <section className="soc-health-section" aria-labelledby="soc-health-platform-title">
           <header>
-            <div>
-              <h2 id="soc-health-platform-title">Plataforma</h2>
-              <p>Runtime de QAPAQ y conexión de base de datos.</p>
+            <div className="soc-health-section__heading">
+              <SocIcon name="server" size={20} />
+              <div>
+                <h2 id="soc-health-platform-title">Plataforma</h2>
+                <p>Estado de ejecución y conexión de base de datos.</p>
+              </div>
             </div>
             <HealthStatus value={result.sections.platform.status} />
           </header>
-          <dl className="soc-health-facts soc-health-facts--platform">
-            <div>
-              <dt>Base de datos</dt>
-              <dd>
-                {result.sections.platform.databaseLatencyMs === null
-                  ? 'Sin respuesta'
-                  : `${result.sections.platform.databaseLatencyMs} ms`}
-              </dd>
-            </div>
-            <div>
-              <dt>Memoria del proceso</dt>
-              <dd>
-                {result.sections.platform.memoryRssMb === null
-                  ? 'Sin dato'
-                  : `${result.sections.platform.memoryRssMb} MB`}
-              </dd>
-            </div>
-            <div>
-              <dt>Tiempo activo</dt>
-              <dd>{ageLabel(result.sections.platform.uptimeSeconds)}</dd>
-            </div>
+          <dl className="soc-health-platform">
+            <HealthMetric icon="server" label="Base de datos">
+              {result.sections.platform.databaseLatencyMs === null
+                ? 'Sin respuesta'
+                : `${result.sections.platform.databaseLatencyMs} ms`}
+            </HealthMetric>
+            <HealthMetric icon="gear" label="Memoria de proceso">
+              {result.sections.platform.memoryRssMb === null
+                ? 'Sin dato'
+                : `${result.sections.platform.memoryRssMb} MB`}
+            </HealthMetric>
+            <HealthMetric icon="clock" label="Tiempo de actividad">
+              {ageLabel(result.sections.platform.uptimeSeconds)}
+            </HealthMetric>
           </dl>
           {result.sections.platform.degradedReasons.length > 0 ? (
             <ul className="soc-health-reasons">
               {reasonLabels(result.sections.platform.degradedReasons).map((reason) => (
-                <li key={reason}>{reason}</li>
+                <li key={reason}>
+                  <span aria-hidden="true">!</span>
+                  {reason}
+                </li>
               ))}
             </ul>
           ) : null}
         </section>
-      ) : null}
-      {result ? (
-        <p className="soc-health-footnote">
-          Vista agregada. Los eventos y registros de auditoría conservan sus permisos propios.
-        </p>
       ) : null}
     </div>
   );
