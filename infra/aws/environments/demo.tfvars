@@ -57,8 +57,8 @@ runtime_api_environment = {
 }
 
 runtime_krakend_environment = {
-  OIDC_ISSUER   = "https://login.microsoftonline.com/45f2f938-dbe-3a4e-8a54-930893f94ef8/v2.0"
-  OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe-3a4e-8a54-930893f94ef8/discovery/v2.0/keys"
+  OIDC_ISSUER   = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/v2.0"
+  OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/discovery/v2.0/keys"
   OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
 }
 
