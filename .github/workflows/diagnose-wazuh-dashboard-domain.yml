@@ -128,3 +128,11 @@ jobs:
           command_id="$(aws ssm send-command --instance-ids i-06e0c5fd6ad8b6906 --document-name AWS-RunShellScript --parameters file:///tmp/indexer-diagnostic.json --query Command.CommandId --output text)"
           aws ssm wait command-executed --command-id "$command_id" --instance-id i-06e0c5fd6ad8b6906 || true
           aws ssm get-command-invocation --command-id "$command_id" --instance-id i-06e0c5fd6ad8b6906 --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+
+      - name: Read gateway startup and request errors
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          stream="$(aws logs describe-log-streams --log-group-name /qapaq-secops/demo/krakend --order-by LastEventTime --descending --limit 1 --query 'logStreams[0].logStreamName' --output text)"
+          aws logs get-log-events --log-group-name /qapaq-secops/demo/krakend --log-stream-name "$stream" --limit 30 --query 'events[].message' --output json
