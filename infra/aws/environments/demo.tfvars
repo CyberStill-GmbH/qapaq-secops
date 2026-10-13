@@ -51,7 +51,7 @@ runtime_api_environment = {
   QAPAQ_CONSOLE_BASE_URL            = "https://app.jappi.net.pe"
   # Sprint 5: asignación permanente (sin vencimiento) de la persona analista del demo. El dueño
   # del grupo de admisión recibe admin por `soc_group_owner_oids` (variable de GitHub).
-  QAPAQ_ROLE_BINDINGS = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
+  QAPAQ_ROLE_BINDINGS            = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
   QAPAQ_DEMO_MFA_EXCEPTION_UNTIL = "2026-10-14T09:50:00Z"
 }
 
