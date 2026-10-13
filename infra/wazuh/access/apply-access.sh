@@ -185,14 +185,26 @@ map_users() { # rol usuario...
 
 # ------------------------------------------------------------- 2. usuarios
 
-upsert_user() { # usuario contraseña descripción [roles-directos-json]
-  # Built-in role mappings can be reserved. Assign their existing roles directly
-  # to the managed internal user instead of rewriting a protected mapping.
-  local direct_roles="${4:-[]}"
+# Reserved built-in roles cannot be assigned through this installation's user API.
+# Copy their live permissions into managed roles and map only our own users.
+copy_dashboard_role() { # source managed-name
+  indexer GET "/_plugins/_security/api/roles/$1"
+  local body
+  body="$(jq -e --arg role "$1" '
+    .[$role] | select(type == "object")
+    | {cluster_permissions: (.cluster_permissions // []),
+       index_permissions: (.index_permissions // []),
+       tenant_permissions: (.tenant_permissions // [])}
+  ' "$work/response.json")" || fail "no se pudo leer el rol $1"
+  indexer PUT "/_plugins/_security/api/roles/$2" "$(json_file <<<"$body")"
+}
+copy_dashboard_role all_access qapaq_dashboard_admin
+copy_dashboard_role kibana_user qapaq_dashboard_user
+
+upsert_user() { # usuario contraseña descripción
   indexer PUT "/_plugins/_security/api/internalusers/$1" "$(jq -n \
-    --arg password "$2" --arg description "$3" --argjson roles "$direct_roles" \
-    '{password: $password, description: $description, backend_roles: [],
-      opendistro_security_roles: $roles}' | json_file)"
+    --arg password "$2" --arg description "$3" \
+    '{password: $password, description: $description, backend_roles: []}' | json_file)"
 }
 
 info 'usuario de ingesta'
@@ -203,8 +215,10 @@ map_users qapaq_alerts_read "$READER_USER"
 info 'usuarios del Dashboard'
 admin_password="$(password_for "${QAPAQ_ADMIN_USER_SECRET_ID:-admin-user}" "$QAPAQ_ADMIN_USERNAME")"
 analyst_password="$(password_for "${QAPAQ_ANALYST_USER_SECRET_ID:-analyst-user}" "$QAPAQ_ANALYST_USERNAME")"
-upsert_user "$QAPAQ_ADMIN_USERNAME" "$admin_password" 'QAPAQ: dueño del grupo de admisión (administrador)' '["all_access"]'
-upsert_user "$QAPAQ_ANALYST_USERNAME" "$analyst_password" 'QAPAQ: analista (solo lectura)' '["kibana_user"]'
+upsert_user "$QAPAQ_ADMIN_USERNAME" "$admin_password" 'QAPAQ: dueño del grupo de admisión (administrador)'
+upsert_user "$QAPAQ_ANALYST_USERNAME" "$analyst_password" 'QAPAQ: analista (solo lectura)'
+map_users qapaq_dashboard_admin "$QAPAQ_ADMIN_USERNAME"
+map_users qapaq_dashboard_user "$QAPAQ_ANALYST_USERNAME"
 map_users qapaq_wazuh_readonly "$QAPAQ_ANALYST_USERNAME"
 
 # ------------------------------------------------- 3. roles de la API de Wazuh
