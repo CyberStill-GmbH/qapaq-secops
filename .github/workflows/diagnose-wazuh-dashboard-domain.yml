@@ -88,3 +88,15 @@ jobs:
           if [[ -n "$log_stream" && "$log_stream" != None ]]; then
             aws logs get-log-events --log-group-name /qapaq-secops/demo/api --log-stream-name "$log_stream" --limit 30 --query 'events[].message' --output json
           fi
+
+      - name: Read failed API revision startup logs
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws ecs describe-tasks --cluster qapaq-secops-demo --tasks 4620f02dd87e4639bd54dca5d62f7c4b --query 'tasks[].{Task:taskArn,TaskDefinition:taskDefinitionArn,StopCode:stopCode,StoppedReason:stoppedReason,Containers:containers[].{Name:name,ExitCode:exitCode,Reason:reason}}' --output json
+          streams="$(aws logs describe-log-streams --log-group-name /qapaq-secops/demo/api --order-by LastEventTime --descending --limit 4 --query 'logStreams[].logStreamName' --output json)"
+          while IFS= read -r stream; do
+            echo "API stream: $stream"
+            aws logs get-log-events --log-group-name /qapaq-secops/demo/api --log-stream-name "$stream" --limit 12 --query 'events[].message' --output json
+          done < <(printf '%s\n' "$streams" | jq -r '.[]')
