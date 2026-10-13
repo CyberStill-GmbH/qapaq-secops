@@ -10,6 +10,7 @@ más iconografía propia. El frontend es dominio de Codex; estos docs son el **r
 no cambios de UI hechos por Claude.
 
 Documentos nuevos en `docs/frontend-design/`:
+
 - **11** — Shell SOC + vista «Mi sesión». Incluye tokens reales, grid, y tabla **D1–D7** de
   defectos observados en producción → corrección (ancho máx 1120px, `dl` etiqueta 160px, grid de
   capabilities con columna de código tabular, estado «Sin dato», IDs largos, «capacidades» en ES).
@@ -24,6 +25,7 @@ Documentos nuevos en `docs/frontend-design/`:
 - **18** — UX de operación SOC (flujo tipo TheHive adaptado).
 
 **Deuda real detectada al redactar (no inventada) — a resolver en la implementación:**
+
 1. **Franja de prioridad 3px en alertas: no existe** en CSS (`.soc-alert-row` sin estilo; la
    prioridad solo sale del glifo). Falta implementarla (color `--sev-*`).
 2. **`var(--accent)` sin declarar** (usado en `.soc-admin-sessions__scope` y foco de textarea).
@@ -59,6 +61,7 @@ existe con 10 000+ documentos office365**. filebeat envía OK (`talk to server..
 (fuente «Wazuh Indexer · alertas» en rojo en `/sources`), pese a que los datos están en el indexer.
 
 **Verificado (todo OK, descartado como causa):**
+
 - Índice existe con datos; `POST wazuh-alerts-4.x-*/_search` vía el proxy nginx con la credencial
   del lector → **HTTP 200 con hits válidos** (probado desde la EC2).
 - `basic_auth_b64` del secreto `indexer-reader` es consistente con username:password.
@@ -88,6 +91,7 @@ reiniciar/diagnosticar por SSM desde el pipeline.
 ## 2026-10-13 · Claude → Codex · Rama `platform/unified-wazuh`: plataforma unificada sobre Wazuh
 
 **Qué cambia (worktree `../qapaq-secops-unified`, sin commitear aún; pendiente de OK del dueño):**
+
 - `docs/` reescrito: 10 documentos (`docs/README.md`) en lugar de unos 200. Se conservan las decisiones
   de negocio (SBS 504-2021, Ley 29733, SoD, sesión única, revocación) y la arquitectura vital. Los
   archivos que leen el código o la CI pasan a `docs/reference/`. El histórico queda en `git show 050f9fa:docs/...`.
@@ -105,3 +109,22 @@ Los docs 11–18 de frontend-design quedan sustituidos por docs/08.
 **Verificado en la rama:** build y typecheck OK, lint OK, boundaries OK, format OK, KrakenD 21/21. Unit: 841/843.
 Las 2 fallas no las introduce esta rama: `wazuh-office365-rules` (regla 100510) también falla en `main`, y
 `entrypoints` es un timeout de 5 s bajo carga que pasa aislado (8/8).
+
+## 2026-10-13 · Claude · Revisión del fork `qapaq_ops-dashboard` contra la API
+
+**Resultado:** el cliente del plugin `qapaq_ops` (`../wazuh-dashboard-src`, rama `qapaq/identity`) coincide con la API en
+rutas, query params, cuerpos, `expectedRevision`, enums y forma de las respuestas. Detalle en `docs/08`.
+
+**Bloqueantes:**
+
+1. Commitear `GET /api/auth/introspect`. Hoy está sin commitear en el checkout de `main` y sin él el
+   dashboard no autentica.
+2. Versión: el fork está en Wazuh 5.1.0 / OSD 3.6 (`main`) y la demo en 4.14.8 / OSD 2.19. Fijarlo a
+   un tag 5.0.x GA y desplegar un cluster nuevo.
+
+**Pendientes:**
+
+- Verificar la colisión de `/api/notifications` con el plugin Notifications de OSD.
+- Unificar el edge en `wazuh/edge` (sin KrakenD).
+- Unificar el acceso a `wazuh-archives-*` (solo el líder).
+- Consumir `/api/changes` en el plugin.
