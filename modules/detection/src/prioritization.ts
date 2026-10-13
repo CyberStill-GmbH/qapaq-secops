@@ -8,22 +8,36 @@
  *
  * Cada ajuste deja un reason code. Un analista debe poder responder "¿por qué está esto
  * arriba?" sin leer código, y una prioridad sin razones sería incontestable.
+ *
+ * Historial del ruleset:
+ *
+ * - 1.0.0: severidad, identidad privilegiada, activo crítico/expuesto, intrusión exitosa,
+ *   repetición, supresión por mantenimiento o regla benigna.
+ * - 1.1.0: cuentas break-glass (siempre P1 y no suprimibles), correlación por entidad
+ *   (`CORRELATED_ENTITY`) y cadena de compromiso de cuenta (`ATTACK_CHAIN`); comparación de
+ *   identidades y activos sin distinguir mayúsculas, porque los UPN de Entra no las
+ *   distinguen y una diferencia de capitalización no puede apagar un ajuste.
  */
 
 import type { SecurityEvent } from '@qapaq/contracts';
 
+import type { CorrelationSignal } from './correlation.js';
+
 export const PRIORITIZATION_RULESET_ID = 'qapaq.detection.prioritization' as const;
-export const PRIORITIZATION_RULESET_VERSION = '1.0.0' as const;
+export const PRIORITIZATION_RULESET_VERSION = '1.1.0' as const;
 
 export const PRIORITIES = ['P1', 'P2', 'P3', 'P4'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
 export const REASON_CODES = [
   'BASE_SEVERITY',
+  'BREAK_GLASS_IDENTITY',
   'PRIVILEGED_IDENTITY',
   'CRITICAL_ASSET',
   'SUCCESSFUL_INTRUSION',
   'REPEATED_ACTIVITY',
+  'CORRELATED_ENTITY',
+  'ATTACK_CHAIN',
   'EXTERNAL_EXPOSURE',
   'MAINTENANCE_WINDOW',
   'KNOWN_BENIGN',
@@ -40,6 +54,11 @@ export interface Reason {
 /** Contexto QAPAQ. Lo aporta un puerto; el dominio no consulta inventarios. */
 export interface PrioritizationContext {
   readonly privilegedIdentities: ReadonlySet<string>;
+  /**
+   * Cuentas de emergencia excluidas de Conditional Access. Su uso legítimo es excepcional
+   * y siempre debe revisarse, por eso fuerzan P1 y no admiten supresión.
+   */
+  readonly breakGlassIdentities?: ReadonlySet<string>;
   readonly criticalAssets: ReadonlySet<string>;
   readonly internetFacingAssets?: ReadonlySet<string>;
   /** Eventos equivalentes observados en la ventana reciente, sin contar el actual. */
@@ -51,6 +70,11 @@ export interface PrioritizationContext {
   };
   /** Reglas del proveedor declaradas benignas por acuerdo, con su referencia documental. */
   readonly knownBenignRuleIds?: ReadonlySet<string>;
+  /**
+   * Resultado de `correlate` para este evento. Si está presente, su `recentSimilarCount`
+   * prevalece sobre el campo homónimo de arriba, que se conserva por compatibilidad.
+   */
+  readonly correlation?: CorrelationSignal;
 }
 
 export interface PrioritizationOutcome {
@@ -79,6 +103,8 @@ export const PRIORITY_THRESHOLDS = Object.freeze({ P1: 85, P2: 65, P3: 35 });
 export const PROMOTION_THRESHOLD = PRIORITY_THRESHOLDS.P3;
 
 const REPEAT_THRESHOLD = 5;
+/** Alertas distintas sobre la misma entidad que justifican subir la atención. */
+const CORRELATION_THRESHOLD = 3;
 
 export function priorityForScore(score: number): Priority {
   if (score >= PRIORITY_THRESHOLDS.P1) return 'P1';
@@ -103,6 +129,17 @@ function resourceKeys(event: SecurityEvent): readonly string[] {
   );
 }
 
+/**
+ * Búsqueda sin distinguir mayúsculas. El conjunto de contexto se normaliza una vez por
+ * llamada: es pequeño (cientos de entradas) y así el puerto que lo aporta no tiene que
+ * conocer esta regla.
+ */
+function findIn(keys: readonly string[], set: ReadonlySet<string> | undefined): string | undefined {
+  if (!set || set.size === 0) return undefined;
+  const normalized = new Set([...set].map((value) => value.toLowerCase()));
+  return keys.find((key) => normalized.has(key.toLowerCase()));
+}
+
 export function prioritize(
   event: SecurityEvent,
   context: PrioritizationContext,
@@ -117,7 +154,17 @@ export function prioritize(
 
   const identities = identityKeys(event);
   const resources = resourceKeys(event);
-  const privileged = identities.find((key) => context.privilegedIdentities.has(key));
+  const breakGlass = findIn(identities, context.breakGlassIdentities);
+  if (breakGlass) {
+    reasons.push({
+      code: 'BREAK_GLASS_IDENTITY',
+      // El total se recorta a 100: con este ajuste siempre alcanza P1.
+      delta: 100,
+      detail: `Cuenta de emergencia (break-glass) involucrada: ${breakGlass}.`,
+    });
+  }
+  // Una break-glass ya es privilegiada; sumar ambos ajustes contaría dos veces lo mismo.
+  const privileged = breakGlass ? undefined : findIn(identities, context.privilegedIdentities);
   if (privileged) {
     reasons.push({
       code: 'PRIVILEGED_IDENTITY',
@@ -125,7 +172,7 @@ export function prioritize(
       detail: `Identidad privilegiada involucrada: ${privileged}.`,
     });
   }
-  const criticalAsset = resources.find((key) => context.criticalAssets.has(key));
+  const criticalAsset = findIn(resources, context.criticalAssets);
   if (criticalAsset) {
     reasons.push({
       code: 'CRITICAL_ASSET',
@@ -133,7 +180,7 @@ export function prioritize(
       detail: `Activo crítico involucrado: ${criticalAsset}.`,
     });
   }
-  const exposed = resources.find((key) => context.internetFacingAssets?.has(key));
+  const exposed = findIn(resources, context.internetFacingAssets);
   if (exposed) {
     reasons.push({
       code: 'EXTERNAL_EXPOSURE',
@@ -151,7 +198,8 @@ export function prioritize(
       detail: 'Actividad ofensiva con resultado exitoso.',
     });
   }
-  const repeats = context.recentSimilarCount ?? 0;
+  const correlation = context.correlation;
+  const repeats = correlation?.recentSimilarCount ?? context.recentSimilarCount ?? 0;
   if (repeats >= REPEAT_THRESHOLD) {
     reasons.push({
       code: 'REPEATED_ACTIVITY',
@@ -159,10 +207,31 @@ export function prioritize(
       detail: `${repeats} eventos equivalentes en la ventana reciente.`,
     });
   }
+  if (correlation && correlation.relatedCount >= CORRELATION_THRESHOLD) {
+    reasons.push({
+      code: 'CORRELATED_ENTITY',
+      delta: 10,
+      detail:
+        `${correlation.relatedCount} alertas recientes comparten usuario o IP ` +
+        `(${correlation.entityKeys.join(', ')}).`,
+    });
+  }
+  if (correlation?.chain) {
+    reasons.push({
+      code: 'ATTACK_CHAIN',
+      delta: 25,
+      detail:
+        `${correlation.chain.description} ` +
+        `Alertas precursoras: ${correlation.chain.precursorAlertIds.length}.`,
+    });
+  }
 
   let suppressed = false;
   const ruleId = event.detection?.rule?.id;
-  if (ruleId && context.knownBenignRuleIds?.has(ruleId)) {
+  // Ni una regla benigna ni una ventana de mantenimiento silencian una cuenta break-glass
+  // ni una cadena de compromiso: son justamente lo que un atacante haría coincidir.
+  const suppressible = !breakGlass && !correlation?.chain;
+  if (suppressible && ruleId && context.knownBenignRuleIds?.has(ruleId)) {
     suppressed = true;
     reasons.push({
       code: 'KNOWN_BENIGN',
@@ -171,7 +240,7 @@ export function prioritize(
     });
   }
   const window = context.maintenanceWindow;
-  if (window) {
+  if (suppressible && window) {
     const occurred = new Date(event.occurredAt).getTime();
     if (occurred >= window.from.getTime() && occurred <= window.to.getTime()) {
       suppressed = true;

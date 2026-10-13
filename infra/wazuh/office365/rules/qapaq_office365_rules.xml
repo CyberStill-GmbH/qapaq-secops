@@ -1,0 +1,317 @@
+<!--
+  QAPAQ SecOps — reglas locales de Microsoft 365 para Wazuh 4.14.x.
+
+  Por qué existen: el ruleset oficial (0755-office365_rules.xml, IDs 91531-91725)
+  registra casi toda la actividad de Office 365 con nivel 3 a 6 por tipo de registro.
+  Eso es útil para búsqueda, pero no separa lo que indica compromiso de cuenta de la
+  operación normal. Estas reglas elevan solo las operaciones con valor de detección
+  (MITRE ATT&CK) y les asignan un grupo `qapaq_<táctica>` que QAPAQ usa para la
+  correlación por entidad (modules/detection/src/correlation.ts).
+
+  Convenciones:
+  - Rango reservado: 100500-100549. No reutilizar IDs; una regla retirada deja su ID libre
+    pero documentado en README.md.
+  - Todas cuelgan de 91532 (evento Office 365 con RecordType), la base genérica oficial.
+  - Nivel: 3 marca sin alerta operativa, 7-11 alta, 12-15 crítica (escala de
+    modules/telemetry/src/wazuh-normalization.ts).
+  - Las operaciones y parámetros siguen la Office 365 Management Activity API. Cualquier
+    cambio de nombre en Microsoft se valida contra el tenant autorizado antes de
+    declararlo funcional (ADR-024): un ejemplo sintético no es evidencia.
+  - `qapaq_pending_provider_evidence`: la regla se apoya en nombres de operación que
+    Microsoft Learn documenta solo como etiqueta de la UI (investigación C-4). Dispara y
+    prioriza igual, pero QAPAQ la declara pendiente de evidencia del tenant hasta tener un
+    registro real redactado como fixture.
+-->
+
+<group name="office365,qapaq_m365,">
+
+  <!-- ===================================================== Acceso a credenciales -->
+
+  <!--
+    Marcas de inicio de sesión. Nivel 3 a propósito: un login no es una alerta operativa.
+    Cuelgan también de 91545 (STS logon, RecordType 15) y 91540 (OrgId logon): a igual
+    nivel, Wazuh desciende por la oficial que se cargó primero, y solo así las marcas se
+    evalúan (comprobado con wazuh-logtest 4.14.7).
+  -->
+  <rule id="100502" level="3">
+    <if_sid>91532, 91540, 91545</if_sid>
+    <field name="office365.Operation" type="pcre2">^UserLoginFailed$</field>
+    <description>Office 365: inicio de sesión fallido de $(office365.UserId) desde $(office365.ClientIP).</description>
+    <options>no_full_log</options>
+    <group>authentication_failed,qapaq_credential_access,</group>
+  </rule>
+
+  <rule id="100506" level="3">
+    <if_sid>91532, 91540, 91545</if_sid>
+    <field name="office365.Operation" type="pcre2">^UserLoggedIn$</field>
+    <description>Office 365: inicio de sesión exitoso de $(office365.UserId) desde $(office365.ClientIP).</description>
+    <options>no_full_log</options>
+    <group>authentication_success,qapaq_initial_access,</group>
+  </rule>
+
+  <!-- Fuerza bruta sobre una cuenta: 10 fallos del mismo usuario en 5 minutos. -->
+  <rule id="100503" level="10" frequency="10" timeframe="300" ignore="300">
+    <if_matched_sid>100502</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>Office 365: fuerza bruta contra $(office365.UserId) (10 fallos en 5 min).</description>
+    <options>no_full_log</options>
+    <group>authentication_failures,qapaq_credential_access,</group>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+  <!-- Password spray: 15 fallos desde la misma IP contra usuarios distintos en 10 minutos. -->
+  <rule id="100504" level="12" frequency="15" timeframe="600" ignore="600">
+    <if_matched_sid>100502</if_matched_sid>
+    <same_field>office365.ClientIP</same_field>
+    <different_field>office365.UserId</different_field>
+    <description>Office 365: password spray desde $(office365.ClientIP) contra múltiples cuentas.</description>
+    <options>no_full_log</options>
+    <group>authentication_failures,qapaq_credential_access,</group>
+    <mitre>
+      <id>T1110.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Éxito después de fuerza bruta sobre la misma cuenta: posible credencial adivinada. -->
+  <rule id="100505" level="13" timeframe="900">
+    <if_sid>100506</if_sid>
+    <if_matched_sid>100503</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>Office 365: inicio de sesión exitoso de $(office365.UserId) tras fuerza bruta.</description>
+    <options>no_full_log</options>
+    <group>authentication_success,qapaq_initial_access,</group>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078.004</id>
+    </mitre>
+  </rule>
+
+  <!-- ============================================================ Persistencia -->
+
+  <!-- Regla de bandeja que reenvía, redirige, borra u oculta correo (patrón BEC). -->
+  <rule id="100510" level="12">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(New|Set)-InboxRule$</field>
+    <field name="office365.Parameters" type="pcre2">"Name":\s*"(ForwardTo|ForwardAsAttachmentTo|RedirectTo|DeleteMessage|SoftDeleteMessage|MoveToFolder|MarkAsRead)"</field>
+    <description>Office 365: $(office365.UserId) creó o modificó una regla de bandeja que reenvía u oculta correo.</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_persistence,</group>
+    <mitre>
+      <id>T1564.008</id>
+      <id>T1114.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Reglas creadas desde Outlook/OWA: el detalle viaja distinto; se eleva para revisión. -->
+  <rule id="100511" level="8">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^UpdateInboxRules$</field>
+    <description>Office 365: $(office365.UserId) actualizó reglas de bandeja desde un cliente.</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_persistence,</group>
+    <mitre>
+      <id>T1564.008</id>
+    </mitre>
+  </rule>
+
+  <!-- Reenvío SMTP a nivel de buzón. -->
+  <rule id="100512" level="12">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^Set-Mailbox$</field>
+    <field name="office365.Parameters" type="pcre2">"Name":\s*"(ForwardingSmtpAddress|ForwardingAddress|DeliverToMailboxAndForward)"</field>
+    <description>Office 365: reenvío de buzón configurado por $(office365.UserId) sobre $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_persistence,</group>
+    <mitre>
+      <id>T1114.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Permiso SendAs sobre otro destinatario (FullAccess ya lo cubre la oficial 91725). -->
+  <rule id="100513" level="10">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^Add-RecipientPermission$</field>
+    <description>Office 365: $(office365.UserId) otorgó SendAs sobre $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_persistence,</group>
+    <mitre>
+      <id>T1098.002</id>
+    </mitre>
+  </rule>
+
+  <!-- Consentimiento OAuth o permisos delegados a una aplicación. -->
+  <rule id="100522" level="10">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(Consent to application\.|Add delegated permission grant\.|Add app role assignment to service principal\.)$</field>
+    <description>Office 365: $(office365.UserId) concedió permisos a una aplicación ($(office365.Operation)).</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_persistence,</group>
+    <mitre>
+      <id>T1528</id>
+    </mitre>
+  </rule>
+
+  <!-- Credenciales nuevas en una aplicación o service principal. -->
+  <rule id="100523" level="10">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">(?i)^(Add service principal credentials\.|Update application – Certificates and secrets management ?)$</field>
+    <description>Office 365: credenciales agregadas a una aplicación por $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_persistence,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1098.001</id>
+    </mitre>
+  </rule>
+
+  <!-- Alta o cambio de método MFA: paso habitual tras robar la contraseña. -->
+  <rule id="100526" level="8">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(User registered security info|User changed default security info|User deleted security info|Admin registered security info|Admin deleted security info)$</field>
+    <description>Office 365: cambio de métodos de autenticación de $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_persistence,</group>
+    <mitre>
+      <id>T1556.006</id>
+    </mitre>
+  </rule>
+
+  <!-- ================================================= Escalamiento de privilegios -->
+
+  <!-- Alta en un rol de Entra con privilegio alto. El nombre del rol viaja en ModifiedProperties. -->
+  <rule id="100520" level="13">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">(?i)^Add (eligible )?member to role( in PIM completed \((permanent|timebound)\)| completed \(PIM activation\))?\.?$</field>
+    <field name="office365.ModifiedProperties" type="pcre2">(Global Administrator|Privileged Role Administrator|Privileged Authentication Administrator|Security Administrator|Conditional Access Administrator|Exchange Administrator|SharePoint Administrator|User Administrator|Application Administrator|Cloud Application Administrator|Authentication Administrator|Hybrid Identity Administrator|Helpdesk Administrator)</field>
+    <description>Office 365: $(office365.UserId) agregó un miembro a un rol privilegiado de Entra.</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_privilege_escalation,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1098.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Cualquier otra asignación de rol: menor nivel, pero visible. -->
+  <rule id="100521" level="9">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">(?i)^Add (eligible )?member to role( in PIM completed \((permanent|timebound)\)| completed \(PIM activation\))?\.?$</field>
+    <description>Office 365: $(office365.UserId) agregó un miembro a un rol de Entra.</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_privilege_escalation,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1098.003</id>
+    </mitre>
+  </rule>
+
+  <!-- ====================================================== Evasión de defensas -->
+
+  <!-- Federación o autenticación de dominio: permite emitir tokens fuera de Entra. -->
+  <rule id="100524" level="14">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(Set domain authentication\.|Set federation settings on domain\.|Add domain to company\.|Verify domain\.)$</field>
+    <description>Office 365: cambio de dominio o federación por $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_defense_evasion,</group>
+    <mitre>
+      <id>T1484.002</id>
+    </mitre>
+  </rule>
+
+  <!-- Cambios de políticas de Entra (incluye Conditional Access). Validar en el tenant. -->
+  <rule id="100525" level="10">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">(?i)^(Add|Update|Delete) (Conditional Access )?policy\.?$</field>
+    <field name="office365.Workload" type="pcre2">^AzureActiveDirectory$</field>
+    <description>Office 365: $(office365.UserId) modificó una política de Entra ($(office365.Operation)).</description>
+    <options>no_full_log</options>
+    <group>azure_ad,qapaq_defense_evasion,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1556.009</id>
+    </mitre>
+  </rule>
+
+  <!-- Desactivación de la auditoría unificada: deja ciego al SOC. -->
+  <rule id="100527" level="14">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^Set-AdminAuditLogConfig$</field>
+    <field name="office365.Parameters" type="pcre2">"Name":\s*"UnifiedAuditLogIngestionEnabled",\s*"Value":\s*"False"</field>
+    <description>Office 365: $(office365.UserId) desactivó la auditoría unificada.</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_defense_evasion,</group>
+    <mitre>
+      <id>T1562.008</id>
+    </mitre>
+  </rule>
+
+  <!-- Auditoría de buzón desactivada o eximida. -->
+  <rule id="100528" level="12">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(Set-Mailbox|Set-MailboxAuditBypassAssociation)$</field>
+    <field name="office365.Parameters" type="pcre2">"Name":\s*"(AuditEnabled|AuditBypassEnabled)",\s*"Value":\s*"(False|True)"</field>
+    <description>Office 365: auditoría de buzón desactivada o eximida por $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_defense_evasion,</group>
+    <mitre>
+      <id>T1562.008</id>
+    </mitre>
+  </rule>
+
+  <!-- ======================================================= Recolección y exfiltración -->
+
+  <!-- Regla de transporte: reenvío o copia de correo a nivel de organización. -->
+  <rule id="100514" level="11">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(New|Set)-TransportRule$</field>
+    <description>Office 365: $(office365.UserId) creó o modificó una regla de transporte.</description>
+    <options>no_full_log</options>
+    <group>exchange,qapaq_exfiltration,</group>
+    <mitre>
+      <id>T1114.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Exportación de búsquedas de eDiscovery. -->
+  <rule id="100529" level="12">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^(SearchExported|SearchExportDownloaded|New-ComplianceSearchAction)$</field>
+    <description>Office 365: exportación de eDiscovery por $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>compliance,qapaq_exfiltration,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1114</id>
+    </mitre>
+  </rule>
+
+  <!-- Enlace anónimo de SharePoint/OneDrive. -->
+  <rule id="100515" level="7">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^AnonymousLinkCreated$</field>
+    <description>Office 365: $(office365.UserId) creó un enlace anónimo a $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>sharepoint,qapaq_exfiltration,</group>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+  </rule>
+
+  <!-- ================================================ Cuentas de emergencia -->
+
+  <!--
+    Cualquier inicio de sesión (exitoso o fallido) de una cuenta break-glass. La lista CDB
+    `etc/lists/qapaq-break-glass` se provisiona por ambiente fuera del repositorio; las
+    claves deben coincidir exactamente (mayúsculas incluidas) con el UserId que registra
+    Microsoft.
+  -->
+  <rule id="100530" level="14">
+    <if_sid>100502, 100506</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-break-glass</list>
+    <description>Office 365: actividad de inicio de sesión de la cuenta de emergencia $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>authentication,qapaq_initial_access,</group>
+    <mitre>
+      <id>T1078.004</id>
+    </mitre>
+  </rule>
+
+</group>

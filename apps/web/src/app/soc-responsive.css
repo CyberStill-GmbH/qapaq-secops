@@ -27,8 +27,64 @@
   .soc-summary-grid {
     grid-template-columns: 1fr;
   }
+  .soc-user-admin__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .soc-health-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .soc-health-summary dl {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 760px) {
+  .soc-push-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .soc-push-card--wide {
+    grid-column: auto;
+  }
+  .soc-push-card__header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .soc-push-card__header .soc-status {
+    margin-left: 48px;
+  }
+  .soc-push-card__section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .soc-push-card__section-heading > .soc-button {
+    width: 100%;
+  }
+  .soc-push-devices li {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .soc-push-device-date {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .soc-push-devices li > .soc-button {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+  .soc-push-card {
+    padding: 13px;
+  }
+  .soc-push-actions > .soc-button {
+    width: 100%;
+  }
+  .soc-push-policy > div {
+    min-width: 550px;
+  }
+  .soc-push-feedback {
+    flex-wrap: wrap;
+  }
+  .soc-push-feedback .soc-button {
+    margin-left: 0;
+  }
   .soc-topbar {
     height: 50px;
     padding: 0 12px;
@@ -61,6 +117,28 @@
     min-height: calc(100svh - 50px);
     padding: 17px 12px;
   }
+  .soc-health-summary {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 14px;
+  }
+  .soc-health-summary dl,
+  .soc-health-facts {
+    grid-template-columns: 1fr 1fr;
+  }
+  .soc-health-section {
+    padding: 14px;
+  }
+  .soc-admin-sessions__scope {
+    flex-direction: column;
+  }
+  .soc-admin-sessions__confirm-row form {
+    align-items: stretch;
+  }
+  .soc-admin-sessions__confirm-row .soc-button {
+    min-height: 44px;
+  }
   .soc-page-heading {
     align-items: flex-start;
     gap: 10px;
@@ -72,6 +150,33 @@
     display: grid;
     justify-items: end;
     gap: 5px;
+  }
+  .soc-user-admin__toolbar {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .soc-user-admin__search,
+  .soc-user-admin__filter {
+    flex: 1 1 145px;
+    width: auto;
+  }
+  .soc-user-admin__toolbar input,
+  .soc-user-admin__toolbar select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-user-admin__role-request input,
+  .soc-user-admin__role-request select,
+  .soc-user-admin__role-request textarea,
+  .soc-user-admin__reason textarea,
+  .soc-user-admin__decision-reason textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-user-admin__scope {
+    width: 100%;
+    margin-left: 0;
+    padding-bottom: 0;
   }
   .soc-operation-strip {
     align-items: flex-start;
@@ -124,6 +229,61 @@
   .soc-row-link,
   .soc-profile summary {
     min-height: 44px;
+  }
+}
+@media (max-width: 760px) {
+  .soc-source-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .soc-events-filters {
+    align-items: stretch;
+  }
+  .soc-events-filters > label {
+    flex: 1 1 135px;
+  }
+  .soc-events-filters select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-events-filter-groups {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .soc-events-checkgroup {
+    width: 100%;
+  }
+  .soc-events-query textarea {
+    min-height: 104px;
+    font-size: 16px;
+  }
+  .soc-events-mode {
+    width: fit-content;
+    min-height: 44px;
+  }
+  .soc-task-create input:not([type='checkbox']),
+  .soc-task-create textarea,
+  .soc-note-form textarea,
+  .soc-work-inline-form input,
+  .soc-work-inline-form textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .soc-work-actions {
+    align-items: stretch;
+  }
+  .soc-work-inline-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .soc-work-inline-form label {
+    flex: 1 1 auto;
+  }
+  .soc-note-form > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .soc-source-history li {
+    grid-template-columns: 1fr;
   }
 }
 @media (prefers-reduced-motion: reduce) {

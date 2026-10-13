@@ -1,4 +1,8 @@
-import type { SecurityEventProvider } from '../../application/security-event-provider.js';
+import type {
+  EventFilters,
+  JsonObject,
+  SecurityEventProvider,
+} from '../../application/security-event-provider.js';
 import { SecurityEventProviderError } from '../../application/security-event-provider.js';
 import { WazuhGatewayClient, WazuhGatewayError } from './wazuh-gateway.client.js';
 import {
@@ -10,7 +14,7 @@ export interface WazuhProviderConfiguration {
   readonly sourceId: string;
   readonly gateway: {
     readonly baseUrl: string;
-    readonly accessToken: string;
+    readonly accessToken: string | (() => Promise<string>);
     readonly requestTimeoutMs: number;
     readonly maximumPageSize: number;
     readonly retryLimit: number;
@@ -20,8 +24,14 @@ export interface WazuhProviderConfiguration {
     readonly maximumResponseBytes: number;
     /** Permitted only for loopback integration tests and local development. */
     readonly allowInsecureLocalhost?: boolean;
+    /** HTTP hacia `*.qapaq.internal` dentro de la VPC (ver `WazuhGatewayClientOptions`). */
+    readonly allowPrivateServiceHttp?: boolean;
   };
   readonly telemetry?: WazuhConnectorTelemetry;
+  /** Compilador de filtros neutrales a DSL (ver `WazuhSecurityEventProviderOptions`). */
+  readonly compileFilters?: (filters: EventFilters) => readonly JsonObject[] | undefined;
+  /** Campo de stream para la actividad (ver `WazuhSecurityEventProviderOptions`). */
+  readonly activityField?: string;
 }
 
 /** Composition root helper; callers pass C-28 credentials already resolved through C-03. */
@@ -38,6 +48,9 @@ export function createWazuhSecurityEventProvider(
       ...(config.gateway.allowInsecureLocalhost === undefined
         ? {}
         : { allowInsecureLocalhost: config.gateway.allowInsecureLocalhost }),
+      ...(config.gateway.allowPrivateServiceHttp === undefined
+        ? {}
+        : { allowPrivateServiceHttp: config.gateway.allowPrivateServiceHttp }),
     });
   } catch (error) {
     if (error instanceof WazuhGatewayError && error.code === 'CONFIGURATION_INVALID')
@@ -55,5 +68,7 @@ export function createWazuhSecurityEventProvider(
     cursorTtlMs: config.gateway.cursorTtlMs,
     client: gateway,
     ...(config.telemetry ? { telemetry: config.telemetry } : {}),
+    ...(config.compileFilters ? { compileFilters: config.compileFilters } : {}),
+    ...(config.activityField ? { activityField: config.activityField } : {}),
   });
 }

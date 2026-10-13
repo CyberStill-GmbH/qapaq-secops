@@ -31,8 +31,12 @@ for (const termination of ['SIGTERM', 'SIGINT']) {
       }
       signal(runtime, termination);
       assert.deepEqual(await exitedWithin(runtime), { code: 0, signal: null });
+      // El ciclo de vida se verifica sobre los eventos `application.*`; los informativos de
+      // arranque (`soc.persistence.*`, `ingestion.source.*`) no forman parte de él.
       assert.deepEqual(
-        events(runtime).map((item) => item.event),
+        events(runtime)
+          .map((item) => item.event)
+          .filter((event) => event.startsWith('application.')),
         [
           'application.starting',
           'application.ready',

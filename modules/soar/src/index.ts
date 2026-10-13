@@ -44,3 +44,24 @@ export {
 } from './dispatcher.js';
 export { ConsoleFallbackChannel, InMemoryAttemptStore, InMemoryOutbox } from './memory-stores.js';
 export type { AttemptStore, FallbackChannel, FallbackNotification, OutboxReader } from './ports.js';
+export {
+  MAXIMUM_MENTIONS,
+  NOTIFICATION_ROUTES,
+  NOTIFIED_ROLES,
+  rolesToNotify,
+  type NotificationRecipient,
+  type NotifiedRole,
+  type RecipientDirectory,
+} from './notification-routing.js';
+export {
+  notifyDevices,
+  PUSH_ENDPOINT_HOST_SUFFIXES,
+  PUSH_LIMITS,
+  validatePushSubscription,
+  type PushDeliveryResult,
+  type PushSender,
+  type PushSubscriptionRecord,
+  type PushSubscriptionStore,
+  type PushValidation,
+} from './push.js';
+export { InMemoryPushSubscriptionStore } from './memory-push-store.js';

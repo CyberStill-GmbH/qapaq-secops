@@ -8,10 +8,20 @@ export const WAZUH_GATEWAY_ROUTES = Object.freeze({
 
 export interface WazuhGatewayClientOptions {
   readonly baseUrl: string;
-  readonly accessToken: string;
+  /**
+   * Token de workload para el gateway. Una función se llama en cada petición: permite tokens
+   * de vida corta (client credentials de Entra) que el proveedor renueva antes de vencer.
+   */
+  readonly accessToken: string | (() => Promise<string>);
   readonly requestTimeoutMs: number;
   readonly maximumResponseBytes: number;
   readonly allowInsecureLocalhost?: boolean;
+  /**
+   * HTTP sin TLS hacia un host de service discovery privado (`*.qapaq.internal`, AWS Cloud
+   * Map). Solo para el tramo API → KrakenD dentro de la VPC, cerrado por security groups; el
+   * token es de vida corta y ligado a la audiencia del gateway. Cualquier otro host exige TLS.
+   */
+  readonly allowPrivateServiceHttp?: boolean;
   readonly fetch?: typeof globalThis.fetch;
 }
 
@@ -31,6 +41,8 @@ export class WazuhGatewayError extends Error {
     this.name = 'WazuhGatewayError';
   }
 }
+
+const PRIVATE_SERVICE_SUFFIX = '.qapaq.internal';
 
 function isLoopback(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/gu, '');
@@ -77,9 +89,10 @@ export class WazuhGatewayClient {
     try {
       this.#baseUrl = new URL(options.baseUrl);
       const localHttp =
-        options.allowInsecureLocalhost === true &&
         this.#baseUrl.protocol === 'http:' &&
-        isLoopback(this.#baseUrl.hostname);
+        ((options.allowInsecureLocalhost === true && isLoopback(this.#baseUrl.hostname)) ||
+          (options.allowPrivateServiceHttp === true &&
+            this.#baseUrl.hostname.toLowerCase().endsWith(PRIVATE_SERVICE_SUFFIX)));
       if (
         (this.#baseUrl.protocol !== 'https:' && !localHttp) ||
         this.#baseUrl.username !== '' ||
@@ -87,7 +100,7 @@ export class WazuhGatewayClient {
         this.#baseUrl.pathname !== '/' ||
         this.#baseUrl.search !== '' ||
         this.#baseUrl.hash !== '' ||
-        !options.accessToken.trim() ||
+        (typeof options.accessToken === 'string' && !options.accessToken.trim()) ||
         !Number.isInteger(options.requestTimeoutMs) ||
         options.requestTimeoutMs < 1 ||
         !Number.isInteger(options.maximumResponseBytes) ||
@@ -136,10 +149,15 @@ export class WazuhGatewayClient {
     );
     const signal = callerSignal ? AbortSignal.any([callerSignal, timeout.signal]) : timeout.signal;
     try {
+      const token =
+        typeof this.options.accessToken === 'string'
+          ? this.options.accessToken
+          : await this.options.accessToken();
+      if (!token.trim()) throw new WazuhGatewayError(401, 'TOKEN_UNAVAILABLE');
       const response = await this.#fetch(new URL(route, this.#baseUrl), {
         method,
         headers: {
-          authorization: `Bearer ${this.options.accessToken}`,
+          authorization: `Bearer ${token}`,
           'x-request-id': randomUUID(),
           ...(body ? { 'content-type': 'application/json' } : {}),
         },

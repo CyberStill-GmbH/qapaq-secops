@@ -63,6 +63,11 @@ function alertRow(overrides: Partial<AlertRow> = {}): AlertRow {
     createdAt: new Date('2026-10-08T09:00:01.000Z'),
     updatedAt: new Date('2026-10-08T09:00:01.000Z'),
     revision: 1,
+    entityKeys: ['user:analista@qapaq-lab.example'],
+    entityRefs: ['ent_AAAAAAAAAAAAAAAAAAAAAA'],
+    signal: 'credential_access',
+    ruleId: '100502',
+    relatedAlertIds: [],
     ...overrides,
   };
 }

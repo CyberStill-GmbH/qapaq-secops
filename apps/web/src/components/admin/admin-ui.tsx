@@ -14,7 +14,6 @@ export type Section =
   | 'access'
   | 'audit'
   | 'sessions';
-type AlertFilter = 'all' | 'open' | 'critical';
 export type IconName =
   | 'overview'
   | 'alerts'

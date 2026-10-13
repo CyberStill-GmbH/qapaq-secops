@@ -112,67 +112,61 @@ paginar mentiría al crecer.
 
 ## 2. Eventos
 
-**Nivel:** DOMINIO (C-14 sin adaptador, sin ruta HTTP). **Ruta:** `/events`.
-Se construye contra `MockAdapter` con el contrato de `event-query.ts`, con el
-chip Demostración en la cabecera de la página.
+**Nivel:** API. **Ruta:** `/events`. Lectura directa del Indexer Wazuh mediante
+`GET /api/events`; la consola no conserva una copia ni acepta DSL del proveedor.
+El estado `disabled` identifica una fuente no configurada y no se representa como
+una cola vacía.
 
 **Propósito:** buscar telemetría normalizada en una ventana acotada, para
 contextualizar una alerta.
 
 ### 2.1 Barra de consulta
 
-```
-[Ventana: Últimas 24 h ▾]  [Severidad ▾] [Categoría ▾] [Tipo ▾] [Resultado ▾] [Dataset ▾]   [Buscar]
-```
+La barra permite alternar entre filtros visuales y consulta textual segura. La consulta
+se conserva solo en memoria de la vista; el rango sigue siendo un control tipado fuera
+del editor.
 
 | Control | Valores | Regla |
 | --- | --- | --- |
-| Ventana | 1 h, 24 h (por defecto), 7 d, 30 d, personalizada | **Máximo 90 días**: el selector no permite más y explica "La consulta admite hasta 90 días" en el propio selector. Zona horaria visible (`America/Lima`) |
-| Severidad | `unknown`, `informational`, `low`, `medium`, `high`, `critical` | multiselección |
-| Categoría | 16 valores del contrato | multiselección con búsqueda |
-| Tipo (`kind`) | `event`, `alert`, `finding`, `state` | multiselección |
-| Resultado | `success`, `failure`, `unknown` | multiselección |
-| Dataset | `wazuh-alerts` hoy | select simple |
+| Ventana | Últimas 24 h (por defecto), 7 días, 31 días | El selector muestra el máximo contractual; horas enviadas en UTC |
+| Severidad | `informational`, `low`, `medium`, `high`, `critical` | Multiselección; `unknown` se muestra en resultados pero no se envía como filtro |
+| Categoría | Catálogo normalizado que compila el adapter Wazuh | Multiselección; nunca se filtran grupos Wazuh como si fueran categorías |
+| Resultado | `success`, `failure` | Selección simple; resultados incluyen también `unknown` |
+| Consulta | Gramática `qapaq-events-v1`: `severity:high,critical AND category:authentication AND outcome:failure` | Solo `AND`, un predicado por campo, valores enumerados y listas con coma; máximo 512 caracteres. No es SQL ni DSL de proveedor. El parser compartido ofrece errores con posición. |
 
-**No hay caja de texto libre.** El dominio no la admite, y una caja que no
-busca lo que el analista escribe es peor que no tenerla. Si se agrega en el
-backend, se ubica a la izquierda de la ventana.
+No hay búsqueda libre ni selección de dataset. El backend rechaza mezclar `q` con filtros
+tipados y aplica el mismo cursor y rango a ambos modos.
 
 ### 2.2 Tabla
 
 | Columna | Campo | Ancho | Alin. |
 | --- | --- | --- | --- |
-| Ocurrido | `occurredAt` | fijo 132 | I · mono tabular |
-| Severidad | `severity.normalized` (+ `score`) | fijo 112 | I |
-| Categoría | `category[]` (primera + "+N") | auto | I |
-| Acción | `action` | auto | I · mono |
-| Regla | `detection.rule.name` | flex | I |
-| Identidad | `entities.identities[0].principal` | auto | I · mono |
-| Recurso | `entities.resources[0].name` | auto | I |
-| Resultado | `outcome` | fijo 96 | I |
+| Hora | `occurredAt` | fijo | I · relativa con detalle absoluto |
+| Severidad | `severity` | fijo | I · rótulo además del tono |
+| Tipo | `kind` | auto | I |
+| Resultado | `outcome` | fijo | I |
+| Regla | `rule.id` y `title` | flex | I |
+| Identidad | primer elemento de `identities[]` | auto | I |
+| Fuente | `source` | auto | I |
 
-Paginación: `CursorPagination` (solo "Anterior · Siguiente", sin total).
-Tamaño de página 50; selector con 50, 100, 200.
+Paginación opaca con "Anterior" y "Siguiente"; sin números ni total. El historial
+de cursores solo existe en memoria y se reinicia al cambiar filtros. Tamaño de página
+50 por defecto.
 
 ### 2.3 Detalle del evento (drawer)
 
 Bloques, en orden, cada uno un `DescriptionList`:
 
-1. **Cabecera**: severidad, título (`detection.rule.name` o `action`),
-   `occurredAt` absoluto.
-2. **Origen**: `source.vendor`, `product`, `dataset`, `instanceId`,
-   `nativeEventId`.
-3. **Entidades**: identidades y recursos, cada uno con su `kind`.
-4. **Severidad**: normalizada, `score`, valor original (`originalValue`,
-   `originalLabel`, `originalScale`) y `mappingVersion`. Explica por qué el
-   evento es "high": "Nivel Wazuh 9 → alta (escala provider-level-0-15)".
-5. **Procedencia**: `connector`, versiones de parser y mapping,
-   `timestampQuality`, `ingestionPath` como lista de saltos.
-6. **Instantes**: `occurredAt`, `observedAt`, `receivedAt` con la diferencia
-   entre ellos ("recibido 41 s después").
-7. **Contenido original** (`raw`): solo dentro de `CapabilityGate
-   events.read_raw`. Sin la capability, el bloque **no existe** (no hay
-   título vacío ni candado).
+1. **Resumen**: hora de ocurrencia y recepción, severidad, tipo, resultado,
+   grupos/regla e identidades/recursos disponibles.
+2. **Fuente**: proyección normalizada del campo `source` y `eventUid`.
+3. **Crudo** (`raw`): la pestaña solo se muestra con `events.read_raw`; no se
+   consulta otra ruta ni se envía DSL al Indexer.
+4. **Datos no normalizados**: `unparsedCount` se presenta por página para dejar
+   explícito que algunos documentos no pudieron proyectarse.
+
+Con `status=disabled`, la pantalla explica «Fuente de eventos no configurada».
+Un 503 muestra estado degradado con el `correlationId` del catálogo de errores.
 
 ---
 
@@ -363,11 +357,21 @@ Pestañas: **Activos** (`open`, `contained`, `eradicated`) · **Resueltos**
 
 Orden: severidad, luego `openedAt` asc.
 
-### 4.2 Detalle
+### 4.2 Detalle · estado implementado y evolución
 
-El detalle abre en **página** (no drawer) cuando se navega por URL, porque un
-incidente se trabaja durante horas; desde la lista abre en drawer con botón
-"Abrir en página" (`⤢`).
+**Implementado:** el detalle abre desde la lista o una URL directa y conserva pestañas
+Resumen, Tareas, Bitácora y Timeline. Alertas vinculadas usan `GET /api/incidents/:id/alerts`
+con cursor y límite de 200. Tareas, notas y timeline usan los endpoints de
+[01 · §1.4.1](01-inventario-backend.md#141-tareas-bitácora-y-timeline-del-incidente-sprint-5--fase-4).
+La UI aplica capabilities, revisión optimista, correcciones append-only, motivos de
+cancelación y estados de auditoría parcial. El cierre requiere veredictos para todas las
+alertas y ninguna tarea obligatoria abierta; si falta una lectura, queda bloqueado. El
+backend mantiene la guarda autoritativa.
+
+**Diseño futuro:** observables como entidad independiente, evidencia/custodia, informes y
+métricas del equipo no tienen contrato desplegable. Se explican en
+[Investigación de incidentes](incidentes-investigacion.md); no se muestran como controles
+activos.
 
 ```
 ◆ Crítica · Incidente 0193…                                    [Acciones ▾]
@@ -406,10 +410,10 @@ línea punteada, no como completado.
   aún no tienen veredicto. Triarlas antes de cerrar."
 - Botón en estilo `danger`: "Cerrar incidente".
 
-**Alertas vinculadas.** Se resuelven cruzando `alertIds` con
-`GET /api/alerts` (no hay endpoint por incidente). Si el usuario no tiene
-`alerts.read` (auditor), se muestran solo los identificadores en mono, sin
-estado.
+**Alertas vinculadas.** Se consultan por `GET /api/incidents/:id/alerts`, que devuelve la
+proyección redactada de las alertas con `incidents.read` y `alerts.read`. La UI no revela
+IDs ni campos de alerta cuando falta `alerts.read`. `truncated` o `unavailableCount > 0`
+indican que la lista no puede sustentar un cierre desde esta vista.
 
 ### 4.3 Aceptación
 
@@ -497,20 +501,53 @@ glifo `!` en `--state-fail` y el texto "15 min sin acuse humano".
 Botón secundario por fila. Confirmación en línea (no diálogo): el botón pasa a
 "Confirmar acuse" durante 4 s. Un 409 recarga la fila.
 
-### 6.3 Lo que no se muestra
+### 6.3 Alcance del despacho
 
-- "Procesar cola" (`drain`) no se ofrece en esta pantalla: es una operación
-  técnica que en producción ejecuta un proceso, no una persona.
+- El despacho habitual es automático en el worker. El control secundario
+  "Despachar ahora" solo aparece con `notifications.dispatch` (SOC lead o
+  platform admin) para una pasada operativa acotada; el backend revalida la
+  capability y CSRF. No sustituye al worker ni cambia el acuse humano.
 - No hay botón "Reintentar": no existe en el backend.
 - La notificación no trae a qué alerta o incidente pertenece; la columna se
   agrega cuando el BFF la exponga ([08 · B-09](08-brechas-y-decisiones.md#2-brechas-que-bloquean-la-interfaz)).
+
+### 6.4 Avisos en dispositivos (`/settings/notifications`)
+
+Requiere `notifications.read`. No solicita permiso al cargar la ruta. La persona
+activa Web Push explícitamente, asigna nombre al dispositivo y puede actualizarlo
+desde el mismo navegador, quitar sus registros propios y enviar una prueba. Se muestran
+solo los dispositivos devueltos por `GET /api/me/push/subscriptions`; endpoints y claves
+no se muestran.
+
+La política de lectura replica los tres eventos y roles de
+[`notification-routing.ts`](../../modules/soar/src/notification-routing.ts). Teams se
+menciona por rol; el correo es respaldo si Teams no confirma. Push es opt-in por usuario
+y el service worker recupera P1/incidentes críticos recientes tras volver a validar sesión
+y capability. La notificación del sistema enseña el título si hay un elemento y una ruta
+interna segura; varios se agregan. El push no transporta ni cachea contenido SOC.
+
+Estados visibles: permiso (`default`, `granted`, `denied` o no compatible), canal del
+ambiente deshabilitado, carga/error con `correlationId`, lista vacía, límite de 10
+dispositivos, resultado del test y baja de dispositivo. El nombre del navegador/servicio
+se representa con marcas Phosphor seleccionadas cuando el hostname backend lo identifica;
+el hostname se mantiene como texto verificable. En iOS se explica que la consola puede
+requerir instalación en pantalla de inicio. La vista no promete que Teams fue leído: el
+acuse sigue ocurriendo en QAPAQ.
+
+La referencia visual es [`avisos-dispositivos-v1.png`](references/avisos-dispositivos-v1.png),
+con datos sintéticos para composición. El favicon y los iconos PWA se derivan de la Q
+propia del producto. El aviso de cookies técnicas registra el cierre de esta información
+en almacenamiento local; no cambia la configuración de cookies de autenticación.
 
 ---
 
 ## 7. Plataforma
 
-**Nivel:** DOMINIO. Las tres pantallas se construyen tras `MockAdapter` con
-chip Demostración y **no se habilitan en producción** hasta tener API.
+**Estado:** los contratos antiguos de `MockAdapter` descritos en esta sección ya no son
+una descripción del producto. `/operations` consume `GET /api/operations/health` y
+`/sources` consume `GET /api/sources/health`. Cuarentena y credenciales no son vistas
+operativas habilitadas; no se deben presentar como controles funcionales hasta que
+existan rutas, autorización y evidencia de runtime.
 
 ### 7.1 Salud y cobertura (`/platform/health`)
 
@@ -558,6 +595,46 @@ y tras enviar se borra del estado del componente. Texto fijo bajo el campo:
 Estado `RECONCILIATION_REQUIRED` se muestra con `--state-warn` y la razón
 (`PROVIDER_STATE_UNKNOWN`, `METADATA_PERSISTENCE_FAILED`,
 `CONCURRENT_STATE_CHANGE`).
+
+### 7.4 Salud de fuentes (`/sources`)
+
+**Nivel:** API · `GET /api/sources/health` · `sources.health.read`.
+
+Cada fuente presenta evaluación del servidor, motivo, último intento, último éxito,
+último evento observado, fallos consecutivos y umbrales configurados. `unknown` y
+`disabled` usan estado neutral. Las transiciones recientes son auditables y se refrescan
+por `/api/changes` (`resource.type=source`).
+
+La actividad de suscripción es contexto independiente de salud: si no se midió, mostrar
+«No medido · no confirma salud»; si se midió, listar stream, último evento y eventos en
+la ventana de 24 horas junto al momento de medición. Cero eventos se presenta de forma
+neutral; no implica fallo ni confirma la fuente saludable.
+
+### 7.5 Usuarios SOC (`/admin/users`)
+
+**Nivel:** API · `GET /api/admin/users` y `GET /api/admin/users/:oid` · `users.read`.
+
+La tabla de solo lectura muestra identidad visible, membresía, acceso QAPAQ, origen del
+rol, sesiones activas y última solicitud autenticada. Los roles se explican por origen:
+dueño del grupo, asignación del deploy, app role de Entra o sin acceso. La franja de
+estado indica sincronización deshabilitada, pendiente de consentimiento, obsoleta,
+fallida o completa, según los campos del servidor. Cuando Graph no ofrece roster, solo
+se muestran identidades explícitas del deploy; no se inventa un padrón ni actividad.
+
+El detalle lista sesiones asociadas que entrega el backend. Si la API incluye
+`revocationReason`, mapear `membership_removed` a «Salió del grupo» y
+`ownership_removed` a «Dejó de ser dueño del grupo». La vista no solicita/aprueba roles,
+revoca sesiones ni cambia membresía; la revocación administrativa se hace en
+`/admin/sessions`, con capability, CSRF, motivo y revisión.
+
+### 7.6 Sesiones de acceso (`/admin/sessions`)
+
+La tabla administrativa muestra las sesiones vistas por QAPAQ dentro de los últimos
+siete días y el límite del servidor, con actividad autenticada, método informado,
+estado y vencimiento. Una revocación ajena requiere motivo de 10–500 caracteres y
+confirmación en línea. La propia sesión no tiene acción de revocación en esta vista.
+Cuando `revocationReason` sea `membership_removed` o `ownership_removed`, mostrar la
+causa de pérdida de acceso junto al estado revocado.
 
 ---
 

@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import HeroArt from '../components/login/HeroArt.js';
 import { QapaqSplash } from '../components/login/QapaqSplash.js';
 import { SocConsole } from '../components/soc/SocConsole.js';
+import { CookieNotice } from '../components/CookieNotice.js';
 
 function MicrosoftMark(): React.JSX.Element {
   return (
@@ -56,9 +57,6 @@ export default function Application({ config }: { config: PublicConfig }): React
   return (
     <main className="auth-screen" data-base-path={config.basePath}>
       <header className="auth-topbar">
-        <a className="q-symbol" href={config.basePath} aria-label="QAPAQ SecOps">
-          <img src={`${config.basePath}qapaq-mark-source.png`} alt="" />
-        </a>
         <span className="brand-destination">Estás iniciando sesión en QAPAQ</span>
       </header>
       <section className="login-core" aria-labelledby="login-title">
@@ -82,33 +80,12 @@ export default function Application({ config }: { config: PublicConfig }): React
               : 'Usa tu cuenta institucional para continuar.'}
           </p>
         </div>
-        <div className="auth-contract">
-          <span className="auth-contract-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-              <path
-                d="m9 12 2 2 4-4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          <span>
-            <strong>Acceso protegido</strong>
-            <small>Autenticación institucional con Microsoft Entra</small>
-          </span>
-        </div>
       </section>
       <footer className="auth-footer">
         <span>El acceso requiere una identidad corporativa autorizada.</span>
       </footer>
       <HeroArt />
+      <CookieNotice />
     </main>
   );
 }

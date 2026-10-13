@@ -11,6 +11,7 @@ import {
   StatusChip,
 } from './soc-ui.js';
 import { AlertDetailDrawer } from './AlertDetailDrawer.js';
+import { useChanges } from './use-changes.js';
 
 const statuses: readonly { readonly value: 'open' | AlertStatus; readonly label: string }[] = [
   { value: 'open', label: 'Abiertas' },
@@ -27,6 +28,7 @@ const alertStatus: Readonly<Record<string, string>> = {
   escalated: 'Escalada',
   closed: 'Cerrada',
 };
+const entityRefPattern = /^ent_[A-Za-z0-9_-]{22}$/u;
 type AlertPriority = 'P1' | 'P2' | 'P3' | 'P4';
 function isAlertPriority(value: string | null): value is AlertPriority {
   return value !== null && ['P1', 'P2', 'P3', 'P4'].includes(value);
@@ -95,8 +97,11 @@ export function AlertQueuePage({
     const value = new URLSearchParams(path.split('?')[1] ?? '').get('status');
     return isAlertTab(value) ? value : 'open';
   });
-  const initialQuery = new URLSearchParams(path.split('?')[1] ?? '').get('q') ?? '';
-  const initialPriority = new URLSearchParams(path.split('?')[1] ?? '').get('priority') ?? '';
+  const initialParams = new URLSearchParams(path.split('?')[1] ?? '');
+  const initialQuery = initialParams.get('q') ?? '';
+  const initialPriority = initialParams.get('priority') ?? '';
+  const initialEntityValue = initialParams.get('entity') ?? '';
+  const initialEntity = entityRefPattern.test(initialEntityValue) ? initialEntityValue : '';
   const [items, setItems] = useState<readonly AlertView[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -108,6 +113,7 @@ export function AlertQueuePage({
   const [appliedPriority, setAppliedPriority] = useState<'' | AlertPriority>(
     isAlertPriority(initialPriority) ? initialPriority : '',
   );
+  const [appliedEntity, setAppliedEntity] = useState(initialEntity);
   const [selected, setSelected] = useState<AlertView | null>(null);
   const [error, setError] = useState<ApiErrorBody | null>(null);
   const [updated, setUpdated] = useState<string | null>(null);
@@ -115,12 +121,33 @@ export function AlertQueuePage({
   const [busy, setBusy] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    // Compatibility with older deep links: replace the current history entry so a raw
+    // UPN/IP or free-text query is not retained in the browser URL/history.
+    const [pathname, rawSearch] = path.split('?', 2);
+    if (pathname !== '/alerts') return;
+    const params = new URLSearchParams(rawSearch ?? '');
+    const rawEntity = params.get('entity');
+    const mustSanitize =
+      params.has('q') || (rawEntity !== null && !entityRefPattern.test(rawEntity));
+    if (!mustSanitize) return;
+    params.delete('q');
+    if (rawEntity !== null && !entityRefPattern.test(rawEntity)) params.delete('entity');
+    const search = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      search ? `${pathname}?${search}` : pathname,
+    );
+  }, [path]);
+
   const load = useCallback(
     async (
       nextStatus: 'open' | AlertStatus = status,
       nextCursor?: string,
       nextQuery: string = appliedQuery,
       nextPriority: '' | AlertPriority = appliedPriority,
+      nextEntity: string = appliedEntity,
     ) => {
       setLoading(true);
       const result = await api.alertsByStatus(
@@ -128,6 +155,7 @@ export function AlertQueuePage({
         nextCursor,
         nextQuery,
         nextPriority || undefined,
+        nextEntity || undefined,
       );
       setLoading(false);
       if (!result.ok) {
@@ -144,12 +172,12 @@ export function AlertQueuePage({
       setError(null);
       setUpdated(new Date().toISOString());
     },
-    [appliedPriority, appliedQuery, status],
+    [appliedEntity, appliedPriority, appliedQuery, status],
   );
 
   useEffect(() => {
-    void load(status, undefined, appliedQuery, appliedPriority);
-  }, [appliedPriority, appliedQuery, status]);
+    void load(status, undefined, appliedQuery, appliedPriority, appliedEntity);
+  }, [appliedEntity, appliedPriority, appliedQuery, load, status]);
   useEffect(() => {
     const value = new URLSearchParams(path.split('?')[1] ?? '').get('status');
     if (isAlertTab(value)) setStatus(value);
@@ -160,14 +188,12 @@ export function AlertQueuePage({
     const safePriority = isAlertPriority(nextPriority) ? nextPriority : '';
     setPriority(safePriority);
     setAppliedPriority(safePriority);
+    setAppliedEntity(new URLSearchParams(path.split('?')[1] ?? '').get('entity') ?? '');
   }, [path]);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !selected)
-        void load(status, undefined, appliedQuery, appliedPriority);
-    }, 15_000);
-    return () => window.clearInterval(timer);
-  }, [appliedPriority, appliedQuery, load, selected, status]);
+  const liveChanges = useChanges({
+    resourceTypes: ['alert'],
+    onChange: () => void load(status, undefined, appliedQuery, appliedPriority, appliedEntity),
+  });
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const target = event.target;
@@ -205,7 +231,7 @@ export function AlertQueuePage({
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [appliedPriority, appliedQuery, onNavigate, selected, status]);
+  }, [appliedEntity, appliedPriority, appliedQuery, onNavigate, selected, status]);
   useEffect(() => {
     const id = decodeURIComponent(path.split('/alerts/')[1]?.split('?')[0] ?? '');
     if (!id) return;
@@ -264,18 +290,23 @@ export function AlertQueuePage({
 
   function listPath(
     nextStatus: 'open' | AlertStatus,
-    nextQuery = appliedQuery,
     nextPriority = appliedPriority,
+    nextEntity = appliedEntity,
   ): string {
     const params = new URLSearchParams({ status: nextStatus });
-    if (nextQuery) params.set('q', nextQuery);
     if (nextPriority) params.set('priority', nextPriority);
+    if (entityRefPattern.test(nextEntity)) params.set('entity', nextEntity);
     return `/alerts?${params.toString()}`;
   }
 
   return (
     <div className="soc-page">
       <Header updated={updated} onRefresh={() => void load()} />
+      {liveChanges.length ? (
+        <p className="soc-live-announcement" role="status" aria-live="polite">
+          Dato nuevo entrando
+        </p>
+      ) : null}
       <div className="soc-tabs" role="group" aria-label="Filtrar alertas por estado">
         {statuses.map((entry) => (
           <button
@@ -301,7 +332,7 @@ export function AlertQueuePage({
           setAppliedPriority(priority);
           setAppliedQuery(normalized);
           setSelected(null);
-          onNavigate(listPath(status, normalized, priority));
+          onNavigate(listPath(status, priority));
         }}
       >
         <label className="soc-search-field">
@@ -331,7 +362,7 @@ export function AlertQueuePage({
         <Button type="submit" variant="primary" disabled={loading}>
           Buscar
         </Button>
-        {appliedQuery || appliedPriority ? (
+        {appliedQuery || appliedPriority || appliedEntity ? (
           <Button
             type="button"
             variant="ghost"
@@ -340,11 +371,17 @@ export function AlertQueuePage({
               setAppliedQuery('');
               setPriority('');
               setAppliedPriority('');
+              setAppliedEntity('');
               onNavigate(listPath(status, '', ''));
             }}
           >
-            Limpiar búsqueda
+            Limpiar filtros
           </Button>
+        ) : null}
+        {appliedEntity ? (
+          <span className="soc-active-entity" title={appliedEntity}>
+            Entidad: <code>{appliedEntity}</code>
+          </span>
         ) : null}
         <span className="soc-page-note">
           Busca en toda la cola autorizada · j / k para recorrer.
@@ -369,7 +406,7 @@ export function AlertQueuePage({
                 <tr
                   key={alert.id}
                   data-alert-id={alert.id}
-                  className={`soc-alert-row${selected?.id === alert.id ? ' is-selected' : ''}`}
+                  className={`soc-alert-row${selected?.id === alert.id ? ' is-selected' : ''}${liveChanges.some((change) => change.resource.id === alert.id) ? ' soc-live-change' : ''}`}
                 >
                   <td>
                     <Severity value={alert.priority} score={alert.score} />
@@ -439,7 +476,9 @@ export function AlertQueuePage({
           <div className="soc-table-footer">
             {cursor ? (
               <Button
-                onClick={() => void load(status, cursor, appliedQuery, appliedPriority)}
+                onClick={() =>
+                  void load(status, cursor, appliedQuery, appliedPriority, appliedEntity)
+                }
                 disabled={loading}
               >
                 Cargar más
@@ -464,7 +503,14 @@ export function AlertQueuePage({
           onRetry={() => void load()}
           onCommand={execute}
           onOpenIncident={openIncident}
-          onNavigate={onNavigate}
+          onNavigate={(nextPath) => {
+            setSelected(null);
+            onNavigate(nextPath);
+          }}
+          onEntityPivot={(entity) => {
+            setSelected(null);
+            onNavigate(listPath(status, appliedPriority, entity));
+          }}
         />
       ) : null}
     </div>

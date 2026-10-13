@@ -1,5 +1,8 @@
 export type {
+  ActivityQuery,
+  StreamActivity,
   EventPage,
+  EventFilters,
   EventQuery,
   JsonObject,
   JsonValue,

@@ -9,7 +9,7 @@ import {
   type QuarantineEntry,
   type QuarantineLineage,
 } from '../src/quarantine-reprocess.js';
-import { normalizeWazuhAlert } from '../src/wazuh-normalization.js';
+import { normalizeWazuhAlert, WAZUH_MAPPING_VERSION } from '../src/wazuh-normalization.js';
 
 const AT = new Date('2026-10-01T10:00:00.000Z');
 
@@ -86,7 +86,8 @@ describe('C-13 cuarentena con linaje', () => {
 
     expect(translated.errorCode).toBe('MISSING_RULE');
     expect(translated.lineage).toEqual(lineage);
-    expect(translated.parserVersion).toBe('1.0.0');
+    // La cuarentena registra la versión del mapping que la produjo, no una fija.
+    expect(translated.parserVersion).toBe(WAZUH_MAPPING_VERSION);
   });
 });
 

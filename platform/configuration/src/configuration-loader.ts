@@ -7,16 +7,23 @@ import {
   type RedisConfig,
   type RuntimeConfig,
   type SecretCredential,
+  type SocPersistenceConfig,
   type WorkerConfig,
 } from './configuration.types.js';
 import { selectProfile } from './profiles/index.js';
 import { rejectUnknownQapaqVariables } from './schema/environment.schema.js';
 import { parseAccess, type AccessConfig } from './schema/access.schema.js';
+import { parseDetectionContext, type DetectionContextConfig } from './schema/detection.schema.js';
+import { parseIngestionConfig, type IngestionConfig } from './schema/ingestion.schema.js';
+import { parseRoleGrants, type RoleGrantsConfig } from './schema/role-grants.schema.js';
+import { parseDirectoryConfig, type DirectoryConfig } from './schema/directory.schema.js';
+import { parseAlertMailSender, parseTeamsWorkflowUrl } from './schema/notifications.schema.js';
 import {
   parseApi,
   parseControlPlaneSecretConfig,
   parseFullEnvironment,
   parseRedis,
+  parseSocPersistence,
 } from './schema/runtime-config.schema.js';
 import { normalizeSecretError, SecretProviderError } from './secrets/secret-errors.js';
 import {
@@ -87,6 +94,110 @@ export function loadApiConfig(environment: EnvironmentInput): ApiConfig {
 export function loadAccessConfig(environment: EnvironmentInput): AccessConfig {
   const profile = profileFrom(environment);
   return deepFreeze(parseAccess(environment, profile));
+}
+
+/**
+ * C-17 — persistencia del estado SOC del BFF. En modo `postgres` exige la contraseña
+ * inyectada por el orquestador; nunca se acepta vacía ni se registra.
+ */
+export function loadSocPersistenceConfig(environment: EnvironmentInput): SocPersistenceConfig {
+  const profile = profileFrom(environment);
+  const parsed = parseSocPersistence(environment, profile);
+  if (parsed.mode === 'memory' || !parsed.postgres) return deepFreeze({ mode: 'memory' });
+  const password = environment['QAPAQ_POSTGRES_PASSWORD'];
+  if (password === undefined || password === '') {
+    throw configurationError(
+      'CONFIG_REQUIRED_VALUE_MISSING',
+      'QAPAQ_POSTGRES_PASSWORD',
+      profile.name,
+    );
+  }
+  return deepFreeze({
+    mode: 'postgres',
+    postgres: { ...parsed.postgres, password: new SecretValue(password) },
+  });
+}
+
+/** Longitud mínima de la clave de referencias de entidad (256 bits en texto). */
+const ENTITY_REF_KEY_MINIMUM_LENGTH = 32;
+
+/**
+ * D-10b — clave HMAC de las referencias opacas de entidad. Producción la recibe inyectada
+ * como secreto; desarrollo y test usan un valor conocido del perfil. Rotarla invalida las
+ * referencias guardadas, por eso no hay rotación automática.
+ *
+ * Con `QAPAQ_SOC_PERSISTENCE=postgres` es obligatoria (D-13): las alertas durables guardan
+ * sus referencias y emitirlas sin clave, o con otra, rompería el pivote de forma
+ * irreversible. En `memory` (primer despliegue, antes de `bootstrap-roles`) puede faltar y
+ * el API arranca sin pivote por entidad. Presente pero corta, siempre falla.
+ */
+export function loadEntityRefKey(environment: EnvironmentInput): SecretValue | undefined {
+  const profile = profileFrom(environment);
+  const value = environment['QAPAQ_ENTITY_REF_KEY'] ?? profile.defaults['QAPAQ_ENTITY_REF_KEY'];
+  const persistence =
+    environment['QAPAQ_SOC_PERSISTENCE'] ?? profile.defaults['QAPAQ_SOC_PERSISTENCE'];
+  if (value === undefined || value === '') {
+    if (persistence === 'postgres') {
+      throw configurationError(
+        'CONFIG_REQUIRED_VALUE_MISSING',
+        'QAPAQ_ENTITY_REF_KEY',
+        profile.name,
+      );
+    }
+    return undefined;
+  }
+  if (value.length < ENTITY_REF_KEY_MINIMUM_LENGTH) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ENTITY_REF_KEY', profile.name);
+  }
+  return new SecretValue(value);
+}
+
+/** C-16 — contexto de negocio para priorizar; listas vacías si el ambiente no lo declara. */
+export function loadDetectionContextConfig(environment: EnvironmentInput): DetectionContextConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseDetectionContext(environment, profile));
+}
+
+/** Sprint 5 · fase 0 — fuente de ingesta del SOC; `disabled` si el ambiente no la declara. */
+export function loadIngestionConfig(environment: EnvironmentInput): IngestionConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseIngestionConfig(environment, profile));
+}
+
+/** Sprint 5 — roles concedidos por el deploy (asignaciones y dueños del grupo). */
+export function loadRoleGrantsConfig(environment: EnvironmentInput): RoleGrantsConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseRoleGrants(environment, profile));
+}
+
+/** Sprint 5 · fase 3 — sincronización del padrón; `disabled` si el ambiente no la declara. */
+export function loadDirectoryConfig(environment: EnvironmentInput): DirectoryConfig {
+  const profile = profileFrom(environment);
+  return deepFreeze(parseDirectoryConfig(environment, profile));
+}
+
+/** Sprint 5 — URL del Teams Workflow (secreto); `undefined` si el ambiente no la declara. */
+export function loadTeamsWorkflowUrl(environment: EnvironmentInput): string | undefined {
+  return parseTeamsWorkflowUrl(environment, profileFrom(environment));
+}
+
+/** Sprint 5 — buzón remitente del respaldo por correo; `undefined` = solo consola. */
+export function loadAlertMailSender(environment: EnvironmentInput): string | undefined {
+  return parseAlertMailSender(environment, profileFrom(environment));
+}
+
+/**
+ * Sprint 5 — clave privada VAPID para Web Push (`QAPAQ_VAPID_PRIVATE_KEY`, PKCS#8 en base64,
+ * desde Secrets Manager). `undefined` si el ambiente no la declara: el push queda deshabilitado.
+ */
+export function loadVapidPrivateKey(environment: EnvironmentInput): SecretValue | undefined {
+  const profile = profileFrom(environment);
+  const value = environment['QAPAQ_VAPID_PRIVATE_KEY'];
+  if (value === undefined || value === '') return undefined;
+  if (!/^[A-Za-z0-9+/=]{100,400}$/u.test(value)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_VAPID_PRIVATE_KEY', profile.name);
+  }
+  return new SecretValue(value);
 }
 
 /** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */

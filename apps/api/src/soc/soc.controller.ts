@@ -14,16 +14,20 @@ import type { IncomingRequest } from '../http/http-contracts.js';
 
 import { projectFields } from '@qapaq/access';
 import {
+  ALERT_STATUSES,
   executeAlertCommand,
   executeIncidentCommand,
   openIncidentFromAlert,
   INCIDENT_STATUSES,
   type Alert,
+  type AlertStatus,
   type Incident,
+  type IncidentStatus,
   type TriageVerdict,
 } from '@qapaq/soc';
 
 import { ApiError, fromSocFailure } from '../http/api-error.js';
+import { ENTITY_REF_PATTERN } from '../runtime/entity-refs.js';
 import { paginate, type PageQuery } from '../http/pagination.js';
 import { mutatingActor, readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
@@ -43,6 +47,18 @@ function alertView(alert: Alert, capabilities: ReadonlySet<string>) {
       occurredAt: alert.occurredAt.toISOString(),
       revision: alert.revision,
       reasons: alert.reasons.map((reason) => ({ code: reason.code, detail: reason.detail })),
+      // Correlación de C-16. `entities[].ref` es lo único apto para URLs y filtros (D-10b);
+      // `label` (UPN o IP) solo viaja en este cuerpo. Las claves internas no se exponen.
+      entities: alert.entityKeys.map((key, index) => {
+        const separator = key.indexOf(':');
+        return {
+          ref: alert.entityRefs[index] ?? null,
+          kind: key.slice(0, separator),
+          label: key.slice(separator + 1),
+        };
+      }),
+      signal: alert.signal,
+      relatedAlertIds: alert.relatedAlertIds,
       // `rawRef` solo se proyecta a quien tiene events.read_raw (C-18).
       rawRef: `raw:${alert.eventRecordId}`,
     },
@@ -65,6 +81,15 @@ function incidentView(incident: Incident) {
   };
 }
 
+/** Filtro de estado de alertas: `open` (y su alias histórico `active`) o un estado real. */
+const ALERT_STATUS_FILTERS: readonly string[] = ['open', 'active', ...ALERT_STATUSES];
+/** Tope de alertas vinculadas que se resuelven por incidente en una consulta. */
+const LINKED_ALERT_LIMIT = 200;
+/** Incidentes `active`: todo lo que todavía requiere trabajo. */
+const ACTIVE_INCIDENT_STATUSES: readonly IncidentStatus[] = INCIDENT_STATUSES.filter(
+  (status) => status !== 'resolved' && status !== 'closed',
+);
+
 @Controller('api')
 export class SocController {
   public constructor(@Inject(SECOPS_RUNTIME) private readonly runtime: SecOpsRuntime) {}
@@ -72,7 +97,8 @@ export class SocController {
   @Get('alerts')
   public async alerts(
     @Req() request: IncomingRequest,
-    @Query() query: PageQuery & { status?: string; q?: string; priority?: string },
+    @Query()
+    query: PageQuery & { status?: string; q?: string; priority?: string; entity?: string },
   ) {
     const { actor, correlationId } = await readingActor(this.runtime, request);
     if (!actor.capabilities.has('alerts.read')) {
@@ -80,52 +106,45 @@ export class SocController {
     }
     const search = (query.q ?? '').trim().toLocaleLowerCase();
     if (search.length > 120) throw new ApiError('VALIDATION_FAILED', correlationId, ['q']);
-    if (
-      query.status &&
-      query.status !== 'active' &&
-      !INCIDENT_STATUSES.includes(query.status as (typeof INCIDENT_STATUSES)[number])
-    ) {
+    if (query.status && !ALERT_STATUS_FILTERS.includes(query.status)) {
       throw new ApiError('VALIDATION_FAILED', correlationId, ['status']);
     }
     if (query.priority && !['P1', 'P2', 'P3', 'P4'].includes(query.priority)) {
       throw new ApiError('VALIDATION_FAILED', correlationId, ['priority']);
     }
-    const alerts = [...this.runtime.soc.alertRows.values()]
-      .filter((alert) => alert.tenantId === actor.tenantId)
-      .filter((alert) =>
-        query.status === 'open'
-          ? alert.status !== 'closed'
-          : !query.status || alert.status === query.status,
-      )
-      .filter(
-        (alert) =>
-          !search ||
-          `${alert.title} ${alert.id} ${alert.assigneeId ?? ''}`
-            .toLocaleLowerCase()
-            .includes(search),
-      );
-    const filteredAlerts = alerts.filter(
-      (alert) => !query.priority || alert.priority === query.priority,
-    );
+    // Solo referencias opacas: un UPN o una IP en la URL se rechazan (D-10b).
+    const entity = query.entity?.trim();
+    if (entity !== undefined && entity !== '' && !ENTITY_REF_PATTERN.test(entity)) {
+      throw new ApiError('VALIDATION_FAILED', correlationId, ['entity']);
+    }
+    const status =
+      query.status === 'active' ? 'open' : (query.status as AlertStatus | 'open' | undefined);
+    const result = await this.runtime.soc.listAlerts({
+      tenantId: actor.tenantId,
+      ...(status ? { status } : {}),
+      ...(query.priority ? { priority: query.priority as Alert['priority'] } : {}),
+      ...(search ? { search } : {}),
+      ...(entity ? { entityRef: entity } : {}),
+    });
     const page = paginate(
-      filteredAlerts,
+      result.items,
       (alert) => ({ at: alert.occurredAt.getTime(), id: alert.id }),
       query,
-      `alerts:status=${query.status ?? ''}:q=${search}:priority=${query.priority ?? ''}`,
+      `alerts:status=${query.status ?? ''}:q=${search}:priority=${query.priority ?? ''}:entity=${entity ?? ''}`,
       correlationId,
     );
     return {
       correlationId,
       items: page.items.map((alert) => alertView(alert, actor.capabilities)),
       nextCursor: page.nextCursor,
-      totalCount: filteredAlerts.length,
+      totalCount: result.total,
     };
   }
 
   @Get('alerts/:id')
   public async alert(@Req() request: IncomingRequest, @Param('id') id: string) {
     const { actor, correlationId } = await readingActor(this.runtime, request);
-    const alert = this.runtime.soc.alertRows.get(`${actor.tenantId}|${id}`);
+    const alert = await this.runtime.soc.alertById(actor.tenantId, id);
     if (!alert || !actor.capabilities.has('alerts.read')) {
       // Mismo error para inexistente y no autorizado: la API no enumera.
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
@@ -164,7 +183,7 @@ export class SocController {
       },
     });
     if (!result.ok) throw fromSocFailure(result.code, correlationId);
-    this.runtime.pumpOutbox();
+    this.runtime.dispatcher.kick();
     return { correlationId, alert: alertView(result.value, actor.capabilities) };
   }
 
@@ -206,18 +225,63 @@ export class SocController {
       expectedAlertRevision: body.expectedAlertRevision,
     });
     if (!result.ok) throw fromSocFailure(result.code, correlationId);
-    this.runtime.pumpOutbox();
+    this.runtime.dispatcher.kick();
     return { correlationId, incident: incidentView(result.value) };
   }
 
   @Get('incidents/:id')
   public async incident(@Req() request: IncomingRequest, @Param('id') id: string) {
     const { actor, correlationId } = await readingActor(this.runtime, request);
-    const incident = this.runtime.soc.incidentRows.get(`${actor.tenantId}|${id}`);
+    const incident = await this.runtime.soc.incidentById(actor.tenantId, id);
     if (!incident || !actor.capabilities.has('incidents.read')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
     return { correlationId, incident: incidentView(incident) };
+  }
+
+  /**
+   * Alertas vinculadas a un incidente, con la misma proyección redactada que `GET /alerts`,
+   * para que la consola no tenga que pedirlas una por una. Exige `incidents.read` y
+   * `alerts.read`; sin alguna de las dos responde igual que un incidente inexistente.
+   * Una sola consulta por tenant e incidente: las `LINKED_ALERT_LIMIT` más recientes y el
+   * total real; `truncated` avisa si había más y `totalCount` es siempre el total real, no
+   * el de la página. `unavailableCount` cuenta los ids que el incidente declara y que no se
+   * pudieron leer en el tenant; nunca se describen.
+   */
+  @Get('incidents/:id/alerts')
+  public async incidentAlerts(
+    @Req() request: IncomingRequest,
+    @Param('id') id: string,
+    @Query() query: PageQuery,
+  ) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
+    if (!actor.capabilities.has('incidents.read') || !actor.capabilities.has('alerts.read')) {
+      throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
+    }
+    const incident = await this.runtime.soc.incidentById(actor.tenantId, id);
+    if (!incident) throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
+    const linked = await this.runtime.soc.listIncidentAlerts(
+      actor.tenantId,
+      incident.id,
+      LINKED_ALERT_LIMIT,
+    );
+    const declared = new Set(incident.alertIds).size;
+    const page = paginate(
+      linked.items,
+      (alert) => ({ at: alert.occurredAt.getTime(), id: alert.id }),
+      query,
+      `incident-alerts:${incident.id}`,
+      correlationId,
+    );
+    return {
+      correlationId,
+      incidentId: incident.id,
+      items: page.items.map((alert) => alertView(alert, actor.capabilities)),
+      nextCursor: page.nextCursor,
+      totalCount: linked.total,
+      unavailableCount: Math.max(declared - linked.total, 0),
+      truncated: linked.total > linked.items.length,
+    };
   }
 
   @Get('incidents')
@@ -231,20 +295,19 @@ export class SocController {
     }
     const search = (query.q ?? '').trim().toLocaleLowerCase();
     if (search.length > 120) throw new ApiError('VALIDATION_FAILED', correlationId, ['q']);
-    const incidents = [...this.runtime.soc.incidentRows.values()]
-      .filter((incident) => incident.tenantId === actor.tenantId)
-      .filter((incident) => {
-        if (query.status === 'active') return !['resolved', 'closed'].includes(incident.status);
-        if (query.status) return incident.status === query.status;
-        return true;
-      })
-      .filter(
-        (incident) =>
-          !search ||
-          `${incident.title} ${incident.id} ${incident.ownerId} ${incident.summary}`
-            .toLocaleLowerCase()
-            .includes(search),
-      );
+    // Un estado desconocido no es error: devuelve un listado vacío, como antes.
+    const statuses =
+      query.status === 'active'
+        ? ACTIVE_INCIDENT_STATUSES
+        : query.status
+          ? [query.status as IncidentStatus]
+          : undefined;
+    const result = await this.runtime.soc.listIncidents({
+      tenantId: actor.tenantId,
+      ...(statuses ? { statuses } : {}),
+      ...(search ? { search } : {}),
+    });
+    const incidents = result.items;
     const page = paginate(
       incidents,
       (incident) => ({ at: incident.openedAt.getTime(), id: incident.id }),
@@ -256,7 +319,7 @@ export class SocController {
       correlationId,
       items: page.items.map(incidentView),
       nextCursor: page.nextCursor,
-      totalCount: incidents.length,
+      totalCount: result.total,
     };
   }
 
@@ -288,7 +351,7 @@ export class SocController {
       },
     });
     if (!result.ok) throw fromSocFailure(result.code, correlationId);
-    this.runtime.pumpOutbox();
+    this.runtime.dispatcher.kick();
     return { correlationId, incident: incidentView(result.value) };
   }
 }

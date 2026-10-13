@@ -101,15 +101,15 @@ jobs:
             exit 1
           fi
           repositories=$(aws ecr describe-repositories \
-            --repository-names qapaq-secops-api qapaq-secops-worker qapaq-secops-krakend \
+            --repository-names qapaq-secops-api qapaq-secops-worker qapaq-secops-krakend qapaq-secops-migrator \
             --query 'repositories[].repositoryName' --output text)
-          for repository in qapaq-secops-api qapaq-secops-worker qapaq-secops-krakend; do
+          for repository in qapaq-secops-api qapaq-secops-worker qapaq-secops-krakend qapaq-secops-migrator; do
             if ! grep -qw "$repository" <<< "$repositories"; then
               echo "Required ECR repository is missing: ${repository}" >&2
               exit 1
             fi
           done
-          for service in api worker krakend; do
+          for service in api worker krakend migrator; do
             uri="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/qapaq-secops-${service}"
             printf '%s=%s\n' "$service" "$uri" >> "$GITHUB_OUTPUT"
           done
@@ -125,6 +125,7 @@ jobs:
           API_REPOSITORY: ${{ steps.ecr.outputs.api }}
           WORKER_REPOSITORY: ${{ steps.ecr.outputs.worker }}
           KRAKEND_REPOSITORY: ${{ steps.ecr.outputs.krakend }}
+          MIGRATOR_REPOSITORY: ${{ steps.ecr.outputs.migrator }}
         run: |
           set -euo pipefail
           docker tag qapaq-ci:api "${API_REPOSITORY}:${IMAGE_TAG}"
@@ -133,6 +134,8 @@ jobs:
           docker push "${API_REPOSITORY}:${IMAGE_TAG}"
           docker push "${WORKER_REPOSITORY}:${IMAGE_TAG}"
           docker push "${KRAKEND_REPOSITORY}:${IMAGE_TAG}"
+          docker tag qapaq-ci:migrator "${MIGRATOR_REPOSITORY}:${IMAGE_TAG}"
+          docker push "${MIGRATOR_REPOSITORY}:${IMAGE_TAG}"
 
       - name: Record immutable image digests
         shell: bash
@@ -140,14 +143,16 @@ jobs:
           API_REPOSITORY: ${{ steps.ecr.outputs.api }}
           WORKER_REPOSITORY: ${{ steps.ecr.outputs.worker }}
           KRAKEND_REPOSITORY: ${{ steps.ecr.outputs.krakend }}
+          MIGRATOR_REPOSITORY: ${{ steps.ecr.outputs.migrator }}
         run: |
           set -euo pipefail
           timestamp=$(date --utc +'%Y-%m-%dT%H:%M:%SZ')
           read -r api_tag api_digest < <(aws ecr batch-get-image --repository-name qapaq-secops-api --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.[imageTag,imageDigest]' --output text)
           read -r worker_tag worker_digest < <(aws ecr batch-get-image --repository-name qapaq-secops-worker --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.[imageTag,imageDigest]' --output text)
           read -r krakend_tag krakend_digest < <(aws ecr batch-get-image --repository-name qapaq-secops-krakend --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.[imageTag,imageDigest]' --output text)
-          [[ "$api_tag" == "$IMAGE_TAG" && "$worker_tag" == "$IMAGE_TAG" && "$krakend_tag" == "$IMAGE_TAG" ]]
-          for digest in "$api_digest" "$worker_digest" "$krakend_digest"; do
+          read -r migrator_tag migrator_digest < <(aws ecr batch-get-image --repository-name qapaq-secops-migrator --image-ids "imageTag=${IMAGE_TAG}" --query 'images[0].imageId.[imageTag,imageDigest]' --output text)
+          [[ "$api_tag" == "$IMAGE_TAG" && "$worker_tag" == "$IMAGE_TAG" && "$krakend_tag" == "$IMAGE_TAG" && "$migrator_tag" == "$IMAGE_TAG" ]]
+          for digest in "$api_digest" "$worker_digest" "$krakend_digest" "$migrator_digest"; do
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           done
           mkdir -p artifacts/deployment
@@ -164,8 +169,8 @@ jobs:
             --arg worker_digest "$worker_digest" \
             --arg krakend_repository "$KRAKEND_REPOSITORY" \
             --arg krakend_tag "$krakend_tag" \
-            --arg krakend_digest "$krakend_digest" \
-            '{schemaVersion:1,project:"qapaq-secops",environment:"demo",awsAccount:$account,region:$region,gitCommit:$commit,publishedAt:$timestamp,images:{api:{repository:"qapaq-secops-api",uri:$api_repository,tag:$api_tag,digest:$api_digest},worker:{repository:"qapaq-secops-worker",uri:$worker_repository,tag:$worker_tag,digest:$worker_digest},krakend:{repository:"qapaq-secops-krakend",uri:$krakend_repository,tag:$krakend_tag,digest:$krakend_digest}}}' \
+            --arg krakend_digest "$krakend_digest"             --arg migrator_repository "$MIGRATOR_REPOSITORY"             --arg migrator_tag "$migrator_tag"             --arg migrator_digest "$migrator_digest" \
+            '{schemaVersion:1,project:"qapaq-secops",environment:"demo",awsAccount:$account,region:$region,gitCommit:$commit,publishedAt:$timestamp,images:{api:{repository:"qapaq-secops-api",uri:$api_repository,tag:$api_tag,digest:$api_digest},worker:{repository:"qapaq-secops-worker",uri:$worker_repository,tag:$worker_tag,digest:$worker_digest},krakend:{repository:"qapaq-secops-krakend",uri:$krakend_repository,tag:$krakend_tag,digest:$krakend_digest},migrator:{repository:"qapaq-secops-migrator",uri:$migrator_repository,tag:$migrator_tag,digest:$migrator_digest}}}' \
             > artifacts/deployment/image-manifest.json
           cat artifacts/deployment/image-manifest.json
 

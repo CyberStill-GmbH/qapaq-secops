@@ -163,6 +163,21 @@ variable "public_route53_zone_name" {
   }
 }
 
+variable "public_root_route53_zone_name" {
+  description = "DNS name of the root Route 53 zone delegated by the domain registrar."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.public_root_route53_zone_name == null || (
+      length(split(".", trimsuffix(var.public_root_route53_zone_name, "."))) >= 2 &&
+      can(regex("^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])\\.?$", var.public_root_route53_zone_name))
+    )
+    error_message = "public_root_route53_zone_name must be a valid DNS zone name."
+  }
+}
+
 variable "krakend_port" {
   description = "KrakenD listener port."
   type        = number

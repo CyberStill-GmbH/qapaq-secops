@@ -1,4 +1,7 @@
 const apiOrigin = process.env.QAPAQ_API_ORIGIN;
+if (process.env.VERCEL_ENV === 'production' && !apiOrigin) {
+  throw new Error('QAPAQ_API_ORIGIN must point to the trusted HTTPS API origin in Production.');
+}
 const rewrites = apiOrigin
   ? (() => {
       const origin = new URL(apiOrigin);
@@ -14,7 +17,7 @@ const rewrites = apiOrigin
           'QAPAQ_API_ORIGIN must be an HTTP(S) origin without credentials, path, query, or fragment.',
         );
       }
-      return [{ source: '/api/:path*', destination: `${origin.origin}/qapaq-api/:path*` }];
+      return [{ source: '/api/:path*', destination: `${origin.origin}/api/:path*` }];
     })()
   : [];
 

@@ -1,6 +1,7 @@
 # Matriz de actores, recursos, acciones y ámbitos
 
-Estado: bundles CONFIRMADOS por ADR-017; capabilities con `*` son propuestas hasta
+Estado: los bundles destino están confirmados por ADR-017; el runtime presente solo
+implementa los cuatro `qapaq.*` del inventario. Capabilities con `*` son propuestas hasta
 cerrar U-013. Toda celda está sujeta a scope, estado del recurso, vigencia y deny
 global. No existe un rol `ADMIN` universal: el término informado se divide en
 `PLATFORM_ADMIN` y `ACCESS_ADMIN`. `USER` se representa como `VIEWER`.
@@ -31,6 +32,7 @@ Leyenda: **P** permitido por bundle; **C** condicionado a grant/step-up/aprobaci
 | Usuarios/roles · leer | — | — | C | — | C | — | — | P | scope administrativo |
 | Usuarios/grants · administrar | — | — | — | — | — | — | — | P | conjunto otorgable, JIT/SoD |
 | Salud/plataforma · operar* | C | C | P | — | C | C | P | — | detalle sensible restringido |
+| Notificaciones · despacho manual | — | — | — | — | — | — | P | — | `notifications.dispatch`, `soc.write`; automático independiente |
 | Retención/hold* | — | — | C | — | C | — | C | — | Legal/Compliance y doble control |
 | SOAR futuro · ejecutar* | — | C | C | — | — | — | — | — | U-008, action-specific, step-up |
 
@@ -44,6 +46,24 @@ Leyenda: **P** permitido por bundle; **C** condicionado a grant/step-up/aprobaci
 6. descarga y job diferido revalidan autorización antes del efecto;
 7. cada endpoint implementado debe sustituir la capability propuesta por una
    entrada contractual y specs allow/deny antes de producción.
+
+## Roles realmente presentes en el runtime
+
+El runtime actual no implementa los ocho bundles objetivo de esta matriz. La sesión recibe
+estos app roles de Entra (más el binding MVP configurado):
+
+| App role real | Funciones observadas |
+| --- | --- |
+| `qapaq.soc.analyst` | eventos, alertas/triaje, incidentes escritura, notificaciones lectura/acuse |
+| `qapaq.soc.lead` | analyst + eventos raw, cierre de incidentes, auditoría lectura, `notifications.dispatch` |
+| `qapaq.auditor` | auditoría sensible/verificación e incidentes lectura |
+| `qapaq.platform.admin` | unión SOC explícita actual, incluida `notifications.dispatch` y secretos; sin gestión de usuarios |
+
+Hoy login consume el claim `roles`; aunque el validador conoce `groups`, `SecOpsRuntime` no
+valida membresía de grupo ni consulta Microsoft Graph. La vista de administración solicitada
+debe limitarse al grupo Entra de admisión y persistir roles/sesiones QAPAQ; los contratos y
+gates están en [administración de usuarios Entra](../architecture/entra-soc-user-admin.md).
+No desplegar la ruta de usuarios hasta implementar enforcement backend, sync y store durable.
 
 ## Discrepancia resuelta explícitamente
 

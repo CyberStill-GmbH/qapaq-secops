@@ -51,6 +51,50 @@ resource "aws_iam_role_policy" "write_admin_secret" {
   })
 }
 
+# Microsoft 365 → Wazuh (ADR-024). Terraform crea solo los contenedores; el valor lo carga
+# el dueño de Microsoft 365 fuera del repositorio. Leerlos no requiere tocar `user_data`,
+# así que agregar estos recursos no reemplaza la instancia.
+resource "aws_secretsmanager_secret" "office365_client_secret" {
+  name                    = "${var.project}/${var.environment}/wazuh/office365-client-secret"
+  description             = "Client secret of the Entra app used by the Wazuh office365 module (ActivityFeed.Read)."
+  recovery_window_in_days = 7
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+    Purpose     = "wazuh-office365-collection"
+  }
+}
+
+resource "aws_secretsmanager_secret" "break_glass_identities" {
+  name                    = "${var.project}/${var.environment}/wazuh/break-glass-identities"
+  description             = "Comma-separated UPNs of emergency (break-glass) accounts monitored by rule 100530."
+  recovery_window_in_days = 7
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+    Purpose     = "wazuh-break-glass-list"
+  }
+}
+
+resource "aws_iam_role_policy" "read_office365_secrets" {
+  name = "read-office365-collection-secrets"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      Resource = [
+        aws_secretsmanager_secret.office365_client_secret.arn,
+        aws_secretsmanager_secret.break_glass_identities.arn,
+      ]
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "this" {
   name = "${var.project}-${var.environment}-wazuh-instance"
   role = aws_iam_role.instance.name

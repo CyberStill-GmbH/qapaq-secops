@@ -12,3 +12,5 @@ export interface SourceCoverage {
 export * from './security-event/index.js';
 
 export * from './api-error/index.js';
+
+export * from './events-query/index.js';

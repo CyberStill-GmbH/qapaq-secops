@@ -1,6 +1,6 @@
 # 09 · Evaluación del frontend y brechas para un SOC operativo
 
-Fecha de revisión e implementación: 2026-10-06. Alcance: revisión del frontend,
+Fecha de evaluación inicial: 2026-10-06. Alcance: revisión del frontend,
 sus estilos, cliente HTTP, controladores BFF y capabilities; incluye validación
 E2E y revisión visual en navegador local. No es una validación de una
 instalación productiva.
@@ -39,7 +39,7 @@ asignación legibles en el backend.
 | --- | --- | --- |
 | Entrada de producto | `apps/web/src/app/application.tsx` renderiza `SocConsole` cuando hay sesión | Es la consola que debe guiar el diagnóstico actual. |
 | Operación SOC | Alertas, incidentes, notificaciones críticas, resumen, auditoría e integridad | Usa rutas `/api/*` reales y capacidades de la sesión. |
-| Búsqueda de eventos | No hay ruta de producto en el BFF | El menú actual no ofrece Eventos aunque exista la capability; no se puede investigar pivoteando desde una alerta. |
+| Búsqueda de eventos | Existe `events.read`, pero no hay ruta de producto en el BFF | `/events` queda fuera de navegación/búsqueda rápida; un enlace directo explica que falta el BFF y lleva a alertas correlacionadas. |
 | Salud de ingesta | La barra informa `API disponible`; el resumen reconoce `Ingesta sin datos de salud` | El estado del API no prueba que las fuentes estén entregando eventos. La etiqueta del resumen es honesta, pero no hay diagnóstico accionable por origen. |
 | Administración heredada | `SuperAdminConsole` y componentes `admin/*` | Es una experiencia de demostración basada en `/api/v1/*`, contrato que el BFF no sirve. No representa administración operativa vigente. |
 
@@ -157,26 +157,29 @@ forma, nunca ser la única señal.
 
 ## 4. Requisitos del administrador solicitados
 
-El requisito del producto es que el administrador pueda usar todas las
-funciones SOC y, además, administrar usuarios y sesiones. El sistema actual no
-lo implementa de esa forma: `qapaq.platform.admin` ahora recibe la unión
-explícita y finita de las capabilities SOC registradas actualmente, pero la
-consola de producto no tiene sección de usuarios o sesiones. El mock `admin/*` sí muestra pantallas sintéticas de
-sesiones, pero no se conecta al BFF real.
+El requisito del producto es que el administrador de plataforma pueda usar las
+funciones SOC actuales y consultar/gestionar el acceso QAPAQ de las personas del
+grupo de admisión Entra configurado. La consola actual solo concede a
+`qapaq.platform.admin` la unión explícita y finita de las capabilities SOC
+registradas; las capabilities de administración de identidad aún no existen. La nueva
+vista React de `/admin/users` está integrada contra el contrato documentado y permanece
+oculta para todo usuario actual porque el BFF/capabilities aún no están implementados. El
+mock `admin/*` muestra datos sintéticos y no representa usuarios, sesiones ni roles activos.
 
 El dominio de acceso conserva estado de sesión y una función para revocar una
 sesión, pero `SessionStore` solo permite crear, buscar por ID, listar sesiones
-activas por sujeto y actualizar. No existe una ruta para que el administrador
-liste, cambie roles/niveles o bloquee una cuenta. Tampoco hay ruta que exponga
-sesiones de todos los usuarios. La única vista de sesión es la del propio
-usuario. Por tanto, “usuarios conectados”, asignación de nivel y bloqueo son
-brechas de backend, autorización, auditoría y UI, no controles que se puedan
-resolver solo añadiendo botones.
+activas por sujeto y actualizar. No existe todavía ruta backend para que el
+administrador liste usuarios, cambie roles o bloquee una cuenta. La nueva UI cubre
+el contrato objetivo; la operación sigue bloqueada hasta entregar backend,
+autorización, persistencia, auditoría y sincronización Entra.
 
 ### 4.1 Comportamiento esperado
 
-Agregar una sección **Administración** visible solo para la capability
-administrativa. Debe permitir:
+Agregar una sección **Administración** solo después de implementar autorización y
+el contrato BFF. El roster debe contener exclusivamente miembros del grupo Entra
+`QAPAQ-SecOps-Users` configurado en servidor, incluidos miembros sin grant QAPAQ.
+No debe enumerar el directorio completo ni cambiar grupos o cuentas en Entra.
+La vista debe permitir:
 
 1. Ver cuentas habilitadas, suspendidas y pendientes; buscar por nombre,
    correo, equipo y nivel; mostrar último acceso, MFA/estado de identidad y
@@ -199,26 +202,26 @@ administrativa. Debe permitir:
 
 ### 4.2 Decisión de autorización que debe quedar explícita
 
-“Administrador con todas las funciones SOC” es ahora una regla explícita: el rol
-recibe cada capability SOC actualmente registrada en el runtime, incluidas
-auditoría sensible y escritura de secretos. El conjunto es finito y la prueba
-de autorización lo verifica; las capabilities futuras no se heredan. El rol no
-administra usuarios, roles ni sesiones globales porque esas capacidades y sus
-endpoints aún no existen. Antes de añadirlas hacen falta scope de tenant,
-auditoría reforzada, política de doble control y protección contra auto-bloqueo
-o auto-retiro del último administrador.
+"Administrador con todas las funciones SOC" aplica al conjunto de capabilities
+SOC que existe hoy: la unión es explícita y finita e incluye auditoría sensible y
+escritura de secretos. No se heredan capacidades futuras. La administración de
+identidades se añade por capabilities separadas (`users.read`, `sessions.read`,
+`roles.request`, `roles.approve`, entre otras), con scope de tenant y auditoría.
+Platform Admin puede leer el roster SOC y solicitar cambios; los grants
+privilegiados requieren aprobación independiente/step-up. No puede autoasignarse,
+autoaprobarse, retirar su propia sesión ni bloquear al último administrador.
 
-Esta definición no reemplaza controles de Entra: si el bloqueo pedido debe
-impedir también el inicio de sesión en Microsoft, se requiere integración con
-el proveedor de identidad y permisos de directorio apropiados. Si solo bloquea
-QAPAQ, debe rotularse como “acceso a QAPAQ suspendido”.
+El estado de conexión se deriva de sesiones QAPAQ persistidas y `lastSeenAt`; se
+rotula como actividad reciente con umbral configurable, no presencia de Teams ni
+tiempo real. Retirar la pertenencia al grupo Entra corta acceso al sincronizarse;
+una suspensión local solo bloquea QAPAQ y debe llamarse “acceso a QAPAQ suspendido”.
 
 ## 5. Brechas de plataforma necesarias para cerrar el objetivo
 
 | Capacidad | Estado observado | Trabajo requerido |
 | --- | --- | --- |
-| Usuarios / niveles | Sin endpoint de administración; `platform.admin` sí tiene las capabilities SOC actuales, no las de identidad | Definir catálogo, ámbito, política de asignación y endpoints de lectura/escritura. |
-| Usuarios conectados | No existe listado global; sesiones viven en store en memoria; una sesión nueva reemplaza la anterior | Persistencia compartida, endpoint de sesiones activas, heartbeat/actividad y umbral documentado. |
+| Usuarios / niveles | Sin endpoint de administración ni capability de identidad; roster y bundles destino están diseñados en [entra-soc-user-admin.md](../architecture/entra-soc-user-admin.md) | Sync Graph de solo lectura del grupo único configurado, grants locales persistidos, solicitudes/aprobaciones SoD y auditoría. |
+| Usuarios conectados | No existe listado global; sesiones viven en store en memoria y la política runtime difiere de `REJECT_NEW` | Persistencia PostgreSQL compartida, endpoint de sesiones y revocación distribuida, `lastSeenAt` y umbral configurable. |
 | Bloqueo | Existe revocación interna de sesiones; no hay comando administrativo ni estado de cuenta bloqueada | Modelo de suspensión, efecto sobre sesiones actuales y futuras, recuperación y auditoría. |
 | Salud/cobertura | El BFF solo comprueba disponibilidad básica | Agregación por fuente y ruta de salud operacional. |
 | Búsqueda de eventos | No hay ruta de consulta de producto | API paginada con filtros y permisos sobre datos crudos. |
@@ -299,3 +302,55 @@ QAPAQ, debe rotularse como “acceso a QAPAQ suspendido”.
   compilación de web y chequeos de tipos web/API/access. La administración de
   usuarios, sesiones globales, niveles y bloqueos sigue pendiente de un store
   persistente, endpoints y enforcement/auditoría de identidad.
+
+## 10. Estado actualizado · 2026-10-12
+
+Este apartado actualiza los hallazgos de la revisión del 6 de octubre. Conserva la arquitectura documentada: Wazuh es la plataforma de telemetría, búsqueda y detección; QAPAQ es el plano multitenant de operación, autorización y rendición de cuentas.
+
+### Vistas con contrato de producto existente
+
+- **Resumen:** muestra alertas e incidentes con totales del servidor; ahora consulta `/api/health/ready` para disponibilidad del BFF. El estado global de ingesta sigue explícitamente sin datos de salud.
+- **Alertas:** cola con filtros del servidor, navegación por entidad/alerta relacionada y detalle de señal rotulada como táctica inferida. El evento original continúa en Wazuh.
+- **Incidentes:** búsqueda, estados, enlaces profundos y comandos de ciclo de vida. `contained`/`eradicated` son estados del registro, no prueba de ejecución de contención externa.
+- **Notificaciones:** estados, acuse humano y paginación cursor. Claude informa que implementó cola PostgreSQL con lease, dispatcher automático y capacidad `notifications.dispatch`; los unitarios reportados pasan, pero la recuperación con PostgreSQL real no está verificada porque Docker está detenido por falta de espacio en disco. Mantener la entrega como pendiente de aceptación hasta poder correr integración PG.
+- **Auditoría e integridad:** consulta autorizada, redacción, filtros server-side, cursor y verificación limitada a 1 000 eventos por la API actual. Aún no equivale a informe/regulatorio exportable con manifiesto.
+- **Mi sesión:** identidad y todas las capabilities efectivas devueltas por la sesión, incluidas observabilidad, despacho y sesiones administrativas; no es administración de usuarios ni listado de sesiones ajenas.
+- **Eventos:** `GET /api/events` aún no está expuesto; la ruta directa informa el bloqueo, pero ya no se anuncia en navegación. No se simula búsqueda del Indexer. Contrato objetivo: [eventos-investigacion.md](eventos-investigacion.md).
+
+`apps/web/src/components/admin/*` y `mock-admin.ts` son material heredado de demostración, no funcionalidad conectada ni superficie que deba anunciarse como administración activa. Las reglas de detección, evidencia/adjuntos, playbooks completos, identidades y sesiones globales siguen ligadas a brechas de dominio/API, no se resuelven agregando controles web falsos.
+
+### Decisión de producto
+
+QAPAQ merece existir mientras reduzca trabajo manual y haga verificable el trayecto `alerta Wazuh → prioridad explicable → responsable → investigación/incidente → acción aprobada → resultado externo → registro/auditoría`. Si solo replica eventos, filtros, dashboards, agentes o Rule Test, Wazuh ya ofrece esa superficie y mantener la copia duplica fuentes de verdad. El diferenciador debe medirse con alertas sin asignar/antiguas, cobertura de fuentes, tiempo de triaje/acuse/resolución, acciones confirmadas, falsos positivos y completitud de evidencia.
+
+El benchmark abierto sugiere integración por capas: Wazuh para telemetría/detección y agentes; DFIR-IRIS como referencia o backend opcional de casos, evidencia, timeline y reportes; Shuffle como posible ejecutor de workflows cuando exista necesidad multiherramienta. No se debe reconstruir un SIEM, ni un motor visual general de playbooks, ni un segundo repositorio integral de logs para justificar QAPAQ.
+
+### Orden de cierre
+
+1. **P0 · Outbox SOAR durable:** Claude reporta claim con lease, intentos/fallback persistentes, reintento, dispatcher automático, capability propia y retiro del relay a RAM. La revisión estática encontró que reclama 20 mensajes con lease de 120 s pero los envía serialmente con timeout de 10 s (hasta 200 s por lote); sin fencing, un claim posterior puede ser modificado por el dueño anterior. El cierre forzado del proceso vence a 6 s aunque el dispatcher espere el lote. Requiere corregir ownership/lease y alinear apagado antes de aceptar. Las pruebas de recuperación/multiconcurrencia contra PostgreSQL también quedan pendientes mientras Docker no arranque.
+2. **P1 · Telemetría utilizable:** `GET /api/events` por tenant con filtros paginados, permiso diferenciado para payload crudo y links de pivote; `GET /api/platform/health` con disponibilidad separada de collector, dataset/content-type, último intento/éxito/evento y lag. No inferir salud solo por silencio o estado del manager.
+3. **P1 · Caso y evidencia:** historial de decisiones/asignación, notas y artefactos con hash/procedencia/custodia/acceso, vínculo a alertas Wazuh, acción aprobada, respuesta del control de destino y reporte con ventana, actor, evidencia y limitaciones.
+4. **P2 · Ingeniería de detecciones:** fixtures reales autorizados y redactados, regresiones, logtest/pruebas de reglas, falsos positivos, cobertura MITRE y estado de validación por versión. Preferir deep-links y evidencia de Wazuh Rule Test antes de clonar su editor.
+5. **P2 · Integraciones optativas:** validar IRIS/Shuffle con un caso piloto, aislamiento tenant, RBAC, secreto/rotación, fallos, licencias, upgrades y propiedad de cada registro antes de integrarlos.
+
+### SBS y evidencia
+
+El catálogo oficial consultado publica la Resolución SBS 504-2021 en versión 5.0 y estado vigente. La aplicabilidad y el mapeo de controles deben verificarse por tipo de entidad/régimen y texto consolidado vigente. La consola puede conservar artefactos que apoyen el procedimiento, pero el cumplimiento también requiere gobierno, personas, controles, pruebas, operación y criterio de la entidad; la UI no certifica conformidad.
+
+### Verificación de este delta
+
+Verificación actual: typecheck web PASS; build de producción Vite PASS; web 3 archivos / 19 pruebas PASS; API/SOAR/SOC/access 13 archivos / 196 pruebas PASS; contrato KrakenD 7/7 PASS; detector de diseño `[]`; `git diff --check` sin hallazgos de whitespace (avisos CRLF de Git). No hubo captura de navegador. No hay prueba E2E del nuevo Admin porque el endpoint BFF aún no existe; la vista permanece oculta para todos los roles actuales y no usa mocks. Las pruebas reales PostgreSQL/Wazuh y el cierre de fencing C-20 siguen pendientes por Docker/disco y revisión de Claude.
+
+## 12. Revisión de vistas por rol · 2026-10-12
+
+La consola activa tiene cuatro roles runtime y filtra rutas y acciones por capability. La
+composición concreta está en [10-vistas-por-rol-y-referencias.md](10-vistas-por-rol-y-referencias.md).
+`/admin/sessions` consulta y revoca sesiones con C-10(b). `/operations` entrega secciones
+distintas a analyst, lead y platform admin según su sesión. `/me` expone el conjunto completo
+de capabilities efectivas emitido por el BFF.
+
+No hay una ruta web que pueda completar por sí sola la búsqueda de eventos, cobertura
+Wazuh/Microsoft 365 por dataset, roster de Entra y grants. Faltan respectivamente
+`GET /api/events`, `GET /api/platform/health` (C-5) y las rutas/store de C-10(c). Hasta que
+esos contratos estén publicados y probados, las superficies se ocultan o describen el
+bloqueo; no se presenta el cliente Indexer/Graph ni los contratos futuros como activos.

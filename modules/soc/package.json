@@ -8,6 +8,11 @@
       "types": "./src/index.ts",
       "development": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./postgres": {
+      "types": "./src/infrastructure/postgres-soc.ts",
+      "development": "./src/infrastructure/postgres-soc.ts",
+      "default": "./dist/infrastructure/postgres-soc.js"
     }
   },
   "scripts": {
@@ -19,10 +24,13 @@
     "@qapaq/access": "workspace:*",
     "@qapaq/audit": "workspace:*",
     "@qapaq/contracts": "workspace:*",
+    "@qapaq/database": "workspace:*",
     "@qapaq/detection": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.13.6",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0",
     "typescript": "6.0.3",
     "vitest": "5.0.1"
   }

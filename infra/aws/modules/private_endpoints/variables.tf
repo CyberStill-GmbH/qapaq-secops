@@ -23,5 +23,11 @@ variable "app_route_table_ids" {
 }
 
 variable "runtime_security_group_ids" {
-  type = list(string)
+  description = "Stable names mapped to runtime security group IDs."
+  type        = map(string)
+}
+
+variable "ecr_image_pull_security_group_ids" {
+  description = "Security groups for ECS runtimes that need HTTPS access to ECR image layers in S3."
+  type        = map(string)
 }

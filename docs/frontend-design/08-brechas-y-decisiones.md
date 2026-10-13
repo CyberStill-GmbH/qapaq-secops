@@ -51,7 +51,7 @@ Diferencias de nombres que la migración debe corregir en el código web:
 | B-03 | ~~`/api/auth/callback` responde JSON, no redirige~~ | — | **Resuelta** · [§2.1](#21-registro-de-resolución-b-01-b-02-b-03) | — |
 | B-04 | Sesión sin `displayName` ni correo | Barra superior y asignaciones muestran IDs | Guardar `name` y `preferred_username` del `id_token` | `MonoId` del `subjectId` |
 | B-05 | Sin `GET /api/incidents/:id` | Enlace profundo de Teams a incidente exige cargar la lista | Agregar la ruta | Cargar lista y buscar |
-| B-06 | Cursor de auditoría ignorado; filtros `actorId`, `resourceType`, `resourceId`, `outcome` no cableados | Solo primera página; historial por elemento imposible | Reenviar `cursor` y filtros | Filtro en cliente con `PartialResultBanner` |
+| B-06 | ~~Cursor de auditoría y filtros server-side no cableados en el cliente~~ | — | **Resuelta en UI** · [§2.2](#22-registro-de-resolución-b-06) | — |
 | B-07 | Sesión sin expiración visible; el refresco periódico renueva la inactividad | Sin aviso de vencimiento; sesión eterna con la pestaña abierta | `idleExpiresAt`/`absoluteExpiresAt` en la sesión; peticiones de fondo marcadas que no renueven | Pausa del refresco a los 10 min sin interacción |
 | B-08 | Sin agregados (conteo por estado/prioridad) | Pestañas y Resumen dependen de la lista completa | Endpoint de conteos | Conteo en cliente |
 | B-09 | Notificación sin `aggregateId`, severidad, `createdAt` | No se sabe qué alerta originó la notificación | Exponer `aggregateType`, `aggregateId`, `severity` | Columna omitida |
@@ -146,8 +146,7 @@ La consola C-21 agrega el botón "Cargar más alertas" cuando hay `nextCursor`.
 
 **Lo que no cubre.** Los contadores por estado de las pestañas
 ([04 · §3.2](04-pantallas.md#32-pestañas-de-estado)) ya no pueden calcularse con
-una sola página: siguen pendientes en B-08. El cursor de auditoría (B-06) es un
-problema distinto y sigue abierto.
+una sola página: siguen pendientes en B-08.
 
 #### B-01 · Las mutaciones no tenían protección CSRF
 
@@ -215,6 +214,36 @@ reinicio dejaría sesiones válidas con tokens inválidos.
 Las pruebas del BFF inician sesión desde una IP de oficina distinta en cada
 caso. El límite real de C-25 (30 callbacks por minuto y origen) no se relajó para
 las pruebas: se aisló cada caso.
+
+### 2.2 Registro de resolución: B-06
+
+Fecha: 2026-10-12. `AuditPage` ahora envía `cursor`, `actorId`, `resourceType`,
+`resourceId` y `outcome` al contrato que ya acepta `GET /api/audit/events`. La
+fecha, acción y esos filtros quedan fijados mientras se recorren páginas; el
+filtro anterior en cliente se retiró para no sugerir una búsqueda global cuando
+solo examinaba 50 filas. El intervalo se valida en la UI frente al máximo de
+365 días del dominio, y la hora local se conserva al editar fechas.
+
+Validación de implementación: typecheck web limpio; detector UI sin findings;
+no se ejecutaron suites en este bloque. La búsqueda por `correlationId` aún no
+está disponible en el contrato, por lo que el identificador se muestra pero no
+se ofrece un control que prometa filtrarlo.
+
+---
+
+### 2.3 Estado de Eventos y Salud · 2026-10-13
+
+B-15 **resuelta para contrato y ruta del BFF**: existe `GET /api/events`, requiere
+`events.read`, pagina con cursor y acepta filtros tipados o la gramática acotada
+`qapaq-events-v1`. El editor web consume el parser compartido y no persiste la consulta
+en la ruta. Pruebas de parser/HTTP/build existen; aceptación contra la versión real de
+Wazuh Indexer 4.14.7 sigue siendo gate de activación y no se infiere de pruebas unitarias.
+
+B-16 **resuelta para salud por fuente**: existe `GET /api/sources/health` y la interfaz
+presenta evaluación, observaciones, transiciones y medición de suscripciones separada de
+la salud de fuente. `unknown`/`disabled` se mantienen neutrales; ausencia de eventos no
+demuestra poll exitoso. Aceptación de integración y operación en el entorno demo siguen
+dependiendo de runtime, DB y proveedor autorizados.
 
 ---
 

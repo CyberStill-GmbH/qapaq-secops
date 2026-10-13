@@ -31,6 +31,25 @@ export {
   type IncidentTransition,
 } from './incident.js';
 export {
+  applyTaskCommand,
+  blocksClosure,
+  createNote,
+  createTask,
+  INCIDENT_WORK_LIMITS,
+  TASK_COMMANDS,
+  TASK_ERROR_CODES,
+  TASK_STATUSES,
+  type IncidentNote,
+  type IncidentTask,
+  type NewNoteInput,
+  type NewTaskInput,
+  type TaskCommand,
+  type TaskCommandName,
+  type TaskErrorCode,
+  type TaskStatus,
+  type WorkResult,
+} from './incident-work.js';
+export {
   alertEvent,
   incidentEvent,
   outboxIdempotencyKey,
@@ -43,12 +62,19 @@ export {
   type SocEventType,
 } from './events.js';
 export {
+  addIncidentNote,
+  createIncidentTask,
   executeAlertCommand,
   executeIncidentCommand,
+  executeTaskCommand,
+  type AddNoteRequest,
+  type CreateTaskRequest,
+  type TaskCommandRequest,
   ingestCandidate,
   openIncidentFromAlert,
   SOC_FAILURE_CODES,
   type AlertCommandRequest,
+  type EntityRefFactory,
   type IdFactory,
   type IncidentCommandRequest,
   type OpenIncidentRequest,
@@ -58,10 +84,44 @@ export {
   type SocResult,
 } from './use-cases.js';
 export { InMemorySoc } from './memory-unit-of-work.js';
+export { InMemoryIngestionState } from './memory-ingestion.js';
+export {
+  DEFAULT_SOURCE_HEALTH_POLICY,
+  evaluateSourceHealth,
+  SOURCE_HEALTH_REASONS,
+  SOURCE_HEALTH_STATES,
+  type SourceHealthEvaluation,
+  type SourceHealthPolicy,
+  type SourceHealthReason,
+  type SourceHealthState,
+  type SourceHealthTransition,
+} from './source-health.js';
+export {
+  planIngestionWindow,
+  POLL_OUTCOMES,
+  type ClaimedIngestionCursor,
+  type IngestionCursorKey,
+  type IngestionStateStore,
+  type IngestionWindowPolicy,
+  type PollOutcome,
+  type SourcePollObservation,
+  type StreamActivityRecord,
+} from './ingestion.js';
 export type {
+  AlertQuery,
   AlertStore,
+  ClaimedOutboxMessage,
+  IncidentNoteStore,
+  IncidentQuery,
   IncidentStore,
+  IncidentTaskStore,
+  OutboxHealth,
   OutboxStore,
+  QueryResult,
+  SocHealthQuery,
+  SocOutboxQueue,
+  SocPersistence,
+  SocReadModel,
   SocTransactionContext,
   SocUnitOfWork,
 } from './ports.js';

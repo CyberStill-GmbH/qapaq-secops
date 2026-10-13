@@ -37,6 +37,28 @@ finita y probada, no una herencia automática de capabilities futuras.
 - audit.read, audit.export; reports.read, reports.generate.
 - Capacidades adicionales propuestas por riesgos: events.read, evidence.read, evidence.export, retention.manage, retention.hold, platform.health.read.
 
+### Capabilities presentes en el runtime
+
+El catálogo ejecutable actual está en `modules/access/src/capabilities.ts` y no
+coincide todavía con todas las propuestas documentales:
+
+- `events.read` permite consultar eventos normalizados; `events.read_raw` solo
+  añade la referencia/metadatos raw a la respuesta y no concede descarga.
+- `notifications.read` permite consultar y acusar la notificación. El despacho
+  manual `POST /api/notifications/drain` exige la capability independiente
+  `notifications.dispatch`; el despacho normal lo ejecuta el worker del runtime.
+- Los roles de SOC lead y platform admin tienen `notifications.dispatch`; SOC
+  analyst y auditor no. El administrador recibe la lista finita actual, no grants
+  automáticos para capabilities que se agreguen después.
+- `incidents.write` opera transiciones del caso local. Hoy no autoriza ni prueba
+  contención técnica en Wazuh, Entra, EDR u otro proveedor.
+
+`evidence.*`, `cases.*`, `platform.health.read`, `audit.export` y
+`notifications.retry/manage` siguen siendo propuestas, no permisos ejecutables.
+Antes de crear endpoints para salud, evidencia o respuesta externa, registrar
+capabilities explícitas, roles/scopes, tenant/resource scope, auditoría y casos
+deny. `events.read` nunca concede `evidence.read` o `evidence.export`.
+
 ADR-017 acepta las capabilities críticas y la separación raw/export/JIT/SOAR. El
 catálogo restante es propuesta contractual; no endpoints ni permisos instalados.
 No permitir audit.export implícito por audit.read, ni evidence.read por events.read.

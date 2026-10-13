@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api, apiFetch } from '../src/api/client.js';
 import { ErrorBanner } from '../src/app/error-banner.js';
 import { Console } from '../src/app/console.js';
+import { EventsPage } from '../src/components/soc/EventsPage.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -157,5 +158,78 @@ describe('B-01 · token CSRF en el cliente', () => {
 
     expect(headerOf(calls[1])).toBe('token-de-la-sesion');
     expect(headerOf(calls[2])).toBeUndefined();
+  });
+});
+
+describe('D-10b · pivote de correlación con referencia opaca', () => {
+  it('envía la referencia opaca para el pivote de entidad', async () => {
+    let requestedUrl = '';
+    stubFetch(((url: string) => {
+      requestedUrl = url;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ correlationId: 'corr-entity', items: [], nextCursor: null }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    }) as typeof fetch);
+
+    const entityRef = 'ent_AAAAAAAAAAAAAAAAAAAAAA';
+    await api.alertsByStatus('open', undefined, '', undefined, entityRef);
+
+    const query = new URLSearchParams(requestedUrl.split('?')[1] ?? '');
+    expect(query.get('entity')).toBe(entityRef);
+    expect(requestedUrl).not.toContain('user:');
+    expect(requestedUrl).not.toContain('@');
+  });
+});
+
+describe('Eventos · gramática segura de búsqueda', () => {
+  it('envía q sin filtros tipados y conserva el texto solo en la petición', async () => {
+    let requestedUrl = '';
+    stubFetch(((url: string) => {
+      requestedUrl = url;
+      return Promise.resolve(
+        new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }),
+      );
+    }) as unknown as typeof fetch);
+
+    await api.events({
+      from: '2026-10-12T00:00:00.000Z',
+      to: '2026-10-13T00:00:00.000Z',
+      q: 'severity:high,critical AND outcome:failure',
+      severity: ['low'],
+      outcome: 'success',
+    });
+
+    const query = new URLSearchParams(requestedUrl.split('?')[1] ?? '');
+    expect(query.get('q')).toBe('severity:high,critical AND outcome:failure');
+    expect(query.has('severity')).toBe(false);
+    expect(query.has('outcome')).toBe(false);
+  });
+
+  it('presenta ambos modos y mantiene los filtros visuales disponibles', () => {
+    const html = renderToStaticMarkup(
+      createElement(EventsPage, {
+        session: {
+          subjectId: 'analyst-1',
+          tenantId: 'tenant-1',
+          roles: [],
+          capabilities: ['events.read'],
+          amr: [],
+          csrfToken: 'csrf',
+        },
+      }),
+    );
+
+    expect(html).toContain('Filtros');
+    expect(html).toContain('Consulta');
+    expect(html).toContain('Rango de tiempo');
+    expect(html).toContain('Severidad');
+    expect(html).toContain('Categoría');
+    expect(html).not.toContain('authentication_failed');
   });
 });

@@ -21,8 +21,18 @@ export async function composeApi(
     trustProxy: false,
   });
   // Fastify no emite X-Powered-By. CORS permanece deshabilitado.
+  // Readiness incluye el estado SOC: con PostgreSQL caído la API no se declara lista.
+  const contributors = runtime
+    ? [
+        () =>
+          runtime.soc.ready().then(
+            () => true,
+            () => false,
+          ),
+      ]
+    : [];
   return NestFactory.create<NestFastifyApplication>(
-    AppModule.compose(lifecycle, [], runtime),
+    AppModule.compose(lifecycle, contributors, runtime),
     adapter,
     { logger: false, abortOnError: false },
   );

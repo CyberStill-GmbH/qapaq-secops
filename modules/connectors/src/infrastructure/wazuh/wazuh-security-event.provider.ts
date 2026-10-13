@@ -1,6 +1,9 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import {
   SecurityEventProviderError,
+  type ActivityQuery,
+  type StreamActivity,
+  type EventFilters,
   type EventPage,
   type EventQuery,
   type JsonObject,
@@ -18,6 +21,7 @@ export interface WazuhSearchHit {
 }
 export interface WazuhSearchResponse {
   readonly hits?: { readonly hits?: readonly WazuhSearchHit[]; readonly total?: unknown };
+  readonly aggregations?: unknown;
 }
 export interface WazuhReadClient {
   health(signal?: AbortSignal): Promise<{ readonly status: string }>;
@@ -52,6 +56,18 @@ export interface WazuhSecurityEventProviderOptions {
   readonly client: WazuhReadClient;
   readonly telemetry?: WazuhConnectorTelemetry;
   readonly now?: () => number;
+  /**
+   * Compila los filtros neutrales a cláusulas `bool.filter` del Indexer (Strategy inyectada
+   * por el composition root, que conoce la tabla de normalización). Devuelve `undefined` si
+   * algún filtro no se puede empujar al Indexer: la consulta se rechaza antes que responder
+   * algo engañoso. Sin compilador, cualquier filtro se rechaza.
+   */
+  readonly compileFilters?: (filters: EventFilters) => readonly JsonObject[] | undefined;
+  /**
+   * Campo del documento que identifica el stream para `readActivity` (lo inyecta el composition
+   * root, que conoce la fuente). Sin él, la actividad no está disponible.
+   */
+  readonly activityField?: string;
 }
 
 interface CursorPayload {
@@ -63,10 +79,14 @@ interface CursorPayload {
   readonly pageSize: number;
   readonly sort: readonly JsonValue[];
   readonly exp: number;
+  /** Huella canónica de los filtros: un cursor no sirve para otra consulta. */
+  readonly f?: string;
 }
 
 const MAX_CURSOR_LENGTH = 4096;
 const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
+/** Streams como máximo en una medición de actividad (Office 365 publica cinco). */
+const ACTIVITY_STREAMS = 10;
 const DATASET = 'wazuh-alerts';
 
 function errorFrom(error: unknown, operation: 'health' | 'readPage'): SecurityEventProviderError {
@@ -155,6 +175,27 @@ async function delay(milliseconds: number, signal?: AbortSignal): Promise<void> 
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Filtros en forma canónica (listas ordenadas y sin vacíos) y su huella. Dos consultas con los
+ * mismos filtros en distinto orden comparten huella; cualquier otro filtro (u orden), no.
+ */
+function canonicalFilters(filters: EventFilters | undefined): EventFilters | undefined {
+  if (!filters) return undefined;
+  const severity = [...new Set(filters.severity ?? [])].sort();
+  const category = [...new Set(filters.category ?? [])].sort();
+  const result: { severity?: string[]; category?: string[]; outcome?: string } = {};
+  if (severity.length > 0) result.severity = severity;
+  if (category.length > 0) result.category = category;
+  if (filters.outcome) result.outcome = filters.outcome;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function filterFingerprint(filters: object | undefined): string | undefined {
+  return filters
+    ? createHash('sha256').update(JSON.stringify(filters), 'utf8').digest('base64url')
+    : undefined;
 }
 
 function jsonObject(value: unknown): JsonObject | undefined {
@@ -321,6 +362,17 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
       query.pageSize > this.options.maximumPageSize
     )
       throw new SecurityEventProviderError('PROVIDER_QUERY_REJECTED', 'readPage', false);
+    // Filtros: se compilan antes de tocar la red. Uno que no se puede empujar al Indexer
+    // rechaza la consulta: un resultado sin ese filtro aparentaría ser el filtrado.
+    const filters = canonicalFilters(query.filters);
+    const order = query.order ?? 'asc';
+    // El orden entra en la huella: un cursor de una lectura descendente no continúa una
+    // ascendente. Sin filtros y en orden ascendente no hay huella (compatibilidad).
+    const fingerprint = filterFingerprint(order === 'desc' ? { ...filters, order } : filters);
+    const compiled = filters ? this.options.compileFilters?.(filters) : [];
+    if (!compiled)
+      throw new SecurityEventProviderError('PROVIDER_QUERY_REJECTED', 'readPage', false);
+    const timeRange = { range: { timestamp: { gte: query.from, lte: query.to } } };
     let searchAfter: readonly JsonValue[] | undefined;
     if (query.cursor) {
       const { payload } = parseCursor(query.cursor, this.options.cursorSecret, this.#now());
@@ -329,7 +381,8 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
         payload.dataset !== query.dataset ||
         payload.from !== query.from ||
         payload.to !== query.to ||
-        payload.pageSize !== query.pageSize
+        payload.pageSize !== query.pageSize ||
+        payload.f !== fingerprint
       )
         throw new SecurityEventProviderError('PROVIDER_CURSOR_INCOMPATIBLE', 'readPage', false);
       searchAfter = payload.sort;
@@ -341,8 +394,9 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
           response = await this.options.client.search(
             {
               size: query.pageSize + 1,
-              query: { range: { timestamp: { gte: query.from, lte: query.to } } },
-              sort: [{ timestamp: { order: 'asc' } }, { id: { order: 'asc' } }],
+              query:
+                compiled.length === 0 ? timeRange : { bool: { filter: [timeRange, ...compiled] } },
+              sort: [{ timestamp: { order } }, { id: { order } }],
               ...(searchAfter ? { search_after: searchAfter } : {}),
             },
             query.signal,
@@ -372,7 +426,10 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
           typeof hit._id !== 'string' ||
           !Array.isArray(sort) ||
           sort.length !== 2 ||
-          typeof sort[0] !== 'string' ||
+          // OpenSearch devuelve el orden de un campo fecha como epoch en milisegundos
+          // (número); se acepta también texto por compatibilidad con gateways que lo
+          // serializan. El valor viaja intacto al cursor para `search_after`.
+          (typeof sort[0] !== 'string' && !Number.isFinite(sort[0])) ||
           typeof sort[1] !== 'string'
         )
           throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
@@ -405,6 +462,7 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
                 pageSize: query.pageSize,
                 sort: lastSort as readonly JsonValue[],
                 exp: this.#now() + (this.options.cursorTtlMs ?? 300_000),
+                ...(fingerprint ? { f: fingerprint } : {}),
               },
               this.options.cursorSecret,
             )
@@ -429,6 +487,67 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
       });
       throw mapped;
     }
+  }
+
+  /**
+   * Actividad por stream en `[from, to]`: una agregación `terms` de tamaño fijo con el máximo de
+   * `timestamp`, sin documentos (`size: 0`). Acotada por construcción: a lo sumo
+   * `ACTIVITY_STREAMS` buckets y la misma ventana máxima que `readPage`.
+   */
+  public async readActivity(query: ActivityQuery): Promise<readonly StreamActivity[]> {
+    const field = this.options.activityField;
+    const from = Date.parse(query.from);
+    const to = Date.parse(query.to);
+    if (
+      !field ||
+      query.sourceId !== this.options.sourceId ||
+      !this.options.allowedDatasets.includes(query.dataset) ||
+      !Number.isFinite(from) ||
+      !Number.isFinite(to) ||
+      from > to ||
+      to - from > MAX_RANGE_MS
+    )
+      throw new SecurityEventProviderError('PROVIDER_QUERY_REJECTED', 'readPage', false);
+    let response: WazuhSearchResponse;
+    try {
+      response = await this.options.client.search(
+        {
+          size: 0,
+          query: { range: { timestamp: { gte: query.from, lte: query.to } } },
+          aggs: {
+            streams: {
+              terms: { field, size: ACTIVITY_STREAMS },
+              aggs: { last: { max: { field: 'timestamp' } } },
+            },
+          },
+        },
+        query.signal,
+      );
+    } catch (error) {
+      throw error instanceof SecurityEventProviderError ? error : errorFrom(error, 'readPage');
+    }
+    const buckets = (response.aggregations as { streams?: { buckets?: unknown } } | undefined)
+      ?.streams?.buckets;
+    if (!Array.isArray(buckets) || buckets.length > ACTIVITY_STREAMS)
+      throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+    return buckets.map((bucket: unknown) => {
+      const item = bucket as {
+        key?: unknown;
+        doc_count?: unknown;
+        last?: { value?: unknown; value_as_string?: unknown };
+      };
+      if (
+        typeof item.key !== 'string' ||
+        item.key.length > 128 ||
+        !Number.isInteger(item.doc_count)
+      )
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      const last =
+        typeof item.last?.value === 'number' && Number.isFinite(item.last.value)
+          ? new Date(item.last.value).toISOString()
+          : null;
+      return { stream: item.key, count: item.doc_count as number, lastEventAt: last };
+    });
   }
 
   public async close(): Promise<void> {

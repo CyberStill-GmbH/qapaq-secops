@@ -3,6 +3,11 @@ output "ecr_repository_urls" {
   value       = { for key, repository in aws_ecr_repository.this : key => repository.repository_url }
 }
 
+output "ecr_repository_arns_by_service" {
+  description = "Private ECR repository ARNs keyed by service, for least-privilege pull policies."
+  value       = { for key, repository in aws_ecr_repository.this : key => repository.arn }
+}
+
 output "s3_bucket_names" {
   description = "Private S3 bucket names keyed by data purpose."
   value       = { for key, bucket in aws_s3_bucket.this : key => bucket.bucket }

@@ -15,11 +15,24 @@ import { validateSecurityEvent } from '@qapaq/contracts';
 import { acknowledge, drainOutbox } from '@qapaq/soar';
 
 import { ApiError } from '../http/api-error.js';
+import {
+  HEALTH_THRESHOLDS,
+  platformSection,
+  socSection,
+  summarySection,
+  worstStatus,
+  type HealthStatus,
+} from './operations-health.js';
 import { paginate, type PageQuery } from '../http/pagination.js';
 import { correlationIdOf } from '../http/request-context.js';
 import { mutatingActor, readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
+
+/** Mensajes por pasada manual del despacho. */
+const MANUAL_DRAIN_BATCH = 1;
+/** Tope de la bandeja de notificaciones que se pagina en el BFF. */
+const NOTIFICATION_LIST_LIMIT = 2_000;
 
 @Controller('api')
 export class OperationsController {
@@ -41,14 +54,20 @@ export class OperationsController {
     return { correlationId, outcome };
   }
 
+  /**
+   * Pasada manual del despacho. El despacho normal lo hace el bucle del runtime; esto queda
+   * para operación y pruebas, y por ser un efecto externo exige `notifications.dispatch`.
+   */
   @Post('notifications/drain')
   public async drain(@Req() request: IncomingRequest) {
     const { actor, correlationId } = await mutatingActor(this.runtime, request);
-    if (!actor.capabilities.has('notifications.read')) {
+    if (!actor.capabilities.has('notifications.dispatch')) {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
-    this.runtime.pumpOutbox();
-    const results = await drainOutbox(this.runtime.dispatchDependencies());
+    // Un solo mensaje por pasada manual: con el timeout del transporte (10 s) la respuesta
+    // cabe en el timeout del gateway. El resto lo despacha el bucle automático.
+    const results = await drainOutbox(this.runtime.dispatchDependencies(), MANUAL_DRAIN_BATCH);
+    this.runtime.dispatcher.kick();
     return { correlationId, results: results.map((result) => result.code) };
   }
 
@@ -59,9 +78,7 @@ export class OperationsController {
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
     }
     const page = paginate(
-      [...this.runtime.notifications.rows.values()].filter(
-        (attempt) => attempt.tenantId === actor.tenantId,
-      ),
+      await this.runtime.notifications.listByTenant(actor.tenantId, NOTIFICATION_LIST_LIMIT),
       (attempt) => ({ at: attempt.createdAt.getTime(), id: attempt.id }),
       query,
       'notifications',
@@ -80,6 +97,64 @@ export class OperationsController {
         acknowledgedBy: attempt.acknowledgedBy,
         lastFailureClass: attempt.lastFailureClass,
       })),
+    };
+  }
+
+  /**
+   * Salud operativa por secciones según capability (ver `operations-health.ts`). Solo
+   * lectura, agregada y sin datos personales.
+   */
+  @Get('operations/health')
+  public async operationsHealth(@Req() request: IncomingRequest) {
+    const { actor, correlationId } = await readingActor(this.runtime, request);
+    if (!actor.capabilities.has('alerts.read')) {
+      throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
+    }
+    const at = this.runtime.now();
+    const summary = summarySection(
+      { lastAlertAt: await this.runtime.soc.lastAlertAt(actor.tenantId) },
+      at,
+    );
+    const sections: Record<string, { readonly status: HealthStatus }> = { summary };
+
+    if (actor.capabilities.has('observability.read_soc')) {
+      // Ventana fija agregada en el store: conteos estables, no "las últimas N filas".
+      const notificationsByStatus = await this.runtime.notifications.countByStatusSince(
+        actor.tenantId,
+        new Date(at.getTime() - HEALTH_THRESHOLDS.notificationWindowHours * 3_600_000),
+      );
+      sections['soc'] = socSection(
+        {
+          persistence: this.runtime.soc.kind,
+          dispatcherRunning: this.runtime.dispatcher.started,
+          outbox: await this.runtime.soc.outboxHealth(actor.tenantId),
+          notificationsByStatus,
+        },
+        at,
+      );
+    }
+
+    if (actor.capabilities.has('observability.read_platform')) {
+      const started = performance.now();
+      let databaseLatencyMs: number | null = null;
+      try {
+        await this.runtime.soc.ready();
+        databaseLatencyMs = Math.round(performance.now() - started);
+      } catch {
+        // El detalle del error no se expone: puede citar parámetros de conexión.
+        databaseLatencyMs = null;
+      }
+      sections['platform'] = platformSection(
+        { processMetrics: this.runtime.processInfo(), databaseLatencyMs },
+        at,
+      );
+    }
+
+    return {
+      correlationId,
+      generatedAt: at.toISOString(),
+      status: worstStatus(Object.values(sections).map((section) => section.status)),
+      sections,
     };
   }
 

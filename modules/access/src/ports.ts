@@ -25,8 +25,20 @@ export interface SessionStore {
   create(session: Session): Promise<void>;
   byId(sessionId: string): Promise<Session | undefined>;
   activeBySubject(tenantId: string, subjectId: string): Promise<readonly Session[]>;
+  /**
+   * Sesiones activas de una persona por su OID de Entra (Sprint 5): para revocar cuando sale del
+   * grupo o deja de ser dueña. Mismo formato de `id` que `activeBySubject` (`h:<hash>`).
+   */
+  activeByOid(tenantId: string, oid: string): Promise<readonly Session[]>;
   /** Compare-and-set sobre `revision`; `false` si otra escritura se adelantó. */
   update(session: Session, expectedRevision: number): Promise<boolean>;
+  /**
+   * Sesiones del tenant vistas desde `since`, más recientes primero (administración, C-10).
+   * El `id` devuelto es una referencia `h:<hash>`: sirve para revocar, nunca como cookie.
+   */
+  recentByTenant(tenantId: string, since: Date, limit: number): Promise<readonly Session[]>;
+  /** Lee por referencia `h:<hash>` para una acción administrativa; nunca por cookie. */
+  byReference(reference: string): Promise<Session | undefined>;
 }
 
 export interface AttemptStore {

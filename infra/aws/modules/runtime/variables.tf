@@ -85,7 +85,59 @@ variable "krakend_environment" {
   default     = {}
 }
 
+variable "entra_client_secret_arn" {
+  description = "Secrets Manager ARN injected into the API container as QAPAQ_ENTRA_CLIENT_SECRET."
+  type        = string
+}
+
+variable "soc_database" {
+  description = <<-EOT
+    Activación del estado SOC durable (C-1). Null = el API sigue en memoria. Activarlo solo
+    después de: aplicar Terraform, publicar la imagen migrator y ejecutar `bootstrap-roles` y
+    `migrate` con éxito (workflow migrate-database). Los secretos deben tener versión vigente:
+    ECS no arranca una tarea cuyo secreto está vacío.
+  EOT
+  type = object({
+    host                      = string
+    port                      = number
+    database                  = string
+    runtime_secret_arn        = string
+    entity_ref_key_secret_arn = string
+    vapid_key_secret_arn      = string
+  })
+  default  = null
+  nullable = true
+}
+
 variable "health_check_grace_period_seconds" {
   type    = number
   default = 60
+}
+
+variable "api_extra_secrets" {
+  description = "Secretos adicionales del API (nombre de variable y ARN). Cada uno debe tener valor: ECS no arranca sin él."
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}
+
+variable "wazuh_ingestion" {
+  description = <<-EOT
+    Sprint 5 · fase 0 — ingesta Wazuh → SOC. Null = sin ingesta (el API arranca con
+    QAPAQ_INGESTION_SOURCE=disabled y KrakenD no publica /wazuh/*). Activarlo agrega a KrakenD
+    service discovery privado, lo que reemplaza su servicio ECS una vez (ventana breve sin
+    gateway); ver docs/deployment/wazuh-ingestion-rollout.md.
+  EOT
+  type = object({
+    indexer_url         = string
+    index_pattern       = string
+    reader_secret_arn   = string
+    proxy_ca_secret_arn = string
+    gateway_scope       = string
+    access_revision     = string
+  })
+  default  = null
+  nullable = true
 }

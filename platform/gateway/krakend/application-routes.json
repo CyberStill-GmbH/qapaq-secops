@@ -20,6 +20,33 @@
       "owner": "application-platform"
     },
     {
+      "path": "/api/operations/health",
+      "method": "GET",
+      "upstream": "/api/operations/health",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/sessions",
+      "method": "GET",
+      "upstream": "/api/admin/sessions",
+      "query_parameters": ["pageSize", "cursor"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/sessions/{ref}/revoke",
+      "method": "POST",
+      "upstream": "/api/admin/sessions/{ref}/revoke",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
       "path": "/api/auth/start",
       "method": "GET",
       "upstream": "/api/auth/start",
@@ -59,7 +86,7 @@
       "path": "/api/alerts",
       "method": "GET",
       "upstream": "/api/alerts",
-      "query_parameters": ["cursor", "pageSize", "status"],
+      "query_parameters": ["cursor", "pageSize", "status", "q", "priority", "entity"],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"
@@ -86,6 +113,24 @@
       "path": "/api/incidents",
       "method": "GET",
       "upstream": "/api/incidents",
+      "query_parameters": ["cursor", "pageSize", "status", "q"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}",
+      "method": "GET",
+      "upstream": "/api/incidents/{id}",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/alerts",
+      "method": "GET",
+      "upstream": "/api/incidents/{id}/alerts",
       "query_parameters": ["cursor", "pageSize"],
       "auth": "api-session",
       "encoding": "no-op",
@@ -110,6 +155,168 @@
       "owner": "application-platform"
     },
     {
+      "path": "/api/incidents/{id}/tasks",
+      "method": "GET",
+      "upstream": "/api/incidents/{id}/tasks",
+      "query_parameters": ["cursor", "pageSize"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/tasks",
+      "method": "POST",
+      "upstream": "/api/incidents/{id}/tasks",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/tasks/{taskId}/commands",
+      "method": "POST",
+      "upstream": "/api/incidents/{id}/tasks/{taskId}/commands",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/notes",
+      "method": "GET",
+      "upstream": "/api/incidents/{id}/notes",
+      "query_parameters": ["cursor", "pageSize"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/notes",
+      "method": "POST",
+      "upstream": "/api/incidents/{id}/notes",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/incidents/{id}/timeline",
+      "method": "GET",
+      "upstream": "/api/incidents/{id}/timeline",
+      "query_parameters": ["cursor", "pageSize"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/changes",
+      "method": "GET",
+      "upstream": "/api/changes",
+      "query_parameters": ["after"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/events",
+      "method": "GET",
+      "upstream": "/api/events",
+      "query_parameters": [
+        "category",
+        "cursor",
+        "from",
+        "outcome",
+        "pageSize",
+        "q",
+        "severity",
+        "to"
+      ],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/sources/health",
+      "method": "GET",
+      "upstream": "/api/sources/health",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/users",
+      "method": "GET",
+      "upstream": "/api/admin/users",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/users/{oid}",
+      "method": "GET",
+      "upstream": "/api/admin/users/{oid}",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/me/push/config",
+      "method": "GET",
+      "upstream": "/api/me/push/config",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/me/push/subscriptions",
+      "method": "GET",
+      "upstream": "/api/me/push/subscriptions",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/me/push/subscriptions",
+      "method": "POST",
+      "upstream": "/api/me/push/subscriptions",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/me/push/subscriptions/{id}/revoke",
+      "method": "POST",
+      "upstream": "/api/me/push/subscriptions/{id}/revoke",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/me/push/test",
+      "method": "POST",
+      "upstream": "/api/me/push/test",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/me/push/pending",
+      "method": "GET",
+      "upstream": "/api/me/push/pending",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
       "path": "/api/notifications",
       "method": "GET",
       "upstream": "/api/notifications",
@@ -128,10 +335,29 @@
       "owner": "application-platform"
     },
     {
+      "path": "/api/notifications/drain",
+      "method": "POST",
+      "upstream": "/api/notifications/drain",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
       "path": "/api/audit/events",
       "method": "GET",
       "upstream": "/api/audit/events",
-      "query_parameters": ["from", "to", "pageSize", "action"],
+      "query_parameters": [
+        "from",
+        "to",
+        "pageSize",
+        "cursor",
+        "action",
+        "actorId",
+        "resourceType",
+        "resourceId",
+        "outcome"
+      ],
       "auth": "api-session",
       "encoding": "no-op",
       "owner": "application-platform"

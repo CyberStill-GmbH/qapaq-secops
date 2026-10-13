@@ -9,12 +9,13 @@ allowed_admin_cidrs = []
 
 # Public application traffic must terminate TLS at the ALB; Terraform requires
 # an ACM certificate ARN in this region before planning or applying.
-enable_https             = false
-public_api_hostname      = null
-public_route53_zone_name = "qapaq.secops.com"
-wazuh_version            = "4.14.8"
-wazuh_instance_type      = "t3.xlarge"
-wazuh_volume_size_gb     = 100
+enable_https                  = true
+public_api_hostname           = "api.jappi.net.pe"
+public_route53_zone_name      = "api.jappi.net.pe"
+public_root_route53_zone_name = "jappi.net.pe"
+wazuh_version                 = "4.14.8"
+wazuh_instance_type           = "t3.xlarge"
+wazuh_volume_size_gb          = 100
 
 # Phase 3: small, temporary data plane in isolated private data subnets.
 postgres_engine_version            = "18.6"
@@ -30,7 +31,43 @@ valkey_engine_version              = "8.0"
 # Verified Fase 2C manifest: image digests are immutable and must not be replaced by tags.
 runtime_image_manifest_commit = "5ea083bd6dccf12580d00b43ee66d1086c0e06ea"
 runtime_image_digests = {
-  api     = "sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068"
-  worker  = "sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624"
-  krakend = "sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460"
+  api     = "sha256:400a87f68017d2726927f2266aef22c9e425dd5456a9157c8acd2eba26ae5bac"
+  worker  = "sha256:b55d7073deb4cc2895e625e70a81289f351983be66cc61146fd7a815d07e534e"
+  krakend = "sha256:f0ff76bc10211244b85b5cc27c51f21b6c34587469f79af0b5f824c6075671b3"
 }
+
+# Public Vercel-origin requests pass through the private KrakenD/API tasks.
+runtime_api_environment = {
+  QAPAQ_ACCESS_ALLOWED_CIDRS        = "0.0.0.0/0,::/0"
+  QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS  = "10.0.0.0/16"
+  QAPAQ_ENTRA_TENANT_ID             = "45f2f938-dbe3-4a3e-8a54-930893f94ef8"
+  QAPAQ_ENTRA_CLIENT_ID             = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
+  QAPAQ_ENTRA_REDIRECT_URI          = "https://app.jappi.net.pe/api/auth/callback"
+  QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS = "https://app.jappi.net.pe/api/auth/callback"
+  QAPAQ_CONSOLE_BASE_URL            = "https://app.jappi.net.pe"
+  # Sprint 5: asignación permanente (sin vencimiento) de la persona analista del demo. El dueño
+  # del grupo de admisión recibe admin por `soc_group_owner_oids` (variable de GitHub).
+  QAPAQ_ROLE_BINDINGS = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
+}
+
+runtime_krakend_environment = {
+  OIDC_ISSUER   = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/v2.0"
+  OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/discovery/v2.0/keys"
+  OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
+}
+
+# Sprint 5 — demo operativo sin pasos manuales (docs/deployment/sprint5-activacion.md).
+# Wazuh se inicializa por SSM en el apply: lector del Indexer, proxy TLS privado, usuario admin
+# local (`qapaq-admin`, contraseña en Secrets Manager) y usuario analista de solo lectura, más la
+# recolección de Office 365 con la misma app de Entra del API.
+wazuh_bootstrap_enabled = true
+wazuh_analyst_username  = "cguevara@qapaq.pe"
+wazuh_office365_enabled = true
+# Ingesta Wazuh → SOC por KrakenD con token de workload de la app del API.
+wazuh_ingestion_enabled = true
+# Padrón por Graph: el API resuelve el grupo por nombre; los dueños son admin automáticamente.
+soc_directory_group_name = "QAPAQ-SecOps-Users"
+# Avisos: si Teams no confirma la entrega, el aviso sale por correo desde este buzón (Mail.Send
+# de la app del API). Teams se activa con teams_notifications_enabled cuando exista el secreto.
+alert_mail_sender = "cguevara@qapaq.pe"
+

@@ -45,6 +45,13 @@ export const LOCAL_PRINCIPALS: Readonly<Record<string, LocalPrincipal>> = Object
     roles: ['qapaq.auditor'],
     amr: ['pwd', 'mfa'],
   },
+  'admin@qapaq.pe': {
+    subjectId: 'local-platform-admin-1',
+    username: 'admin@qapaq.pe',
+    displayName: 'Ada Admin',
+    roles: ['qapaq.platform.admin'],
+    amr: ['fido'],
+  },
   'sinrol@qapaq.pe': {
     subjectId: 'local-norole-1',
     username: 'sinrol@qapaq.pe',

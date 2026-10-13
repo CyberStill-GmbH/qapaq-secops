@@ -10,6 +10,18 @@ resource "aws_route53_zone" "public_api" {
   }
 }
 
+resource "aws_route53_zone" "public_root" {
+  count = var.public_root_route53_zone_name != null ? 1 : 0
+
+  name = trimsuffix(lower(var.public_root_route53_zone_name), ".")
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+    Purpose     = "public-root-dns"
+  }
+}
+
 locals {
   public_route53_zone_name = var.public_route53_zone_name != null ? trimsuffix(lower(var.public_route53_zone_name), ".") : ""
   public_api_hostname      = var.enable_https && var.public_api_hostname != null ? lower(var.public_api_hostname) : ""
@@ -81,6 +93,26 @@ resource "aws_route53_record" "public_api" {
   }
 }
 
+resource "aws_route53_record" "vercel_apps" {
+  for_each = var.public_root_route53_zone_name != null ? toset(["app", "codexpt"]) : toset([])
+
+  zone_id = aws_route53_zone.public_root[0].zone_id
+  name    = "${each.value}.${trimsuffix(lower(var.public_root_route53_zone_name), ".")}"
+  type    = "A"
+  ttl     = 300
+  records = ["76.76.21.21"]
+}
+
+resource "aws_route53_record" "api_zone_delegation" {
+  count = var.public_root_route53_zone_name != null && var.public_route53_zone_name != null ? 1 : 0
+
+  zone_id = aws_route53_zone.public_root[0].zone_id
+  name    = local.public_route53_zone_name
+  type    = "NS"
+  ttl     = 300
+  records = aws_route53_zone.public_api[0].name_servers
+}
+
 output "public_api_url" {
   description = "Public QAPAQ API URL."
   value       = var.enable_https ? "https://${var.public_api_hostname}" : module.wazuh_public.api_url
@@ -89,4 +121,9 @@ output "public_api_url" {
 output "public_route53_zone_name_servers" {
   description = "Delegate the public child zone at its parent DNS provider to these Route 53 name servers."
   value       = var.public_route53_zone_name != null ? aws_route53_zone.public_api[0].name_servers : []
+}
+
+output "public_root_route53_zone_name_servers" {
+  description = "Delegate the root domain at the registrar to these Route 53 name servers."
+  value       = var.public_root_route53_zone_name != null ? aws_route53_zone.public_root[0].name_servers : []
 }

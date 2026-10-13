@@ -208,4 +208,46 @@ describe('WazuhGatewayClient', () => {
         }),
     ).toThrowError(expect.objectContaining({ code: 'CONFIGURATION_INVALID' }));
   });
+
+  it('HTTP privado solo hacia *.qapaq.internal y con opción explícita', () => {
+    const base = { accessToken: TOKEN, requestTimeoutMs: 100, maximumResponseBytes: 10_000 };
+    expect(
+      () =>
+        new WazuhGatewayClient({
+          ...base,
+          baseUrl: 'http://krakend.demo.qapaq.internal:8080',
+          allowPrivateServiceHttp: true,
+        }),
+    ).not.toThrow();
+    expect(
+      () => new WazuhGatewayClient({ ...base, baseUrl: 'http://krakend.demo.qapaq.internal:8080' }),
+    ).toThrowError(expect.objectContaining({ code: 'CONFIGURATION_INVALID' }));
+    expect(
+      () =>
+        new WazuhGatewayClient({
+          ...base,
+          baseUrl: 'http://qapaq.internal.example.test',
+          allowPrivateServiceHttp: true,
+        }),
+    ).toThrowError(expect.objectContaining({ code: 'CONFIGURATION_INVALID' }));
+  });
+
+  it('pide el token en cada petición cuando recibe un proveedor', async () => {
+    let issued = 0;
+    const seen: string[] = [];
+    const client = new WazuhGatewayClient({
+      baseUrl: 'http://127.0.0.1:18080',
+      accessToken: async () => `token-${++issued}`,
+      requestTimeoutMs: 100,
+      maximumResponseBytes: 10_000,
+      allowInsecureLocalhost: true,
+      fetch: (async (_url: URL, init: RequestInit) => {
+        seen.push((init.headers as Record<string, string>)['authorization']!);
+        return new Response(JSON.stringify({ status: 'green' }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    await client.health();
+    await client.health();
+    expect(seen).toEqual(['Bearer token-1', 'Bearer token-2']);
+  });
 });

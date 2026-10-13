@@ -29,8 +29,13 @@ function createClient(): WazuhReadClient & {
   return {
     health: vi.fn(async () => ({ status: 'green' })),
     search: vi.fn(async (body: Readonly<Record<string, unknown>>) => {
-      const range = (body['query'] as { range: { timestamp: { gte: string } } }).range;
-      if (range.timestamp.gte === '2026-09-24T00:00:00.000Z')
+      // Con filtros la consulta es un `bool`; sin ellos, el `range` directo.
+      const query = body['query'] as {
+        range?: { timestamp: { gte: string } };
+        bool?: { filter: { range?: { timestamp: { gte: string } } }[] };
+      };
+      const range = query.range ?? query.bool?.filter[0]?.range;
+      if (range?.timestamp.gte === '2026-09-24T00:00:00.000Z')
         return { hits: { hits: [] } } as WazuhSearchResponse;
       const after = body['search_after'] as readonly unknown[] | undefined;
       return {
@@ -96,6 +101,25 @@ describe('WazuhSecurityEventProvider', () => {
       undefined,
     );
     expect(second.items[0]?.sourceRecordId).toBe('second');
+  });
+
+  it('acepta el orden numérico (epoch ms) que OpenSearch devuelve para campos fecha', async () => {
+    const epoch = Date.parse(QUERY.from);
+    const numeric = (id: string, sortId: string) => ({
+      ...hit(id, QUERY.from, sortId),
+      sort: [epoch, sortId],
+    });
+    client.search.mockResolvedValueOnce({
+      hits: { hits: [numeric('first', 'evt-1'), numeric('second', 'evt-2')] },
+    });
+    const first = await instance.readPage(QUERY);
+    expect(first.items[0]?.sourceRecordId).toBe('first');
+    client.search.mockResolvedValueOnce({ hits: { hits: [numeric('second', 'evt-2')] } });
+    await instance.readPage({ ...QUERY, cursor: first.nextCursor });
+    expect(client.search).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search_after: [epoch, 'evt-1'] }),
+      undefined,
+    );
   });
 
   it('expires cursors and does not treat them as durable checkpoints', async () => {
@@ -206,5 +230,137 @@ describe('WazuhSecurityEventProvider', () => {
       writesObserved: () => 0,
       secretToRedact: SECRET,
     });
+  });
+
+  it('compila filtros a bool.filter y ordena descendente cuando se pide', async () => {
+    const compile = vi.fn(() => [{ terms: { 'rule.groups': ['office365'] } }]);
+    const filtered = new WazuhSecurityEventProvider({
+      sourceId: 'lab',
+      allowedDatasets: ['wazuh-alerts'],
+      maximumPageSize: 10,
+      maximumResponseBytes: 1_000_000,
+      cursorSecret: SECRET,
+      client,
+      now: () => Date.parse('2026-09-25T02:00:00.000Z'),
+      compileFilters: compile,
+    });
+    await filtered.readPage({ ...QUERY, filters: { category: ['iam'] }, order: 'desc' });
+    expect(client.search).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: {
+          bool: {
+            filter: [
+              { range: { timestamp: { gte: QUERY.from, lte: QUERY.to } } },
+              { terms: { 'rule.groups': ['office365'] } },
+            ],
+          },
+        },
+        sort: [{ timestamp: { order: 'desc' } }, { id: { order: 'desc' } }],
+      }),
+      undefined,
+    );
+  });
+
+  it('un cursor no sirve con otros filtros u otro orden', async () => {
+    const filtered = new WazuhSecurityEventProvider({
+      sourceId: 'lab',
+      allowedDatasets: ['wazuh-alerts'],
+      maximumPageSize: 10,
+      maximumResponseBytes: 1_000_000,
+      cursorSecret: SECRET,
+      client,
+      now: () => Date.parse('2026-09-25T02:00:00.000Z'),
+      compileFilters: () => [],
+    });
+    const first = await filtered.readPage({ ...QUERY, filters: { severity: ['high'] } });
+    expect(first.nextCursor).toBeTruthy();
+    await expect(
+      filtered.readPage({ ...QUERY, filters: { severity: ['low'] }, cursor: first.nextCursor }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CURSOR_INCOMPATIBLE' });
+    await expect(
+      filtered.readPage({
+        ...QUERY,
+        filters: { severity: ['high'] },
+        order: 'desc',
+        cursor: first.nextCursor,
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CURSOR_INCOMPATIBLE' });
+    // Mismos filtros en otro orden de lista: misma huella, el cursor sirve.
+    await expect(
+      filtered.readPage({ ...QUERY, filters: { severity: ['high'] }, cursor: first.nextCursor }),
+    ).resolves.toBeDefined();
+  });
+
+  it('sin compilador, o con un filtro que no se puede empujar, rechaza antes de la red', async () => {
+    const calls = client.search.mock.calls.length;
+    await expect(
+      instance.readPage({ ...QUERY, filters: { category: ['iam'] } }),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_QUERY_REJECTED',
+    });
+    expect(client.search.mock.calls.length).toBe(calls);
+  });
+
+  it('actividad por stream: agregación acotada sin documentos y respuesta validada', async () => {
+    const withField = new WazuhSecurityEventProvider({
+      sourceId: 'lab',
+      allowedDatasets: ['wazuh-alerts'],
+      maximumPageSize: 10,
+      maximumResponseBytes: 1_000_000,
+      cursorSecret: SECRET,
+      client,
+      activityField: 'data.office365.Subscription',
+    });
+    client.search.mockResolvedValueOnce({
+      hits: { hits: [] },
+      aggregations: {
+        streams: {
+          buckets: [
+            { key: 'Audit.Exchange', doc_count: 7, last: { value: Date.parse(QUERY.to) } },
+            { key: 'Audit.General', doc_count: 1, last: { value: null } },
+          ],
+        },
+      },
+    });
+    const activity = await withField.readActivity({
+      sourceId: 'lab',
+      dataset: 'wazuh-alerts',
+      from: QUERY.from,
+      to: QUERY.to,
+    });
+    expect(activity).toEqual([
+      { stream: 'Audit.Exchange', count: 7, lastEventAt: QUERY.to },
+      { stream: 'Audit.General', count: 1, lastEventAt: null },
+    ]);
+    expect(client.search).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        size: 0,
+        aggs: {
+          streams: {
+            terms: { field: 'data.office365.Subscription', size: 10 },
+            aggs: { last: { max: { field: 'timestamp' } } },
+          },
+        },
+      }),
+      undefined,
+    );
+    client.search.mockResolvedValueOnce({ hits: { hits: [] }, aggregations: { streams: {} } });
+    await expect(
+      withField.readActivity({
+        sourceId: 'lab',
+        dataset: 'wazuh-alerts',
+        from: QUERY.from,
+        to: QUERY.to,
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_RESPONSE_INVALID' });
+    // Sin campo configurado la actividad no está disponible.
+    await expect(
+      instance.readActivity({
+        sourceId: 'lab',
+        dataset: 'wazuh-alerts',
+        from: QUERY.from,
+        to: QUERY.to,
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_QUERY_REJECTED' });
   });
 });

@@ -31,7 +31,7 @@ import { AlertDrawer, AlertsView, IncidentsView } from './SocViews.js';
 import { EventSearchView, CasesView } from './InvestigationViews.js';
 import { DetectionViews } from './DetectionViews.js';
 import { QuarantineView, SessionsView } from './ControlViews.js';
-import { Icon, Severity, formatDate, type IconName, type Section } from './admin-ui.js';
+import { Icon, formatDate, type IconName, type Section } from './admin-ui.js';
 
 type AlertFilter = 'all' | 'open' | 'critical';
 const nav: readonly {

@@ -3,6 +3,8 @@ locals {
     api     = "${var.project}-api"
     worker  = "${var.project}-worker"
     krakend = "${var.project}-krakend"
+    # C-1: tarea one-off de bootstrap de roles y migraciones; mismo commit que el API.
+    migrator = "${var.project}-migrator"
   }
 
   s3_buckets = {

@@ -1,0 +1,134 @@
+name: Configure Wazuh Office 365 collection
+
+# Aplica infra/wazuh/office365 al manager Wazuh del ambiente demo por SSM, sin reemplazar
+# la instancia (user_data no cambia). Ejecución manual: la integración exige un tenant
+# autorizado y una app de Entra con ActivityFeed.Read y consentimiento de administrador.
+#
+# Prerrequisitos fuera del repositorio:
+#   - Secrets Manager `qapaq-secops/demo/wazuh/office365-client-secret` con el client secret.
+#   - (Opcional) `qapaq-secops/demo/wazuh/break-glass-identities` con los UPN de emergencia.
+#   - Rol del host con GetSecretValue sobre ambos (módulo Terraform wazuh_public).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: GUID del tenant Microsoft 365 autorizado
+        required: true
+        type: string
+      client_id:
+        description: GUID de la app de Entra con ActivityFeed.Read
+        required: true
+        type: string
+      api_type:
+        description: Nube de Microsoft 365
+        required: true
+        default: commercial
+        type: choice
+        options: [commercial, gcc, gcc-high]
+      enable_dlp:
+        description: Suscribir DLP.All (requiere ActivityFeed.ReadDlp)
+        required: true
+        default: false
+        type: boolean
+      mode:
+        description: render valida y muestra el bloque sin tocar el manager
+        required: true
+        default: render
+        type: choice
+        options: [render, apply]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: configure-wazuh-office365
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate inputs
+        shell: bash
+        env:
+          TENANT_ID: ${{ inputs.tenant_id }}
+          CLIENT_ID: ${{ inputs.client_id }}
+        run: |
+          set -eu
+          guid='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+          [[ "$TENANT_ID" =~ $guid ]] || { echo 'tenant_id no es un GUID.' >&2; exit 1; }
+          [[ "$CLIENT_ID" =~ $guid ]] || { echo 'client_id no es un GUID.' >&2; exit 1; }
+          bash -n infra/wazuh/office365/apply-office365.sh
+          python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parseString('<root>'+open(sys.argv[1],encoding='utf-8').read().split('-->',1)[1]+'</root>')" \
+            infra/wazuh/office365/rules/qapaq_office365_rules.xml
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-wazuh-office365
+          allowed-account-ids: 955200662475
+
+      - name: Apply through SSM
+        shell: bash
+        env:
+          TENANT_ID: ${{ inputs.tenant_id }}
+          CLIENT_ID: ${{ inputs.client_id }}
+          API_TYPE: ${{ inputs.api_type }}
+          ENABLE_DLP: ${{ inputs.enable_dlp }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          instance_id="$(aws ec2 describe-instances \
+            --filters 'Name=tag:Name,Values=qapaq-secops-demo-wazuh' 'Name=instance-state-name,Values=running' \
+            --query 'Reservations[].Instances[].InstanceId | [0]' --output text)"
+          if [[ -z "$instance_id" || "$instance_id" == None ]]; then
+            echo 'No running Wazuh EC2 instance found.' >&2
+            exit 1
+          fi
+
+          # El paquete viaja embebido en el comando: reglas, plantilla y script versionados.
+          bundle="$(tar -C infra/wazuh -czf - office365 | base64 -w0)"
+          remote_script="$(cat <<REMOTE
+          set -eu
+          work="\$(mktemp -d)"
+          trap 'rm -rf "\$work"' EXIT
+          printf '%s' '${bundle}' | base64 -d | tar -C "\$work" -xzf -
+          QAPAQ_APPLY_MODE='${MODE}' \
+          QAPAQ_O365_TENANT_ID='${TENANT_ID}' \
+          QAPAQ_O365_CLIENT_ID='${CLIENT_ID}' \
+          QAPAQ_O365_API_TYPE='${API_TYPE}' \
+          QAPAQ_O365_ENABLE_DLP='${ENABLE_DLP}' \
+          QAPAQ_AWS_REGION=us-east-1 \
+          QAPAQ_O365_SECRET_SOURCE='aws-secretsmanager:qapaq-secops/demo/wazuh/office365-client-secret' \
+          QAPAQ_BREAK_GLASS_SOURCE='aws-secretsmanager:qapaq-secops/demo/wazuh/break-glass-identities' \
+            bash "\$work/office365/apply-office365.sh"
+          REMOTE
+          )"
+          payload="$(jq -cn --arg command "$remote_script" '{commands: [$command]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$instance_id" \
+            --document-name AWS-RunShellScript \
+            --comment "QAPAQ Office 365 collection (${MODE})" \
+            --parameters "$payload" \
+            --query 'Command.CommandId' --output text)"
+
+          for attempt in $(seq 1 90); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "$instance_id" --query Status --output text 2>/dev/null || true)"
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;;
+            esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --command-id "$command_id" \
+            --instance-id "$instance_id" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          [[ "$status" == Success ]]

@@ -4,61 +4,120 @@ import { api, type AuditEventView, type SessionView } from '../../api/client.js'
 import { Button, EmptyState, ErrorState, SocIcon } from './soc-ui.js';
 import { PageHeader, StateCell } from './soc-data-ui.js';
 
+interface AuditQuery {
+  readonly from: string;
+  readonly to: string;
+  readonly action: string;
+  readonly actorId: string;
+  readonly resourceType: string;
+  readonly resourceId: string;
+  readonly outcome: string;
+}
+
+function localDateTime(value: Date): string {
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function initialQuery(): AuditQuery {
+  const to = new Date();
+  return {
+    from: localDateTime(new Date(to.getTime() - 86_400_000)),
+    to: localDateTime(to),
+    action: '',
+    actorId: '',
+    resourceType: '',
+    resourceId: '',
+    outcome: '',
+  };
+}
+
 export function AuditPage({ session }: { readonly session: SessionView }): React.JSX.Element {
   const [items, setItems] = useState<readonly AuditEventView[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<ApiErrorBody | null>(null);
+  const [validationError, setValidationError] = useState('');
   const [updated, setUpdated] = useState<string | null>(null);
-  const [action, setAction] = useState('');
-  const [from, setFrom] = useState(() => new Date(Date.now() - 86_400_000).toISOString());
-  const [to, setTo] = useState(() => new Date().toISOString());
-  const [filter, setFilter] = useState('');
-  const load = useCallback(async () => {
-    const result = await api.audit(from, to, action || undefined);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setItems(result.data.items);
-    setError(null);
-    setUpdated(new Date().toISOString());
-  }, [action, from, to]);
+  const [loading, setLoading] = useState(false);
+  const [draft, setDraft] = useState<AuditQuery>(initialQuery);
+  const [applied, setApplied] = useState<AuditQuery>(draft);
+
+  const load = useCallback(
+    async (cursor?: string, append = false) => {
+      setLoading(true);
+      const from = new Date(applied.from);
+      const to = new Date(applied.to);
+      const result = await api.audit(
+        from.toISOString(),
+        to.toISOString(),
+        applied.action || undefined,
+        {
+          ...(cursor ? { cursor } : {}),
+          ...(applied.actorId ? { actorId: applied.actorId } : {}),
+          ...(applied.resourceType ? { resourceType: applied.resourceType } : {}),
+          ...(applied.resourceId ? { resourceId: applied.resourceId } : {}),
+          ...(applied.outcome ? { outcome: applied.outcome } : {}),
+        },
+      );
+      setLoading(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setItems((current) => (append ? [...current, ...result.data.items] : result.data.items));
+      setNextCursor(result.data.nextCursor);
+      setError(null);
+      setUpdated(new Date().toISOString());
+    },
+    [applied],
+  );
+
   useEffect(() => {
     void load();
-  }, []);
-  const filtered = items.filter(
-    (item) =>
-      !filter ||
-      `${item.actor.id} ${item.resource.id} ${item.correlationId}`
-        .toLowerCase()
-        .includes(filter.toLowerCase()),
-  );
+  }, [load]);
+
+  function submit(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const from = new Date(draft.from);
+    const to = new Date(draft.to);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      setValidationError('Ingresa un intervalo de fechas válido.');
+      return;
+    }
+    if (from.getTime() > to.getTime()) {
+      setValidationError('La fecha inicial debe ser anterior a la fecha final.');
+      return;
+    }
+    if (to.getTime() - from.getTime() > 365 * 86_400_000) {
+      setValidationError('El BFF permite consultar hasta 365 días por búsqueda.');
+      return;
+    }
+    setValidationError('');
+    setItems([]);
+    setNextCursor(null);
+    setApplied({ ...draft, from: from.toISOString(), to: to.toISOString() });
+  }
+
   const sensitive = session.capabilities.includes('audit.read_sensitive');
   return (
     <div className="soc-page">
       <PageHeader
         title="Auditoría"
-        description="Registro de acciones y resultados para la ventana consultada."
+        description="Acciones y resultados registrados para el intervalo consultado."
         updated={updated}
         action={
-          <Button onClick={() => void load()}>
-            <SocIcon name="refresh" /> Consultar
+          <Button onClick={() => void load()} disabled={loading}>
+            <SocIcon name="refresh" /> {loading ? 'Consultando…' : 'Actualizar'}
           </Button>
         }
       />
-      <form
-        className="soc-filter-bar"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void load();
-        }}
-      >
+      <form className="soc-filter-bar" onSubmit={submit}>
         <label>
           Desde
           <input
             aria-label="Desde"
             type="datetime-local"
-            value={from.slice(0, 16)}
-            onChange={(event) => setFrom(new Date(event.target.value).toISOString())}
+            value={draft.from.slice(0, 16)}
+            onChange={(event) => setDraft((value) => ({ ...value, from: event.target.value }))}
           />
         </label>
         <label>
@@ -66,13 +125,16 @@ export function AuditPage({ session }: { readonly session: SessionView }): React
           <input
             aria-label="Hasta"
             type="datetime-local"
-            value={to.slice(0, 16)}
-            onChange={(event) => setTo(new Date(event.target.value).toISOString())}
+            value={draft.to.slice(0, 16)}
+            onChange={(event) => setDraft((value) => ({ ...value, to: event.target.value }))}
           />
         </label>
         <label>
           Acción
-          <select value={action} onChange={(event) => setAction(event.target.value)}>
+          <select
+            value={draft.action}
+            onChange={(event) => setDraft((value) => ({ ...value, action: event.target.value }))}
+          >
             <option value="">Todas</option>
             <option value="access.sign_in">Inicio de sesión</option>
             <option value="soc.alert.triage">Triaje de alerta</option>
@@ -80,22 +142,60 @@ export function AuditPage({ session }: { readonly session: SessionView }): React
           </select>
         </label>
         <label>
-          Actor o recurso
+          Actor (ID exacto)
           <input
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Filtrar esta página"
+            value={draft.actorId}
+            onChange={(event) => setDraft((value) => ({ ...value, actorId: event.target.value }))}
+            placeholder="Identidad o servicio"
           />
         </label>
-        <Button variant="primary" type="submit">
+        <label>
+          Tipo de recurso
+          <input
+            value={draft.resourceType}
+            onChange={(event) =>
+              setDraft((value) => ({ ...value, resourceType: event.target.value }))
+            }
+            placeholder="alert, incident…"
+          />
+        </label>
+        <label>
+          Recurso (ID exacto)
+          <input
+            value={draft.resourceId}
+            onChange={(event) =>
+              setDraft((value) => ({ ...value, resourceId: event.target.value }))
+            }
+            placeholder="ID del recurso"
+          />
+        </label>
+        <label>
+          Resultado
+          <select
+            value={draft.outcome}
+            onChange={(event) => setDraft((value) => ({ ...value, outcome: event.target.value }))}
+          >
+            <option value="">Todos</option>
+            <option value="allowed">Permitido</option>
+            <option value="succeeded">Correcto</option>
+            <option value="denied">Denegado</option>
+            <option value="failed">Fallido</option>
+          </select>
+        </label>
+        <Button variant="primary" type="submit" disabled={loading}>
           Consultar
         </Button>
       </form>
+      {validationError ? (
+        <p className="soc-overdue" role="alert">
+          {validationError}
+        </p>
+      ) : null}
       {error ? <ErrorState error={error} onRetry={() => void load()} /> : null}
-      {filter ? (
-        <div className="soc-partial-banner">
-          Filtro aplicado a esta página ({filtered.length} de {items.length} eventos).
-        </div>
+      {loading && items.length > 0 ? (
+        <p className="soc-page-note" role="status">
+          Actualizando resultados…
+        </p>
       ) : null}
       <div className="soc-table-panel">
         <div className="soc-table-scroll">
@@ -112,7 +212,7 @@ export function AuditPage({ session }: { readonly session: SessionView }): React
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {items.map((item) => (
                 <tr key={item.id}>
                   <td>
                     <code>{item.sequence}</code>
@@ -155,13 +255,21 @@ export function AuditPage({ session }: { readonly session: SessionView }): React
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && !error ? (
+        {items.length === 0 && !error && !loading ? (
           <EmptyState>No hay eventos de auditoría que coincidan con esta consulta.</EmptyState>
+        ) : null}
+        {nextCursor ? (
+          <div className="soc-table-footer">
+            <Button onClick={() => void load(nextCursor, true)} disabled={loading}>
+              {loading ? 'Cargando…' : 'Cargar más registros'}
+            </Button>
+            <span>{items.length} registros cargados · hay más resultados</span>
+          </div>
         ) : null}
       </div>
       <p className="soc-page-note">
-        La auditoría se entrega en orden de secuencia ascendente. El filtro de actor o recurso se
-        aplica a esta página.
+        Los filtros se aplican en el BFF. El cursor continúa la misma consulta; los datos sensibles
+        dependen del permiso de auditoría de tu sesión.
       </p>
     </div>
   );

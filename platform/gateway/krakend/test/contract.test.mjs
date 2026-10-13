@@ -8,6 +8,22 @@ const applicationRoutes = JSON.parse(
   await readFile(new URL('application-routes.json', root), 'utf8'),
 );
 const template = await readFile(new URL('krakend.tmpl', root), 'utf8');
+const socController = await readFile(
+  new URL('../../../../apps/api/src/soc/soc.controller.ts', import.meta.url),
+  'utf8',
+);
+const auditController = await readFile(
+  new URL('../../../../apps/api/src/soc/audit.controller.ts', import.meta.url),
+  'utf8',
+);
+const eventsController = await readFile(
+  new URL('../../../../apps/api/src/soc/events.controller.ts', import.meta.url),
+  'utf8',
+);
+const paginationSource = await readFile(
+  new URL('../../../../apps/api/src/http/pagination.ts', import.meta.url),
+  'utf8',
+);
 const compose = await readFile(new URL('compose.yaml', root), 'utf8');
 const envExample = await readFile(new URL('.env.example', root), 'utf8');
 const inventory = await readFile(
@@ -82,6 +98,124 @@ test('application BFF allowlist matches explicit KrakenD proxy routes', () => {
   assert.doesNotMatch(template, /"endpoint"\s*:\s*"\/api\/ingest\//);
 });
 
+test('SOC query allowlists match controller @Query contracts and are forwarded by KrakenD', () => {
+  const pageQueryBody = paginationSource.match(/interface PageQuery\s*\{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(pageQueryBody, 'PageQuery declaration must remain readable by the contract check');
+  const pageQueryKeys = [...pageQueryBody.matchAll(/readonly\s+(\w+)\??:/g)].map(([, key]) => key);
+  const queryKeys = (controller, methodName) => {
+    const method = controller.match(
+      new RegExp(
+        `@Get\\(["']${methodName}["']\\)([\\s\\S]*?)(?=\\n  @(?:Get|Post|Put|Patch|Delete)\\(|\\n})`,
+      ),
+    )?.[1];
+    assert.ok(method, `GET ${methodName} decorator must be found`);
+    const queryType = method.match(/@Query\(\)\s*query:\s*([\s\S]*?),?\s*\n?\s*\)/)?.[1];
+    assert.ok(queryType, `@Query type for ${methodName} must be explicit`);
+    return [
+      ...new Set([
+        ...(queryType.includes('PageQuery') ? pageQueryKeys : []),
+        ...[...queryType.matchAll(/\b(\w+)\??\s*:/g)].map(([, key]) => key),
+      ]),
+    ].sort();
+  };
+  const contracts = [
+    { path: '/api/alerts', controller: socController, method: 'alerts' },
+    { path: '/api/incidents', controller: socController, method: 'incidents' },
+    {
+      path: '/api/incidents/{id}/alerts',
+      controller: socController,
+      method: 'incidents/:id/alerts',
+    },
+    { path: '/api/events', controller: eventsController, method: 'events' },
+    { path: '/api/audit/events', controller: auditController, method: 'events' },
+  ];
+
+  for (const contract of contracts) {
+    const route = applicationRoutes.routes.find(
+      ({ path, method }) => path === contract.path && method === 'GET',
+    );
+    assert.ok(route, `missing GET ${contract.path} allowlist entry`);
+    assert.deepEqual(
+      [...route.query_parameters].sort(),
+      queryKeys(contract.controller, contract.method),
+      `GET ${contract.path} query allowlist differs from its controller`,
+    );
+    const endpointStart = template.indexOf(`"endpoint": "${contract.path}"`);
+    assert.notEqual(endpointStart, -1, `missing KrakenD endpoint ${contract.path}`);
+    const endpointEnd = template.indexOf('\n    },\n    {', endpointStart);
+    const endpoint = template.slice(
+      endpointStart,
+      endpointEnd === -1 ? template.length : endpointEnd,
+    );
+    const forwarded = [...endpoint.matchAll(/"input_query_strings":\s*\[([\s\S]*?)\]/g)][0]?.[1];
+    assert.ok(forwarded !== undefined, `missing query forwarding for ${contract.path}`);
+    assert.deepEqual(
+      [...forwarded.matchAll(/"([^"]+)"/g)].map(([, key]) => key).sort(),
+      queryKeys(contract.controller, contract.method),
+      `KrakenD does not forward the complete query contract for ${contract.path}`,
+    );
+  }
+});
+
+test('incident detail is proxied and manual notification drain has a 15 second timeout', () => {
+  assert.ok(
+    applicationRoutes.routes.some(
+      ({ path, method, upstream }) =>
+        path === '/api/incidents/{id}' && method === 'GET' && upstream === '/api/incidents/{id}',
+    ),
+  );
+  assert.match(
+    template,
+    /"endpoint":\s*"\/api\/notifications\/drain",\s*"method":\s*"POST",\s*"timeout":\s*"15s"/,
+  );
+});
+
+test('operational health is exposed only as a session-authenticated read route', () => {
+  assert.ok(
+    applicationRoutes.routes.some(
+      ({ path, method, upstream, auth, query_parameters }) =>
+        path === '/api/operations/health' &&
+        method === 'GET' &&
+        upstream === '/api/operations/health' &&
+        auth === 'api-session' &&
+        query_parameters.length === 0,
+    ),
+  );
+  assert.match(
+    template,
+    /"endpoint":\s*"\/api\/operations\/health",\s*"method":\s*"GET"[\s\S]*?"url_pattern":\s*"\/api\/operations\/health"/,
+  );
+});
+
+test('administrative session list and revocation preserve the BFF session and CSRF contract', () => {
+  const list = applicationRoutes.routes.find(
+    ({ path, method }) => path === '/api/admin/sessions' && method === 'GET',
+  );
+  assert.ok(list, 'missing authenticated administrative session list');
+  assert.equal(list.auth, 'api-session');
+  assert.deepEqual([...list.query_parameters].sort(), ['cursor', 'pageSize']);
+  assert.match(
+    template,
+    /"endpoint":\s*"\/api\/admin\/sessions",\s*"method":\s*"GET"[\s\S]*?"input_query_strings":\s*\["pageSize",\s*"cursor"\][\s\S]*?"url_pattern":\s*"\/api\/admin\/sessions"/,
+  );
+
+  const revoke = applicationRoutes.routes.find(
+    ({ path, method }) => path === '/api/admin/sessions/{ref}/revoke' && method === 'POST',
+  );
+  assert.ok(revoke, 'missing administrative session revocation');
+  assert.equal(revoke.auth, 'api-session');
+  assert.deepEqual(revoke.query_parameters, []);
+  assert.match(
+    template,
+    /"endpoint":\s*"\/api\/admin\/sessions\/\{ref\}\/revoke",\s*"method":\s*"POST"[\s\S]*?"input_query_strings":\s*\[\][\s\S]*?"url_pattern":\s*"\/api\/admin\/sessions\/\{ref\}\/revoke"/,
+  );
+  assert.match(
+    template,
+    /"input_headers":\s*\[[^\]]*"Cookie"[^\]]*"X-Csrf-Token"/s,
+    'session cookie and CSRF token must reach the API',
+  );
+});
+
 test('configuration denies broad CORS, accepts no arbitrary upstream and keeps secrets out of tracked config', () => {
   assert.match(template, /"router":\s*\{\s*"disable_access_log":\s*true\s*\}/);
   assert.doesNotMatch(template, /security\/cors|allow_origins.*\*/);
@@ -102,7 +236,7 @@ test('finite timeout and bounded per-instance rate policy are explicitly wired',
   assert.match(template, /"propagate_claims"\s*:\s*\[\["sub",\s*"X-Qapaq-Workload"\]\]/);
   assert.equal(
     (template.match(/"timeout": "\{\{ env "GATEWAY_ENDPOINT_TIMEOUT" \}\}"/g) ?? []).length,
-    3 + applicationRoutes.routes.length,
+    2 + applicationRoutes.routes.length,
   );
   assert.match(template, /"host": \[\s*"\{\{ env "QAPAQ_API_UPSTREAM" \}\}"\s*\]/);
 });

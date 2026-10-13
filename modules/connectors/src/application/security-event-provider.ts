@@ -13,7 +13,24 @@ export interface SourceCapabilities {
   readonly ordering: { readonly primaryField: string; readonly tieBreaker: string };
 }
 
+/**
+ * Filtros neutrales del explorador de eventos (Sprint 5 · fase 1), en el vocabulario del
+ * contrato `SecurityEvent`. Cada proveedor los compila a su consulta; el llamador nunca envía
+ * lenguaje de consulta del proveedor.
+ */
+export interface EventFilters {
+  readonly severity?: readonly string[];
+  readonly category?: readonly string[];
+  readonly outcome?: string;
+}
+
 export interface EventQuery {
+  readonly filters?: EventFilters;
+  /**
+   * Orden por hora del evento. `asc` (por defecto) sirve a la ingesta, que avanza una marca de
+   * agua; `desc` sirve al explorador, que muestra primero lo más reciente.
+   */
+  readonly order?: 'asc' | 'desc';
   readonly sourceId: string;
   readonly dataset: string;
   readonly from: string;
@@ -21,6 +38,25 @@ export interface EventQuery {
   readonly pageSize: number;
   readonly cursor?: string;
   readonly signal?: AbortSignal;
+}
+
+/**
+ * Actividad por *stream* de la fuente (p. ej. cada suscripción de un servicio SaaS) en una
+ * ventana: cuántos eventos llegaron y cuándo fue el último. Es una medición informativa para la
+ * salud por fuente; no prueba que la fuente esté sana.
+ */
+export interface ActivityQuery {
+  readonly sourceId: string;
+  readonly dataset: string;
+  readonly from: string;
+  readonly to: string;
+  readonly signal?: AbortSignal;
+}
+
+export interface StreamActivity {
+  readonly stream: string;
+  readonly count: number;
+  readonly lastEventAt: string | null;
 }
 
 export interface ProviderRecord {
@@ -88,4 +124,6 @@ export interface SecurityEventProvider {
   capabilities(): Promise<SourceCapabilities>;
   health(): Promise<ProviderHealth>;
   readPage(query: EventQuery): Promise<EventPage>;
+  /** Actividad por stream (opcional: no todo proveedor la ofrece). */
+  readActivity?(query: ActivityQuery): Promise<readonly StreamActivity[]>;
 }

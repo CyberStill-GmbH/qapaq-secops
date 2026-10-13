@@ -45,6 +45,27 @@ export interface PostgreSqlConfig {
   readonly pool: Readonly<{ minimum: number; maximum: number }>;
 }
 
+/**
+ * C-17 — persistencia del estado SOC del BFF. `memory` no sobrevive a un reinicio y solo
+ * se admite donde el ambiente lo declara explícitamente.
+ */
+export type SocPersistenceConfig =
+  | { readonly mode: 'memory' }
+  | {
+      readonly mode: 'postgres';
+      readonly postgres: {
+        readonly host: string;
+        readonly port: number;
+        readonly database: string;
+        readonly username: string;
+        readonly password: SecretValue;
+        readonly tls: boolean;
+        readonly connectionTimeoutMs: number;
+        readonly statementTimeoutMs: number;
+        readonly poolMaximum: number;
+      };
+    };
+
 export interface RedisConfig {
   readonly host: string;
   readonly port: number;

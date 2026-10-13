@@ -1,15 +1,5 @@
-import type { FormEvent } from 'react';
 import type { AlertSummary, IncidentSummary } from '../../api/admin.js';
-import {
-  Empty,
-  Icon,
-  SearchBox,
-  SectionHeader,
-  Severity,
-  Status,
-  TableFrame,
-  formatDate,
-} from './admin-ui.js';
+import { Empty, Icon, SearchBox, Severity, Status, TableFrame, formatDate } from './admin-ui.js';
 type AlertFilter = 'all' | 'open' | 'critical';
 export function AlertsView({
   alerts,

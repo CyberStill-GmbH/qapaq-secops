@@ -1,0 +1,130 @@
+name: Migrate SOC database
+
+# C-1 — ejecuta la tarea one-off de base de datos en la subred privada del demo.
+#
+#   bootstrap-roles  crea o rota qapaq_migrator y qapaq_soc_runtime (credencial master de RDS).
+#                    Después hay que forzar un nuevo despliegue del API para que tome la
+#                    contraseña rotada.
+#   migrate          aplica `prisma migrate deploy` como qapaq_migrator y reaplica permisos.
+#
+# El job falla si la tarea no termina con código 0: el release no debe activar
+# QAPAQ_SOC_PERSISTENCE=postgres en el API sin una migración exitosa. Los datos de red y las
+# task definitions salen del output `database_migrator` de Terraform y se pasan como inputs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Operación de base de datos
+        required: true
+        default: migrate
+        type: choice
+        options: [migrate, bootstrap-roles]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  # Nunca dos migraciones a la vez sobre el mismo ambiente.
+  group: migrate-database-demo
+  cancel-in-progress: false
+
+jobs:
+  run-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Require main
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo 'Las operaciones de base de datos solo se lanzan desde main.' >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-migrate-database
+          allowed-account-ids: 955200662475
+
+      - name: Resolve task and network from Terraform-managed resources
+        id: resolve
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          family="qapaq-secops-demo-migrator-${MODE/bootstrap-roles/bootstrap}"
+          task_definition="$(aws ecs describe-task-definition --task-definition "$family" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)"
+          subnets="$(aws ec2 describe-subnets \
+            --filters 'Name=tag:Tier,Values=private-application' 'Name=tag:Name,Values=qapaq-secops-demo-app-*' \
+            --query 'Subnets[].SubnetId' --output text | tr '\t' ',')"
+          security_group="$(aws ec2 describe-security-groups \
+            --filters 'Name=group-name,Values=qapaq-secops-demo-worker' \
+            --query 'SecurityGroups[0].GroupId' --output text)"
+          if [[ -z "$subnets" || "$security_group" == None ]]; then
+            echo 'No se pudieron resolver subredes privadas o el security group del worker.' >&2
+            exit 1
+          fi
+          {
+            echo "task_definition=$task_definition"
+            echo "subnets=$subnets"
+            echo "security_group=$security_group"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run one-off task and wait for its exit code
+        shell: bash
+        env:
+          TASK_DEFINITION: ${{ steps.resolve.outputs.task_definition }}
+          SUBNETS: ${{ steps.resolve.outputs.subnets }}
+          SECURITY_GROUP: ${{ steps.resolve.outputs.security_group }}
+        run: |
+          set -euo pipefail
+          network="awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SECURITY_GROUP}],assignPublicIp=DISABLED}"
+          task_arn="$(aws ecs run-task \
+            --cluster qapaq-secops-demo \
+            --launch-type FARGATE \
+            --task-definition "$TASK_DEFINITION" \
+            --network-configuration "$network" \
+            --started-by "github-${GITHUB_RUN_ID}" \
+            --query 'tasks[0].taskArn' --output text)"
+          echo "Tarea: $task_arn"
+          aws ecs wait tasks-stopped --cluster qapaq-secops-demo --tasks "$task_arn"
+          exit_code="$(aws ecs describe-tasks --cluster qapaq-secops-demo --tasks "$task_arn" \
+            --query 'tasks[0].containers[0].exitCode' --output text)"
+          reason="$(aws ecs describe-tasks --cluster qapaq-secops-demo --tasks "$task_arn" \
+            --query 'tasks[0].stoppedReason' --output text)"
+          task_id="${task_arn##*/}"
+          # Los logs del migrator son líneas JSON sin secretos ni parámetros de conexión.
+          aws logs filter-log-events \
+            --log-group-name /qapaq-secops/demo/migrator \
+            --log-stream-name-prefix "" \
+            --filter-pattern "\"qapaq-secops-migrator\"" \
+            --query "events[?contains(logStreamName, '${task_id}')].message" \
+            --output text || true
+          echo "Código de salida: ${exit_code} · motivo: ${reason}"
+          [[ "$exit_code" == 0 ]]
+
+      - name: Redeploy API after credential rotation
+        # D-11: tras el COMMIT del bootstrap, las conexiones nuevas del API con la contraseña
+        # anterior fallan. ECS solo lee secretos al arrancar la tarea: se fuerza el despliegue.
+        if: ${{ inputs.mode == 'bootstrap-roles' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          service="$(aws ecs list-services --cluster qapaq-secops-demo \
+            --query "serviceArns[?contains(@, 'qapaq-secops-demo-api')] | [0]" --output text)"
+          if [[ -z "$service" || "$service" == None ]]; then
+            echo 'Servicio API no encontrado: nada que redesplegar (estado SOC aún en memoria).'
+            exit 0
+          fi
+          aws ecs update-service --cluster qapaq-secops-demo --service "$service" \
+            --force-new-deployment --query 'service.serviceName' --output text
+          aws ecs wait services-stable --cluster qapaq-secops-demo --services "$service"
+          echo 'API redesplegado con las credenciales vigentes.'

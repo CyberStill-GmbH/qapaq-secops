@@ -16,15 +16,15 @@ La documentación de arquitectura contiene material de varias etapas. Para el es
 
 ## Vercel
 
-El frontend es estático y no debe recibir secretos de servidor. El único valor de integración que se prevé en Vercel es QAPAQ_API_ORIGIN, usado por apps/web/vercel.ts como origen del rewrite para /api/*. Es una URL de origen, no una credencial. Debe apuntar al ALB/API real mediante HTTPS antes de añadirlo al entorno Production; el valor del ALB no está disponible en el plan actual.
+El frontend es estático y no debe recibir secretos de servidor. `QAPAQ_API_ORIGIN` es obligatorio en Production y se usa como origen del rewrite `/api/*`. Debe apuntar al backend por HTTPS con certificado confiable; no pongas secretos en esta variable. `apps/web/vercel.ts` falla el build de Production si falta, para que la aplicación no publique rutas `/api/*` que terminan en un 404.
 
 No copiar a Vercel variables de PostgreSQL, Redis/Valkey, Wazuh, Microsoft 365, client secrets, claves, tokens ni credenciales de .env.local. Los secretos de acceso de usuario Entra y los de la fuente Microsoft 365 pertenecen al runtime de backend/Wazuh y al gestor de secretos de ese entorno.
 
 ### Configuración pendiente para habilitar el BFF
 
 1. Provisionar y comprobar el origen backend HTTPS y su certificado.
-2. Confirmar que el deployment de Vercel aplica realmente el rewrite definido para /api/*.
-3. Añadir QAPAQ_API_ORIGIN al entorno Production y redeploy.
+2. Configurar `QAPAQ_API_ORIGIN` en Production con el origen HTTPS confiable y confirmar que Vercel aplica el rewrite definido para `/api/*`.
+3. Publicar un nuevo deployment de Vercel.
 4. Probar callback, sesión, cookie Secure, health y logout desde https://qapaq-secops.vercel.app.
 
 No se crea un valor placeholder: un origen inventado o HTTP aparentaría conectar la consola mientras deja el BFF fuera de servicio o envía sesiones por una ruta no aprobada.
