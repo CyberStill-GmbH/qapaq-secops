@@ -528,19 +528,18 @@ responsiva propia), `login-motion.css` (animación + reduced-motion), `error-ban
 ```
 ┌─ main.auth-screen  (grid 1fr | 0.96fr, min-height:100svh, #080808) ───────┐
 │ header.auth-topbar (absolute, inset:0 48% auto 0, min-height:76px)        │
-│   span.brand-destination «Estás iniciando sesión en QAPAQ» (derecha)      │
+│   .login-brand-cycle «QAPAQ SecOps» ⇄ «Listos para defender» (humo)      │
 │                                                                           │
 │ section.login-core (col 1, width min(100%-48px,440px), pad 88px 0 100px)  │
 │   h1#login-title «Inicia sesión en tu cuenta» (clamp 25–32px/480)         │
-│   p.login-subtitle «Acceso institucional»                                 │
 │   div.login-action-group (width min(100%,392px), margin-top:54px)         │
 │     button.entra-button.entra-button-enabled                              │
 │        <MicrosoftMark/> «Continuar con Microsoft Entra»                   │
 │          (o «Conectando con Microsoft Entra…» si redirecting)             │
-│     p.auth-message role=alert|status ← signInError.message | ayuda        │
+│     p.auth-message solo con error o durante redirección                  │
 │                                                                           │
 │ footer.auth-footer (absolute, inset:auto 48% 24px 18px)                   │
-│   «El acceso requiere una identidad corporativa autorizada.»             │
+│   «Ciberseguridad defensiva para el sector financiero.»                  │
 │ <HeroArt/>  → .brand-panel (col 2) · <CookieNotice/>                      │
 └───────────────────────────────────────────────────────────────────────────┘
 
@@ -556,17 +555,16 @@ ErrorBanner (catálogo):  section.qapaq-error[data-error-code]
 | --- | --- | --- | --- |
 | Lienzo | `.auth-screen` | `display:grid`; `grid-template-columns:minmax(0,1fr) minmax(0,0.96fr)`; `min-height:100svh`; `overflow:hidden` | `#080808` |
 | Topbar | `.auth-topbar` | `position:absolute`; `inset:0 48% auto 0`; `min-height:76px`; `padding:0 clamp(20px,2vw,34px)` | — |
-| Destino marca | `.brand-destination` | `font-size:13px`; `line-height:1.4`; `text-align:right` | `#a3a3a8` |
+| Marca rotativa | `.login-brand-cycle` dentro de `.auth-topbar` | Dos frases superpuestas a 16px, ciclo 8 s, disolución con blur/opacity/traslación; alineación izquierda | primera `#d7d4cf`; segunda `#c49a5a` |
 | Núcleo | `.login-core` | `width:min(100% - 48px, 440px)`; `padding:88px 0 100px`; `justify-self:center`; centrado | — |
 | H1 | `.login-core h1` | `font-size:clamp(25px,2.1vw,32px)`; `font-weight:480`; `letter-spacing:-0.035em`; `line-height:1.3`; `text-wrap:balance` | `#f5f5f5` |
-| Subtítulo | `.login-subtitle` | `margin-top:12px`; `font-size:16px`; `line-height:1.5` | `#b0b0b5` |
 | Grupo de acción | `.login-action-group` | `width:min(100%,392px)`; `margin-top:54px` | — |
 | Botón Entra | `.entra-button` | `width:100%`; `min-height:52px`; `gap:12px`; `padding:12px 20px`; borde `1px #49494e`; `border-radius:999px`; `font:14px/550` | `bg #09090a`, `color #b5b5b9` |
 | Botón habilitado | `.entra-button-enabled` | `cursor:pointer`; `transition 160ms`; hover `border #929297`, `bg #131315`, `translateY(-1px)`; focus `outline:2px #f5f5f5 offset 3px`; disabled `cursor:progress; opacity:0.75` | `color #f3f3f4` |
 | Marca Microsoft | `.microsoft-mark` | `18×18`; cuatro cuadros `#f25022/#7fba00/#00a4ef/#ffb900` | — |
-| Mensaje | `.auth-message` | `margin-top:13px`; `font-size:13px`; `line-height:1.5` | `#9d9da2` |
+| Mensaje | `.auth-message` | `margin-top:13px`; `font-size:13px`; `line-height:1.5`; solo durante redirección o con error | `#9d9da2` |
 | Mensaje error | `.auth-message-error` | (modificador) | `#f4a6a6` |
-| Pie | `.auth-footer` | `position:absolute`; `inset:auto 48% 24px 18px`; `font-size:12px`; `text-align:center` | `#89898e` |
+| Pie | `.auth-footer` | `position:absolute`; `inset:auto 48% 24px 18px`; `font-size:12px`; `text-align:center` | `#89898e`; «Ciberseguridad defensiva para el sector financiero.» |
 | Panel marca | `.brand-panel` | `grid`; `min-height:100svh`; `col 2`; `place-items:center`; borde luminoso `::before` 1px gradiente blanco 7% | `#080808` |
 | Splash | `.auth-splash` / `--waiting` | `fixed inset:0`; `place-items:center`; `auth-splash-out 1050ms`; `--waiting` detiene la animación | `#080808` |
 | Marca splash | `.auth-splash-mark` | `width:clamp(64px,7vw,96px)`; `aspect-ratio:1`; `opacity:0.76`; `drop-shadow 0 0 16px rgb(255 255 255 /12%)` | `#fff` |
@@ -630,13 +628,13 @@ Independiente de los breakpoints SOC (1100/760). Umbrales propios: **800px**, **
   `.login-action-group{margin-top:60px}`; `.api-check-row{margin-top:48px}`.
 - **`@media (max-width:800px)`:** `.auth-screen{grid-template-columns:minmax(0,1fr) minmax(0,0.68fr)}`
   (el panel de marca se estrecha); `.auth-topbar{right:40%; min-height:68px; padding-inline:18px}`;
-  `.brand-destination{font-size:11px}`; `.login-core{width:min(100% - 36px,400px)}`;
+  `.brand-destination{font-size:14px}`; `.login-core{width:min(100% - 36px,400px)}`;
   `.auth-footer{right:40%; left:12px; font-size:11px}`.
 - **`@media (max-width:620px)`** (una sola columna, se oculta la marca):
   `.auth-screen{display:block; min-height:100svh}`; `.auth-topbar{right:0; min-height:66px}`;
-  `.brand-destination{max-width:calc(100vw - 36px); font-size:11px}`;
+  `.brand-destination{max-width:calc(100vw - 36px); font-size:13px}`;
   `.login-core{position:relative; min-height:100svh; width:min(100% - 36px,460px); margin:0 auto; padding:130px 0 120px}`;
-  `.login-core h1{max-width:360px; font-size:clamp(25px,7vw,31px)}`; `.login-subtitle{font-size:15px}`;
+  `.login-core h1{max-width:360px; font-size:clamp(25px,7vw,31px)}`;
   `.login-action-group{margin-top:46px}`; `.api-check-row{flex-direction:column; gap:8px; margin-top:34px}`;
   **`.brand-panel{display:none}`**; `.auth-footer{z-index:2; right:20px; bottom:16px; left:20px; font-size:11px}`.
 - **`@media (max-height:680px) and (min-width:621px)`** (pantallas bajas, no móvil estrecho):
@@ -653,9 +651,13 @@ Independiente de los breakpoints SOC (1100/760). Umbrales propios: **800px**, **
   120ms`; `.login-core` `900ms 180ms`; `.auth-footer` `720ms 280ms`. Splash:
   `auth-splash-out`/`auth-mark-out` 1050ms. Destellos de marca:
   `login-light-flash`/`login-amber-arrival`/`login-core-arrival`/`login-mark-relight`.
+- El retrato de `HeroArt` (`qapaq-secops-analyst.webp`) entra con `login-analyst-arrival` en
+  1700ms. Las dos frases de marca alternan cada 4 s con una disolución suave de 8 s total; el
+  contenido accesible presenta ambas en una frase estática.
 - **`prefers-reduced-motion: reduce`:** todas las animaciones a `0.01ms !important`;
   `.auth-splash{display:none}` salvo dentro de `.auth-startup`; `auth-topbar/login-core/
-  auth-footer/…::after` con `animation:none; opacity:1`. La pantalla es legible sin animación.
+  auth-footer/…::after` con `animation:none; opacity:1`; el retrato queda fijo y se muestra
+  «QAPAQ SecOps». La pantalla es legible sin animación.
 
 ### 5.8 Micro-detalles
 

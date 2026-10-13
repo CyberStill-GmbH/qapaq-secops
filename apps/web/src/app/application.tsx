@@ -63,12 +63,17 @@ export default function Application({ config }: { config: PublicConfig }): React
 
   return (
     <main className="auth-screen" data-base-path={config.basePath}>
-      <header className="auth-topbar">
-        <span className="brand-destination">Estás iniciando sesión en QAPAQ</span>
+      <header className="auth-topbar" aria-label="Acceso QAPAQ SecOps">
+        <div className="brand-destination login-brand-cycle" aria-hidden="true">
+          <span>
+            QAPAQ <strong>SecOps</strong>
+          </span>
+          <span>Listos para defender</span>
+        </div>
+        <span className="sr-only">QAPAQ SecOps. Listos para defender.</span>
       </header>
       <section className="login-core" aria-labelledby="login-title">
         <h1 id="login-title">Inicia sesión en tu cuenta</h1>
-        <p className="login-subtitle">Acceso institucional</p>
         <div className="login-action-group">
           <button
             className="entra-button entra-button-enabled"
@@ -81,15 +86,15 @@ export default function Application({ config }: { config: PublicConfig }): React
               {redirecting ? 'Conectando con Microsoft Entra…' : 'Continuar con Microsoft Entra'}
             </span>
           </button>
-          <p className="auth-message" role={signInError ? 'alert' : 'status'}>
-            {redirecting
-              ? 'Conectando de forma segura…'
-              : (signInError?.message ?? 'Usa tu cuenta institucional para continuar.')}
-          </p>
+          {redirecting || signInError ? (
+            <p className="auth-message" role={signInError && !redirecting ? 'alert' : 'status'}>
+              {redirecting ? 'Conectando de forma segura…' : signInError?.message}
+            </p>
+          ) : null}
         </div>
       </section>
       <footer className="auth-footer">
-        <span>El acceso requiere una identidad corporativa autorizada.</span>
+        <span>Ciberseguridad defensiva para el sector financiero.</span>
       </footer>
       <HeroArt />
       <CookieNotice />
