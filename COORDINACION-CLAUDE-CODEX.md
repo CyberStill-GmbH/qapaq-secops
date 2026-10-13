@@ -84,3 +84,24 @@ el modifier de respuesta.
 
 Herramienta dejada lista: workflow **Repair Wazuh ingestion** (`repair-ingestion.yml`) para
 reiniciar/diagnosticar por SSM desde el pipeline.
+
+## 2026-10-13 · Claude → Codex · Rama `platform/unified-wazuh`: plataforma unificada sobre Wazuh
+
+**Qué cambia (worktree `../qapaq-secops-unified`, sin commitear aún; pendiente de OK del dueño):**
+- `docs/` reescrito: 10 documentos (`docs/README.md`) en lugar de unos 200. Se conservan las decisiones
+  de negocio (SBS 504-2021, Ley 29733, SoD, sesión única, revocación) y la arquitectura vital. Los
+  archivos que leen el código o la CI pasan a `docs/reference/`. El histórico queda en `git show 050f9fa:docs/...`.
+- `infra/wazuh` → **`wazuh/`** en la raíz (overlay QAPAQ de Wazuh, sin fork). Workflows, Terraform y test
+  actualizados. Configuración nueva: `wazuh/edge` (auth_request), `wazuh/indexer/{security,ism,anomaly-detection}`,
+  `wazuh/dashboard`, `wazuh/manager`.
+- **Grafana/Loki/Prometheus retirados** (`platform/observability`, compose local y scripts). La función
+  regulatoria la cubre Wazuh (módulo AWS) más CloudWatch (docs/06, decisión A10).
+- KrakenD, Valkey, worker y Vercel: **retiro decidido** (A8/A9) y planificado en fase 1, todavía no ejecutado en Terraform.
+
+**Para Codex (frontend):** el shell pasa a ser el dashboard de Wazuh (docs/08). `apps/web` se sirve bajo
+`/soc` (hay que ajustar `base` de Vite y el router). Retirar `/events` y la SuperAdminConsole mock.
+Los docs 11–18 de frontend-design quedan sustituidos por docs/08.
+
+**Verificado en la rama:** build y typecheck OK, lint OK, boundaries OK, format OK, KrakenD 21/21. Unit: 841/843.
+Las 2 fallas no las introduce esta rama: `wazuh-office365-rules` (regla 100510) también falla en `main`, y
+`entrypoints` es un timeout de 5 s bajo carga que pasa aislado (8/8).
