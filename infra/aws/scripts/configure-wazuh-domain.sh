@@ -66,6 +66,19 @@ install -m 0644 "$work/next" "$configuration"
 if ! nginx -t; then restore_configuration; exit 1; fi
 if ! systemctl reload nginx; then restore_configuration; exit 1; fi
 
-curl --fail --silent --show-error --max-time 30 \
-  --resolve "$dashboard_hostname:443:127.0.0.1" "https://$dashboard_hostname/" -o /dev/null
+# Reload is asynchronous: old workers can briefly serve the previous IP
+# certificate. Bypass proxy environment variables for this local SNI probe.
+https_ready=false
+for attempt in $(seq 1 30); do
+  if curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+    --resolve "$dashboard_hostname:443:127.0.0.1" "https://$dashboard_hostname/" -o /dev/null; then
+    https_ready=true
+    break
+  fi
+  sleep 2
+done
+if [[ "$https_ready" != true ]]; then
+  echo 'Dashboard HTTPS did not become ready after the Nginx reload.' >&2
+  exit 1
+fi
 echo "Wazuh dashboard HTTPS ready: https://$dashboard_hostname/"
