@@ -51,9 +51,13 @@ runtime_api_environment = {
   QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS = "https://app.jappi.net.pe/api/auth/callback"
   QAPAQ_CONSOLE_BASE_URL            = "https://app.jappi.net.pe"
   # Sprint 5: asignación permanente (sin vencimiento) de la persona analista del demo. El dueño
-  # del grupo de admisión recibe admin por `soc_group_owner_oids` (variable de GitHub).
-  QAPAQ_ROLE_BINDINGS            = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
-  QAPAQ_DEMO_MFA_EXCEPTION_UNTIL = "2026-10-14T09:50:00Z"
+  # del grupo de admisión recibe admin por `soc_group_owner_oids` (variable de GitHub); los
+  # miembros del grupo de admisión, por `QAPAQ_ADMIN_GROUP_IDS` (identity.tf).
+  QAPAQ_ROLE_BINDINGS = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
+  # Excepción MFA solo-demo: una identidad ya autorizada de Accesos_SOC entra sin prueba de MFA
+  # en el token hasta esta fecha. Temporal, para la demostración; se retira cuando el admin
+  # configure MFA/passkey en Entra (ver rama secure-mfa-admission).
+  QAPAQ_DEMO_MFA_EXCEPTION_UNTIL = "2026-10-27T23:59:00Z"
 }
 
 runtime_krakend_environment = {
