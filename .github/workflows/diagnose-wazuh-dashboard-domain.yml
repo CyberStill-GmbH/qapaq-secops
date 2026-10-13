@@ -116,3 +116,15 @@ jobs:
         if: always()
         shell: bash
         run: aws iam get-role --role-name qapaq-secops-github-terraform-demo --query 'Role.AssumeRolePolicyDocument.Statement[].Condition' --output json
+
+      - name: Inspect private Indexer TLS failure
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/indexer-diagnostic.json <<'PARAMS'
+          {"commands":["set -eu","python3 - <<'PY'\nimport re\nfrom pathlib import Path\np=Path('/var/log/nginx/error.log')\nfor line in p.read_text(errors='replace').splitlines()[-200:]:\n if 'upstream' in line and ('9200' in line or 'wazuh-alerts' in line):\n  print(re.sub(r', request:.*', '', line))\nPY","openssl s_client -connect 127.0.0.1:9200 </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -ext subjectAltName","ss -lntp | grep -E ':9200|:5601'"]}
+          PARAMS
+          command_id="$(aws ssm send-command --instance-ids i-06e0c5fd6ad8b6906 --document-name AWS-RunShellScript --parameters file:///tmp/indexer-diagnostic.json --query Command.CommandId --output text)"
+          aws ssm wait command-executed --command-id "$command_id" --instance-id i-06e0c5fd6ad8b6906 || true
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id i-06e0c5fd6ad8b6906 --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
