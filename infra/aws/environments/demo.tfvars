@@ -70,7 +70,8 @@ wazuh_office365_enabled = true
 # Ingesta Wazuh → SOC por KrakenD con token de workload de la app del API.
 wazuh_ingestion_enabled = true
 # Padrón por Graph: el API resuelve el grupo por nombre; los dueños son admin automáticamente.
-soc_directory_group_name = "QAPAQ-SecOps-Users"
+soc_directory_group_id   = "bbf1d58b-19e6-4261-b196-5ebcd8176d85"
+soc_directory_group_name = "Accesos_SOC"
 # Avisos: si Teams no confirma la entrega, el aviso sale por correo desde este buzón (Mail.Send
 # de la app del API). Teams se activa con teams_notifications_enabled cuando exista el secreto.
 alert_mail_sender = "cguevara@qapaq.pe"
