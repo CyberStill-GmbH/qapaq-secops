@@ -438,9 +438,21 @@ resource "aws_ecs_service" "api" {
     assign_public_ip = false
   }
 
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api_auth.arn
+    container_name   = "api"
+    container_port   = 3000
+  }
+
   service_registries {
     registry_arn = aws_service_discovery_service.api.arn
   }
+
+  depends_on = [
+    aws_lb_listener_rule.api_auth,
+    aws_vpc_security_group_ingress_rule.api_auth_from_alb,
+    aws_vpc_security_group_egress_rule.alb_to_api_auth,
+  ]
 
   deployment_circuit_breaker {
     enable   = true
@@ -503,4 +515,63 @@ resource "aws_vpc_security_group_egress_rule" "api_to_entra_https" {
   from_port         = 443
   ip_protocol       = "tcp"
   to_port           = 443
+}
+
+# Browser OIDC redirects must reach the browser unchanged. KrakenD CE follows
+# upstream redirects, so only these two BFF routes go directly through the ALB.
+# Authentication, state/PKCE, cookies and callback checks remain in the API.
+resource "aws_lb_target_group" "api_auth" {
+  name                 = "${var.project}-${var.environment}-api-auth"
+  port                 = 3000
+  protocol             = "HTTP"
+  target_type          = "ip"
+  vpc_id               = var.vpc_id
+  deregistration_delay = 20
+
+  health_check {
+    enabled             = true
+    path                = "/health/ready"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+
+  tags = { Project = var.project, Environment = var.environment, Service = "api-auth" }
+}
+
+resource "aws_lb_listener_rule" "api_auth" {
+  listener_arn = var.enable_https ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api_auth.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/auth/start", "/api/auth/callback"]
+    }
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "api_auth_from_alb" {
+  security_group_id            = var.security_group_ids.api
+  referenced_security_group_id = var.security_group_ids.alb
+  description                  = "ALB to API browser OIDC endpoints and readiness check."
+  from_port                    = 3000
+  ip_protocol                  = "tcp"
+  to_port                      = 3000
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_api_auth" {
+  security_group_id            = var.security_group_ids.alb
+  referenced_security_group_id = var.security_group_ids.api
+  description                  = "ALB to API browser OIDC endpoints and readiness check."
+  from_port                    = 3000
+  ip_protocol                  = "tcp"
+  to_port                      = 3000
 }
