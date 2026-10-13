@@ -259,8 +259,13 @@ export async function buildApi(
   // entorno. Mientras ese provider no esté disponible, el transporte queda sin destino
   // alcanzable y el crítico sale por el fallback de C-20, que es el comportamiento
   // declarado para esta condición.
+  const demoMfaExceptionUntilRaw = process.env.QAPAQ_DEMO_MFA_EXCEPTION_UNTIL;
+  const demoMfaExceptionUntil = demoMfaExceptionUntilRaw
+    ? new Date(demoMfaExceptionUntilRaw)
+    : undefined;
   const runtime: SecOpsRuntime = new SecOpsRuntime({
     access,
+    ...(demoMfaExceptionUntil ? { demoMfaExceptionUntil } : {}),
     profile: config.profile,
     detectionContext: detectionContextFrom(detection),
     ...(entityRefKey ? { entityRefs: entityRefFactory(entityRefKey.reveal()) } : {}),
