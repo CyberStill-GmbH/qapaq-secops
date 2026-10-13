@@ -60,8 +60,11 @@ runtime_api_environment = {
   QAPAQ_DEMO_MFA_EXCEPTION_UNTIL = "2026-10-27T23:59:00Z"
 }
 
+# El token de workload de la ingesta es v1.0 (scope `<clientid>/.default`, la app no expone
+# `api://…`): su emisor es sts.windows.net, no login.microsoftonline.com/v2.0. KrakenD valida
+# contra ese emisor; las claves de firma del tenant las sirve el mismo JWKS v2.0.
 runtime_krakend_environment = {
-  OIDC_ISSUER   = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/v2.0"
+  OIDC_ISSUER   = "https://sts.windows.net/45f2f938-dbe3-4a3e-8a54-930893f94ef8/"
   OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/discovery/v2.0/keys"
   OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
 }
