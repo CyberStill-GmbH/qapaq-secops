@@ -9,6 +9,53 @@ se versiona** aquí por tamaño).
 > Wazuh — con **nuestro login Entra ID**, **nuestros colores y SVG (arte QAPAQ)**, y **lo mejor de
 > nuestro backend** (casos/SOAR/auditoría) integrado. En vez de un frontend desde cero.
 
+## Decisión de alcance (2026-10-13): fusión con Wazuh, solo lo diferencial
+QAPAQ SecOps **se fusiona en Wazuh**. Regla única: **si Wazuh/OpenSearch lo hace de forma nativa,
+QAPAQ lo elimina**; QAPAQ conserva solo lo que Wazuh **no tiene** y que justifica el producto.
+
+### Lo que se conserva (diferencial)
+| # | Diferencial | Por qué Wazuh no lo cubre | Código que se conserva |
+| --- | --- | --- | --- |
+| D1 | **Casos/incidentes con triaje** (veredicto + nota, asignación, cierre con motivo, compare-and-set, unidad de trabajo estado+auditoría+outbox) | Wazuh no tiene gestión de casos | `modules/soc`: `alert.ts`, `incident.ts`, `incident-work.ts`, `use-cases.ts`, `memory-unit-of-work.ts`, `ports.ts`, `infrastructure/` |
+| D2 | **Priorización con contexto QAPAQ** (identidades privilegiadas, activos críticos, exposición, repetición → reason codes), supresión por mantenimiento y **promoción idempotente** a caso | Wazuh da `rule.level`, no contexto de negocio | `modules/detection`: `prioritization.ts`, `promotion.ts`, `ports.ts` |
+| D3 | **Auditoría append-only con cadena de hash** (verificación, archivo JSONL, reconciliación; evidencia SBS) | El Indexer es mutable; no hay cadena verificable | `platform/audit` completo |
+| D4 | **Notificación CRITICAL a Teams con acuse humano** (reintento con mismo `client-request-id`, fallo ambiguo, fallback, `SENT` ≠ acuse) | La integración nativa de Wazuh es fire-and-forget, sin acuse ni dedupe | `modules/soar`: `dispatcher.ts`, `delivery-policy.ts`, `notification*.ts`, `teams-*.ts`, `postgres-attempt-store.ts` |
+| D5 | **Autorización por capacidad/recurso/campo** sobre la API QAPAQ, validando el JWT de Entra que trae el dashboard | OpenSearch Security protege índices, no casos ni campos de QAPAQ | `modules/access`: `id-token.ts`, `capabilities.ts`, `authorization.ts`, `ports.ts` |
+| D6 | **Arte QAPAQ** (marca, SVG de integraciones, tokens de color) | — | `SocBrandMark.tsx` → SVG sueltos; tokens de `docs/frontend-design/11` → tema OUI |
+
+Soporte mínimo que también queda: `platform/configuration` (recortado a las variables vigentes),
+`platform/database` (solo tablas de D1–D4), `packages/contracts/api-error`, `apps/api` (solo
+controladores de D1–D5) y `apps/worker` (solo outbox→Teams).
+
+### Lo que se elimina (Wazuh/OSD lo hace nativo)
+| Hoy en QAPAQ | Lo reemplaza | Se borra |
+| --- | --- | --- |
+| Ingesta Wazuh→QAPAQ (admisión durable, raw store S3, normalización, checkpoints, cuarentena) | OSD lee el **Indexer directo** | `modules/telemetry`, `modules/connectors`, `modules/soc/{ingestion,memory-ingestion,events,source-health}.ts` |
+| Gateway KrakenD hacia el Indexer | Ya no hay hop de lectura | `platform/gateway/krakend` |
+| Esquema canónico `SecurityEvent` | Documento `wazuh-alerts-*` tal cual | `packages/contracts/{security-event,events-query}` |
+| Vistas Eventos, Alertas, Resumen, Salud de fuentes, Salud operativa | Discover, Threat Hunting, dashboards Wazuh, estado de agentes/módulos | `apps/web` entero; `events`, `sources-health`, `operations*`, `changes` controllers |
+| Correlación propia | Reglas Wazuh (`if_matched_sid`, `frequency`) | `modules/detection/correlation.ts` |
+| Login OIDC/BFF, sesión opaca, sesión única, login local, lockout, passkey fuera de red | Security plugin `openid` + **Entra** (Smart Lockout y Conditional Access nativos) | `modules/access/{oidc-handshake,session,sign-in,lockout,network,memory-*}.ts`, `postgres-session-store.ts`, `apps/api/src/access/local-issuer.ts`, `auth`, `local-auth`, `admin-sessions` controllers |
+| Administración de usuarios / directorio sincronizado | Grupos/app roles de Entra → `roles_mapping` | `directory.ts`, `postgres-directory-store.ts`, `admin-users.controller.ts` |
+| Push web (PWA) y página de notificaciones | Notificaciones de OSD + Teams (D4) | `modules/soar/push.ts`, `postgres-push-store.ts`, `me-push.controller.ts` |
+| Observabilidad del pipeline (Grafana/Loki/Prometheus) | Sin pipeline propio que vigilar; estado de Wazuh en su dashboard | `platform/observability` (queda solo log estructurado del API) |
+| Recolección M365 | Wodle `office365` de Wazuh (ya activo) | — (solo `ossec.conf`) |
+
+**Tablas Prisma que se eliminan:** `AccessSession`, `DirectoryMember`, `DirectoryOwner`,
+`DirectorySyncState`, `EventInbox`, `IngestionManifest`, `QuarantinedEvent`, `RawEventReference`,
+`SocIngestionCursor`, `Source`, `SourceCheckpoint`, `SourceHealthTransition`,
+`SourcePollObservation`, `SourceStreamActivity`, `PushSubscription`.
+**Se conservan:** `SocAlert`, `SocIncident`, `IncidentNote`, `IncidentTask`, `DetectionCandidate`,
+`AuditEvent`, `OutboxMessage`, `SocOutboxMessage`, `NotificationAttempt` y las de secretos
+(`ManagedSecret`, `SecretVersion`, `SecretLifecycle*`, `SecretReconciliation`).
+
+### Cómo entra una alerta a QAPAQ sin ingesta propia
+La **integración nativa de Wazuh** (`<integration>` en `ossec.conf`, script `custom-qapaq`) envía
+solo alertas con `level ≥ 10` (umbral ajustable) a `POST /api/detections` de QAPAQ con
+`{index, _id, rule.id, rule.level, agent, timestamp}` — **referencia, no copia**. QAPAQ aplica D2 y,
+si promueve, abre caso (D1); el detalle se lee del Indexer al abrir la alerta en el dashboard.
+Sin KrakenD, sin cursores, sin raw store.
+
 ## Licencias (verde para comercial, con matices)
 - **Base OpenSearch Dashboards = Apache 2.0** (permisiva, comercial-friendly).
 - **Plugins de Wazuh = GPLv2** (copyleft, **sin cláusula de red**: un SaaS no obliga a liberar tu
@@ -103,9 +150,12 @@ que QAPAQ hoy.
   registre los SVG de `SocBrandMark.tsx`.
 
 ## 5 · Integrar lo nuestro (plugin de OSD)
-- Crear plugin `qapaqOps` que añada al nav: **Casos/Incidentes**, **Triaje de alertas** (flujo
-  TheHive del doc 18), **Auditoría/Integridad**, **Mi sesión** — consumiendo `/api/*` de QAPAQ con la
-  sesión Entra ya establecida. Las vistas SIEM (discover/alertas) quedan nativas de OSD.
+- Crear plugin `qapaqOps` con **solo tres entradas** de nav: **Casos** (D1, incluye el triaje de
+  alertas promovidas — flujo TheHive del doc 18), **Auditoría/Integridad** (D3) y **Acuses** (D4).
+  Sin «Mi sesión», usuarios ni salud de fuentes: eso es de OSD/Entra.
+- El lado servidor del plugin reenvía el token Entra de la sesión OSD como `Authorization: Bearer`
+  a `/api/*` de QAPAQ, que lo valida (D5). Las vistas SIEM (discover/alertas) quedan nativas de OSD.
+- Acción contextual en la alerta de OSD: «Abrir caso en QAPAQ» (promoción manual, misma ruta D2).
 
 ## Pasos de arranque (orden)
 1. Crear repo `qapaq-dashboard` = fork de `wazuh-dashboard` (pin a OSD 3.6.0 / release Wazuh estable).
@@ -116,6 +166,15 @@ que QAPAQ hoy.
 6. Despliegue: imagen del dashboard (Apache/GPLv2 + NOTICE) junto al Indexer.
 
 ## Nota de proporción
-Esto reemplaza el frontend desde cero. El backend QAPAQ (login, auditoría, casos, M365 ya conectado)
-**se conserva**. El hop de ingesta KrakenD deja de ser crítico para ver SIEM (OSD lee el Indexer
-directo), aunque el fix queda commiteado para el resto de la API.
+Esto reemplaza el frontend desde cero **y recorta el backend** a D1–D5 (ver «Decisión de alcance»).
+Login, sesiones, usuarios, ingesta, KrakenD y observabilidad del pipeline pasan a Wazuh/OSD/Entra.
+M365 sigue entrando por el wodle `office365` de Wazuh.
+
+## Orden del recorte (sin romper `main`)
+1. Integración `custom-qapaq` + `POST /api/detections` (nueva entrada D2) funcionando en paralelo.
+2. API acepta Bearer Entra (D5) además de la sesión BFF; plugin `qapaqOps` contra ella.
+3. Borrar `apps/web`, controladores de login/sesión/usuarios/eventos/fuentes/operaciones.
+4. Borrar `modules/telemetry`, `modules/connectors`, `platform/gateway`, `platform/observability`
+   y los archivos listados de `access`/`soc`/`soar`/`detection`/`contracts`.
+5. Migración Prisma que elimina las 15 tablas; ajustar `platform/configuration` y CI.
+Cada paso en su PR con CI verde.
