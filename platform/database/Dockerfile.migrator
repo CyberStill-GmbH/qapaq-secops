@@ -31,7 +31,9 @@ RUN pnpm --filter @qapaq/database exec prisma generate \
     && pnpm --filter @qapaq/database deploy --legacy /migrator \
     && rm -rf /migrator/test /migrator/src /migrator/generated
 
-FROM --platform=linux/amd64 node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS runtime
+# Runtime distroless como el API: sin shell, apt ni npm (la imagen slim traía CVEs HIGH del SO y
+# del npm empaquetado). Prisma se invoca con `process.execPath`, sin shell.
+FROM --platform=linux/amd64 gcr.io/distroless/nodejs24-debian13:nonroot@sha256:9eeb7f5887d0e239e78264b06f7f11d2e14be534050481803a9e4728fcdd278e AS runtime
 
 # Bundle CA de RDS con permisos ya fijados en la etapa de build (C-1).
 COPY --from=build /qapaq-certs/ /etc/qapaq/
@@ -42,5 +44,5 @@ WORKDIR /migrator
 COPY --from=build --chown=1000:1000 /migrator/ ./
 
 USER 1000:1000
-ENTRYPOINT ["node", "migrator/entrypoint.mjs"]
+ENTRYPOINT ["/nodejs/bin/node", "migrator/entrypoint.mjs"]
 CMD ["migrate"]

@@ -74,5 +74,5 @@ set -e
 test "$migrator_status" -ne 0
 grep -q '"event":"failed"' <<< "$migrator_output"
 grep -q '"errorCode":"MODE_INVALID"' <<< "$migrator_output"
-docker run --rm --entrypoint node qapaq-ci:migrator -e "require('node:fs').accessSync(process.env.NODE_EXTRA_CA_CERTS, require('node:fs').constants.R_OK)"
+docker run --rm --entrypoint /nodejs/bin/node qapaq-ci:migrator -e "require('node:fs').accessSync(process.env.NODE_EXTRA_CA_CERTS, require('node:fs').constants.R_OK)"
 trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:migrator
