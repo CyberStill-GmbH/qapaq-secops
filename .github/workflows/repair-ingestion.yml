@@ -43,15 +43,24 @@ jobs:
 
           remote_script="$(cat <<'REMOTE'
           set +e
-          echo '--- filebeat (antes) ---'; systemctl is-active filebeat
-          echo '--- restart filebeat ---'; systemctl restart filebeat; sleep 12
-          echo '--- filebeat (despues) ---'; systemctl is-active filebeat
-          echo '--- filebeat test output ---'; filebeat test output 2>&1 | tail -n 15
-          echo '--- restart wazuh-manager ---'; systemctl restart wazuh-manager; sleep 25
-          echo '--- wazuh-manager ---'; systemctl is-active wazuh-manager
-          echo '--- alerts.json (ultimas) ---'; tail -n 3 /var/ossec/logs/alerts/alerts.json 2>/dev/null | cut -c1-200
-          echo '--- ossec office365 ---'; grep -i office365 /var/ossec/logs/ossec.log 2>/dev/null | tail -n 20
-          echo '--- ossec errores recientes ---'; grep -iE 'error|critical|wm_office365|cannot|unable|denied' /var/ossec/logs/ossec.log 2>/dev/null | tail -n 20
+          R=us-east-1
+          echo '=== indices wazuh (admin localhost) ==='
+          ADM=$(aws secretsmanager get-secret-value --secret-id qapaq-secops/demo/wazuh/dashboard-admin --query SecretString --output text --region $R 2>/dev/null)
+          AU=$(printf '%s' "$ADM" | python3 -c 'import sys,json;v=sys.stdin.read().strip();d=json.loads(v) if v.startswith("{") else {};print(d.get("username","admin"))' 2>/dev/null)
+          AP=$(printf '%s' "$ADM" | python3 -c 'import sys,json;v=sys.stdin.read().strip();d=json.loads(v) if v.startswith("{") else {};print(d.get("password",v))' 2>/dev/null)
+          curl -ks -u "$AU:$AP" "https://localhost:9200/_cat/indices/wazuh-*?h=index,health,docs.count" | sort | head -40
+          echo '=== reader via PROXY, patron KrakenD wazuh-alerts-4.x-* ==='
+          RD=$(aws secretsmanager get-secret-value --secret-id qapaq-secops/demo/wazuh/indexer-reader --query SecretString --output text --region $R 2>/dev/null)
+          RU=$(printf '%s' "$RD" | python3 -c 'import sys,json;print(json.load(sys.stdin)["username"])' 2>/dev/null)
+          RP=$(printf '%s' "$RD" | python3 -c 'import sys,json;print(json.load(sys.stdin)["password"])' 2>/dev/null)
+          PIP=$(hostname -I | awk '{print $1}'); echo "private_ip=$PIP"
+          aws secretsmanager get-secret-value --secret-id qapaq-secops/demo/wazuh/indexer-proxy-ca --query SecretString --output text --region $R > /tmp/qca.pem 2>/dev/null
+          c1=$(curl -s -o /tmp/qr.json -w '%{http_code}' --cacert /tmp/qca.pem -u "$RU:$RP" -X POST "https://$PIP:9200/wazuh-alerts-4.x-*/_search" -H 'Content-Type: application/json' -d '{"size":1}')
+          echo "HTTP(4.x-*)=$c1"; head -c 500 /tmp/qr.json; echo
+          echo '=== reader via PROXY, patron plano wazuh-alerts-* ==='
+          c2=$(curl -s -o /tmp/qr2.json -w '%{http_code}' --cacert /tmp/qca.pem -u "$RU:$RP" -X POST "https://$PIP:9200/wazuh-alerts-*/_search" -H 'Content-Type: application/json' -d '{"size":0}')
+          echo "HTTP(*)=$c2"; head -c 300 /tmp/qr2.json; echo
+          rm -f /tmp/qca.pem /tmp/qr.json /tmp/qr2.json
           REMOTE
           )"
           payload="$(jq -cn --arg c "$remote_script" '{commands: [$c]}')"
