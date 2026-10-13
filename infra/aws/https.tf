@@ -31,11 +31,25 @@ locals {
   ) : true
 }
 
+resource "aws_route53_record" "acm_caa" {
+  count = var.enable_https ? 1 : 0
+
+  zone_id = aws_route53_zone.public_api[0].zone_id
+  name    = var.public_api_hostname
+  type    = "CAA"
+  ttl     = 60
+  records = ["0 issue \"amazon.com\""]
+}
+
 resource "aws_acm_certificate" "public_api" {
   count = var.enable_https ? 1 : 0
 
   domain_name       = var.public_api_hostname
   validation_method = "DNS"
+
+  # Publish issuer authorization and the child-zone delegation before asking
+  # ACM to issue a certificate. This affects only the API hostname.
+  depends_on = [aws_route53_record.acm_caa, aws_route53_record.api_zone_delegation]
 
   lifecycle {
     create_before_destroy = true

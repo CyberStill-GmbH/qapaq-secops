@@ -76,7 +76,26 @@ jobs:
 
       - name: Terraform Plan
         if: github.event_name != 'workflow_dispatch' || inputs.action != 'bootstrap-dns'
-        run: terraform plan -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
+        shell: bash
+        run: |
+          set -euo pipefail
+          plan_args=(-var-file environments/demo.tfvars -input=false -no-color -out=tfplan)
+          certificate_address='aws_acm_certificate.public_api[0]'
+          if certificate_state="$(terraform state show -no-color "$certificate_address" 2>/dev/null)"; then
+            certificate_arn="$(awk '$1 == "arn" && $2 == "=" { gsub(/"/, "", $3); print $3; exit }' <<< "$certificate_state")"
+            if [ -z "$certificate_arn" ]; then
+              echo '::error::Could not read the managed ACM certificate ARN.'
+              exit 1
+            fi
+            certificate_status="$(aws acm describe-certificate --certificate-arn "$certificate_arn" --query 'Certificate.Status' --output text)"
+            case "$certificate_status" in
+              FAILED|VALIDATION_TIMED_OUT)
+                echo "Managed ACM certificate is $certificate_status; planning replacement of $certificate_address only."
+                plan_args+=("-replace=$certificate_address")
+                ;;
+            esac
+          fi
+          terraform plan "${plan_args[@]}"
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
