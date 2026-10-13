@@ -11,6 +11,7 @@ import {
   StatusChip,
 } from './soc-ui.js';
 import { AlertDetailDrawer } from './AlertDetailDrawer.js';
+import { useChanges } from './use-changes.js';
 
 const statuses: readonly { readonly value: 'open' | AlertStatus; readonly label: string }[] = [
   { value: 'open', label: 'Abiertas' },
@@ -189,13 +190,10 @@ export function AlertQueuePage({
     setAppliedPriority(safePriority);
     setAppliedEntity(new URLSearchParams(path.split('?')[1] ?? '').get('entity') ?? '');
   }, [path]);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !selected)
-        void load(status, undefined, appliedQuery, appliedPriority, appliedEntity);
-    }, 15_000);
-    return () => window.clearInterval(timer);
-  }, [appliedEntity, appliedPriority, appliedQuery, load, selected, status]);
+  const liveChanges = useChanges({
+    resourceTypes: ['alert'],
+    onChange: () => void load(status, undefined, appliedQuery, appliedPriority, appliedEntity),
+  });
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       const target = event.target;
@@ -304,6 +302,11 @@ export function AlertQueuePage({
   return (
     <div className="soc-page">
       <Header updated={updated} onRefresh={() => void load()} />
+      {liveChanges.length ? (
+        <p className="soc-live-announcement" role="status" aria-live="polite">
+          Dato nuevo entrando
+        </p>
+      ) : null}
       <div className="soc-tabs" role="group" aria-label="Filtrar alertas por estado">
         {statuses.map((entry) => (
           <button
@@ -403,7 +406,7 @@ export function AlertQueuePage({
                 <tr
                   key={alert.id}
                   data-alert-id={alert.id}
-                  className={`soc-alert-row${selected?.id === alert.id ? ' is-selected' : ''}`}
+                  className={`soc-alert-row${selected?.id === alert.id ? ' is-selected' : ''}${liveChanges.some((change) => change.resource.id === alert.id) ? ' soc-live-change' : ''}`}
                 >
                   <td>
                     <Severity value={alert.priority} score={alert.score} />

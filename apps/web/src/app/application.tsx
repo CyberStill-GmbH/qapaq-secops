@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import HeroArt from '../components/login/HeroArt.js';
 import { QapaqSplash } from '../components/login/QapaqSplash.js';
 import { SocConsole } from '../components/soc/SocConsole.js';
+import { CookieNotice } from '../components/CookieNotice.js';
 
 function MicrosoftMark(): React.JSX.Element {
   return (
@@ -84,6 +85,7 @@ export default function Application({ config }: { config: PublicConfig }): React
         <span>El acceso requiere una identidad corporativa autorizada.</span>
       </footer>
       <HeroArt />
+      <CookieNotice />
     </main>
   );
 }

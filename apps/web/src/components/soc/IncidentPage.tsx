@@ -9,6 +9,8 @@ import {
 } from '../../api/client.js';
 import { Button, EmptyState, ErrorState, RelativeTime, Severity, SocIcon } from './soc-ui.js';
 import { PageHeader, StateCell, statusLabel } from './soc-data-ui.js';
+import { IncidentWorkTabs, type IncidentWorkTab } from './IncidentWorkTabs.js';
+import { useChanges } from './use-changes.js';
 
 export function IncidentPage({
   session,
@@ -27,9 +29,16 @@ export function IncidentPage({
   const [appliedSearch, setAppliedSearch] = useState(initialSearch);
   const [error, setError] = useState<ApiErrorBody | null>(null);
   const [selected, setSelected] = useState<IncidentView | null>(null);
+  const [newOwnerId, setNewOwnerId] = useState('');
   const [linkedAlerts, setLinkedAlerts] = useState<readonly AlertView[]>([]);
   const [linkedAlertFailures, setLinkedAlertFailures] = useState(0);
+  const [linkedAlertsTotalCount, setLinkedAlertsTotalCount] = useState(0);
+  const [linkedAlertsNextCursor, setLinkedAlertsNextCursor] = useState<string | null>(null);
+  const [linkedAlertsTruncated, setLinkedAlertsTruncated] = useState(false);
+  const [linkedAlertsError, setLinkedAlertsError] = useState<ApiErrorBody | null>(null);
   const [linkedAlertsLoading, setLinkedAlertsLoading] = useState(false);
+  const [openRequiredTaskCount, setOpenRequiredTaskCount] = useState(0);
+  const [requiredTasksLoaded, setRequiredTasksLoaded] = useState(false);
   const [incidentHistory, setIncidentHistory] = useState<readonly AuditEventView[]>([]);
   const [incidentHistoryCursor, setIncidentHistoryCursor] = useState<string | null>(null);
   const [incidentHistoryError, setIncidentHistoryError] = useState<ApiErrorBody | null>(null);
@@ -38,7 +47,14 @@ export function IncidentPage({
   const [busy, setBusy] = useState(false);
   const [updated, setUpdated] = useState<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selected?.id ?? null;
   const incidentTab = new URLSearchParams(path.split('?')[1] ?? '').get('status') ?? 'active';
+  const requestedView = new URLSearchParams(path.split('?')[1] ?? '').get('tab');
+  const incidentViewTab: 'summary' | IncidentWorkTab =
+    requestedView === 'tasks' || requestedView === 'notes' || requestedView === 'timeline'
+      ? requestedView
+      : 'summary';
   const load = useCallback(
     async (cursor?: string, status = incidentTab, query = appliedSearch) => {
       setBusy(true);
@@ -69,11 +85,15 @@ export function IncidentPage({
     if (path.includes('/incidents/')) {
       const routeId = decodeURIComponent(path.split('/incidents/')[1]?.split('?')[0] ?? '');
       const item = items.find((row) => row.id === routeId) ?? items.find((row) => row.id === id);
-      if (item) setSelected(item);
-      else if (routeId && selected?.id !== routeId) {
+      if (item) {
+        setSelected(item);
+        setNewOwnerId(item.ownerId);
+      } else if (routeId && selected?.id !== routeId) {
         void api.incident(routeId).then((result) => {
-          if (result.ok) setSelected(result.data.incident);
-          else setError(result.error);
+          if (result.ok) {
+            setSelected(result.data.incident);
+            setNewOwnerId(result.data.incident.ownerId);
+          } else setError(result.error);
         });
       }
     }
@@ -83,6 +103,7 @@ export function IncidentPage({
     setBusy(true);
     const body: Record<string, unknown> = { name, expectedRevision: selected.revision };
     if (name === 'close') body.closureReason = closureReason;
+    if (name === 'reassign') body.ownerId = newOwnerId.trim();
     const result = await api.incidentCommand(selected.id, body);
     setBusy(false);
     if (!result.ok) {
@@ -92,6 +113,7 @@ export function IncidentPage({
     }
     setSelected(result.data.incident);
     setClosureReason('');
+    setNewOwnerId(result.data.incident.ownerId);
     await load();
   }
   const canWrite = session.capabilities.includes('incidents.write');
@@ -103,11 +125,80 @@ export function IncidentPage({
     canReadAlerts &&
     !linkedAlertsLoading &&
     linkedAlertFailures === 0 &&
-    linkedAlerts.length === selected.alertIds.length;
+    !linkedAlertsTruncated &&
+    linkedAlertsNextCursor === null &&
+    linkedAlerts.length === linkedAlertsTotalCount &&
+    linkedAlertsTotalCount === selected.alertIds.length;
   const linkedAlertsWithoutVerdict = linkedAlerts.filter((alert) => !alert.verdict);
+
+  async function loadLinkedAlerts(
+    incidentId: string,
+    cursor?: string,
+    append = false,
+  ): Promise<void> {
+    setLinkedAlertsLoading(true);
+    const result = await api.incidentAlerts(incidentId, cursor);
+    if (selectedIdRef.current !== incidentId) return;
+    setLinkedAlertsLoading(false);
+    if (!result.ok) {
+      setLinkedAlertsError(result.error);
+      return;
+    }
+    setLinkedAlerts((current) => (append ? [...current, ...result.data.items] : result.data.items));
+    setLinkedAlertsTotalCount(result.data.totalCount);
+    setLinkedAlertFailures(result.data.unavailableCount);
+    setLinkedAlertsTruncated(result.data.truncated);
+    setLinkedAlertsNextCursor(result.data.nextCursor);
+    setLinkedAlertsError(null);
+  }
+
+  const liveChanges = useChanges({
+    resourceTypes: ['incident', 'alert', 'incident_task', 'incident_note'],
+    onChange: (changes, resync) => {
+      const incidentChanged =
+        resync || changes.some((change) => change.resource.type === 'incident');
+      if (incidentChanged) void load();
+      if (!selected) return;
+      const selectedIncidentChanged =
+        resync ||
+        changes.some(
+          (change) => change.resource.type === 'incident' && change.resource.id === selected.id,
+        );
+      if (selectedIncidentChanged) {
+        void api.incident(selected.id).then((result) => {
+          if (result.ok) {
+            setSelected(result.data.incident);
+            setNewOwnerId(result.data.incident.ownerId);
+          }
+        });
+      }
+      if (resync || changes.some((change) => change.resource.type === 'incident_task')) {
+        void api.incidentTasks(selected.id).then((result) => {
+          if (result.ok) {
+            setOpenRequiredTaskCount(result.data.openRequiredCount);
+            setRequiredTasksLoaded(true);
+          }
+        });
+      }
+      if (
+        resync ||
+        changes.some(
+          (change) =>
+            change.resource.type === 'alert' && selected.alertIds.includes(change.resource.id),
+        )
+      ) {
+        void loadLinkedAlerts(selected.id);
+      }
+    },
+  });
+
   useEffect(() => {
     if (!selected) {
       setLinkedAlerts([]);
+      setLinkedAlertsTotalCount(0);
+      setLinkedAlertsNextCursor(null);
+      setLinkedAlertsTruncated(false);
+      setLinkedAlertsError(null);
       setIncidentHistory([]);
       setIncidentHistoryCursor(null);
       setIncidentHistoryError(null);
@@ -116,21 +207,26 @@ export function IncidentPage({
     let current = true;
     setLinkedAlerts([]);
     setLinkedAlertFailures(0);
+    setLinkedAlertsTotalCount(0);
+    setLinkedAlertsNextCursor(null);
+    setLinkedAlertsTruncated(false);
+    setLinkedAlertsError(null);
     setLinkedAlertsLoading(canReadAlerts && selected.alertIds.length > 0);
+    setOpenRequiredTaskCount(0);
+    setRequiredTasksLoaded(false);
     setIncidentHistory([]);
     setIncidentHistoryCursor(null);
     setIncidentHistoryError(null);
     setIncidentHistoryLoading(canReadAudit);
 
-    const relatedIds = selected.alertIds.slice(0, 25);
-    const alertQuery = canReadAlerts
-      ? Promise.all(relatedIds.map((id) => api.alert(id))).then((results) => {
-          if (!current) return;
-          setLinkedAlerts(results.flatMap((result) => (result.ok ? [result.data.alert] : [])));
-          setLinkedAlertFailures(results.filter((result) => !result.ok).length);
-          setLinkedAlertsLoading(false);
-        })
-      : Promise.resolve();
+    const alertQuery = canReadAlerts ? loadLinkedAlerts(selected.id) : Promise.resolve();
+    const tasksQuery = api.incidentTasks(selected.id).then((result) => {
+      if (!current) return;
+      if (result.ok) {
+        setOpenRequiredTaskCount(result.data.openRequiredCount);
+        setRequiredTasksLoaded(true);
+      } else setError(result.error);
+    });
     const auditQuery = canReadAudit
       ? (() => {
           const to = new Date();
@@ -152,7 +248,7 @@ export function IncidentPage({
             });
         })()
       : Promise.resolve();
-    void Promise.all([alertQuery, auditQuery]);
+    void Promise.all([alertQuery, auditQuery, tasksQuery]);
     return () => {
       current = false;
     };
@@ -192,12 +288,6 @@ export function IncidentPage({
     setIncidentHistoryError(null);
   }
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !selected) void load();
-    }, 30_000);
-    return () => window.clearInterval(timer);
-  }, [load, selected]);
-  useEffect(() => {
     if (!selected) return;
     closeButtonRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
@@ -230,6 +320,11 @@ export function IncidentPage({
           </Button>
         }
       />
+      {liveChanges.length ? (
+        <p className="soc-live-announcement" role="status" aria-live="polite">
+          Dato nuevo entrando
+        </p>
+      ) : null}
       <div className="soc-tabs" role="group" aria-label="Filtrar incidentes por estado">
         {[
           { value: 'active', label: 'Activos' },
@@ -299,7 +394,10 @@ export function IncidentPage({
             </thead>
             <tbody>
               {visibleIncidents.map((incident) => (
-                <tr key={incident.id} className={selected?.id === incident.id ? 'is-selected' : ''}>
+                <tr
+                  key={incident.id}
+                  className={`${selected?.id === incident.id ? 'is-selected ' : ''}${liveChanges.some((change) => change.resource.id === incident.id) ? 'soc-live-change' : ''}`}
+                >
                   <td>
                     <Severity value={incident.severity} />
                   </td>
@@ -310,6 +408,7 @@ export function IncidentPage({
                       data-incident-id={incident.id}
                       onClick={() => {
                         setSelected(incident);
+                        setNewOwnerId(incident.ownerId);
                         onNavigate(`/incidents/${encodeURIComponent(incident.id)}`);
                       }}
                     >
@@ -377,192 +476,281 @@ export function IncidentPage({
             </Button>
           </header>
           <div className="soc-drawer__body">
-            <Severity value={selected.severity} />
-            <StateCell value={selected.status} />
-            <dl className="soc-description-list">
-              <dt>Responsable</dt>
-              <dd>
-                <code>{selected.ownerId}</code>
-              </dd>
-              <dt>Abierto</dt>
-              <dd>
-                <RelativeTime value={selected.openedAt} />
-              </dd>
-              <dt>Alertas vinculadas</dt>
-              <dd>{selected.alertIds.length}</dd>
-            </dl>
-            <section>
-              <h3>Resumen</h3>
-              <p>{selected.summary}</p>
-            </section>
-            <section>
-              <h3>Alertas vinculadas ({selected.alertIds.length})</h3>
-              {!canReadAlerts ? (
-                <ul className="soc-related-alerts">
-                  {selected.alertIds.map((id) => (
-                    <li key={id}>
-                      <code>{id}</code>
-                    </li>
-                  ))}
-                </ul>
-              ) : linkedAlertsLoading ? (
-                <p role="status">Consultando alertas vinculadas…</p>
-              ) : linkedAlerts.length ? (
-                <ul className="soc-related-alerts">
-                  {linkedAlerts.map((alert) => (
-                    <li key={alert.id}>
-                      <button
-                        className="soc-row-link"
-                        type="button"
-                        onClick={() => onNavigate(`/alerts/${encodeURIComponent(alert.id)}`)}
-                      >
-                        {alert.title}
-                      </button>
-                      <span>
-                        {alert.priority} · {statusLabel(alert.status)}
-                        {alert.verdict ? ` · ${statusLabel(alert.verdict)}` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>
-                  {linkedAlertFailures
-                    ? `No fue posible cargar ${linkedAlertFailures} alerta(s) vinculada(s).`
-                    : 'No hay alertas vinculadas disponibles.'}
-                </p>
-              )}
-              {canReadAlerts && selected.alertIds.length > 25 ? (
-                <p className="soc-page-note">
-                  Se consultan hasta 25 alertas por incidente; hay {selected.alertIds.length} en
-                  total.
-                </p>
-              ) : null}
-            </section>
-            <section>
-              <h3>Fase de respuesta</h3>
-              <div className="soc-lifecycle">
-                {(['open', 'contained', 'eradicated', 'resolved', 'closed'] as const).map(
-                  (status) => (
-                    <span key={status} className={status === selected.status ? 'is-current' : ''}>
-                      {statusLabel(status)}
-                    </span>
-                  ),
-                )}
-              </div>
-              <p className="soc-page-note">
-                La fase registra el estado del caso en QAPAQ; no confirma que Wazuh, Entra o un
-                endpoint hayan ejecutado contención o erradicación.
-              </p>
-            </section>
-            {canReadAudit ? (
+            <div className="soc-tabs" role="tablist" aria-label="Secciones de investigación">
+              {(
+                [
+                  ['summary', 'Resumen'],
+                  ['tasks', 'Tareas'],
+                  ['notes', 'Bitácora'],
+                  ['timeline', 'Timeline'],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={incidentViewTab === tab}
+                  className={incidentViewTab === tab ? 'is-active' : ''}
+                  onClick={() =>
+                    onNavigate(
+                      `/incidents/${encodeURIComponent(selected.id)}${tab === 'summary' ? '' : `?tab=${tab}`}`,
+                    )
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div hidden={incidentViewTab !== 'summary'}>
+              <Severity value={selected.severity} />
+              <StateCell value={selected.status} />
+              <dl className="soc-description-list">
+                <dt>Responsable</dt>
+                <dd>
+                  <code>{selected.ownerId}</code>
+                </dd>
+                <dt>Abierto</dt>
+                <dd>
+                  <RelativeTime value={selected.openedAt} />
+                </dd>
+                <dt>Alertas vinculadas</dt>
+                <dd>{selected.alertIds.length}</dd>
+              </dl>
               <section>
-                <h3>Actividad auditada</h3>
-                {incidentHistoryError ? (
+                <h3>Resumen</h3>
+                <p>{selected.summary}</p>
+              </section>
+              <section>
+                <h3>Alertas vinculadas ({selected.alertIds.length})</h3>
+                {!canReadAlerts ? (
+                  <p>No tienes permiso para consultar las alertas vinculadas.</p>
+                ) : linkedAlertsError ? (
                   <ErrorState
-                    error={incidentHistoryError}
-                    onRetry={() => void loadIncidentHistory(null, false)}
+                    error={linkedAlertsError}
+                    onRetry={() => void loadLinkedAlerts(selected.id)}
                   />
-                ) : incidentHistoryLoading && incidentHistory.length === 0 ? (
-                  <p role="status">Consultando cambios del incidente…</p>
-                ) : incidentHistory.length ? (
-                  <ol className="soc-reasons">
-                    {incidentHistory.map((event) => (
-                      <li key={event.id}>
-                        <strong>{event.action}</strong>
+                ) : linkedAlertsLoading ? (
+                  <p role="status">Consultando alertas vinculadas…</p>
+                ) : linkedAlerts.length ? (
+                  <ul className="soc-related-alerts">
+                    {linkedAlerts.map((alert) => (
+                      <li key={alert.id}>
+                        <button
+                          className="soc-row-link"
+                          type="button"
+                          onClick={() => onNavigate(`/alerts/${encodeURIComponent(alert.id)}`)}
+                        >
+                          {alert.title}
+                        </button>
                         <span>
-                          {new Date(event.occurredAt).toLocaleString('es-PE')} · {event.outcome} ·{' '}
-                          {event.actor.type}
+                          {alert.priority} · {statusLabel(alert.status)}
+                          {alert.verdict ? ` · ${statusLabel(alert.verdict)}` : ''}
                         </span>
-                        {event.reason ? <span>{event.reason}</span> : null}
-                        <code>Ref. {event.correlationId}</code>
                       </li>
                     ))}
-                  </ol>
+                  </ul>
                 ) : (
-                  <p>No hay cambios auditados en el período consultable (máximo 365 días).</p>
+                  <p>
+                    {linkedAlertFailures
+                      ? `No fue posible cargar ${linkedAlertFailures} alerta(s) vinculada(s).`
+                      : 'No hay alertas vinculadas disponibles.'}
+                  </p>
                 )}
-                {incidentHistoryCursor ? (
+                {canReadAlerts && linkedAlertsNextCursor ? (
                   <Button
                     variant="ghost"
-                    onClick={() => void loadIncidentHistory()}
-                    disabled={incidentHistoryLoading}
+                    onClick={() => void loadLinkedAlerts(selected.id, linkedAlertsNextCursor, true)}
+                    disabled={linkedAlertsLoading}
                   >
-                    Cargar actividad siguiente
+                    Cargar siguientes alertas
                   </Button>
+                ) : null}
+                {linkedAlertFailures > 0 ? (
+                  <p className="soc-page-note">
+                    {linkedAlertFailures} vínculo(s) no están disponibles para esta sesión; la
+                    investigación no puede cerrarse desde esta vista.
+                  </p>
+                ) : null}
+                {linkedAlertsTruncated ? (
+                  <p className="soc-page-note">
+                    El servicio limita esta respuesta a 200 vínculos; hay vínculos adicionales. La
+                    lista está incompleta y el cierre requiere revisión manual.
+                  </p>
                 ) : null}
               </section>
-            ) : null}
-            {canWrite || canClose ? (
-              <section className="soc-actions">
-                <h3>Acciones</h3>
-                {selected.status === 'open' && canWrite ? (
-                  <Button onClick={() => void command('contain')} disabled={busy}>
-                    Marcar contenido
-                  </Button>
-                ) : null}
-                {selected.status === 'contained' && canWrite ? (
-                  <>
-                    <Button onClick={() => void command('eradicate')} disabled={busy}>
-                      Marcar erradicado
-                    </Button>
-                    <Button onClick={() => void command('resolve')} disabled={busy}>
-                      Marcar resuelto
-                    </Button>
-                  </>
-                ) : null}
-                {selected.status === 'eradicated' && canWrite ? (
-                  <Button onClick={() => void command('resolve')} disabled={busy}>
-                    Marcar resuelto
-                  </Button>
-                ) : null}
-                {selected.status === 'resolved' && canClose ? (
+              <section>
+                <h3>Fase de respuesta</h3>
+                <div className="soc-lifecycle">
+                  {(['open', 'contained', 'eradicated', 'resolved', 'closed'] as const).map(
+                    (status) => (
+                      <span key={status} className={status === selected.status ? 'is-current' : ''}>
+                        {statusLabel(status)}
+                      </span>
+                    ),
+                  )}
+                </div>
+                <p className="soc-page-note">
+                  La fase registra el estado del caso en QAPAQ; no confirma que Wazuh, Entra o un
+                  endpoint hayan ejecutado contención o erradicación.
+                </p>
+              </section>
+              {canWrite && selected.status !== 'closed' ? (
+                <section className="soc-actions">
+                  <h3>Responsable</h3>
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
-                      void command('close');
+                      void command('reassign');
                     }}
                   >
-                    <label htmlFor="incident-closure">Motivo de cierre</label>
-                    <textarea
-                      id="incident-closure"
-                      value={closureReason}
-                      onChange={(event) => setClosureReason(event.target.value)}
-                      minLength={10}
-                      maxLength={2000}
+                    <label htmlFor="incident-owner">Identificador QAPAQ del responsable</label>
+                    <input
+                      id="incident-owner"
+                      value={newOwnerId}
+                      onChange={(event) => setNewOwnerId(event.currentTarget.value)}
+                      maxLength={200}
+                      autoComplete="off"
                     />
-                    <small>Describe la resolución (mínimo 10 caracteres).</small>
-                    {!linkedAlertsComplete ? (
-                      <small role="status">
-                        El cierre espera que la UI confirme el veredicto de todas las alertas
-                        vinculadas.
-                      </small>
-                    ) : linkedAlertsWithoutVerdict.length ? (
-                      <small role="status">
-                        Faltan veredictos en {linkedAlertsWithoutVerdict.length} alerta(s). Ábrelas
-                        y registra su triaje antes de cerrar.
-                      </small>
-                    ) : null}
+                    <small>No hay directorio de personas disponible para validar este ID.</small>
                     <Button
-                      variant="danger"
                       type="submit"
                       disabled={
-                        busy ||
-                        closureReason.trim().length < 10 ||
-                        !linkedAlertsComplete ||
-                        linkedAlertsWithoutVerdict.length > 0
+                        busy || !newOwnerId.trim() || newOwnerId.trim() === selected.ownerId
                       }
                     >
-                      Cerrar incidente
+                      Guardar responsable
                     </Button>
                   </form>
-                ) : null}
-                {selected.status === 'closed' && canWrite ? (
-                  <Button onClick={() => void command('reopen')} disabled={busy}>
-                    Reabrir
-                  </Button>
-                ) : null}
-              </section>
+                </section>
+              ) : null}
+              {canReadAudit ? (
+                <section>
+                  <h3>Actividad auditada</h3>
+                  {incidentHistoryError ? (
+                    <ErrorState
+                      error={incidentHistoryError}
+                      onRetry={() => void loadIncidentHistory(null, false)}
+                    />
+                  ) : incidentHistoryLoading && incidentHistory.length === 0 ? (
+                    <p role="status">Consultando cambios del incidente…</p>
+                  ) : incidentHistory.length ? (
+                    <ol className="soc-reasons">
+                      {incidentHistory.map((event) => (
+                        <li key={event.id}>
+                          <strong>{event.action}</strong>
+                          <span>
+                            {new Date(event.occurredAt).toLocaleString('es-PE')} · {event.outcome} ·{' '}
+                            {event.actor.type}
+                          </span>
+                          {event.reason ? <span>{event.reason}</span> : null}
+                          <code>Ref. {event.correlationId}</code>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p>No hay cambios auditados en el período consultable (máximo 365 días).</p>
+                  )}
+                  {incidentHistoryCursor ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => void loadIncidentHistory()}
+                      disabled={incidentHistoryLoading}
+                    >
+                      Cargar actividad siguiente
+                    </Button>
+                  ) : null}
+                </section>
+              ) : null}
+              {canWrite || canClose ? (
+                <section className="soc-actions">
+                  <h3>Acciones</h3>
+                  {selected.status === 'open' && canWrite ? (
+                    <Button onClick={() => void command('contain')} disabled={busy}>
+                      Marcar contenido
+                    </Button>
+                  ) : null}
+                  {selected.status === 'contained' && canWrite ? (
+                    <>
+                      <Button onClick={() => void command('eradicate')} disabled={busy}>
+                        Marcar erradicado
+                      </Button>
+                      <Button onClick={() => void command('resolve')} disabled={busy}>
+                        Marcar resuelto
+                      </Button>
+                    </>
+                  ) : null}
+                  {selected.status === 'eradicated' && canWrite ? (
+                    <Button onClick={() => void command('resolve')} disabled={busy}>
+                      Marcar resuelto
+                    </Button>
+                  ) : null}
+                  {selected.status === 'resolved' && canClose ? (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void command('close');
+                      }}
+                    >
+                      <label htmlFor="incident-closure">Motivo de cierre</label>
+                      <textarea
+                        id="incident-closure"
+                        value={closureReason}
+                        onChange={(event) => setClosureReason(event.target.value)}
+                        minLength={10}
+                        maxLength={2000}
+                      />
+                      <small>Describe la resolución (mínimo 10 caracteres).</small>
+                      {!linkedAlertsComplete ? (
+                        <small role="status">
+                          {linkedAlertsNextCursor
+                            ? 'Carga las siguientes alertas para revisar todos sus veredictos antes del cierre.'
+                            : 'El cierre espera que la UI confirme el veredicto de todas las alertas vinculadas.'}
+                        </small>
+                      ) : linkedAlertsWithoutVerdict.length ? (
+                        <small role="status">
+                          Faltan veredictos en {linkedAlertsWithoutVerdict.length} alerta(s).
+                          Ábrelas y registra su triaje antes de cerrar.
+                        </small>
+                      ) : null}
+                      {!requiredTasksLoaded ? (
+                        <small role="status">
+                          Consultando tareas obligatorias para validar el cierre…
+                        </small>
+                      ) : openRequiredTaskCount > 0 ? (
+                        <small role="status">
+                          Cierre bloqueado · {openRequiredTaskCount}{' '}
+                          {openRequiredTaskCount === 1
+                            ? 'tarea obligatoria abierta'
+                            : 'tareas obligatorias abiertas'}
+                          .
+                        </small>
+                      ) : null}
+                      <Button
+                        variant="danger"
+                        type="submit"
+                        disabled={
+                          busy ||
+                          closureReason.trim().length < 10 ||
+                          !requiredTasksLoaded ||
+                          openRequiredTaskCount > 0 ||
+                          !linkedAlertsComplete ||
+                          linkedAlertsWithoutVerdict.length > 0
+                        }
+                      >
+                        Cerrar incidente
+                      </Button>
+                    </form>
+                  ) : null}
+                  {selected.status === 'closed' && canWrite ? (
+                    <Button onClick={() => void command('reopen')} disabled={busy}>
+                      Reabrir
+                    </Button>
+                  ) : null}
+                </section>
+              ) : null}
+            </div>
+            {incidentViewTab !== 'summary' ? (
+              <IncidentWorkTabs tab={incidentViewTab} incident={selected} session={session} />
             ) : null}
           </div>
         </aside>

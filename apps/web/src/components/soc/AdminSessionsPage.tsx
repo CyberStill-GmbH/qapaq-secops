@@ -3,6 +3,7 @@ import type { ApiErrorBody } from '@qapaq/contracts';
 import { api, type AdminSessionRecord } from '../../api/client.js';
 import { Button, EmptyState, ErrorState, RelativeTime, SocIcon, StatusChip } from './soc-ui.js';
 import { PageHeader } from './soc-data-ui.js';
+import { useChanges } from './use-changes.js';
 
 const roleLabels: Readonly<Record<string, string>> = {
   'qapaq.soc.analyst': 'Analista SOC',
@@ -19,6 +20,12 @@ function sessionState(entry: AdminSessionRecord): {
   if (entry.state === 'expired') return { label: 'Vencida', tone: 'warn' };
   if (entry.state === 'superseded') return { label: 'Reemplazada', tone: 'neutral' };
   return { label: 'Revocada', tone: 'neutral' };
+}
+
+function revocationReasonLabel(reason: string | null): string | null {
+  if (reason === 'membership_removed') return 'Salió del grupo de admisión.';
+  if (reason === 'ownership_removed') return 'Dejó de ser dueño del grupo.';
+  return null;
 }
 
 function dateTime(value: string): string {
@@ -67,9 +74,8 @@ export function AdminSessionsPage(): React.JSX.Element {
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(), 60_000);
-    return () => window.clearInterval(timer);
   }, [load]);
+  const liveChanges = useChanges({ resourceTypes: ['session'], onChange: () => void load() });
 
   async function revoke(entry: AdminSessionRecord): Promise<void> {
     const cleanReason = reason.trim();
@@ -126,6 +132,11 @@ export function AdminSessionsPage(): React.JSX.Element {
           {notice}
         </p>
       ) : null}
+      {liveChanges.length ? (
+        <p className="soc-live-announcement" role="status" aria-live="polite">
+          Cambió el estado de acceso de una persona
+        </p>
+      ) : null}
       {error ? <ErrorState error={error} onRetry={() => void load()} /> : null}
       {loading && items.length === 0 ? (
         <p className="soc-page-note" role="status">
@@ -162,7 +173,16 @@ export function AdminSessionsPage(): React.JSX.Element {
                   const isConfirming = confirmRef === entry.ref;
                   return (
                     <Fragment key={entry.ref}>
-                      <tr className={entry.current ? 'is-selected' : undefined}>
+                      <tr
+                        className={[
+                          entry.current ? 'is-selected' : '',
+                          liveChanges.some((change) => change.resource.id === entry.subjectId)
+                            ? 'soc-live-change'
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
                         <td>
                           <strong>{displayName}</strong>
                           {entry.email ? <small>{entry.email}</small> : null}
@@ -175,6 +195,9 @@ export function AdminSessionsPage(): React.JSX.Element {
                         </td>
                         <td>
                           <StatusChip state={state.tone}>{state.label}</StatusChip>
+                          {revocationReasonLabel(entry.revocationReason) ? (
+                            <small>{revocationReasonLabel(entry.revocationReason)}</small>
+                          ) : null}
                         </td>
                         <td title="Métodos informados por el proveedor de identidad">
                           {entry.amr.length > 0 ? entry.amr.join(', ') : 'No informado'}

@@ -19,6 +19,7 @@ import {
   StatusChip,
 } from './soc-ui.js';
 import { PageHeader, Panel, StateCell, statusLabel } from './soc-data-ui.js';
+import { useChanges } from './use-changes.js';
 
 export function SummaryPage({
   session,
@@ -118,12 +119,10 @@ export function SummaryPage({
   useEffect(() => {
     void refresh();
   }, [refresh]);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void refresh();
-    }, 15_000);
-    return () => window.clearInterval(timer);
-  }, [refresh]);
+  useChanges({
+    resourceTypes: ['alert', 'incident', 'notification'],
+    onChange: () => void refresh(),
+  });
   const openAlerts = alerts;
   const criticalNotAcked = notifications.filter((notification) =>
     ['sent', 'indeterminate', 'fallback'].includes(notification.status),

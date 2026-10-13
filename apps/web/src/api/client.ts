@@ -142,6 +142,128 @@ export interface IncidentView {
   readonly revision: number;
 }
 
+export interface IncidentAlertsPage {
+  readonly correlationId: string;
+  readonly incidentId: string;
+  readonly items: readonly AlertView[];
+  readonly nextCursor: string | null;
+  readonly totalCount: number;
+  readonly unavailableCount: number;
+  readonly truncated: boolean;
+}
+
+export type IncidentTaskStatus = 'open' | 'in_progress' | 'done' | 'cancelled';
+export interface IncidentTaskView {
+  readonly id: string;
+  readonly incidentId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly status: IncidentTaskStatus;
+  readonly required: boolean;
+  readonly assigneeId: string | null;
+  readonly dueAt: string | null;
+  readonly createdBy: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly completedAt: string | null;
+  readonly cancellationReason: string | null;
+  readonly revision: number;
+}
+export interface IncidentNoteView {
+  readonly id: string;
+  readonly incidentId: string;
+  readonly authorId: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly correctsNoteId: string | null;
+}
+export interface IncidentTimelineEntry {
+  readonly id: string;
+  readonly kind:
+    | 'incident.opened'
+    | 'incident.transition'
+    | 'incident.closed'
+    | 'alert.linked'
+    | 'task.created'
+    | 'task.completed'
+    | 'task.cancelled'
+    | 'note.added';
+  readonly at: string;
+  readonly recordedAt: string;
+  readonly timeSource: 'provider' | 'recorded';
+  readonly actorId: string | null;
+  readonly summary: string;
+  readonly ref: { readonly type: string; readonly id: string };
+}
+export type IncidentTimelinePage = Page<IncidentTimelineEntry> & {
+  readonly incidentId: string;
+  readonly transitions: 'included' | 'partial' | 'requires_audit_read';
+};
+
+export interface SecurityEventView {
+  readonly recordId: string;
+  readonly eventUid: string;
+  readonly occurredAt: string;
+  readonly receivedAt: string;
+  readonly kind: string;
+  readonly severity: string;
+  readonly category: readonly string[];
+  readonly outcome: string;
+  readonly action: string | null;
+  readonly title: string | null;
+  readonly rule: { readonly id: string; readonly groups: readonly string[] } | null;
+  readonly identities: readonly Readonly<Record<string, unknown>>[];
+  readonly resources: readonly Readonly<Record<string, unknown>>[];
+  readonly source: Readonly<Record<string, unknown>>;
+  readonly extensions: Readonly<Record<string, unknown>> | null;
+  readonly raw?: Readonly<Record<string, unknown>>;
+}
+export interface SecurityEventsPage {
+  readonly correlationId: string;
+  readonly status: 'ok' | 'disabled';
+  readonly window: { readonly from: string; readonly to: string };
+  readonly items: readonly SecurityEventView[];
+  readonly unparsedCount: number;
+  readonly nextCursor: string | null;
+  readonly query?: { readonly grammar: 'qapaq-events-v1'; readonly canonical: string };
+}
+export interface PushConfigView {
+  readonly enabled: boolean;
+  readonly vapidPublicKey: string | null;
+  readonly maximumDevices: number;
+}
+export interface PushDeviceView {
+  readonly id: string;
+  readonly label: string;
+  readonly service: string;
+  readonly createdAt: string;
+  readonly lastSuccessAt: string | null;
+}
+export interface PushDevicesPage {
+  readonly correlationId: string;
+  readonly items: readonly PushDeviceView[];
+}
+export interface PendingPushView {
+  readonly type: 'alert' | 'incident';
+  readonly id: string;
+  readonly title: string;
+  readonly severity: string;
+  readonly at: string;
+  readonly url: string;
+}
+export interface ChangeView {
+  readonly seq: string;
+  readonly resource: { readonly type: string; readonly id: string };
+  readonly kind: 'created' | 'updated';
+  readonly at: string;
+}
+export interface ChangesPage {
+  readonly correlationId: string;
+  readonly cursor: string;
+  readonly changes: readonly ChangeView[];
+  readonly resync: boolean;
+}
+
 export interface NotificationView {
   readonly id: string;
   readonly status:
@@ -239,27 +361,77 @@ export type SocAdminRole =
 
 export interface SocAdminUser {
   readonly oid: string;
-  readonly displayName: string;
-  readonly upn: string;
-  readonly accountEnabled: boolean;
-  readonly membership: 'member' | 'pending_removal';
-  readonly grantStatus: 'active' | 'none' | 'suspended';
+  readonly displayName: string | null;
+  readonly upn: string | null;
+  readonly accountEnabled: boolean | null;
+  readonly membership: 'member' | 'removed' | null;
+  readonly isOwner: boolean;
   readonly roles: readonly SocAdminRole[];
-  readonly capabilities: readonly string[];
-  readonly lastSignInAt: string | null;
+  readonly roleOrigin: 'group_owner' | 'deploy_binding' | 'entra_app_role' | 'none';
   readonly lastSeenAt: string | null;
-  readonly presence: 'active_recently' | 'seen' | 'no_session' | 'unknown';
   readonly activeSessions: number;
+}
+
+export interface SocAdminUserSession {
+  readonly ref: string;
+  readonly current: boolean;
+  readonly state: 'active' | 'expired' | 'revoked' | 'superseded';
+  readonly createdAt: string;
+  readonly lastSeenAt: string;
+  readonly amr: readonly string[];
+  readonly revocationReason?: string | null;
   readonly revision: number;
 }
 
-export interface SocAdminSession {
-  readonly id: string;
-  readonly startedAt: string;
-  readonly lastSeenAt: string;
-  readonly expiresAt: string;
-  readonly revokedAt: string | null;
-  readonly amr: readonly string[];
+export interface AdminUsersSync {
+  readonly mode: 'disabled' | 'graph';
+  readonly status: 'never' | 'ok' | 'failed' | null;
+  readonly lastAttemptAt: string | null;
+  readonly lastSuccessAt: string | null;
+  readonly lastErrorClass: string | null;
+  readonly stale: boolean;
+}
+
+export interface SourceHealthView {
+  readonly sourceId: string;
+  readonly dataset: string;
+  readonly displayName: string;
+  readonly enabled: boolean;
+  readonly state: 'unknown' | 'healthy' | 'degraded' | 'failed' | 'disabled';
+  readonly reason:
+    | 'DISABLED'
+    | 'NO_OBSERVATIONS'
+    | 'PERMANENT_ERROR'
+    | 'NO_RECENT_SUCCESS'
+    | 'CONSECUTIVE_FAILURES'
+    | 'NEVER_SUCCEEDED'
+    | 'RECENT_SUCCESS';
+  readonly lastAttemptAt: string | null;
+  readonly lastSuccessAt: string | null;
+  readonly lastEventAt: string | null;
+  readonly consecutiveFailures: number;
+  readonly lastErrorClass: string | null;
+  readonly policy: {
+    readonly intervalMs: number;
+    readonly degradeAfterMs: number;
+    readonly failAfterMs: number;
+  };
+  readonly subscriptions: {
+    readonly measuredAt: string;
+    readonly windowHours: 24;
+    readonly items: readonly {
+      readonly stream: string;
+      readonly lastEventAt: string | null;
+      readonly eventsInWindow: number;
+    }[];
+  } | null;
+  readonly transitions: readonly {
+    readonly id: string;
+    readonly fromState: string;
+    readonly toState: string;
+    readonly reason: string;
+    readonly at: string;
+  }[];
 }
 
 export interface AdminSessionRecord {
@@ -277,29 +449,6 @@ export interface AdminSessionRecord {
   readonly absoluteExpiresAt: string;
   readonly revokedAt: string | null;
   readonly revocationReason: string | null;
-  readonly revision: number;
-}
-
-export interface SocRoleRequestReceipt {
-  readonly requestId: string;
-  readonly state: 'pending_approval';
-  readonly correlationId: string;
-}
-
-export interface SocRoleRequestView {
-  readonly id: string;
-  readonly targetOid: string;
-  readonly targetDisplayName: string;
-  readonly targetUpn: string;
-  readonly action: 'grant' | 'revoke';
-  readonly role: SocAdminRole;
-  readonly reason: string;
-  readonly ticket: string | null;
-  readonly requester: string;
-  readonly requesterOid: string;
-  readonly approvalStage: 'access' | 'security';
-  readonly priorApproverOid: string | null;
-  readonly submittedAt: string;
   readonly revision: number;
 }
 
@@ -344,6 +493,92 @@ export const api = {
     }),
   incident: (id: string) =>
     apiFetch<{ incident: IncidentView }>(`/api/incidents/${encodeURIComponent(id)}`),
+  incidentAlerts: (id: string, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<IncidentAlertsPage>(
+      `/api/incidents/${encodeURIComponent(id)}/alerts?${query.toString()}`,
+    );
+  },
+  incidentTasks: (id: string, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<
+      Page<IncidentTaskView> & { readonly incidentId: string; readonly openRequiredCount: number }
+    >(`/api/incidents/${encodeURIComponent(id)}/tasks?${query.toString()}`);
+  },
+  createIncidentTask: (
+    id: string,
+    body: {
+      readonly title: string;
+      readonly required: boolean;
+      readonly description?: string;
+      readonly assigneeId?: string;
+      readonly dueAt?: string;
+    },
+  ) =>
+    apiFetch<{ readonly task: IncidentTaskView }>(
+      `/api/incidents/${encodeURIComponent(id)}/tasks`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  incidentTaskCommand: (incidentId: string, taskId: string, body: Record<string, unknown>) =>
+    apiFetch<{ readonly task: IncidentTaskView }>(
+      `/api/incidents/${encodeURIComponent(incidentId)}/tasks/${encodeURIComponent(taskId)}/commands`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  incidentNotes: (id: string, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<Page<IncidentNoteView> & { readonly incidentId: string }>(
+      `/api/incidents/${encodeURIComponent(id)}/notes?${query.toString()}`,
+    );
+  },
+  addIncidentNote: (
+    id: string,
+    body: { readonly body: string; readonly correctsNoteId?: string },
+  ) =>
+    apiFetch<{ readonly note: IncidentNoteView }>(
+      `/api/incidents/${encodeURIComponent(id)}/notes`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  incidentTimeline: (id: string, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: '50' });
+    if (cursor) query.set('cursor', cursor);
+    return apiFetch<IncidentTimelinePage>(
+      `/api/incidents/${encodeURIComponent(id)}/timeline?${query.toString()}`,
+    );
+  },
+  events: (
+    filters: {
+      readonly from: string;
+      readonly to: string;
+      readonly severity?: readonly string[];
+      readonly category?: readonly string[];
+      readonly outcome?: 'success' | 'failure';
+      readonly q?: string;
+      readonly cursor?: string;
+      readonly pageSize?: number;
+    },
+    signal?: AbortSignal,
+  ) => {
+    const query = new URLSearchParams({ from: filters.from, to: filters.to });
+    if (filters.q !== undefined) query.set('q', filters.q);
+    else {
+      if (filters.severity?.length) query.set('severity', filters.severity.join(','));
+      if (filters.category?.length) query.set('category', filters.category.join(','));
+      if (filters.outcome) query.set('outcome', filters.outcome);
+    }
+    if (filters.cursor) query.set('cursor', filters.cursor);
+    if (filters.pageSize) query.set('pageSize', String(filters.pageSize));
+    return apiFetch<SecurityEventsPage>(
+      `/api/events?${query.toString()}`,
+      signal ? { signal } : {},
+    );
+  },
+  changes: (after?: string, signal?: AbortSignal) => {
+    const query = after ? `?after=${encodeURIComponent(after)}` : '';
+    return apiFetch<ChangesPage>(`/api/changes${query}`, signal ? { signal } : {});
+  },
   incidents: (cursor?: string, status?: string, search?: string) => {
     const query = new URLSearchParams({ pageSize: '50' });
     if (cursor) query.set('cursor', cursor);
@@ -407,66 +642,19 @@ export const api = {
     return apiFetch<Page<AuditEventView>>(`/api/audit/events?${query.toString()}`);
   },
   verifyAudit: () => apiFetch<AuditIntegrityView>('/api/audit/verify'),
-  adminUsers: (
-    query: {
-      readonly q?: string;
-      readonly status?: string;
-      readonly cursor?: string;
-    } = {},
-  ) => {
-    const parameters = new URLSearchParams({ pageSize: '50' });
-    if (query.q?.trim()) parameters.set('q', query.q.trim());
-    if (query.status) parameters.set('status', query.status);
-    if (query.cursor) parameters.set('cursor', query.cursor);
-    return apiFetch<
-      Page<SocAdminUser> & {
-        readonly lastDirectorySyncAt: string | null;
-        readonly syncStale: boolean;
-        readonly presenceThresholdMinutes: number;
-      }
-    >(`/api/admin/users?${parameters.toString()}`);
-  },
-  adminUserSessions: (oid: string, cursor?: string) => {
-    const parameters = new URLSearchParams({ pageSize: '50' });
-    if (cursor) parameters.set('cursor', cursor);
-    return apiFetch<Page<SocAdminSession>>(
-      `/api/admin/users/${encodeURIComponent(oid)}/sessions?${parameters.toString()}`,
-    );
-  },
-  requestRoleChange: (
-    oid: string,
-    body: {
-      readonly action: 'grant' | 'revoke';
-      readonly role: SocAdminRole;
-      readonly reason: string;
-      readonly ticket?: string;
-      readonly expectedRevision: number;
-    },
-  ) =>
-    apiFetch<SocRoleRequestReceipt>(`/api/admin/users/${encodeURIComponent(oid)}/role-requests`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-  revokeAdminSession: (oid: string, sessionId: string, reason: string) =>
-    apiFetch<{ readonly correlationId: string; readonly session: SocAdminSession }>(
-      `/api/admin/users/${encodeURIComponent(oid)}/sessions/${encodeURIComponent(sessionId)}/revoke`,
-      { method: 'POST', body: JSON.stringify({ reason }) },
-    ),
-  setAdminUserSuspended: (
-    oid: string,
-    suspended: boolean,
-    reason: string,
-    expectedRevision: number,
-  ) =>
-    apiFetch<{ readonly correlationId: string; readonly user: SocAdminUser }>(
-      `/api/admin/users/${encodeURIComponent(oid)}/${suspended ? 'suspend' : 'restore'}`,
-      { method: 'POST', body: JSON.stringify({ reason, expectedRevision }) },
-    ),
-  adminRoleRequests: (cursor?: string) => {
-    const parameters = new URLSearchParams({ status: 'pending', pageSize: '50' });
-    if (cursor) parameters.set('cursor', cursor);
-    return apiFetch<Page<SocRoleRequestView>>(`/api/admin/role-requests?${parameters.toString()}`);
-  },
+  adminUsers: () =>
+    apiFetch<{
+      readonly correlationId: string;
+      readonly sync: AdminUsersSync;
+      readonly items: readonly SocAdminUser[];
+      readonly totalCount: number;
+    }>('/api/admin/users'),
+  adminUser: (oid: string) =>
+    apiFetch<{
+      readonly correlationId: string;
+      readonly user: SocAdminUser;
+      readonly sessions: readonly SocAdminUserSession[];
+    }>(`/api/admin/users/${encodeURIComponent(oid)}`),
   adminSessions: (cursor?: string) => {
     const parameters = new URLSearchParams({ pageSize: '50' });
     if (cursor) parameters.set('cursor', cursor);
@@ -483,17 +671,34 @@ export const api = {
       `/api/admin/sessions/${encodeURIComponent(reference)}/revoke`,
       { method: 'POST', body: JSON.stringify({ reason, expectedRevision }) },
     ),
-  decideAdminRoleRequest: (
-    requestId: string,
-    decision: 'approve' | 'reject',
-    reason: string,
-    expectedRevision: number,
-  ) =>
-    apiFetch<{ readonly correlationId: string; readonly status: 'approved' | 'rejected' }>(
-      `/api/admin/role-requests/${encodeURIComponent(requestId)}/${decision}`,
-      { method: 'POST', body: JSON.stringify({ reason, expectedRevision }) },
-    ),
   health: () => apiFetch<{ status: 'ok' | 'unavailable'; service: string }>('/api/health/ready'),
   operationsHealth: () => apiFetch<OperationsHealthView>('/api/operations/health'),
+  sourcesHealth: () =>
+    apiFetch<{
+      readonly correlationId: string;
+      readonly checkedAt: string;
+      readonly sources: readonly SourceHealthView[];
+    }>('/api/sources/health'),
+  pushConfig: () => apiFetch<PushConfigView>('/api/me/push/config'),
+  pushDevices: () => apiFetch<PushDevicesPage>('/api/me/push/subscriptions'),
+  registerPushDevice: (body: {
+    readonly endpoint: string;
+    readonly keys: { readonly p256dh: string; readonly auth: string };
+    readonly label: string;
+  }) =>
+    apiFetch<{
+      readonly correlationId: string;
+      readonly subscription: { readonly id: string; readonly label: string };
+    }>('/api/me/push/subscriptions', { method: 'POST', body: JSON.stringify(body) }),
+  revokePushDevice: (id: string) =>
+    apiFetch<{ readonly correlationId: string; readonly revoked: boolean }>(
+      `/api/me/push/subscriptions/${encodeURIComponent(id)}/revoke`,
+      { method: 'POST', body: JSON.stringify({}) },
+    ),
+  sendPushTest: () =>
+    apiFetch<{ readonly correlationId: string; readonly delivered: number }>('/api/me/push/test', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
   logout,
 };

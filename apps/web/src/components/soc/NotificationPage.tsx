@@ -3,6 +3,7 @@ import { apiError, type ApiErrorBody } from '@qapaq/contracts';
 import { api, type NotificationView, type SessionView } from '../../api/client.js';
 import { Button, EmptyState, ErrorState, RelativeTime, SocIcon } from './soc-ui.js';
 import { NotificationStateCell, PageHeader } from './soc-data-ui.js';
+import { useChanges } from './use-changes.js';
 
 type NotificationTab = 'unacknowledged' | 'progress' | 'failed' | 'acknowledged';
 const notificationTabs: readonly { readonly value: NotificationTab; readonly label: string }[] = [
@@ -53,12 +54,7 @@ export function NotificationPage({
   useEffect(() => {
     void load();
   }, [load]);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void load();
-    }, 15_000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  const liveChanges = useChanges({ resourceTypes: ['notification'], onChange: () => void load() });
   async function acknowledge(id: string): Promise<void> {
     if (confirmId !== id) {
       setConfirmId(id);
@@ -129,6 +125,11 @@ export function NotificationPage({
           </>
         }
       />
+      {liveChanges.length ? (
+        <p className="soc-live-announcement" role="status" aria-live="polite">
+          Dato nuevo entrando
+        </p>
+      ) : null}
       <div className="soc-tabs" role="tablist" aria-label="Estado de notificaciones">
         {notificationTabs.map((entry) => (
           <button
@@ -175,7 +176,14 @@ export function NotificationPage({
                   Date.now() - new Date(item.sentAt).getTime() > 15 * 60_000 &&
                   item.status === 'sent';
                 return (
-                  <tr key={item.id}>
+                  <tr
+                    key={item.id}
+                    className={
+                      liveChanges.some((change) => change.resource.id === item.id)
+                        ? 'soc-live-change'
+                        : ''
+                    }
+                  >
                     <td>
                       <NotificationStateCell value={item.status} />
                       {overdue ? (

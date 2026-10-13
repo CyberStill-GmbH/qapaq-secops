@@ -33,6 +33,8 @@ Diseño de la siguiente vista conectada: [Eventos e investigación](eventos-inve
 
 Referencias generadas antes de implementar las vistas: [eventos/salud/cuarentena](references/eventos-salud-cuarentena-concepto.png), [operación SOC/casos](references/operacion-soc-y-casos-concepto.png), [admin Entra/auditoría](references/admin-entra-y-auditoria-concepto.png), [detección/SOAR futuro](references/deteccion-y-soar-futuro-concepto.png), [eventos y salud anterior](references/eventos-y-salud-concepto.png) y [usuarios Entra anterior](references/usuarios-entra-concepto.png). Son conceptos con información sintética; no son evidencia funcional ni assets finales de producto.
 
+La vista de preferencias push usa la lámina [Avisos en dispositivos v1](references/avisos-dispositivos-v1.png) como referencia de composición escritorio/móvil. Los dispositivos, permisos y estados de esa lámina son ilustrativos: la pantalla final muestra solo la respuesta real de `/api/me/push`.
+
 Orden de lectura para quien construye: 01 → 06 → 04 → 05. Para quien diseña:
 02 → 03 → 04.
 
@@ -40,23 +42,22 @@ Orden de lectura para quien construye: 01 → 06 → 04 → 05. Para quien dise�
 
 ## Resumen en una página
 
-**Qué existe.** La consola SOC activa usa rutas BFF para inicio de sesión con Entra (OIDC +
-PKCE, sesión opaca en cookie), alertas con seis comandos, incidentes con seis
-comandos, notificaciones críticas a Teams con acuse humano, y auditoría con
-verificación de cadena. Hay cuatro roles (`qapaq.soc.analyst`,
-`qapaq.soc.lead`, `qapaq.auditor`, `qapaq.platform.admin`) y 16
-capabilities, incluidas las de observabilidad y `notifications.dispatch`.
+**Qué existe.** La consola SOC activa usa BFF para inicio de sesión con Entra (OIDC +
+PKCE, sesión opaca en cookie), alertas e incidentes, tareas/notas/timeline de
+investigación, notificaciones con acuse humano, auditoría con verificación de cadena,
+salud operativa, lectura de eventos Wazuh, salud de fuentes, listado de sesiones y
+padrón administrativo Entra de solo lectura. Las rutas Sprint 5 consumen contratos del
+backend; aceptación contra el despliegue y proveedores reales sigue siendo un gate
+separado. Los roles runtime son analista, lead, auditor y administrador de plataforma;
+las capabilities efectivas de la sesión determinan cada acción.
 
-**Qué no existe todavía.** `/operations` ya consume health agregado con RBAC para
-frescura de alertas, outbox y runtime. La salud del pipeline por dataset/fuente
-(C-5), la búsqueda de eventos, cuarentena y credenciales aún no tienen recorrido
-HTTP operativo. Reglas de detección, accesos, playbooks, casos, SLA y exportaciones solo están en
-documentación. `apps/web/src/components/admin/*` y `mock-admin.ts` son legado
-desmontado que usa un contrato de demo (`/api/v1/*`) que el BFF no sirve. La
-nueva vista `/admin/users` pertenece a la consola SOC activa, pero queda oculta
-hasta que existan las rutas BFF, sincronización Entra, store persistente y
-capabilities de identidad de
-[entra-soc-user-admin.md](../architecture/entra-soc-user-admin.md).
+**Qué no existe todavía.** Cuarentena/reproceso y credenciales no tienen recorrido
+operativo en consola. Reglas de detección, respuesta SOAR de endpoint, SLA, informes y
+exportaciones no se presentan como funciones disponibles. El padrón de usuarios no
+cambia roles ni membresía. El detalle de sesión por usuario debe exponer el motivo de
+revocación por baja de grupo/cambio de propietario para que la UI lo explique. Las rutas
+`apps/web/src/components/admin/*` y `mock-admin.ts` son legado desmontado con contrato
+`/api/v1/*` que el BFF no sirve.
 
 **Cómo se ve.** Negro `#080808`, cuatro niveles de gris, un único acento
 ámbar reservado a la marca y al ítem activo, tipografía del sistema (Segoe UI)

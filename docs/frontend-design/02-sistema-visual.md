@@ -141,6 +141,11 @@ centrado). La consola reutiliza ese componente, no inventa otro.
 
 ## 3. Tipografía
 
+La interfaz usa `@phosphor-icons/react` con imports puntuales y marcas reconocibles
+para Teams, correo y servicios push. La Q de marca no se sustituye por una librería:
+favicon, PWA y notificaciones usan el recurso propio del producto. Una marca solo
+identifica el servicio que la API informa; no afirma que ese proveedor esté conectado.
+
 ### 3.1 Familias
 
 | Token | Pila | Uso |
