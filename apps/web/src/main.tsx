@@ -1,9 +1,5 @@
 import { bootstrap } from './bootstrap/bootstrap.js';
 import './app/styles.css';
-import './app/soc-shell.css';
-import './app/soc-data.css';
-import './app/soc-overlays.css';
-import './app/soc-responsive.css';
 
 const element = document.getElementById('root');
 if (element) {

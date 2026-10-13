@@ -239,7 +239,7 @@ function ToggleGroup({
 export function EventsPage({ session }: { readonly session: SessionView }): React.JSX.Element {
   const [range, setRange] = useState<RangeHours>(24);
   const [windowEnd, setWindowEnd] = useState(() => new Date().toISOString());
-  const [mode, setMode] = useState<FilterMode>('query');
+  const [mode, setMode] = useState<FilterMode>('filters');
   const [draftFilters, setDraftFilters] = useState<EventsQueryFilters>({});
   const [queryDraft, setQueryDraft] = useState('');
   const [querySubmitted, setQuerySubmitted] = useState<string | undefined>();
