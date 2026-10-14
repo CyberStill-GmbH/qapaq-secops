@@ -20,6 +20,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | N7 | Sin purga automática hasta que Legal ratifique la retención | Gate | ADR-018 |
 | N8 | No publicar SLO, EPS ni KPIs sin medición | Vigente | ADR-016 |
 | N9 | Una sola sesión activa por persona. Un login nuevo reemplaza la sesión anterior en la consola y en el dashboard | Vigente (falta hacerla atómica) | ADR-017 |
+| N11 | **Auditable para ISO 27001 y ciberseguridad SBS.** Se conserva toda la evidencia (RDS, S3, auditoría con cadena hash y snapshots) y el diseño se ajustará a sus controles | Vigente (próximo scope) | 2026-10-14 (dueño) |
 | N10 | Cualquier cambio de acceso (rol, grupo, cuenta deshabilitada) revoca la sesión al instante | Gate: falta el cambio de rol en QAPAQ | ADR-017, 2026-10-13 |
 
 ## Arquitectura
@@ -42,6 +43,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | A14 | Ingesta push (`custom-qapaq`) más pull de reconciliación | Vigente (fase 2) | 2026-10-13 |
 | A15 | Fuentes nuevas por módulos de Wazuh, no por adaptadores TS | Vigente | 2026-10-13 |
 | A16 | Lanzamiento sobre **Wazuh 4.14.8** (lo que corre en AWS). La imagen anterior queda como histórico: AMI `ami-096d5a424506d1999` (`qapaq-secops-wazuh-historico-4.14.8-20261013`). Wazuh 5 llega como cluster nuevo cuando haya GA | Vigente | 2026-10-13 (dueño) |
+| A22 | **El backend QAPAQ vive dentro del SIEM** (opción B): el núcleo corre como servicio del host del SIEM junto al dashboard, con RDS, S3 y Valkey. Se retiran los servicios ECS de la API y el worker tras la paridad ([12](12-backend-en-el-siem.md)) | Vigente, en implementación | 2026-10-14 (dueño) |
 | A17 | CI, candidato, publicación y despliegue separados. Imágenes inmutables `git-<sha>` | Vigente | ADR-023 |
 | A18 | **Sin capas de complejidad nuevas.** Se reutiliza lo que hay: host Wazuh como edge, API y Postgres actuales y long-poll; nada de SSE, colas nuevas ni servicios extra para el lanzamiento | Vigente | 2026-10-13 (dueño) |
 | A19 | **UI en español** con el plugin `qapaq_i18n`: glosario curado más la API Translator on-device de Chrome. **Nunca** se usa un servicio de traducción externo (N1/N2) | Vigente | 2026-10-13 |
