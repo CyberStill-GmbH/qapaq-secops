@@ -1,0 +1,98 @@
+diff --git a/plugins/main/public/components/settings/about/generalInfo.tsx b/plugins/main/public/components/settings/about/generalInfo.tsx
+index 85a87b8..ac0794d 100644
+--- a/plugins/main/public/components/settings/about/generalInfo.tsx
++++ b/plugins/main/public/components/settings/about/generalInfo.tsx
+@@ -1,5 +1,4 @@
+ import {
+-  EuiButtonIcon,
+   EuiFlexGroup,
+   EuiFlexItem,
+   EuiPanel,
+@@ -8,8 +7,6 @@ import {
+   EuiTitle,
+ } from '@elastic/eui';
+ import React from 'react';
+-import { getHttp } from '../../../kibana-services';
+-import { getAssetURL } from '../../../utils/assets';
+ 
+ interface SettingsAboutGeneralInfoProps {
+   pluginAppName: string;
+@@ -18,10 +15,6 @@ interface SettingsAboutGeneralInfoProps {
+ export const SettingsAboutGeneralInfo = ({
+   pluginAppName,
+ }: SettingsAboutGeneralInfoProps) => {
+-  const googleGroupsSVG = getHttp().basePath.prepend(
+-    getAssetURL('images/icons/google_groups.svg'),
+-  );
+-
+   const Section = ({
+     title,
+     content,
+@@ -55,58 +48,17 @@ export const SettingsAboutGeneralInfo = ({
+           </EuiText>
+         }
+       />
++      {/* QAPAQ: en lugar de los canales de la comunidad de Wazuh, la atribución de licencias. */}
+       <Section
+-        title='Community'
++        title='QAPAQ SecOps'
+         content={
+-          <div>
+-            <EuiText size='m'>
+-              <p>
+-                Enjoy your experience and please don't hesitate to give us your
+-                feedback.
+-              </p>
+-            </EuiText>
+-            <EuiSpacer size='l' />
+-            <EuiFlexGroup
+-              alignItems='center'
+-              justifyContent='center'
+-              gutterSize='xl'
+-              responsive={false}
+-            >
+-              <EuiFlexItem grow={false}>
+-                <EuiButtonIcon
+-                  aria-label='Slack'
+-                  iconType='logoSlack'
+-                  iconSize='xxl'
+-                  href='https://wazuh.com/community/join-us-on-slack/'
+-                  target='_blank'
+-                >
+-                  Slack
+-                </EuiButtonIcon>
+-              </EuiFlexItem>
+-              <EuiFlexItem grow={false}>
+-                <EuiButtonIcon
+-                  aria-label='Google Groups'
+-                  iconType={googleGroupsSVG}
+-                  iconSize='xxl'
+-                  href='https://groups.google.com/forum/#!forum/wazuh'
+-                  target='_blank'
+-                >
+-                  Google groups
+-                </EuiButtonIcon>
+-              </EuiFlexItem>
+-              <EuiFlexItem grow={false}>
+-                <EuiButtonIcon
+-                  aria-label='Github'
+-                  iconType='logoGithub'
+-                  iconSize='xxl'
+-                  href='https://github.com/wazuh/wazuh-kibana-app'
+-                  target='_blank'
+-                >
+-                  Github
+-                </EuiButtonIcon>
+-              </EuiFlexItem>
+-            </EuiFlexGroup>
+-          </div>
++          <EuiText size='m' data-qapaq-no-translate=''>
++            <p>Basado en Wazuh (GPLv2) y OpenSearch Dashboards (Apache-2.0).</p>
++            <p>
++              Los avisos y licencias originales se conservan en el paquete
++              instalado (LICENSE.txt y NOTICE.txt).
++            </p>
++          </EuiText>
+         }
+       />
+     </EuiFlexGroup>
