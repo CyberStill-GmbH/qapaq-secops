@@ -11,4 +11,4 @@ resueltos por C-03. El adapter solo conoce las rutas allowlisted del gateway; no
 contiene SDK, host, credenciales ni fallback del Indexer.
 
 La arquitectura, migración, fallos y pruebas están en
-[`C-10 — Wazuh adapter hardening`](../../docs/project-management/c-10/README.md).
+[`docs/03-evaluacion-de-componentes.md`](../../docs/03-evaluacion-de-componentes.md) (histórico C-10 en git `050f9fa`).

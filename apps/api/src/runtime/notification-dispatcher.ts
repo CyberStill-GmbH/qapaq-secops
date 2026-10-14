@@ -27,6 +27,8 @@ export interface NotificationDispatcherOptions {
   readonly drain: () => Promise<number>;
   readonly intervalMs: number;
   readonly onError: (error: unknown) => void;
+  /** Publica una referencia de trabajo en BullMQ; Postgres sigue siendo el outbox durable. */
+  readonly enqueue?: () => Promise<void>;
 }
 
 export class NotificationDispatcher {
@@ -44,17 +46,24 @@ export class NotificationDispatcher {
   public start(): void {
     if (this.running) return;
     this.running = true;
+    this.enqueueWake();
     this.schedule(0);
   }
 
   /** Pide una pasada pronto. Sin bucle iniciado (specs, arranque) no hace nada. */
   public kick(): void {
     if (!this.running) return;
+    this.enqueueWake();
     if (this.inFlight) {
       this.pendingKick = true;
       return;
     }
     this.schedule(0);
+  }
+
+  private enqueueWake(): void {
+    if (!this.options.enqueue) return;
+    void this.options.enqueue().catch(this.options.onError);
   }
 
   public async stop(): Promise<void> {

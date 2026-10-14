@@ -1,74 +1,61 @@
 <p align="center">
-  <img src="docs/brand/qapaq-logo.png" alt="Qapaq, una financiera solidaria" width="320" />
+  <img src="docs/reference/assets/qapaq-logo.png" alt="Qapaq, una financiera solidaria" width="320" />
 </p>
 
-<h1 align="center">Qapaq SecOps</h1>
+# QAPAQ SecOps
 
-<p align="center"><strong>La operación de ciberseguridad defensiva de Financiera Qapaq: comprender, coordinar y responder.</strong></p>
+**Plataforma SOC unificada sobre Wazuh.** Una URL, un login Entra y un shell: el dashboard de Wazuh
+con marca QAPAQ, al que QAPAQ añade casos, correlación contextual, respuesta gobernada, auditoría
+con integridad, gestión de acceso con revocación inmediata y avisos con acuse humano. La investigación
+colaborativa es **Ayni Qapaq** y la automatización de respuesta será **Ankay Qapaq** (Shuffle).
 
-<p align="center">
-  <img src="docs/architecture/assets/qapaq-resilient-vision.png" alt="Ilustración conceptual de una operación de ciberseguridad resiliente, colaborativa y coordinada" width="100%" />
-</p>
+- **Wazuh** recolecta, detecta y guarda (manager, indexer, dashboard). Lo que QAPAQ cambia de
+  Wazuh vive versionado en [`wazuh/`](wazuh/README.md), sin fork del código.
+- **QAPAQ** (TypeScript, NestJS) coordina el trabajo humano: quién toma una alerta, cómo se vuelve
+  incidente, quién aprueba una acción, qué queda como evidencia y quién puede entrar.
 
-## Qué es Qapaq SecOps
+## Estructura
 
-Qapaq SecOps es el espacio de trabajo del equipo de seguridad de Financiera Qapaq.
-Convierte señales dispersas en una comprensión compartida del riesgo y ayuda a
-actuar con oportunidad, criterio y trazabilidad. No es solo una pantalla de
-alertas: reúne monitoreo, investigación, coordinación, respuesta y aprendizaje.
-
-La plataforma combina herramientas abiertas con capacidades propias orientadas a
-la realidad de una entidad financiera. El trabajo se construye por etapas: primero
-se valida un recorrido acotado de monitoreo y trabajo del equipo de seguridad;
-después se amplían las fuentes, las investigaciones colaborativas y la
-automatización segura. El estado de cada función e integración se documenta por
-separado para distinguir la visión del producto de lo que ya fue comprobado en
-un entorno real.
-
-## Qué queremos aportar
-
-- **Claridad para el equipo de seguridad:** contexto útil para priorizar y
-  comprender cada señal.
-- **Investigaciones coordinadas:** responsables, tareas, hallazgos y decisiones en
-  un expediente compartido.
-- **Respuesta con control:** automatizaciones sujetas a permisos, aprobaciones y
-  registro de resultados.
-- **Memoria institucional:** antecedentes que ayuden a explicar incidentes y a
-  mejorar detecciones y procedimientos.
-- **Evolución sostenible:** herramientas abiertas que reducen la dependencia de
-  licencias propietarias y un producto que puede ampliarse por etapas. Cada
-  componente se revisa según su licencia; operación y mantenimiento se planifican
-  como parte del costo total.
-
-## Cómo evolucionará
-
-La primera etapa se concentra en comprobar una ruta de seguridad prioritaria y el
-trabajo del equipo que la rodea. Sobre esa base, **Ayni Qapaq** dará forma a la
-investigación colaborativa de incidentes, inspirada en patrones de coordinación
-en equipo. En la siguiente etapa, el equipo podrá activar automatizaciones
-visuales con procedimientos aprobados y ampliar gradualmente el monitoreo y la
-respuesta a otras fuentes autorizadas.
-
-La meta es que Qapaq SecOps ayude a vigilar, detectar, investigar, responder,
-mitigar y aprender de las amenazas tecnológicas. Las capacidades se habilitarán
-cuando tengan integración, seguridad y operación verificadas; esta página no
-presenta planes futuros como funciones ya disponibles.
+| Ruta                 | Contenido                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `wazuh/`             | Overlay QAPAQ de Wazuh: reglas, Office 365, edge nginx, seguridad del Indexer, ISM, detectores ML, integraciones y dashboard |
+| `apps/api`           | API y BFF (NestJS/Fastify): login Entra, casos, ingesta, notificaciones, auditoría                                           |
+| `wazuh/dashboard`    | Dashboard Wazuh rebrandeado y plugin QAPAQ, servido en `qapaq-secops.jappi.net.pe`                                           |
+| `modules/`           | Dominio hexagonal sin frameworks: `access`, `soc`, `detection`, `soar`, `connectors`, `telemetry`                            |
+| `platform/`          | Auditoría, configuración y secretos, base de datos (Prisma/Postgres), testing, gateway (en retiro)                           |
+| `packages/contracts` | Contrato `SecurityEvent` 1.0.0 y catálogo de errores                                                                         |
+| `infra/aws`          | Terraform de la demo AWS. `infra/local`: Postgres, Redis y MinIO para desarrollo                                             |
 
 ## Documentación
 
-| Para conocer…                                              | Ir a…                                                                                                                            |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| La visión, el alcance inicial y las decisiones de producto | [Dirección de producto](docs/adr/029-qapaq-secops-product-direction.md)                                                          |
-| La arquitectura y sus diagramas C4                         | [Arquitectura resiliente](docs/architecture/qapaq-secops-resilient-architecture.md) · [Modelo C4](docs/architecture/c4-model.md) |
-| Cómo se investiga y documenta un incidente                 | [Ayni Qapaq](docs/product/ayni-qapaq.md)                                                                                         |
-| Qué fuentes se integran y en qué etapa                     | [Estrategia de integración](docs/architecture/source-integration-strategy.md)                                                    |
-| Cómo se ordenan las siguientes entregas                    | [Roadmap](docs/roadmap.md)                                                                                                       |
-| Seguridad, continuidad y recuperación                      | [Seguridad](docs/architecture/security.md) · [Continuidad](docs/architecture/operations-and-continuity.md)                       |
-| Guías de trabajo para desarrollo y operación               | [Índice de documentación](docs/README.md)                                                                                        |
+Empieza por [`docs/README.md`](docs/README.md), que tiene diez documentos cortos:
 
-## Estado
+1. [Producto y decisiones de negocio](docs/01-producto.md)
+2. [Arquitectura](docs/02-arquitectura.md)
+3. [Evaluación de componentes y decisión de fork](docs/03-evaluacion-de-componentes.md)
+4. [Identidad, acceso y administración de usuarios](docs/04-identidad-y-acceso.md)
+5. [Datos y retención hot/warm/cold](docs/05-datos-y-retencion.md)
+6. [Operación, costos y observabilidad](docs/06-operacion.md)
+7. [Detección, ML y SOAR](docs/07-deteccion-ml-y-soar.md)
+8. [Frontend unificado](docs/08-frontend-unificado.md)
+9. [Plan de lanzamiento](docs/09-plan-de-lanzamiento.md)
+10. [Decisiones vigentes](docs/10-decisiones.md)
 
-Qapaq SecOps se encuentra en evolución. El código, las pruebas, las aprobaciones
-y la evidencia de cada ambiente determinan qué está realmente habilitado. La
-arquitectura objetivo describe cómo crecer de forma segura; no acredita por sí
-sola una integración o despliegue productivo.
+## Desarrollo
+
+```powershell
+pnpm install
+pnpm infra:up          # Postgres, Redis, MinIO locales (infra/local/README.md)
+pnpm dev:api
+pnpm dev:web
+pnpm verify            # lint, typecheck, unit, boundaries
+```
+
+Requisitos: Node 24.21 y pnpm 12.4. Baseline completa en
+[`docs/reference/toolchain-and-capacity.md`](docs/reference/toolchain-and-capacity.md).
+
+## Licencias
+
+Código QAPAQ: ver [LICENSE](LICENSE). Wazuh Manager y sus reglas y decoders son GPLv2. El Indexer,
+el Dashboard y OpenSearch son Apache-2.0. Las reglas y decoders derivados que viven en `wazuh/`
+mantienen la atribución GPLv2.

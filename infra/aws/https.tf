@@ -108,7 +108,7 @@ resource "aws_route53_record" "public_api" {
 }
 
 resource "aws_route53_record" "vercel_apps" {
-  for_each = var.public_root_route53_zone_name != null ? toset(["app", "codexpt"]) : toset([])
+  for_each = var.public_root_route53_zone_name != null && !var.retire_legacy_frontend_dns ? toset(["app", "codexpt"]) : toset([])
 
   zone_id = aws_route53_zone.public_root[0].zone_id
   name    = "${each.value}.${trimsuffix(lower(var.public_root_route53_zone_name), ".")}"

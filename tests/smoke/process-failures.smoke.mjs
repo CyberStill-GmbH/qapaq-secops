@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { assertSafe, cleanup, events, exitedWithin, startApp, until } from './support.mjs';
 
 for (const app of ['api', 'worker']) {
@@ -12,6 +13,9 @@ for (const app of ['api', 'worker']) {
       const runtime = startApp(app, { QAPAQ_API_PORT: '0' });
       try {
         await until(() => runtime.output.includes('application.ready'), `${app} readiness`);
+        // Let BullMQ finish its first local connection attempt before exercising duplicate
+        // shutdown signals; this smoke has no Redis service by design.
+        if (app === 'worker' && fault === 'double-signal') await delay(250);
         runtime.child.send({ fault });
         assert.equal((await exitedWithin(runtime)).code, code ? 1 : 0);
         const output = events(runtime);

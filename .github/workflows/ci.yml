@@ -119,6 +119,31 @@ jobs:
       - name: Scan filesystem vulnerabilities and misconfigurations
         run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --no-progress .
 
+  terraform:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: infra/aws
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_EC2_METADATA_DISABLED: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+      - name: Terraform Init without backend or state access
+        run: terraform init -backend=false -input=false -lockfile=readonly
+      - name: Terraform Validate without AWS credentials
+        run: terraform validate -no-color
+
   pnpm-audit:
     needs: discover
     if: needs.discover.outputs.has_pnpm == 'true'
@@ -189,12 +214,7 @@ jobs:
           pnpm run test:unit
           pnpm run boundaries
           pnpm --filter @qapaq/api... --filter @qapaq/worker... build
-          node tests/smoke/build-public-web.mjs
           pnpm run smoke:built
-      - name: Verify React startup and recovery in Chromium
-        run: |
-          pnpm exec playwright install --with-deps chromium
-          pnpm run test:e2e
 
   c04-postgres:
     name: C-04 and C-24 PostgreSQL evidence
@@ -294,7 +314,7 @@ jobs:
   gate:
     name: CI / required
     if: always()
-    needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, c28-krakend, containers]
+    needs: [discover, codeql, secrets, filesystem, terraform, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, c28-krakend, containers]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -305,7 +325,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           jobs = json.loads(os.environ['RESULTS'])
-          required = ['discover', 'codeql', 'secrets', 'filesystem', 'entrypoints', 'c04-postgres', 'c06-base', 'c28-krakend']
+          required = ['discover', 'codeql', 'secrets', 'filesystem', 'terraform', 'entrypoints', 'c04-postgres', 'c06-base', 'c28-krakend']
           outputs = jobs['discover']['outputs']
           if outputs.get('has_pnpm') == 'true':
               required += ['pnpm-audit', 'quality']

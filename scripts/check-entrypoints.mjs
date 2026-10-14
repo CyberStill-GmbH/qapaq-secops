@@ -68,13 +68,16 @@ export function checkEntrypoints(root = process.cwd()) {
               target.startsWith(`${pkg.directory}/`) ||
               target.startsWith(`${pkg.directory}\\`),
           );
-        if (
+        // The worker's composition root uses one deliberately narrow API facade to reuse the
+        // durable PostgreSQL notification dispatcher. All other cross-app imports stay banned.
+        const allowedWorkerApiFacade =
+          location === 'apps/worker/src/composition-root.ts' && specifier === '@qapaq/api/worker';
+        const crossAppImport =
           (owner && owner !== app && slash(relative(root, owner.directory)).startsWith('apps/')) ||
           (declared &&
             declared !== app &&
-            slash(relative(root, declared.directory)).startsWith('apps/'))
-        )
-          report('no-cross-app-imports');
+            slash(relative(root, declared.directory)).startsWith('apps/'));
+        if (crossAppImport && !allowedWorkerApiFacade) report('no-cross-app-imports');
         if (owner && owner !== app && owner.exports) {
           const exports =
             typeof owner.exports === 'object' &&
@@ -97,12 +100,6 @@ export function checkEntrypoints(root = process.cwd()) {
           )
         )
           report('public-package-exports-only');
-        if (
-          location.startsWith('apps/web/') &&
-          (/^(node:|@qapaq\/configuration|@nestjs\/)/u.test(specifier) ||
-            (owner && slash(relative(root, owner.directory)).startsWith('platform/')))
-        )
-          report('browser-public-config-only');
         if (!processMain && /^(?:node:)?process$/u.test(specifier))
           report('environment-at-process-boundary');
         if (

@@ -134,6 +134,27 @@ resource "aws_vpc_security_group_egress_rule" "public_proxy_to_alb" {
   to_port                      = 80
 }
 
+# Edge unificado (wazuh/edge): nginx del host Wazuh -> API por Cloud Map, dentro de la VPC.
+# Por el ALB público la API vería la EIP del host como cliente (fuera de la cadena de
+# proxies confiables) y la política de red trataría a todos como externos.
+resource "aws_vpc_security_group_egress_rule" "public_proxy_to_api" {
+  security_group_id            = aws_security_group.public_proxy.id
+  referenced_security_group_id = aws_security_group.api.id
+  description                  = "Unified edge to QAPAQ API over the private network."
+  from_port                    = var.api_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.api_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "api_from_public_proxy" {
+  security_group_id            = aws_security_group.api.id
+  referenced_security_group_id = aws_security_group.public_proxy.id
+  description                  = "QAPAQ API from the unified edge on the Wazuh host."
+  from_port                    = var.api_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.api_port
+}
+
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
   for_each = var.enable_https ? toset(["enabled"]) : toset([])
 
@@ -316,4 +337,16 @@ resource "aws_vpc_security_group_egress_rule" "worker_to_krakend" {
   from_port                    = var.krakend_port
   ip_protocol                  = "tcp"
   to_port                      = var.krakend_port
+}
+
+# Microsoft Graph/Teams service addresses rotate. This private worker egress is limited to TCP 443
+# through the NAT; replace with a managed domain allowlist before the exception expires.
+#trivy:ignore:AWS-0104:exp:2027-04-14
+resource "aws_vpc_security_group_egress_rule" "worker_to_external_https" {
+  security_group_id = aws_security_group.worker.id
+  description       = "HTTPS egress for Microsoft Graph, Teams Workflows, and approved notification providers through the private-subnet NAT."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
 }

@@ -1,0 +1,32 @@
+# QAPAQ SecOps dashboard — versiones upstream fijadas (lo lee build.sh con `source`).
+# Verificado el 2026-10-13 con `git ls-remote --tags` y el índice APT firmado de packages.wazuh.com.
+# Para subir de versión: README.md § «Subir a un tag nuevo de Wazuh».
+
+WAZUH_VERSION=4.14.8
+OSD_VERSION=2.19.6
+# .nvmrc de wazuh-dashboard v4.14.8 (engines: node >=14.20.1 <19, yarn ^1.22.10)
+NODE_VERSION=18.19.0
+YARN_VERSION=1.22.22
+
+# Núcleo OSD de Wazuh: pantalla de carga, cabecera, ayuda, favicons, logos del core.
+WAZUH_DASHBOARD_REPO=https://github.com/wazuh/wazuh-dashboard.git
+WAZUH_DASHBOARD_TAG=v4.14.8
+WAZUH_DASHBOARD_SHA=42db785a5bc758527b4471b74d5298358855e40d
+
+# App de Wazuh (plugins/main, wazuh-core, wazuh-check-updates).
+WAZUH_PLUGINS_REPO=https://github.com/wazuh/wazuh-dashboard-plugins.git
+WAZUH_PLUGINS_TAG=v4.14.8
+WAZUH_PLUGINS_SHA=505c58f7d4e08f19d57f6c5496363eec96ee924f
+
+# Security plugin de Wazuh: se compila SIN parches (su login lo sustituye qapaq_ops).
+WAZUH_SECURITY_REPO=https://github.com/wazuh/wazuh-security-dashboards-plugin.git
+WAZUH_SECURITY_TAG=v4.14.8
+WAZUH_SECURITY_SHA=6e338eeeec1b7ba4f76741f1989f1de8f6b63c74
+
+# Paquete oficial (solo modo QAPAQ_BUILD_MODE=repack). SHA256 del índice APT
+# https://packages.wazuh.com/4.x/apt/dists/stable/main/binary-amd64/Packages (Release firmado).
+WAZUH_DEB_URL=https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-dashboard/wazuh-dashboard_4.14.8-1_amd64.deb
+WAZUH_DEB_SHA256=f2413085b21295e681cca0bd6e2a360174417d241bafbeab5fe7685e2d86f2d4
+
+# Revisión Debian del paquete QAPAQ: 4.14.8-1qapaq1 > 4.14.8-1, así `dpkg -i` actualiza.
+QAPAQ_REVISION=1qapaq1

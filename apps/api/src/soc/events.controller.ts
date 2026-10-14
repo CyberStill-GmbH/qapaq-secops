@@ -36,6 +36,7 @@ import type { IncomingRequest } from '../http/http-contracts.js';
 import { readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
+import { eventsPageCacheKey, readThroughEventsPage } from '../runtime/events-page-cache.js';
 
 export const EVENTS_LIMITS = Object.freeze({
   defaultWindowMs: 24 * 3_600_000,
@@ -190,13 +191,28 @@ export class EventsController {
       };
     }
     try {
-      const page = await reader.read({
+      const readRequest = {
         from,
         to,
         pageSize,
         filters,
         ...(query.cursor ? { cursor: query.cursor } : {}),
+      };
+      const cacheKey = eventsPageCacheKey({
+        tenantId: actor.tenantId,
+        subjectId: actor.subjectId,
+        capabilities: actor.capabilities,
+        from: window.from,
+        to: window.to,
+        pageSize,
+        filters,
+        ...(query.cursor ? { cursor: query.cursor } : {}),
       });
+      const page = actor.capabilities.has('events.read_raw')
+        ? await reader.read(readRequest)
+        : await readThroughEventsPage(this.runtime.eventsPageCache, cacheKey, () =>
+            reader.read(readRequest),
+          );
       return {
         correlationId,
         status: 'ok' as const,

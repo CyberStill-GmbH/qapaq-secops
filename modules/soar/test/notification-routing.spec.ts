@@ -44,7 +44,7 @@ describe('tarjeta con menciones', () => {
     title: 'Regla de reenvío externa',
     severity: 'P1',
     occurredAt: new Date('2026-10-13T01:00:00.000Z'),
-    consoleBaseUrl: 'https://app.jappi.net.pe',
+    consoleBaseUrl: 'https://qapaq-secops.jappi.net.pe',
     clientRequestId: 'req-1',
   };
 

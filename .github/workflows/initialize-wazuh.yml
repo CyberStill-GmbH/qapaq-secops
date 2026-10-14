@@ -3,12 +3,12 @@ name: Initialize Wazuh
 # Sprint 5 — deja el Wazuh del demo operativo para QAPAQ en una sola ejecución, por SSM y sin
 # reemplazar la instancia (user_data no cambia). Idempotente: reejecutarlo no rota contraseñas.
 #
-#   1. infra/wazuh/access/apply-access.sh
+#   1. wazuh/access/apply-access.sh
 #      - `qapaq_reader` (solo lectura de alertas) y proxy TLS del Indexer en la IP privada;
 #      - usuario del Dashboard del dueño del grupo de admisión (administrador) y de la persona
 #        analista (solo lectura);
 #      - publica credenciales y certificado en Secrets Manager; autoprueba de permisos.
-#   2. infra/wazuh/office365/apply-office365.sh (si hay app de Entra declarada): módulo office365,
+#   2. wazuh/office365/apply-office365.sh (si hay app de Entra declarada): módulo office365,
 #      reglas QAPAQ y lista break-glass.
 #
 # Variables de repositorio de GitHub (no secretas, no versionadas):
@@ -63,8 +63,8 @@ jobs:
             [[ "$O365_CLIENT_ID" =~ $guid ]] || { echo 'WAZUH_O365_CLIENT_ID no es un GUID.' >&2; exit 1; }
             [[ "$M365_TENANT_ID" =~ $guid ]] || { echo 'M365_TENANT_ID no es un GUID.' >&2; exit 1; }
           fi
-          bash -n infra/wazuh/access/apply-access.sh
-          bash -n infra/wazuh/office365/apply-office365.sh
+          bash -n wazuh/access/apply-access.sh
+          bash -n wazuh/office365/apply-office365.sh
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -89,7 +89,7 @@ jobs:
           # Scripts versionados embebidos en el comando; ningún secreto viaja en él.
           # SSM limits the commands parameter size. Ship only runtime inputs: including the
           # module READMEs and test fixtures made the base64 archive exceed that limit.
-          bundle="$(tar -C infra/wazuh -czf - \
+          bundle="$(tar -C wazuh -czf - \
             access/apply-access.sh \
             office365/apply-office365.sh \
             office365/ossec-office365.xml.tmpl \

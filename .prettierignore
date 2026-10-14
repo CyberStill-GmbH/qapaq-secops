@@ -11,4 +11,3 @@ docs
 
 # Artefactos generados desde el catálogo de señales (C-26) y desde routes.json (C-28).
 # Su formato lo fija el generador; reformatearlos rompería la comprobación de deriva.
-platform/observability/grafana/dashboards

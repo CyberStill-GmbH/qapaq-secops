@@ -63,6 +63,23 @@ describe('NotificationDispatcher', () => {
     expect(drain).toHaveBeenCalledTimes(2);
   });
 
+  it('publica señales BullMQ best-effort y sigue drenando Postgres si Valkey falla', async () => {
+    const onError = vi.fn();
+    const enqueue = vi.fn(async () => {
+      throw new Error('VALKEY_OFFLINE');
+    });
+    const drain = vi.fn(async () => 0);
+    dispatcher = new NotificationDispatcher({ drain, enqueue, intervalMs: 60_000, onError });
+
+    dispatcher.start();
+    dispatcher.kick();
+    await settle();
+
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(onError).toHaveBeenCalledTimes(2);
+    expect(drain).toHaveBeenCalled();
+  });
+
   it('un kick durante una pasada no abre otra en paralelo, pero deja una pendiente', async () => {
     const gate = deferred();
     let concurrent = 0;

@@ -1,0 +1,45 @@
+# Fragmento para opensearch-security/roles.yml. Mínimo privilegio por rol QAPAQ.
+# Ninguno de estos roles escribe en índices de Wazuh ni gestiona la seguridad.
+_meta:
+  type: 'roles'
+  config_version: 2
+
+qapaq_soc_analyst:
+  cluster_permissions: ['cluster_composite_ops_ro']
+  index_permissions:
+    - index_patterns: ['wazuh-alerts-*', 'restored-wazuh-alerts-*']
+      allowed_actions: ['read', 'indices:admin/mappings/get']
+  tenant_permissions:
+    - tenant_patterns: ['global_tenant']
+      allowed_actions: ['kibana_all_read']
+
+qapaq_soc_lead:
+  cluster_permissions:
+    [
+      'cluster_composite_ops_ro',
+      'cluster:admin/opendistro/ad/detector/info',
+      'cluster:admin/opendistro/ad/detectors/get',
+    ]
+  index_permissions:
+    - index_patterns:
+        ['wazuh-alerts-*', 'wazuh-archives-*', 'restored-*', '.opendistro-anomaly-results*']
+      allowed_actions: ['read', 'indices:admin/mappings/get']
+  tenant_permissions:
+    - tenant_patterns: ['global_tenant']
+      allowed_actions: ['kibana_all_write']
+
+qapaq_auditor:
+  cluster_permissions: ['cluster_composite_ops_ro']
+  index_permissions:
+    - index_patterns: ['wazuh-alerts-*', 'restored-*']
+      allowed_actions: ['read']
+  tenant_permissions:
+    - tenant_patterns: ['global_tenant']
+      allowed_actions: ['kibana_all_read']
+
+# Lector de la API QAPAQ (reconciliación más resultados de ML). Lo crea wazuh/access/apply-access.sh.
+qapaq_reader_role:
+  cluster_permissions: ['cluster_composite_ops_ro']
+  index_permissions:
+    - index_patterns: ['wazuh-alerts-*', '.opendistro-anomaly-results*']
+      allowed_actions: ['read']

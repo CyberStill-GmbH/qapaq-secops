@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -64,7 +66,8 @@ if (process.argv.includes('--include-working-tree')) {
   changed.push(...workingTree, ...untracked);
 }
 
-const files = [...new Set(changed)].sort();
+// A local tree may have removed files that still exist in the selected merge-base diff.
+const files = [...new Set(changed)].filter((file) => existsSync(resolve(root, file))).sort();
 if (files.length === 0) {
   console.log('Prettier check: no changed files relative to the selected baseline.');
   process.exit(0);

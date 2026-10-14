@@ -10,6 +10,7 @@ import {
   loadAlertMailSender,
   loadVapidPrivateKey,
   loadSocPersistenceConfig,
+  loadInjectedWorkerConfig,
   type DetectionContextConfig,
   type EnvironmentInput,
   type SocPersistenceConfig,
@@ -18,7 +19,7 @@ import type { PrioritizationContext } from '@qapaq/detection';
 import type { SessionStore } from '@qapaq/access';
 import type { AttemptStore } from '@qapaq/soar';
 import type { SocPersistence } from '@qapaq/soc';
-import { composeApi } from './composition-root.js';
+import { composeApi, createRedisRuntimeIntegrations } from './composition-root.js';
 import { ApiLifecycle, type ApiEvent } from './lifecycle.js';
 import { entityRefFactory } from './runtime/entity-refs.js';
 import { deriveCsrfKey } from './http/csrf.js';
@@ -176,6 +177,10 @@ export async function buildApi(
   const access = loadAccessConfig(environment);
   const detection = loadDetectionContextConfig(environment);
   const persistenceConfig = loadSocPersistenceConfig(environment);
+  const redisConfig = environment['QAPAQ_REDIS_HOST']
+    ? loadInjectedWorkerConfig(environment).redis
+    : undefined;
+  const redisRuntime = createRedisRuntimeIntegrations(redisConfig);
   const entityRefKey = loadEntityRefKey(environment);
   const entityRefSecret = entityRefKey?.reveal();
   const ingestionConfig = loadIngestionConfig(environment);
@@ -280,6 +285,15 @@ export async function buildApi(
       ? { soc: durable.soc, notifications: durable.notifications, sessions: durable.sessions }
       : {}),
     ...(onDispatchError ? { onDispatchError } : {}),
+    ...(redisRuntime.eventsPageCache ? { eventsPageCache: redisRuntime.eventsPageCache } : {}),
+    ...(redisRuntime.enqueueNotificationWake
+      ? {
+          enqueueNotificationWake: redisRuntime.enqueueNotificationWake,
+          // BullMQ atiende el camino frecuente; el polling PG queda como reconciliación si
+          // Valkey se cae o un wake-up no llega.
+          dispatchIntervalMs: 30_000,
+        }
+      : {}),
     ...(onSignInDenied ? { onSignInDenied } : {}),
     ...(processInfo ? { processInfo } : {}),
     ...(clientSecret !== undefined ? { clientSecret } : {}),
@@ -412,6 +426,7 @@ export async function buildApi(
       await directorySync?.stop();
       await runtime.stopDispatcher();
       await application.close();
+      await redisRuntime.close();
       await runtime.soc.close();
       await durable?.notifications.close();
       await durable?.sessions.close();

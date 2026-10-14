@@ -35,12 +35,12 @@ aislamiento y ausencia de contenedores remanentes al terminar.
 El 2026-09-24 la suite completa pasó 10 pruebas en 4 archivos; el perfil `base`
 pasó en dos entornos paralelos y generó dos evidencias con cleanup `PASS`. La
 captura de stdout y la matriz de evidencia están en
-[`docs/project-management/c-06`](../../docs/project-management/c-06/README.md).
+C-06 (histórico en git `050f9fa`).
 OpenSearch requiere completar su configuración TLS aprobada. Wazuh requiere
 ejecutar Compose oficial con capacidad suficiente; esos perfiles permanecen
 `BLOCKED`.
 
-Las imágenes y tags provienen de la baseline de [toolchain y capacidad](../../docs/architecture/toolchain-and-capacity.md)
+Las imágenes y tags provienen de la baseline de [toolchain y capacidad](../../docs/reference/toolchain-and-capacity.md)
 y se declaran en `integration-environment.lock.json`. El perfil `postgres`
 requiere su digest fijado y verificado. Los perfiles que aún tengan digests
 `null` no producen evidencia reproducible para CI.

@@ -74,6 +74,15 @@
       "owner": "application-platform"
     },
     {
+      "path": "/api/auth/introspect",
+      "method": "GET",
+      "upstream": "/api/auth/introspect",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
       "path": "/api/auth/logout",
       "method": "POST",
       "upstream": "/api/auth/logout",

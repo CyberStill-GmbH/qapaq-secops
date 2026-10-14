@@ -66,7 +66,9 @@ module "cache" {
   security_group_id = module.security.security_group_ids.redis
   node_type         = var.valkey_node_type
   engine_version    = var.valkey_engine_version
+  replica_count     = var.valkey_replica_count
 }
+
 
 module "private_endpoints" {
   source = "./modules/private_endpoints"
@@ -107,8 +109,8 @@ module "runtime" {
   image_digests           = var.runtime_image_digests
   image_manifest_commit   = var.runtime_image_manifest_commit
   desired_counts          = var.ecs_desired_counts
-  api_environment         = merge(var.runtime_api_environment, local.identity_api_environment, local.notification_api_environment)
-  api_extra_secrets       = local.notification_api_secrets
+  api_environment         = merge(var.runtime_api_environment, local.identity_api_environment, local.notification_api_environment, local.valkey_environment)
+  api_extra_secrets       = concat(local.notification_api_secrets, local.valkey_secrets)
   krakend_environment     = var.runtime_krakend_environment
   entra_client_secret_arn = module.application_foundations.metadata_secret_arns["entra_client_secret"]
   # Sprint 5 · fase 0: ingesta Wazuh → SOC, activada con `wazuh_ingestion_enabled`
@@ -146,6 +148,7 @@ module "wazuh_public" {
   public_proxy_security_group_id = module.security.security_group_ids.public_proxy
   wazuh_security_group_id        = module.security.security_group_ids.wazuh
   api_origin                     = module.runtime.load_balancer_dns_name
+  api_tls_server_name            = var.public_api_hostname
   wazuh_version                  = var.wazuh_version
   instance_type                  = var.wazuh_instance_type
   volume_size_gb                 = var.wazuh_volume_size_gb
@@ -153,4 +156,21 @@ module "wazuh_public" {
   # Sin `depends_on = [module.runtime]`: la instancia ya depende del ALB por `api_origin`, y el
   # runtime necesita la IP privada de esta instancia para la ingesta (wazuh_ingestion.tf). Un
   # depends_on de módulo completo crearía un ciclo.
+}
+
+locals {
+  valkey_environment = {
+    QAPAQ_REDIS_HOST               = module.cache.primary_endpoint
+    QAPAQ_REDIS_PORT               = tostring(module.cache.port)
+    QAPAQ_REDIS_PASSWORD_REF       = "secret://aws-secretsmanager/${var.project}/${var.environment}/valkey/auth-token"
+    QAPAQ_REDIS_DATABASE           = "0"
+    QAPAQ_REDIS_TLS                = "true"
+    QAPAQ_REDIS_CONNECTION_TIMEOUT = "5s"
+    QAPAQ_REDIS_COMMAND_TIMEOUT    = "5s"
+    QAPAQ_REDIS_RETRY_LIMIT        = "5"
+  }
+  valkey_secrets = [{
+    name      = "QAPAQ_REDIS_PASSWORD"
+    valueFrom = module.cache.auth_secret_arn
+  }]
 }

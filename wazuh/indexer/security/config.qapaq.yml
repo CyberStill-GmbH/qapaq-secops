@@ -1,0 +1,42 @@
+# Fragmento para /etc/wazuh-indexer/opensearch-security/config.yml (Security plugin).
+# Se fusiona con el `config.dynamic` existente y se aplica con securityadmin.sh.
+# Referencia: https://docs.opensearch.org/latest/security/authentication-backends/proxy/
+#
+# Solo nginx en el mismo host (127.0.0.1) puede afirmar identidad. Cualquier otra IP que mande
+# x-proxy-user queda ignorada y cae al dominio basic (servicios y break-glass).
+_meta:
+  type: 'config'
+  config_version: 2
+config:
+  dynamic:
+    http:
+      anonymous_auth_enabled: false
+      xff:
+        enabled: true
+        internalProxies: '127\.0\.0\.1'
+        remoteIpHeader: 'x-forwarded-for'
+    authc:
+      qapaq_proxy_auth_domain:
+        description: 'Identidad de la sesión QAPAQ (nginx auth_request)'
+        http_enabled: true
+        transport_enabled: false
+        order: 0
+        http_authenticator:
+          type: proxy
+          challenge: false
+          config:
+            user_header: 'x-proxy-user'
+            roles_header: 'x-proxy-roles'
+        authentication_backend:
+          type: noop
+      # Usuarios internos: qapaq_reader (API), wazuh-wui (plugin Wazuh), admin (break-glass por SSM).
+      basic_internal_auth_domain:
+        description: 'Usuarios internos de servicio y break-glass'
+        http_enabled: true
+        transport_enabled: true
+        order: 1
+        http_authenticator:
+          type: basic
+          challenge: false
+        authentication_backend:
+          type: intern

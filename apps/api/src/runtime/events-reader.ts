@@ -23,7 +23,11 @@ export interface EventsReadRequest {
 }
 
 export interface EventsReadResult {
-  readonly items: readonly { readonly event: SecurityEvent; readonly raw: ProviderRecord['raw'] }[];
+  readonly items: readonly {
+    readonly event: SecurityEvent;
+    /** Omitted by the short-lived cache; included by a direct read for events.read_raw callers. */
+    readonly raw?: ProviderRecord['raw'];
+  }[];
   readonly unparsedCount: number;
   readonly nextCursor: string | null;
 }

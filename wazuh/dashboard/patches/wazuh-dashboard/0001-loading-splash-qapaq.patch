@@ -1,0 +1,134 @@
+diff --git a/src/core/server/rendering/views/styles.tsx b/src/core/server/rendering/views/styles.tsx
+index 1313707..9cf2719 100644
+--- a/src/core/server/rendering/views/styles.tsx
++++ b/src/core/server/rendering/views/styles.tsx
+@@ -77,7 +77,8 @@ export const Styles: FunctionComponent<Props> = ({ theme, darkMode }) => {
+           {/* used on loading page */}
+           .osdWelcomeView {
+             line-height: 1.5;
+-            background-color: ${themeDefinition.ouiHeaderBackgroundColor};
++            /* QAPAQ: fondo #080808 en oscuro (doc 02); en claro, el de OUI */
++            background-color: ${darkMode ? '#080808' : themeDefinition.ouiHeaderBackgroundColor};
+             height: 100%;
+             display: -webkit-box;
+             display: -webkit-flex;
+@@ -118,14 +119,17 @@ export const Styles: FunctionComponent<Props> = ({ theme, darkMode }) => {
+ 
+           .osdWelcomeText {
+             display: inline-block;
+-            font-size: 24px; /* Wazuh */
+-            font-family: sans-serif;
++            font-size: 13px; /* QAPAQ */
++            font-family: 'Segoe UI', Inter, ui-sans-serif, system-ui, sans-serif;
++            letter-spacing: 0.01em;
+             line-height: 40px !important;
+             height: 40px !important;
+-            color: ${themeDefinition.euiColorDarkShade};
++            color: ${darkMode ? '#8f8f95' : themeDefinition.euiColorDarkShade};
+           }
+ 
+           .osdLoaderWrap {
++            /* QAPAQ: entrada suave (opacidad + 6 px), sin movimiento si se pide */
++            animation: qapaqSplashIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+             text-align: center;
+             line-height: 1;
+             text-align: center;
+@@ -167,7 +171,7 @@ export const Styles: FunctionComponent<Props> = ({ theme, darkMode }) => {
+             left: 0;
+             transform: scaleX(0) translateX(0%);
+             animation: osdProgress 1s cubic-bezier(.694, .0482, .335, 1) infinite;
+-            background-color: ${darkMode ? '#1BA9F5' : '#006DE4'};
++            background-color: #c49a5a; /* QAPAQ */
+           }
+ 
+           .loadingLogoContainer {
+@@ -180,6 +184,25 @@ export const Styles: FunctionComponent<Props> = ({ theme, darkMode }) => {
+             max-width: 100%;
+           }
+ 
++          @keyframes qapaqSplashIn {
++            from {
++              opacity: 0;
++              transform: translateY(6px);
++            }
++
++            to {
++              opacity: 1;
++              transform: none;
++            }
++          }
++
++          @media (prefers-reduced-motion: reduce) {
++            .osdLoaderWrap,
++            .osdProgress:before {
++              animation: none;
++            }
++          }
++
+           @keyframes osdProgress {
+             0% {
+               transform: scaleX(1) translateX(-100%);
+diff --git a/src/core/server/rendering/views/template.tsx b/src/core/server/rendering/views/template.tsx
+index c76ef5a..97931ae 100644
+--- a/src/core/server/rendering/views/template.tsx
++++ b/src/core/server/rendering/views/template.tsx
+@@ -46,7 +46,6 @@ export const Template: FunctionComponent<Props> = ({
+     darkMode,
+     themeVersion,
+     injectedMetadata,
+-    i18n,
+     bootstrapScriptUrl,
+     strictCsp,
+   },
+@@ -103,7 +102,7 @@ export const Template: FunctionComponent<Props> = ({
+         {/* Ignoring all of the above, Safari picks this one */}
+         <link
+           rel="mask-icon"
+-          color="#003553"
++          color="#080808"
+           href={favicon ?? `${uiPublicUrl}/favicons/safari-pinned-tab.svg`}
+         />
+         <link rel="shortcut icon" href={favicon ?? `${uiPublicUrl}/favicons/favicon.ico`} />
+@@ -113,7 +112,7 @@ export const Template: FunctionComponent<Props> = ({
+           content={favicon ? `` : `${uiPublicUrl}/favicons/browserconfig.xml`}
+         />
+ 
+-        <meta name="theme-color" content="#ffffff" />
++        <meta name="theme-color" content="#080808" />
+         <Styles darkMode={darkMode} theme={themeVersion} />
+ 
+         {/* Inject stylesheets into the <head> before scripts so that KP plugins with bundled styles will override them */}
+@@ -147,17 +146,9 @@ export const Template: FunctionComponent<Props> = ({
+             </div>
+             <div
+               className="osdWelcomeText"
+-              data-error-message={i18n('core.ui.welcomeErrorMessage', {
+-                defaultMessage:
+-                  '{applicationTitle} did not load properly. Check the server output for more information.',
+-                values: { applicationTitle },
+-              })}
++              data-error-message="QAPAQ SecOps no pudo iniciar correctamente. Revisa los registros del servicio."
+             >
+-              {i18n('core.ui.welcomeMessage', {
+-                // Wazuh: change the default message to avoid
+-                // showing the "Loading Wazuh" message twice.
+-                defaultMessage: 'Loading ...',
+-              })}
++              Cargando QAPAQ SecOps…
+             </div>
+             {/* Show a progress bar if a static custom branded logo is used */}
+             {logos.AnimatedMark.type === ImageType.ALTERNATIVE && <div className="osdProgress" />}
+@@ -176,11 +167,6 @@ export const Template: FunctionComponent<Props> = ({
+           <h2 className="osdWelcomeTitle">
+-            {i18n('core.ui.legacyBrowserTitle', {
+-              defaultMessage: 'Please upgrade your browser',
+-            })}
++            Actualiza tu navegador
+           </h2>
+           <div className="osdWelcomeText">
+-            {i18n('core.ui.legacyBrowserMessage', {
+-              defaultMessage:
+-                'This OpenSearch installation has strict security requirements enabled that your current browser does not meet.',
+-            })}
++            QAPAQ SecOps requiere un navegador moderno. Actualízalo para continuar.
+           </div>

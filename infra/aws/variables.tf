@@ -178,6 +178,12 @@ variable "public_root_route53_zone_name" {
   }
 }
 
+variable "retire_legacy_frontend_dns" {
+  description = "Remove the legacy app/codexpt Vercel A records only after the Wazuh Dashboard cutover is verified."
+  type        = bool
+  default     = false
+}
+
 variable "krakend_port" {
   description = "KrakenD listener port."
   type        = number
@@ -200,6 +206,29 @@ variable "redis_port" {
   description = "Redis/Valkey listener port."
   type        = number
   default     = 6379
+}
+
+variable "valkey_node_type" {
+  description = "ElastiCache Valkey node class used for the cache and recoverable BullMQ signals."
+  type        = string
+  default     = "cache.t4g.micro"
+}
+
+variable "valkey_engine_version" {
+  description = "Pinned Valkey engine version for the replication group."
+  type        = string
+  default     = "8.0"
+}
+
+variable "valkey_replica_count" {
+  description = "Number of Valkey replicas. At least one replica enables automatic failover across AZs."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.valkey_replica_count >= 1 && var.valkey_replica_count <= 5 && floor(var.valkey_replica_count) == var.valkey_replica_count
+    error_message = "Valkey replica_count must be a whole number from 1 to 5 for a Multi-AZ replication group."
+  }
 }
 
 variable "wazuh_indexer_port" {
@@ -290,17 +319,7 @@ variable "postgres_final_snapshot_identifier" {
   nullable    = true
 }
 
-variable "valkey_node_type" {
-  description = "Small node-based Valkey class for the temporary demo."
-  type        = string
-  default     = "cache.t4g.micro"
-}
 
-variable "valkey_engine_version" {
-  description = "Valkey version compatible with TLS and AUTH; validated by the AWS plan/apply workflow."
-  type        = string
-  default     = "8.0"
-}
 
 variable "runtime_image_manifest_commit" {
   description = "Full commit SHA recorded in the verified image manifest used by the demo task definitions."

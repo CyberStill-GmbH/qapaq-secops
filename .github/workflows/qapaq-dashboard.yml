@@ -1,0 +1,240 @@
+name: QAPAQ SecOps dashboard
+
+# Construye la UI de QAPAQ SecOps (Wazuh 4.14.8 rebrandeado como overlay de wazuh/dashboard) y, a
+# pedido, la despliega en el host Wazuh por SSM. Nada de secretos viaja en los comandos: los
+# scripts del host leen lo que necesitan de Secrets Manager y NO rotan credenciales (A20).
+#
+#   push a main (wazuh/dashboard/**)  → build + publicación en S3 (artifacts)
+#   workflow_dispatch step=security   → wazuh/indexer/security/apply-security.sh
+#   workflow_dispatch step=dashboard  → instala el .deb publicado para el commit
+#   workflow_dispatch step=edge       → wazuh/edge/apply-edge.sh (login QAPAQ, proxy auth)
+#   workflow_dispatch step=all        → security → dashboard → edge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "wazuh/dashboard/**"
+      - ".github/workflows/qapaq-dashboard.yml"
+  pull_request:
+    paths:
+      - "wazuh/dashboard/**"
+      - ".github/workflows/qapaq-dashboard.yml"
+  workflow_dispatch:
+    inputs:
+      step:
+        description: Paso de despliegue en el host Wazuh
+        type: choice
+        required: true
+        default: build
+        options: [build, security, dashboard, edge, all]
+      entra_callback_registered:
+        description: Confirma que Entra ya tiene registrado el callback exacto de qapaq-secops.jappi.net.pe.
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: qapaq-dashboard
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ARTIFACTS_BUCKET: qapaq-secops-demo-artifacts-955200662475
+  SOC_HOSTNAME: ${{ vars.QAPAQ_SOC_HOSTNAME || 'qapaq-secops.jappi.net.pe' }}
+
+jobs:
+  validate_overlay:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build QAPAQ SecOps dashboard package without AWS credentials
+        run: bash wazuh/dashboard/build.sh "$RUNNER_TEMP/qapaq-dashboard"
+
+      - name: Verify package
+        working-directory: ${{ runner.temp }}/qapaq-dashboard
+        run: |
+          set -euo pipefail
+          count="$(find . -maxdepth 1 -name '*.deb' | wc -l)"
+          [[ "$count" == 1 ]] || { echo "Se esperaba 1 .deb y hay $count" >&2; exit 1; }
+          sha256sum -c SHA256SUMS
+          dpkg-deb --field ./*.deb Package Version
+
+  build:
+    if: github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build QAPAQ SecOps dashboard package
+        run: bash wazuh/dashboard/build.sh "$RUNNER_TEMP/qapaq-dashboard"
+
+      - name: Verify package
+        working-directory: ${{ runner.temp }}/qapaq-dashboard
+        run: |
+          set -euo pipefail
+          count="$(find . -maxdepth 1 -name '*.deb' | wc -l)"
+          [[ "$count" == 1 ]] || { echo "Se esperaba 1 .deb y hay $count" >&2; exit 1; }
+          sha256sum -c SHA256SUMS
+          dpkg-deb --field ./*.deb Package Version
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: qapaq-secops-dashboard-build
+          allowed-account-ids: 955200662475
+
+      - name: Publish to S3 (immutable, per commit)
+        working-directory: ${{ runner.temp }}/qapaq-dashboard
+        run: |
+          set -euo pipefail
+          prefix="s3://${ARTIFACTS_BUCKET}/qapaq-dashboard/git-${GITHUB_SHA}"
+          aws s3 cp ./*.deb "${prefix}/qapaq-dashboard.deb" --sse aws:kms
+          aws s3 cp SHA256SUMS "${prefix}/SHA256SUMS" --sse aws:kms
+          echo "Publicado en ${prefix}/"
+
+  deploy:
+    needs: [build]
+    if: >-
+      always() && github.event_name == 'workflow_dispatch' && inputs.step != 'build' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Wait for CI / required on this exact commit
+        shell: bash
+        env:
+          ACTIONS_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            checks=$(curl --fail --silent --show-error \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer ${ACTIONS_GITHUB_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100")
+            result=$(jq -r \
+              '[.check_runs[] | select(.name == "CI / required" and .app.slug == "github-actions")] | sort_by(.started_at // "") | last | [.status // "", .conclusion // ""] | @tsv' \
+              <<< "$checks")
+            status=${result%%$'\t'*}
+            conclusion=${result#*$'\t'}
+            if [[ "$status" == completed && "$conclusion" == success ]]; then
+              echo "CI / required passed for ${GITHUB_SHA}."
+              exit 0
+            fi
+            if [[ "$status" == completed ]]; then
+              echo "CI / required concluded '${conclusion}' for ${GITHUB_SHA}." >&2
+              exit 1
+            fi
+            echo "Waiting for CI / required on ${GITHUB_SHA} (attempt ${attempt}/90)."
+            sleep 10
+          done
+          echo "Timed out waiting for CI / required on ${GITHUB_SHA}." >&2
+          exit 1
+
+      - name: Require Entra callback before publishing login or edge
+        if: inputs.step == 'dashboard' || inputs.step == 'edge' || inputs.step == 'all'
+        env:
+          ENTRA_CALLBACK_REGISTERED: ${{ inputs.entra_callback_registered }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$ENTRA_CALLBACK_REGISTERED" != "true" ]]; then
+            echo '::error::Register https://qapaq-secops.jappi.net.pe/qapaq-api/api/auth/callback in Entra, then confirm it before deploying the login or edge.'
+            exit 1
+          fi
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: qapaq-secops-dashboard-deploy
+          allowed-account-ids: 955200662475
+
+      - name: Run on the Wazuh host through SSM
+        env:
+          STEP: ${{ inputs.step }}
+        run: |
+          set -euo pipefail
+          instance_id="$(aws ec2 describe-instances \
+            --filters 'Name=tag:Name,Values=qapaq-secops-demo-wazuh' 'Name=instance-state-name,Values=running' \
+            --query 'Reservations[].Instances[].InstanceId | [0]' --output text)"
+          [[ -n "$instance_id" && "$instance_id" != None ]] || { echo 'No hay host Wazuh en ejecución.' >&2; exit 1; }
+          # Salida `qapaq_edge_api_origin` de Terraform (Cloud Map, red privada).
+          api_origin="${{ vars.QAPAQ_EDGE_API_ORIGIN || 'http://api.demo.qapaq.internal:3000' }}"
+          cert_name="${{ vars.QAPAQ_CERT_NAME || 'qapaq-secops-dashboard' }}"
+          export CERT_NAME="$cert_name"
+
+          bundle="$(tar -C wazuh -czf - \
+            scripts/indexer-admin.sh \
+            indexer/security/apply-security.sh indexer/security/config.qapaq.yml \
+            indexer/security/roles.qapaq.yml indexer/security/roles_mapping.qapaq.yml \
+            edge/apply-edge.sh edge/qapaq-edge.conf \
+            dashboard/opensearch_dashboards.qapaq.yml | base64 -w0)"
+
+          deb_url=''; sums=''
+          if [[ "$STEP" == dashboard || "$STEP" == all ]]; then
+            prefix="s3://${ARTIFACTS_BUCKET}/qapaq-dashboard/git-${GITHUB_SHA}"
+            aws s3 ls "${prefix}/qapaq-dashboard.deb" >/dev/null || { echo "No hay paquete publicado para ${GITHUB_SHA}; ejecuta step=build" >&2; exit 1; }
+            deb_url="$(aws s3 presign "${prefix}/qapaq-dashboard.deb" --expires-in 3600)"
+            sums="$(aws s3 cp "${prefix}/SHA256SUMS" - | awk '{print $1}')"
+          fi
+
+          remote_script="$(cat <<REMOTE
+          set -euo pipefail
+          work="\$(mktemp -d)"; trap 'rm -rf "\$work"' EXIT
+          printf '%s' '${bundle}' | base64 -d | tar -C "\$work" -xzf -
+          step='${STEP}'
+          if [[ "\$step" == security || "\$step" == all ]]; then bash "\$work/indexer/security/apply-security.sh"; fi
+          if [[ "\$step" == dashboard || "\$step" == all ]]; then
+            curl -fsS --max-time 600 -o "\$work/qapaq-dashboard.deb" '${deb_url}'
+            echo '${sums}  '"\$work/qapaq-dashboard.deb" | sha256sum -c -
+            cp /etc/wazuh-dashboard/opensearch_dashboards.yml "\$work/osd.yml.bak"
+            DEBIAN_FRONTEND=noninteractive dpkg --force-confold -i "\$work/qapaq-dashboard.deb"
+            systemctl daemon-reload; systemctl restart wazuh-dashboard
+            /usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin list --allow-root | grep -i qapaq
+          fi
+          if [[ "\$step" == edge || "\$step" == all ]]; then
+            SOC_HOSTNAME='${SOC_HOSTNAME}' QAPAQ_API='${api_origin}' CERT_NAME='${cert_name}' bash "\$work/edge/apply-edge.sh"
+          fi
+          REMOTE
+          )"
+          payload="$(jq -cn --arg command "$remote_script" '{commands: [$command]}')"
+          (( $(LC_ALL=C printf '%s' "$payload" | wc -c) <= 24000 )) || { echo 'Payload SSM > 24000 bytes' >&2; exit 1; }
+          command_id="$(aws ssm send-command --instance-ids "$instance_id" --document-name AWS-RunShellScript \
+            --comment "QAPAQ SecOps dashboard: ${STEP}" --timeout-seconds 2400 --parameters "$payload" \
+            --query 'Command.CommandId' --output text)"
+          for _ in $(seq 1 450); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+              --query Status --output text 2>/dev/null || true)"
+            case "$status" in Success|Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          [[ "$status" == Success ]]

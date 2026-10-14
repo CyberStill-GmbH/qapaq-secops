@@ -17,7 +17,7 @@ import {
   SECURITY_EVENT_OUTCOMES,
 } from '@qapaq/contracts';
 
-/** Límites canónicos de ADR-016 / `docs/architecture/toolchain-and-capacity.md`. */
+/** Límites canónicos de ADR-016 / `docs/reference/toolchain-and-capacity.md`. */
 export const QUERY_LIMITS = Object.freeze({
   defaultPageSize: 50,
   maximumPageSize: 200,

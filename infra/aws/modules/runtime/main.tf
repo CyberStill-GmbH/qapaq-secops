@@ -1,4 +1,6 @@
 locals {
+  # El API conserva el camino de reconciliación Postgres; el worker consume señales BullMQ
+  # y ambos reclaman el outbox con leases durables antes de despachar.
   service_names = toset(["krakend", "api", "worker"])
   repository_names = {
     api     = "${var.project}-api"
@@ -16,7 +18,7 @@ locals {
     QAPAQ_API_PORT                = "3000"
     QAPAQ_ENTRA_CLIENT_SECRET_REF = "secret://aws-secretsmanager/qapaq-secops/demo/entra/client-secret"
     # El perfil de producción exige declarar la persistencia del estado SOC. Con
-    # `soc_database` activado pasa a PostgreSQL (docs/deployment/soc-postgres-rollout.md).
+    # `soc_database` activado pasa a PostgreSQL (docs/05-datos-y-retencion.md).
     QAPAQ_SOC_PERSISTENCE = var.soc_database == null ? "memory" : "postgres"
   }, local.soc_database_environment, local.ingestion_api_environment, var.api_environment)
   # Sprint 5 · fase 0: el API lee el Indexer por KrakenD con service discovery privado. Sin
@@ -132,7 +134,9 @@ locals {
       essential         = true
       cpu               = 256
       memoryReservation = 384
-      environment       = [{ name = "NODE_ENV", value = "production" }, { name = "QAPAQ_PROFILE", value = "production" }]
+      environment       = [for key, value in local.api_environment : { name = key, value = value }]
+      # Reusa solo la configuración/secretos operacionales que construyen el runtime de envíos.
+      secrets = local.api_secrets
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -211,10 +215,8 @@ resource "aws_iam_role_policy" "execution" {
         Resource = local.log_group_arns
       },
       {
-        # Solo los secretos que inyectan las tareas: Entra; con estado durable, el runtime de
-        # PostgreSQL y la clave de referencias; con ingesta, la credencial de solo lectura del
-        # Indexer y la CA del proxy (solo los recibe KrakenD). Nunca la master de RDS.
-        Sid      = "ReadApiStartupSecrets"
+        # Solo los secretos que inyectan API/worker y KrakenD. Nunca la master de RDS.
+        Sid      = "ReadRuntimeStartupSecrets"
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
         Resource = local.api_secret_arns
@@ -362,8 +364,8 @@ resource "aws_ecs_task_definition" "this" {
   family                   = "${var.project}-${var.environment}-${each.key}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = each.key == "api" ? "512" : "256"
-  memory                   = each.key == "api" ? "1024" : "512"
+  cpu                      = each.key == "api" ? "512" : (each.key == "worker" ? "256" : "256")
+  memory                   = each.key == "api" ? "1024" : (each.key == "worker" ? "1024" : "512")
   execution_role_arn       = aws_iam_role.execution.arn
   task_role_arn            = aws_iam_role.task[each.key].arn
   runtime_platform {
@@ -488,6 +490,7 @@ resource "aws_ecs_service" "worker" {
   propagate_tags                     = "SERVICE"
   tags                               = { Project = var.project, Environment = var.environment, Service = "worker" }
 }
+
 
 resource "aws_eip" "api_egress" {
   domain = "vpc"

@@ -217,6 +217,43 @@ export async function loadWorkerConfig(
   });
 }
 
+/**
+ * Carga el acceso a Redis cuando ECS ya resolvió la referencia y entregó el valor al proceso.
+ * El ARN/referencia sigue validándose por separado y la contraseña queda envuelta para que la
+ * serialización de configuración la redacte. Este camino evita depender de un SDK de AWS en
+ * los servicios; la lectura del secreto la hace el execution role de ECS.
+ */
+export function loadInjectedWorkerConfig(environment: EnvironmentInput): WorkerConfig {
+  const profile = profileFrom(environment);
+  const parsed = parseRedis(environment, profile);
+  const value = environment['QAPAQ_REDIS_PASSWORD'];
+  const reference = parsed.passwordReference;
+  if (reference && (value === undefined || value === '')) {
+    throw configurationError('CONFIG_REQUIRED_VALUE_MISSING', 'QAPAQ_REDIS_PASSWORD', profile.name);
+  }
+  if (!reference && value !== undefined && value !== '') {
+    throw configurationError(
+      'CONFIG_REQUIRED_VALUE_MISSING',
+      'QAPAQ_REDIS_PASSWORD_REF',
+      profile.name,
+    );
+  }
+  return deepFreeze({
+    profile: profile.name,
+    redis: {
+      host: parsed.host,
+      port: parsed.port,
+      ...(parsed.username ? { username: parsed.username } : {}),
+      ...(reference && value ? { password: { reference, value: new SecretValue(value) } } : {}),
+      database: parsed.database,
+      tls: parsed.tls,
+      connectionTimeoutMs: parsed.connectionTimeoutMs,
+      commandTimeoutMs: parsed.commandTimeoutMs,
+      retryLimit: parsed.retryLimit,
+    },
+  });
+}
+
 export async function loadControlPlaneSecretConfig(
   environment: EnvironmentInput,
   provider: SecretProvider,

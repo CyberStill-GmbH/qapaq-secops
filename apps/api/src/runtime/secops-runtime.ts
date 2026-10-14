@@ -116,6 +116,7 @@ export type RuntimeDirectory =
       readonly store: DirectoryStore;
     };
 import { NotificationDispatcher } from './notification-dispatcher.js';
+import type { EventsPageCache } from './events-page-cache.js';
 import { CONNECTED_SOURCE_SIGNAL_CATALOG } from './signal-catalog.js';
 
 /**
@@ -182,6 +183,10 @@ export interface RuntimeOptions {
   readonly notifications?: AttemptStore;
   /** Intervalo del bucle de despacho; el bucle solo corre tras `startDispatcher()`. */
   readonly dispatchIntervalMs?: number;
+  /** Caché read-through corta de páginas normalizadas del Indexer; nunca cachea sesión ni mutaciones. */
+  readonly eventsPageCache?: EventsPageCache;
+  /** Wake-up BullMQ best-effort; la API conserva reconciliación directa del outbox Postgres. */
+  readonly enqueueNotificationWake?: () => Promise<void>;
   /** Reporte de fallos del bucle de despacho, sin datos del mensaje. */
   readonly onDispatchError?: (error: unknown) => void;
   /** Motivo técnico de cada inicio de sesión rechazado, para el log del proceso. */
@@ -287,9 +292,10 @@ export class SecOpsRuntime {
     this.sessions = options.sessions ?? new InMemorySessionStore();
     this.notifications = options.notifications ?? new InMemoryNotificationStore();
     this.dispatcher = new NotificationDispatcher({
-      drain: async () => (await drainOutbox(this.dispatchDependencies(), DISPATCH_BATCH)).length,
+      drain: () => this.drainNotifications(),
       intervalMs: options.dispatchIntervalMs ?? DEFAULT_DISPATCH_INTERVAL_MS,
       onError: options.onDispatchError ?? (() => undefined),
+      ...(options.enqueueNotificationWake ? { enqueue: options.enqueueNotificationWake } : {}),
     });
     this.detectionContext = options.detectionContext ?? {
       privilegedIdentities: new Set(),
@@ -374,6 +380,10 @@ export class SecOpsRuntime {
   /** Lector del explorador de eventos; `undefined` si no hay fuente configurada. */
   public get events(): EventsReader | undefined {
     return this.options.events;
+  }
+
+  public get eventsPageCache(): EventsPageCache | undefined {
+    return this.options.eventsPageCache;
   }
 
   public get isLocalIdentity(): boolean {
@@ -569,6 +579,11 @@ export class SecOpsRuntime {
   /** Arranca el despacho continuo. Lo llama el entrypoint, no las specs. */
   public startDispatcher(): void {
     this.dispatcher.start();
+  }
+
+  /** Una pasada acotada. BullMQ y la reconciliación local compiten con leases Postgres. */
+  public async drainNotifications(limit = DISPATCH_BATCH): Promise<number> {
+    return (await drainOutbox(this.dispatchDependencies(), limit)).length;
   }
 
   public stopDispatcher(): Promise<void> {
@@ -788,7 +803,8 @@ export class SecOpsRuntime {
       (decision.reason === 'MFA_REQUIRED' || decision.reason === 'PASSKEY_REQUIRED') &&
       validation.ok &&
       capabilities.size > 0 &&
-      this.options.access.redirectUri === 'https://app.jappi.net.pe/api/auth/callback' &&
+      this.options.access.redirectUri ===
+        'https://qapaq-secops.jappi.net.pe/qapaq-api/api/auth/callback' &&
       this.options.access.tenantId === '45f2f938-dbe3-4a3e-8a54-930893f94ef8' &&
       this.options.access.clientId === '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998' &&
       Number.isFinite(exceptionUntil) &&
