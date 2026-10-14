@@ -65,6 +65,34 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("if: always()", workflow)
         self.assertIn("jobs[name]['result'] != 'success'", workflow)
 
+    def test_qapaq_dashboard_pr_build_is_read_only(self):
+        workflow = (WORKFLOWS / "qapaq-dashboard.yml").read_text(encoding="utf-8")
+        validate_job = workflow.split("  validate-dashboard:\n", 1)[1].split(
+            "\n  build-dashboard:\n", 1
+        )[0]
+
+        self.assertIn("  pull_request:\n", workflow)
+        self.assertIn("github.event_name == 'pull_request'", validate_job)
+        self.assertIn("permissions:\n      contents: read", validate_job)
+        self.assertNotIn("id-token: write", validate_job)
+        self.assertIn("bash wazuh/dashboard/build.sh", validate_job)
+        self.assertIn("sha256sum -c SHA256SUMS", validate_job)
+
+    def test_qapaq_dashboard_uses_its_pinned_yarn_outside_corepack_context(self):
+        build = (Path(__file__).resolve().parents[2] / "wazuh/dashboard/build.sh").read_text(
+            encoding="utf-8"
+        )
+        ensure_node = build.split("ensure_node() {", 1)[1].split("\n}", 1)[0]
+
+        self.assertIn('local yarn_bin="$WORK/yarn/bin/yarn"', ensure_node)
+        self.assertIn(
+            'npm install --global --silent --prefix "$WORK/yarn" "yarn@$YARN_VERSION"',
+            ensure_node,
+        )
+        self.assertIn('export PATH="$WORK/yarn/bin:$WORK/node/bin:$PATH"', ensure_node)
+        self.assertIn("hash -r", ensure_node)
+        self.assertRegex(build, r'\(\s*cd "\$OSD"\s+yarn config set network-timeout')
+
     def test_policy_rejects_unpinned_action_reference(self):
         fixture = "      - uses: actions/checkout@v4 # v4\n"
         reference = re.search(r"(?m)^\s*-\s+uses:\s*([^\s#]+)", fixture).group(1)
