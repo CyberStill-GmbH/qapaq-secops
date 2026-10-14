@@ -19,6 +19,8 @@
 # Variables: SOC_HOSTNAME (dominio público; p. ej. wazuh.jappi.net.pe)
 #            QAPAQ_API    (salida `qapaq_edge_api_origin` de Terraform; p. ej. http://api.demo.qapaq.internal:3000)
 #            CERT_NAME    (opcional; certificado de Let's Encrypt, por defecto qapaq-wazuh-dashboard)
+#            SOC_EXTRA_HOSTNAMES (opcional; p. ej. "app.jappi.net.pe": hostnames adicionales del mismo SIEM.
+#                         Expande el certificado con certbot (HTTP-01; el DNS ya debe apuntar a este host).
 set -euo pipefail
 umask 022
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,9 +29,17 @@ info() { printf 'qapaq-edge: %s\n' "$1"; }
 
 : "${SOC_HOSTNAME:?}" "${QAPAQ_API:?}"
 export SOC_HOSTNAME QAPAQ_API CERT_NAME="${CERT_NAME:-qapaq-wazuh-dashboard}"
+export SOC_SERVER_NAMES="$SOC_HOSTNAME ${SOC_EXTRA_HOSTNAMES:-}"
+for host in ${SOC_EXTRA_HOSTNAMES:-}; do
+  [[ "$host" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]] || fail "hostname extra inválido: $host"
+done
 [[ "$SOC_HOSTNAME" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]] || fail 'SOC_HOSTNAME inválido'
 [[ "$QAPAQ_API" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || fail 'QAPAQ_API debe ser scheme://host[:puerto], sin ruta'
 [[ -r "/etc/letsencrypt/live/$CERT_NAME/fullchain.pem" ]] || fail "no existe el certificado $CERT_NAME"
+if [[ -n "${SOC_EXTRA_HOSTNAMES:-}" ]]; then
+  domains=(-d "$SOC_HOSTNAME"); for host in $SOC_EXTRA_HOSTNAMES; do domains+=(-d "$host"); done
+  certbot certonly --non-interactive --agree-tos --register-unsafely-without-email --webroot     --webroot-path /var/www/certbot --cert-name "$CERT_NAME" --expand --keep-until-expiring "${domains[@]}"     || fail "certbot no pudo expandir $CERT_NAME a: $SOC_EXTRA_HOSTNAMES (¿el DNS ya apunta a este host?)"
+fi
 
 DASHBOARD_YML=/etc/wazuh-dashboard/opensearch_dashboards.yml
 PLUGIN_BIN=/usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin
@@ -79,7 +89,7 @@ login_code="$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 5 
 info 'dashboard en 127.0.0.1:5601 con login QAPAQ'
 
 # 4 · edge nginx
-envsubst '${SOC_HOSTNAME} ${QAPAQ_API} ${CERT_NAME}' <"$here/qapaq-edge.conf" >"$work/edge.conf"
+envsubst '${SOC_SERVER_NAMES} ${QAPAQ_API} ${CERT_NAME}' <"$here/qapaq-edge.conf" >"$work/edge.conf"
 mkdir -p /var/cache/nginx/qapaq_auth
 install -m 0644 "$work/edge.conf" "$NGINX_CONF"
 if ! nginx -t; then restore; fail 'nginx -t falló; restaurado'; fi
