@@ -16,6 +16,7 @@ C-0X, 31 ADR solapados, specs de pantallas). El histórico completo sigue en git
 | 08 | [Frontend unificado](08-frontend-unificado.md) | El dashboard de Wazuh como shell y QAPAQ dentro |
 | 09 | [Plan de lanzamiento](09-plan-de-lanzamiento.md) | Fases, criterios de aceptación y orden |
 | 10 | [Decisiones](10-decisiones.md) | Registro único de decisiones vigentes |
+| 11 | [Caché y colas](11-cache-y-colas.md) | Dónde Valkey es fundamental, lazy loading y en qué puntos van las colas |
 
 `reference/` guarda las decisiones integradas de Codex (ADR-028 a 030 en `reference/decisiones/`, Ayni
 Qapaq, la arquitectura resiliente y el rollout de Terraform) y los archivos que el código o la CI leen (catálogo de errores, inventario de

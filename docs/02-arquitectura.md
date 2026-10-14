@@ -54,6 +54,7 @@ classDef src fill:#eee,stroke:#999
 | Wazuh Dashboard | EC2 | Frontend único: SIEM nativo más el plugin QAPAQ | `wazuh/dashboard/` |
 | nginx edge | EC2 (mismo host) | TLS, `auth_request` contra QAPAQ y ruteo `/` → dashboard, `/api` → QAPAQ | `wazuh/edge/` |
 | QAPAQ API | ECS Fargate | Identidad, casos, correlación, SOAR gobernado, auditoría y notificaciones | `apps/api`, `modules/*`, `platform/*` |
+| Valkey | ElastiCache | Caché con TTL e invalidación, estado efímero compartido entre réplicas y colas BullMQ ([11](11-cache-y-colas.md)) | `platform/cache`, `apps/worker` |
 | PostgreSQL | RDS | Estado operativo, sesiones y auditoría append-only | `platform/database` |
 | S3 | AWS | Snapshots cold del Indexer (KMS) y evidencia con Object Lock | `infra/aws` |
 | Shuffle (fase 3) | EC2 pequeña | Ejecutar playbooks **después** de la aprobación en QAPAQ | `wazuh/integrations/shuffle/` |
@@ -64,8 +65,6 @@ classDef src fill:#eee,stroke:#999
 | --- | --- | --- |
 | **Frontend propio** (`apps/web` en Vercel) | Duplicaba Discover, dashboards y agentes de Wazuh, y el dueño lo descartó | La UI de Wazuh rebrandeada como QAPAQ SecOps más el plugin `qapaq_ops` ([08](08-frontend-unificado.md)). El código queda congelado en el repo |
 | **KrakenD** en el runtime | Su función era ser egress hacia APIs de proveedores, pero las fuentes nuevas entran por módulos de Wazuh. Hoy causa el bug de ingesta (`PROVIDER_RESPONSE_INVALID`) y corta el long-poll a 4 s. Además son 2 tareas Fargate | La API lee el Indexer por el proxy nginx allowlist que ya existe (`wazuh/access`), con usuario `qapaq_reader`. Se recupera de git si aparece una API de proveedor directa |
-| **Valkey/Redis y BullMQ** | Provisionados sin uso | **Destruido en AWS** (2026-10-13). El outbox con lease sigue en Postgres |
-| **`apps/worker`** | Shell sin lógica | **Servicio ECS destruido** (2026-10-13). El despacho y el long-poll siguen en la API |
 | **Grafana, Loki, Prometheus y `platform/observability`** | Ninguna app importaba la librería y solo existían en compose local. Su fin regulatorio (N1) lo cumple Wazuh | CloudWatch para métricas de infraestructura AWS. Los logs de API y ALB entran a Wazuh por el módulo AWS: un solo plano, autogestionado ([06](06-operacion.md)) |
 | **Python analytics (ADR-007)** | Dormante y sin código | OpenSearch Anomaly Detection (RCF), que ya está en el Indexer ([07](07-deteccion-ml-y-soar.md)) |
 | **Pipeline de admisión C-04 y raw en S3 propio** | Testeado pero no conectado a la API. Duplicaba la custodia que ya hace el Indexer | Wazuh conserva el raw (`archives`) y la retención se hace con ISM más snapshots |

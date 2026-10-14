@@ -141,3 +141,13 @@ variable "wazuh_ingestion" {
   default  = null
   nullable = true
 }
+
+variable "valkey" {
+  description = "Valkey para caché y colas (docs/11-cache-y-colas.md). Null = API en memoria y en proceso."
+  type = object({
+    host            = string
+    port            = number
+    auth_secret_arn = string
+  })
+  default = null
+}

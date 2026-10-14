@@ -56,6 +56,17 @@ module "database" {
   final_snapshot_identifier = var.postgres_final_snapshot_identifier
 }
 
+module "cache" {
+  source = "./modules/cache"
+
+  project           = var.project
+  environment       = var.environment
+  region            = var.aws_region
+  subnet_ids        = module.networking.data_subnet_ids
+  security_group_id = module.security.security_group_ids.redis
+  node_type         = var.valkey_node_type
+  engine_version    = var.valkey_engine_version
+}
 
 module "private_endpoints" {
   source = "./modules/private_endpoints"
@@ -103,6 +114,12 @@ module "runtime" {
   # Sprint 5 · fase 0: ingesta Wazuh → SOC, activada con `wazuh_ingestion_enabled`
   # (ver wazuh_ingestion.tf).
   wazuh_ingestion = local.wazuh_ingestion
+  # Valkey: caché (lazy loading) y colas BullMQ consumidas por el worker (docs/11).
+  valkey = {
+    host            = module.cache.primary_endpoint
+    port            = module.cache.port
+    auth_secret_arn = module.cache.auth_secret_arn
+  }
   # C-1: estado SOC durable, activado con `soc_database_enabled` (ver migrator.tf).
   soc_database = var.soc_database_enabled ? {
     host                      = module.database.endpoint
@@ -119,6 +136,7 @@ module "runtime" {
     module.security,
     module.application_foundations,
     module.database,
+    module.cache,
     module.private_endpoints,
   ]
 }

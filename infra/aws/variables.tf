@@ -290,7 +290,17 @@ variable "postgres_final_snapshot_identifier" {
   nullable    = true
 }
 
+variable "valkey_node_type" {
+  description = "Small node-based Valkey class for the temporary demo."
+  type        = string
+  default     = "cache.t4g.micro"
+}
 
+variable "valkey_engine_version" {
+  description = "Valkey version compatible with TLS and AUTH; validated by the AWS plan/apply workflow."
+  type        = string
+  default     = "8.0"
+}
 
 variable "runtime_image_manifest_commit" {
   description = "Full commit SHA recorded in the verified image manifest used by the demo task definitions."

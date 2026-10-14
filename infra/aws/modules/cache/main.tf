@@ -36,14 +36,32 @@ resource "aws_secretsmanager_secret_version" "auth_token" {
   secret_string_wo_version = 1
 }
 
+# BullMQ exige `noeviction`: con una política LRU, Valkey podría expulsar jobs pendientes. Toda
+# clave de caché lleva TTL (docs/11-cache-y-colas.md), así que la memoria no crece sin límite.
+resource "aws_elasticache_parameter_group" "this" {
+  name        = "${var.project}-${var.environment}-valkey8"
+  family      = "valkey8"
+  description = "QAPAQ SecOps: caché con TTL y colas BullMQ (noeviction)."
+
+  parameter {
+    name  = "maxmemory-policy"
+    value = "noeviction"
+  }
+
+  tags = {
+    Name    = "${var.project}-${var.environment}-valkey8"
+    Service = "valkey"
+  }
+}
+
 resource "aws_elasticache_replication_group" "this" {
   replication_group_id       = "${var.project}-${var.environment}-valkey"
-  description                = "Single-node private Valkey cache and queue backend for the demo."
+  description                = "Valkey privado para cache (lazy loading) y colas BullMQ de QAPAQ SecOps."
   engine                     = "valkey"
   engine_version             = var.engine_version
   node_type                  = var.node_type
   num_cache_clusters         = 1
-  parameter_group_name       = "default.valkey8"
+  parameter_group_name       = aws_elasticache_parameter_group.this.name
   port                       = 6379
   subnet_group_name          = aws_elasticache_subnet_group.this.name
   security_group_ids         = [var.security_group_id]

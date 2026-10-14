@@ -1,7 +1,5 @@
 locals {
-  # El worker no se despliega: era un shell sin lógica; el despacho y el long-poll viven en la API
-  # (docs/10, A9). El SG del worker sigue porque lo usa la tarea de migraciones.
-  service_names = toset(["krakend", "api"])
+  service_names = toset(["krakend", "api", "worker"])
   repository_names = {
     api     = "${var.project}-api"
     worker  = "${var.project}-worker"
@@ -20,9 +18,21 @@ locals {
     # El perfil de producción exige declarar la persistencia del estado SOC. Con
     # `soc_database` activado pasa a PostgreSQL (docs/05-datos-y-retencion.md).
     QAPAQ_SOC_PERSISTENCE = var.soc_database == null ? "memory" : "postgres"
-  }, local.soc_database_environment, local.ingestion_api_environment, var.api_environment)
+  }, local.soc_database_environment, local.ingestion_api_environment, local.valkey_environment, var.api_environment)
   # Sprint 5 · fase 0: el API lee el Indexer por KrakenD con service discovery privado. Sin
   # ingesta declara `disabled` explícitamente (el perfil de producción no adivina).
+  # Valkey (docs/11-cache-y-colas.md): caché con TTL y colas BullMQ. Sin `valkey`, la API usa su
+  # comportamiento en memoria y en proceso (una réplica, loops propios).
+  valkey_environment = var.valkey == null ? {} : {
+    QAPAQ_REDIS_HOST         = var.valkey.host
+    QAPAQ_REDIS_PORT         = tostring(var.valkey.port)
+    QAPAQ_REDIS_TLS          = "true"
+    QAPAQ_REDIS_DATABASE     = "0"
+    QAPAQ_REDIS_PASSWORD_REF = "secret://aws-secretsmanager/${var.project}/${var.environment}/valkey/auth-token"
+  }
+  valkey_secrets = var.valkey == null ? [] : [
+    { name = "QAPAQ_REDIS_PASSWORD", valueFrom = var.valkey.auth_secret_arn },
+  ]
   ingestion_api_environment = var.wazuh_ingestion == null ? {
     QAPAQ_INGESTION_SOURCE = "disabled"
     } : {
@@ -59,6 +69,7 @@ locals {
       { name = "QAPAQ_ENTITY_REF_KEY", valueFrom = var.soc_database.entity_ref_key_secret_arn },
       { name = "QAPAQ_VAPID_PRIVATE_KEY", valueFrom = var.soc_database.vapid_key_secret_arn },
     ],
+    local.valkey_secrets,
     var.api_extra_secrets,
   )
   api_secret_arns = concat(
@@ -72,6 +83,7 @@ locals {
       var.wazuh_ingestion.reader_secret_arn,
       var.wazuh_ingestion.proxy_ca_secret_arn,
     ],
+    [for secret in local.valkey_secrets : secret.valueFrom],
     [for secret in var.api_extra_secrets : secret.valueFrom],
   )
   krakend_environment = merge({
@@ -123,6 +135,28 @@ locals {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.service["api"].name
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+    }
+    worker = {
+      name              = "worker"
+      image             = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.repository_names.worker}@${var.image_digests.worker}"
+      essential         = true
+      cpu               = 256
+      memoryReservation = 448
+      # El worker consume las colas (notifications, ingestion, directory-sync) con el mismo dominio
+      # que la API: misma configuración y secretos, sin escuchar HTTP.
+      environment = concat(
+        [for key, value in local.api_environment : { name = key, value = value }],
+        [{ name = "QAPAQ_PROCESS_ROLE", value = "worker" }],
+      )
+      secrets = local.api_secrets
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.service["worker"].name
           "awslogs-region"        = var.region
           "awslogs-stream-prefix" = "ecs"
         }
@@ -451,6 +485,29 @@ resource "aws_ecs_service" "api" {
   tags                               = { Project = var.project, Environment = var.environment, Service = "api" }
 }
 
+resource "aws_ecs_service" "worker" {
+  name            = "${var.project}-${var.environment}-worker"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.this["worker"].arn
+  desired_count   = var.desired_counts.worker
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.app_subnet_ids
+    security_groups  = [var.security_group_ids.worker]
+    assign_public_ip = false
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
+  enable_ecs_managed_tags            = true
+  propagate_tags                     = "SERVICE"
+  tags                               = { Project = var.project, Environment = var.environment, Service = "worker" }
+}
 
 resource "aws_eip" "api_egress" {
   domain = "vpc"
@@ -469,6 +526,16 @@ resource "aws_route" "api_egress" {
   route_table_id         = var.app_route_table_id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.api_egress.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "worker_to_https" {
+  count             = var.valkey == null ? 0 : 1
+  security_group_id = var.security_group_ids.worker
+  description       = "HTTPS egress del worker (Graph, Teams Workflows, web push) por el NAT de la demo."
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
 }
 
 resource "aws_vpc_security_group_egress_rule" "api_to_entra_https" {

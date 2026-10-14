@@ -26,6 +26,8 @@ postgres_backup_retention_days     = 1
 postgres_deletion_protection       = false
 postgres_skip_final_snapshot       = true
 postgres_final_snapshot_identifier = null
+valkey_node_type                   = "cache.t4g.micro"
+valkey_engine_version              = "8.0"
 
 # Verified manifest from Publish verified images run 38397376826 (commit e8fce18).
 # All digests below are immutable and must not be replaced by tags.
