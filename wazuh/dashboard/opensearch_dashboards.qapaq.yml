@@ -1,7 +1,6 @@
-# Bloque QAPAQ para /etc/wazuh-dashboard/opensearch_dashboards.yml del fork qapaq_ops-dashboard.
-# Fuente de verdad del código del fork: wazuh-dashboard-src (rama qapaq/identity),
-# config/opensearch_dashboards.qapaq.yml. Este archivo es lo que se despliega; mantenerlos iguales.
-# Se inserta entre marcadores QAPAQ:dashboard:begin/end. Reiniciar el dashboard después.
+# Bloque QAPAQ para /etc/wazuh-dashboard/opensearch_dashboards.yml (QAPAQ SecOps sobre Wazuh 4.14.8 /
+# OSD 2.19.6, paquete construido por wazuh/dashboard/build.sh). Lo escribe wazuh/edge/apply-edge.sh
+# entre marcadores QAPAQ:dashboard:begin/end y reinicia el dashboard.
 
 # El dashboard solo escucha en local: el único acceso es por el edge nginx (wazuh/edge).
 server.host: '127.0.0.1'
@@ -25,22 +24,20 @@ qapaq_ops.login.enabled: true
 qapaq_ops.login.defaultNextUrl: '/app/qapaq-alerts'
 qapaq_ops.login.destinationLabel: 'QAPAQ'
 
-# --- Marca QAPAQ (assets compilados en el fork, servidos bajo /ui) ---
+# --- Marca QAPAQ (assets reemplazados en el paquete; el menú de ayuda lo cambia el parche 0002) ---
+# `helpMenuLinks` no existe en OSD 2.19: ponerlo impide que el dashboard arranque.
 opensearchDashboards.branding:
   applicationTitle: 'QAPAQ SecOps'
   useExpandedHeader: false
-  helpMenuLinks:
-    - label: 'Mi sesión'
-      link: '/app/qapaq-session'
-    - label: 'Salud de fuentes'
-      link: '/app/qapaq-sources'
-    - label: 'Cerrar sesión'
-      link: '/qapaq/logout'
 
 uiSettings:
   overrides:
-    'theme:version': 'v9'
+    'theme:version': 'v7' # v9 es preview en OSD 2.19
     'theme:darkMode': true
+    defaultRoute: '/app/qapaq-alerts'
+    # D-10b: el estado de las apps (consultas de Discover con UPN/IP) va a sessionStorage y la URL
+    # solo lleva un hash, así ningún dato personal queda en URLs, historial ni Referer.
+    'state:storeInSessionStorage': true
 
 # --- Fallback: OIDC nativo contra Entra. Solo si el edge QAPAQ no está disponible ---
 # opensearch_security.auth.type: "openid"
