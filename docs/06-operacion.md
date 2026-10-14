@@ -15,7 +15,7 @@
 | S3 de snapshots del Indexer | — | **Nuevo** (KMS, `standard_ia`) | +1–5 según volumen |
 | S3 de evidencia con Object Lock | Versionado sin lock | **Nuevo bucket** con Object Lock (el lock no se puede activar sobre el bucket actual) | +<1 |
 | EC2 Shuffle `t3.medium` (fase 3) | — | Nuevo, privado | +30 |
-| Vercel (`apps/web`) | ✓ | **Se retira**. `/soc` se sirve desde el edge | — |
+| Vercel (`apps/web`) | ✓ | **Retirado** (`apps/web` eliminado) | — |
 
 El costo base anterior era de unos USD 229/mes con todo encendido. El objetivo de fases 1–2
 queda en unos **USD 190/mes**, y en unos USD 220/mes con Shuffle. Estas cifras son estimaciones

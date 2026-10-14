@@ -63,7 +63,7 @@ classDef src fill:#eee,stroke:#999
 
 | Retirado | Motivo | Reemplazo |
 | --- | --- | --- |
-| **Frontend propio** (`apps/web` en Vercel) | Duplicaba Discover, dashboards y agentes de Wazuh, y el dueño lo descartó | La UI de Wazuh rebrandeada como QAPAQ SecOps más el plugin `qapaq_ops` ([08](08-frontend-unificado.md)). El código queda congelado en el repo |
+| **Frontend propio** (`apps/web` en Vercel) | Duplicaba Discover, dashboards y agentes de Wazuh, y el dueño lo descartó | La UI de Wazuh rebrandeada como QAPAQ SecOps más el plugin `qapaq_ops` ([08](08-frontend-unificado.md)). `apps/web` eliminado (`4eab88f`) |
 | **KrakenD** en el runtime | Su función era ser egress hacia APIs de proveedores, pero las fuentes nuevas entran por módulos de Wazuh. Hoy causa el bug de ingesta (`PROVIDER_RESPONSE_INVALID`) y corta el long-poll a 4 s. Además son 2 tareas Fargate | La API lee el Indexer por el proxy nginx allowlist que ya existe (`wazuh/access`), con usuario `qapaq_reader`. Se recupera de git si aparece una API de proveedor directa |
 | **Grafana, Loki, Prometheus y `platform/observability`** | Ninguna app importaba la librería y solo existían en compose local. Su fin regulatorio (N1) lo cumple Wazuh | CloudWatch para métricas de infraestructura AWS. Los logs de API y ALB entran a Wazuh por el módulo AWS: un solo plano, autogestionado ([06](06-operacion.md)) |
 | **Python analytics (ADR-007)** | Dormante y sin código | OpenSearch Anomaly Detection (RCF), que ya está en el Indexer ([07](07-deteccion-ml-y-soar.md)) |
@@ -100,5 +100,5 @@ Esto es lo que da valor y no se toca sin una decisión en [10](10-decisiones.md)
 | Agrupar alertas en un incidente o priorizarlas | TypeScript en `modules/detection` |
 | Un flujo humano: estado, tarea o aprobación | TypeScript en `modules/soc` o `modules/soar` |
 | Una acción de respuesta | Un catálogo en `modules/soar` que la ejecuta vía Wazuh Active Response o Shuffle, siempre con aprobación |
-| Una vista nueva | El plugin `wazuh/dashboard/plugins/qapaq-ops` o `apps/web` (montado bajo `/soc`) |
+| Una vista nueva | El plugin `wazuh/dashboard/plugins/qapaq_ops` (componentes OUI de la UI de Wazuh) |
 | Retención, ML o índices | JSON versionado en `wazuh/indexer/`, aplicado por script idempotente |
