@@ -428,7 +428,7 @@
 
   .auth-footer {
     z-index: 2;
-    bottom: calc(178px + env(safe-area-inset-bottom));
+    bottom: calc(206px + env(safe-area-inset-bottom));
     left: 18px;
     font-size: 11px;
   }

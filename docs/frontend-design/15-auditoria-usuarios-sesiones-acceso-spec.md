@@ -641,7 +641,7 @@ Independiente de los breakpoints SOC (1100/760). Umbrales propios: **800px**, **
   `.login-core{position:relative; min-height:100svh; width:min(100% - 36px,460px); margin-left:18px; padding:126px 0 120px}`;
   `.login-core h1{max-width:360px; font-size:clamp(25px,7vw,31px)}`;
   `.login-action-group{margin-top:32px}`; `.api-check-row{flex-direction:column; gap:8px; margin-top:34px}`;
-  `.auth-footer{z-index:2; bottom:calc(178px + env(safe-area-inset-bottom)); left:18px; font-size:11px}`
+  `.auth-footer{z-index:2; bottom:calc(206px + env(safe-area-inset-bottom)); left:18px; font-size:11px}`
   para mantener visible el copyright sobre el aviso fijo de cookies.
 - **`@media (max-height:680px) and (min-width:621px)`** (pantallas bajas, no móvil estrecho):
   `.login-core{padding-block:118px 76px}`; `.login-action-group{margin-top:24px}`;
