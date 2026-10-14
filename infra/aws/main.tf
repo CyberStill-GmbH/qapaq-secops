@@ -56,17 +56,6 @@ module "database" {
   final_snapshot_identifier = var.postgres_final_snapshot_identifier
 }
 
-module "cache" {
-  source = "./modules/cache"
-
-  project           = var.project
-  environment       = var.environment
-  region            = var.aws_region
-  subnet_ids        = module.networking.data_subnet_ids
-  security_group_id = module.security.security_group_ids.redis
-  node_type         = var.valkey_node_type
-  engine_version    = var.valkey_engine_version
-}
 
 module "private_endpoints" {
   source = "./modules/private_endpoints"
@@ -130,7 +119,6 @@ module "runtime" {
     module.security,
     module.application_foundations,
     module.database,
-    module.cache,
     module.private_endpoints,
   ]
 }

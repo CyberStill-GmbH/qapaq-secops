@@ -1,5 +1,7 @@
 locals {
-  service_names = toset(["krakend", "api", "worker"])
+  # El worker no se despliega: era un shell sin lógica; el despacho y el long-poll viven en la API
+  # (docs/10, A9). El SG del worker sigue porque lo usa la tarea de migraciones.
+  service_names = toset(["krakend", "api"])
   repository_names = {
     api     = "${var.project}-api"
     worker  = "${var.project}-worker"
@@ -121,22 +123,6 @@ locals {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.service["api"].name
-          "awslogs-region"        = var.region
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
-    }
-    worker = {
-      name              = "worker"
-      image             = "${var.account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.repository_names.worker}@${var.image_digests.worker}"
-      essential         = true
-      cpu               = 256
-      memoryReservation = 384
-      environment       = [{ name = "NODE_ENV", value = "production" }, { name = "QAPAQ_PROFILE", value = "production" }]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.service["worker"].name
           "awslogs-region"        = var.region
           "awslogs-stream-prefix" = "ecs"
         }
@@ -465,29 +451,6 @@ resource "aws_ecs_service" "api" {
   tags                               = { Project = var.project, Environment = var.environment, Service = "api" }
 }
 
-resource "aws_ecs_service" "worker" {
-  name            = "${var.project}-${var.environment}-worker"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.this["worker"].arn
-  desired_count   = var.desired_counts.worker
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = var.app_subnet_ids
-    security_groups  = [var.security_group_ids.worker]
-    assign_public_ip = false
-  }
-
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
-  }
-  deployment_maximum_percent         = 200
-  deployment_minimum_healthy_percent = 100
-  enable_ecs_managed_tags            = true
-  propagate_tags                     = "SERVICE"
-  tags                               = { Project = var.project, Environment = var.environment, Service = "worker" }
-}
 
 resource "aws_eip" "api_egress" {
   domain = "vpc"

@@ -78,20 +78,8 @@ output "postgres_master_secret_arn" {
   value       = module.database.master_secret_arn
 }
 
-output "valkey_primary_endpoint" {
-  description = "Private Valkey primary hostname; use TLS and AUTH."
-  value       = module.cache.primary_endpoint
-}
 
-output "valkey_port" {
-  description = "Valkey port."
-  value       = module.cache.port
-}
 
-output "valkey_auth_secret_arn" {
-  description = "Secrets Manager ARN for the Valkey AUTH token."
-  value       = module.cache.auth_secret_arn
-}
 
 output "private_endpoint_ids" {
   description = "Private interface endpoint IDs for ECR, Secrets Manager, and CloudWatch Logs."
