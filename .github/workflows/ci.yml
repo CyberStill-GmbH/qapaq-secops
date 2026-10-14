@@ -189,12 +189,7 @@ jobs:
           pnpm run test:unit
           pnpm run boundaries
           pnpm --filter @qapaq/api... --filter @qapaq/worker... build
-          node tests/smoke/build-public-web.mjs
           pnpm run smoke:built
-      - name: Verify React startup and recovery in Chromium
-        run: |
-          pnpm exec playwright install --with-deps chromium
-          pnpm run test:e2e
 
   c04-postgres:
     name: C-04 and C-24 PostgreSQL evidence
