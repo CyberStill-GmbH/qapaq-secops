@@ -1,0 +1,42 @@
+[Unit]
+Description=QAPAQ SecOps Core · worker de colas del SIEM QAPAQ (avisos, ingesta, Graph)
+After=network-online.target qapaq-core-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qapaq-core
+Group=qapaq-core
+WorkingDirectory=/opt/qapaq-core/current/worker
+EnvironmentFile=/etc/qapaq-core/core.env
+Environment=NODE_ENV=production QAPAQ_PROFILE=production QAPAQ_PROCESS_ROLE=worker
+Environment=NODE_EXTRA_CA_CERTS=/opt/qapaq-core/current/certs/rds-global-bundle.pem
+ExecStart=/opt/qapaq-core/current/node/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+KillSignal=SIGTERM
+
+MemoryHigh=512M
+MemoryMax=768M
+CPUQuota=50%
+TasksMax=128
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+ReadOnlyPaths=/opt/qapaq-core
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
