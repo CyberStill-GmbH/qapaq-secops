@@ -1,0 +1,11 @@
+{
+  "id": "qapaqOps",
+  "version": "2.19.6",
+  "opensearchDashboardsVersion": "2.19.6",
+  "configPath": ["qapaq_ops"],
+  "server": true,
+  "ui": true,
+  "requiredPlugins": [],
+  "optionalPlugins": [],
+  "requiredBundles": []
+}

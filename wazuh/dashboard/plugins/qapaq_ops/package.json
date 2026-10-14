@@ -1,0 +1,16 @@
+{
+  "name": "qapaq_ops",
+  "version": "2.19.6",
+  "private": true,
+  "description": "QAPAQ SecOps: login, cola de alertas, incidentes, auditoría y accesos dentro del dashboard (OSD 2.19.6 / Wazuh 4.14.8).",
+  "license": "Apache-2.0",
+  "opensearchDashboards": {
+    "version": "2.19.6",
+    "templateVersion": "1.0.0"
+  },
+  "scripts": {
+    "build": "yarn plugin-helpers build --opensearch-dashboards-version=2.19.6",
+    "plugin-helpers": "node ../../scripts/plugin_helpers",
+    "typecheck": "node tools/typecheck.mjs"
+  }
+}
