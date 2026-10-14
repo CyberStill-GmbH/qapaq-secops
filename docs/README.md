@@ -19,6 +19,7 @@ C-0X, 31 ADR solapados, specs de pantallas). El histórico completo sigue en git
 | 11 | [Caché y colas](11-cache-y-colas.md) | Dónde Valkey es fundamental, lazy loading y en qué puntos van las colas |
 | 12 | [Backend dentro del SIEM](12-backend-en-el-siem.md) | Cómo pasa la API QAPAQ al SIEM QAPAQ y cuándo se elimina |
 | 13 | [Ankay Qapaq](13-ankay-qapaq.md) | Plan del SOAR: Shuffle con identidad QAPAQ, tradeoffs, integración y fases |
+| 14 | [Conexión Ankay ↔ QAPAQ](14-ankay-conexion-qapaq.md) | Arquitectura de la conexión: contexto, red, secuencia, estados, contrato, seguridad y resiliencia |
 
 `reference/` guarda las decisiones integradas de Codex (ADR-028 a 030 en `reference/decisiones/`, Ayni
 Qapaq, la arquitectura resiliente y el rollout de Terraform) y los archivos que el código o la CI leen (catálogo de errores, inventario de
