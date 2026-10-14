@@ -1,0 +1,6 @@
+# origen (ankay/frontend/assets)	destino (frontend/ de Shuffle)	propósito
+svg/ankay_mark.svg	public/images/logos/orange_logo.svg	marca (22x22) en menús y tarjetas
+svg/ankay_wordmark.svg	public/images/logos/topleft_logo.svg	logotipo del encabezado (131x28)
+raster/ankay_icon_540.png	public/images/Shuffle_logo.png	logo cuadrado grande (bienvenida, 404, login)
+raster/ankay_icon_174.png	public/images/Shuffle_logo_new.png	logo cuadrado del encabezado nuevo
+raster/favicon.ico	public/favicon.ico	icono de la pestaña

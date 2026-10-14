@@ -1,0 +1,45 @@
+diff --git a/frontend/index.html b/frontend/index.html
+index 5e909eb..cdd3ef3 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -1,5 +1,5 @@
+ <!DOCTYPE html>
+-<html lang="en">
++<html lang="es">
+   <head>
+     <meta charset="utf-8" />
+     <link rel="shortcut icon" href="/favicon.ico" />
+@@ -7,9 +7,9 @@
+       name="viewport"
+       content="width=device-width, initial-scale=1, shrink-to-fit=no"
+     />
+-    <meta name="theme-color" content="#000000" />
++    <meta name="theme-color" content="#080808" />
+     <link rel="manifest" href="/manifest.json" />
+-    <title>Shuffle</title>
++    <title>Ankay Qapaq</title>
+   </head>
+   <body>
+     <div id="root"></div>
+diff --git a/frontend/public/manifest.json b/frontend/public/manifest.json
+index 41df930..81151cf 100755
+--- a/frontend/public/manifest.json
++++ b/frontend/public/manifest.json
+@@ -1,6 +1,6 @@
+ {
+-  "short_name": "Shuffle",
+-  "name": "Shuffle webapp",
++  "short_name": "Ankay Qapaq",
++  "name": "Ankay Qapaq · QAPAQ SecOps",
+   "icons": [
+     {
+       "src": "favicon.ico",
+@@ -9,6 +9,6 @@
+     }
+   ],
+   "display": "standalone",
+-  "theme_color": "#000000",
+-  "background_color": "#ffffff"
++  "theme_color": "#080808",
++  "background_color": "#080808"
+ }

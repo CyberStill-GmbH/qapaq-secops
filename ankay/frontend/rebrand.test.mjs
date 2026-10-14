@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { comparedLiterals, recolor, retext } from './rebrand.mjs';
+
+test('recolor cambia el naranja de Shuffle por el ámbar QAPAQ sin importar mayúsculas', () => {
+  assert.equal(
+    recolor('color: "#FF8544"; b: "#f85a3e"; c: "#123456"'),
+    'color: "#c49a5a"; b: "#b5874a"; c: "#123456"',
+  );
+});
+
+test('recolor mantiene coherentes las comparaciones con el color por defecto', () => {
+  assert.equal(
+    recolor('brand !== "#ff8544" ? brand : "#ff8544"'),
+    'brand !== "#c49a5a" ? brand : "#c49a5a"',
+  );
+});
+
+test('retext cambia texto JSX, atributos visibles e hijos literales', () => {
+  assert.equal(
+    retext(
+      'const a = <Typography title="Shuffle workflows">Welcome to Shuffle {"Shuffle docs"}</Typography>;',
+    ),
+    'const a = <Typography title="Ankay Qapaq workflows">Welcome to Ankay Qapaq {"Ankay Qapaq docs"}</Typography>;',
+  );
+});
+
+test('retext cambia toast y el nombre de marca por defecto', () => {
+  assert.equal(
+    retext('toast("Saved in Shuffle"); setBrandName("Shuffle");'),
+    'toast("Saved in Ankay Qapaq"); setBrandName("Ankay Qapaq");',
+  );
+});
+
+test('retext cambia títulos de pestaña y propiedades de texto de UI', () => {
+  assert.equal(
+    retext(
+      'document.title = "Shuffle | Apps"; const p = { label: "Shuffle Support", key: "Shuffle" };',
+    ),
+    'document.title = "Ankay Qapaq | Apps"; const p = { label: "Ankay Qapaq Support", key: "Shuffle" };',
+  );
+});
+
+test('retext NO toca lógica, datos, imports, URLs ni identificadores', () => {
+  for (const code of [
+    'if (action.app_name === "Shuffle Tools") {}',
+    'action.environment = "Shuffle";',
+    'import ShuffleLogo from "./Shuffle_logo.png";',
+    'const url = "https://shuffler.io/docs/Shuffle intro";',
+    'const isShuffleAdmin = true;',
+    'const x = <img src="/images/Shuffle_logo.png" />;',
+    'localStorage.getItem("Shuffle theme");',
+    'const name = "Shuffler cloud";',
+  ]) {
+    assert.equal(retext(code), code, code);
+  }
+});
+
+test('no renombra un texto de UI que el código también compara (en cualquier archivo)', () => {
+  const compared = comparedLiterals('if (item.title === "Shuffle Security") pad = 13;');
+  assert.equal(
+    retext(
+      'const items = [{ title: "Shuffle Security" }, { title: "Shuffle docs" }];',
+      'a.jsx',
+      compared,
+    ),
+    'const items = [{ title: "Shuffle Security" }, { title: "Ankay Qapaq docs" }];',
+  );
+});
+
+test('conserva los nombres de apps del backend en los textos de ayuda', () => {
+  assert.equal(
+    retext('const t = <Tooltip title="Runs the Shuffle Tools action in Shuffle" />;'),
+    'const t = <Tooltip title="Runs the Shuffle Tools action in Ankay Qapaq" />;',
+  );
+});
