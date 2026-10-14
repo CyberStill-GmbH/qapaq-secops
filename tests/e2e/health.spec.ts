@@ -41,6 +41,7 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   await expect(artPanel).toHaveCSS('left', '0px');
   await expect(artPanel).toHaveCSS('width', `${await page.evaluate(() => window.innerWidth)}px`);
   await expect(page.locator('.login-art-shade')).toBeVisible();
+  await expect(page.locator('.login-glass-mark')).toBeVisible();
   const portrait = page.locator('.login-analyst');
   await expect(portrait).toHaveJSProperty('naturalWidth', 1254);
   await Promise.all(
