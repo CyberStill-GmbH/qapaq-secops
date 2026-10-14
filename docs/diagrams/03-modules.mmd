@@ -1,7 +1,7 @@
 C4Component
     title C4 Nivel 3 — Componentes del backend modular
 
-    Container(web, "Web SOC", "React", "Opera capacidades autorizadas")
+    Container(web, "Consola Qapaq SecOps", "React", "Opera alertas, investigación y capacidades autorizadas")
     System_Ext(wazuh, "Wazuh", "Motor base del MVP para Microsoft 365 y alertas")
     System_Ext(teams, "Microsoft Teams Workflow", "Canal SOC dedicado")
 
@@ -11,8 +11,8 @@ C4Component
         Component(telemetry, "Telemetry Ingestion & Processing", "NestJS", "Admisión, validación y normalización")
         Component(intel, "Threat Intelligence", "NestJS", "IOC, procedencia, vigencia y contexto")
         Component(detection, "Detection & Correlation", "NestJS", "Priorización QAPAQ y correlación complementaria")
-        Component(soc, "Alerts, Incidents & Cases", "NestJS", "Triaje, investigación, casos y evidencia")
-        Component(soar, "SOAR, Playbooks & Ticketing", "NestJS", "Planes, aprobaciones, acciones, tickets y notificaciones")
+        Component(soc, "Alerts, Incidents & Cases · Ayni Qapaq", "NestJS", "Triaje, investigación colaborativa, incidentes, tareas, notas, timeline y evidencia")
+        Component(soar, "SOAR, Playbooks & Ticketing", "NestJS + Shuffle futuro", "Catálogo, aprobaciones, ledger de ejecución, tickets y notificaciones")
         Component(antifraud, "Antifraud Intelligence", "NestJS", "Señales, scoring explicable y casos")
         Component(audit, "Audit & Archive", "Capacidad transversal", "Auditoría atómica, outbox y archivo protegido")
         Component(ops, "Operations & Observability", "Capacidad transversal", "Health, métricas, modos y recovery")

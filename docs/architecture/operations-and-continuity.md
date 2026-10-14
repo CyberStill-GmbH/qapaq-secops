@@ -1,5 +1,12 @@
 # Operación y continuidad
 
+Los objetivos de balanceo, KrakenD replicado, polling escalonado, cola recuperable
+y despliegues rolling están consolidados en la
+[arquitectura resiliente](qapaq-secops-resilient-architecture.md) y
+[ADR-030](../adr/030-resilient-platform-architecture.md). Esta guía define cómo
+demostrar continuidad; la topología dibujada no sustituye pruebas de falla,
+restore y capacidad.
+
 Estado de diseño: **CONDITIONALLY ACCEPTED** por
 [U-009/ADR-020](../adr/020-operations-and-continuity.md). Fecha aportada por el
 usuario: 2026-09-18. Producción está **BLOCKED UNTIL RESTORE AND RECOVERY TESTS

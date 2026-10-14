@@ -2,9 +2,12 @@
 
 ## Propósito y objetivos observables
 
-QAPAQ SecOps será la plataforma interna para que el SOC reciba actividad de
-seguridad autorizada, conserve su procedencia, investigue alertas y gestione casos
-con autorización y auditoría verificables.
+QAPAQ SecOps será la plataforma SIEM/XDR interna de Financiera Qapaq: integrará
+telemetría y detecciones autorizadas, conservará su procedencia y permitirá
+monitorear, investigar y coordinar respuestas con autorización y auditoría
+verificables. Wazuh forma parte del motor integrado; no constituye por sí solo el
+producto ni su consola final. La visión y su transición se rigen por
+[ADR-029](../adr/029-qapaq-secops-product-direction.md).
 
 Objetivos del primer MVP:
 
@@ -90,8 +93,11 @@ aprobaciones.
 
 ### Posterior
 
-- adapters directos adicionales para Microsoft, Cato o Sophos;
-- MISP/CTI, correlación multifuente, SOAR ejecutable y ticketing;
+- consolidación de la consola propia QAPAQ y evolución de Ayni Qapaq para
+  investigación colaborativa e historial operativo;
+- adapters adicionales para Microsoft, Cato, Sophos u otras fuentes autorizadas;
+- MISP/CTI, correlación multifuente y SOAR no-code con Shuffle, playbooks
+  financieros gobernados y ticketing;
 - capacidades antifraude completas;
 - analítica Python después de caso, benchmark y aprobación.
 

@@ -1,8 +1,9 @@
-# Integración de la interfaz oficial de Wazuh con QAPAQ SecOps
+# Propuesta histórica: integración de la interfaz oficial de Wazuh
 
-**Estado: arquitectura verificada; primeras adaptaciones locales, aún sin CI ni despliegue.** Este documento
-reemplaza el plan anterior, que confundía la plataforma OpenSearch Dashboards con la UI de Wazuh y
-describía como existentes cambios que todavía no están en los repositorios.
+> **Sustituida como dirección de producto por [ADR-029](../adr/029-qapaq-secops-product-direction.md).** Este documento registra la investigación técnica y las adaptaciones locales de octubre de 2026; sus apartados que nombran Wazuh Dashboard como consola final ya no representan la arquitectura objetivo. QAPAQ SecOps será la consola principal y Ayni Qapaq su espacio de investigación colaborativa. Reutilizar componentes de OpenSearch Dashboards/Wazuh sigue siendo una opción técnica; mantener un Dashboard Wazuh independiente después del MVP no es el objetivo. Los gates de SSO, roles, APIs, compatibilidad, seguridad y migración siguen siendo referencias útiles donde apliquen.
+
+**Estado de la investigación técnica al 2026-10-13: adaptaciones locales sin CI ni despliegue.** La
+dirección de producto registrada en ADR-029 sustituye la arquitectura objetivo de este documento.
 
 ## Qué existe hoy
 

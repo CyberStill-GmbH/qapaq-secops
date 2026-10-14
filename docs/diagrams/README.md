@@ -1,11 +1,10 @@
 # Diagramas Mermaid
 
 Límites/lifecycles aceptados por U-001/ADR-015, vertical MVP revisada por ADR-024,
-identidad por U-003/ADR-017 y
-fronteras de fuentes por U-005/ADR-019 y separación audit/observabilidad por
-U-006/ADR-021; SecurityEvent por U-010/ADR-011; notificación crítica por U-012/ADR-022;
-topología técnica restante propuesta,
-no inventario ni software desplegado. Flechas sólidas
+identidad por U-003/ADR-017 y fronteras de fuentes por U-005/ADR-019; SecurityEvent
+por U-010/ADR-011; notificación crítica por U-012/ADR-022; topología lógica objetivo
+por ADR-030. Los diagramas no son inventario ni prueba de software desplegado.
+Flechas sólidas
 representan flujo/interacción; punteadas representan relación transversal u opción
 futura según etiqueta. Los módulos no son microservicios.
 
@@ -24,6 +23,7 @@ futura según etiqueta. Los módulos no son microservicios.
 13. [Notificación de alerta crítica](13-critical-alert-notification.mmd): outbox, worker, SecretProvider, Teams Workflow y acuse en QAPAQ.
 
 14. [ER C-04 de admisión](14-c-04-admission-er.mmd): siete entidades, pertenencia y cardinalidad SQL; mínimos transaccionales en el [diccionario](../architecture/c-04-admission-er.md).
+15. [Despliegue resiliente objetivo](15-resilient-deployment.mmd): balanceo de acceso e integraciones, réplicas QAPAQ, KrakenD, cola, búsqueda, Ayni y archivo por tiers. Es una vista objetivo, no inventario del ambiente.
 
 Las fuentes .mmd son canónicas. Para cambiar un diagrama, contrastar
 [flujos](../architecture/data-flow.md), [seguridad](../architecture/security.md) y

@@ -1,9 +1,9 @@
 # Índice de Architecture Decision Records
 
-ADR-007, ADR-011, ADR-015, ADR-016, ADR-017, ADR-022 y ADR-024 están Accepted;
+ADR-007, ADR-011, ADR-015, ADR-016, ADR-017, ADR-022, ADR-024 y ADR-029 están Accepted;
 ADR-018…ADR-021 y ADR-023 están Conditionally Accepted por resolución del
 2026-09-18, ADR-025 por los requerimientos del 2026-09-28, ADR-026 por la
-selección de KrakenD on-premises y ADR-027 por C-24 y ADR-028 por la selección de Shuffle como motor SOAR no-code. Fijan alcance,
+selección de KrakenD on-premises, ADR-028 por la selección de Shuffle como motor SOAR no-code y ADR-029 por la dirección de producto SIEM/XDR. Fijan alcance,
 baseline técnica, identidad, retención/custodia, fuentes, continuidad, separación
 de observabilidad/auditoría y CI/release/despliegue. ADR-001…014 mantienen
 Proposed salvo ADR-007, ADR-011 y aspectos sustituidos. Aceptación documental no equivale a software
@@ -37,6 +37,9 @@ desplegado, benchmark aprobado, federación comprobada ni lifecycle habilitado.
 - [ADR-025 — Endurecimiento de acceso, secretos y observabilidad SOC](025-security-access-observability-hardening.md), Conditionally Accepted; implementación bloqueada por gates de red, identidad, secretos y plataforma.
 - [ADR-026 — KrakenD on-premises como API Gateway de proveedores](026-on-premises-krakend-provider-api-gateway.md), Accepted / Implementation Gated; las rutas requieren HA, seguridad, provider specs y admisión durable demostradas.
 - [ADR-027 — Control plane write-only para el lifecycle de secretos](027-write-only-secret-lifecycle-control-plane.md), Accepted / C-24 Implemented; backend productivo y E2E real quedan planificados para Sprint 3.
+- [ADR-028 — Shuffle como motor SOAR no-code](028-shuffle-soar-webhook-adapter.md), Accepted como dirección de producto; integración técnica pendiente.
+- [ADR-029 — QAPAQ SecOps como plataforma SIEM/XDR y espacio de trabajo SOC](029-qapaq-secops-product-direction.md), Accepted; sustituye Wazuh Dashboard como consola final después del MVP, sin alterar la vertical MVP ni la selección de Shuffle.
+- [ADR-030 — Arquitectura resiliente y escalamiento progresivo](030-resilient-platform-architecture.md), Accepted como objetivo de diseño; balanceadores, réplicas, capacidad y continuidad requieren gates por ambiente.
 
 ## Compatibilidad con los archivos anteriores
 

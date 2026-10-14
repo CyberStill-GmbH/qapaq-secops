@@ -1,5 +1,10 @@
 # Flujos, entrega y resiliencia
 
+Esta guía define los contratos de procesamiento sobre la topología de
+[arquitectura resiliente](qapaq-secops-resilient-architecture.md) y
+[ADR-030](../adr/030-resilient-platform-architecture.md). Los diagramas muestran
+el orden durable; no convierten capacidades futuras en integraciones activas.
+
 Estado: PROPOSAL. [ADR-006](../adr/006-redis-bullmq.md) y
 [ADR-014](../adr/014-internal-communication.md).
 

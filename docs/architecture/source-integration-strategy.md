@@ -8,8 +8,9 @@ THE AUTHORIZED MICROSOFT 365/WAZUH VERTICAL PASSES**.
 
 ## Frontera de producto
 
-QAPAQ SecOps es el producto SOC central: ingesta, normalización, correlación,
-alertas, casos, dashboards, RBAC, auditoría, reporting y SOAR. Los productos
+QAPAQ SecOps es la plataforma SIEM/XDR central: ingesta, normalización,
+correlación, alertas, investigación Ayni, casos, RBAC, auditoría, reporting y
+respuesta gobernada. Los productos
 externos conservan responsabilidades específicas:
 
 - Wazuh: agentes, HIDS, FIM, Security Configuration Assessment, inventario,

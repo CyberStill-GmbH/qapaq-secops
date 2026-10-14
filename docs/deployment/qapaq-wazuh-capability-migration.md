@@ -1,4 +1,6 @@
-# Migración de QAPAQ SecOps a la edición QAPAQ Wazuh
+# Inventario de capacidades diferenciales de QAPAQ SecOps
+
+> **La arquitectura objetivo descrita en la versión original de este plan fue sustituida por [ADR-029](../adr/029-qapaq-secops-product-direction.md).** QAPAQ SecOps conserva su backend y la consola QAPAQ como producto; Wazuh sigue siendo el motor integrado. Este inventario conserva el análisis de capacidades y brechas, pero cualquier referencia a portar el dominio de QAPAQ al servidor/plugin del Wazuh Dashboard debe interpretarse como propuesta histórica, no como decisión vigente.
 
 Fecha: 2026-10-13. Este documento compara las capacidades descritas y servidas por
 `qapaq-secops` con las del plugin Wazuh local (`wazuh-dashboard-plugins` 5.1.0) y fija
