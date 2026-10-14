@@ -86,10 +86,13 @@ Componentes relevantes para QAPAQ:
   `wazuh-archives-*` (eventos crudos recolectados, deshabilitado por defecto).
   QAPAQ únicamente lee `wazuh-alerts-*` con mínimo privilegio; no escribe ni
   modifica los índices que Wazuh gestiona.
-- **Wazuh Dashboard:** basado en OpenSearch Dashboards, operado por
-  Infraestructura. No es la interfaz de QAPAQ SecOps: los analistas de QAPAQ
-  trabajan en la Web SOC propia (ver [Modelo C4](c4-model.md), Nivel 2), no en
-  el dashboard nativo de Wazuh.
+- **Wazuh Dashboard:** consola nativa de administración/consulta del stack Wazuh.
+  ADR-029 define que no será una consola independiente del SOC después del MVP.
+  QAPAQ podrá reutilizar OpenSearch Dashboards y plugins compatibles como base
+  técnica, pero la experiencia y el ciclo de trabajo finales pertenecen a la
+  consola QAPAQ. Casos, RBAC, auditoría y SOAR se gobiernan en QAPAQ; ninguna de
+  esas reglas se traslada al Manager ni se confía solo a la UI. La transición
+  requiere paridad comprobada y no implica que el Dashboard ya se haya retirado.
 - **Active response y remediación:** capacidad del producto Wazuh que QAPAQ no
   activa ni orquesta en el MVP; el módulo `SOAR, Playbooks & Ticketing` de
   QAPAQ es quien gobierna respuesta autorizada, no el Manager de Wazuh.
@@ -136,17 +139,18 @@ El repositorio distingue dos usos de OpenSearch que no deben confundirse:
 
 - **Wazuh Indexer:** externo, administrado por Infraestructura, basado en
   OpenSearch pero gestionado íntegramente por el stack Wazuh. QAPAQ lo
-  consulta read-only mediante
-  [`WazuhIndexerClient`](../../modules/connectors/src/infrastructure/wazuh-indexer-client.ts)
-  (paquete `@opensearch-project/opensearch`, TLS y CA obligatorios; el
-  cliente rechaza conexión sin cifrado). No se alteran sus índices ni su
-  ciclo de vida.
-- **OpenSearch QAPAQ:** proyección propia, derivada de `SecurityEvent`, para
+  consulta en modo read-only mediante
+  [`WazuhSecurityEventProvider`](../../modules/connectors/src/infrastructure/wazuh/wazuh-security-event.provider.ts)
+  y [`WazuhGatewayClient`](../../modules/connectors/src/infrastructure/wazuh/wazuh-gateway.client.ts).
+  El cliente usa las rutas allowlist de KrakenD, limita timeout y tamaño de
+  respuesta, y valida el origen antes de mapear eventos. No se alteran los índices
+  gestionados por Wazuh ni su ciclo de vida.
+- **OpenSearch QAPAQ:** proyección objetivo, derivada de `SecurityEvent`, para
   búsqueda y consulta histórica. **No es fuente de verdad transaccional**
-  (PostgreSQL lo es para estado operacional) y su implementación sigue en
-  estado **Proposed** por ADR-005: aún no está desplegada ni forma parte del
-  entorno local (`infra/local/compose.yaml` solo trae Postgres, Redis y
-  MinIO). Ver [Almacenamiento y búsqueda histórica](storage.md).
+  (PostgreSQL conserva el estado operacional). El adapter/indexer propio no está
+  desplegado en el ambiente local descrito; su incorporación sigue el benchmark,
+  mapeo y recuperación de ADR-030. Ver
+  [Almacenamiento y búsqueda histórica](storage.md).
 
 Ambas instancias se mantienen separadas incluso en desarrollo local
 (`infra/local/README.md`): solo el Wazuh Indexer se levanta hoy, vía
@@ -179,7 +183,7 @@ una decisión explícita de Infraestructura.
 | Manager, Indexer, Dashboard: operación, versión, licencia, disponibilidad | Sí | No |
 | Lectura read-only de `wazuh-alerts-*` con mínimo privilegio | — | Sí |
 | Normalización a `SecurityEvent`, enriquecimiento, priorización, correlación complementaria | No | Sí |
-| Casos, RBAC, dashboards propios, auditoría, reporting, SOAR | No | Sí |
+| Casos, RBAC, vistas/dashboards de investigación QAPAQ, auditoría, reporting, SOAR | No | Sí |
 | Active response / remediación automática | Wazuh (no activado) | No en el MVP |
 
 ## Gate productivo relevante

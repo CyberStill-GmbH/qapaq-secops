@@ -1,7 +1,6 @@
 # Mapa de capacidades
 
-La clasificación indica compromiso del producto, no estado de implementación.
-Todas las capacidades están **NO IMPLEMENTADAS** en la rama inspeccionada.
+La clasificación indica compromiso del producto, no estado de implementación. Para el estado real de rutas y módulos, consultar [inventario funcional del backend](../frontend-design/01-inventario-backend.md); esta tabla registra capacidades objetivo y gates, no declara que todo el código esté ausente.
 
 | Capacidad | Clasificación | Justificación y fuente |
 | --- | --- | --- |
@@ -18,15 +17,22 @@ Todas las capacidades están **NO IMPLEMENTADAS** en la rama inspeccionada.
 | Priorización y deduplicación de alertas | MVP | ADR-024 y Product Backlog |
 | Investigación y búsqueda | MVP | U-001; OpenSearch QAPAQ es proyección derivada |
 | Alertas, incidentes y casos mínimos | MVP | U-001 / ADR-015 |
-| Dashboard de cobertura y salud | MVP | ADR-020/021; PBI-017 es P1 dentro del timebox |
+| Consola Qapaq SecOps y resumen de cobertura/salud | MVP | ADR-029; estado por vista en inventario funcional |
+| Ayni Qapaq para investigación colaborativa | Evolución del MVP | ADR-029; se apoya en incidentes, tareas, notas, timeline y audit existentes; completar paridad de uso en la consola propia |
 | Notificación crítica por Teams | MVP | U-012 / ADR-022; datos operativos pendientes |
 | Administración auditada | MVP | ADR-017/021 |
 | Audit trail y exportación controlada | MVP | ADR-021; archivo firmado productivo bloqueado |
 | Continuidad y modos degradados | MVP | U-009 / ADR-020; objetivos requieren pruebas |
 | Reglas QAPAQ complementarias | MVP acotado | ADR-024; no duplica el ruleset base Wazuh |
+| KrakenD replicado detrás de balanceador de integraciones | Objetivo de arquitectura | ADR-026/030; topología, cuotas y fault tests son gate por ambiente |
+| Polling escalonado, leases y replay sin solapamiento | Objetivo de arquitectura | ADR-030; debe medirse bajo carga y probarse ante reinicios |
+| Redis/BullMQ para desacoplar jobs | MVP/operación | ADR-006/016; Redis no guarda evidencia ni es fuente de verdad |
+| Indexación eficiente en OpenSearch | MVP/operación | ADR-005/024/030; mapping, throughput y recuperación requieren benchmark real |
+| Retención HOT/WARM/COLD alineada a políticas financieras | Posterior con decisiones por dataset | ADR-018/030; Legal/Compliance/SBS ratifican finalidad y plazos antes de lifecycle automático |
+| Despliegues rolling con rollback verificado | Objetivo de arquitectura | ADR-020/030; no equivale por sí solo a cero downtime |
 | Cato y Sophos | Posterior | ADR-024; edición/API/licencia desconocidas |
 | CTI/MISP | Posterior | U-001; sin fuente autorizada para MVP |
-| SOAR con acciones externas | Pendiente/posterior | U-008; guardas, aprobación e idempotencia abiertas |
+| SOAR no-code con Shuffle | Post-MVP seleccionado | ADR-028/029; adapter, callback, catálogo y acciones productivas aún requieren implementación y gates |
 | Antifraude completo | Posterior | U-001; bounded context aceptado, sin vertical MVP |
 | Analítica Python | Pendiente/posterior | U-007; capacidad dormante hasta gate |
 | Publicación y despliegue | Pendiente | U-011 / ADR-023; contrato de Infraestructura ausente |

@@ -108,16 +108,19 @@ async function request(
 
 async function waitForGateway() {
   const deadline = Date.now() + 60_000;
+  let lastAttempt = 'no response yet';
   while (Date.now() < deadline) {
     try {
       const response = await request('/wazuh/_cluster/health', { method: 'GET' });
+      lastAttempt = `HTTP ${response.status}: ${(await response.text()).slice(0, 240)}`;
       if (response.status === 200) return;
-    } catch {
+    } catch (error) {
+      lastAttempt = error instanceof Error ? error.message : String(error);
       // Startup/readiness retry, bounded by the overall deadline.
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error('gateway did not become ready within 60 seconds');
+  throw new Error(`gateway did not become ready within 60 seconds; last request: ${lastAttempt}`);
 }
 
 try {

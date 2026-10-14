@@ -20,6 +20,11 @@ import type { IncomingRequest } from './http-contracts.js';
 
 export const CSRF_HEADER = 'x-csrf-token';
 
+/** Deriva una clave CSRF estable por propósito desde el secreto compartido del BFF. */
+export function deriveCsrfKey(masterKey: string | Buffer): Buffer {
+  return createHmac('sha256', masterKey).update('qapaq.csrf.key.v1').digest();
+}
+
 function single(value: string | readonly string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : (value as string | undefined);
 }

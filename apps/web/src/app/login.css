@@ -2,35 +2,36 @@
   position: relative;
   display: grid;
   min-height: 100svh;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr);
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
   background: #080808;
+  isolation: isolate;
 }
 
 .auth-topbar {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  inset: 0 48% auto 0;
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  margin: clamp(34px, 6.6vh, 64px) 0 0 clamp(28px, 6.1vw, 88px);
   display: flex;
-  min-height: 128px;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 28px clamp(20px, 2vw, 34px) 0;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .login-brand-lockup {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  text-align: center;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
 }
 
 .login-brand-name {
   color: #f4f4f5;
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(24px, 2.25vw, 32px);
   font-weight: 500;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.06em;
   line-height: 1.08;
   white-space: nowrap;
 }
@@ -39,27 +40,21 @@
   font-weight: 650;
 }
 
-.login-brand-tagline {
-  color: #c49a5a;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  line-height: 1.5;
-  text-transform: uppercase;
-}
-
 .login-core {
+  position: relative;
   z-index: 1;
   display: flex;
-  width: min(100% - 48px, 440px);
+  width: min(100% - 56px, 460px);
+  min-height: 100svh;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   grid-column: 1;
   grid-row: 1;
-  justify-self: center;
-  padding: 148px 0 100px;
-  text-align: center;
+  justify-self: start;
+  margin-left: clamp(28px, 6.1vw, 88px);
+  padding: 150px 0 100px;
+  text-align: left;
 }
 
 .login-core h1 {
@@ -72,9 +67,16 @@
   text-wrap: balance;
 }
 
+.login-description {
+  margin: 20px 0 0;
+  color: #9d9da2;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .login-action-group {
-  width: min(100%, 392px);
-  margin-top: 54px;
+  width: min(100%, 460px);
+  margin-top: 38px;
 }
 
 .entra-button {
@@ -85,10 +87,10 @@
   justify-content: center;
   gap: 12px;
   padding: 12px 20px;
-  border: 1px solid #49494e;
+  border: 1px solid #3b3b3f;
   border-radius: 999px;
-  background: #09090a;
-  color: #b5b5b9;
+  background: rgb(10 10 10 / 84%);
+  color: #f3f3f4;
   font-size: 14px;
   font-weight: 550;
   line-height: 1.4;
@@ -142,6 +144,23 @@
   color: #9d9da2;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.login-security-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 0;
+  color: #8e8e93;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-security-note svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: #c49a5a;
 }
 
 .api-check-row {
@@ -227,37 +246,68 @@
 
 .auth-footer {
   position: absolute;
-  z-index: 1;
-  inset: auto 48% 24px 18px;
+  z-index: 2;
+  inset: auto auto 24px clamp(28px, 6.1vw, 88px);
   color: #89898e;
   font-size: 12px;
   letter-spacing: 0.04em;
   line-height: 1.5;
-  text-align: center;
+  text-align: left;
 }
 
 .brand-panel {
-  position: relative;
-  display: grid;
-  min-height: 100svh;
-  grid-column: 2;
-  grid-row: 1;
+  position: absolute;
+  z-index: 0;
+  inset: 0;
   overflow: hidden;
-  place-items: center;
+  pointer-events: none;
   background: #080808;
+}
+
+.login-analyst {
+  position: absolute;
+  z-index: 5;
+  right: -3%;
+  bottom: 0;
+  width: auto;
+  height: 82svh;
+  max-width: 92%;
+  object-fit: contain;
+  object-position: bottom;
+  opacity: 0.9;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 25%, #000 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 25%, #000 92%, transparent 100%);
 }
 
 .brand-panel::before {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 1px;
-  background: linear-gradient(
-    transparent,
-    rgb(255 255 255 / 7%) 18%,
-    rgb(255 255 255 / 7%) 82%,
-    transparent
+  inset: 7% 0 0 42%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    rgb(192 151 93 / 15%) 0%,
+    rgb(149 113 67 / 7%) 34%,
+    transparent 72%
   );
+  filter: blur(32px);
   content: '';
+}
+
+.login-art-shade {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  background:
+    linear-gradient(0deg, #080808 0%, transparent 18%, transparent 76%, rgb(8 8 8 / 42%) 100%),
+    linear-gradient(
+      90deg,
+      #080808 0%,
+      #080808 34%,
+      rgb(8 8 8 / 96%) 43%,
+      rgb(8 8 8 / 75%) 54%,
+      rgb(8 8 8 / 24%) 74%,
+      rgb(8 8 8 / 4%) 100%
+    );
 }
 
 @keyframes status-turn {
@@ -268,7 +318,7 @@
 
 @media (min-width: 1440px) and (min-height: 800px) {
   .login-action-group {
-    margin-top: 60px;
+    margin-top: 44px;
   }
 
   .api-check-row {
@@ -277,49 +327,55 @@
 }
 
 @media (max-width: 800px) {
-  .auth-screen {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.68fr);
-  }
-
   .auth-topbar {
-    right: 40%;
-    min-height: 120px;
-    padding: 25px 18px 0;
+    margin-left: 28px;
   }
 
   .login-core {
-    width: min(100% - 36px, 400px);
+    width: min(100% - 56px, 430px);
+    margin-left: 28px;
   }
 
   .auth-footer {
-    right: 40%;
-    left: 12px;
+    left: 28px;
     font-size: 11px;
+  }
+
+  .login-analyst {
+    right: -13%;
+    height: 76svh;
+    opacity: 0.78;
+  }
+
+  .login-art-shade {
+    background:
+      linear-gradient(0deg, #080808 0%, transparent 18%, transparent 76%, rgb(8 8 8 / 42%) 100%),
+      linear-gradient(
+        90deg,
+        #080808 0%,
+        #080808 28%,
+        rgb(8 8 8 / 95%) 42%,
+        rgb(8 8 8 / 76%) 58%,
+        rgb(8 8 8 / 18%) 100%
+      );
   }
 }
 
 @media (max-width: 620px) {
-  .auth-screen {
-    display: block;
-    min-height: 100svh;
-  }
-
   .auth-topbar {
-    right: 0;
-    min-height: 128px;
-    padding: 28px 18px 0;
+    margin: 27px 18px 0;
   }
 
   .login-brand-name {
-    font-size: clamp(29px, 9vw, 38px);
+    font-size: clamp(25px, 7vw, 30px);
   }
 
   .login-core {
     position: relative;
     min-height: 100svh;
     width: min(100% - 36px, 460px);
-    margin: 0 auto;
-    padding: 158px 0 120px;
+    margin-left: 18px;
+    padding: 126px 0 120px;
   }
 
   .login-core h1 {
@@ -327,8 +383,13 @@
     font-size: clamp(25px, 7vw, 31px);
   }
 
+  .login-description {
+    max-width: 310px;
+    margin-top: 16px;
+  }
+
   .login-action-group {
-    margin-top: 46px;
+    margin-top: 32px;
   }
 
   .api-check-row {
@@ -345,26 +406,45 @@
     margin-top: 10px;
   }
 
-  .brand-panel {
-    display: none;
+  .login-analyst {
+    right: -45%;
+    height: 55svh;
+    opacity: 0.35;
+    mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 76%, transparent 100%);
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      #000 28%,
+      #000 76%,
+      transparent 100%
+    );
+  }
+
+  .login-art-shade {
+    background:
+      linear-gradient(0deg, #080808 0%, rgb(8 8 8 / 72%) 25%, rgb(8 8 8 / 42%) 55%, #080808 100%),
+      linear-gradient(90deg, #080808 0%, rgb(8 8 8 / 82%) 45%, rgb(8 8 8 / 30%) 100%);
   }
 
   .auth-footer {
     z-index: 2;
-    right: 20px;
-    bottom: calc(178px + env(safe-area-inset-bottom));
-    left: 20px;
+    bottom: calc(206px + env(safe-area-inset-bottom));
+    left: 18px;
     font-size: 11px;
   }
 }
 
 @media (max-height: 680px) and (min-width: 621px) {
   .login-core {
-    padding-block: 132px 76px;
+    padding-block: 118px 76px;
   }
 
   .login-action-group {
-    margin-top: 32px;
+    margin-top: 24px;
+  }
+
+  .login-description {
+    margin-top: 14px;
   }
 
   .api-check-row {

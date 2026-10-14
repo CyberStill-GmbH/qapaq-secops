@@ -4,16 +4,18 @@ C4Context
     Person(soc, "Operación SOC", "Analistas y administradores autorizados")
     Person(governance, "Gobierno y soporte", "Auditoría, riesgos, antifraude e infraestructura")
 
-    System(qapaq, "QAPAQ SecOps", "Plataforma SOC central para telemetría, detección, investigación, respuesta, auditoría y reporting")
+    System(qapaq, "Qapaq SecOps", "Plataforma SIEM/XDR para monitoreo, detección, investigación, respuesta gobernada y mejora continua")
 
     System_Ext(entra, "Microsoft Entra ID", "Identidad humana corporativa single-tenant")
     System_Ext(m365, "Microsoft 365", "Única fuente empresarial del primer MVP")
-    System_Ext(wazuh, "Wazuh", "Recolecta Microsoft 365, aplica ruleset y genera alertas base")
-    System_Ext(teams, "Microsoft Teams Workflow", "Canal corporativo primario para alertas críticas")
+    System_Ext(wazuh, "Wazuh", "Aporta agentes, adquisición, reglas y alertas base integradas a Qapaq SecOps")
+    System_Ext(shuffle, "Shuffle", "Motor de playbooks no-code post-MVP, bajo control de Qapaq SecOps")
+    System_Ext(teams, "Microsoft Teams Workflow", "Canal corporativo de notificaciones críticas")
 
-    Rel(soc, qapaq, "Opera e investiga", "HTTPS")
+    Rel(soc, qapaq, "Monitorea, investiga y coordina en Ayni Qapaq", "HTTPS")
     Rel(governance, qapaq, "Gobierna, audita y soporta", "HTTPS")
     Rel(qapaq, entra, "Autentica", "OIDC + PKCE")
     Rel(m365, wazuh, "")
     Rel(wazuh, qapaq, "", "Read-only")
     Rel_R(qapaq, teams, "Notifica CRITICAL", "HTTPS")
+    Rel(qapaq, shuffle, "Ejecuta playbooks aprobados", "HTTPS + callback autenticado")

@@ -64,6 +64,10 @@ alertas/incidentes, cierre y clasificación. Posee estado operacional y referenc
 de evidencia. Cardinalidades físicas, guardas y permisos por transición siguen
 U-008; no se aprueba una relación N:M por inferencia.
 
+La experiencia colaborativa de este dominio se presenta como **Ayni Qapaq**. El
+nombre designa el espacio de investigación del producto, no otro servicio, base de
+datos, fuente de alertas o módulo con permisos independientes.
+
 ### 7. SOAR, Playbooks & Ticketing — soar
 
 Definición/versionado de playbooks, tareas, aprobaciones, acciones automatizadas,
@@ -71,8 +75,9 @@ respuesta sobre integraciones, compensación cuando sea posible, tickets,
 sincronización ITSM, notificaciones y trazabilidad de ejecución. Acciones
 destructivas/de alto impacto requieren permisos específicos y aprobación explícita.
 Posee ejecuciones/aprobaciones/tickets; no modifica directamente incidentes ni
-configuración ajena. Su inclusión en alcance no habilita acciones reales ahora.
-ADR-022 incorpora al MVP la notificación `CRITICAL` por Teams como capacidad
+configuración ajena. ADR-028 elige Shuffle como motor no-code post-MVP; el adapter
+y workflows de producción siguen sujetos a gates. ADR-022 incorpora al MVP la
+notificación `CRITICAL` por Teams como capacidad
 acotada: `soc` publica `NotificationRequested` después de persistir la alerta y
 el worker de `soar` aplica política y entrega. Esto no habilita el motor SOAR
 completo ni crea un módulo funcional adicional.

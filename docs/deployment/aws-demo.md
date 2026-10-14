@@ -1,6 +1,10 @@
 # Despliegue AWS demo — estado por fases
 
-Esta guía registra las foundations aplicadas y el pipeline de publicación de imágenes verificadas. La arquitectura sigue siendo una demo: no hay workloads ejecutándose en AWS.
+Esta guía conserva el historial de foundations y del pipeline de imágenes. El apply parcial de
+[Terraform Demo #50](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/38340620623)
+creó workloads antes de fallar; esta guía histórica no sustituye la auditoría de recursos y state
+del [runbook de recuperación](terraform-apply-recovery.md). La migración a los artefactos QAPAQ
+está bloqueada hasta seguir el [rollout de QAPAQ Wazuh](qapaq-wazuh-terraform-rollout.md).
 
 ## Fase 1 — red y seguridad (aplicada)
 

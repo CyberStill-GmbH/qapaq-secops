@@ -2,6 +2,9 @@
 
 Actores/identidad: ACCEPTED por ADR-015/017; fronteras de fuentes: CONDITIONALLY
 ACCEPTED por ADR-019; vertical MVP ACCEPTED / IMPLEMENTATION REQUIRED por ADR-024.
+La visión de Qapaq SecOps como plataforma SIEM/XDR se rige por
+[ADR-029](../adr/029-qapaq-secops-product-direction.md); el despliegue resiliente
+es objetivo gated por [ADR-030](../adr/030-resilient-platform-architecture.md).
 
 ## Actores
 
@@ -25,11 +28,14 @@ read-only a través de KrakenD CE on-premises. KrakenD no se ubica entre Microso
 365 y Wazuh. Cato, Sophos, MISP y rutas directas son post-MVP. La disponibilidad
 pública de una API no prueba edición, licencia, dataset, permiso, cuota ni conectividad.
 
-Wazuh sigue siendo responsable de agentes, HIDS, FIM, SCA, inventario,
-vulnerabilidades, decoders y detecciones propias. QAPAQ SecOps es la plataforma
-central y añade contrato canónico, priorización/correlación complementaria, casos,
-RBAC, reporting, SOAR y auditoría. No configura
-automáticamente Active Response ni administra endpoints de fabricantes.
+QAPAQ SecOps es la plataforma SIEM/XDR y la consola principal del SOC. Wazuh aporta
+agentes, HIDS, FIM, SCA, inventario, vulnerabilidades, decoders, reglas y alertas
+integradas. QAPAQ añade contrato canónico, priorización/correlación complementaria,
+investigación colaborativa mediante Ayni Qapaq, casos, RBAC, reporting, auditoría y
+respuesta gobernada. No configura automáticamente Active Response ni administra
+endpoints de fabricantes. Después del MVP no se define un Wazuh Dashboard separado
+como destino de la experiencia SOC; una transición solo se completa tras probar
+paridad operativa en la consola QAPAQ.
 
 PostgreSQL, Redis, indexador y object storage son dependencias provisionadas por
 otro equipo; despliegue concreto UNKNOWN. Microsoft Entra ID es el IdP humano
@@ -46,7 +52,7 @@ aceptado. Configuración, licencias y pruebas permanecen pendientes del gate de 
 5. Administración → configuración/secretos: autorización reforzada, razón y auditoría; referencias de secretos, no valores.
 6. Plataforma → evidencia/exportaciones: controles de descarga y caducidad, sin links públicos ni envío no autorizado.
 
-## Frontend SOC
+## Consola QAPAQ SOC
 
 Vistas previstas: resumen operativo, alertas, incidentes, casos, activos, usuarios,
 integraciones, detecciones/reglas, inteligencia, playbooks/tickets, antifraude,

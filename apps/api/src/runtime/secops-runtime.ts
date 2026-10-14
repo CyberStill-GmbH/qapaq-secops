@@ -159,6 +159,8 @@ function decisionDiagnostic(
 
 export interface RuntimeOptions {
   readonly access: AccessConfig;
+  /** Clave CSRF compartida entre réplicas; solo efímera en perfiles de memoria/tests. */
+  readonly csrfKey?: Buffer;
   readonly demoMfaExceptionUntil?: Date;
   readonly profile: string;
   readonly clientSecret?: string;
@@ -268,11 +270,8 @@ export class SecOpsRuntime {
   private readonly tokens: TokenExchange;
   private readonly transport: NotificationTransport;
   private readonly clock: () => Date;
-  /**
-   * Clave del token CSRF (B-01). Vive en memoria igual que las sesiones: un reinicio
-   * invalida ambas a la vez. Con el adapter PostgreSQL de sesiones pasa a SecretProvider.
-   */
-  private readonly csrfKey = randomBytes(32);
+  /** Clave estable entre réplicas cuando el BFF usa persistencia compartida. */
+  private readonly csrfKey: Buffer;
   /**
    * Contexto de priorización de C-16. Viene de configuración (`QAPAQ_DETECTION_*`); sin
    * ella, listas vacías y la prioridad depende solo de severidad y correlación.
@@ -283,6 +282,7 @@ export class SecOpsRuntime {
 
   public constructor(private readonly options: RuntimeOptions) {
     this.clock = options.clock ?? (() => new Date());
+    this.csrfKey = options.csrfKey ?? randomBytes(32);
     this.soc = options.soc ?? new InMemorySoc();
     this.sessions = options.sessions ?? new InMemorySessionStore();
     this.notifications = options.notifications ?? new InMemoryNotificationStore();

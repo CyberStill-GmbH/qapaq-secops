@@ -1,5 +1,11 @@
 # Datos operacionales, telemetría y retención
 
+La política se aplica dentro de la
+[arquitectura resiliente](qapaq-secops-resilient-architecture.md): PostgreSQL y
+el catálogo mantienen estado y custodia; OpenSearch acelera la consulta; object
+storage conserva raw y archivo. Las capas HOT/WARM/COLD describen el ciclo de
+datos, no garantizan por sí solas cumplimiento SBS ni disponibilidad física.
+
 Estado: diseño de tiers PROPOSAL; lifecycle y auditoría CONDITIONALLY ACCEPTED por
 [ADR-018](../adr/018-retention-privacy-custody.md) y
 [ADR-021](../adr/021-observability-and-audit-separation.md). [ADR-004](../adr/004-postgresql-operational-data.md),

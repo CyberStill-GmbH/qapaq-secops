@@ -1,9 +1,9 @@
 # Modelo C4 de QAPAQ SecOps
 
-Estado: vista arquitectónica documental. Consolida decisiones ACCEPTED y
-CONDITIONALLY ACCEPTED; no afirma software, infraestructura ni integraciones
-desplegadas. Fuente de verdad: [ADRs](../adr/README.md) y
-[decisiones](../decisions/unresolved.md).
+Estado: vistas arquitectónicas documentales. Consolidan decisiones aceptadas y
+objetivos sujetos a gates; no afirman que la topología, las réplicas o las
+integraciones estén desplegadas. Fuente de verdad: [ADRs](../adr/README.md),
+[decisiones abiertas](../decisions/unresolved.md) y el inventario del ambiente.
 
 ## Propósito y alcance
 
@@ -46,15 +46,19 @@ Decisiones que gobiernan esta vista:
 - U-009/ADR-020: Infraestructura opera dependencias; QAPAQ observa su estado.
 - U-012/ADR-022: Teams Workflows es el canal primario de alertas críticas.
 - ADR-026: KrakenD CE on-premises gobierna APIs de proveedores directas.
+- ADR-029: Qapaq SecOps es el producto SIEM/XDR; Wazuh aporta el motor integrado.
+- ADR-030: balanceo de acceso, pool KrakenD, polling coordinado, cola recuperable,
+  indexación escalable y tiers forman la topología objetivo resiliente.
 
 ## Nivel 2 — Contenedores
 
 [Diagrama de contenedores](../diagrams/02-containers.mmd).
 
-### Web SOC
+### Consola Qapaq SecOps
 
-React/Vite presenta vistas y estados autorizados. No llama proveedores ni stores,
-no recibe tokens Entra y no decide autorización.
+La consola presenta alertas, cobertura y espacios de trabajo como Ayni Qapaq. Carga
+listas paginadas y detalles bajo demanda. No llama proveedores ni stores, no recibe
+tokens Entra y no decide autorización.
 
 ### API / BFF
 
@@ -93,10 +97,10 @@ externos administrados por Infraestructura/Security: QAPAQ exporta OTLP y solici
 firmas, pero no administra backends ni obtiene llaves privadas.
 Teams Workflow también es externo: Infraestructura/Microsoft 365 administra
 canal, workflow, propietarios y secreto; el worker solo consume su contrato.
-KrakenD es un contenedor de infraestructura on-premises, stateless y replicado
-detrás de balanceador. El worker lo usa para Wazuh Indexer y futuras APIs directas;
-el gateway no accede a stores ni a BullMQ. La respuesta pasa luego por el adapter y
-la admisión durable de QAPAQ.
+KrakenD es un pool de infraestructura on-premises o red privada aprobada, stateless
+y replicado detrás de balanceador. El worker lo usa para Wazuh Indexer y APIs
+directas; el gateway no accede a stores ni a BullMQ. La respuesta pasa luego por
+el adapter y la admisión durable de QAPAQ.
 
 ## Nivel 3 — Componentes
 
@@ -137,8 +141,9 @@ inmediata.
 
 [Diagrama de código del módulo SOC](../diagrams/12-c4-code-soc-module.mmd).
 
-No existe código de aplicación que permita dibujar clases reales. Este nivel usa
-`Alerts, Incidents & Cases` como ejemplo de estructura objetivo:
+El repositorio ya contiene código ejecutable en API, worker, módulos y tests. El
+diagrama de Nivel 4 representa la frontera conceptual del módulo `Alerts,
+Incidents & Cases`; no sustituye un mapa de clases sincronizado con el source actual:
 
 - `domain`: Alert, Incident, Case, invariantes, transiciones y eventos de dominio;
   no depende de NestJS, Prisma, SDK ni infraestructura.
@@ -150,8 +155,19 @@ No existe código de aplicación que permita dibujar clases reales. Este nivel u
 - composition root: wiring NestJS; conoce implementaciones sin mover dependencias
   hacia el dominio.
 
-Los nombres de clases, métodos, endpoints, tablas y eventos ejecutables se definirán
-al implementar casos de uso. El diagrama no los inventa.
+Para confirmar nombres y comportamiento ejecutables, revisar el código y sus
+contratos; el diagrama no debe usarse como inventario de implementación.
+
+## Vista de despliegue objetivo
+
+[Topología resiliente](../diagrams/15-resilient-deployment.mmd).
+
+El diagrama separa el balanceador de acceso de usuarios del balanceador interno
+para las integraciones. Ambos son objetivos; sus implementaciones, cantidad de
+nodos, redes y zonas de fallo se documentan en el inventario real de cada ambiente.
+Las líneas punteadas identifican componentes cuyo despliegue es posterior al MVP o
+requiere aprobación/capacidad demostrada. Esta vista orienta el diseño del rollout;
+no certifica alta disponibilidad.
 
 ## Vistas de apoyo
 
@@ -167,11 +183,11 @@ diagramas separados:
 - [Detección y correlación](../diagrams/10-detection-correlation.mmd).
 - [Ciclo de alerta](../diagrams/11-alert-lifecycle.mmd).
 - [Notificación de alerta crítica](../diagrams/13-critical-alert-notification.mmd).
+- [Despliegue resiliente](../diagrams/15-resilient-deployment.mmd).
 
-No existe una vista de deployment porque host, cloud, región, réplicas, HA y
-orquestador no están aprobados. ADR-020 define objetivos y recovery sin escoger esa
-topología. Cuando Infraestructura la apruebe, se añadirá una vista C4 Deployment
-basada en inventario real.
+Las vistas de contexto, contenedores y despliegue son conceptuales. ADR-030 define
+el patrón lógico; Infraestructura completa los detalles físicos tras revisar red,
+cuenta, capacidad, costo y recuperación.
 
 ## Reglas de mantenimiento
 

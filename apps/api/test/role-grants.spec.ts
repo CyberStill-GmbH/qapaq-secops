@@ -75,6 +75,21 @@ describe('roles concedidos por QAPAQ', () => {
     expect(await otherGroup(STRANGER)).toEqual([]);
   });
 
+  it('la pertenencia al padrón de admisión no eleva el rol explícito de analista', async () => {
+    const admissionGroup = 'aaaaaaaa-0000-0000-0000-00000000000a';
+    const withoutImplicitAdminGroup = loadRoleGrantsConfig({
+      QAPAQ_PROFILE: 'test',
+      QAPAQ_ROLE_BINDINGS: `${ANALYST}=qapaq.soc.analyst`,
+    });
+    const resolve = createRoleGrantResolver(withoutImplicitAdminGroup, {
+      groupId: admissionGroup,
+      owners: async () => new Set(),
+      isMember: async (oid) => oid === ANALYST,
+    });
+
+    expect(await resolve(ANALYST)).toEqual(['qapaq.soc.analyst']);
+  });
+
   it('rechaza grupos admin que no son GUID', () => {
     expect(() =>
       loadRoleGrantsConfig({ QAPAQ_PROFILE: 'test', QAPAQ_ADMIN_GROUP_IDS: 'admins' }),
