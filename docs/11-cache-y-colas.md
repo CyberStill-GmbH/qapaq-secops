@@ -28,8 +28,60 @@ documento fija **dónde** es fundamental, **qué técnica** usa cada punto y **q
 | 5 | **Lecturas caras y estables**: padrón de usuarios (sincronizado de Graph), salud de fuentes, salud operativa | Consultas agregadas que repiten muchas personas a la vez | Lazy loading más *stale-while-revalidate*: se sirve lo vigente y se refresca en segundo plano con un solo refresco por clave | Padrón 30 s (DEL al terminar cada sync de Graph). Salud 10 s | Lectura directa |
 
 **Lo que no se cachea:** casos (alertas, incidentes, tareas y notas: escritura frecuente y concurrencia
-optimista), la cadena de auditoría, búsquedas en el Indexer (consultas variables con datos sensibles) y
-cualquier PII fuera del snapshot de sesión.
+optimista), la cadena de auditoría, búsquedas libres de texto en el Indexer y cualquier PII fuera de lo
+indicado abajo.
+
+## Caché que sirve al SIEM (lecturas del Wazuh Indexer)
+
+El SIEM tiene dos lectores del Indexer: el **dashboard** (OSD lee directo) y la **API QAPAQ** (enriquecer
+una alerta, conteos de la cola, frescura de las fuentes, salud). Cada uno usa una capa distinta:
+
+| Capa | Para quién | Qué cachea | TTL |
+| --- | --- | --- | --- |
+| **Request cache de OpenSearch** (nativa, por shard) | Dashboard y API | Agregaciones (`size: 0`): histogramas, conteos, top N de los paneles | Hasta que el índice cambia |
+| **Lazy loading en Valkey** (`siem:{scope}:{sha256(consulta normalizada)}`) | API QAPAQ | Conteos y agregados de la cola, frescura por fuente, y el **evento original de una alerta por `_id`** (inmutable una vez indexado) | Según el tier del índice consultado, abajo |
+
+El TTL depende del tier, porque cuanto más frío es el dato, menos cambia:
+
+| Tier (ISM, [05](05-datos-y-retencion.md)) | Estado del índice | TTL en Valkey | Motivo |
+| --- | --- | --- | --- |
+| **hot** (0–30 d) | Escritura activa | 15 s | Llegan alertas nuevas |
+| **warm** (30–90 d) | `read_only` y fusionado | 10 min | Ya no cambia; la request cache nativa también acierta siempre |
+| **restored** (cold traído de S3) | `read_only`, TTL 7 d | 1 h | Inmutable mientras exista; se borra con el índice |
+| Evento por `_id` | Inmutable | 5 min | El documento no cambia, pero contiene PII: TTL corto |
+
+Reglas:
+- **La clave incluye el scope de autorización** (tenant y conjunto de capacidades). Dos personas con
+  permisos distintos nunca comparten una entrada. La autorización se evalúa **antes** de leer la caché.
+- Se normaliza la consulta (orden de claves, ventana de tiempo redondeada a 1 min en hot) para que
+  consultas equivalentes compartan la entrada.
+- Nada de texto libre ni de consultas que el navegador arme: solo las consultas allowlist del conector.
+- Datos con PII (evento por `_id`) solo con TTL corto, en Valkey privado con TLS y cifrado en reposo.
+
+## Idempotencia
+
+Tres niveles. Postgres sigue siendo el respaldo final (revisión optimista y restricciones únicas):
+
+| Nivel | Dónde | Cómo | Retención |
+| --- | --- | --- | --- |
+| **HTTP** | Mutaciones que crean cosas: `POST /api/incidents`, tareas, notas, revocar sesión, acuse de notificación y, en adelante, restaurar historia y ejecutar playbooks | Cabecera `Idempotency-Key` (UUID del cliente). `SET NX` de `idem:{actor}:{clave}` marca «en curso», guarda la respuesta y una huella del cuerpo. Un reintento con la misma clave devuelve la **misma respuesta**; con un cuerpo distinto responde `409 IDEMPOTENCY_KEY_REUSED` | 24 h |
+| **Productor de cola** | `jobId` determinista | BullMQ ignora un job con el mismo `jobId` mientras exista | Mientras viva el job |
+| **Consumidor** | Antes del efecto externo (Teams, push, Shuffle o restauración) | `done:{cola}:{clave}` más el estado en Postgres (outbox `SENT`). Un job reintentado después de un envío exitoso **no reenvía** | 7 d |
+
+Las transiciones de estado (comandos con `expectedRevision`) ya son idempotentes por la concurrencia
+optimista, así que no necesitan la cabecera.
+
+### Warm y cold: restauración idempotente
+
+`POST /api/history/restore` (capacidad `history.restore` y aprobación del Líder SOC):
+- **Clave de idempotencia = hash de los índices a restaurar.** Pedir el mismo rango dos veces, aunque lo
+  pidan personas distintas, devuelve el mismo trabajo o el índice `restored-*` que ya existe. No se
+  restaura dos veces el mismo snapshot.
+- Cola `history-restore`, con concurrencia 1, porque restaurar consume disco y CPU del Indexer. El
+  estado (`queued`, `restoring`, `ready`, `expired`) queda en Postgres y se cachea para la UI.
+- **Catálogo de snapshots** (`GET _snapshot/qapaq-s3/_all`, lento) cacheado 10 min, e invalidado cuando
+  ISM crea un snapshot nuevo.
+- **Registro de índices restaurados** con el mismo TTL de 7 días que la política `qapaq-restored-ttl`.
 
 ## Colas (BullMQ sobre Valkey)
 
@@ -41,6 +93,7 @@ La cola es transporte rápido; Postgres conserva qué falta procesar.
 | `notifications` (Teams y push) | La API, tras el commit que escribe el outbox | Worker | `jobId = idempotencyKey` (dedupe). Backoff exponencial de 5 s a 5 min, 5 intentos (ADR-022). Fencing token antes de enviar. El reconciliador reencola cada 60 s lo pendiente con más de 30 s |
 | `ingestion` (polling de Wazuh por fuente o dataset) | Scheduler repetible con jitter | Worker, concurrencia 1 por fuente | `jobId = ingest:{source}:{ventana}`: nunca dos ejecuciones de la misma ventana. El lease con fencing en Postgres sigue siendo la autoridad |
 | `directory-sync` (delta del grupo SOC en Graph) | Scheduler repetible cada 5 min | Worker, concurrencia 1 | Al terminar invalida el padrón (punto 5) y dispara las revocaciones (punto 3) |
+| `history-restore` (warm/cold) | La API, tras la aprobación | Worker, concurrencia 1 | `jobId` = hash de los índices. Antes de restaurar comprueba `done:` y si ya existe `restored-*` |
 | `ankay` (siguiente scope: Shuffle) | La API, tras una aprobación | Worker | Un timeout queda en `UNKNOWN`, sin reintento ciego (ADR-028) |
 | `*:dlq` | Jobs que agotan sus intentos | Visible en «Salud operativa» | No se reintentan solos |
 
@@ -66,3 +119,8 @@ volver.
 4. Al apagar Valkey, la consola sigue funcionando. Al volver, el reconciliador envía las notificaciones
    pendientes sin duplicarlas.
 5. Ninguna clave de caché queda sin TTL (prueba de escaneo).
+6. Repetir un `POST /api/incidents/:id/notes` con la misma `Idempotency-Key` crea una sola nota y
+   devuelve la misma respuesta. Con otro cuerpo responde 409.
+7. Pedir dos veces la restauración del mismo día produce un solo índice `restored-*`.
+8. Dos personas con capacidades distintas que consultan lo mismo nunca comparten una entrada de la
+   caché del SIEM.
