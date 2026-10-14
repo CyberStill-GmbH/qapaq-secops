@@ -31,3 +31,24 @@ output "task_role_arns" {
 output "nat_gateway_id" {
   value = aws_nat_gateway.api_egress.id
 }
+
+# Núcleo QAPAQ dentro del SIEM (docs/12, opción B): mismo entorno de dominio que la API de ECS, pero
+# escuchando solo en 127.0.0.1 detrás del edge nginx del host, que pasa a ser un proxy confiable.
+output "core_environment" {
+  value = merge(local.api_environment, {
+    QAPAQ_API_HOST = "127.0.0.1"
+    QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS = join(",", compact([
+      lookup(local.api_environment, "QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS", ""),
+      "127.0.0.1/32",
+    ]))
+  })
+}
+
+output "core_secrets" {
+  description = "Nombre de variable → ARN (con sufijo :clave:: como en ECS). Solo referencias, sin valores."
+  value       = { for secret in local.api_secrets : secret.name => secret.valueFrom }
+}
+
+output "core_secret_arns" {
+  value = local.api_secret_arns
+}

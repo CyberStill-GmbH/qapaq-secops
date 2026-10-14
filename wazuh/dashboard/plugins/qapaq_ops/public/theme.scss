@@ -1,0 +1,127 @@
+// QAPAQ SecOps · capa visual global sobre el tema OUI v7 de OSD 2.19.6.
+//
+// Se carga en todas las páginas del dashboard (los estilos de los plugins se inyectan al
+// arrancar), así que es deliberadamente contenida: superficies, cabecera, menú, selección,
+// foco y transiciones. No toca tipografía (OUI), espaciados ni componentes de datos, para no
+// romper la maquetación de Discover, los módulos de Wazuh ni las visualizaciones.
+//
+// Tokens del doc 02 de qapaq-secops (sistema visual): fondo #080808, ámbar #c49a5a solo en
+// marca e indicador activo, grises jerárquicos, sin degradados. Movimiento: opacidad y
+// transformación de 150–250 ms; nada con `prefers-reduced-motion`.
+
+$qapaqBg: #080808;
+$qapaqSurface: #0d0d0f;
+$qapaqRaised: #131315;
+$qapaqLine: #29292d;
+$qapaqLineStrong: #49494e;
+$qapaqText: #f4f4f5;
+$qapaqText2: #b0b0b5;
+$qapaqText3: #8f8f95;
+$qapaqAmber: #c49a5a;
+$qapaqEase: cubic-bezier(0.16, 1, 0.3, 1);
+
+// El optimizer compila este SCSS una vez por tema (v7light, v7dark, …). La capa oscura solo
+// se emite en los temas oscuros; en claro solo quedan selección, foco y movimiento.
+$qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
+
+::selection {
+  background-color: rgba($qapaqAmber, 0.32);
+  color: inherit;
+}
+
+@if $qapaqIsDark {
+  :root {
+    color-scheme: dark;
+  }
+
+  body,
+  .app-wrapper,
+  .euiPage,
+  .euiPageBody {
+    background-color: $qapaqBg;
+  }
+
+  // Cabecera: negro QAPAQ, una línea de 1 px en lugar de sombra.
+  .euiHeader,
+  .euiHeader--dark,
+  .euiHeader--default {
+    background-color: $qapaqBg;
+    border-bottom: 1px solid $qapaqLine;
+    box-shadow: none;
+  }
+
+  .euiHeaderLogo__text,
+  .euiHeaderLink,
+  .euiHeaderSectionItemButton {
+    color: $qapaqText2;
+  }
+
+  // Menú lateral: superficie apenas elevada; el elemento activo lleva el indicador ámbar.
+  .euiCollapsibleNav,
+  .euiFlyout.euiCollapsibleNav {
+    background-color: $qapaqSurface;
+    border-right: 1px solid $qapaqLine;
+  }
+
+  .euiCollapsibleNavGroup {
+    border-color: $qapaqLine;
+  }
+
+  .euiCollapsibleNav .euiListGroupItem-isActive {
+    box-shadow: inset 2px 0 0 $qapaqAmber;
+    background-color: $qapaqRaised;
+  }
+
+  // Flyouts, modales y popovers: superficies de doc 02 con borde neutro.
+  .euiFlyout,
+  .euiModal,
+  .euiPopover__panel,
+  .euiContextMenuPanel {
+    background-color: $qapaqSurface;
+    border-color: $qapaqLine;
+  }
+
+  .euiHorizontalRule {
+    background-color: $qapaqLine;
+  }
+
+  // Barra de carga global (chrome): ámbar sobre fondo neutro.
+  .osdLoadingIndicator__bar,
+  .euiProgress--indeterminate.euiProgress--accent::before {
+    background-color: $qapaqAmber;
+  }
+
+  // Barras de desplazamiento discretas (WebKit/Blink y Firefox).
+  * {
+    scrollbar-color: $qapaqLineStrong transparent;
+  }
+}
+
+// Foco visible: blanco de 2 px con separación (doc 07, accesibilidad).
+:focus-visible {
+  outline-color: $qapaqText;
+}
+
+// Entrada suave de las vistas QAPAQ (opacidad + 4 px). Solo en nuestras apps: animar el
+// contenedor de otras apps crearía un bloque contenedor para sus elementos `position: fixed`.
+.qapaqApp {
+  animation: qapaqAppEnter 200ms $qapaqEase both;
+}
+
+@keyframes qapaqAppEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qapaqApp {
+    animation: none;
+  }
+}

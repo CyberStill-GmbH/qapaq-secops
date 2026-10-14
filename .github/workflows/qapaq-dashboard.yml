@@ -1,0 +1,226 @@
+name: QAPAQ SIEM
+
+# Construye y despliega el SIEM QAPAQ: la UI de Wazuh 4.14.8 rebrandeada (wazuh/dashboard) y el núcleo
+# QAPAQ que corre dentro del mismo host (wazuh/core, docs/12, opción B). Todo se ejecuta en el host Wazuh
+# por SSM. Ningún secreto viaja en los comandos: el host lee Secrets Manager con su rol y NO se rotan
+# credenciales (A20).
+#
+#   push a main                → build y publicación inmutable en S3 del dashboard y/o del núcleo
+#   step=security              → wazuh/indexer/security/apply-security.sh
+#   step=core                  → wazuh/core/apply-core.sh (API 127.0.0.1:3000 y worker; rollback automático)
+#   step=dashboard             → instala el .deb del dashboard publicado para el commit
+#   step=edge                  → wazuh/edge/apply-edge.sh (login QAPAQ, proxy auth, /api → núcleo local)
+#   step=all                   → security → core → dashboard → edge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "wazuh/dashboard/**"
+      - "wazuh/core/**"
+      - "apps/**"
+      - "modules/**"
+      - "platform/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/qapaq-dashboard.yml"
+  workflow_dispatch:
+    inputs:
+      step:
+        description: Paso de despliegue en el host del SIEM
+        type: choice
+        required: true
+        default: build
+        options: [build, security, core, dashboard, edge, all]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: qapaq-siem
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ARTIFACTS_BUCKET: qapaq-secops-demo-artifacts-955200662475
+  SOC_HOSTNAME: ${{ vars.QAPAQ_SOC_HOSTNAME || 'wazuh.jappi.net.pe' }}
+  # Tras activar `siem_app_cutover` en Terraform: "app.jappi.net.pe" (URI de callback de Entra).
+  SOC_EXTRA_HOSTNAMES: ${{ vars.QAPAQ_SOC_EXTRA_HOSTNAMES || '' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      dashboard: ${{ steps.diff.outputs.dashboard }}
+      core: ${{ steps.diff.outputs.core }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - id: diff
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == workflow_dispatch ]]; then
+            echo dashboard=true >>"$GITHUB_OUTPUT"; echo core=true >>"$GITHUB_OUTPUT"; exit 0
+          fi
+          files="$(git diff --name-only HEAD~1 HEAD)"
+          grep -qE '^(wazuh/dashboard/|\.github/workflows/qapaq-dashboard\.yml)' <<<"$files" \
+            && echo dashboard=true >>"$GITHUB_OUTPUT" || echo dashboard=false >>"$GITHUB_OUTPUT"
+          grep -qE '^(wazuh/core/|apps/|modules/|platform/|packages/|pnpm-lock\.yaml)' <<<"$files" \
+            && echo core=true >>"$GITHUB_OUTPUT" || echo core=false >>"$GITHUB_OUTPUT"
+
+  build-dashboard:
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.dashboard == 'true' &&
+      (github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all')
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build QAPAQ SIEM dashboard package
+        run: bash wazuh/dashboard/build.sh "$RUNNER_TEMP/out"
+      - name: Verify package
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          set -euo pipefail
+          count="$(find . -maxdepth 1 -name '*.deb' | wc -l)"
+          [[ "$count" == 1 ]] || { echo "Se esperaba 1 .deb y hay $count" >&2; exit 1; }
+          sha256sum -c SHA256SUMS
+          dpkg-deb --field ./*.deb Package Version
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: qapaq-siem-dashboard-build
+          allowed-account-ids: 955200662475
+      - name: Publish to S3 (immutable, per commit)
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          set -euo pipefail
+          prefix="s3://${ARTIFACTS_BUCKET}/qapaq-dashboard/git-${GITHUB_SHA}"
+          aws s3 cp ./*.deb "${prefix}/qapaq-dashboard.deb" --sse aws:kms
+          aws s3 cp SHA256SUMS "${prefix}/SHA256SUMS" --sse aws:kms
+
+  build-core:
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.core == 'true' &&
+      (github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all' || inputs.step == 'core')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Build QAPAQ core release
+        run: bash wazuh/core/build.sh "$RUNNER_TEMP/out"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: qapaq-siem-core-build
+          allowed-account-ids: 955200662475
+      - name: Publish to S3 (immutable, per commit)
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          set -euo pipefail
+          prefix="s3://${ARTIFACTS_BUCKET}/qapaq-core/git-${GITHUB_SHA}"
+          aws s3 cp ./qapaq-core-*.tar.gz "${prefix}/qapaq-core.tar.gz" --sse aws:kms
+          aws s3 cp SHA256SUMS "${prefix}/SHA256SUMS" --sse aws:kms
+
+  deploy:
+    needs: [build-dashboard, build-core]
+    if: >-
+      always() && github.event_name == 'workflow_dispatch' && inputs.step != 'build' &&
+      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: qapaq-siem-deploy
+          allowed-account-ids: 955200662475
+
+      - name: Run on the SIEM host through SSM
+        env:
+          STEP: ${{ inputs.step }}
+        run: |
+          set -euo pipefail
+          instance_id="$(aws ec2 describe-instances \
+            --filters 'Name=tag:Name,Values=qapaq-secops-demo-wazuh' 'Name=instance-state-name,Values=running' \
+            --query 'Reservations[].Instances[].InstanceId | [0]' --output text)"
+          [[ -n "$instance_id" && "$instance_id" != None ]] || { echo 'No hay host del SIEM en ejecución.' >&2; exit 1; }
+
+          # Artefacto publicado más reciente hasta este commit (inmutable por SHA).
+          latest() { # prefijo
+            local sha
+            for sha in $(git log --format=%H -n 50); do
+              aws s3 ls "s3://${ARTIFACTS_BUCKET}/$1/git-${sha}/SHA256SUMS" >/dev/null 2>&1 && { echo "$sha"; return; }
+            done
+            return 1
+          }
+          git fetch --quiet --depth=50 origin "${GITHUB_REF}" || true
+
+          deb_url=''; deb_sum=''; core_url=''; core_sum=''
+          if [[ "$STEP" == dashboard || "$STEP" == all ]]; then
+            sha="$(latest qapaq-dashboard)" || { echo 'No hay dashboard publicado; ejecuta step=build' >&2; exit 1; }
+            deb_url="$(aws s3 presign "s3://${ARTIFACTS_BUCKET}/qapaq-dashboard/git-${sha}/qapaq-dashboard.deb" --expires-in 3600)"
+            deb_sum="$(aws s3 cp "s3://${ARTIFACTS_BUCKET}/qapaq-dashboard/git-${sha}/SHA256SUMS" - | awk '{print $1}')"
+          fi
+          if [[ "$STEP" == core || "$STEP" == all ]]; then
+            sha="$(latest qapaq-core)" || { echo 'No hay núcleo publicado; ejecuta step=build' >&2; exit 1; }
+            core_url="$(aws s3 presign "s3://${ARTIFACTS_BUCKET}/qapaq-core/git-${sha}/qapaq-core.tar.gz" --expires-in 3600)"
+            core_sum="$(aws s3 cp "s3://${ARTIFACTS_BUCKET}/qapaq-core/git-${sha}/SHA256SUMS" - | awk '{print $1}')"
+          fi
+
+          bundle="$(tar -C wazuh -czf - \
+            scripts/indexer-admin.sh \
+            indexer/security/apply-security.sh indexer/security/config.qapaq.yml \
+            indexer/security/roles.qapaq.yml indexer/security/roles_mapping.qapaq.yml \
+            core/apply-core.sh edge/apply-edge.sh edge/qapaq-edge.conf \
+            dashboard/opensearch_dashboards.qapaq.yml | base64 -w0)"
+
+          remote_script="$(cat <<REMOTE
+          set -euo pipefail
+          work="\$(mktemp -d)"; trap 'rm -rf "\$work"' EXIT
+          printf '%s' '${bundle}' | base64 -d | tar -C "\$work" -xzf -
+          step='${STEP}'
+          if [[ "\$step" == security || "\$step" == all ]]; then bash "\$work/indexer/security/apply-security.sh"; fi
+          if [[ "\$step" == core || "\$step" == all ]]; then
+            QAPAQ_CORE_URL='${core_url}' QAPAQ_CORE_SHA256='${core_sum}' QAPAQ_AWS_REGION='${AWS_REGION}' \
+            QAPAQ_CORE_ENV_PARAM='/qapaq-secops/demo/core/environment' bash "\$work/core/apply-core.sh"
+          fi
+          if [[ "\$step" == dashboard || "\$step" == all ]]; then
+            curl -fsS --max-time 600 -o "\$work/qapaq-dashboard.deb" '${deb_url}'
+            echo '${deb_sum}  '"\$work/qapaq-dashboard.deb" | sha256sum -c -
+            DEBIAN_FRONTEND=noninteractive dpkg --force-confold -i "\$work/qapaq-dashboard.deb"
+            systemctl daemon-reload; systemctl restart wazuh-dashboard
+            /usr/share/wazuh-dashboard/bin/opensearch-dashboards-plugin list --allow-root | grep -i qapaq
+          fi
+          if [[ "\$step" == edge || "\$step" == all ]]; then
+            SOC_HOSTNAME='${SOC_HOSTNAME}' SOC_EXTRA_HOSTNAMES='${SOC_EXTRA_HOSTNAMES}' \
+            QAPAQ_API='http://127.0.0.1:3000' bash "\$work/edge/apply-edge.sh"
+          fi
+          REMOTE
+          )"
+          payload="$(jq -cn --arg command "$remote_script" '{commands: [$command]}')"
+          (( $(LC_ALL=C printf '%s' "$payload" | wc -c) <= 24000 )) || { echo 'Payload SSM > 24000 bytes' >&2; exit 1; }
+          command_id="$(aws ssm send-command --instance-ids "$instance_id" --document-name AWS-RunShellScript \
+            --comment "QAPAQ SIEM: ${STEP}" --timeout-seconds 3000 --parameters "$payload" \
+            --query 'Command.CommandId' --output text)"
+          for _ in $(seq 1 600); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+              --query Status --output text 2>/dev/null || true)"
+            case "$status" in Success|Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          [[ "$status" == Success ]]

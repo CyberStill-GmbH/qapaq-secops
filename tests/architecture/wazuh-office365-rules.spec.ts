@@ -1,5 +1,5 @@
 /**
- * Contrato entre las reglas locales de Wazuh (infra/wazuh/office365) y QAPAQ.
+ * Contrato entre las reglas locales de Wazuh (wazuh/office365) y QAPAQ.
  *
  * Las reglas se prueban contra un manager real con `tests/run-logtest.sh`. Esta spec
  * cubre lo que no necesita Wazuh y que se rompería en silencio si alguien edita un lado:
@@ -19,7 +19,7 @@ import { signalOf, SIGNAL_CLASSES } from '../../modules/detection/src/correlatio
 import type { SecurityEvent } from '@qapaq/contracts';
 
 const ROOT = resolve(import.meta.dirname, '../..');
-const BASE = resolve(ROOT, 'infra/wazuh/office365');
+const BASE = resolve(ROOT, 'wazuh/office365');
 
 /** Reglas oficiales de 0755-office365_rules.xml (Wazuh 4.14.x) usadas como padre. */
 const OFFICIAL_PARENTS = new Set(['91532', '91540', '91545']);

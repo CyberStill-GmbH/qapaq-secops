@@ -359,3 +359,9 @@ variable "ecs_health_check_grace_period_seconds" {
   type        = number
   default     = 60
 }
+
+variable "siem_app_cutover" {
+  description = "true: app.<zona> apunta al SIEM QAPAQ (edge del host Wazuh) en vez de Vercel. Activar después de instalar el núcleo y el edge (docs/12)."
+  type        = bool
+  default     = false
+}

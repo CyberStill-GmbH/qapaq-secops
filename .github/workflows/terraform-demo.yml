@@ -6,8 +6,8 @@ on:
       - main
     paths:
       - "infra/aws/**"
-      - "infra/wazuh/access/**"
-      - "infra/wazuh/office365/**"
+      - "wazuh/access/**"
+      - "wazuh/office365/**"
       - ".github/workflows/terraform-demo.yml"
   workflow_dispatch:
     inputs:

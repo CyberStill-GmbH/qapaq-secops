@@ -4,9 +4,9 @@
 ya no describe por sí solo el state actual. Terraform Demo #50 aplicó parcialmente RDS, Valkey,
 ALB, NAT, EC2 Wazuh y servicios ECS antes de fallar. Antes de cualquier apply, reconciliar los
 recursos AWS y el state conforme a
-[`terraform-apply-recovery.md`](../../docs/deployment/terraform-apply-recovery.md). La migración
+`terraform-apply-recovery.md` (histórico en git `050f9fa`). La migración
 posterior de producto está en
-[`qapaq-wazuh-terraform-rollout.md`](../../docs/deployment/qapaq-wazuh-terraform-rollout.md).
+[`qapaq-wazuh-terraform-rollout.md`](../../docs/reference/qapaq-wazuh-terraform-rollout.md).
 
 ## Arquitectura de esta fase
 
@@ -196,7 +196,7 @@ smoke tests y arrancan como UID no root en contenedores locales, pero **no se
 consideran desplegables ni DONE**: no hay despliegue ECS,
 la API no tiene readiness real de dependencias y el Worker permanece en espera
 inactiva sin consumidor BullMQ. Más detalles en
-[`docs/deployment/aws-demo.md`](../../docs/deployment/aws-demo.md).
+[`docs/06-operacion.md`](../../docs/06-operacion.md).
 
 ## Fase 2C — publicación verificada en ECR
 

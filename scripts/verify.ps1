@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
-    [string]$ConfigPath = 'docs/verification-checks.json'
+    [string]$ConfigPath = 'docs/reference/verification-checks.json'
 )
 
 $ErrorActionPreference = 'Stop'

@@ -45,8 +45,8 @@ producción. El backend productivo continúa `TO_BE_PROVIDED`.
 El fingerprint es `HMAC-SHA-256` con clave separada de al menos 32 bytes. Sirve
 para identificar versiones sin permitir recuperar el valor ni comprobar un
 diccionario usando solo la base de metadata. Persistencia, RBAC, matriz de fallos
-y operación están documentados en [C-24](../../docs/project-management/c-24/README.md)
-y la decisión en [ADR-027](../../docs/adr/027-write-only-secret-lifecycle-control-plane.md).
+y operación están documentados en C-24 (histórico en git `050f9fa`)
+y la decisión en [docs/10-decisiones.md](../../docs/10-decisiones.md) (A4).
 
 ## Contratos
 

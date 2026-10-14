@@ -9,7 +9,6 @@ RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
 # Copy workspace manifests first so dependency installation is cached across source edits.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .nvmrc ./
 COPY apps/api/package.json apps/api/package.json
-COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY modules/connectors/package.json modules/connectors/package.json
 COPY modules/access/package.json modules/access/package.json
@@ -18,7 +17,6 @@ COPY modules/detection/package.json modules/detection/package.json
 COPY modules/soar/package.json modules/soar/package.json
 COPY modules/soc/package.json modules/soc/package.json
 COPY platform/database/package.json platform/database/package.json
-COPY platform/observability/package.json platform/observability/package.json
 COPY platform/testing/package.json platform/testing/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY platform/audit/package.json platform/audit/package.json
@@ -30,7 +28,7 @@ RUN pnpm install --filter @qapaq/api... --frozen-lockfile
 # actualizar el hash a propósito. Se descarga aquí para fijar permisos legibles por el usuario
 # sin privilegios (directorio 0755, archivo 0644): `ADD --chmod` también cambia el directorio
 # y lo deja sin permiso de ejecución.
-ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /qapaq-certs/rds-global-bundle.pem
+ADD --checksum=sha256:90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /qapaq-certs/rds-global-bundle.pem
 RUN chmod 0755 /qapaq-certs && chmod 0644 /qapaq-certs/rds-global-bundle.pem
 
 COPY . .

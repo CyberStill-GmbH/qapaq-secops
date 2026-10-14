@@ -14,4 +14,4 @@ objects may remain after an interrupted cross-store operation; this module never
 deletes them. Reconciliation, retention/GC, outbox dispatch, production worker
 composition, and Prometheus instrumentation remain later delivery work.
 
-See [C-11 design, failure semantics and operational notes](../../docs/project-management/c-11/README.md).
+See [docs/05-datos-y-retencion.md](../../docs/05-datos-y-retencion.md) (C-11 history in git `050f9fa`).

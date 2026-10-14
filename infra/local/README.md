@@ -15,7 +15,7 @@ Con el stack iniciado en el host Docker, abre el [Dashboard de Wazuh](https://lo
 navegador. La URL solo vale en el host donde corre Docker; el dashboard de AWS
 se publicará con una IP elástica y HTTPS de Let's Encrypt. Después del apply,
 Terraform mostrará `wazuh_dashboard_url`; el primer arranque tarda varios minutos.
-Consulta [URLs y permisos requeridos](../../docs/integrations/urls-permisos-microsoft-wazuh.md)
+Consulta [inventario de fuentes](../../docs/reference/source-inventory.yaml)
 para las APIs y el estado de acceso remoto.
 
 QAPAQ consulta el Wazuh Indexer mediante una credencial de solo lectura que se
@@ -44,22 +44,8 @@ pnpm run test:integration
 
 Si Docker no responde, el resultado correcto es `BLOCKED`, no un PASS por mocks.
 
-## Observabilidad local C-15
+## Observabilidad
 
-El overlay opt-in `compose.observability.yaml` inicia Loki, Prometheus,
-OpenTelemetry Collector y Grafana OSS para desarrollo local. Publica endpoints solo
-en `127.0.0.1`; antes de levantarlo configura `GRAFANA_ADMIN_PASSWORD` en el
-entorno o en `.env.local` (archivo ignorado por Git). No reutilices esta
-configuración en ambientes compartidos o productivos.
-
-```powershell
-docker compose --env-file .env.local -f infra/local/compose.observability.yaml --profile observability up -d --wait loki prometheus otel-collector grafana
-pwsh -NoProfile -File scripts/dev/test-observability-stack.ps1
-docker compose --env-file .env.local -f infra/local/compose.observability.yaml --profile observability stop grafana otel-collector prometheus loki
-```
-
-El smoke envía datos sintéticos por OTLP y verifica su consulta en Loki y
-Prometheus, targets del scraper y health de Grafana. Espera el `/ready` de Loki
-porque su proceso puede figurar iniciado antes de que el ring de ingesters acepte
-datos. El overlay no conecta todavía los productores de API/worker/gateway de
-QAPAQ; no enviar credenciales, eventos reales ni PII.
+No hay stack local de Grafana/Loki/Prometheus: la plataforma usa CloudWatch para la
+infraestructura AWS y el propio Wazuh Indexer/Dashboard para la telemetría de seguridad
+(ver `docs/06-operacion.md`).

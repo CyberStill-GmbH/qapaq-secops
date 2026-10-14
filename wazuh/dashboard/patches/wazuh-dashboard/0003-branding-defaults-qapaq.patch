@@ -1,0 +1,39 @@
+diff --git a/src/core/public/chrome/ui/header/home_icon.tsx b/src/core/public/chrome/ui/header/home_icon.tsx
+index b141fb9..949ce5a 100644
+--- a/src/core/public/chrome/ui/header/home_icon.tsx
++++ b/src/core/public/chrome/ui/header/home_icon.tsx
+@@ -18,7 +18,7 @@ interface Props {
+  */
+ export const HomeIcon = ({ branding, logos }: Props) => {
+   // Removed prop unnecessary useExpandedHeader Wazuh dashboard
+-  const { applicationTitle = 'Wazuh dashboard', useExpandedHeader } = branding;
++  const { applicationTitle = 'QAPAQ SecOps', useExpandedHeader } = branding;
+ 
+   const { url: markURL, type: markType } = logos.Mark;
+ 
+diff --git a/src/core/server/opensearch_dashboards_config.ts b/src/core/server/opensearch_dashboards_config.ts
+index 03caf97..76bf543 100644
+--- a/src/core/server/opensearch_dashboards_config.ts
++++ b/src/core/server/opensearch_dashboards_config.ts
+@@ -80,7 +80,7 @@ export const config = {
+         defaultValue: '/',
+       }),
+       applicationTitle: schema.string({
+-        defaultValue: 'Wazuh',
++        defaultValue: 'QAPAQ SecOps',
+       }),
+       useExpandedHeader: schema.boolean({
+         defaultValue: false,
+diff --git a/src/core/server/rendering/views/template.tsx b/src/core/server/rendering/views/template.tsx
+index 55f74c9..86e3f0a 100644
+--- a/src/core/server/rendering/views/template.tsx
++++ b/src/core/server/rendering/views/template.tsx
+@@ -54,7 +54,7 @@ export const Template: FunctionComponent<Props> = ({
+   const logos = getLogos(injectedMetadata.branding, injectedMetadata.serverBasePath);
+ 
+   const favicon = injectedMetadata.branding.faviconUrl;
+-  const applicationTitle = injectedMetadata.branding.applicationTitle || 'OpenSearch Dashboards';
++  const applicationTitle = injectedMetadata.branding.applicationTitle || 'QAPAQ SecOps';
+ 
+   return (
+     <html lang={locale}>

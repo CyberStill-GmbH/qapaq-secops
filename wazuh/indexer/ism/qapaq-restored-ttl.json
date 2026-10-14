@@ -1,0 +1,15 @@
+{
+  "policy": {
+    "description": "Índices restaurados desde S3: solo lectura y borrado a los 7 días. docs/05-datos-y-retencion.md",
+    "default_state": "restored",
+    "states": [
+      {
+        "name": "restored",
+        "actions": [{ "read_only": {} }],
+        "transitions": [{ "state_name": "expired", "conditions": { "min_index_age": "7d" } }]
+      },
+      { "name": "expired", "actions": [{ "delete": {} }], "transitions": [] }
+    ],
+    "ism_template": [{ "index_patterns": ["restored-*"], "priority": 200 }]
+  }
+}

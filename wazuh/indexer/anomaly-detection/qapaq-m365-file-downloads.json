@@ -1,0 +1,48 @@
+{
+  "name": "qapaq-m365-file-downloads",
+  "description": "QAPAQ: volumen anómalo de descargas SharePoint/OneDrive por usuario (exfiltración)",
+  "time_field": "timestamp",
+  "indices": ["wazuh-alerts-*"],
+  "filter_query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "rule.groups": "office365"
+          }
+        },
+        {
+          "terms": {
+            "data.office365.Operation": ["FileDownloaded", "FileSyncDownloadedFull"]
+          }
+        }
+      ]
+    }
+  },
+  "feature_attributes": [
+    {
+      "feature_name": "downloads",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "downloads": {
+          "value_count": {
+            "field": "rule.id"
+          }
+        }
+      }
+    }
+  ],
+  "detection_interval": {
+    "period": {
+      "interval": 15,
+      "unit": "Minutes"
+    }
+  },
+  "window_delay": {
+    "period": {
+      "interval": 5,
+      "unit": "Minutes"
+    }
+  },
+  "category_field": ["data.office365.UserId"]
+}

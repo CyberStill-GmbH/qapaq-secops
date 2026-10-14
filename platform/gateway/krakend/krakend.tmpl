@@ -433,6 +433,38 @@
       ]
     },
     {
+      "endpoint": "/api/auth/introspect",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Accept",
+        "Content-Type",
+        "Cookie",
+        "Origin",
+        "X-Correlation-Id",
+        "X-Csrf-Token"
+      ],
+      "input_query_strings": [],
+      "backend": [
+        {
+          "host": [
+            "{{ env "QAPAQ_API_UPSTREAM" }}"
+          ],
+          "url_pattern": "/api/auth/introspect",
+          "encoding": "no-op",
+          "method": "GET",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
       "endpoint": "/api/auth/logout",
       "method": "POST",
       "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",

@@ -114,6 +114,12 @@ module "runtime" {
   # Sprint 5 · fase 0: ingesta Wazuh → SOC, activada con `wazuh_ingestion_enabled`
   # (ver wazuh_ingestion.tf).
   wazuh_ingestion = local.wazuh_ingestion
+  # Valkey: caché (lazy loading) y colas BullMQ consumidas por el worker (docs/11).
+  valkey = {
+    host            = module.cache.primary_endpoint
+    port            = module.cache.port
+    auth_secret_arn = module.cache.auth_secret_arn
+  }
   # C-1: estado SOC durable, activado con `soc_database_enabled` (ver migrator.tf).
   soc_database = var.soc_database_enabled ? {
     host                      = module.database.endpoint

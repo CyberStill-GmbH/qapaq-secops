@@ -129,6 +129,11 @@ output "runtime_private_api_hostname" {
   value       = module.runtime.private_api_hostname
 }
 
+output "qapaq_edge_api_origin" {
+  description = "Origen privado de la API para el edge unificado (QAPAQ_API de wazuh/edge/apply-edge.sh)."
+  value       = "http://${module.runtime.private_api_hostname}:${var.api_port}"
+}
+
 output "runtime_nat_gateway_id" {
   description = "Single-AZ NAT used only for API HTTPS egress to Microsoft Entra in this demo."
   value       = module.runtime.nat_gateway_id

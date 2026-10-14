@@ -1,105 +1,33 @@
-# Documentación de Qapaq SecOps
+# Documentación QAPAQ SecOps
 
-Este índice lleva desde la visión del producto hasta sus decisiones, arquitectura,
-controles y operación. El [README principal](../README.md) presenta Qapaq SecOps en
-lenguaje de producto; esta documentación describe cómo se diseña, construye y
-verifica.
+Diez documentos cortos reemplazan los ~200 anteriores (sprints, informes de avance, auditorías
+C-0X, 31 ADR solapados, specs de pantallas). El histórico completo sigue en git:
+`git show 050f9fa:docs/<ruta>`.
 
-## Comienza aquí
+| # | Documento | Pregunta que responde |
+| - | --- | --- |
+| 01 | [Producto](01-producto.md) | Qué es QAPAQ y qué añade sobre Wazuh |
+| 02 | [Arquitectura](02-arquitectura.md) | Cómo encajan las piezas y qué salió del diseño |
+| 03 | [Evaluación de componentes](03-evaluacion-de-componentes.md) | Qué se conserva, qué se migra y qué se retira, y por qué no hay fork del manager |
+| 04 | [Identidad y acceso](04-identidad-y-acceso.md) | Login Entra único para la consola y el dashboard |
+| 05 | [Datos y retención](05-datos-y-retencion.md) | Hot/warm/cold, evidencia y auditoría |
+| 06 | [Operación](06-operacion.md) | AWS, costos, observabilidad, despliegue |
+| 07 | [Detección, ML y SOAR](07-deteccion-ml-y-soar.md) | Correlación, anomalías y respuesta gobernada |
+| 08 | [Frontend unificado](08-frontend-unificado.md) | El dashboard de Wazuh como shell y QAPAQ dentro |
+| 09 | [Plan de lanzamiento](09-plan-de-lanzamiento.md) | Fases, criterios de aceptación y orden |
+| 10 | [Decisiones](10-decisiones.md) | Registro único de decisiones vigentes |
+| 11 | [Caché y colas](11-cache-y-colas.md) | Dónde Valkey es fundamental, lazy loading y en qué puntos van las colas |
+| 12 | [Backend dentro del SIEM](12-backend-en-el-siem.md) | Cómo pasa la API QAPAQ al SIEM QAPAQ y cuándo se elimina |
 
-- [Visión de producto y alcance](adr/029-qapaq-secops-product-direction.md): qué es
-  Qapaq SecOps, qué aporta Ayni Qapaq y cómo evolucionará el SOAR.
-- [Arquitectura resiliente](architecture/qapaq-secops-resilient-architecture.md):
-  flujos, roles de KrakenD, balanceadores, polling, colas, indexación, tiers y
-  etapas de implementación.
-- [Modelo C4](architecture/c4-model.md): contexto, contenedores, componentes y
-  topología lógica de despliegue.
-- [Roadmap](roadmap.md): orden de entregas, dependencias y gates.
-- [Estado de demo e infraestructura](architecture/aws-demo.md): evidencia del
-  ambiente, separada de la arquitectura objetivo.
+`reference/` guarda las decisiones integradas de Codex (ADR-028 a 030 en `reference/decisiones/`, Ayni
+Qapaq, la arquitectura resiliente y el rollout de Terraform) y los archivos que el código o la CI leen (catálogo de errores, inventario de
+fuentes, guía de extensión de proveedores, baseline de toolchain y gates de release). Si se mueven,
+hay que actualizar los tests que los referencian.
 
-## Producto y experiencia SOC
+## Reglas de esta documentación
 
-- [Ayni Qapaq](product/ayni-qapaq.md): propósito y recorrido de investigación
-  colaborativa, desde la alerta hasta el aprendizaje posterior.
-- [Diseño de consola](frontend-design/README.md): lenguaje visual, navegación,
-  componentes y patrones de interacción.
-- [Vistas y roles](frontend-design/10-vistas-por-rol-y-referencias.md): permisos y
-  cobertura visible por perfil.
-- [Investigación de incidentes](frontend-design/incidentes-investigacion.md):
-  ciclo, notas, tareas, timeline y hallazgos.
-- [Eventos de seguridad](frontend-design/eventos-investigacion.md): búsqueda y
-  pivotes de análisis.
-- [Contratos funcionales por vista](frontend-design/01-inventario-backend.md):
-  superficie, API y estado de implementación conocido.
-
-## Arquitectura e integración
-
-- [Contexto y límites](architecture/system-context.md) ·
-  [flujo de datos](architecture/data-flow.md) ·
-  [módulos](architecture/modules.md).
-- [Fuentes y adapters](architecture/source-integration-strategy.md) ·
-  [KrakenD](architecture/provider-api-gateway.md) ·
-  [Wazuh/OpenSearch](architecture/wazuh-engine-and-opensearch.md).
-- [Almacenamiento y retención](architecture/storage.md) ·
-  [privacidad y custodia](architecture/retention-privacy-custody.md) ·
-  [modelo de eventos](architecture/event-model.md).
-- [Continuidad y recuperación](architecture/operations-and-continuity.md) ·
-  [rendimiento](performance/README.md) ·
-  [observabilidad](architecture/observability.md).
-- [Diagramas fuente](diagrams/README.md): los archivos Mermaid versionados son
-  la representación editable de las vistas C4 y de comportamiento.
-
-## Seguridad y gobierno
-
-- [Modelo de seguridad](architecture/security.md) ·
-  [identidad y autorización](architecture/identity-and-authorization.md) ·
-  [RBAC](architecture/rbac.md).
-- [Auditoría](architecture/audit.md) ·
-  [amenazas](threat-model.md) ·
-  [retención y custodia](architecture/retention-privacy-custody.md).
-- [Controles SBS y observabilidad](compliance/sbs-observability-rationale.md):
-  análisis técnico; las obligaciones y plazos deben validarse con Compliance y
-  Legal para cada finalidad/dataset.
-- [ADRs](adr/README.md): decisiones aprobadas, condicionales y abiertas. Los ADR
-  son registros de decisión y no se reescriben retrospectivamente; nuevas
-  decisiones los complementan o sustituyen de forma explícita.
-
-## Construcción y operación
-
-- [Entorno local](development/local-environment.md) ·
-  [integración](development/integration-environment.md) ·
-  [CI y releases](ci-cd.md).
-- [Guía de despliegue](deployment.md) ·
-  [demo AWS](deployment/aws-demo.md) ·
-  [recuperación de Terraform](deployment/terraform-apply-recovery.md).
-- [Runbooks](runbooks.md) ·
-  [secretos y teardown](operations/devops-secrets-and-teardown.md) ·
-  [verificación](verification.md).
-- [Plan de componentes](project-management/component-delivery-plan.md) ·
-  [backlog](project-management/product-backlog.md) ·
-  [Definition of Done](project-management/definition-of-done.md).
-
-## Requisitos y vocabulario
-
-- [Alcance y fuentes](requirements/00-scope-and-sources.md) ·
-  [mapa de capacidades](requirements/01-capability-map.md) ·
-  [requisitos](requirements/02-functional-requirements.md).
-- [Requisitos no funcionales](requirements/03-non-functional-requirements.md) ·
-  [matriz RBAC](requirements/04-rbac-matrix.md) ·
-  [trazabilidad](requirements/06-traceability-matrix.md).
-- [Glosario](requirements/08-glossary.md) ·
-  [inventario de fuentes](integrations/source-inventory.yaml).
-
-## Cómo leer el estado
-
-Cada documento operativo debe indicar si describe la **base implementada**, un
-**objetivo aceptado**, una **propuesta pendiente** o una **prueba aún bloqueada**.
-Un diagrama o contrato no prueba que exista un despliegue. La evidencia de código,
-CI, integración y ambiente determina qué está disponible.
-
-Los ADR, informes de cierre, evidencias de sprint y auditorías fechadas son
-registros históricos: se conservan intactos. Si una decisión cambia, se publica un
-nuevo ADR, se actualizan las guías vigentes y se deja un vínculo explícito desde el
-índice. Cuando una guía antigua contradiga una decisión vigente, prevalece el ADR
-más reciente que declare la sustitución.
+- Un tema, un documento. Si algo ya está en el código o en git, se enlaza en vez de repetirse.
+- Cada afirmación de estado distingue **hecho y verificado**, **hecho sin verificar contra el
+  proveedor real** y **propuesto**.
+- Las decisiones nuevas se agregan como fila en [10-decisiones.md](10-decisiones.md), no como un
+  archivo ADR nuevo.

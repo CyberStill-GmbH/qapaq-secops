@@ -1,6 +1,6 @@
 name: Configure Wazuh Office 365 collection
 
-# Aplica infra/wazuh/office365 al manager Wazuh del ambiente demo por SSM, sin reemplazar
+# Aplica wazuh/office365 al manager Wazuh del ambiente demo por SSM, sin reemplazar
 # la instancia (user_data no cambia). Ejecución manual: la integración exige un tenant
 # autorizado y una app de Entra con ActivityFeed.Read y consentimiento de administrador.
 #
@@ -64,9 +64,9 @@ jobs:
           guid='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
           [[ "$TENANT_ID" =~ $guid ]] || { echo 'tenant_id no es un GUID.' >&2; exit 1; }
           [[ "$CLIENT_ID" =~ $guid ]] || { echo 'client_id no es un GUID.' >&2; exit 1; }
-          bash -n infra/wazuh/office365/apply-office365.sh
+          bash -n wazuh/office365/apply-office365.sh
           python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parseString('<root>'+open(sys.argv[1],encoding='utf-8').read().split('-->',1)[1]+'</root>')" \
-            infra/wazuh/office365/rules/qapaq_office365_rules.xml
+            wazuh/office365/rules/qapaq_office365_rules.xml
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -95,7 +95,7 @@ jobs:
           fi
 
           # El paquete viaja embebido en el comando: reglas, plantilla y script versionados.
-          bundle="$(tar -C infra/wazuh -czf - office365 | base64 -w0)"
+          bundle="$(tar -C wazuh -czf - office365 | base64 -w0)"
           remote_script="$(cat <<REMOTE
           set -eu
           work="\$(mktemp -d)"

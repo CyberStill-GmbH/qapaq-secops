@@ -1,7 +1,7 @@
 import type { SecretControlPlaneErrorCode } from './secret-lifecycle.types.js';
 
 /**
- * Forma publicada de un error, conforme a `docs/error-catalog.md`. `correlationId`
+ * Forma publicada de un error, conforme a `docs/reference/error-catalog.md`. `correlationId`
  * lo añade la capa de presentación; aquí solo vive la parte estable del contrato.
  */
 export interface PublicSecretError {
@@ -17,7 +17,7 @@ export interface PublicSecretError {
  * causa para diagnóstico y no se exponen tal cual, de modo que un cambio interno no
  * rompa el contrato externo ni revele la topología del control plane.
  *
- * Ningún mensaje se deriva del error interno: `docs/error-catalog.md` fija el texto
+ * Ningún mensaje se deriva del error interno: `docs/reference/error-catalog.md` fija el texto
  * seguro por `helpRef`.
  */
 const PUBLIC_ERRORS: Readonly<Record<SecretControlPlaneErrorCode, PublicSecretError>> =

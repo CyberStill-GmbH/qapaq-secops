@@ -107,14 +107,20 @@ resource "aws_route53_record" "public_api" {
   }
 }
 
+# `app` es el host público de QAPAQ SecOps y la URI de callback registrada en Entra. Con
+# `siem_app_cutover` apunta al SIEM QAPAQ (edge del host Wazuh) en vez de Vercel, sin cambiar Entra.
+# `codexpt` es otro proyecto en Vercel y no se toca.
 resource "aws_route53_record" "vercel_apps" {
-  for_each = var.public_root_route53_zone_name != null ? toset(["app", "codexpt"]) : toset([])
+  for_each = var.public_root_route53_zone_name != null ? {
+    app     = var.siem_app_cutover ? module.wazuh_public.public_ip : "76.76.21.21"
+    codexpt = "76.76.21.21"
+  } : {}
 
   zone_id = aws_route53_zone.public_root[0].zone_id
-  name    = "${each.value}.${trimsuffix(lower(var.public_root_route53_zone_name), ".")}"
+  name    = "${each.key}.${trimsuffix(lower(var.public_root_route53_zone_name), ".")}"
   type    = "A"
   ttl     = 300
-  records = ["76.76.21.21"]
+  records = [each.value]
 }
 
 resource "aws_route53_record" "api_zone_delegation" {

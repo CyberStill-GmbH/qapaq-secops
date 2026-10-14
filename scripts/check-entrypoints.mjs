@@ -97,12 +97,6 @@ export function checkEntrypoints(root = process.cwd()) {
           )
         )
           report('public-package-exports-only');
-        if (
-          location.startsWith('apps/web/') &&
-          (/^(node:|@qapaq\/configuration|@nestjs\/)/u.test(specifier) ||
-            (owner && slash(relative(root, owner.directory)).startsWith('platform/')))
-        )
-          report('browser-public-config-only');
         if (!processMain && /^(?:node:)?process$/u.test(specifier))
           report('environment-at-process-boundary');
         if (

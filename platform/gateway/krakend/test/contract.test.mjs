@@ -27,14 +27,8 @@ const paginationSource = await readFile(
 const compose = await readFile(new URL('compose.yaml', root), 'utf8');
 const envExample = await readFile(new URL('.env.example', root), 'utf8');
 const inventory = await readFile(
-  new URL('../../../../docs/integrations/source-inventory.yaml', import.meta.url),
+  new URL('../../../../docs/reference/source-inventory.yaml', import.meta.url),
   'utf8',
-);
-const dashboard = JSON.parse(
-  await readFile(
-    new URL('../../../observability/grafana/dashboards/krakend-overview.json', import.meta.url),
-    'utf8',
-  ),
 );
 
 const declaredEndpoints = [...template.matchAll(/"endpoint"\s*:\s*"([^"]+)"/g)].map(
@@ -258,29 +252,8 @@ test('production infrastructure dependencies stay explicitly TO_BE_PROVIDED', ()
     'production_oidc_audience',
     'wazuh_indexer_backend_url',
     'wazuh_indexer_ca_ref',
-    'prometheus_scrape_target',
-    'grafana_provisioning_destination',
   ]) {
     assert.match(inventory, new RegExp(`^  ${key}: TO_BE_PROVIDED$`, 'm'));
   }
   assert.match(inventory, /^  version: 3\.0\.0$/m);
-});
-
-test('Grafana dashboard reports normalized route rate, p50/p95/p99 and response classes', () => {
-  const panelTitles = dashboard.panels.map(({ title }) => title);
-  for (const title of [
-    'Request rate by normalized route',
-    'p50 latency by normalized route',
-    'p95 latency by normalized route',
-    'p99 latency by normalized route',
-    'Auth, throttling and server errors',
-  ]) {
-    assert.ok(panelTitles.includes(title), `missing dashboard panel: ${title}`);
-  }
-  assert.ok(
-    dashboard.panels.every((panel) =>
-      panel.targets.every((target) => target.expr.includes('http_route')),
-    ),
-    'every dashboard query groups on the normalized route attribute',
-  );
 });

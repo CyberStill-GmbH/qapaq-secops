@@ -69,7 +69,7 @@ runtime_krakend_environment = {
   OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
 }
 
-# Sprint 5 — demo operativo sin pasos manuales (docs/deployment/sprint5-activacion.md).
+# Sprint 5 — demo operativo sin pasos manuales (docs/09-plan-de-lanzamiento.md).
 # Wazuh se inicializa por SSM en el apply: lector del Indexer, proxy TLS privado, usuario admin
 # local (`qapaq-admin`, contraseña en Secrets Manager) y usuario analista de solo lectura, más la
 # recolección de Office 365 con la misma app de Entra del API.

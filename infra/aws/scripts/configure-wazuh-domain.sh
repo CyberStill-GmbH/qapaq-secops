@@ -7,6 +7,12 @@ expected_ip="${2:?Elastic IP required}"
 [[ "$expected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
 command -v certbot >/dev/null
+# Si el edge unificado de QAPAQ ya gestiona nginx y el certificado (wazuh/edge/apply-edge.sh), este
+# script no hace nada: ni certbot (reemitiría sin los hostnames extra) ni nginx (borraría el login QAPAQ).
+if grep -qs 'QAPAQ edge' /etc/nginx/conf.d/qapaq-wazuh-dashboard.conf; then
+  echo 'Edge QAPAQ activo: configure-wazuh-domain no modifica nginx ni el certificado.'
+  exit 0
+fi
 nginx -t
 mkdir -p /var/www/certbot/.well-known/acme-challenge
 

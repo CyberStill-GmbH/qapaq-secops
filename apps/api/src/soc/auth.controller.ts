@@ -29,6 +29,14 @@ import { safeReturnTo, withAuthError, withSupersededNotice } from '../http/retur
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
 
+/**
+ * Una cabecera de proxy auth no puede llevar separadores ni saltos: el Security plugin la
+ * parte por comas y un `\r\n` abriría otra cabecera. Solo pasan caracteres de UPN y de rol.
+ */
+function proxyHeaderValue(value: string): string {
+  return value.replace(/[^A-Za-z0-9._@+-]/gu, '');
+}
+
 @Controller('api/auth')
 export class AuthController {
   public constructor(@Inject(SECOPS_RUNTIME) private readonly runtime: SecOpsRuntime) {}
@@ -117,6 +125,28 @@ export class AuthController {
       csrfToken: this.runtime.csrfTokenFor(resolved.session.id),
       correlationId,
     };
+  }
+
+  /**
+   * Introspección para el proxy del dashboard SOC (nginx `auth_request`).
+   *
+   * El dashboard (fork de OpenSearch Dashboards) no tiene login propio: confía en esta
+   * misma sesión. El proxy pregunta aquí en cada navegación y, con 204, inyecta la persona
+   * y sus roles QAPAQ como cabeceras de *proxy auth* hacia el Security plugin. Sin cuerpo:
+   * `auth_request` solo lee estado y cabeceras. Los fallos reutilizan el catálogo (401/403).
+   */
+  @Get('introspect')
+  public async introspect(@Req() request: IncomingRequest, @Res() reply: OutgoingReply) {
+    const correlationId = correlationIdOf(request);
+    const resolved = await this.runtime.resolveActor(sessionIdOf(request), originOf(request));
+    if (!resolved.ok) throw new ApiError(resolved.reason, correlationId);
+    await reply
+      .status(204)
+      .header('cache-control', 'no-store')
+      .header('x-qapaq-user', proxyHeaderValue(resolved.session.email ?? resolved.actor.subjectId))
+      .header('x-qapaq-roles', resolved.actor.roles.map(proxyHeaderValue).join(','))
+      .header('x-correlation-id', correlationId)
+      .send();
   }
 
   @Post('logout')

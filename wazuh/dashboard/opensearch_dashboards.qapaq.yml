@@ -1,0 +1,48 @@
+# Bloque QAPAQ para /etc/wazuh-dashboard/opensearch_dashboards.yml (QAPAQ SecOps sobre Wazuh 4.14.8 /
+# OSD 2.19.6, paquete construido por wazuh/dashboard/build.sh). Lo escribe wazuh/edge/apply-edge.sh
+# entre marcadores QAPAQ:dashboard:begin/end y reinicia el dashboard.
+
+# El dashboard solo escucha en local: el único acceso es por el edge nginx (wazuh/edge).
+server.host: '127.0.0.1'
+server.port: 5601
+server.ssl.enabled: false
+
+# --- Identidad: la sesión QAPAQ por proxy auth (docs/04-identidad-y-acceso.md) ---
+opensearch_security.auth.type: 'proxy'
+opensearch_security.proxycache.user_header: 'x-proxy-user'
+opensearch_security.proxycache.roles_header: 'x-proxy-roles'
+# Logout = página del plugin, que obtiene el CSRF y hace POST /api/auth/logout.
+opensearch_security.auth.logout_url: '/qapaq/logout'
+opensearch_security.multitenancy.enabled: false
+opensearch.requestHeadersAllowlist:
+  ['securitytenant', 'x-forwarded-for', 'x-proxy-user', 'x-proxy-roles']
+
+# --- Plugin qapaq_ops: login QAPAQ y vistas de casos (consume la API QAPAQ en el mismo origen) ---
+qapaq_ops.enabled: true
+qapaq_ops.apiPrefix: '/api'
+qapaq_ops.login.enabled: true
+qapaq_ops.login.defaultNextUrl: '/app/qapaq-alerts'
+qapaq_ops.login.destinationLabel: 'QAPAQ'
+
+# --- Marca QAPAQ (assets reemplazados en el paquete; el menú de ayuda lo cambia el parche 0002) ---
+# `helpMenuLinks` no existe en OSD 2.19: ponerlo impide que el dashboard arranque.
+opensearchDashboards.branding:
+  applicationTitle: 'QAPAQ SecOps'
+  useExpandedHeader: false
+
+uiSettings:
+  overrides:
+    'theme:version': 'v7' # v9 es preview en OSD 2.19
+    'theme:darkMode': true
+    defaultRoute: '/app/qapaq-alerts'
+    # D-10b: el estado de las apps (consultas de Discover con UPN/IP) va a sessionStorage y la URL
+    # solo lleva un hash, así ningún dato personal queda en URLs, historial ni Referer.
+    'state:storeInSessionStorage': true
+
+# --- Fallback: OIDC nativo contra Entra. Solo si el edge QAPAQ no está disponible ---
+# opensearch_security.auth.type: "openid"
+# opensearch_security.openid.connect_url: "https://login.microsoftonline.com/<tenant-id>/v2.0/.well-known/openid-configuration"
+# opensearch_security.openid.client_id: "<client-id>"
+# opensearch_security.openid.base_redirect_url: "https://<dominio-soc>/"
+# opensearch_security.openid.roles_key: "roles"
+# client_secret por keystore: bin/opensearch-dashboards-keystore add opensearch_security.openid.client_secret
