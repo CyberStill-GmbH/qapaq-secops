@@ -264,6 +264,20 @@
   background: #080808;
 }
 
+.login-glass-mark {
+  position: absolute;
+  z-index: 4;
+  top: 46%;
+  left: 51%;
+  width: auto;
+  height: min(56svh, 500px);
+  overflow: visible;
+  pointer-events: none;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 5px 14px rgb(0 0 0 / 62%))
+    drop-shadow(0 0 1px rgb(255 255 255 / 20%));
+}
+
 .login-analyst {
   position: absolute;
   z-index: 5;

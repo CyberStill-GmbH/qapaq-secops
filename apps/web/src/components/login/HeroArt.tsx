@@ -1,3 +1,5 @@
+import qapaqMask from '../../assets/qapaq-q-mask.png';
+
 const LIGHT_Y = '45%';
 const CORE_SIZE = '42% 82%';
 const GLOW_SIZE = '92% 92%';
@@ -22,6 +24,40 @@ export default function HeroArt(): React.JSX.Element {
         style={{ background: lightCore }}
       />
       <div className="login-art-shade" />
+      <svg
+        className="login-glass-mark"
+        viewBox="0 0 447 447"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient id="qapaq-glass-fill" x1="0%" y1="52%" x2="100%" y2="45%">
+            <stop offset="0%" stopColor="#d8dce0" stopOpacity="0.035" />
+            <stop offset="42%" stopColor="#d8dce0" stopOpacity="0.06" />
+            <stop offset="72%" stopColor="#f2dcb7" stopOpacity="0.13" />
+            <stop offset="100%" stopColor="#fff0d1" stopOpacity="0.19" />
+          </linearGradient>
+          <linearGradient id="qapaq-glass-reflection" x1="24%" y1="100%" x2="82%" y2="0%">
+            <stop offset="0%" stopColor="#fff8e9" stopOpacity="0" />
+            <stop offset="54%" stopColor="#fff8e9" stopOpacity="0" />
+            <stop offset="61%" stopColor="#fff8e9" stopOpacity="0.035" />
+            <stop offset="65%" stopColor="#fff8e9" stopOpacity="0.15" />
+            <stop offset="69%" stopColor="#fff8e9" stopOpacity="0.055" />
+            <stop offset="75%" stopColor="#fff8e9" stopOpacity="0" />
+            <stop offset="100%" stopColor="#fff8e9" stopOpacity="0" />
+          </linearGradient>
+          <mask id="qapaq-q-shape" x="0" y="0" width="447" height="447" maskUnits="userSpaceOnUse">
+            <image href={qapaqMask} width="447" height="447" preserveAspectRatio="none" />
+          </mask>
+        </defs>
+        <rect width="447" height="447" fill="url(#qapaq-glass-fill)" mask="url(#qapaq-q-shape)" />
+        <rect
+          width="447"
+          height="447"
+          fill="url(#qapaq-glass-reflection)"
+          mask="url(#qapaq-q-shape)"
+        />
+      </svg>
       <div
         className="pointer-events-none absolute inset-0 z-20 mix-blend-overlay"
         aria-hidden="true"
