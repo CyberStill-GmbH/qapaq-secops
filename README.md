@@ -1,8 +1,13 @@
+<p align="center">
+  <img src="docs/reference/assets/qapaq-logo.png" alt="Qapaq, una financiera solidaria" width="320" />
+</p>
+
 # QAPAQ SecOps
 
 **Plataforma SOC unificada sobre Wazuh.** Una URL, un login Entra y un shell: el dashboard de Wazuh
 con marca QAPAQ, al que QAPAQ añade casos, correlación contextual, respuesta gobernada, auditoría
-con integridad, gestión de acceso con revocación inmediata y avisos con acuse humano.
+con integridad, gestión de acceso con revocación inmediata y avisos con acuse humano. La investigación
+colaborativa es **Ayni Qapaq** y la automatización de respuesta será **Ankay Qapaq** (Shuffle).
 
 - **Wazuh** recolecta, detecta y guarda (manager, indexer, dashboard). Lo que QAPAQ cambia de
   Wazuh vive versionado en [`wazuh/`](wazuh/README.md), sin fork del código.

@@ -58,3 +58,14 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | U-018 | CIDR de la red confiable, proxies y claims de passkey | Identity/Infra | E2E dentro, fuera y por proxy |
 | U-022 | ¿Aceptar Shuffle (AGPL, sin modificar) o usar StackStorm (Apache-2.0)? | Legal | Dictamen |
 | U-023 | ¿Migración de datos 4.x → 5.x por snapshot? (las RC se contradicen) | Platform | Prueba en sandbox |
+
+## Decisiones de Codex integradas (PR #31, 2026-10-13)
+
+Texto completo en `reference/decisiones/` y `reference/`. Se reconcilian con las instrucciones del dueño
+posteriores al PR:
+
+| ID | Decisión | Estado frente a la dirección vigente |
+| --- | --- | --- |
+| ADR-028 | Shuffle como SOAR no-code por webhook, con QAPAQ como dueño del catálogo, las aprobaciones, la idempotencia y la auditoría | **Vigente.** El producto se llama **Ankay Qapaq** (A13) y es el siguiente scope |
+| ADR-029 | QAPAQ SecOps como plataforma SIEM/XDR; **Ayni Qapaq** como espacio colaborativo de investigación (inspirado en TheHive) | **Vigente**, salvo la consola: el dueño decidió que la UI es la de Wazuh rebrandeada (A6), no una consola propia. Ayni Qapaq vive en las vistas de incidentes del plugin `qapaq_ops` |
+| ADR-030 | Arquitectura resiliente objetivo: LB de entrada, réplicas sin estado, KrakenD interno, scheduler y pollers con leases, Redis/BullMQ para jobs pequeños, admisión durable y tiers HOT/WARM/COLD (`reference/qapaq-secops-resilient-architecture.md`) | **Objetivo vigente por etapas.** Hoy Valkey y el worker están retirados porque no había código que los usara (A9). Vuelven al implementar el scheduler y los workers que ADR-030 describe (revertir `1b19e58`) |

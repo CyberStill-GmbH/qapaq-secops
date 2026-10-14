@@ -65,6 +65,12 @@ test('each C-28 route has explicit method, auth, rate, timeout, backend, classif
   }
 });
 
+test('Indexer response headers do not expose backend topology or implementation', () => {
+  const blacklist =
+    /"header\.Blacklist":\s*\{\s*"scope":\s*\["response"\],\s*"names":\s*\["X-Internal-Topology",\s*"Server",\s*"X-Powered-By"\]/g;
+  assert.equal([...template.matchAll(blacklist)].length, 2);
+});
+
 test('application BFF allowlist matches explicit KrakenD proxy routes', () => {
   const expected = applicationRoutes.routes.map(({ path, method, upstream }) => ({
     path,

@@ -81,20 +81,8 @@
   animation: login-core-arrival 1500ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
 }
 
-.login-glass-mark {
-  animation: login-mark-relight 1700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
-}
-
 .login-analyst {
   animation: login-analyst-arrival 1700ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
-}
-
-.login-brand-cycle > span {
-  animation: login-brand-dissolve 8s ease-in-out infinite both;
-}
-
-.login-brand-cycle > span + span {
-  animation-delay: -4s;
 }
 
 @keyframes auth-splash-out {
@@ -147,10 +135,10 @@
     transform: translateX(18%);
   }
   18% {
-    opacity: 0.9;
+    opacity: 0.34;
   }
   54% {
-    opacity: 0.36;
+    opacity: 0.14;
     transform: translateX(-5%);
   }
 }
@@ -185,18 +173,6 @@
   }
 }
 
-@keyframes login-mark-relight {
-  0%,
-  100% {
-    filter: drop-shadow(0 5px 14px rgb(0 0 0 / 62%)) drop-shadow(0 0 1px rgb(255 255 255 / 20%))
-      brightness(0.85);
-  }
-  45% {
-    filter: drop-shadow(0 5px 14px rgb(0 0 0 / 62%)) drop-shadow(0 0 14px rgb(255 229 190 / 26%))
-      brightness(1.22);
-  }
-}
-
 @keyframes login-analyst-arrival {
   0% {
     filter: blur(12px);
@@ -212,26 +188,6 @@
     filter: blur(0);
     opacity: 0.9;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes login-brand-dissolve {
-  0%,
-  38% {
-    filter: blur(0);
-    opacity: 1;
-    transform: translateY(0);
-  }
-  50%,
-  92% {
-    filter: blur(8px);
-    opacity: 0;
-    transform: translateY(-3px);
-  }
-  100% {
-    filter: blur(0);
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -266,7 +222,7 @@
   .auth-footer,
   .login-light-amber,
   .login-light-core,
-  .login-glass-mark,
+  .login-art-shade,
   .brand-panel::after {
     animation: none !important;
     opacity: 1;
@@ -275,18 +231,6 @@
   .login-analyst {
     animation: none !important;
     filter: none;
-    opacity: 0.9;
     transform: none;
-  }
-
-  .login-brand-cycle > span {
-    animation: none !important;
-    filter: none;
-    opacity: 0;
-    transform: none;
-  }
-
-  .login-brand-cycle > span:first-child {
-    opacity: 1;
   }
 }

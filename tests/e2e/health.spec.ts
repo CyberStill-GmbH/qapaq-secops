@@ -31,8 +31,16 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Continuar con Microsoft Entra/u })).toBeVisible();
-  await expect(page.getByText('Ciberseguridad defensiva para el sector financiero.')).toBeVisible();
-  await expect(page.getByText('Usa tu cuenta institucional para continuar.')).toHaveCount(0);
+  await expect(page.getByText('© QAPAQ SecOps')).toBeVisible();
+  await expect(page.locator('.auth-topbar .login-brand-name')).toHaveText('QAPAQ SecOps');
+  await expect(page.getByText('Usa tu cuenta corporativa para continuar.')).toBeVisible();
+  await expect(page.getByText('Autenticación protegida por Microsoft Entra ID')).toBeVisible();
+  await expect(page.locator('.login-brand-name')).toHaveCSS('text-align', 'left');
+  await expect(page.locator('.auth-topbar')).toHaveCSS('justify-content', 'flex-start');
+  const artPanel = page.locator('.brand-panel');
+  await expect(artPanel).toHaveCSS('left', '0px');
+  await expect(artPanel).toHaveCSS('width', `${await page.evaluate(() => window.innerWidth)}px`);
+  await expect(page.locator('.login-art-shade')).toBeVisible();
   const portrait = page.locator('.login-analyst');
   await expect(portrait).toHaveJSProperty('naturalWidth', 1254);
   await Promise.all(
@@ -42,9 +50,6 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
       ),
     ),
   );
-  await expect(page.locator('.login-brand-cycle > span').nth(1)).toHaveCSS('opacity', '1', {
-    timeout: 5_000,
-  });
   expect(requests.filter((url) => url.includes('/api/'))).toEqual([
     expect.stringContaining('/api/auth/session'),
   ]);
@@ -56,7 +61,21 @@ test('la interfaz compilada está disponible sin API', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  const footerBounds = await page.locator('.auth-footer').boundingBox();
+  const cookieNoticeBounds = await page.locator('.qapaq-cookie-notice').boundingBox();
+  expect(footerBounds).not.toBeNull();
+  expect(cookieNoticeBounds).not.toBeNull();
+  expect(footerBounds!.y + footerBounds!.height).toBeLessThan(cookieNoticeBounds!.y);
   await page.screenshot({ path: 'test-results/c02-web-mobile.png', fullPage: true });
+});
+
+test('el botón de acceso navega al inicio OIDC del BFF', async ({ page }) => {
+  await page.route('**/api/auth/start**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: 'Inicio de sesión interceptado' }),
+  );
+  await page.goto(baseURL);
+  await page.getByRole('button', { name: 'Continuar con Microsoft Entra' }).click();
+  await expect(page).toHaveURL(/\/api\/auth\/start\?returnTo=%2Fconsole\.html$/u);
 });
 
 test('el boundary captura fallos reales de carga y permite recuperarse', async ({ page }) => {
@@ -73,7 +92,6 @@ test('el login presenta una versión estática cuando se reduce el movimiento', 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(baseURL);
   await expect(page.getByRole('heading', { name: 'Inicia sesión en tu cuenta' })).toBeVisible();
-  await expect(page.locator('.login-brand-cycle > span').first()).toHaveCSS('opacity', '1');
-  await expect(page.locator('.login-brand-cycle > span').nth(1)).toHaveCSS('opacity', '0');
+  await expect(page.locator('.login-brand-name')).toHaveCSS('opacity', '1');
   await expect(page.locator('.login-analyst')).toHaveCSS('opacity', '0.9');
 });

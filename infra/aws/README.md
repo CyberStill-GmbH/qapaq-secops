@@ -1,8 +1,12 @@
 # AWS Terraform demo — fases 1, 2B y 2C
 
-**Estado:** fases 1, 2B y 2C aplicadas/validadas. La publicación `git-<sha>` pasó
-CI, gates de imagen y push a ECR. No se crearon ECS, RDS, Redis/Valkey, Wazuh, ALB ni
-servicios de aplicación.
+**Contexto histórico:** las fases 1, 2B y 2C documentadas aquí pasaron sus gates; ese snapshot
+ya no describe por sí solo el state actual. Terraform Demo #50 aplicó parcialmente RDS, Valkey,
+ALB, NAT, EC2 Wazuh y servicios ECS antes de fallar. Antes de cualquier apply, reconciliar los
+recursos AWS y el state conforme a
+[`terraform-apply-recovery.md`](../../docs/deployment/terraform-apply-recovery.md). La migración
+posterior de producto está en
+[`qapaq-wazuh-terraform-rollout.md`](../../docs/deployment/qapaq-wazuh-terraform-rollout.md).
 
 ## Arquitectura de esta fase
 

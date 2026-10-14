@@ -63,17 +63,16 @@ export default function Application({ config }: { config: PublicConfig }): React
 
   return (
     <main className="auth-screen" data-base-path={config.basePath}>
-      <header className="auth-topbar" aria-label="Acceso QAPAQ SecOps">
-        <div className="brand-destination login-brand-cycle" aria-hidden="true">
-          <span>
+      <header className="auth-topbar" aria-label="QAPAQ SecOps">
+        <div className="login-brand-lockup">
+          <span className="login-brand-name">
             QAPAQ <strong>SecOps</strong>
           </span>
-          <span>Listos para defender</span>
         </div>
-        <span className="sr-only">QAPAQ SecOps. Listos para defender.</span>
       </header>
       <section className="login-core" aria-labelledby="login-title">
         <h1 id="login-title">Inicia sesión en tu cuenta</h1>
+        <p className="login-description">Usa tu cuenta corporativa para continuar.</p>
         <div className="login-action-group">
           <button
             className="entra-button entra-button-enabled"
@@ -86,6 +85,19 @@ export default function Application({ config }: { config: PublicConfig }): React
               {redirecting ? 'Conectando con Microsoft Entra…' : 'Continuar con Microsoft Entra'}
             </span>
           </button>
+          <p className="login-security-note">
+            <svg aria-hidden="true" viewBox="0 0 16 16" focusable="false">
+              <path
+                d="M4.5 7V5.2a3.5 3.5 0 0 1 7 0V7m-8.2 0h9.4v7H3.3V7Z"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.3"
+              />
+            </svg>
+            <span>Autenticación protegida por Microsoft Entra ID</span>
+          </p>
           {redirecting || signInError ? (
             <p className="auth-message" role={signInError && !redirecting ? 'alert' : 'status'}>
               {redirecting ? 'Conectando de forma segura…' : signInError?.message}
@@ -94,7 +106,7 @@ export default function Application({ config }: { config: PublicConfig }): React
         </div>
       </section>
       <footer className="auth-footer">
-        <span>Ciberseguridad defensiva para el sector financiero.</span>
+        <span>© QAPAQ SecOps</span>
       </footer>
       <HeroArt />
       <CookieNotice />

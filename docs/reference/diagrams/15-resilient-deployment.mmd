@@ -1,0 +1,74 @@
+flowchart TB
+  SOC[Analistas y operadores SOC]
+  EXT[Servicios y APIs de proveedores]
+  WAZ[Wazuh Manager / agentes / Indexer]
+  SHUFFLE[Shuffle · SOAR no-code post-MVP]
+
+  subgraph EDGE[Zona de acceso QAPAQ]
+    WAF[Control perimetral del ambiente]
+    LB[Balanceador de acceso]
+  end
+
+  subgraph APP[Pool de aplicación QAPAQ · réplicas stateless]
+    WEB1[Consola web A]
+    WEB2[Consola web B]
+    API1[Qapaq SecOps Core API A]
+    API2[Qapaq SecOps Core API B]
+  end
+
+  subgraph INT[Integraciones · on-premises o red privada aprobada]
+    ILB[Balanceador interno]
+    K1[KrakenD A]
+    K2[KrakenD B]
+    POLL[Pollers coordinados<br/>leases · jitter · cuota]
+  end
+
+  subgraph DATA[Datos y procesamiento · dominios de fallo separados según ambiente]
+    PG[(PostgreSQL HA objetivo<br/>estado, checkpoint, outbox, audit)]
+    REDIS[(Redis HA objetivo<br/>BullMQ · jobs con referencias)]
+    WORKERS[Workers escalables<br/>ingesta · detección · indexación]
+    OS[(OpenSearch QAPAQ<br/>índices versionados y alias)]
+    OBJ[(Object storage cifrado<br/>HOT/WARM/COLD según política)]
+  end
+
+  subgraph CORE[Capacidades de producto]
+    QCORE[Alertas y priorización<br/>Qapaq SecOps Core]
+    AYNI[Ayni Qapaq<br/>investigación, tareas, evidencia, timeline]
+    SOARCTL[Autorización y ledger SOAR<br/>en QAPAQ]
+  end
+
+  SOC -->|HTTPS| WAF --> LB
+  LB --> WEB1
+  LB --> WEB2
+  LB --> API1
+  LB --> API2
+  WEB1 --> API1
+  WEB2 --> API2
+  API1 --> PG
+  API2 --> PG
+  API1 --> OS
+  API2 --> OS
+  API1 --> AYNI
+  API2 --> AYNI
+
+  EXT --> ILB
+  WAZ -->|consulta mínima, read-only| POLL
+  ILB --> K1
+  ILB --> K2
+  K1 --> POLL
+  K2 --> POLL
+  POLL -->|admisión durable| OBJ
+  POLL -->|manifiesto, cursor y outbox| PG
+  PG -->|referencias| REDIS
+  REDIS --> WORKERS
+  WORKERS --> PG
+  WORKERS --> OS
+  WORKERS --> QCORE
+  QCORE --> AYNI
+  QCORE --> SOARCTL
+  SOARCTL -->|solicitud autenticada y aprobada| SHUFFLE
+  SHUFFLE -->|callback/resultado correlacionado| SOARCTL
+  OS -->|transición aprobada y catalogada| OBJ
+
+  classDef target stroke-dasharray: 5 5;
+  class WEB2,API2,K2,REDIS,SHUFFLE target;

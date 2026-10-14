@@ -74,9 +74,15 @@
           "extra_config": {
             "modifier/martian": {
               "fifo.Group": {
-                "scope": ["request"],
+                "scope": ["request", "response"],
                 "aggregateErrors": true,
                 "modifiers": [
+                  {
+                    "header.Blacklist": {
+                      "scope": ["response"],
+                      "names": ["X-Internal-Topology", "Server", "X-Powered-By"]
+                    }
+                  },
                   {
                     "header.Modifier": {
                       "scope": ["request"],
@@ -131,9 +137,15 @@
           "extra_config": {
             "modifier/martian": {
               "fifo.Group": {
-                "scope": ["request"],
+                "scope": ["request", "response"],
                 "aggregateErrors": true,
                 "modifiers": [
+                  {
+                    "header.Blacklist": {
+                      "scope": ["response"],
+                      "names": ["X-Internal-Topology", "Server", "X-Powered-By"]
+                    }
+                  },
                   {
                     "header.Modifier": {
                       "scope": ["request"],
