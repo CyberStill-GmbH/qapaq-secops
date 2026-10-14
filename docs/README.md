@@ -17,6 +17,7 @@ C-0X, 31 ADR solapados, specs de pantallas). El histórico completo sigue en git
 | 09 | [Plan de lanzamiento](09-plan-de-lanzamiento.md) | Fases, criterios de aceptación y orden |
 | 10 | [Decisiones](10-decisiones.md) | Registro único de decisiones vigentes |
 | 11 | [Caché y colas](11-cache-y-colas.md) | Dónde Valkey es fundamental, lazy loading y en qué puntos van las colas |
+| 12 | [Backend dentro del SIEM](12-backend-en-el-siem.md) | Cómo pasa la API QAPAQ al SIEM QAPAQ y cuándo se elimina |
 
 `reference/` guarda las decisiones integradas de Codex (ADR-028 a 030 en `reference/decisiones/`, Ayni
 Qapaq, la arquitectura resiliente y el rollout de Terraform) y los archivos que el código o la CI leen (catálogo de errores, inventario de

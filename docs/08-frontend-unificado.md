@@ -19,8 +19,7 @@ rama `qapaq/identity`, sin commitear todavía. Lo trabaja otra sesión.
 | Cliente de la API (mismo origen, cookie, CSRF desde `/auth/session`, errores del catálogo) | `public/api/client.ts`, `common/api_contract.ts` | Hecho |
 | Edge nginx y Security plugin (proxy auth) | `qapaq/deploy/` en el fork, y `wazuh/edge` más `wazuh/indexer/security` en este repo | Hay **dos copias**: ver abajo |
 
-Con esto `apps/web` deja de ser el frontend del producto. Sus vistas ya están en el plugin, así que
-**se congela** y no se sirve en `/soc`.
+**`apps/web` se eliminó** (`4eab88f`): sus vistas viven en el plugin `qapaq_ops`.
 
 ## Contrato frontend ↔ backend (verificado contra `apps/api`)
 

@@ -16,15 +16,14 @@ colaborativa es **Ayni Qapaq** y la automatización de respuesta será **Ankay Q
 
 ## Estructura
 
-| Ruta                 | Contenido                                                                                                                    |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `wazuh/`             | Overlay QAPAQ de Wazuh: reglas, Office 365, edge nginx, seguridad del Indexer, ISM, detectores ML, integraciones y dashboard |
-| `apps/api`           | API y BFF (NestJS/Fastify): login Entra, casos, ingesta, notificaciones, auditoría                                           |
-| `apps/web`           | Consola de casos, servida bajo `/soc` dentro de la plataforma                                                                |
-| `modules/`           | Dominio hexagonal sin frameworks: `access`, `soc`, `detection`, `soar`, `connectors`, `telemetry`                            |
-| `platform/`          | Auditoría, configuración y secretos, base de datos (Prisma/Postgres), testing, gateway (en retiro)                           |
-| `packages/contracts` | Contrato `SecurityEvent` 1.0.0 y catálogo de errores                                                                         |
-| `infra/aws`          | Terraform de la demo AWS. `infra/local`: Postgres, Redis y MinIO para desarrollo                                             |
+| Ruta                      | Contenido                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `wazuh/`                  | Overlay QAPAQ de Wazuh: reglas, Office 365, edge nginx, seguridad del Indexer, ISM, detectores ML, integraciones y dashboard    |
+| `apps/api`, `apps/worker` | Backend QAPAQ (login Entra, casos, auditoría, avisos, colas). Pasa al SIEM QAPAQ según [docs/12](docs/12-backend-en-el-siem.md) |
+| `modules/`                | Dominio hexagonal sin frameworks: `access`, `soc`, `detection`, `soar`, `connectors`, `telemetry`                               |
+| `platform/`               | Auditoría, configuración y secretos, base de datos (Prisma/Postgres), testing, gateway (en retiro)                              |
+| `packages/contracts`      | Contrato `SecurityEvent` 1.0.0 y catálogo de errores                                                                            |
+| `infra/aws`               | Terraform de la demo AWS. `infra/local`: Postgres, Redis y MinIO para desarrollo                                                |
 
 ## Documentación
 

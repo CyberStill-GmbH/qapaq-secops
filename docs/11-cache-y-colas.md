@@ -50,6 +50,26 @@ El TTL depende del tier, porque cuanto más frío es el dato, menos cambia:
 | **restored** (cold traído de S3) | `read_only`, TTL 7 d | 1 h | Inmutable mientras exista; se borra con el índice |
 | Evento por `_id` | Inmutable | 5 min | El documento no cambia, pero contiene PII: TTL corto |
 
+### Sistema de resiliencia del SIEM (no solo lazy loading)
+
+El lazy loading protege del costo, pero no de una caída o una saturación del Indexer. El sistema
+elegido combina técnicas que se cubren entre sí:
+
+| Técnica | Qué resuelve | Cómo se aplica |
+| --- | --- | --- |
+| **Refresh-ahead (precalentado)** | Que nadie espere la primera lectura de lo más consultado | El worker recalcula cada 15 s los contadores de la cola, la frescura de las fuentes y la salud, así las lecturas casi siempre aciertan |
+| **Caché en 3 niveles** | Picos de la misma consulta | L1 en proceso (1–2 s, absorbe ráfagas por réplica) → L2 Valkey (TTL por tier) → L3 request cache de OpenSearch |
+| **Single-flight** | Estampida al expirar una clave | Una sola lectura por clave en curso, en el proceso (promesa compartida) y entre réplicas (`SET NX PX`) |
+| **Stale-while-revalidate** | Latencia al refrescar | Se responde lo vigente y se refresca en segundo plano |
+| **Stale-if-error** | Caída o lentitud del Indexer | Se sirve el último valor bueno hasta 10 min, marcado `stale: true` con `asOf`. La UI muestra «dato desactualizado» y nunca lo presenta como ausencia de amenazas (regla de producto) |
+| **Circuit breaker por dependencia** (Indexer y KrakenD) | Fallas en cascada | Tras N errores o timeouts se abre, sirve lo cacheado y prueba en medio-abierto con baja frecuencia |
+| **Bulkheads** | Que los paneles dejen sin capacidad al trabajo del analista | Concurrencia separada por clase: interactivo (detalle de alerta) > contadores > restauraciones |
+| **Timeouts y reintentos con jitter** | Errores transitorios | Solo en lecturas idempotentes y con un presupuesto de reintentos. Las escrituras nunca se reintentan a ciegas |
+| **Load shedding por prioridad** | Saturación | Se rechaza primero lo de segundo plano (503 con `Retry-After`) y se protege lo interactivo |
+
+Señales en «Salud operativa»: hit ratio por nivel, edad del dato servido, estado de cada breaker y
+rechazos por bulkhead.
+
 Reglas:
 - **La clave incluye el scope de autorización** (tenant y conjunto de capacidades). Dos personas con
   permisos distintos nunca comparten una entrada. La autorización se evalúa **antes** de leer la caché.
