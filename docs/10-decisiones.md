@@ -31,18 +31,22 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | A3 | Mutación, auditoría y outbox en una transacción. Auditoría append-only con cadena hash | Vigente | ADR-012/021 |
 | A4 | Secretos solo por `secretRef` y control plane write-only | Vigente | ADR-013/027 |
 | A5 | **Sin fork del manager ni del Indexer de Wazuh.** El overlay QAPAQ se versiona en `wazuh/` sobre la versión oficial fijada | Vigente | 2026-10-13 |
-| A6 | **El dashboard de Wazuh es el frontend único.** Fork `qapaq_ops-dashboard` con el plugin nativo `qapaq_ops` (login QAPAQ y vistas de casos). `apps/web` se congela | Vigente | 2026-10-13 (revisado) |
+| A6 | **QAPAQ SecOps ES Wazuh con identidad QAPAQ.** La UI de Wazuh 4.14.8 (OSD 2.19.6) se rebrandea de principio a fin como overlay versionado en `wazuh/dashboard/` (parches mínimos, assets QAPAQ, plugins separados `qapaq_ops` y `qapaq_i18n`). **`apps/web` se descarta** | Vigente | 2026-10-13 (dueño) |
 | A7 | **El login TS de QAPAQ es la identidad del dashboard** (nginx `auth_request` más proxy auth). OIDC nativo de OSD queda solo como fallback | Vigente | 2026-10-13 |
-| A8 | **Retirar KrakenD del runtime.** La API lee el Indexer por el proxy nginx allowlist | Vigente | 2026-10-13 (sustituye ADR-026) |
-| A9 | **Retirar Valkey/Redis, BullMQ y `apps/worker`.** El outbox y los leases viven en Postgres | Vigente | 2026-10-13 (sustituye ADR-006) |
+| A8 | KrakenD **se mantiene mientras lo use la ingesta** (API → Indexer) y el ALB. Se retira solo cuando la API lea el Indexer por el proxy nginx. No se agregan capas nuevas | Vigente (revisada) | 2026-10-13 |
+| A9 | **Valkey y el servicio ECS del worker retirados (aplicado en AWS el 2026-10-13).** El long-poll `/api/changes` y la cola (outbox con lease en Postgres) **quedan igual** | Vigente, aplicada | 2026-10-13 |
 | A10 | **Retirar Grafana, Loki y Prometheus.** CloudWatch para métricas de infraestructura. Logs de API y ALB a Wazuh (cumple N1) | Vigente | 2026-10-13 (sustituye ADR-025 en lo de observabilidad) |
 | A11 | Retención hot/warm/cold con ISM y snapshots a S3 (no Azure) | Vigente (gate N7 para el borrado) | 2026-10-13 (sustituye ADR-008/018 en el mecanismo) |
 | A12 | ML con OpenSearch Anomaly Detection. Python solo si un caso medido supera a RCF | Vigente | 2026-10-13 (sustituye ADR-007) |
-| A13 | SOAR: QAPAQ aprueba y audita; ejecutan Wazuh AR y Shuffle. QAPAQ no tiene credenciales de escritura de Graph | Gate: fencing, step-up y aval de Legal sobre AGPL | 2026-10-13 |
+| A13 | **El SOAR propio de QAPAQ no se construye.** El SOAR será **Ankay Qapaq**: Shuffle desplegado en la red interna y rebrandeado como QAPAQ, con conexión directa desde el SIEM para escalar alertas y automatizar. Va **después** del lanzamiento del SIEM QAPAQ. Las notificaciones a Teams con acuse humano (N6) siguen en la API | Próximo scope | 2026-10-13 (dueño) |
 | A14 | Ingesta push (`custom-qapaq`) más pull de reconciliación | Vigente (fase 2) | 2026-10-13 |
 | A15 | Fuentes nuevas por módulos de Wazuh, no por adaptadores TS | Vigente | 2026-10-13 |
-| A16 | Plataforma unificada sobre **Wazuh 5.0.x GA** en un cluster nuevo, porque el fork del dashboard está en OSD 3.6. La demo 4.14.8 sigue hasta el corte | Vigente (antes: lanzar en 4.14.8) | 2026-10-13 (revisado) |
+| A16 | Lanzamiento sobre **Wazuh 4.14.8** (lo que corre en AWS). La imagen anterior queda como histórico: AMI `ami-096d5a424506d1999` (`qapaq-secops-wazuh-historico-4.14.8-20261013`). Wazuh 5 llega como cluster nuevo cuando haya GA | Vigente | 2026-10-13 (dueño) |
 | A17 | CI, candidato, publicación y despliegue separados. Imágenes inmutables `git-<sha>` | Vigente | ADR-023 |
+| A18 | **Sin capas de complejidad nuevas.** Se reutiliza lo que hay: host Wazuh como edge, API y Postgres actuales y long-poll; nada de SSE, colas nuevas ni servicios extra para el lanzamiento | Vigente | 2026-10-13 (dueño) |
+| A19 | **UI en español** con el plugin `qapaq_i18n`: glosario curado más la API Translator on-device de Chrome. **Nunca** se usa un servicio de traducción externo (N1/N2) | Vigente | 2026-10-13 |
+| A20 | **No se rotan secretos** al desplegar: los scripts reutilizan las credenciales publicadas (`QAPAQ_ROTATE` sigue en false) | Vigente | 2026-10-13 (dueño) |
+| A21 | Apply en AWS: el pipeline oficial es el workflow `terraform-demo`. Desde Windows solo se permite `-target` revisado, porque los CRLF y `dirname()` con `\` generan diffs falsos (reemplazo de la EC2 de Wazuh y rutas rotas en SSM) | Vigente | 2026-10-13 |
 
 ## Abiertas
 

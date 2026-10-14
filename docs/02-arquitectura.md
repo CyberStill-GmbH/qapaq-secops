@@ -62,10 +62,10 @@ classDef src fill:#eee,stroke:#999
 
 | Retirado | Motivo | Reemplazo |
 | --- | --- | --- |
-| **Frontend propio como shell principal** (`apps/web` en Vercel) | Duplicaba Discover, dashboards y gestión de agentes que Wazuh ya tiene | Dashboard de Wazuh más el plugin `qapaq-ops`. Las vistas de casos se sirven en `/soc` y el plugin las monta ([08](08-frontend-unificado.md)) |
+| **Frontend propio** (`apps/web` en Vercel) | Duplicaba Discover, dashboards y agentes de Wazuh, y el dueño lo descartó | La UI de Wazuh rebrandeada como QAPAQ SecOps más el plugin `qapaq_ops` ([08](08-frontend-unificado.md)). El código queda congelado en el repo |
 | **KrakenD** en el runtime | Su función era ser egress hacia APIs de proveedores, pero las fuentes nuevas entran por módulos de Wazuh. Hoy causa el bug de ingesta (`PROVIDER_RESPONSE_INVALID`) y corta el long-poll a 4 s. Además son 2 tareas Fargate | La API lee el Indexer por el proxy nginx allowlist que ya existe (`wazuh/access`), con usuario `qapaq_reader`. Se recupera de git si aparece una API de proveedor directa |
-| **Valkey/Redis y BullMQ** | Están provisionados pero ningún código los usa. El outbox con lease vive en Postgres | Postgres (outbox con lease y fencing) |
-| **`apps/worker`** | Es solo un shell sin lógica. Los loops corren en la API | Los loops quedan en la API con lease y fencing. Si hace falta escalar, se separa el proceso sin cambiar código de dominio |
+| **Valkey/Redis y BullMQ** | Provisionados sin uso | **Destruido en AWS** (2026-10-13). El outbox con lease sigue en Postgres |
+| **`apps/worker`** | Shell sin lógica | **Servicio ECS destruido** (2026-10-13). El despacho y el long-poll siguen en la API |
 | **Grafana, Loki, Prometheus y `platform/observability`** | Ninguna app importaba la librería y solo existían en compose local. Su fin regulatorio (N1) lo cumple Wazuh | CloudWatch para métricas de infraestructura AWS. Los logs de API y ALB entran a Wazuh por el módulo AWS: un solo plano, autogestionado ([06](06-operacion.md)) |
 | **Python analytics (ADR-007)** | Dormante y sin código | OpenSearch Anomaly Detection (RCF), que ya está en el Indexer ([07](07-deteccion-ml-y-soar.md)) |
 | **Pipeline de admisión C-04 y raw en S3 propio** | Testeado pero no conectado a la API. Duplicaba la custodia que ya hace el Indexer | Wazuh conserva el raw (`archives`) y la retención se hace con ISM más snapshots |

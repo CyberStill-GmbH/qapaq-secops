@@ -59,7 +59,15 @@ que el pull.
 | **Security Analytics (Sigma más correlación)** | Nativo en Wazuh 5. En 4.x hay reportes de que rompe el arranque del Indexer | Esperar a Wazuh 5 GA | **Bajo** en 5.x, **no recomendado** en 4.x |
 | **Reglas Sigma (SigmaHQ)** | El motor de Wazuh 5 las usa directamente | Elegir el subconjunto M365/Entra | Fase 4 |
 
-## SOAR gobernado
+## SOAR: Ankay Qapaq (siguiente scope)
+
+> **Decisión del dueño (2026-10-13):** el SOAR propio de QAPAQ no se construye. El SOAR será
+> **Ankay Qapaq**: Shuffle en la red interna, con frontend rebrandeado al estilo QAPAQ y acceso
+> directo desde el SIEM QAPAQ para escalar alertas y automatizar respuestas. Se monta **después**
+> de lanzar el SIEM. Lo que sigue describe la gobernanza que Ankay Qapaq debe respetar
+> (aprobación por segunda persona, auditoría y sin credenciales de escritura en la API).
+
+## SOAR gobernado (requisitos para Ankay Qapaq)
 
 Principio: **QAPAQ decide y deja evidencia; otros ejecutan.** QAPAQ nunca tiene credenciales de
 escritura de Graph ni de firewalls. Esas credenciales viven en el executor.
