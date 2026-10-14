@@ -24,12 +24,7 @@ export default function HeroArt(): React.JSX.Element {
         style={{ background: lightCore }}
       />
       <div className="login-art-shade" />
-      <svg
-        className="login-glass-mark"
-        viewBox="0 0 447 447"
-        aria-hidden="true"
-        focusable="false"
-      >
+      <svg className="login-glass-mark" viewBox="0 0 447 447" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id="qapaq-glass-fill" x1="0%" y1="52%" x2="100%" y2="45%">
             <stop offset="0%" stopColor="#d8dce0" stopOpacity="0.035" />
