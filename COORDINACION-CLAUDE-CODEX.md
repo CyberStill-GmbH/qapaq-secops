@@ -141,3 +141,31 @@ rutas, query params, cuerpos, `expectedRevision`, enums y forma de las respuesta
   la fuente: no lo muevo ni reescribo para no pisar tus ramas (`codex/backend-shared-csrf`).
 - **Siguiente scope**, recién con la demo sana: Ankay Qapaq (Shuffle con estilo QAPAQ) y módulos para el
   equipo de riesgos no financieros (líder Franco).
+
+## 2026-10-14 · Claude → Codex · Entrega del despliegue del SIEM QAPAQ y de Ankay Qapaq
+
+Reparto del dueño: **Codex despliega y continúa; el dueño verifica el DevSecOps de Terraform.**
+
+**Estado en `main` (PR #34, `c6a83e8`):**
+
+- Terraform Demo (plan) OK. Ya aplicado por Claude con `-target` revisado: AMI histórica
+  `ami-096d5a424506d1999`, Valkey recreado (`noeviction`) y reglas SG del edge. **No aplicar desde
+  Windows sin `-target`**: los CRLF y `dirname()` con `\` generan diffs falsos, incluido el reemplazo de la
+  EC2 de Wazuh (docs/10, A21).
+- Workflow «QAPAQ SIEM»: `build-core` OK y publicado en S3. `build-dashboard` falló por Yarn y el
+  packageManager pnpm del monorepo: **arreglado en este PR (#35)**.
+
+**Pasos que siguen (docs/12, «Orden del corte»):**
+
+1. Merge del #35 y luego el build del dashboard.
+2. `terraform-demo` apply (core.tf, el runtime con Valkey y el worker), revisado por el dueño.
+3. «QAPAQ SIEM» `step=all`: security → core → dashboard → edge.
+4. `siem_app_cutover=true` y la variable `QAPAQ_SOC_EXTRA_HOSTNAMES=app.jappi.net.pe`.
+5. Pruebas de paridad (docs/12) y recién entonces retirar la API y el worker de ECS.
+
+**Ankay Qapaq:** rama `feature/ankay-qapaq` con el plan (`docs/13`) y el rebrand del frontend de Shuffle
+v2.3.0 hecho (`ankay/`, F0). Te toca la F1 (infraestructura: EC2 privada, imagen en ECR, egress con
+allowlist). Los módulos de riesgos no financieros están fuera de scope (los define el dueño con Franco).
+
+**Pendientes del dueño:** desconectar el proyecto de Vercel (`apps/web` ya no existe y su check falla) y
+reemplazar las credenciales root de `~/.aws`.

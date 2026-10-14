@@ -116,13 +116,17 @@ ensure_node() {
     tar -xJf "$WORK/$file" -C "$WORK/node" --strip-components=1
     export PATH="$WORK/node/bin:$PATH"
   fi
-  if [ "$(yarn --version 2>/dev/null || true)" != "$YARN_VERSION" ]; then
+  # Yarn 1.22 lee el package.json más cercano: desde la raíz de qapaq-secops vería
+  # "packageManager": "pnpm@…" y abortaría. Los chequeos corren en $WORK (fuera del monorepo) y
+  # se desactiva esa verificación de Corepack para el árbol de Wazuh.
+  export SKIP_YARN_COREPACK_CHECK=1 COREPACK_ENABLE_STRICT=0
+  if [ "$(cd "$WORK" && yarn --version 2>/dev/null || true)" != "$YARN_VERSION" ]; then
     log "Instalando Yarn $YARN_VERSION"
     npm install --global --silent --prefix "$WORK/yarn" "yarn@$YARN_VERSION"
     export PATH="$WORK/yarn/bin:$PATH"
   fi
-  yarn config set network-timeout 1000000 >/dev/null
-  log "node $(node --version) · yarn $(yarn --version)"
+  (cd "$WORK" && yarn config set network-timeout 1000000 >/dev/null)
+  log "node $(node --version) · yarn $(cd "$WORK" && yarn --version)"
 }
 
 # Compila un plugin dentro de $OSD/plugins y deja su zip en el directorio indicado.
