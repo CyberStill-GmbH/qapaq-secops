@@ -86,7 +86,7 @@ Tres niveles. Postgres sigue siendo el respaldo final (revisión optimista y res
 | --- | --- | --- | --- |
 | **HTTP** | Mutaciones que crean cosas: `POST /api/incidents`, tareas, notas, revocar sesión, acuse de notificación y, en adelante, restaurar historia y ejecutar playbooks | Cabecera `Idempotency-Key` (UUID del cliente). `SET NX` de `idem:{actor}:{clave}` marca «en curso», guarda la respuesta y una huella del cuerpo. Un reintento con la misma clave devuelve la **misma respuesta**; con un cuerpo distinto responde `409 IDEMPOTENCY_KEY_REUSED` | 24 h |
 | **Productor de cola** | `jobId` determinista | BullMQ ignora un job con el mismo `jobId` mientras exista | Mientras viva el job |
-| **Consumidor** | Antes del efecto externo (Teams, push, Shuffle o restauración) | `done:{cola}:{clave}` más el estado en Postgres (outbox `SENT`). Un job reintentado después de un envío exitoso **no reenvía** | 7 d |
+| **Consumidor** | Antes del efecto externo (Teams, push, Ankay Qapaq o restauración) | `done:{cola}:{clave}` más el estado en Postgres (outbox `SENT`). Un job reintentado después de un envío exitoso **no reenvía** | 7 d |
 
 Las transiciones de estado (comandos con `expectedRevision`) ya son idempotentes por la concurrencia
 optimista, así que no necesitan la cabecera.
@@ -114,7 +114,7 @@ La cola es transporte rápido; Postgres conserva qué falta procesar.
 | `ingestion` (polling de Wazuh por fuente o dataset) | Scheduler repetible con jitter | Worker, concurrencia 1 por fuente | `jobId = ingest:{source}:{ventana}`: nunca dos ejecuciones de la misma ventana. El lease con fencing en Postgres sigue siendo la autoridad |
 | `directory-sync` (delta del grupo SOC en Graph) | Scheduler repetible cada 5 min | Worker, concurrencia 1 | Al terminar invalida el padrón (punto 5) y dispara las revocaciones (punto 3) |
 | `history-restore` (warm/cold) | La API, tras la aprobación | Worker, concurrencia 1 | `jobId` = hash de los índices. Antes de restaurar comprueba `done:` y si ya existe `restored-*` |
-| `ankay` (siguiente scope: Shuffle) | La API, tras una aprobación | Worker | Un timeout queda en `UNKNOWN`, sin reintento ciego (ADR-028) |
+| `ankay` (Ankay Qapaq, [14](14-ankay-conexion-qapaq.md)) | La API, tras una aprobación | Worker | Un timeout queda en `UNKNOWN`, sin reintento ciego (ADR-028) |
 | `*:dlq` | Jobs que agotan sus intentos | Visible en «Salud operativa» | No se reintentan solos |
 
 **Dónde corren:** la API **produce** y el worker (`apps/worker`, servicio ECS) **consume**. Así la API

@@ -14,7 +14,7 @@ en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes
 | `indexer/anomaly-detection/` | Detectores ML (RCF)                                                                                                         | `indexer/anomaly-detection/apply-detectors.sh`                            | Propuesto                                     |
 | `dashboard/`                 | Marca QAPAQ, proxy auth y plugin `qapaq-ops`                                                                                | Copia más reinicio de `wazuh-dashboard`                                   | Propuesto                                     |
 | `core/`                      | Núcleo QAPAQ dentro del SIEM: login Entra, casos (Ayni Qapaq), auditoría, avisos y colas, como servicios del host (docs/12) | `core/apply-core.sh` (workflow «QAPAQ SIEM», step=core)                   | Implementado; pendiente del primer despliegue |
-| `manager/integrations/`      | Push de alertas a QAPAQ (`custom-qapaq`) y snippets de Shuffle y AWS                                                        | `ossec.conf`                                                              | Propuesto (fase 2 y 3)                        |
+| `manager/integrations/`      | Push de alertas a QAPAQ (`custom-qapaq`) y logs AWS; sin integración directa con Ankay (pasa por el núcleo)                                                        | `ossec.conf`                                                              | Propuesto (fase 2 y 3)                        |
 
 ## Reglas
 

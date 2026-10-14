@@ -11,16 +11,9 @@
     <alert_format>json</alert_format>
   </integration>
 
-  <!-- Fase 3 · Shuffle SOLO para enriquecimiento sin efectos (reputación de IP, etc.).
-       Las acciones con efectos NO salen de aquí: las dispara QAPAQ tras la aprobación. -->
-  <!--
-  <integration>
-    <name>shuffle</name>
-    <hook_url>${SHUFFLE_ENRICH_HOOK_URL}</hook_url>
-    <level>10</level>
-    <alert_format>json</alert_format>
-  </integration>
-  -->
+  <!-- Sin integración directa Wazuh → Ankay Qapaq (Shuffle): toda automatización, incluido el
+       enriquecimiento, pasa por el núcleo QAPAQ (catálogo, aprobación, idempotencia y auditoría).
+       Ver docs/14-ankay-conexion-qapaq.md. -->
 
   <!-- Fase 1 · Observabilidad sin Grafana (N1): logs de la API y del ALB hacia Wazuh.
        Credenciales: rol IAM de la instancia (logs:FilterLogEvents/GetLogEvents, s3:GetObject). -->

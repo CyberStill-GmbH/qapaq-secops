@@ -27,7 +27,7 @@ flowchart LR
   end
   PG[(PostgreSQL<br/>estado + auditoría)]
   S3[(S3<br/>snapshots cold + evidencia WORM)]
-  SH[Shuffle<br/>executor SOAR]
+  SH[Ankay Qapaq<br/>SOAR sobre Shuffle]
   EDGE[nginx edge<br/>auth_request]
   U((Analista)) --> EDGE
   EDGE -->|"/"| DSB
@@ -57,7 +57,7 @@ classDef src fill:#eee,stroke:#999
 | Valkey | ElastiCache | Caché con TTL e invalidación, estado efímero compartido entre réplicas y colas BullMQ ([11](11-cache-y-colas.md)) | `platform/cache`, `apps/worker` |
 | PostgreSQL | RDS | Estado operativo, sesiones y auditoría append-only | `platform/database` |
 | S3 | AWS | Snapshots cold del Indexer (KMS) y evidencia con Object Lock | `infra/aws` |
-| Shuffle (fase 3) | EC2 pequeña | Ejecutar playbooks **después** de la aprobación en QAPAQ | `wazuh/integrations/shuffle/` |
+| Ankay Qapaq (SOAR) | EC2 privada `t3.large` | Ejecutar playbooks **después** de la aprobación en QAPAQ ([13](13-ankay-qapaq.md), [14](14-ankay-conexion-qapaq.md)) | `ankay/` |
 
 ## Qué salió del diseño y por qué
 
@@ -99,6 +99,6 @@ Esto es lo que da valor y no se toca sin una decisión en [10](10-decisiones.md)
 | Una fuente nueva | Un módulo de Wazuh (wodle, syslog, `aws-s3`, `ms-graph`) configurado en `wazuh/manager/` |
 | Agrupar alertas en un incidente o priorizarlas | TypeScript en `modules/detection` |
 | Un flujo humano: estado, tarea o aprobación | TypeScript en `modules/soc` o `modules/soar` |
-| Una acción de respuesta | Un catálogo en `modules/soar` que la ejecuta vía Wazuh Active Response o Shuffle, siempre con aprobación |
+| Una acción de respuesta | Un catálogo en `modules/soar` que la ejecuta vía Wazuh Active Response o Ankay Qapaq, siempre con aprobación |
 | Una vista nueva | El plugin `wazuh/dashboard/plugins/qapaq_ops` (componentes OUI de la UI de Wazuh) |
 | Retención, ML o índices | JSON versionado en `wazuh/indexer/`, aplicado por script idempotente |

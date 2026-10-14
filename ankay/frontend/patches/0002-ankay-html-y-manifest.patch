@@ -1,14 +1,7 @@
 diff --git a/frontend/index.html b/frontend/index.html
-index 5e909eb..cdd3ef3 100644
+index 5e909eb..db3fe8b 100644
 --- a/frontend/index.html
 +++ b/frontend/index.html
-@@ -1,5 +1,5 @@
- <!DOCTYPE html>
--<html lang="en">
-+<html lang="es">
-   <head>
-     <meta charset="utf-8" />
-     <link rel="shortcut icon" href="/favicon.ico" />
 @@ -7,9 +7,9 @@
        name="viewport"
        content="width=device-width, initial-scale=1, shrink-to-fit=no"
@@ -22,24 +15,35 @@ index 5e909eb..cdd3ef3 100644
    <body>
      <div id="root"></div>
 diff --git a/frontend/public/manifest.json b/frontend/public/manifest.json
-index 41df930..81151cf 100755
+index 41df930..94b612c 100755
 --- a/frontend/public/manifest.json
 +++ b/frontend/public/manifest.json
-@@ -1,6 +1,6 @@
- {
+@@ -1,14 +1,14 @@
+-{
 -  "short_name": "Shuffle",
 -  "name": "Shuffle webapp",
-+  "short_name": "Ankay Qapaq",
-+  "name": "Ankay Qapaq · QAPAQ SecOps",
-   "icons": [
-     {
-       "src": "favicon.ico",
-@@ -9,6 +9,6 @@
-     }
-   ],
-   "display": "standalone",
+-  "icons": [
+-    {
+-      "src": "favicon.ico",
+-      "sizes": "64x64 32x32 24x24 16x16",
+-      "type": "image/x-icon"
+-    }
+-  ],
+-  "display": "standalone",
 -  "theme_color": "#000000",
 -  "background_color": "#ffffff"
+-}
++{
++  "short_name": "Ankay Qapaq",
++  "name": "Ankay Qapaq · QAPAQ SecOps",
++  "icons": [
++    {
++      "src": "favicon.ico",
++      "sizes": "64x64 32x32 24x24 16x16",
++      "type": "image/x-icon"
++    }
++  ],
++  "display": "standalone",
 +  "theme_color": "#080808",
 +  "background_color": "#080808"
- }
++}

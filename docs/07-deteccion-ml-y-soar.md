@@ -78,7 +78,7 @@ sequenceDiagram
   participant Q as QAPAQ soar
   participant L as Líder SOC
   participant W as Wazuh API (Active Response)
-  participant S as Shuffle
+  participant S as Ankay Qapaq
   A->>Q: Solicita acción (catálogo) sobre incidente
   Q->>Q: audita la solicitud y valida capacidad y scope
   L->>Q: Aprueba (≠ solicitante, step-up)
@@ -98,14 +98,14 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `endpoint.block-ip` | Wazuh AR `firewall-drop` (con timeout) | Medio | Líder SOC |
 | `endpoint.isolate-host` | Wazuh AR, script de aislamiento propio | Alto | Líder SOC con step-up |
-| `m365.revoke-sessions` | Shuffle → Graph `revokeSignInSessions` | Alto | Líder SOC con step-up |
-| `m365.disable-user` | Shuffle → Graph | Alto | Líder SOC con step-up |
-| `enrich.ip-reputation` | Shuffle → apps OSS | Bajo | Ninguna (sin efectos) |
+| `m365.revoke-sessions` | Ankay Qapaq → Graph `revokeSignInSessions` | Alto | Líder SOC con step-up |
+| `m365.disable-user` | Ankay Qapaq → Graph | Alto | Líder SOC con step-up |
+| `enrich.ip-reputation` | Ankay Qapaq → apps OSS | Bajo | Ninguna (sin efectos) |
 
 **Gates antes de la primera acción real:**
 1. Fencing token en el outbox de notificaciones y acciones (P0). Hoy el outbox tiene lease pero
    no fencing.
 2. Step-up (`max_age`) para aprobar.
 3. Usuario de Wazuh API con permiso **solo** `active-response:command`.
-4. Shuffle en una subred privada, con webhook firmado y callback autenticado.
+4. Ankay Qapaq en una subred privada, con webhook firmado y callback autenticado ([14](14-ankay-conexion-qapaq.md)).
 5. Cerrar U-008: guardas de transición, catálogo y cardinalidades.

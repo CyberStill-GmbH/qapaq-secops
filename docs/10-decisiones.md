@@ -58,7 +58,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | U-004 | Matriz de retención firmada | Legal/Compliance | Firma más pruebas de purga |
 | U-017 | KPIs de negocio del MVP | Product Owner | Fórmula, fuente y owner aprobados |
 | U-018 | CIDR de la red confiable, proxies y claims de passkey | Identity/Infra | E2E dentro, fuera y por proxy |
-| U-022 | ¿Aceptar Shuffle (AGPL, sin modificar) o usar StackStorm (Apache-2.0)? | Legal | Dictamen |
+| U-022 | ¿Aceptar Ankay Qapaq (Shuffle AGPL con el frontend modificado y el código fuente servido en `/source/`) o usar StackStorm (Apache-2.0)? | Legal | Dictamen |
 | U-023 | ¿Migración de datos 4.x → 5.x por snapshot? (las RC se contradicen) | Platform | Prueba en sandbox |
 
 ## Decisiones de Codex integradas (PR #31, 2026-10-13)

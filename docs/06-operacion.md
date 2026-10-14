@@ -14,11 +14,11 @@
 | EC2 Wazuh all-in-one `t3.xlarge` (4.14.8) | ✓ | Igual, más el edge nginx con `auth_request` y la marca QAPAQ | — |
 | S3 de snapshots del Indexer | — | **Nuevo** (KMS, `standard_ia`) | +1–5 según volumen |
 | S3 de evidencia con Object Lock | Versionado sin lock | **Nuevo bucket** con Object Lock (el lock no se puede activar sobre el bucket actual) | +<1 |
-| EC2 Shuffle `t3.medium` (fase 3) | — | Nuevo, privado | +30 |
+| EC2 Ankay Qapaq `t3.large` (SOAR, [13](13-ankay-qapaq.md)) | — | Nuevo, privado, sin acceso público | +60 |
 | Vercel (`apps/web`) | ✓ | **Retirado** (`apps/web` eliminado) | — |
 
 El costo base anterior era de unos USD 229/mes con todo encendido. El objetivo de fases 1–2
-queda en unos **USD 190/mes**, y en unos USD 220/mes con Shuffle. Estas cifras son estimaciones
+queda en unos **USD 190/mes**, y en unos USD 250/mes con Ankay Qapaq. Estas cifras son estimaciones
 de lista on-demand: hay que confirmarlas con el plan de Terraform y Cost Explorer antes de
 aplicar.
 

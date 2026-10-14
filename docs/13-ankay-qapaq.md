@@ -8,6 +8,8 @@ reinventarlo, como ya se hizo con Wazuh: upstream fijado más un overlay version
 playbooks. **Fuera de alcance:** los módulos para el equipo de riesgos no financieros, que define el
 dueño con Franco.
 
+**Arquitectura de la conexión con QAPAQ SecOps:** [14](14-ankay-conexion-qapaq.md).
+
 **Reparto:** Claude hace este plan y el rebrand del frontend. Codex despliega el SIEM y continúa la
 integración. El dueño verifica el DevSecOps de Terraform.
 
@@ -63,7 +65,7 @@ Principios de ADR-028 que se mantienen:
 | --- | --- | --- | --- |
 | **Dónde corre** | (a) en el host del SIEM; (b) EC2 privada dedicada; (c) ECS Fargate | **(b)**, `t3.large` en la subred privada | (a) compite por memoria con el Indexer, el Manager y el núcleo en un `t3.xlarge` ya cargado. (c) no es viable: orborus necesita el socket de Docker para lanzar los workers. (b) aísla fallas y carga |
 | **Base de datos de Ankay** | Reutilizar el Indexer de Wazuh o un OpenSearch propio | **Propio**, un nodo pequeño | Reutilizar ahorra unos 2 GB, pero mezcla datos del SOAR con el SIEM, complica el Security plugin y acopla los upgrades. Un fallo de uno no debe tumbar al otro |
-| **Identidad** | (a) SSO OpenID nativo de Shuffle contra Entra; (b) edge QAPAQ con `auth_request` | **(a) más acceso solo por red privada**, y (b) cuando exista un mecanismo de sesión compatible | Shuffle tiene sesión y usuarios propios y no admite proxy auth. Con SSO de Entra y app roles, el acceso al editor queda limitado a ingenieros de automatización y líderes. Los analistas no entran a Ankay: piden acciones desde el SIEM |
+| **Identidad** | (a) SSO OpenID nativo de Shuffle contra Entra; (b) edge QAPAQ con `auth_request` | **(b) como puerta obligatoria más (a) para la sesión interna de Shuffle** | Shuffle no admite proxy auth y tiene sesiones propias: con (a) sola, sacar a alguien del grupo SOC no cortaría su sesión en Ankay y se incumplirían N9 y N10. Ankay se publica **solo detrás del edge del SIEM** (`ankay.<dominio>`), que valida la sesión QAPAQ en cada request con `auth_request` y exige el rol `qapaq.automation.engineer`, o líder o admin. Al revocar en QAPAQ, Ankay se pierde en ≤ 5 s. Los analistas no entran a Ankay: piden acciones desde el SIEM. Detalle en [14](14-ankay-conexion-qapaq.md) |
 | **Rebrand** | Fork completo o overlay con codemod | **Overlay** (`ankay/`): 3 parches, arte con los mismos nombres de archivo y un codemod basado en AST | Unas 290 apariciones visibles y 460 colores en 180 archivos. Un fork se desincroniza en cada versión; el overlay se vuelve a aplicar sobre cualquier tag |
 | **Servicios externos** (N1: no tercerizar) | Permitir o bloquear la nube de Shuffle, Algolia y servicios en Cloud Run | **Bloquear**: CSP de mismo origen en el frontend (parche 0003) y egress del host solo a destinos aprobados | El frontend llama a `shuffler.io`, Algolia y servicios de terceros. Con la CSP y el egress cerrado, no sale información del SOC. Se pierde la búsqueda de apps en la nube: las apps se cargan localmente |
 | **Licencia** (AGPL-3.0) | Uso sin cambios o modificado | **Modificado, con el código fuente servido en `/source/`** | §13 de la AGPL: quien use Ankay por red debe poder obtener el código fuente modificado. `ankay/build.sh` lo empaqueta y lo publica dentro de la imagen. Pendiente: dictamen de Legal (U-022) |

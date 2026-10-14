@@ -57,7 +57,7 @@ comporta como un fork, pero se puede rebasear en minutos cuando sale un parche d
 | ML de anomalías | OpenSearch Anomaly Detection (Random Cut Forest) | Apache-2.0 | `wazuh/indexer/anomaly-detection/`, leído por `modules/detection` |
 | Detección Sigma y correlación de hallazgos | OpenSearch Security Analytics (nativo en Wazuh 5) | Apache-2.0 | Fase 4 |
 | Respuesta en endpoint | Wazuh Active Response vía Wazuh API | GPLv2 (sin modificar) | `modules/soar` con aprobación |
-| Playbooks multi-herramienta | **Shuffle** (backend AGPL-3.0; apps y workflows MIT) | AGPL | Servicio separado **sin modificar**. QAPAQ lo invoca por webhook después de aprobar. Si no se modifica su código, AGPL no obliga a publicar QAPAQ. Confirmarlo con Legal |
+| Playbooks multi-herramienta | **Ankay Qapaq** = Shuffle v2.3.0 (AGPL-3.0; apps y workflows MIT) | AGPL | Servicio separado con el **frontend modificado** (rebrand, `ankay/`). QAPAQ lo invoca por webhook después de aprobar. AGPL §13: el código fuente modificado se sirve en `/source/` de Ankay. QAPAQ no queda bajo AGPL porque se comunica por red y no enlaza código de Shuffle. Confirmarlo con Legal (U-022) |
 | Shell visual | Plugin OSD `qapaq-ops` | Propio | `wazuh/dashboard/plugins/qapaq-ops` |
 
 **Descartados:** TheHive 5 (licencia propietaria de StrangeBee y Community limitada a 2 usuarios),

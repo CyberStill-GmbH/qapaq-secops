@@ -47,7 +47,7 @@ el SHA, el comando, la versión del proveedor y la salida redactada, registrada 
 | Fencing token en el outbox | Test: el dueño viejo no publica después de un takeover |
 | Step-up para aprobar | Aprobar sin una reautenticación reciente devuelve 401 `STEP_UP_REQUIRED` |
 | `endpoint.block-ip` vía Wazuh AR | Sobre un agente sandbox: pedido → aprobado por otra persona → IP bloqueada → timeline y auditoría |
-| Shuffle privado más `m365.revoke-sessions` | Contra un usuario sintético del tenant sandbox |
+| Ankay Qapaq privado más `m365.revoke-sessions` ([13](13-ankay-qapaq.md)) | Contra un usuario sintético del tenant sandbox |
 | Archivo WORM de auditoría en S3 con Object Lock | Un manifiesto firmado se verifica con `GET /api/audit/verify` |
 
 ## Fase 4 · Wazuh 5 (cuando haya GA)
