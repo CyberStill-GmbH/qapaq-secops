@@ -153,6 +153,47 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("/etc/letsencrypt/renewal-hooks/deploy/20-reload-nginx", bootstrap)
         self.assertIn("systemctl reload nginx", bootstrap)
 
+    def test_worker_saas_egress_exception_is_scoped_and_expires(self):
+        security = (
+            Path(__file__).resolve().parents[2]
+            / "infra"
+            / "aws"
+            / "modules"
+            / "security"
+            / "main.tf"
+        ).read_text(encoding="utf-8")
+        exception = re.search(
+            r"(?m)^#trivy:ignore:AWS-0104:exp:2027-04-14\n"
+            r'resource "aws_vpc_security_group_egress_rule" "worker_to_external_https" \{([^}]+)\}',
+            security,
+        )
+        self.assertIsNotNone(exception)
+        self.assertIn('from_port         = 443', exception.group(1))
+        self.assertIn('to_port           = 443', exception.group(1))
+
+    def test_historical_gitleaks_exceptions_are_exact_test_findings(self):
+        repository = Path(__file__).resolve().parents[2]
+        ignored = (repository / ".gitleaksignore").read_text(encoding="utf-8")
+        self.assertIn(
+            "31c02a30213c534a446b2790f9e9c7e6cbd53691:apps/api/test/idempotency.spec.ts:generic-api-key:11",
+            ignored,
+        )
+        self.assertIn(
+            "31c02a30213c534a446b2790f9e9c7e6cbd53691:platform/runtime/test/valkey.spec.ts:generic-api-key:450",
+            ignored,
+        )
+
+    def test_wazuh_overlay_build_runs_on_pr_without_aws_permissions(self):
+        workflow = (WORKFLOWS / "qapaq-dashboard.yml").read_text(encoding="utf-8")
+        validate_job = workflow.split("  validate_overlay:\n", 1)[1].split("\n  build:\n", 1)[0]
+
+        self.assertIn("  pull_request:\n", workflow)
+        self.assertIn("if: github.event_name == 'pull_request'", validate_job)
+        self.assertIn("permissions:\n      contents: read", validate_job)
+        self.assertNotIn("id-token: write", validate_job)
+        self.assertIn("bash wazuh/dashboard/build.sh", validate_job)
+        self.assertIn("dpkg-deb --field ./*.deb Package Version", validate_job)
+
     def test_policy_rejects_unpinned_action_reference(self):
         fixture = "      - uses: actions/checkout@v4 # v4\n"
         reference = re.search(r"(?m)^\s*-\s+uses:\s*([^\s#]+)", fixture).group(1)

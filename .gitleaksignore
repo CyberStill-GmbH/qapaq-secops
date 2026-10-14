@@ -17,3 +17,7 @@ cbdd0661c45a95d84b4fc67f72920e24ef186623:platform/configuration/src/control-plan
 7e46282ee461f2b9c5b4d73435df4ea41c3ff495:platform/configuration/src/testing/secret-lifecycle-provider.contract.ts:generic-api-key:60
 # Public Entra client ID in the temporary demo MFA guard; exact historical false positive, not a credential.
 4ce580b03f5bbcf4147d1730b1f68b35e9047f97:apps/api/src/runtime/secops-runtime.ts:generic-api-key:727
+# Generic API-key detector matches fixed, synthetic idempotency test input on a fetched historical branch.
+31c02a30213c534a446b2790f9e9c7e6cbd53691:apps/api/test/idempotency.spec.ts:generic-api-key:11
+# Generic API-key detector matches fixed, synthetic Valkey test input on a fetched historical branch.
+31c02a30213c534a446b2790f9e9c7e6cbd53691:platform/runtime/test/valkey.spec.ts:generic-api-key:450

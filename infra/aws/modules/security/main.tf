@@ -339,6 +339,9 @@ resource "aws_vpc_security_group_egress_rule" "worker_to_krakend" {
   to_port                      = var.krakend_port
 }
 
+# Microsoft Graph/Teams service addresses rotate. This private worker egress is limited to TCP 443
+# through the NAT; replace with a managed domain allowlist before the exception expires.
+#trivy:ignore:AWS-0104:exp:2027-04-14
 resource "aws_vpc_security_group_egress_rule" "worker_to_external_https" {
   security_group_id = aws_security_group.worker.id
   description       = "HTTPS egress for Microsoft Graph, Teams Workflows, and approved notification providers through the private-subnet NAT."

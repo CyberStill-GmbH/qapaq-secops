@@ -16,6 +16,10 @@ on:
     paths:
       - "wazuh/dashboard/**"
       - ".github/workflows/qapaq-dashboard.yml"
+  pull_request:
+    paths:
+      - "wazuh/dashboard/**"
+      - ".github/workflows/qapaq-dashboard.yml"
   workflow_dispatch:
     inputs:
       step:
@@ -33,7 +37,6 @@ on:
 permissions:
   contents: read
   checks: read
-  id-token: write
 
 concurrency:
   group: qapaq-dashboard
@@ -45,8 +48,33 @@ env:
   SOC_HOSTNAME: ${{ vars.QAPAQ_SOC_HOSTNAME || 'qapaq-secops.jappi.net.pe' }}
 
 jobs:
+  validate_overlay:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build QAPAQ SecOps dashboard package without AWS credentials
+        run: bash wazuh/dashboard/build.sh "$RUNNER_TEMP/qapaq-dashboard"
+
+      - name: Verify package
+        working-directory: ${{ runner.temp }}/qapaq-dashboard
+        run: |
+          set -euo pipefail
+          count="$(find . -maxdepth 1 -name '*.deb' | wc -l)"
+          [[ "$count" == 1 ]] || { echo "Se esperaba 1 .deb y hay $count" >&2; exit 1; }
+          sha256sum -c SHA256SUMS
+          dpkg-deb --field ./*.deb Package Version
+
   build:
     if: github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all'
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -89,6 +117,10 @@ jobs:
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
