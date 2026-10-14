@@ -69,10 +69,18 @@ index 1313707..9cf2719 100644
              0% {
                transform: scaleX(1) translateX(-100%);
 diff --git a/src/core/server/rendering/views/template.tsx b/src/core/server/rendering/views/template.tsx
-index c76ef5a..55f74c9 100644
+index c76ef5a..97931ae 100644
 --- a/src/core/server/rendering/views/template.tsx
 +++ b/src/core/server/rendering/views/template.tsx
-@@ -103,7 +103,7 @@ export const Template: FunctionComponent<Props> = ({
+@@ -46,7 +46,6 @@ export const Template: FunctionComponent<Props> = ({
+     darkMode,
+     themeVersion,
+     injectedMetadata,
+-    i18n,
+     bootstrapScriptUrl,
+     strictCsp,
+   },
+@@ -103,7 +102,7 @@ export const Template: FunctionComponent<Props> = ({
          {/* Ignoring all of the above, Safari picks this one */}
          <link
            rel="mask-icon"
@@ -81,7 +89,7 @@ index c76ef5a..55f74c9 100644
            href={favicon ?? `${uiPublicUrl}/favicons/safari-pinned-tab.svg`}
          />
          <link rel="shortcut icon" href={favicon ?? `${uiPublicUrl}/favicons/favicon.ico`} />
-@@ -113,7 +113,7 @@ export const Template: FunctionComponent<Props> = ({
+@@ -113,7 +112,7 @@ export const Template: FunctionComponent<Props> = ({
            content={favicon ? `` : `${uiPublicUrl}/favicons/browserconfig.xml`}
          />
  
@@ -90,3 +98,37 @@ index c76ef5a..55f74c9 100644
          <Styles darkMode={darkMode} theme={themeVersion} />
  
          {/* Inject stylesheets into the <head> before scripts so that KP plugins with bundled styles will override them */}
+@@ -147,17 +146,9 @@ export const Template: FunctionComponent<Props> = ({
+             </div>
+             <div
+               className="osdWelcomeText"
+-              data-error-message={i18n('core.ui.welcomeErrorMessage', {
+-                defaultMessage:
+-                  '{applicationTitle} did not load properly. Check the server output for more information.',
+-                values: { applicationTitle },
+-              })}
++              data-error-message="QAPAQ SecOps no pudo iniciar correctamente. Revisa los registros del servicio."
+             >
+-              {i18n('core.ui.welcomeMessage', {
+-                // Wazuh: change the default message to avoid
+-                // showing the "Loading Wazuh" message twice.
+-                defaultMessage: 'Loading ...',
+-              })}
++              Cargando QAPAQ SecOps…
+             </div>
+             {/* Show a progress bar if a static custom branded logo is used */}
+             {logos.AnimatedMark.type === ImageType.ALTERNATIVE && <div className="osdProgress" />}
+@@ -176,11 +167,6 @@ export const Template: FunctionComponent<Props> = ({
+           <h2 className="osdWelcomeTitle">
+-            {i18n('core.ui.legacyBrowserTitle', {
+-              defaultMessage: 'Please upgrade your browser',
+-            })}
++            Actualiza tu navegador
+           </h2>
+           <div className="osdWelcomeText">
+-            {i18n('core.ui.legacyBrowserMessage', {
+-              defaultMessage:
+-                'This OpenSearch installation has strict security requirements enabled that your current browser does not meet.',
+-            })}
++            QAPAQ SecOps requiere un navegador moderno. Actualízalo para continuar.
+           </div>

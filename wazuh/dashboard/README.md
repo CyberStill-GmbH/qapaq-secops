@@ -22,11 +22,11 @@ Todos aplican con `git apply --check` sobre un clon limpio del tag (verificado).
 
 **wazuh-dashboard v4.14.8 (`42db785`)**
 
-| Parche                         | Ficheros                                                           | Qué hace                                                                                                                                                                                           |
-| ------------------------------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0001-loading-splash-qapaq`    | `rendering/views/styles.tsx`, `template.tsx`                       | Pantalla de carga: fondo `#080808` en oscuro, texto gris 13 px, barra ámbar, entrada 240 ms (opacidad + 6 px) desactivada con `prefers-reduced-motion`; `theme-color` y `mask-icon` en negro QAPAQ |
-| `0002-help-menu-qapaq`         | `chrome/ui/header/header_help_menu.tsx`                            | Menú de ayuda: «Mi sesión», «Salud de fuentes», «Cerrar sesión» y la atribución de licencias en lugar de documentación, Slack, GitHub y Google Groups de Wazuh                                     |
-| `0003-branding-defaults-qapaq` | `opensearch_dashboards_config.ts`, `home_icon.tsx`, `template.tsx` | Título por defecto `QAPAQ SecOps` (si falta `branding.applicationTitle`)                                                                                                                           |
+| Parche                         | Ficheros                                                           | Qué hace                                                                                                                                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001-loading-splash-qapaq`    | `rendering/views/styles.tsx`, `template.tsx`                       | Pantalla de carga y mensajes de error en español con marca QAPAQ; fondo `#080808` en oscuro, texto gris 13 px, barra ámbar, entrada 240 ms (opacidad + 6 px) desactivada con `prefers-reduced-motion`; `theme-color` y `mask-icon` en negro QAPAQ |
+| `0002-help-menu-qapaq`         | `chrome/ui/header/header_help_menu.tsx`                            | Menú de ayuda: «Mi sesión», «Salud de fuentes», «Cerrar sesión» y la atribución de licencias en lugar de documentación, Slack, GitHub y Google Groups de Wazuh                                                                                    |
+| `0003-branding-defaults-qapaq` | `opensearch_dashboards_config.ts`, `home_icon.tsx`, `template.tsx` | Título por defecto `QAPAQ SecOps` (si falta `branding.applicationTitle`)                                                                                                                                                                          |
 
 **wazuh-dashboard-plugins v4.14.8 (`505c58f`)**
 
@@ -136,7 +136,8 @@ rechaza y el servicio no arranca): el menú de ayuda QAPAQ lo aporta el parche 0
 - Textos «Wazuh» en la app: los resuelve `qapaq_i18n` en tiempo de ejecución; sin ese plugin, la app
   conserva su texto original. Los enlaces de ayuda contextual a documentation.wazuh.com dentro de los
   módulos (≈15) siguen apuntando a la documentación de Wazuh.
-- El texto «Loading ...» de la pantalla de carga no se traduce (se pinta antes de cargar plugins).
+- La pantalla de carga y el mensaje de navegador incompatible se resuelven antes de iniciar los
+  plugins; por eso su texto español y la marca QAPAQ se fijan en el parche del core.
 - Snapshots de tests de upstream afectados por los parches (help menu, about, template) no se
   actualizan: el build no ejecuta los tests de Jest de upstream.
 - Los enlaces del menú de ayuda son absolutos (`/app/…`, `/qapaq/logout`): sin `server.basePath`.

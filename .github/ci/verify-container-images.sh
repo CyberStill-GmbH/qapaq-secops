@@ -50,7 +50,10 @@ trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-c
 
 docker build --file apps/worker/Dockerfile --tag qapaq-ci:worker .
 test "$(docker run --rm qapaq-ci:worker --version)" = v24.21.0
-docker run --detach --name qapaq-ci-worker qapaq-ci:worker
+# El smoke comprueba el empaquetado y el ciclo de vida del proceso, no credenciales de producción.
+# Usa el perfil test (memoria + referencias locales) para que el contenedor pueda publicar ready
+# sin provisionar PostgreSQL o Valkey en este job.
+docker run --detach --name qapaq-ci-worker --env QAPAQ_PROFILE=test qapaq-ci:worker
 sleep 3
 test "$(docker inspect --format '{{.State.Running}}' qapaq-ci-worker)" = true
 test -z "$(docker inspect --format '{{json .Config.ExposedPorts}}' qapaq-ci-worker | grep -v '^null$' || true)"

@@ -1,5 +1,5 @@
 diff --git a/src/core/public/chrome/ui/header/header_help_menu.tsx b/src/core/public/chrome/ui/header/header_help_menu.tsx
-index c9c0d8b..c9739e8 100644
+index c9c0d8b..7f1db38 100644
 --- a/src/core/public/chrome/ui/header/header_help_menu.tsx
 +++ b/src/core/public/chrome/ui/header/header_help_menu.tsx
 @@ -46,13 +46,13 @@ import {
@@ -17,7 +17,13 @@ index c9c0d8b..c9739e8 100644
  
  /** @public */
  export type ChromeHelpExtensionMenuGitHubLink = EuiButtonEmptyProps & {
-@@ -208,70 +208,31 @@ class HeaderHelpMenuUI extends Component<Props, State> {
+@@ -202,76 +202,35 @@ class HeaderHelpMenuUI extends Component<Props, State> {
+       intl,
+       opensearchDashboardsVersion,
+       useDefaultContent,
+-      surveyLink,
+       useUpdatedAppearance,
+-      darkmode,
      } = this.props;
      const { helpExtension } = this.state;
  
