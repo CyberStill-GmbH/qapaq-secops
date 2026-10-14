@@ -2,11 +2,12 @@ import { pathToFileURL } from 'node:url';
 import { ConfigurationError } from '@qapaq/configuration';
 import { buildWorker } from './bootstrap.js';
 
-export function main(): void {
-  let worker: ReturnType<typeof buildWorker> | undefined;
+export async function main(): Promise<void> {
+  let worker: Awaited<ReturnType<typeof buildWorker>> | undefined;
   let failureReported = false;
   let closing: Promise<void> | undefined;
   const report = (state: string, errorCode?: string) => {
+    if (state === 'failed') process.exitCode = 1;
     process.stdout.write(
       `${JSON.stringify({
         event: `application.${state}`,
@@ -18,8 +19,10 @@ export function main(): void {
   };
   const fail = (error: unknown, code: string) => {
     process.exitCode = 1;
-    worker?.fail();
-    if (!failureReported) {
+    if (worker) {
+      // WorkerRuntime emits the lifecycle event and safe code in one record.
+      worker.fail(error instanceof ConfigurationError ? error.code : code);
+    } else if (!failureReported) {
       failureReported = true;
       report('failed', error instanceof ConfigurationError ? error.code : code);
     }
@@ -29,7 +32,7 @@ export function main(): void {
       const deadline = setTimeout(() => {
         fail(undefined, 'SHUTDOWN_TIMEOUT');
         process.exit(1);
-      }, 6_000);
+      }, 120_000);
       try {
         await worker?.stop();
       } catch (error) {
@@ -55,7 +58,9 @@ export function main(): void {
     void stop();
   };
   try {
-    worker = buildWorker(process.env, report);
+    worker = await buildWorker(process.env, report, (error) =>
+      report('queue.job.failed', error instanceof Error ? error.name : 'QUEUE_ERROR'),
+    );
     process.on('SIGTERM', onSignal);
     process.on('SIGINT', onSignal);
     process.on('uncaughtException', onException);
@@ -67,4 +72,4 @@ export function main(): void {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void main();

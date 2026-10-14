@@ -270,6 +270,48 @@ describe('C-18 · inicio de sesión por el BFF', () => {
     expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/u);
   });
 
+  it('introspect entrega persona y roles al proxy del dashboard sin cuerpo', async () => {
+    const { cookie } = await signIn('lider@qapaq.pe');
+    const response = await server().inject({
+      method: 'GET',
+      url: '/api/auth/introspect',
+      headers: { cookie },
+      remoteAddress: OFFICE_IP,
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['x-qapaq-user']).toMatch(/^[A-Za-z0-9._@+-]+$/u);
+    expect(String(response.headers['x-qapaq-roles']).split(',')).toContain('qapaq.soc.lead');
+  });
+
+  it('introspect sin sesión responde 401 para que el proxy lleve al login QAPAQ', async () => {
+    const response = await server().inject({
+      method: 'GET',
+      url: '/api/auth/introspect',
+      remoteAddress: OFFICE_IP,
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.headers['x-qapaq-user']).toBeUndefined();
+  });
+
+  it('introspect deja fuera del dashboard a la sesión reemplazada por un nuevo inicio', async () => {
+    const first = await signIn('lider@qapaq.pe');
+    const second = await signIn('lider@qapaq.pe');
+    const introspect = (cookie: string) =>
+      server().inject({
+        method: 'GET',
+        url: '/api/auth/introspect',
+        headers: { cookie },
+        remoteAddress: OFFICE_IP,
+      });
+
+    expect((await introspect(first.cookie)).statusCode).toBe(401);
+    expect((await introspect(second.cookie)).statusCode).toBe(204);
+  });
+
   it('rechaza el replay del mismo código de autorización', async () => {
     const start = await server().inject({
       method: 'GET',

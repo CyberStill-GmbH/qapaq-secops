@@ -1,0 +1,45 @@
+{
+  "name": "qapaq-agent-alert-volume",
+  "description": "QAPAQ: volumen anómalo de alertas nivel>=7 por agente",
+  "time_field": "timestamp",
+  "indices": ["wazuh-alerts-*"],
+  "filter_query": {
+    "bool": {
+      "filter": [
+        {
+          "range": {
+            "rule.level": {
+              "gte": 7
+            }
+          }
+        }
+      ]
+    }
+  },
+  "feature_attributes": [
+    {
+      "feature_name": "alerts",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "alerts": {
+          "value_count": {
+            "field": "rule.id"
+          }
+        }
+      }
+    }
+  ],
+  "detection_interval": {
+    "period": {
+      "interval": 10,
+      "unit": "Minutes"
+    }
+  },
+  "window_delay": {
+    "period": {
+      "interval": 5,
+      "unit": "Minutes"
+    }
+  },
+  "category_field": ["agent.name"]
+}

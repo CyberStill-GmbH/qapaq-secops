@@ -1,0 +1,18 @@
+{
+  "name": "qapaq_i18n",
+  "version": "2.19.6",
+  "private": true,
+  "description": "QAPAQ SecOps: traducción al español de la UI de Wazuh/OSD (glosario curado + Translator API on-device).",
+  "license": "Apache-2.0",
+  "opensearchDashboards": {
+    "version": "2.19.6",
+    "templateVersion": "1.0.0"
+  },
+  "scripts": {
+    "build": "yarn plugin-helpers build",
+    "plugin-helpers": "node ../../scripts/plugin_helpers",
+    "test:core": "node --test test/translate.test.mts",
+    "typecheck": "npx -y -p typescript@5 tsc -p tools/tsconfig.check.json",
+    "strings:new": "node tools/extract-strings.mjs --glossary public/glossary.es.json --min-score 3"
+  }
+}

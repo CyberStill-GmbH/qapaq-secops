@@ -1,0 +1,414 @@
+// QAPAQ SecOps · consola dentro del dashboard.
+// Tokens de doc 02 (vía variables OUI del tema QAPAQ). Móvil primero en lo que importa:
+// la cola, el detalle y las acciones deben poder usarse en un teléfono de guardia.
+
+$qapaqBreakpointMobile: 767px;
+$qapaqBreakpointTablet: 1023px;
+
+.qapaqApp {
+  min-height: 100%;
+  background: $ouiPageBackgroundColor;
+}
+
+.qapaqPage {
+  padding: $ouiSizeL; // 24 px
+  font-variant-numeric: tabular-nums;
+
+  @media (max-width: $qapaqBreakpointTablet) {
+    padding: $ouiSizeM $ouiSize; // 12 × 16
+  }
+
+  @media (max-width: $qapaqBreakpointMobile) {
+    padding: $ouiSizeM; // 12 px: más filas visibles en pantalla pequeña
+  }
+}
+
+.qapaqPage__actions {
+  @media (max-width: $qapaqBreakpointMobile) {
+    width: 100%;
+
+    .euiButton,
+    .euiButtonEmpty {
+      width: 100%;
+    }
+  }
+}
+
+// Pestañas de estado: desplazamiento horizontal en móvil, nunca se parten en dos líneas.
+.qapaqTabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  .euiTab {
+    flex-shrink: 0;
+  }
+}
+
+.qapaqTabCount {
+  margin-left: $ouiSizeXS;
+  color: $ouiTextSubduedColor;
+  font-variant-numeric: tabular-nums;
+}
+
+.qapaqFilters {
+  @media (max-width: $qapaqBreakpointMobile) {
+    > .euiFlexItem {
+      flex-basis: 100% !important;
+    }
+  }
+}
+
+// Severidad: glifo + rótulo; la forma distingue el paso sin color (doc 02 §2.5).
+.qapaqSeverity {
+  display: inline-flex;
+  align-items: center;
+  gap: $ouiSizeS;
+  white-space: nowrap;
+}
+
+.qapaqSeverity__glyph {
+  width: 12px;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
+}
+
+.qapaqSeverity__label {
+  color: $ouiTitleColor;
+  font-weight: $ouiFontWeightMedium;
+}
+
+// Franja de prioridad de 3 px a la izquierda de la fila (deuda 1 del doc 11).
+.qapaqRow {
+  cursor: pointer;
+
+  > .euiTableRowCell:first-child {
+    box-shadow: inset 3px 0 0 transparent;
+  }
+
+  &--p1 > .euiTableRowCell:first-child,
+  &--critical > .euiTableRowCell:first-child {
+    box-shadow: inset 3px 0 0 #ff5f57;
+  }
+
+  &--p2 > .euiTableRowCell:first-child,
+  &--high > .euiTableRowCell:first-child {
+    box-shadow: inset 3px 0 0 #f0904a;
+  }
+
+  &--p3 > .euiTableRowCell:first-child,
+  &--medium > .euiTableRowCell:first-child {
+    box-shadow: inset 3px 0 0 #d8c35c;
+  }
+
+  &--p4 > .euiTableRowCell:first-child,
+  &--low > .euiTableRowCell:first-child {
+    box-shadow: inset 3px 0 0 #7f95aa;
+  }
+
+  // En móvil la tabla de OUI pasa a tarjetas: la franja va en el borde de la tarjeta.
+  @media (max-width: $qapaqBreakpointMobile) {
+    > .euiTableRowCell:first-child {
+      box-shadow: none !important;
+    }
+
+    &.euiTableRow {
+      border-left: 3px solid transparent;
+    }
+
+    &--p1.euiTableRow,
+    &--critical.euiTableRow {
+      border-left-color: #ff5f57;
+    }
+
+    &--p2.euiTableRow,
+    &--high.euiTableRow {
+      border-left-color: #f0904a;
+    }
+
+    &--p3.euiTableRow,
+    &--medium.euiTableRow {
+      border-left-color: #d8c35c;
+    }
+
+    &--p4.euiTableRow,
+    &--low.euiTableRow {
+      border-left-color: #7f95aa;
+    }
+  }
+}
+
+.qapaqCellTitle {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  color: $ouiTitleColor;
+  overflow-wrap: anywhere;
+}
+
+.qapaqCellMeta {
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+  overflow-wrap: anywhere;
+}
+
+.qapaqMuted {
+  color: $ouiTextSubduedColor;
+}
+
+.qapaqTabular {
+  font-variant-numeric: tabular-nums;
+}
+
+// Mono para todo lo que se copia; los IDs largos parten sin desbordar (deuda D5 del doc 11).
+.qapaqMono {
+  padding: 0;
+  background: none;
+  color: $ouiTitleColor;
+  font-family: $ouiCodeFontFamily;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.qapaqIdList {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: $ouiSizeXS $ouiSizeS;
+}
+
+// HealthMark: círculo de 15 px con símbolo centrado.
+.qapaqHealth {
+  display: inline-flex;
+  align-items: center;
+  gap: $ouiSizeS;
+}
+
+.qapaqHealth__mark {
+  display: inline-grid;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+// Hechos clave: etiqueta de 160 px en escritorio, apilada en móvil (deuda D2 del doc 11).
+.euiDescriptionList.euiDescriptionList--responsiveColumn.qapaqFacts,
+.euiDescriptionList.qapaqFacts {
+  .euiDescriptionList__title {
+    width: 160px;
+    padding-right: $ouiSizeM;
+    color: $ouiTextSubduedColor;
+    font-size: $ouiFontSizeS;
+    font-weight: $ouiFontWeightRegular;
+  }
+
+  .euiDescriptionList__description {
+    width: calc(100% - 160px);
+    min-width: 0;
+    padding-left: 0;
+    color: $ouiTitleColor;
+    overflow-wrap: anywhere;
+  }
+
+  > * {
+    margin-top: $ouiSizeS;
+  }
+
+  @media (max-width: $qapaqBreakpointMobile) {
+    .euiDescriptionList__title,
+    .euiDescriptionList__description {
+      width: 100%;
+    }
+
+    .euiDescriptionList__description {
+      margin-top: 2px;
+      margin-bottom: $ouiSizeS;
+    }
+  }
+}
+
+.qapaqList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $ouiSizeS;
+    padding: $ouiSizeS 0;
+    border-bottom: 1px solid $ouiColorLightShade;
+  }
+}
+
+.qapaqProse {
+  max-width: 72ch;
+  white-space: pre-wrap;
+}
+
+.qapaqReadable {
+  max-width: 1120px;
+}
+
+.qapaqEmpty {
+  padding: $ouiSize 0;
+}
+
+// Detalle lateral: 480 px en escritorio; pantalla completa en móvil.
+.qapaqFlyout.euiFlyout {
+  @media (min-width: $qapaqBreakpointMobile + 1) {
+    width: 480px;
+    min-width: 400px;
+    max-width: 720px;
+  }
+
+  @media (max-width: $qapaqBreakpointMobile) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    border-radius: 0;
+  }
+
+  .euiFlyoutFooter {
+    // Acciones al alcance del pulgar y con área táctil ≥ 44 px (doc 07).
+    @media (max-width: $qapaqBreakpointMobile) {
+      position: sticky;
+      bottom: 0;
+      padding: $ouiSizeM;
+
+      .euiButton,
+      .euiButtonEmpty {
+        min-height: 44px;
+      }
+
+      .euiFlexGroup > .euiFlexItem {
+        flex-grow: 1;
+      }
+
+      .euiButton {
+        width: 100%;
+      }
+    }
+  }
+}
+
+.qapaqFooterHint {
+  margin-top: $ouiSizeS;
+  text-align: right;
+}
+
+// Tareas, notas y línea de tiempo.
+.qapaqTaskList,
+.qapaqNotes,
+.qapaqTimeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqTask {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $ouiSizeM;
+  padding: $ouiSizeS 0;
+  border-bottom: 1px solid $ouiColorLightShade;
+
+  &[data-status='done'] .qapaqTask__title,
+  &[data-status='cancelled'] .qapaqTask__title {
+    color: $ouiTextSubduedColor;
+    text-decoration: line-through;
+  }
+
+  @media (max-width: $qapaqBreakpointMobile) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.qapaqTask__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qapaqTask__title {
+  color: $ouiTitleColor;
+}
+
+.qapaqTask__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $ouiSizeXS;
+}
+
+.qapaqNote {
+  padding: $ouiSizeM 0;
+  border-bottom: 1px solid $ouiColorLightShade;
+}
+
+.qapaqTimeline__item {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: $ouiSizeM;
+  padding: $ouiSizeS 0;
+  border-left: 1px solid $ouiColorLightShade;
+  padding-left: $ouiSizeM;
+
+  @media (max-width: $qapaqBreakpointMobile) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+.qapaqTimeline__time {
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+}
+
+.qapaqTimeline__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+
+  strong {
+    color: $ouiTitleColor;
+    font-weight: $ouiFontWeightMedium;
+  }
+}
+
+// Capacidades: rejilla de códigos tabulares (deuda D3 del doc 11).
+.qapaqCapabilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: $ouiSizeXS $ouiSize;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqSourceCard {
+  height: 100%;
+}
+
+.qapaqModal {
+  @media (max-width: $qapaqBreakpointMobile) {
+    width: 100vw;
+    max-width: 100vw !important;
+    min-height: 100vh;
+    border-radius: 0 !important;
+  }
+}

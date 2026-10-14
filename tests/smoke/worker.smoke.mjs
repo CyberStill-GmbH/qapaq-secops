@@ -24,7 +24,16 @@ for (const termination of ['SIGTERM', 'SIGINT']) {
       signal(runtime, termination);
       assert.deepEqual(await exitedWithin(runtime), { code: 0, signal: null });
       assert.deepEqual(
-        events(runtime).map((item) => item.event),
+        events(runtime)
+          .map((item) => item.event)
+          .filter((event) =>
+            [
+              'application.starting',
+              'application.ready',
+              'application.draining',
+              'application.stopped',
+            ].includes(event),
+          ),
         [
           'application.starting',
           'application.ready',

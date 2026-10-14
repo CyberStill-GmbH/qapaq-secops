@@ -44,7 +44,7 @@ describe('emisor VAPID', () => {
     const calls: { url: string; init: RequestInit }[] = [];
     const sender = new VapidPushSender({
       privateKey: key,
-      subject: 'https://app.jappi.net.pe',
+      subject: 'https://qapaq-secops.jappi.net.pe',
       now: () => Date.parse('2026-10-13T01:00:00.000Z'),
       fetch: (async (url: URL, init: RequestInit) => {
         calls.push({ url: url.toString(), init });
@@ -74,7 +74,7 @@ describe('emisor VAPID', () => {
     const payload = JSON.parse(Buffer.from(claims!, 'base64url').toString('utf8'));
     expect(payload).toMatchObject({
       aud: 'https://fcm.googleapis.com',
-      sub: 'https://app.jappi.net.pe',
+      sub: 'https://qapaq-secops.jappi.net.pe',
     });
     expect(payload.exp - Date.parse('2026-10-13T01:00:00.000Z') / 1_000).toBeLessThanOrEqual(
       12 * 3_600,
@@ -89,7 +89,7 @@ describe('emisor VAPID', () => {
     );
     const sender = new VapidPushSender({
       privateKey: ephemeralVapidKey(),
-      subject: 'https://app.jappi.net.pe',
+      subject: 'https://qapaq-secops.jappi.net.pe',
       fetch: (async (url: URL) =>
         new Response(null, {
           status: url.hostname.includes('mozilla') ? 410 : 201,

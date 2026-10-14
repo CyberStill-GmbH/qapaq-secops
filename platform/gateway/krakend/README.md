@@ -1,17 +1,19 @@
 # C-28 — KrakenD provider gateway
 
-Estado de entrega: **configuración y validación local implementadas; producción bloqueada por insumos operativos**. La decisión de producto sigue [ADR-026](../../../docs/adr/026-on-premises-krakend-provider-api-gateway.md). Este paquete no crea ni despliega infraestructura.
+> **Conservado en el runtime.** KrakenD sigue siendo el gateway de solo lectura entre la API y el
+> proxy allowlist del Indexer Wazuh. El Dashboard sirve la interfaz; sus llamadas de aplicación
+> pasan por `/qapaq-api/` desde `wazuh/edge` al ALB de la API, no por Vercel ni por KrakenD.
+
+Estado de entrega: **configuración y validación local implementadas; producción bloqueada por insumos operativos**. La decisión de producto sigue ADR-026 (sustituido por A8 en [docs/10-decisiones.md](../../../docs/10-decisiones.md)). Este paquete no crea ni despliega infraestructura.
 
 ## Límites y flujo
 
 ```text
-QAPAQ connector worker
-  → LB interno (pendiente) → KrakenD CE 3.0.0 (réplicas stateless)
-  → Wazuh Indexer read-only (URL/TLS/identidad pendientes)
-  → adapter valida y admite durablemente → PostgreSQL/outbox → Redis/BullMQ
+API QAPAQ (lectura/ingesta) → KrakenD → Wazuh Indexer
+API → PostgreSQL/outbox → señal BullMQ en Valkey → worker de notificaciones
 ```
 
-El inventario C-28 `routes.json` conserva exactamente sus dos rutas de lectura: `GET /wazuh/_cluster/health` y `POST /wazuh/_search`. La ruta de búsqueda fija el patrón del índice mediante configuración confiable; el cliente no puede elegir upstream ni índice. Para Fase 4 se añade por separado `application-routes.json`, un allowlist explícito de rutas del BFF QAPAQ hacia el API privado, incluida la pasada manual protegida del dispatcher. El test comprueba las dos superficies por separado para evitar cambiar el contrato C-28 sin detectarlo. No se publican APIs entrantes de proveedores, Graph/M365, Cato ni Sophos. Microsoft 365 continúa llegando a QAPAQ a través de Wazuh conforme a ADR-024.
+El inventario C-28 `routes.json` conserva exactamente sus dos rutas de lectura: `GET /wazuh/_cluster/health` y `POST /wazuh/_search`. La ruta de búsqueda fija el patrón del índice mediante configuración confiable; el cliente no puede elegir upstream ni índice. `application-routes.json` se conserva como allowlist explícito de rutas del BFF QAPAQ hacia el API privado para los entornos que llaman al gateway. En AWS, el navegador usa el proxy same-origin de `wazuh/edge` hacia el ALB. El test comprueba las superficies por separado para evitar cambiar el contrato C-28 sin detectarlo. No se publican APIs entrantes de proveedores, Graph/M365, Cato ni Sophos. Microsoft 365 continúa llegando a QAPAQ a través de Wazuh conforme a ADR-024.
 
 ## Versiones, rutas y controles
 
@@ -23,10 +25,10 @@ El inventario C-28 `routes.json` conserva exactamente sus dos rutas de lectura: 
 - Timeout integral por endpoint: 4 s en el perfil local y configurable; no se ofrece un falso timeout backend independiente porque KrakenD CE aplica aquí el límite de tiempo de la tubería/endpoint. El timeout de conexión y los valores del SDK se alinean en el perfil productivo antes de habilitar tráfico.
 - Circuit breaker acota fallos consecutivos de backend. No hay retries automáticos en KrakenD: la política de retries segura y el presupuesto pertenecen al adapter.
 - CORS no habilita origins. El gateway no acepta URL upstream del cliente; solo permite `Content-Type`, `X-Request-Id` y contexto W3C seleccionado. Respuestas del Indexer pasan por `header.Blacklist` de Martian para eliminar `X-Internal-Topology`, `Server` y `X-Powered-By`. No se admite query string como label de telemetría.
-- Las rutas de aplicación usan `no-op`, un único upstream API Cloud Map fijado por `QAPAQ_API_UPSTREAM`, y allowlists explícitas de headers/query strings. Reenvían `Cookie`, `Origin` y `X-Csrf-Token` para que el BFF conserve sesión, CSRF, redirects y cookies. No se configura CORS: producción debe usar el rewrite same-origin del proyecto Vercel. El inventario no contiene `/api/ingest/security-events`, rutas locales de login ni comodines.
+- Las rutas de aplicación usan `no-op`, un único upstream API Cloud Map fijado por `QAPAQ_API_UPSTREAM`, y allowlists explícitas de headers/query strings. Reenvían `Cookie`, `Origin` y `X-Csrf-Token` para que el BFF conserve sesión, CSRF, redirects y cookies. No se configura CORS: el tráfico de la interfaz entra por `/qapaq-api/` en el edge de Wazuh. El inventario no contiene `/api/ingest/security-events`, rutas locales de login ni comodines.
 - Filesystem de solo lectura, capabilities retiradas excepto `SETUID`/`SETGID` que requiere el entrypoint oficial para bajar privilegios, `no-new-privileges`, puertos ligados a loopback para ejecución local.
 
-La autenticación Basic hacia Wazuh se añade al backend desde `WAZUH_BASIC_AUTH_B64`, suministrado por un origen secreto de runtime; el nombre es un contrato, no un valor para Git. La verificación TLS de backend conserva el pool de CA del sistema; el proveedor puede montar un bundle PEM aprobado y pasar su ruta por `WAZUH_INDEXER_CA_FILE`. `WAZUH_INDEXER_URL` debe ser HTTPS en producción; el backend HTTP solo existe en el perfil efímero de pruebas. La referencia real de CA sigue `TO_BE_PROVIDED`. El token OAuth del worker y su renovación no están cableados en esta rama: no hay tráfico productivo hasta materializar y probar esa identidad.
+La autenticación Basic hacia Wazuh se añade al backend desde `WAZUH_BASIC_AUTH_B64`, suministrado por un origen secreto de runtime; el nombre es un contrato, no un valor para Git. La verificación TLS de backend conserva el pool de CA del sistema; el proveedor puede montar un bundle PEM aprobado y pasar su ruta por `WAZUH_INDEXER_CA_FILE`. `WAZUH_INDEXER_URL` debe ser HTTPS en producción; el backend HTTP solo existe en el perfil efímero de pruebas. La referencia real de CA sigue `TO_BE_PROVIDED`. El worker BullMQ de esta rama consume señales del outbox de notificaciones en PostgreSQL; no es el conector de ingesta y no necesita un token OAuth propio.
 
 La configuración ejecutable recibe su perfil por variables requeridas en `compose.yaml`. No interpolar secretos desde `.env` versionado. `.env.example` contiene solo valores sintéticos `.invalid` para explicar el contrato; no se usa para una conexión real.
 
@@ -72,7 +74,7 @@ Rollout: versionar config + digest; ejecutar validación/checks; promover una in
 
 ## Observabilidad
 
-Se exportan métricas Prometheus de KrakenD con `service_name=qapaq-provider-gateway` y scrape dedicado al puerto 9091. El endpoint de métricas se debe restringir a red de monitoreo; no se publica al LB cliente. Los dashboards fuente viven en `platform/observability/grafana/dashboards/krakend-overview.json`; las series deben verificarse contra el exporter efectivo antes de asociar alertas productivas. No etiquetar IPs arbitrarias, tokens, usernames, IDs, query strings ni URLs completas.
+Se exportan métricas Prometheus de KrakenD con `service_name=qapaq-provider-gateway` y scrape dedicado al puerto 9091. El endpoint de métricas se debe restringir a red de monitoreo; no se publica al LB cliente. Los dashboards Grafana se retiraron (A10); las series deben verificarse contra el exporter efectivo antes de asociar alertas productivas. No etiquetar IPs arbitrarias, tokens, usernames, IDs, query strings ni URLs completas.
 
 El log de gateway se dirige a stdout para el colector de plataforma. No habilitar registro de bodies, headers de autorización, query string o configuración renderizada; el collector y destino Loki requieren política de retención/ACL y no están provisionados en este repo.
 
@@ -90,8 +92,8 @@ $env:BENCHMARK_SCENARIO = 'healthy'
 node platform/gateway/krakend/benchmark.mjs --confirm-nonprod=true --concurrency=8 --duration-seconds=10
 ```
 
-La corrida runtime satisfactoria del 2026-09-28 está incluida en el [registro de evidencia C-10/C-28](../../../docs/project-management/c-10/assets/2026-09-28-c10-c28-contract-run.json). Docker Desktop estaba disponible para esa ejecución. Este resultado cubre solo el gateway oficial en contenedor con mock Indexer y JWKS de prueba; no habilita producción ni aceptación con proveedores reales.
+La corrida runtime satisfactoria del 2026-09-28 está incluida en el registro de evidencia C-10/C-28 (histórico en git `050f9fa`). Docker Desktop estaba disponible para esa ejecución. Este resultado cubre solo el gateway oficial en contenedor con mock Indexer y JWKS de prueba; no habilita producción ni aceptación con proveedores reales.
 
 ## Pendientes de producción (`TO_BE_PROVIDED`)
 
-Ver el bloque `provider_gateway` del [inventario de fuentes](../../../docs/integrations/source-inventory.yaml): digest/mirror, balanceador, secret provider, TLS, issuer/JWKS/audience, URL/CA de Indexer, scrape Prometheus y destino de provisioning Grafana. Además, el owner de identidad deberá confirmar claim de workload, permisos mínimos y rotación. No promover a `enabled` hasta cerrar esos puntos y ejecutar integración con Indexer real autorizado.
+Ver el bloque `provider_gateway` del [inventario de fuentes](../../../docs/reference/source-inventory.yaml): digest/mirror, balanceador, secret provider, TLS, issuer/JWKS/audience, URL/CA de Indexer, scrape Prometheus y destino de provisioning Grafana. Además, el owner de identidad deberá confirmar claim de workload, permisos mínimos y rotación. No promover a `enabled` hasta cerrar esos puntos y ejecutar integración con Indexer real autorizado.

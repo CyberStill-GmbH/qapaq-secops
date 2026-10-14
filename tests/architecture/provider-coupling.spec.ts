@@ -188,7 +188,7 @@ describe('C-23 · conformidad del adapter real', () => {
 
   it('la guía de extensión documenta el procedimiento y las reglas verificadas', async () => {
     const guide = await readFile(
-      resolve(ROOT, 'docs/development/provider-extension-guide.md'),
+      resolve(ROOT, 'docs/reference/provider-extension-guide.md'),
       'utf8',
     );
 

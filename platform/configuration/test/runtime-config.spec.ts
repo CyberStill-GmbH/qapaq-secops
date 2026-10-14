@@ -9,6 +9,7 @@ import {
   loadControlPlaneSecretConfig,
   loadConfigurationAndStart,
   loadLocalWorkerConfig,
+  loadInjectedWorkerConfig,
   loadRuntimeConfig,
   loadWorkerConfig,
   parseSecretReference,
@@ -186,6 +187,39 @@ describe('profiles and structural validation', () => {
 });
 
 describe('secret references and resolution', () => {
+  it('materializa la referencia Redis que ECS inyecta sin dejarla serializable', () => {
+    const config = loadInjectedWorkerConfig({
+      QAPAQ_PROFILE: 'production',
+      QAPAQ_REDIS_HOST: 'valkey.example.test',
+      QAPAQ_REDIS_PORT: '6379',
+      QAPAQ_REDIS_TLS: 'true',
+      QAPAQ_REDIS_PASSWORD_REF: 'secret://aws-secretsmanager/qapaq/demo/valkey',
+      QAPAQ_REDIS_PASSWORD: 'synthetic-not-a-real-secret',
+    });
+    expect(config.redis).toMatchObject({
+      host: 'valkey.example.test',
+      port: 6379,
+      tls: true,
+    });
+    expect(config.redis.password?.value.toJSON()).toBe(REDACTED_VALUE);
+    expect(JSON.stringify(config)).not.toContain('synthetic-not-a-real-secret');
+  });
+
+  it('rechaza una referencia Redis inyectada sin valor materializado', () => {
+    expectConfigurationError(
+      () =>
+        loadInjectedWorkerConfig({
+          QAPAQ_PROFILE: 'production',
+          QAPAQ_REDIS_HOST: 'valkey.example.test',
+          QAPAQ_REDIS_PORT: '6379',
+          QAPAQ_REDIS_TLS: 'true',
+          QAPAQ_REDIS_PASSWORD_REF: 'secret://aws-secretsmanager/qapaq/demo/valkey',
+        }),
+      'CONFIG_REQUIRED_VALUE_MISSING',
+      'QAPAQ_REDIS_PASSWORD',
+    );
+  });
+
   it('accepts neutral references and rejects malformed or literal values', () => {
     expect(parseSecretReference('secret://namespace/name')).toBe('secret://namespace/name');
     for (const value of [

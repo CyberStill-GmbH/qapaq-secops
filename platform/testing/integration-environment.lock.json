@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedFrom": "docs/architecture/toolchain-and-capacity.md",
+  "generatedFrom": "docs/reference/toolchain-and-capacity.md",
   "note": "Los perfiles ejecutables usan referencias OCI por digest. MinIO usa un mirror público fijado por digest porque Quay rechaza pulls anónimos desde runners CI. OpenSearch y Wazuh siguen bloqueados hasta validar sus perfiles TLS y su topología oficial.",
   "postgres": {
     "image": "docker.io/library/postgres",

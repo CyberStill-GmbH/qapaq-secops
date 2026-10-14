@@ -21,6 +21,8 @@ export const KNOWN_QAPAQ_VARIABLES = new Set([
   'QAPAQ_REDIS_PORT',
   'QAPAQ_REDIS_USERNAME',
   'QAPAQ_REDIS_PASSWORD_REF',
+  // El orquestador inyecta el valor referenciado al iniciar la tarea; nunca se registra.
+  'QAPAQ_REDIS_PASSWORD',
   'QAPAQ_REDIS_DATABASE',
   'QAPAQ_REDIS_TLS',
   'QAPAQ_REDIS_CONNECTION_TIMEOUT',

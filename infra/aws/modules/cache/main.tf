@@ -28,21 +28,29 @@ resource "aws_secretsmanager_secret" "auth_token" {
     Name    = "${var.project}-${var.environment}-valkey-auth-token"
     Service = "valkey"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_secretsmanager_secret_version" "auth_token" {
   secret_id                = aws_secretsmanager_secret.auth_token.id
   secret_string_wo         = ephemeral.random_password.auth_token.result
   secret_string_wo_version = 1
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_elasticache_replication_group" "this" {
   replication_group_id       = "${var.project}-${var.environment}-valkey"
-  description                = "Single-node private Valkey cache and queue backend for the demo."
+  description                = "Multi-AZ private Valkey cache and recoverable BullMQ signal queue for the demo."
   engine                     = "valkey"
   engine_version             = var.engine_version
   node_type                  = var.node_type
-  num_cache_clusters         = 1
+  num_cache_clusters         = var.replica_count + 1
   parameter_group_name       = "default.valkey8"
   port                       = 6379
   subnet_group_name          = aws_elasticache_subnet_group.this.name
@@ -52,8 +60,8 @@ resource "aws_elasticache_replication_group" "this" {
   transit_encryption_mode    = "required"
   auth_token_wo              = ephemeral.random_password.auth_token.result
   auth_token_wo_version      = 1
-  automatic_failover_enabled = false
-  multi_az_enabled           = false
+  automatic_failover_enabled = true
+  multi_az_enabled           = true
   snapshot_retention_limit   = 0
   auto_minor_version_upgrade = true
   apply_immediately          = false
@@ -65,4 +73,8 @@ resource "aws_elasticache_replication_group" "this" {
   }
 
   depends_on = [aws_secretsmanager_secret_version.auth_token]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

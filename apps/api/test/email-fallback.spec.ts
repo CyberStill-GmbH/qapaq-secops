@@ -31,7 +31,7 @@ const NOTIFICATION = {
   reason: 'TEAMS_PERMANENT',
   at: new Date('2026-10-13T01:00:00.000Z'),
   recipients: RECIPIENTS,
-  link: 'https://app.jappi.net.pe/alerts/a-1',
+  link: 'https://qapaq-secops.jappi.net.pe/alerts/a-1',
 };
 
 function channel(status: number | 'throw') {
@@ -66,7 +66,7 @@ describe('respaldo por correo', () => {
       'analista@qapaq-lab.example',
       'lider@qapaq-lab.example',
     ]);
-    expect(message.body.content).toContain('https://app.jappi.net.pe/alerts/a-1');
+    expect(message.body.content).toContain('https://qapaq-secops.jappi.net.pe/alerts/a-1');
   });
 
   it.each([403, 'throw'] as const)(
@@ -116,7 +116,7 @@ describe('respaldo por correo', () => {
         audit: new InMemoryAuditStore(),
         clock: { now: () => new Date('2026-10-13T01:00:00.000Z') },
         ids: { next: () => '0190f47a-0000-7000-8000-0000000000ff' },
-        consoleBaseUrl: 'https://app.jappi.net.pe',
+        consoleBaseUrl: 'https://qapaq-secops.jappi.net.pe',
         recipients: { recipientsFor: async () => RECIPIENTS },
       },
       message,

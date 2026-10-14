@@ -6,13 +6,13 @@ on:
       - main
     paths:
       - "infra/aws/**"
-      - "infra/wazuh/access/**"
-      - "infra/wazuh/office365/**"
+      - "wazuh/access/**"
+      - "wazuh/office365/**"
       - ".github/workflows/terraform-demo.yml"
   workflow_dispatch:
     inputs:
       action:
-        description: Terraform operation to run
+        description: Terraform operation; DNS bootstrap is disabled for this rollout.
         type: choice
         required: true
         default: plan
@@ -20,10 +20,15 @@ on:
           - plan
           - apply
           - audit
-          - bootstrap-dns
+      entra_callback_registered:
+        description: Confirm the exact qapaq-secops.jappi.net.pe callback URI is registered in Entra before applying.
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
+  checks: read
   id-token: write
 
 concurrency:
@@ -33,7 +38,7 @@ concurrency:
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: infra/aws
@@ -51,6 +56,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -75,12 +82,8 @@ jobs:
       - name: Terraform Validate
         run: terraform validate -no-color
 
-      - name: Terraform Plan (DNS zone bootstrap)
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
-        run: terraform plan -target=aws_route53_zone.public_api[0] -var-file environments/demo.tfvars -input=false -no-color -out=tfplan
-
       - name: Terraform Plan
-        if: github.event_name != 'workflow_dispatch' || inputs.action != 'bootstrap-dns'
+        if: github.event_name != 'workflow_dispatch' || inputs.action != 'audit'
         shell: bash
         run: |
           set -euo pipefail
@@ -102,6 +105,86 @@ jobs:
           fi
           terraform plan "${plan_args[@]}"
 
+      - name: Reject unexpected destruction or secret rotation
+        if: github.event_name != 'workflow_dispatch' || inputs.action != 'audit'
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform show -json tfplan > "$RUNNER_TEMP/qapaq-tfplan.json"
+          TFPLAN_JSON="$RUNNER_TEMP/qapaq-tfplan.json" python3 - <<'PY'
+          import json, os, sys
+          with open(os.environ["TFPLAN_JSON"], encoding="utf-8") as stream:
+              plan = json.load(stream)
+          failures = []
+          for item in plan.get("resource_changes", []):
+              address = item.get("address", "unknown")
+              resource_type = item.get("type", "")
+              change = item.get("change", {})
+              actions = change.get("actions", [])
+              before = change.get("before") or {}
+              after = change.get("after") or {}
+              dashboard_host = "qapaq-secops.jappi.net.pe"
+              allowed_dashboard_dns = False
+              if resource_type == "aws_route53_record" and actions in (["create"], ["update"]):
+                  if address == "aws_route53_record.wazuh_dashboard[0]":
+                      allowed_dashboard_dns = (
+                          after.get("name", "").rstrip(".").lower() == dashboard_host
+                          and after.get("type") == "A"
+                      )
+                  elif address == "aws_route53_record.wazuh_dashboard_caa[0]":
+                      allowed_dashboard_dns = (
+                          after.get("name", "").rstrip(".").lower() == dashboard_host
+                          and after.get("type") == "CAA"
+                          and after.get("records") == ['0 issue "letsencrypt.org"']
+                      )
+              if resource_type.startswith("aws_route53_") and actions != ["no-op"] and not allowed_dashboard_dns:
+                  failures.append(f"unapproved DNS change: {address} {actions}")
+              if "delete" in actions:
+                  failures.append(f"unexpected destroy/replacement: {address} {actions}")
+              if resource_type == "aws_secretsmanager_secret_version" and actions != ["no-op"]:
+                  failures.append(f"secret version changes are blocked: {address} {actions}")
+              if resource_type == "aws_elasticache_replication_group":
+                  if before and before.get("auth_token_wo_version") != after.get("auth_token_wo_version"):
+                      failures.append(f"Valkey AUTH version change is blocked: {address}")
+          if failures:
+              print("::error::Terraform plan violates the DNS allowlist/no-destroy/no-secret-rotation gate.")
+              print("\n".join(failures))
+              sys.exit(1)
+          print("Plan gate passed: only the QAPAQ dashboard A/Let's Encrypt CAA may change; no other DNS, destroy, secret or Valkey AUTH changes.")
+          PY
+
+      - name: Wait for CI / required on this exact commit
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        env:
+          ACTIONS_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            checks=$(curl --fail --silent --show-error \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer ${ACTIONS_GITHUB_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100")
+            result=$(jq -r \
+              '[.check_runs[] | select(.name == "CI / required" and .app.slug == "github-actions")] | sort_by(.started_at // "") | last | [.status // "", .conclusion // ""] | @tsv' \
+              <<< "$checks")
+            status=${result%%$'\t'*}
+            conclusion=${result#*$'\t'}
+            if [[ "$status" == completed && "$conclusion" == success ]]; then
+              echo "CI / required passed for ${GITHUB_SHA}."
+              exit 0
+            fi
+            if [[ "$status" == completed ]]; then
+              echo "CI / required concluded '${conclusion}' for ${GITHUB_SHA}." >&2
+              exit 1
+            fi
+            echo "Waiting for CI / required on ${GITHUB_SHA} (attempt ${attempt}/90)."
+            sleep 10
+          done
+          echo "Timed out waiting for CI / required on ${GITHUB_SHA}." >&2
+          exit 1
+
 
       - name: Verify existing Entra secret without changing it
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
@@ -114,8 +197,56 @@ jobs:
             exit 1
           fi
 
+      - name: Require Entra callback registration confirmation
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        env:
+          ENTRA_CALLBACK_REGISTERED: ${{ inputs.entra_callback_registered }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$ENTRA_CALLBACK_REGISTERED" != "true" ]]; then
+            echo '::error::Register https://qapaq-secops.jappi.net.pe/qapaq-api/api/auth/callback in Entra, then dispatch apply with the confirmation enabled.'
+            exit 1
+          fi
+
+      - name: Require runtime images built from current source
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest_commit="$(sed -n 's/^runtime_image_manifest_commit = "\([0-9a-f]\{40\}\)"$/\1/p' environments/demo.tfvars)"
+          if [[ ! "$manifest_commit" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$manifest_commit" "$GITHUB_SHA"; then
+            echo '::error::The configured image manifest commit must be a full ancestor of this main commit.'
+            exit 1
+          fi
+          if ! git diff --quiet "$manifest_commit" "$GITHUB_SHA" -- \
+            apps/api apps/worker modules platform packages scripts package.json pnpm-lock.yaml pnpm-workspace.yaml \
+            .github/ci/verify-container-images.sh; then
+            echo '::error::API/worker/runtime source changed after the configured image manifest. Publish images from the final source and update demo.tfvars before apply.'
+            exit 1
+          fi
+          echo "Runtime source is unchanged since verified image commit ${manifest_commit}."
+
+      - name: Verify configured image digests exist in ECR
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for service in api worker krakend; do
+            digest="$(sed -n "/^  ${service} = /s/.*\\(sha256:[0-9a-f]\{64\}\\).*/\\1/p" environments/demo.tfvars)"
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::Missing immutable ${service} digest in environments/demo.tfvars."
+              exit 1
+            fi
+            aws ecr describe-images \
+              --repository-name "qapaq-secops-${service}" \
+              --image-ids "imageDigest=${digest}" \
+              --query 'imageDetails[0].imageDigest' --output text >/dev/null
+          done
+          echo 'All configured runtime image digests exist in ECR.'
+
       - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve -no-color tfplan
 
 
@@ -163,9 +294,9 @@ jobs:
           fi
           # ECS injects Secrets Manager values at task startup; refresh the API after sync.
           aws ecs update-service --cluster qapaq-secops-demo --service qapaq-secops-demo-api --force-new-deployment --query 'service.serviceName' --output text
-          aws ecs wait services-stable --cluster qapaq-secops-demo --services qapaq-secops-demo-api qapaq-secops-demo-krakend
+          aws ecs wait services-stable --cluster qapaq-secops-demo --services qapaq-secops-demo-api qapaq-secops-demo-krakend qapaq-secops-demo-worker
           curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://api.jappi.net.pe/api/health/ready -o /dev/null
-          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://app.jappi.net.pe/api/health/ready -o /dev/null
+          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://qapaq-secops.jappi.net.pe/qapaq-api/api/health/ready -o /dev/null
 
       - name: Verify browser sign-in redirect
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
@@ -178,15 +309,48 @@ jobs:
                   return None
           opener = urllib.request.build_opener(NoRedirect)
           try:
-              response = opener.open("https://app.jappi.net.pe/api/auth/start", timeout=20)
+              response = opener.open("https://qapaq-secops.jappi.net.pe/qapaq-api/api/auth/start", timeout=20)
           except urllib.error.HTTPError as error:
               response = error
           target = urllib.parse.urlsplit(response.headers.get("Location", ""))
           assert response.code == 302, f"Expected login redirect, received HTTP {response.code}"
           assert target.scheme == "https" and target.hostname == "login.microsoftonline.com", "Invalid identity-provider redirect"
-          assert response.headers.get("Set-Cookie"), "Missing browser OIDC binding cookie"
-          print("Browser sign-in: Microsoft redirect and binding cookie verified")
+          authorize = urllib.parse.parse_qs(target.query)
+          expected_callback = "https://qapaq-secops.jappi.net.pe/qapaq-api/api/auth/callback"
+          assert authorize.get("redirect_uri") == [expected_callback], "Unexpected Entra callback URI"
+          cookies = response.headers.get_all("Set-Cookie", [])
+          assert any("Path=/qapaq-api/api/auth/callback" in cookie for cookie in cookies), "OIDC cookie path does not match the public callback"
+          print("Browser sign-in: Microsoft redirect, exact callback URI, and browser cookie path verified")
           PY
+
+      - name: Verify public endpoints return HTTP 200
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          wait_for_http_200() {
+            local label="$1" url="$2" http_status="" attempt
+            for attempt in $(seq 1 6); do
+              http_status="$(curl --location --max-redirs 5 --silent --show-error \
+                --output /dev/null --write-out '%{http_code}' --max-time 15 "$url" || true)"
+              if [[ "$http_status" == "200" ]]; then
+                echo "$label: HTTP 200 (attempt $attempt)"
+                return 0
+              fi
+              echo "$label: HTTP ${http_status:-000} (attempt $attempt/6)"
+              sleep 5
+            done
+            echo "::error::$label did not return HTTP 200; last status: ${http_status:-000}."
+            return 1
+          }
+
+          dashboard_url="$(terraform output -raw wazuh_dashboard_url)"
+          api_url="$(terraform output -raw public_api_url)"
+          dashboard_url="${dashboard_url%/}"
+          wait_for_http_200 "QAPAQ Dashboard" "$dashboard_url/"
+          wait_for_http_200 "QAPAQ API readiness" "$api_url/api/health/ready"
+          wait_for_http_200 "Same-origin QAPAQ API readiness" \
+            "https://qapaq-secops.jappi.net.pe/qapaq-api/api/health/ready"
 
       - name: Show public deployment URLs
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
@@ -197,56 +361,13 @@ jobs:
           api_url="$(terraform output -raw public_api_url)"
           echo "Wazuh Dashboard: $dashboard_url"
           echo "QAPAQ API URL: $api_url"
-          echo "Wazuh admin secret ARN: $(terraform output -raw wazuh_dashboard_admin_secret_arn)"
-
-          echo 'Waiting for Wazuh HTTPS bootstrap to finish...'
-          ready=false
-          for attempt in $(seq 1 80); do
-            if curl --fail --silent --max-time 15 "$dashboard_url" -o /dev/null; then
-              ready=true
-              echo "Wazuh Dashboard HTTPS: ready (attempt $attempt)"
-              break
-            fi
-            if (( attempt % 4 == 0 )); then
-              echo "Still waiting for Wazuh bootstrap ($attempt/80 checks)."
-            fi
-            sleep 15
-          done
-
-          if [ "$ready" != true ]; then
-            echo '::error::Wazuh Dashboard did not become reachable over HTTPS within 20 minutes.'
-            curl --fail --show-error --max-time 15 "$dashboard_url" -o /dev/null || true
-            exit 1
-          fi
-
-      - name: Show DNS delegation details
-        if: github.event_name == 'workflow_dispatch' && inputs.action == 'bootstrap-dns'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo '## Route 53 name servers for qapaq.secops.com'
-          terraform output -json public_route53_zone_name_servers
-          echo '## Parent secops.com zone in this AWS account (if managed here)'
-          parent_zone_id="$(aws route53 list-hosted-zones-by-name \
-            --dns-name secops.com. \
-            --query "HostedZones[?Name == 'secops.com.'] | [0].Id" \
-            --output text)"
-          if [ "$parent_zone_id" = "None" ] || [ -z "$parent_zone_id" ]; then
-            echo 'No public secops.com parent zone is visible to the deployment role; delegate the child NS at the domain DNS provider.'
-          else
-            echo "Parent hosted zone: $parent_zone_id"
-            aws route53 list-resource-record-sets \
-              --hosted-zone-id "$parent_zone_id" \
-              --query "ResourceRecordSets[?Name == 'qapaq.secops.com.' && Type == 'NS']" \
-              --output json
-          fi
 
       - name: Audit Phase 2B resources and remote state
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'audit'
         shell: bash
         run: |
           set -euo pipefail
-          echo '## Terraform state addresses'
+          echo '## Terraform state addresses (read only)'
           terraform state list
 
           echo '## Existing ECR repositories'

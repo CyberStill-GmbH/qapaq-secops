@@ -1,0 +1,27 @@
+# Fragmento para opensearch-security/roles_mapping.yml.
+# backend_roles = valores de x-proxy-roles, que son los app roles de Entra resueltos por QAPAQ.
+# Dar o quitar el rol en Entra (o en QAPAQ, ver docs/04) cambia el acceso al dashboard sin tocarlo.
+_meta:
+  type: 'rolesmapping'
+  config_version: 2
+
+all_access:
+  reserved: false
+  backend_roles: ['qapaq.platform.admin']
+  users: ['admin'] # break-glass, solo por SSM port-forward
+
+qapaq_soc_lead:
+  backend_roles: ['qapaq.soc.lead']
+
+qapaq_soc_analyst:
+  backend_roles: ['qapaq.soc.analyst']
+
+qapaq_auditor:
+  backend_roles: ['qapaq.auditor']
+
+# Todo usuario autenticado necesita leer la configuración del dashboard.
+kibana_user:
+  backend_roles: ['qapaq.soc.analyst', 'qapaq.soc.lead', 'qapaq.auditor', 'qapaq.platform.admin']
+
+qapaq_reader_role:
+  users: ['qapaq_reader']

@@ -19,6 +19,7 @@ export {
   loadVapidPrivateKey,
   loadSocPersistenceConfig,
   loadLocalWorkerConfig,
+  loadInjectedWorkerConfig,
   loadRuntimeConfig,
   loadWorkerConfig,
   loadWorkerEntrypointConfig,

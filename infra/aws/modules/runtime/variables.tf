@@ -115,7 +115,7 @@ variable "health_check_grace_period_seconds" {
 }
 
 variable "api_extra_secrets" {
-  description = "Secretos adicionales del API (nombre de variable y ARN). Cada uno debe tener valor: ECS no arranca sin él."
+  description = "Secretos adicionales compartidos por API y worker (nombre de variable y ARN). ECS no arranca sin valor."
   type = list(object({
     name      = string
     valueFrom = string
@@ -128,7 +128,7 @@ variable "wazuh_ingestion" {
     Sprint 5 · fase 0 — ingesta Wazuh → SOC. Null = sin ingesta (el API arranca con
     QAPAQ_INGESTION_SOURCE=disabled y KrakenD no publica /wazuh/*). Activarlo agrega a KrakenD
     service discovery privado, lo que reemplaza su servicio ECS una vez (ventana breve sin
-    gateway); ver docs/deployment/wazuh-ingestion-rollout.md.
+    gateway); ver docs/03-evaluacion-de-componentes.md.
   EOT
   type = object({
     indexer_url         = string

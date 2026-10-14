@@ -135,6 +135,7 @@ HOOK
 chmod 700 /etc/letsencrypt/renewal-hooks/deploy/20-reload-nginx
 nginx -t
 systemctl reload nginx
-systemctl enable --now snap.certbot.renew.timer || true
+systemctl enable --now snap.certbot.renew.timer
+systemctl is-active --quiet snap.certbot.renew.timer
 sed -i 's/^deb /#deb /' /etc/apt/sources.list.d/wazuh.list || true
 echo "Wazuh ${wazuh_version} bootstrap complete at https://$$PUBLIC_IP/"

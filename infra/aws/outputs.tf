@@ -78,20 +78,8 @@ output "postgres_master_secret_arn" {
   value       = module.database.master_secret_arn
 }
 
-output "valkey_primary_endpoint" {
-  description = "Private Valkey primary hostname; use TLS and AUTH."
-  value       = module.cache.primary_endpoint
-}
 
-output "valkey_port" {
-  description = "Valkey port."
-  value       = module.cache.port
-}
 
-output "valkey_auth_secret_arn" {
-  description = "Secrets Manager ARN for the Valkey AUTH token."
-  value       = module.cache.auth_secret_arn
-}
 
 output "private_endpoint_ids" {
   description = "Private interface endpoint IDs for ECR, Secrets Manager, and CloudWatch Logs."
@@ -127,6 +115,11 @@ output "wazuh_dashboard_admin_secret_arn" {
 output "runtime_private_api_hostname" {
   description = "Private Cloud Map hostname for API, consumed by KrakenD after the image contract is updated."
   value       = module.runtime.private_api_hostname
+}
+
+output "qapaq_edge_api_origin" {
+  description = "Origen privado de la API para el edge unificado (QAPAQ_API de wazuh/edge/apply-edge.sh)."
+  value       = "http://${module.runtime.private_api_hostname}:${var.api_port}"
 }
 
 output "runtime_nat_gateway_id" {

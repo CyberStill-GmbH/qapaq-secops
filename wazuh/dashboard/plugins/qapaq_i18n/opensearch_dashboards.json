@@ -1,0 +1,10 @@
+{
+  "id": "qapaqI18n",
+  "version": "2.19.6",
+  "opensearchDashboardsVersion": "2.19.6",
+  "configPath": ["qapaq_i18n"],
+  "server": true,
+  "ui": true,
+  "requiredPlugins": [],
+  "optionalPlugins": []
+}

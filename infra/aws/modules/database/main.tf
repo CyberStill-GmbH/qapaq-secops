@@ -65,6 +65,8 @@ resource "aws_db_instance" "this" {
   }
 
   lifecycle {
+    prevent_destroy = true
+
     precondition {
       condition     = var.skip_final_snapshot || (var.final_snapshot_identifier != null && var.final_snapshot_identifier != "")
       error_message = "Set postgres_final_snapshot_identifier when postgres_skip_final_snapshot is false."

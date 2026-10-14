@@ -15,8 +15,19 @@ module.exports = {
     {
       name: 'no-cross-app-imports',
       severity: 'error',
-      from: { path: '^apps/([^/]+)/' },
+      // Only the worker composition root may consume the API's explicitly exported
+      // notification-drain facade. The companion rule below keeps that exception exact.
+      from: { path: '^apps/([^/]+)/', pathNot: '^apps/worker/src/composition-root\\.ts$' },
       to: { path: '^apps/', pathNot: '^apps/$1/' },
+    },
+    {
+      name: 'worker-api-facade-only',
+      severity: 'error',
+      from: { path: '^apps/worker/src/composition-root\\.ts$' },
+      to: {
+        path: '^apps/([^/]+)/',
+        pathNot: '^apps/worker/|^apps/api/(src|dist)/worker\\.(ts|js|d\\.ts)$',
+      },
     },
     {
       name: 'no-packages-to-apps',

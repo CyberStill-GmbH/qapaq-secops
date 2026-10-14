@@ -6,7 +6,7 @@ it('starts without polling, emits readiness once, and closes idempotently', asyn
   const emit = vi.fn();
   const timer = vi.spyOn(globalThis, 'setInterval');
   const timeout = vi.spyOn(globalThis, 'setTimeout');
-  const worker = buildWorker({ QAPAQ_PROFILE: 'test' }, emit);
+  const worker = new WorkerRuntime(emit);
   try {
     expect(worker.ready).toBe(false);
     worker.start();
@@ -19,7 +19,7 @@ it('starts without polling, emits readiness once, and closes idempotently', asyn
     expect(worker.stop()).toBe(first);
     await first;
     expect(worker.state).toBe('stopped');
-    expect(emit.mock.calls.flat()).toEqual(['starting', 'ready', 'draining', 'stopped']);
+    expect(emit.mock.calls.flat()).toEqual(['ready', 'draining', 'stopped']);
   } finally {
     timer.mockRestore();
     timeout.mockRestore();
@@ -46,8 +46,29 @@ it('rejects new work while draining and waits for admitted work', async () => {
   expect(worker.state).toBe('stopped');
 });
 
+it('stops admission, waits for the BullMQ consumer, then closes shared resources', async () => {
+  const order: string[] = [];
+  const worker = new WorkerRuntime(() => {}, 100, {
+    start: () => order.push('start'),
+    stop: async () => {
+      order.push('stop');
+    },
+    close: async () => {
+      order.push('close');
+    },
+  });
+  worker.start();
+  await worker.stop();
+  expect(order).toEqual(['start', 'stop', 'close']);
+});
+
 it.each(['timeout', 'error'])('fails closed on drain %s', async (kind) => {
-  const worker = new WorkerRuntime(() => {}, 10);
+  const resources = {
+    start: () => undefined,
+    stop: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
+  };
+  const worker = new WorkerRuntime(() => {}, 10, resources);
   worker.start();
   let reject!: (error: Error) => void;
   const task = worker.run(
@@ -63,12 +84,13 @@ it.each(['timeout', 'error'])('fails closed on drain %s', async (kind) => {
   if (kind === 'error') reject(new Error('synthetic-error'));
   await assertion;
   expect(worker.state).toBe('failed');
+  expect(resources.close).toHaveBeenCalledOnce();
   if (kind === 'timeout') reject(new Error('release-test-task'));
   await caughtTask;
 });
 
-it('invalid configuration prevents readiness', () => {
+it('invalid configuration prevents readiness', async () => {
   const emit = vi.fn();
-  expect(() => buildWorker({}, emit)).toThrow();
+  await expect(buildWorker({}, emit)).rejects.toThrow();
   expect(emit).not.toHaveBeenCalled();
 });

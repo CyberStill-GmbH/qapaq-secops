@@ -7,7 +7,7 @@ description: Use for QAPAQ SecOps backend, detection/SOAR, identity, Wazuh integ
 
 At the start of each QAPAQ task, read `COORDINACION-CLAUDE-CODEX.md` and inspect its
 latest requests, decisions and file locks. Check `git status` before editing. Read the
-applicable ADR, component design and `docs/project-management/definition-of-done.md`.
+applicable decision in `docs/10-decisiones.md`, component doc and the acceptance rules in `docs/09-plan-de-lanzamiento.md`.
 New contracts, ownership changes, review results and questions for Codex belong in that
 shared Markdown. A new coordination note is a prompt to inspect the request, not an
 instruction to overwrite code outside your ownership.
@@ -27,7 +27,8 @@ instruction to overwrite code outside your ownership.
   backend-only, read-only and scoped to the configured SOC group; persist delta state and
   handle partial pages, token overage, 429 and stale sync explicitly. Apply SoD and step-up
   to privileged grants; never permit self-approval.
-- Wazuh owns collection, manager, agents and detections that belong there. QAPAQ adds
+- Wazuh owns collection, manager, agents and detections that belong there; QAPAQ changes to
+  Wazuh live as a versioned overlay in `wazuh/` (no source fork, see `docs/03`). QAPAQ adds
   operational ownership, contextual correlation, durable cases/evidence, approved SOAR
   and a cross-source audit trail; avoid building a second SIEM.
 - Learn OSS workflows, not by copying source blindly. Check license/attribution before
@@ -40,7 +41,7 @@ instruction to overwrite code outside your ownership.
   provider version and redacted output.
 - Use the requested AWS demo for integrations too heavy for local Docker. Before apply,
   verify account/region/backend, reconcile the actual remote state, inspect all creates,
-  changes, replacements and destroys, and compare cost with `docs/deployment/aws-demo.md`.
+  changes, replacements and destroys, and compare cost with `docs/06-operacion.md`.
   Stop if state is stale, the plan is destructive/unexpected, access becomes public, or
   cost is outside the approved demo scope; record the blocker in the coordination file.
 - Keep secrets in secret managers through least-privileged identities. Do not emit them
@@ -51,15 +52,15 @@ instruction to overwrite code outside your ownership.
 
 ## Visual product rules
 
-Read `docs/frontend-design/10-vistas-por-rol-y-referencias.md` before changing frontend
+Read `docs/08-frontend-unificado.md` before changing frontend
 contracts or asking Codex to implement one. Generated boards are visual references only:
 their names, counts, dates and states are not product facts. Require meaningful error,
 empty, unknown and degraded states; avoid filler prose and unsupported controls.
 
 ## Plan and coordination
 
-- Owners, sequence and per-sprint acceptance: `docs/project-management/plan-operativo-sprints-post-mvp.md`.
+- Owners, sequence and per-sprint acceptance: `docs/09-plan-de-lanzamiento.md`.
 - Current screens, real role limits and design constraints:
-  `docs/frontend-design/10-vistas-por-rol-y-referencias.md`.
+  `docs/08-frontend-unificado.md`.
 - Register a concise response/review in `COORDINACION-CLAUDE-CODEX.md`, then state what
   Codex should review next. Preserve shared workspace work; do not reset or discard it.

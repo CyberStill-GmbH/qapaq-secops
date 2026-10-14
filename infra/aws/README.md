@@ -3,12 +3,34 @@
 **Contexto histórico:** las fases 1, 2B y 2C documentadas aquí pasaron sus gates; ese snapshot
 ya no describe por sí solo el state actual. Terraform Demo #50 aplicó parcialmente RDS, Valkey,
 ALB, NAT, EC2 Wazuh y servicios ECS antes de fallar. Antes de cualquier apply, reconciliar los
-recursos AWS y el state conforme a
-[`terraform-apply-recovery.md`](../../docs/deployment/terraform-apply-recovery.md). La migración
-posterior de producto está en
-[`qapaq-wazuh-terraform-rollout.md`](../../docs/deployment/qapaq-wazuh-terraform-rollout.md).
+recursos AWS y el state conforme a la secuencia vigente en
+[`qapaq-wazuh-terraform-rollout.md`](../../docs/reference/qapaq-wazuh-terraform-rollout.md).
 
-## Arquitectura de esta fase
+## Candidato vigente de migración
+
+La rama unificada conserva API, PostgreSQL, KrakenD y Wazuh; añade Valkey Multi-AZ y el worker
+BullMQ, y configura el Dashboard para `qapaq-secops.jappi.net.pe`. El DNS existente debe permanecer
+protegido: el workflow permite solo crear/actualizar el A del Dashboard QAPAQ y su CAA de
+`letsencrypt.org`; bloquea cualquier cambio de hosted zones, delegaciones, API y demás registros.
+Los registros de `wazuh.jappi.net.pe`, `app` y `codexpt` se conservan durante este rollout. Si el
+state de Terraform no conoce un registro ya existente, el plan se detiene para reconciliarlo sin
+alterar otros hosts. Let's Encrypt gestiona el TLS del Dashboard con renovación automática; ACM
+gestiona el listener TLS del ALB/API. `apps/web` se elimina del repositorio, pero el API TypeScript
+y sus reglas de negocio siguen activos.
+
+El plan protege RDS, Valkey y su AUTH version contra destrucciones accidentales. Si Valkey o su
+secreto ya existen fuera del state, importarlos y reconciliar la versión actual antes de aplicar;
+no dejar que Terraform cree otra clave sobre recursos existentes. La acción manual `apply` requiere
+CI verde, confirmación de la URI de Entra y digests ECR del código revisado. Consultar la secuencia
+de [`rollout`](../../docs/reference/qapaq-wazuh-terraform-rollout.md) antes de usar esta configuración.
+
+El resto de este archivo conserva evidencia y arquitectura de fases anteriores. Las referencias
+históricas a un worker inactivo, Valkey de un nodo o servicios aún no desplegados no describen el
+candidato vigente ni demuestran el state actual de AWS.
+
+## Arquitectura histórica de fases 1, 2B y 2C
+
+La siguiente descripción corresponde a fases previas y no sustituye al candidato vigente anterior.
 
 - Una VPC `10.0.0.0/16` en dos AZ.
 - Dos subnets públicas para la futura entrada ALB/gateway.
@@ -136,10 +158,9 @@ sin desplegar workloads de aplicación:
   acciones de administración ECR, S3 ni lectura de secretos. No se crea
   rol de tareas ni permisos runtime.
 
-El Worker sigue siendo solo un proceso de ciclo de vida en espera: BullMQ e
-ioredis están en dependencias, pero no existe consumidor ni conexión Redis. La
-publicación de sus imágenes no implementa procesamiento asíncrono ni hace
-desplegables API/Worker por sí sola.
+En el snapshot de publicación de Fase 2C, el Worker era solo un proceso de ciclo de vida en
+espera: no existían consumidor BullMQ ni conexión Redis. Esa descripción quedó obsoleta cuando
+se reincorporaron Valkey/BullMQ en el candidato vigente de migración.
 
 ### Costo estimado y delta de recursos
 
@@ -189,14 +210,14 @@ subnets no asignan IP pública automáticamente. El SG público con HTTP pertene
 la futura entrada ALB, que aún no se crea. Wazuh Dashboard permanece cerrado hasta
 aprobar una CIDR/VPN administrativa.
 
-Pendiente para desplegar aplicación: endpoints o egress explícito; permiso de
+En el snapshot de Fase 2B seguía pendiente desplegar la aplicación: endpoints o egress explícito; permiso de
 egress HTTPS del Wazuh Manager para Microsoft 365; elección de HTTPS/certificado;
 reglas del Dashboard y acceso administrativo. API y Worker compilan, pasan sus
 smoke tests y arrancan como UID no root en contenedores locales, pero **no se
-consideran desplegables ni DONE**: no hay despliegue ECS,
-la API no tiene readiness real de dependencias y el Worker permanece en espera
-inactiva sin consumidor BullMQ. Más detalles en
-[`docs/deployment/aws-demo.md`](../../docs/deployment/aws-demo.md).
+consideraban desplegables ni DONE**: no había despliegue ECS,
+la API no tenía readiness real de dependencias y el Worker permanecía en espera
+sin consumidor BullMQ. Esa nota precede al runtime de esta rama. Más detalles en
+[`docs/06-operacion.md`](../../docs/06-operacion.md).
 
 ## Fase 2C — publicación verificada en ECR
 
@@ -239,8 +260,8 @@ La publicación manual [Publish verified images #8](https://github.com/CyberStil
 pasó todos los gates y publicó las tres imágenes de `5ea083bd6dccf12580d00b43ee66d1086c0e06ea`.
 Trivy HIGH/CRITICAL dio código de salida 0 para API, Worker y KrakenD. El artifact
 `image-manifest-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` expira el 5 de noviembre de 2026.
-El worker sigue siendo una imagen que inicia correctamente pero permanece en
-espera; todavía no consume BullMQ.
+En el artefacto histórico de `5ea083b`, el worker iniciaba y quedaba en espera;
+ese digest no contiene el consumidor BullMQ de esta rama.
 
 | Imagen  | URI ECR                                                             | Tag                                            | Digest                                                                    |
 | ------- | ------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
@@ -270,26 +291,22 @@ región y timestamp UTC. El artifact se conserva por 30 días.
 Las URLs siguen los nombres declarados por Terraform:
 `<cuenta>.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-{api,worker,krakend}`.
 No se publica `latest`. ECR escanea cada push y conserva los 20 tags `git-*` más
-recientes. El futuro ECS debe referenciar las imágenes por digest. Esta fase no
-despliega ECS, ALB, RDS, Redis/Valkey ni Wazuh. El Worker sigue arrancando como
-proceso de ciclo de vida sin consumir BullMQ; publicar su imagen no significa que
-el procesamiento asíncrono esté implementado.
+recientes. El futuro ECS debe referenciar las imágenes por digest. Esa descripción de Fase 2C
+es histórica; el candidato vigente define ECS Worker, Valkey Multi-AZ y BullMQ.
 
 ## Destrucción
 
 `terraform destroy` no debe ejecutarse hasta confirmar que el estado contiene
 únicamente recursos de demo. El bucket de state, provider OIDC y role IAM están
-fuera del stack. La Fase 3 (aún sin apply) configura PostgreSQL con final snapshot
-omitido y Valkey sin snapshots para facilitar teardown breve; esto implica perder
-los datos de prueba. Para conservarlos, habilitar deletion protection y final
-snapshot de PostgreSQL, exportar/verificar la información necesaria y luego
-retirar la protección de forma controlada.
+fuera del stack. La configuración vigente protege RDS contra borrado, requiere snapshot final
+y aplica `prevent_destroy`; Valkey es reconstruible y no conserva snapshots. Un cambio de
+destrucción requiere un plan separado, aprobación del dueño y verificación de respaldo.
 
 ## Fase 3 — base de datos y egress privado (aplicación reportada; state pendiente de re-auditar)
 
-El diseño y Terraform de esta fase añaden RDS PostgreSQL 18.6 Single-AZ
+El diseño histórico de esta fase añadió RDS PostgreSQL 18.6 Single-AZ
 (`db.t4g.micro`, gp3 cifrado de 20 GiB, `rds.force_ssl=1`, backup de 1 día,
-secreto master administrado por RDS), ElastiCache Valkey 8.0 con un nodo
+secreto master administrado por RDS), ElastiCache Valkey 8.0 inicialmente con un nodo
 `cache.t4g.micro` (TLS obligatorio, AUTH y cifrado en reposo), y conectividad
 privada de runtime. La versión PostgreSQL coincide exactamente con Compose
 (`postgres:18.6`) y ADR-016. La autenticación de Valkey usa un password temporal
@@ -305,8 +322,8 @@ pero todavía hay que demostrar validación de CA/hostname en su driver. Valkey 
 consume por endpoint privado `rediss://`, con AUTH desde su ARN de Secrets
 Manager; su compatibilidad real con la versión de ioredis/BullMQ del repositorio
 requiere smoke de conexión tras apply. No hay snapshots de Valkey porque se trata
-de cache/cola reconstruible; su caída única deja el servicio sin cache/cola hasta
-recuperación. PostgreSQL master sirve para bootstrap, no para usuario ordinario de
+de caché/cola reconstruible; el candidato vigente configura réplica Multi-AZ y failover automático.
+PostgreSQL master sirve para bootstrap, no para usuario ordinario de
 API: crear un principal de aplicación de permisos mínimos y su secreto runtime
 antes de ejecutar la API.
 
@@ -334,10 +351,10 @@ El plan remoto [Terraform Demo #14](https://github.com/CyberStill-GmbH/qapaq-sec
 
 El plan de Fase 4 [Terraform Demo #18](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37418417341) quedó verde en fmt/validate/plan y propuso 44 adiciones: las 19 de Fase 3 más 25 de runtime. [CI / required #228](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/37418417347) también terminó verde, incluyendo Trivy, contenedores, contratos KrakenD, calidad y CodeQL. No se ejecutó apply. Aunque el usuario confirmó que la Fase 3 se aplicó, el plan remoto propone de nuevo sus 19 recursos; reconcilia el estado real de AWS y Terraform antes de desplegar para evitar duplicados.
 
-Fase 3 no habilita por sí sola el runtime: la API todavía no tiene persistencia
-PostgreSQL/S3 ni readiness de dependencias; Worker no consume BullMQ; la
-integración real de datos/TLS/Valkey necesita smoke desde la aplicación; Wazuh
-requiere salida aprobada hacia Microsoft 365. El usuario confirmó que Fase 3 se
+En el snapshot del plan de Fase 4, Fase 3 no habilitaba por sí sola el runtime: la API todavía no tenía persistencia
+PostgreSQL/S3 ni readiness de dependencias; Worker no consumía BullMQ; la
+integración real de datos/TLS/Valkey requería smoke desde la aplicación; Wazuh
+requería salida aprobada hacia Microsoft 365. El usuario confirmó que Fase 3 se
 aplicó después del plan #14, pero el state actual debe comprobarse con el nuevo
 plan remoto de Fase 4. Esta fase no crea ECS, ALB, Wazuh, Grafana, Prometheus,
 Loki ni runtime OpenTelemetry.

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import re
 import unittest
@@ -64,6 +65,93 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("name: CI / required", workflow)
         self.assertIn("if: always()", workflow)
         self.assertIn("jobs[name]['result'] != 'success'", workflow)
+
+    def test_terraform_is_validated_without_backend_or_aws_access(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        terraform_job = workflow.split("  terraform:\n", 1)[1].split("\n  pnpm-audit:\n", 1)[0]
+        gate_job = workflow.split("  gate:\n", 1)[1]
+
+        self.assertIn("terraform fmt -check -recursive", terraform_job)
+        self.assertIn("terraform init -backend=false", terraform_job)
+        self.assertIn("-lockfile=readonly", terraform_job)
+        self.assertIn("terraform validate -no-color", terraform_job)
+        self.assertNotIn("configure-aws-credentials", terraform_job)
+        self.assertNotIn("id-token: write", workflow)
+        self.assertIn("terraform", gate_job.split("required = [", 1)[1].split("]", 1)[0])
+
+    def test_container_manifest_has_a_matching_build(self):
+        manifest_path = Path(__file__).parents[1] / "ci" / "containers.json"
+        script_path = Path(__file__).parents[1] / "ci" / "verify-container-images.sh"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        script = script_path.read_text(encoding="utf-8")
+
+        for image in manifest:
+            dockerfile = re.escape(image["dockerfile"])
+            context = re.escape(image["context"])
+            with self.subTest(dockerfile=image["dockerfile"]):
+                self.assertRegex(
+                    script,
+                    rf"(?m)^docker build --file {dockerfile} --tag qapaq-ci:\S+ {context}$",
+                )
+
+    def test_terraform_audit_skips_plan_and_mutating_steps(self):
+        workflow = (WORKFLOWS / "terraform-demo.yml").read_text(encoding="utf-8")
+
+        def step_body(name):
+            match = re.search(
+                rf"(?ms)^      - name: {re.escape(name)}\n(.*?)(?=^      - name:|\Z)",
+                workflow,
+            )
+            self.assertIsNotNone(match, name)
+            return match.group(1)
+
+        plan_step = step_body("Terraform Plan")
+        gate_step = step_body("Reject unexpected destruction or secret rotation")
+        apply_step = step_body("Terraform Apply")
+
+        self.assertNotIn("bootstrap-dns", workflow)
+        self.assertIn("inputs.action != 'audit'", plan_step)
+        self.assertIn("inputs.action != 'audit'", gate_step)
+        self.assertIn("inputs.action == 'apply'", apply_step)
+        self.assertIn("inputs.action == 'audit'", workflow)
+
+    def test_apply_requires_http_200_for_dashboard_and_api(self):
+        workflow = (WORKFLOWS / "terraform-demo.yml").read_text(encoding="utf-8")
+        step = re.search(
+            r"(?ms)^      - name: Verify public endpoints return HTTP 200\n(.*?)(?=^      - name:|\Z)",
+            workflow,
+        )
+        self.assertIsNotNone(step)
+        body = step.group(1)
+
+        self.assertIn("inputs.action == 'apply'", body)
+        self.assertIn("--write-out '%{http_code}'", body)
+        self.assertIn('[[ "$http_status" == "200" ]]', body)
+        self.assertIn("https://qapaq-secops.jappi.net.pe/qapaq-api/api/health/ready", body)
+        self.assertIn('return 1', body)
+
+    def test_dashboard_certificate_uses_lets_encrypt_and_automatic_renewal(self):
+        repository = Path(__file__).resolve().parents[2]
+        dns_config = (repository / "infra" / "aws" / "wazuh_dashboard_dns.tf").read_text(
+            encoding="utf-8"
+        )
+        domain_script = (
+            repository / "infra" / "aws" / "scripts" / "configure-wazuh-domain.sh"
+        ).read_text(encoding="utf-8")
+        bootstrap = (
+            repository / "infra" / "aws" / "modules" / "wazuh_public" / "bootstrap.sh.tftpl"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('records = ["0 issue \\"letsencrypt.org\\""]', dns_config)
+        self.assertIn('-d "$dashboard_hostname"', domain_script)
+        self.assertIn("--keep-until-expiring", domain_script)
+        self.assertIn("systemctl enable --now snap.certbot.renew.timer", bootstrap)
+        self.assertIn("systemctl is-active --quiet snap.certbot.renew.timer", bootstrap)
+        self.assertNotIn("snap.certbot.renew.timer || true", bootstrap)
+        self.assertIn("systemctl is-active --quiet snap.certbot.renew.timer", domain_script)
+        self.assertIn('certbot certificates --cert-name "$certificate_name"', domain_script)
+        self.assertIn("/etc/letsencrypt/renewal-hooks/deploy/20-reload-nginx", bootstrap)
+        self.assertIn("systemctl reload nginx", bootstrap)
 
     def test_policy_rejects_unpinned_action_reference(self):
         fixture = "      - uses: actions/checkout@v4 # v4\n"

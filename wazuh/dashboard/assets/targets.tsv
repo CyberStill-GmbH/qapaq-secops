@@ -1,0 +1,49 @@
+# Copia de activos QAPAQ sobre los árboles upstream (la consume build.sh).
+# Columnas (TAB): origen relativo a assets/ · repo (dashboard|plugins) · destino relativo a la raíz del repo.
+# Se SOBRESCRIBEN ficheros de marca conservando su nombre (cero cambios de código) y se AÑADE
+# src/core/server/core_app/assets/qapaq/ (servido en /ui/qapaq/, público en el edge).
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_on_dark.svg
+svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_on_light.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_mark.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_mark_on_dark.svg
+svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_mark_on_light.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_center_mark.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_center_mark_on_dark.svg
+svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_center_mark_on_light.svg
+svg/qapaq_wordmark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_dashboards.svg
+svg/qapaq_wordmark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_dashboards_on_dark.svg
+svg/qapaq_wordmark_on_light.svg	dashboard	src/core/server/core_app/assets/logos/wazuh_dashboards_on_light.svg
+svg/qapaq_spinner_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/spinner.svg
+svg/qapaq_spinner_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/spinner_on_dark.svg
+svg/qapaq_spinner_on_light.svg	dashboard	src/core/server/core_app/assets/logos/spinner_on_light.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/logos/icon_dark.svg
+svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/logos/icon_light.svg
+svg/qapaq_wordmark_on_dark.svg	dashboard	src/core/server/core_app/assets/wazuh_logo.svg
+svg/qapaq_login_bg.svg	dashboard	src/core/server/core_app/assets/wazuh_login_bg.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/default_branding/opensearch_mark_dark_mode.svg
+svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/default_branding/opensearch_mark_default_mode.svg
+favicons/android-chrome-192x192.png	dashboard	src/core/server/core_app/assets/favicons/android-chrome-192x192.png
+favicons/android-chrome-512x512.png	dashboard	src/core/server/core_app/assets/favicons/android-chrome-512x512.png
+favicons/apple-touch-icon.png	dashboard	src/core/server/core_app/assets/favicons/apple-touch-icon.png
+favicons/browserconfig.xml	dashboard	src/core/server/core_app/assets/favicons/browserconfig.xml
+favicons/favicon-16x16.png	dashboard	src/core/server/core_app/assets/favicons/favicon-16x16.png
+favicons/favicon-32x32.png	dashboard	src/core/server/core_app/assets/favicons/favicon-32x32.png
+favicons/favicon.ico	dashboard	src/core/server/core_app/assets/favicons/favicon.ico
+favicons/manifest.json	dashboard	src/core/server/core_app/assets/favicons/manifest.json
+favicons/mstile-144x144.png	dashboard	src/core/server/core_app/assets/favicons/mstile-144x144.png
+favicons/mstile-150x150.png	dashboard	src/core/server/core_app/assets/favicons/mstile-150x150.png
+favicons/mstile-310x150.png	dashboard	src/core/server/core_app/assets/favicons/mstile-310x150.png
+favicons/mstile-310x310.png	dashboard	src/core/server/core_app/assets/favicons/mstile-310x310.png
+favicons/mstile-70x70.png	dashboard	src/core/server/core_app/assets/favicons/mstile-70x70.png
+svg/qapaq_safari_pinned_tab.svg	dashboard	src/core/server/core_app/assets/favicons/safari-pinned-tab.svg
+svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq_mark_on_dark.svg
+svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq_mark_on_light.svg
+svg/qapaq_wordmark_on_dark.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq_wordmark_on_dark.svg
+images/qapaq_analyst.webp	dashboard	src/core/server/core_app/assets/qapaq/qapaq_analyst.webp
+images/qapaq_q_mask.png	dashboard	src/core/server/core_app/assets/qapaq/qapaq_q_mask.png
+svg/qapaq_wordmark_on_dark.svg	plugins	plugins/main/public/assets/images/themes/dark/logo.svg
+svg/qapaq_wordmark_on_light.svg	plugins	plugins/main/public/assets/images/themes/light/logo.svg
+svg/qapaq_mark_on_dark.svg	plugins	plugins/main/public/assets/images/themes/dark/icon.svg
+svg/qapaq_mark_on_light.svg	plugins	plugins/main/public/assets/images/themes/light/icon.svg
+wazuh-app/logo_reports.png	plugins	plugins/main/public/assets/images/logo_reports.png

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { toPublicSecretError } from '../src/control-plane/secret-public-errors.js';
 import type { SecretControlPlaneErrorCode } from '../src/control-plane/secret-lifecycle.types.js';
 
-const CATALOG = new URL('../../../docs/error-catalog.md', import.meta.url);
+const CATALOG = new URL('../../../docs/reference/error-catalog.md', import.meta.url);
 const TYPES = new URL('../src/control-plane/secret-lifecycle.types.ts', import.meta.url);
 
 /** Códigos internos declarados por el control plane, leídos de la fuente. */
@@ -37,7 +37,7 @@ describe('C-24 mapeo al catálogo público de errores', () => {
     }
   });
 
-  it('solo usa códigos y helpRef que existen en docs/error-catalog.md', async () => {
+  it('solo usa códigos y helpRef que existen en docs/reference/error-catalog.md', async () => {
     const [codes, catalog] = await Promise.all([internalCodes(), publishedCatalog()]);
     expect(catalog.size).toBeGreaterThan(10);
     for (const code of codes) {
