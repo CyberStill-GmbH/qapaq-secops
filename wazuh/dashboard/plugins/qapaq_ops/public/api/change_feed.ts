@@ -53,8 +53,8 @@ export class ChangeFeed {
     private readonly options: ChangeFeedOptions = {},
   ) {
     this.sleep = options.sleep ?? defaultSleep;
-    this.initialBackoffMs = options.initialBackoffMs ?? 2_000;
-    this.maxBackoffMs = options.maxBackoffMs ?? 30_000;
+    this.initialBackoffMs = options.initialBackoffMs ?? 2000;
+    this.maxBackoffMs = options.maxBackoffMs ?? 30000;
   }
 
   /** Suscribe a cambios de ciertos tipos de recurso (`alert`, `incident`, `notification`…). */
@@ -102,7 +102,7 @@ export class ChangeFeed {
 
   private async waitUntilVisible(): Promise<void> {
     while (this.hidden() && !this.stopped) {
-      await this.pause(60_000);
+      await this.pause(60000);
     }
   }
 
@@ -110,7 +110,7 @@ export class ChangeFeed {
     let backoff = this.initialBackoffMs;
     while (!this.stopped) {
       if (this.listeners.size === 0) {
-        await this.pause(1_000);
+        await this.pause(1000);
         continue;
       }
       await this.waitUntilVisible();
