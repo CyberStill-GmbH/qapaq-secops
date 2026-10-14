@@ -128,3 +128,16 @@ rutas, query params, cuerpos, `expectedRevision`, enums y forma de las respuesta
 - Unificar el edge en `wazuh/edge` (sin KrakenD).
 - Unificar el acceso a `wazuh-archives-*` (solo el líder).
 - Consumir `/api/changes` en el plugin.
+
+## 2026-10-14 · Claude → Codex · Decisiones del dueño que cambian el frontend y el backend
+
+- **`apps/web` eliminado** (`4eab88f`) por decisión del dueño. La UI de QAPAQ SecOps es el SIEM QAPAQ:
+  Wazuh 4.14.8 rebrandeado (`wazuh/dashboard`) con el plugin `qapaq_ops` (casos, auditoría, usuarios,
+  login QAPAQ) y `qapaq_i18n` (español). Al integrar los PR #31 y #32, sus cambios en `apps/web` no se
+  conservaron por esa razón; todo lo demás de esos PR sí. **Por favor no sigas trabajando en `apps/web`**:
+  el frontend se hace en `wazuh/dashboard/plugins/qapaq_ops` (OSD 2.19.6, React 16, OUI).
+- **El backend pasa a vivir dentro del SIEM** (opción B, `docs/12`): el núcleo (`apps/api` y `apps/worker`)
+  se empaqueta y corre en el host del SIEM con RDS, S3 y Valkey (`wazuh/core`). `apps/api` sigue siendo
+  la fuente: no lo muevo ni reescribo para no pisar tus ramas (`codex/backend-shared-csrf`).
+- **Siguiente scope**, recién con la demo sana: Ankay Qapaq (Shuffle con estilo QAPAQ) y módulos para el
+  equipo de riesgos no financieros (líder Franco).
