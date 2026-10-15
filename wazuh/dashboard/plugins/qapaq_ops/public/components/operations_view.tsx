@@ -80,7 +80,7 @@ export function OperationsView({ embedded = false }: { embedded?: boolean }) {
 function OperationsContent({ embedded }: { embedded: boolean }) {
   const { api } = useConsole();
   const health = useAsync(() => api.get<OperationsHealth>('/operations/health'), [api]);
-  useChanges(['source', 'notification'], () => health.reload(), 2_000);
+  useChanges(['source', 'notification'], () => health.reload(), 2000);
 
   const data = health.data;
   const Frame = embedded ? QapaqSection : QapaqPage;
