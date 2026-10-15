@@ -31,7 +31,7 @@ id qapaq-core >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/
 curl -fsS --max-time 600 -o "$work/core.tar.gz" "$QAPAQ_CORE_URL"
 echo "${QAPAQ_CORE_SHA256}  $work/core.tar.gz" | sha256sum -c - >/dev/null || fail 'checksum del release no coincide'
 mkdir -p "$BASE/releases"
-top="$(tar -tzf "$work/core.tar.gz" | head -1 | cut -d/ -f1)"
+top="$(tar -tzf "$work/core.tar.gz" | sed -n '1{s,/.*,,;p;}')"
 [[ "$top" =~ ^qapaq-core-[0-9a-f]{12}$ ]] || fail "release con estructura inesperada ($top)"
 release="$BASE/releases/${top#qapaq-core-}"
 if [[ ! -d "$release" ]]; then
