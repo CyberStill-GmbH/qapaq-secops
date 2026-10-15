@@ -7,8 +7,9 @@
 #      el bloque xff de config.qapaq.yml; conserva el resto (basic interno, kibana, etc.) y lo
 #      sube con securityadmin -t config.
 #   3. roles: crea o actualiza por REST cada rol de roles.qapaq.yml (no toca los demás roles).
-#   4. rolesmapping: UNE (no reemplaza) backend_roles/users/hosts de roles_mapping.qapaq.yml con
-#      los mapeos existentes, para no perder al dueño ni a qapaq_reader de wazuh/access.
+#   4. rolesmapping: fusiona backend_roles/users/hosts QAPAQ con el backup vivo y carga el YAML
+#      completo con securityadmin. Esto conserva todos los mapeos y permite actualizar recursos
+#      reservados como all_access, que la REST API rechaza.
 #   5. Autoprueba: admin por basic sigue entrando y el proxy auth desde 127.0.0.1 resuelve
 #      qapaq.soc.analyst. Si algo falla, restaura el backup y sale con error.
 #
@@ -63,16 +64,15 @@ secadmin -f "$_qapaq_work/config.yml" -t config || { restore; fail 'subida de co
 info 'config: dominio de proxy auth activo (solo desde 127.0.0.1)'
 
 # 3 y 4 · roles y mapeos por REST
-python3 - "$here/roles.qapaq.yml" "$here/roles_mapping.qapaq.yml" "$_qapaq_work" <<'PY'
+python3 - "$here/roles.qapaq.yml" "$_qapaq_work" <<'PY'
 import json, sys, yaml
-roles_path, mapping_path, work = sys.argv[1:4]
-for kind, path in (('roles', roles_path), ('rolesmapping', mapping_path)):
-    doc = yaml.safe_load(open(path, encoding='utf-8'))
-    for name, body in doc.items():
-        if name == '_meta':
-            continue
-        body = {k: v for k, v in body.items() if k not in ('reserved', 'hidden', 'static')}
-        json.dump(body, open(f'{work}/{kind}__{name}.json', 'w', encoding='utf-8'))
+roles_path, work = sys.argv[1:3]
+doc = yaml.safe_load(open(roles_path, encoding='utf-8'))
+for name, body in doc.items():
+    if name == '_meta':
+        continue
+    body = {k: v for k, v in body.items() if k not in ('reserved', 'hidden', 'static')}
+    json.dump(body, open(f'{work}/roles__{name}.json', 'w', encoding='utf-8'))
 PY
 for file in "$_qapaq_work"/roles__*.json; do
   name="$(basename "$file" .json)"; name="${name#roles__}"
@@ -80,19 +80,36 @@ for file in "$_qapaq_work"/roles__*.json; do
   [[ "$INDEXER_STATUS" =~ ^20[01]$ ]] || { restore; fail "rol $name → HTTP $INDEXER_STATUS"; }
 done
 info 'roles QAPAQ aplicados'
-for file in "$_qapaq_work"/rolesmapping__*.json; do
-  name="$(basename "$file" .json)"; name="${name#rolesmapping__}"
-  indexer GET "/_plugins/_security/api/rolesmapping/$name"
-  current='{}'
-  [[ "$INDEXER_STATUS" == 200 ]] && current="$(jq -c --arg n "$name" '.[$n] // {}' "$INDEXER_BODY")"
-  jq -n --argjson cur "$current" --slurpfile ours "$file" '
-    def u(k): (($cur[k] // []) + ($ours[0][k] // [])) | unique;
-    {backend_roles: u("backend_roles"), users: u("users"), hosts: u("hosts")}
-    + (if $ours[0].description then {description: $ours[0].description} else {} end)' >"$_qapaq_work/merged.json"
-  indexer PUT "/_plugins/_security/api/rolesmapping/$name" "$_qapaq_work/merged.json"
-  [[ "$INDEXER_STATUS" =~ ^20[01]$ ]] || { restore; fail "mapeo $name → HTTP $INDEXER_STATUS"; }
-done
-info 'mapeos unidos a los existentes'
+[[ -s "$backup/roles_mapping.yml" ]] || { restore; fail 'backup sin roles_mapping.yml'; }
+python3 - "$backup/roles_mapping.yml" "$here/roles_mapping.qapaq.yml" "$_qapaq_work/roles_mapping.yml" <<'PY'
+import sys, yaml
+live_path, ours_path, out_path = sys.argv[1:4]
+live = yaml.safe_load(open(live_path, encoding='utf-8')) or {}
+ours = yaml.safe_load(open(ours_path, encoding='utf-8')) or {}
+if not isinstance(live, dict) or not isinstance(ours, dict):
+    raise SystemExit('roles_mapping.yml debe contener un objeto YAML')
+live.setdefault('_meta', ours.get('_meta', {}))
+for name, incoming in ours.items():
+    if name == '_meta':
+        continue
+    if not isinstance(incoming, dict):
+        raise SystemExit(f'mapeo QAPAQ inválido: {name}')
+    current = live.setdefault(name, {})
+    if not isinstance(current, dict):
+        raise SystemExit(f'mapeo vivo inválido: {name}')
+    # Conserva flags y campos propios del mapeo vivo, incluidos reserved/hidden.
+    for key in ('backend_roles', 'users', 'hosts'):
+        before = current.get(key, []) or []
+        add = incoming.get(key, []) or []
+        if not isinstance(before, list) or not isinstance(add, list):
+            raise SystemExit(f'{name}.{key} debe ser una lista')
+        current[key] = sorted(set(before + add))
+    if incoming.get('description'):
+        current['description'] = incoming['description']
+yaml.safe_dump(live, open(out_path, 'w', encoding='utf-8'), sort_keys=False)
+PY
+secadmin -f "$_qapaq_work/roles_mapping.yml" -t rolesmapping || { restore; fail 'subida de rolesmapping fusionados falló'; }
+info 'mapeos QAPAQ unidos al backup vivo con securityadmin'
 
 # 5 · autoprueba
 indexer GET /_plugins/_security/authinfo
