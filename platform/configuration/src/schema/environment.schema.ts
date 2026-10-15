@@ -5,6 +5,7 @@ import type { ConfigurationProfile } from '../profiles/index.js';
 
 export const KNOWN_QAPAQ_VARIABLES = new Set([
   'QAPAQ_PROFILE',
+  'QAPAQ_PROCESS_ROLE',
   'QAPAQ_API_HOST',
   'QAPAQ_API_PORT',
   'QAPAQ_POSTGRES_HOST',

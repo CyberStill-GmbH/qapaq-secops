@@ -151,16 +151,17 @@ describe('profiles and structural validation', () => {
     );
   });
 
-  it.each(['QAPAQ_DEMO_MFA_EXCEPTION_UNTIL', 'QAPAQ_ADMIN_GROUP_IDS', 'QAPAQ_REDIS_PASSWORD'])(
-    'acepta la variable de admisión del demo %s en la allowlist',
-    (name) => {
-      // Regresión: una variable del runtime ausente de la allowlist hace crashear la tarea con
-      // CONFIG_VALUE_INVALID y ECS revierte, dejando el despliegue sin efecto.
-      expect(loadApiConfig({ QAPAQ_PROFILE: 'test', [name]: 'x' })).toMatchObject({
-        profile: 'test',
-      });
-    },
-  );
+  it.each([
+    'QAPAQ_DEMO_MFA_EXCEPTION_UNTIL',
+    'QAPAQ_ADMIN_GROUP_IDS',
+    'QAPAQ_REDIS_PASSWORD',
+    'QAPAQ_PROCESS_ROLE',
+  ])('acepta variables legítimas inyectadas por el runtime %s en la allowlist', (name) => {
+    // Una variable legítima del runtime fuera de la allowlist causa CONFIG_VALUE_INVALID.
+    expect(loadApiConfig({ QAPAQ_PROFILE: 'test', [name]: 'x' })).toMatchObject({
+      profile: 'test',
+    });
+  });
 
   it.each([
     'QAPAQ_WAZUH_INDEXER_URL',
