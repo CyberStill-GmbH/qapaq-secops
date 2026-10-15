@@ -3,7 +3,8 @@
  */
 
 import type { PluginConfigDescriptor, PluginInitializerContext } from '../../../src/core/server';
-import { configSchema, ConfigSchema } from '../config';
+import { configSchema } from './config';
+import type { ConfigSchema } from './config';
 import { QapaqOpsServerPlugin } from './plugin';
 
 export const config: PluginConfigDescriptor<ConfigSchema> = {
