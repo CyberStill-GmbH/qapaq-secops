@@ -48,8 +48,11 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 # 1 · plugin del fork
-"$PLUGIN_BIN" list --allow-root 2>/dev/null | grep -qi 'qapaq' ||
+plugin_list="$("$PLUGIN_BIN" list --allow-root 2>/dev/null)" ||
+  fail 'no se pudo listar los plugins del dashboard'
+if ! grep -qi 'qapaq' <<<"$plugin_list"; then
   fail 'el dashboard no tiene el plugin qapaq_ops (instalar antes el build del fork qapaq_ops-dashboard)'
+fi
 
 # 2 · API por la red privada
 code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "$QAPAQ_API/api/auth/introspect" || true)"
