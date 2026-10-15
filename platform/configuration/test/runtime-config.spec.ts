@@ -151,11 +151,7 @@ describe('profiles and structural validation', () => {
     );
   });
 
-  it.each([
-    'QAPAQ_DEMO_MFA_EXCEPTION_UNTIL',
-    'QAPAQ_ADMIN_GROUP_IDS',
-    'QAPAQ_REDIS_PASSWORD',
-  ])(
+  it.each(['QAPAQ_DEMO_MFA_EXCEPTION_UNTIL', 'QAPAQ_ADMIN_GROUP_IDS', 'QAPAQ_REDIS_PASSWORD'])(
     'acepta la variable de admisión del demo %s en la allowlist',
     (name) => {
       // Regresión: una variable del runtime ausente de la allowlist hace crashear la tarea con
