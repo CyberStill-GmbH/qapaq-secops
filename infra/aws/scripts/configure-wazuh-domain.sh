@@ -3,35 +3,54 @@ set -Eeuo pipefail
 
 dashboard_hostname="${1:?dashboard hostname required}"
 expected_ip="${2:?Elastic IP required}"
+legacy_hostname="${3:-}"
+redirect_hostname="${4:-}"
 [[ "$dashboard_hostname" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]]
 [[ "$expected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+if [[ -n "$legacy_hostname" ]]; then
+  [[ "$legacy_hostname" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]]
+  [[ "$legacy_hostname" != "$dashboard_hostname" ]]
+fi
+if [[ -n "$redirect_hostname" ]]; then
+  [[ "$redirect_hostname" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]]
+  [[ "$redirect_hostname" != "$dashboard_hostname" && "$redirect_hostname" != "$legacy_hostname" ]]
+fi
 
 command -v certbot >/dev/null
-# Si el edge unificado de QAPAQ ya gestiona nginx y el certificado (wazuh/edge/apply-edge.sh), este
-# script no hace nada: ni certbot (reemitiría sin los hostnames extra) ni nginx (borraría el login QAPAQ).
-if grep -qs 'QAPAQ edge' /etc/nginx/conf.d/qapaq-wazuh-dashboard.conf; then
-  echo 'Edge QAPAQ activo: configure-wazuh-domain no modifica nginx ni el certificado.'
-  exit 0
-fi
 nginx -t
 mkdir -p /var/www/certbot/.well-known/acme-challenge
 
 dns_ready=false
 for attempt in $(seq 1 180); do
   if getent ahostsv4 "$dashboard_hostname" | awk '{print $1}' | grep -Fxq "$expected_ip"; then
-    dns_ready=true
-    break
+    if { [[ -z "$legacy_hostname" ]] || getent ahostsv4 "$legacy_hostname" | awk '{print $1}' | grep -Fxq "$expected_ip"; } \
+      && { [[ -z "$redirect_hostname" ]] || getent ahostsv4 "$redirect_hostname" | awk '{print $1}' | grep -Fxq "$expected_ip"; }; then
+      dns_ready=true
+      break
+    fi
   fi
   sleep 5
 done
 if [[ "$dns_ready" != true ]]; then
-  echo 'Dashboard DNS has not resolved to the managed Elastic IP.' >&2
+  echo 'Dashboard, rollback, and branded redirect DNS have not resolved to the managed Elastic IP.' >&2
   exit 1
 fi
 
+domains=(-d "$dashboard_hostname")
+if [[ -n "$legacy_hostname" ]]; then domains+=(-d "$legacy_hostname"); fi
+if [[ -n "$redirect_hostname" ]]; then domains+=(-d "$redirect_hostname"); fi
 certbot certonly --non-interactive --agree-tos --register-unsafely-without-email \
-  --webroot --webroot-path /var/www/certbot \
-  --cert-name qapaq-wazuh-dashboard --keep-until-expiring -d "$dashboard_hostname"
+  --webroot --webroot-path /var/www/certbot --expand \
+  --cert-name qapaq-wazuh-dashboard --keep-until-expiring "${domains[@]}"
+
+# Un edge QAPAQ ya desplegado conserva su configuración y solo recarga el certificado
+# expandido. No lo reemplazamos con el proxy simple de bootstrap.
+if grep -qs 'QAPAQ edge' /etc/nginx/conf.d/qapaq-wazuh-dashboard.conf; then
+  nginx -t
+  systemctl reload nginx
+  echo 'Edge QAPAQ activo: certificado ampliado y Nginx recargado sin cambiar la configuración.'
+  exit 0
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -49,7 +68,7 @@ cat >"$work/next" <<NGINX
 log_format qapaq_wazuh_domain '\$remote_addr \$request_method \$uri \$server_protocol \$status';
 server {
   listen 443 ssl;
-  server_name $dashboard_hostname;
+  server_name $dashboard_hostname ${legacy_hostname:-} ${redirect_hostname:-};
   ssl_certificate /etc/letsencrypt/live/qapaq-wazuh-dashboard/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/qapaq-wazuh-dashboard/privkey.pem;
   ssl_protocols TLSv1.2 TLSv1.3;

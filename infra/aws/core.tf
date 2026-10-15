@@ -49,7 +49,7 @@ resource "aws_vpc_security_group_egress_rule" "wazuh_core_out" {
   for_each                     = local.core_targets
   security_group_id            = module.security.security_group_ids.wazuh
   referenced_security_group_id = each.value.sg
-  description                  = "Núcleo QAPAQ en el SIEM hacia ${each.key}."
+  description                  = "QAPAQ core to SIEM dependency ${each.key}"
   from_port                    = each.value.port
   ip_protocol                  = "tcp"
   to_port                      = each.value.port
@@ -59,7 +59,7 @@ resource "aws_vpc_security_group_ingress_rule" "core_in_from_wazuh" {
   for_each                     = local.core_targets
   security_group_id            = each.value.sg
   referenced_security_group_id = module.security.security_group_ids.wazuh
-  description                  = "${each.key} desde el núcleo QAPAQ en el SIEM."
+  description                  = "${each.key} access from QAPAQ core"
   from_port                    = each.value.port
   ip_protocol                  = "tcp"
   to_port                      = each.value.port

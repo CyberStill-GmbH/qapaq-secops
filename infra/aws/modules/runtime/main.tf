@@ -146,13 +146,13 @@ locals {
       essential         = true
       cpu               = 256
       memoryReservation = 448
-      # El worker consume las colas (notifications, ingestion, directory-sync) con el mismo dominio
-      # que la API: misma configuración y secretos, sin escuchar HTTP.
-      environment = concat(
-        [for key, value in local.api_environment : { name = key, value = value }],
-        [{ name = "QAPAQ_PROCESS_ROLE", value = "worker" }],
-      )
-      secrets = local.api_secrets
+      # C-02: este entrypoint solo valida el perfil y permanece inactivo; no consume BullMQ.
+      # Evitar inyectar variables QAPAQ_* que su allowlist rechaza y secretos que no usa.
+      environment = [
+        { name = "NODE_ENV", value = "production" },
+        { name = "QAPAQ_PROFILE", value = "production" },
+      ]
+      secrets = []
       logConfiguration = {
         logDriver = "awslogs"
         options = {
