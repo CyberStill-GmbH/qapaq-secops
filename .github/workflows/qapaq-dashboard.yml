@@ -24,6 +24,10 @@ on:
       - "packages/**"
       - "pnpm-lock.yaml"
       - ".github/workflows/qapaq-dashboard.yml"
+  pull_request:
+    paths:
+      - "wazuh/dashboard/**"
+      - ".github/workflows/qapaq-dashboard.yml"
   workflow_dispatch:
     inputs:
       step:
@@ -35,7 +39,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: qapaq-siem
@@ -71,11 +74,34 @@ jobs:
           grep -qE '^(wazuh/core/|apps/|modules/|platform/|packages/|pnpm-lock\.yaml)' <<<"$files" \
             && echo core=true >>"$GITHUB_OUTPUT" || echo core=false >>"$GITHUB_OUTPUT"
 
+  validate-dashboard:
+    needs: [changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.dashboard == 'true'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build QAPAQ SIEM dashboard package without AWS credentials
+        run: bash wazuh/dashboard/build.sh "$RUNNER_TEMP/out"
+      - name: Verify dashboard package
+        working-directory: ${{ runner.temp }}/out
+        run: |
+          set -euo pipefail
+          count="$(find . -maxdepth 1 -name '*.deb' | wc -l)"
+          [[ "$count" == 1 ]] || { echo "Se esperaba 1 .deb y hay $count" >&2; exit 1; }
+          sha256sum -c SHA256SUMS
+          dpkg-deb --field ./*.deb Package Version
+
   build-dashboard:
     needs: [changes]
     if: >-
       needs.changes.outputs.dashboard == 'true' &&
       (github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all')
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -109,6 +135,9 @@ jobs:
     if: >-
       needs.changes.outputs.core == 'true' &&
       (github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all' || inputs.step == 'core')
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -137,6 +166,9 @@ jobs:
     if: >-
       always() && github.event_name == 'workflow_dispatch' && inputs.step != 'build' &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

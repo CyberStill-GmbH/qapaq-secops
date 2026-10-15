@@ -116,12 +116,15 @@ ensure_node() {
     tar -xJf "$WORK/$file" -C "$WORK/node" --strip-components=1
     export PATH="$WORK/node/bin:$PATH"
   fi
-  if [ "$(yarn --version 2>/dev/null || true)" != "$YARN_VERSION" ]; then
+  local yarn_bin="$WORK/yarn/bin/yarn"
+  if [ ! -x "$yarn_bin" ] || [ "$("$yarn_bin" --version 2>/dev/null || true)" != "$YARN_VERSION" ]; then
     log "Instalando Yarn $YARN_VERSION"
     npm install --global --silent --prefix "$WORK/yarn" "yarn@$YARN_VERSION"
-    export PATH="$WORK/yarn/bin:$PATH"
   fi
-  yarn config set network-timeout 1000000 >/dev/null
+  [ -x "$yarn_bin" ] || die "no se instaló Yarn $YARN_VERSION en $WORK/yarn/bin"
+  [ "$("$yarn_bin" --version)" = "$YARN_VERSION" ] || die "la versión instalada de Yarn no es $YARN_VERSION"
+  export PATH="$WORK/yarn/bin:$WORK/node/bin:$PATH"
+  hash -r
   log "node $(node --version) · yarn $(yarn --version)"
 }
 
@@ -153,6 +156,11 @@ copy_assets plugins "$PLUGINS_SRC"
 
 ensure_node
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=8192}"
+
+(
+  cd "$OSD"
+  yarn config set network-timeout 1000000 >/dev/null
+)
 
 log "yarn osd bootstrap (OSD $OSD_VERSION)"
 (cd "$OSD" && yarn osd bootstrap)

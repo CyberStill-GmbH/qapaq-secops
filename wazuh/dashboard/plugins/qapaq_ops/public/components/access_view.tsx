@@ -103,7 +103,7 @@ function UsersPanel() {
     [api],
   );
   const [selected, setSelected] = useState<string | null>(null);
-  useChanges(['session'], () => users.reload(), 1_000);
+  useChanges(['session'], () => users.reload(), 1000);
   if (users.error) return <ErrorCallout error={users.error} onRetry={users.reload} />;
 
   const columns: Array<EuiBasicTableColumn<DirectoryUser>> = [
@@ -341,7 +341,7 @@ function SessionsPanel() {
       setCursor(sessions.data.nextCursor);
     }
   }, [sessions.data]);
-  useChanges(['session'], () => sessions.reload(), 1_000);
+  useChanges(['session'], () => sessions.reload(), 1000);
 
   const loadMore = async () => {
     if (!cursor) return;

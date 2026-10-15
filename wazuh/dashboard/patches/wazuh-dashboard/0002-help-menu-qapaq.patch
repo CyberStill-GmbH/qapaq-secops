@@ -17,10 +17,19 @@ index c9c0d8b..c9739e8 100644
  
  /** @public */
  export type ChromeHelpExtensionMenuGitHubLink = EuiButtonEmptyProps & {
-@@ -208,70 +208,31 @@ class HeaderHelpMenuUI extends Component<Props, State> {
+@@ -200,11 +200,9 @@ class HeaderHelpMenuUI extends Component<Props, State> {
+   public render() {
+     const {
+       intl,
+       opensearchDashboardsVersion,
+       useDefaultContent,
+-      surveyLink,
+       useUpdatedAppearance,
+-      darkmode,
      } = this.props;
      const { helpExtension } = this.state;
  
+@@ -211,67 +209,28 @@ class HeaderHelpMenuUI extends Component<Props, State> {
 +    // QAPAQ: la ayuda lleva a las vistas propias de QAPAQ SecOps en lugar de a la
 +    // documentación y comunidad de Wazuh; incluye la atribución de licencias (NOTICE).
      const defaultContent = useDefaultContent ? (
