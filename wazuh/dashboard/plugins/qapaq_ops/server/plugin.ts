@@ -12,7 +12,7 @@ import type {
   Plugin,
   PluginInitializerContext,
 } from '../../../src/core/server';
-import type { ConfigSchema } from '../config';
+import type { ConfigSchema } from './config';
 import { LEGACY_LOGIN_PATHS, LOGIN_PATH, LOGOUT_PATH } from '../common';
 import {
   loginContentSecurityPolicy,
