@@ -27,10 +27,14 @@ work="$(mktemp -d)"; link_tmp=''; trap 'rm -rf "$work"; [[ -z "$link_tmp" ]] || 
 # 1 · usuario
 id qapaq-core >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin qapaq-core
 
+# The API and worker run as qapaq-core, so every parent directory in their
+# WorkingDirectory path must be traversable by that group. Repair existing
+# directories too; install -d applies the requested owner/mode when they exist.
+install -d -m 0750 -o root -g qapaq-core "$BASE" "$BASE/releases"
+
 # 2 · release verificado
 curl -fsS --max-time 600 -o "$work/core.tar.gz" "$QAPAQ_CORE_URL"
 echo "${QAPAQ_CORE_SHA256}  $work/core.tar.gz" | sha256sum -c - >/dev/null || fail 'checksum del release no coincide'
-mkdir -p "$BASE/releases"
 top="$(tar -tzf "$work/core.tar.gz" | sed -n '1{s,/.*,,;p;}')"
 [[ "$top" =~ ^qapaq-core-[0-9a-f]{12}$ ]] || fail "release con estructura inesperada ($top)"
 release="$BASE/releases/${top#qapaq-core-}"
