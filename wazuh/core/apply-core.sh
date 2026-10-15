@@ -22,7 +22,7 @@ command -v aws >/dev/null || fail 'falta aws cli en el host'
 command -v jq >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq jq >/dev/null
 
 BASE=/opt/qapaq-core
-work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
+work="$(mktemp -d)"; link_tmp=''; trap 'rm -rf "$work"; [[ -z "$link_tmp" ]] || rm -f -- "$link_tmp"' EXIT
 
 # 1 · usuario
 id qapaq-core >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin qapaq-core
@@ -70,7 +70,15 @@ info "core.env renderizado ($(wc -l </etc/qapaq-core/core.env) variables; valore
 previous="$(readlink -f "$BASE/current" 2>/dev/null || true)"
 install -m 0644 "$release"/systemd/qapaq-core-*.service /etc/systemd/system/
 systemctl daemon-reload
-ln -sfn "$release" "$BASE/current.new" && mv -T "$BASE/current.new" "$BASE/current"
+link_tmp="$BASE/.current-${release##*/}.$$"
+ln -s "$release" "$link_tmp"
+# A failed earlier activation can leave `current` self-referential. readlink -f then
+# returns empty; remove only that invalid symlink so the verified release can take over.
+if [[ -L "$BASE/current" && -z "$previous" ]]; then rm -f -- "$BASE/current"; fi
+mv -Tf "$link_tmp" "$BASE/current"
+link_tmp=''
+active="$(readlink -f "$BASE/current" 2>/dev/null || true)"
+[[ "$active" == "$release" ]] || fail 'el enlace current no apunta al release verificado'
 systemctl enable --quiet qapaq-core-api qapaq-core-worker
 systemctl restart qapaq-core-api
 ready=false
