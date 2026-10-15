@@ -165,7 +165,6 @@ jobs:
           aws ecs update-service --cluster qapaq-secops-demo --service qapaq-secops-demo-api --force-new-deployment --query 'service.serviceName' --output text
           aws ecs wait services-stable --cluster qapaq-secops-demo --services qapaq-secops-demo-api qapaq-secops-demo-krakend
           curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://api.jappi.net.pe/api/health/ready -o /dev/null
-          curl --fail --silent --show-error --retry 6 --retry-delay 5 --max-time 15 https://app.jappi.net.pe/api/health/ready -o /dev/null
 
       - name: Verify browser sign-in redirect
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'

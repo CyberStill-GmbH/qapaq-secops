@@ -242,7 +242,9 @@ jobs:
           fi
           REMOTE
           )"
-          payload="$(jq -cn --arg command "$remote_script" '{commands: [$command]}')"
+          # AWS-RunShellScript invokes commands with /bin/sh; run the payload in Bash because
+          # it uses pipefail, arrays, and Bash-specific arithmetic in the deployment scripts.
+          payload="$(jq -cn --arg command "$remote_script" '{commands: ["bash -c " + ($command | @sh)]}')"
           (( $(LC_ALL=C printf '%s' "$payload" | wc -c) <= 24000 )) || { echo 'Payload SSM > 24000 bytes' >&2; exit 1; }
           command_id="$(aws ssm send-command --instance-ids "$instance_id" --document-name AWS-RunShellScript \
             --comment "QAPAQ SIEM: ${STEP}" --timeout-seconds 3000 --parameters "$payload" \
