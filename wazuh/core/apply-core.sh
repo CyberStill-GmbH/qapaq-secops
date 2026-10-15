@@ -8,7 +8,7 @@
 #      entorno (generado por Terraform) y los secretos de Secrets Manager por el rol de la instancia.
 #      Los valores no se imprimen, y NO se crea ni rota ningún secreto: solo se leen.
 #   4. Cambia /opt/qapaq-core/current con un enlace atómico, reinicia la API y espera
-#      /health/ready. Si falla, vuelve al release anterior. Después reinicia el worker.
+#      /health/ready y que el worker quede activo. Si falla, vuelve al release anterior.
 #
 # Variables: QAPAQ_CORE_URL, QAPAQ_CORE_SHA256, QAPAQ_CORE_ENV_PARAM (p. ej.
 #            /qapaq-secops/demo/core/environment) y QAPAQ_AWS_REGION.
@@ -99,6 +99,25 @@ if [[ "$ready" != true ]]; then
   fail "el release ${release##*/} no quedó listo y no hay anterior"
 fi
 systemctl restart qapaq-core-worker
+worker_ready=false
+for _ in $(seq 1 30); do
+  if systemctl is-active --quiet qapaq-core-worker; then worker_ready=true; break; fi
+  sleep 1
+done
+if [[ "$worker_ready" != true ]]; then
+  if [[ -n "$previous" && -d "$previous" ]]; then
+    ln -sfn "$previous" "$BASE/current.new" && mv -T "$BASE/current.new" "$BASE/current"
+    systemctl restart qapaq-core-api
+    systemctl restart qapaq-core-worker || true
+    for _ in $(seq 1 10); do
+      systemctl is-active --quiet qapaq-core-worker && break
+      sleep 1
+    done
+    systemctl is-active --quiet qapaq-core-worker || systemctl stop qapaq-core-worker || true
+    fail "el worker del release ${release##*/} no quedó activo; API revertida a ${previous##*/}"
+  fi
+  fail "el worker del release ${release##*/} no quedó activo y no hay anterior"
+fi
 info "núcleo QAPAQ activo: release ${release##*/} (API 127.0.0.1:3000 y worker)"
 
 # Histórico: conservar los 3 releases más recientes además del activo.
