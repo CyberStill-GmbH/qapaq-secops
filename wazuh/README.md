@@ -8,6 +8,7 @@ en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
 | `access/`                    | Usuario `qapaq_reader`, proxy TLS allowlist del Indexer, usuarios internos                                                  | `access/apply-access.sh` (workflow `initialize-wazuh.yml`)                | En uso en la demo                             |
 | `office365/`                 | Módulo Office 365, 22 reglas QAPAQ, listas y tests de logtest                                                               | `office365/apply-office365.sh` (workflow `configure-wazuh-office365.yml`) | En uso en la demo                             |
+| `archive/`                   | Archivo JSON crudo del Manager, Filebeat archives y retención ISM aislada de 7 días                                      | `archive/apply-archives.sh` (workflow `wazuh-archives.yml`)                 | Listo para aplicar por CI/CD                  |
 | `edge/`                      | nginx: TLS, `auth_request` contra QAPAQ, `/` → dashboard, `/api` → QAPAQ, `/soc` estático                                   | Fase 1                                                                    | Propuesto                                     |
 | `indexer/security/`          | Security plugin: proxy auth y roles QAPAQ                                                                                   | `securityadmin.sh`                                                        | Propuesto                                     |
 | `indexer/ism/`               | Retención hot/warm/cold y repo de snapshots S3                                                                              | `indexer/ism/apply-ism.sh`                                                | Propuesto                                     |
@@ -21,6 +22,8 @@ en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes
 - **Idempotente:** cada script se puede ejecutar N veces y deja el mismo estado. Cada uno toca solo
   su bloque `QAPAQ:<nombre>:begin/end` dentro de los archivos de Wazuh.
 - **Sin secretos:** las credenciales se leen de Secrets Manager en el host, nunca del repo.
+- **Raw archive:** `logall_json` archiva todos los eventos que procesa el Manager, no solo M365;
+  `wazuh-archives-*` tiene política ISM separada de 7 días en el demo.
 - **Probado antes de aplicar:** reglas con `wazuh-logtest` (`office365/tests`), JSON con `jq`, nginx
   con `nginx -t`.
 - **Licencia:** las reglas y decoders derivados de Wazuh son GPLv2. Se mantiene la atribución y no

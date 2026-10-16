@@ -1,0 +1,26 @@
+{
+  "policy": {
+    "description": "QAPAQ demo: conservar eventos crudos Wazuh en el Indexer durante 7 días y eliminarlos localmente al vencer.",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "expired",
+            "conditions": { "min_index_age": "7d" }
+          }
+        ]
+      },
+      {
+        "name": "expired",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      { "index_patterns": ["wazuh-archives-*"], "priority": 200 }
+    ]
+  }
+}

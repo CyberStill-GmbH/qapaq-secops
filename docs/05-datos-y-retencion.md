@@ -44,7 +44,7 @@ Mecanismo: **OpenSearch ISM** (política `qapaq-wazuh-retention`, en
 
 | Dataset | Rápido (hot+warm) | Total | Notas |
 | --- | --- | --- | --- |
-| Telemetría cruda (`wazuh-archives-*`) | 30 d | 365 d | Solo si se activa `logall_json` |
+| Telemetría cruda (`wazuh-archives-*`) | 7 d en demo | 7 d en demo | Política ISM `qapaq-wazuh-archives-7d`; producción requiere decisión de Legal/Compliance |
 | Alertas Wazuh (`wazuh-alerts-*`) | 90 d | 400 d | |
 | Alertas QAPAQ no promovidas | 180 d | 400 d | Postgres |
 | Incidentes, evidencia, auditoría administrativa, ejecuciones SOAR, versiones de reglas | — | 5 años | Postgres más WORM |
@@ -53,6 +53,13 @@ Mecanismo: **OpenSearch ISM** (política `qapaq-wazuh-retention`, en
 
 **Respaldos:** Postgres con PITR de 14 d, diarios por 35 d y mensuales por 12 meses. Los
 snapshots del Indexer no son el archivo de evidencia: la evidencia va al bucket con Object Lock.
+
+La captura cruda (`logall_json`) comprende todos los eventos que procesa Wazuh Manager, no
+exclusivamente M365. En el demo el índice `wazuh-archives-*` se elimina localmente al cumplir siete
+días; este plazo no modifica la retención de alertas ni habilita expiración de snapshots S3. La
+recuperación histórica del Activity API de Microsoft es una operación separada: solo está disponible
+durante siete días desde la notificación de cada blob y requiere replay con deduplicación antes de
+reinyectarse al Manager.
 
 ## Restauración
 

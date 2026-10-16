@@ -1,0 +1,106 @@
+name: Wazuh raw archives
+
+on:
+  pull_request:
+    paths:
+      - "wazuh/archive/**"
+      - "wazuh/indexer/ism/qapaq-wazuh-archives-7d.json"
+      - ".github/workflows/wazuh-archives.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: audit solo lee; apply configura retención y activa el archivo crudo
+        type: choice
+        required: true
+        default: audit
+        options: [audit, apply]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-archives
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate versioned archive policy and script syntax
+        run: |
+          set -euo pipefail
+          bash -n wazuh/archive/apply-archives.sh
+          jq -e '.policy.ism_template[] | select(.index_patterns | index("wazuh-archives-*")) | .priority == 200' \
+            wazuh/indexer/ism/qapaq-wazuh-archives-7d.json >/dev/null
+          jq -e '.policy.states[] | select(.name == "hot") | .transitions[] | select(.conditions.min_index_age == "7d")' \
+            wazuh/indexer/ism/qapaq-wazuh-archives-7d.json >/dev/null
+          jq -e '.policy.states[] | select(.name == "expired") | .actions[] | has("delete")' \
+            wazuh/indexer/ism/qapaq-wazuh-archives-7d.json >/dev/null
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure AWS credentials via GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-wazuh-archives
+          allowed-account-ids: 955200662475
+      - name: Apply through SSM to Wazuh
+        shell: bash
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          instance_id="$(aws ec2 describe-instances \
+            --filters 'Name=tag:Name,Values=qapaq-secops-demo-wazuh' 'Name=instance-state-name,Values=running' \
+            --query 'Reservations[].Instances[].InstanceId | [0]' --output text)"
+          [[ -n "$instance_id" && "$instance_id" != None ]] || { echo 'No hay un host Wazuh en ejecución.' >&2; exit 1; }
+
+          bundle="$(tar -czf - \
+            wazuh/archive/apply-archives.sh \
+            wazuh/indexer/ism/qapaq-wazuh-archives-7d.json \
+            wazuh/scripts/indexer-admin.sh | base64 -w0)"
+          remote_script="$(cat <<REMOTE
+          set -euo pipefail
+          work=\"\$(mktemp -d)\"; trap 'rm -rf \"\$work\"' EXIT
+          printf '%s' '${bundle}' | base64 -d | tar -C \"\$work\" -xzf -
+          helper=\"\$work/wazuh/scripts/indexer-admin.sh\"
+          policy=\"\$work/wazuh/indexer/ism/qapaq-wazuh-archives-7d.json\"
+          if [[ '${MODE}' == apply ]]; then
+            install -d -m 0750 /opt/qapaq
+            install -m 0750 \"\$helper\" /opt/qapaq/indexer-admin.sh
+            install -m 0640 \"\$policy\" /opt/qapaq/qapaq-wazuh-archives-7d.json
+            helper=/opt/qapaq/indexer-admin.sh
+            policy=/opt/qapaq/qapaq-wazuh-archives-7d.json
+          fi
+          QAPAQ_ARCHIVES_MODE='${MODE}' \\
+          QAPAQ_INDEXER_ADMIN_HELPER=\"\$helper\" \\
+          QAPAQ_ARCHIVES_POLICY=\"\$policy\" \\
+            bash \"\$work/wazuh/archive/apply-archives.sh\"
+          REMOTE
+          )"
+          payload="$(jq -cn --arg command "$remote_script" '{commands: ["bash -c " + ($command | @sh)]}')"
+          (( $(LC_ALL=C printf '%s' "$payload" | wc -c) <= 24000 )) || { echo 'Payload SSM excede 24000 bytes.' >&2; exit 1; }
+          command_id="$(aws ssm send-command --instance-ids "$instance_id" --document-name AWS-RunShellScript \
+            --comment "QAPAQ Wazuh raw archives: ${MODE}" --timeout-seconds 1200 --parameters "$payload" \
+            --query 'Command.CommandId' --output text)"
+          for _ in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+              --query Status --output text 2>/dev/null || true)"
+            case "$status" in Success|Failed|Cancelled|TimedOut|Undeliverable|Terminated) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$instance_id" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+          [[ "$status" == Success ]]
