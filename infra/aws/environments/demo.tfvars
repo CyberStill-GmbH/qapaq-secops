@@ -32,15 +32,15 @@ postgres_final_snapshot_identifier = null
 valkey_node_type                   = "cache.t4g.micro"
 valkey_engine_version              = "8.0"
 
-# Verified manifest from Publish verified images run 38397376826 (commit e8fce18).
+# Verified manifest from Publish verified images run 38851884156 (commit 2c87809).
 # All digests below are immutable and must not be replaced by tags.
-runtime_image_manifest_commit = "e8fce18f53565230f26ce671a7b21d660d370c92"
+runtime_image_manifest_commit = "2c87809e938c10bc6411759e6d2923a67f1a90bd"
 runtime_image_digests = {
-  api     = "sha256:e497641347315e4f4eadabbce3aa35d59aecbed0b52e875f4bdac7b14cca64cc"
-  worker  = "sha256:5c9cc9eca2f15dba57f45a9ed5c0a15ef616d9acb2a909d9d23c43c1533b775e"
-  krakend = "sha256:18c4b672889732130d90d50c53197c925470571962699ecfe4efc4e1ab3ab038"
+  api     = "sha256:68836710cfab1d220862869e36dea526e1f7ddf7c506451aa76aa49a0729db35"
+  worker  = "sha256:e260c7cd189f1746423b45c6ff418ccfbd3c2d5b95c31cdd692f06ac6001d211"
+  krakend = "sha256:4bfec92a8b8e23660092f18dd0ba1be0b32c13a41b3c4597cc898e33a9329a73"
 }
-migrator_image_digest = "sha256:b8c732340ac4cd2f8ce144cd1357d0668347f31db7c9012bfb65e2700da34ae1"
+migrator_image_digest = "sha256:80fe9960f2c2e16c0d0cf2e051e5d962effa511472cd52a681e191b60a26a745"
 # Estado SOC durable (PostgreSQL). Solo tras `bootstrap-roles` y `migrate` exitosos.
 soc_database_enabled = true
 
