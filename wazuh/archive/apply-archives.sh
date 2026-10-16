@@ -88,7 +88,7 @@ archive = next(i for i in range(module + 1, len(lines)) if re.match(r"^\s*archiv
 enabled = next(line for line in lines[archive + 1:] if re.match(r"^\s*enabled:\s*(true|false)\s*$", line))
 print("filebeat_archives=" + enabled.strip().split(":", 1)[1].strip().lower())
 PY
-  [[ -x "$INDEXER_ADMIN" ]] || fail 'falta el helper de administración Indexer para revisar ISM.'
+  [[ -r "$INDEXER_ADMIN" ]] || fail 'falta el helper de administración Indexer para revisar ISM.'
   # El modo audit solo comprueba el estado actual; no registra ni modifica recursos.
   source "$INDEXER_ADMIN"
   indexer GET "/_plugins/_ism/policies/${POLICY_ID}"
@@ -101,7 +101,7 @@ PY
 fi
 
 [[ "$(id -u)" -eq 0 ]] || fail 'apply debe ejecutarse como root.'
-[[ -x "$INDEXER_ADMIN" ]] || fail 'falta el helper de administración Indexer.'
+[[ -r "$INDEXER_ADMIN" ]] || fail 'falta el helper de administración Indexer.'
 [[ -x "$WAZUH_HOME/bin/wazuh-analysisd" ]] || fail 'no hay Wazuh Manager instalado.'
 command -v filebeat >/dev/null || fail 'Filebeat no está instalado.'
 command -v systemctl >/dev/null || fail 'systemd es obligatorio.'
