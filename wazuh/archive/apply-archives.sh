@@ -27,9 +27,10 @@ python3 - "$MANAGER_CONFIG" "$FILEBEAT_CONFIG" <<'PY'
 import re, sys
 
 manager = open(sys.argv[1], encoding="utf-8").read()
-global_blocks = re.findall(r"<global\b[^>]*>(.*?)</global\s*>", manager, re.S | re.I)
+masked = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), manager, flags=re.S)
+global_blocks = re.findall(r"<global\b[^>]*>(.*?)</global\s*>", masked, re.S | re.I)
 if len(global_blocks) != 1:
-    sys.exit("ossec.conf debe contener exactamente un bloque <global>.")
+    sys.exit(f"ossec.conf debe contener exactamente un bloque <global> activo (encontré {len(global_blocks)}).")
 if len(re.findall(r"<logall_json\b", global_blocks[0], re.I)) > 1:
     sys.exit("el bloque <global> contiene logall_json duplicado.")
 
@@ -71,7 +72,11 @@ if [[ "$MODE" == audit ]]; then
   python3 - "$MANAGER_CONFIG" "$FILEBEAT_CONFIG" <<'PY'
 import re, sys
 manager = open(sys.argv[1], encoding="utf-8").read()
-global_block = re.search(r"<global\b[^>]*>(.*?)</global\s*>", manager, re.S | re.I).group(1)
+masked = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), manager, flags=re.S)
+matches = list(re.finditer(r"<global\b[^>]*>(.*?)</global\s*>", masked, re.S | re.I))
+if len(matches) != 1:
+    sys.exit(f"ossec.conf debe contener exactamente un bloque <global> activo (encontré {len(matches)}).")
+global_block = matches[0].group(1)
 m = re.search(r"<logall_json>\s*(yes|no)\s*</logall_json>", global_block, re.I)
 print("logall_json=" + (m.group(1).lower() if m else "default-no"))
 lines = open(sys.argv[2], encoding="utf-8").read().splitlines()
@@ -167,18 +172,25 @@ python3 - "$MANAGER_CONFIG" "$FILEBEAT_CONFIG" <<'PY'
 import re, sys
 manager_path, filebeat_path = sys.argv[1:3]
 manager = open(manager_path, encoding="utf-8").read()
+masked = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), manager, flags=re.S)
 pattern = re.compile(r"(<global\b[^>]*>)(.*?)(</global\s*>)", re.S | re.I)
-matches = list(pattern.finditer(manager))
+matches = list(pattern.finditer(masked))
 if len(matches) != 1:
-    sys.exit("ossec.conf debe contener exactamente un bloque <global>.")
+    sys.exit(f"ossec.conf debe contener exactamente un bloque <global> activo (encontré {len(matches)}).")
 begin, body, end = matches[0].groups()
 tag = re.compile(r"<logall_json\b[^>]*>.*?</logall_json\s*>", re.S | re.I)
-if len(tag.findall(body)) > 1:
+body_start = matches[0].start(2)
+body_end = matches[0].end(2)
+original_body = manager[body_start:body_end]
+masked_body = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), original_body, flags=re.S)
+tag_matches = list(tag.finditer(masked_body))
+if len(tag_matches) > 1:
     sys.exit("el bloque <global> contiene logall_json duplicado.")
-if tag.search(body):
-    body = tag.sub("<logall_json>yes</logall_json>", body, count=1)
+if tag_matches:
+    match = tag_matches[0]
+    body = original_body[:match.start()] + "<logall_json>yes</logall_json>" + original_body[match.end():]
 else:
-    body = body.rstrip() + "\n    <logall_json>yes</logall_json>\n  "
+    body = original_body.rstrip() + "\n    <logall_json>yes</logall_json>\n  "
 manager = manager[:matches[0].start()] + begin + body + end + manager[matches[0].end():]
 open(manager_path, "w", encoding="utf-8").write(manager)
 
