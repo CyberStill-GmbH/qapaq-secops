@@ -30,9 +30,6 @@ locals {
     QAPAQ_REDIS_DATABASE     = "0"
     QAPAQ_REDIS_PASSWORD_REF = "secret://aws-secretsmanager/${var.project}/${var.environment}/valkey/auth-token"
   }
-  valkey_secrets = var.valkey == null ? [] : [
-    { name = "QAPAQ_REDIS_PASSWORD", valueFrom = var.valkey.auth_secret_arn },
-  ]
   ingestion_api_environment = var.wazuh_ingestion == null ? {
     QAPAQ_INGESTION_SOURCE = "disabled"
     } : {
@@ -69,7 +66,6 @@ locals {
       { name = "QAPAQ_ENTITY_REF_KEY", valueFrom = var.soc_database.entity_ref_key_secret_arn },
       { name = "QAPAQ_VAPID_PRIVATE_KEY", valueFrom = var.soc_database.vapid_key_secret_arn },
     ],
-    local.valkey_secrets,
     var.api_extra_secrets,
   )
   api_secret_arns = concat(
@@ -83,7 +79,7 @@ locals {
       var.wazuh_ingestion.reader_secret_arn,
       var.wazuh_ingestion.proxy_ca_secret_arn,
     ],
-    [for secret in local.valkey_secrets : secret.valueFrom],
+    var.valkey == null ? [] : [var.valkey.auth_secret_arn],
     [for secret in var.api_extra_secrets : secret.valueFrom],
   )
   krakend_environment = merge({
