@@ -73,21 +73,21 @@ jobs:
             wazuh/scripts/indexer-admin.sh | base64 -w0)"
           remote_script="$(cat <<REMOTE
           set -euo pipefail
-          work=\"\$(mktemp -d)\"; trap 'rm -rf \"\$work\"' EXIT
-          printf '%s' '${bundle}' | base64 -d | tar -C \"\$work\" -xzf -
-          helper=\"\$work/wazuh/scripts/indexer-admin.sh\"
-          policy=\"\$work/wazuh/indexer/ism/qapaq-wazuh-archives-7d.json\"
+          work="\$(mktemp -d)"; trap 'rm -rf "\$work"' EXIT
+          printf '%s' '${bundle}' | base64 -d | tar -C "\$work" -xzf -
+          helper="\$work/wazuh/scripts/indexer-admin.sh"
+          policy="\$work/wazuh/indexer/ism/qapaq-wazuh-archives-7d.json"
           if [[ '${MODE}' == apply ]]; then
             install -d -m 0750 /opt/qapaq
-            install -m 0750 \"\$helper\" /opt/qapaq/indexer-admin.sh
-            install -m 0640 \"\$policy\" /opt/qapaq/qapaq-wazuh-archives-7d.json
+            install -m 0750 "\$helper" /opt/qapaq/indexer-admin.sh
+            install -m 0640 "\$policy" /opt/qapaq/qapaq-wazuh-archives-7d.json
             helper=/opt/qapaq/indexer-admin.sh
             policy=/opt/qapaq/qapaq-wazuh-archives-7d.json
           fi
           QAPAQ_ARCHIVES_MODE='${MODE}' \\
-          QAPAQ_INDEXER_ADMIN_HELPER=\"\$helper\" \\
-          QAPAQ_ARCHIVES_POLICY=\"\$policy\" \\
-            bash \"\$work/wazuh/archive/apply-archives.sh\"
+          QAPAQ_INDEXER_ADMIN_HELPER="\$helper" \\
+          QAPAQ_ARCHIVES_POLICY="\$policy" \\
+            bash "\$work/wazuh/archive/apply-archives.sh"
           REMOTE
           )"
           payload="$(jq -cn --arg command "$remote_script" '{commands: ["bash -c " + ($command | @sh)]}')"
