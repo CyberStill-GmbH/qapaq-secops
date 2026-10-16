@@ -57,6 +57,15 @@ porque la documentación de las RC se contradice. Plugin recompilado para OSD 3.
 Analytics con Sigma. Searchable snapshots para el cold. Opcional: fork `qapaq-dashboard` para el
 tema OUI.
 
+## Gate crítico post-MVP y antes de producción
+
+- **P0 · Restaurar autenticación fuerte y retirar la excepción del demo.** Eliminar
+  `QAPAQ_DEMO_MFA_EXCEPTION_UNTIL` antes de vencer; configurar MFA resistente a phishing mediante
+  Conditional Access/Authentication Strength para la app QAPAQ; comprobar en Entra y en el claim
+  `amr` el método realmente usado; validar login, rol y revocación para admin y analista. Producción
+  queda bloqueada hasta completar esta evidencia. La excepción temporal no es criterio de aceptación
+  del producto ni se debe copiar a otro entorno.
+
 ## Fuera del plan
 
 Threat intelligence con MISP, antifraude, fuentes nuevas por adaptador TS e ITSM. Cada uno entra
