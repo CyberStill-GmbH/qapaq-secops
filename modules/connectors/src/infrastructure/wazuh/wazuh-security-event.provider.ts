@@ -88,6 +88,21 @@ const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
 /** Streams como máximo en una medición de actividad (Office 365 publica cinco). */
 const ACTIVITY_STREAMS = 10;
 const DATASET = 'wazuh-alerts';
+const RFC3339_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+
+/**
+ * Wazuh puede serializar el offset ISO 8601 como `-0500`, sin los dos puntos de RFC 3339.
+ * Normalizamos solo esa variante conocida para el contrato de QAPAQ; el crudo permanece intacto.
+ */
+function normalizeWazuhTimestamp(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const timestamp = RFC3339_TIMESTAMP.test(value)
+    ? value
+    : value.replace(/^(.*)([+-]\d{2})(\d{2})$/u, '$1$2:$3');
+  if (!RFC3339_TIMESTAMP.test(timestamp) || !Number.isFinite(Date.parse(timestamp)))
+    return undefined;
+  return timestamp;
+}
 
 function errorFrom(error: unknown, operation: 'health' | 'readPage'): SecurityEventProviderError {
   if (error instanceof SecurityEventProviderError) return error;
@@ -345,7 +360,6 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
     }
     const from = Date.parse(query.from);
     const to = Date.parse(query.to);
-    const rfc3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
     if (
       !query.sourceId ||
       query.sourceId !== this.options.sourceId ||
@@ -353,8 +367,8 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
       query.dataset !== DATASET ||
       !Number.isFinite(from) ||
       !Number.isFinite(to) ||
-      !rfc3339.test(query.from) ||
-      !rfc3339.test(query.to) ||
+      !RFC3339_TIMESTAMP.test(query.from) ||
+      !RFC3339_TIMESTAMP.test(query.to) ||
       from > to ||
       to - from > MAX_RANGE_MS ||
       !Number.isInteger(query.pageSize) ||
@@ -433,12 +447,8 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
           typeof sort[1] !== 'string'
         )
           throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
-        const timestamp = raw['timestamp'];
-        if (
-          typeof timestamp !== 'string' ||
-          !rfc3339.test(timestamp) ||
-          !Number.isFinite(Date.parse(timestamp))
-        )
+        const timestamp = normalizeWazuhTimestamp(raw['timestamp']);
+        if (!timestamp)
           throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
         items.push({
           sourceRecordId: hit._id,

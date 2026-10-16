@@ -122,6 +122,17 @@ describe('WazuhSecurityEventProvider', () => {
     );
   });
 
+  it('normaliza el offset compacto que Wazuh usa en timestamps y conserva el dato crudo', async () => {
+    client.search.mockResolvedValueOnce({
+      hits: { hits: [hit('compact-offset', '2026-09-25T00:12:34.567-0500', 'evt-1')] },
+    });
+
+    const page = await instance.readPage(QUERY);
+
+    expect(page.items[0]?.occurredAt).toBe('2026-09-25T00:12:34.567-05:00');
+    expect(page.items[0]?.raw['timestamp']).toBe('2026-09-25T00:12:34.567-0500');
+  });
+
   it('expires cursors and does not treat them as durable checkpoints', async () => {
     const first = await instance.readPage(QUERY);
     const later = provider(client, () => Date.parse('2026-09-25T03:00:00.000Z')).instance;
