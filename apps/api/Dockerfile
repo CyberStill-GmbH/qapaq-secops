@@ -30,7 +30,7 @@ RUN pnpm install --filter @qapaq/api... --frozen-lockfile
 # actualizar el hash a propósito. Se descarga aquí para fijar permisos legibles por el usuario
 # sin privilegios (directorio 0755, archivo 0644): `ADD --chmod` también cambia el directorio
 # y lo deja sin permiso de ejecución.
-ADD --checksum=sha256:fe45bbebf92ad3e27a583bbb2ddd1553c521ed4d49af5514dc0a40372ea5395c     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /qapaq-certs/rds-global-bundle.pem
+ADD --checksum=sha256:90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b     https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /qapaq-certs/rds-global-bundle.pem
 RUN chmod 0755 /qapaq-certs && chmod 0644 /qapaq-certs/rds-global-bundle.pem
 
 COPY . .
