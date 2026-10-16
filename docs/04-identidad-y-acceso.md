@@ -8,6 +8,15 @@
   el dashboard de Wazuh. No hay usuarios locales de Wazuh para personas. Los usuarios internos
   quedan solo para servicios (`qapaq_reader` y `wazuh-wui`) y para el break-glass.
 
+## Excepción temporal del demo: MFA/passkey
+
+**Activa solo en `qapaq-secops-demo` hasta 2026-10-17 03:40 UTC (2026-10-16 22:40, hora Lima).**
+`QAPAQ_DEMO_MFA_EXCEPTION_UNTIL` permite completar el login a identidades que ya superaron
+la validación OIDC y tienen capabilities QAPAQ aunque el token no pruebe MFA/passkey. No altera
+MFA, Security Defaults ni Conditional Access de Entra. El código limita la excepción al tenant,
+client ID y callback de QAPAQ, exige vencimiento de máximo 30 días y acorta la sesión a ese
+vencimiento. Es un bypass temporal para la demo: una contraseña robada podría bastar para entrar.
+
 ## Flujo
 
 ```mermaid
