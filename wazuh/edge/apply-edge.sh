@@ -83,11 +83,12 @@ open(target, 'w', encoding='utf-8').write(
     '\n'.join(out).rstrip('\n') + '\n\n# QAPAQ:dashboard:begin\n' + block + '\n# QAPAQ:dashboard:end\n')
 PY
 systemctl restart wazuh-dashboard
+login_code=000
 for _ in $(seq 1 60); do
-  curl --noproxy '*' -s -o /dev/null --max-time 3 http://127.0.0.1:5601/qapaq/login && break
+  login_code="$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:5601/qapaq/login || true)"
+  [[ "$login_code" == 200 ]] && break
   sleep 5
 done
-login_code="$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:5601/qapaq/login || true)"
 [[ "$login_code" == 200 ]] || { restore; fail "el dashboard no sirve /qapaq/login (HTTP $login_code); restaurado"; }
 info 'dashboard en 127.0.0.1:5601 con login QAPAQ'
 
