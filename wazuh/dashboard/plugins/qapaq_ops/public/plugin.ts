@@ -9,7 +9,7 @@ import type {
   Plugin,
   PluginInitializerContext,
 } from '../../../src/core/public';
-import { BRAND_ASSETS_PATH, PLUGIN_NAME, QAPAQ_APPS } from '../common';
+import { BRAND_ASSETS_PATH, NAV_CATEGORY_NAME, PLUGIN_NAME, QAPAQ_APPS } from '../common';
 import type { PublicConfigSchema } from '../config';
 import { ChangeFeed } from './api/change_feed';
 import { QapaqApiClient } from './api/client';
@@ -18,7 +18,7 @@ import { mountP1Watch } from './p1_watch';
 /**
  * Plugin público de QAPAQ SecOps para OSD 2.19.6.
  *
- * - Registra la categoría «QAPAQ SecOps» primera en el menú (la de Wazuh empieza en 0).
+ * - Registra «Observabilidad de la aplicación» primera en el menú.
  * - Un único cliente de API y un único long-poll de `/api/changes` por página del dashboard,
  *   compartidos por todas las apps QAPAQ y por el aviso de P1 de la cabecera.
  * - No importa valores del core en tiempo de ejecución (solo tipos): el plugin no depende de
@@ -49,9 +49,9 @@ export class QapaqOpsPublicPlugin implements Plugin<void, void> {
   public setup(core: CoreSetup) {
     const category = {
       id: 'qapaq-secops',
-      label: PLUGIN_NAME,
+      label: NAV_CATEGORY_NAME,
       order: -1000,
-      euiIconType: core.http.basePath.prepend(`${BRAND_ASSETS_PATH}/qapaq_mark_on_dark.svg`),
+      euiIconType: core.http.basePath.prepend(`${BRAND_ASSETS_PATH}/qapaq-observability.svg`),
     };
     for (const app of QAPAQ_APPS) {
       core.application.register({
@@ -59,6 +59,7 @@ export class QapaqOpsPublicPlugin implements Plugin<void, void> {
         title: app.title,
         category,
         order: app.order,
+        euiIconType: core.http.basePath.prepend(`${BRAND_ASSETS_PATH}/${app.icon}`),
         mount: async (params: AppMountParameters) => {
           const [{ renderApp }, [coreStart]] = await Promise.all([
             import('./application'),

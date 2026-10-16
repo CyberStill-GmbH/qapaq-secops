@@ -40,6 +40,14 @@ svg/qapaq_safari_pinned_tab.svg	dashboard	src/core/server/core_app/assets/favico
 svg/qapaq_mark_on_dark.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq_mark_on_dark.svg
 svg/qapaq_mark_on_light.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq_mark_on_light.svg
 svg/qapaq_wordmark_on_dark.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq_wordmark_on_dark.svg
+svg/qapaq-observability.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-observability.svg
+svg/qapaq-alerts.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-alerts.svg
+svg/qapaq-incidents.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-incidents.svg
+svg/qapaq-notifications.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-notifications.svg
+svg/qapaq-audit.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-audit.svg
+svg/qapaq-access.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-access.svg
+svg/qapaq-sources.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-sources.svg
+svg/qapaq-session.svg	dashboard	src/core/server/core_app/assets/qapaq/qapaq-session.svg
 images/qapaq_analyst.webp	dashboard	src/core/server/core_app/assets/qapaq/qapaq_analyst.webp
 images/qapaq_q_mask.png	dashboard	src/core/server/core_app/assets/qapaq/qapaq_q_mask.png
 svg/qapaq_wordmark_on_dark.svg	plugins	plugins/main/public/assets/images/themes/dark/logo.svg

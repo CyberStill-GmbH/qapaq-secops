@@ -58,9 +58,10 @@ del core (solo tipos): sobrevive a cambios de Wazuh. React 16 (`ReactDOM.render`
   `authError`+`correlationId`, `sessionNotice=superseded`, `loggedOut`; CSP con nonce),
   `GET /qapaq/logout` (CSRF de `/api/auth/session` → `POST /api/auth/logout`), y reescritura de
   `/app/login` y `/login` → `/qapaq/login`. Activos del login en `/ui/qapaq/` (público en el edge).
-- Navegación: categoría «QAPAQ SecOps» primera (`order: -1000`): Cola de alertas, Incidentes,
-  Notificaciones, Auditoría e integridad, Usuarios y sesiones, Salud de fuentes (incluye la
-  salud operativa), Mi sesión. Las vistas SIEM de Wazuh siguen debajo.
+- Navegación: categoría «Observabilidad de la aplicación» primera (`order: -1000`), con marca
+  QAPAQ y pictogramas SVG propios para Cola de alertas, Incidentes, Notificaciones, Auditoría e
+  integridad, Usuarios y sesiones, Salud de fuentes (incluye la salud operativa) y Mi sesión.
+  Las vistas SIEM nativas de Wazuh conservan sus iconos funcionales y siguen debajo.
 - Un único cliente y **un único long-poll** de `/api/changes` por página (plugin singleton,
   compartido por todas las apps QAPAQ y el aviso P1), con backoff 2 s→30 s y pausa con la
   pestaña oculta. Aviso P1 en la cabecera (todo el dashboard) + toast.

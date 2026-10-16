@@ -4,6 +4,8 @@
 
 export const PLUGIN_ID = 'qapaqOps';
 export const PLUGIN_NAME = 'QAPAQ SecOps';
+/** Nombre descriptivo del grupo de navegación en el menú lateral. */
+export const NAV_CATEGORY_NAME = 'Observabilidad de la aplicación';
 
 /** Rutas propias del dashboard (servidas por este plugin, sin sesión de OSD). */
 export const LOGIN_PATH = '/qapaq/login';
@@ -22,17 +24,59 @@ export const BRAND_ASSETS_PATH = '/ui/qapaq';
 export const ATTRIBUTION = 'Basado en Wazuh (GPLv2) y OpenSearch Dashboards (Apache-2.0).';
 
 /**
- * Apps registradas en la navegación, en este orden, bajo la categoría «QAPAQ SecOps» (la
- * primera del menú). Cada una monta la misma consola en la vista indicada.
+ * Apps registradas en este orden bajo «Observabilidad de la aplicación» (primera categoría
+ * del menú). Cada una monta la misma consola en la vista indicada.
  */
 export const QAPAQ_APPS = [
-  { id: 'qapaq-alerts', view: 'alerts', title: 'Cola de alertas', order: 10 },
-  { id: 'qapaq-incidents', view: 'incidents', title: 'Incidentes', order: 20 },
-  { id: 'qapaq-notifications', view: 'notifications', title: 'Notificaciones', order: 30 },
-  { id: 'qapaq-audit', view: 'audit', title: 'Auditoría e integridad', order: 40 },
-  { id: 'qapaq-access', view: 'access', title: 'Usuarios y sesiones', order: 50 },
-  { id: 'qapaq-sources', view: 'sources', title: 'Salud de fuentes', order: 60 },
-  { id: 'qapaq-session', view: 'session', title: 'Mi sesión', order: 70 },
+  {
+    id: 'qapaq-alerts',
+    view: 'alerts',
+    title: 'Cola de alertas',
+    icon: 'qapaq-alerts.svg',
+    order: 10,
+  },
+  {
+    id: 'qapaq-incidents',
+    view: 'incidents',
+    title: 'Incidentes',
+    icon: 'qapaq-incidents.svg',
+    order: 20,
+  },
+  {
+    id: 'qapaq-notifications',
+    view: 'notifications',
+    title: 'Notificaciones',
+    icon: 'qapaq-notifications.svg',
+    order: 30,
+  },
+  {
+    id: 'qapaq-audit',
+    view: 'audit',
+    title: 'Auditoría e integridad',
+    icon: 'qapaq-audit.svg',
+    order: 40,
+  },
+  {
+    id: 'qapaq-access',
+    view: 'access',
+    title: 'Usuarios y sesiones',
+    icon: 'qapaq-access.svg',
+    order: 50,
+  },
+  {
+    id: 'qapaq-sources',
+    view: 'sources',
+    title: 'Salud de fuentes',
+    icon: 'qapaq-sources.svg',
+    order: 60,
+  },
+  {
+    id: 'qapaq-session',
+    view: 'session',
+    title: 'Mi sesión',
+    icon: 'qapaq-session.svg',
+    order: 70,
+  },
 ] as const;
 
 export type QapaqView = (typeof QAPAQ_APPS)[number]['view'];
