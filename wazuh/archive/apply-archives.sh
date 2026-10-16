@@ -29,10 +29,10 @@ import re, sys
 manager = open(sys.argv[1], encoding="utf-8").read()
 masked = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), manager, flags=re.S)
 global_blocks = re.findall(r"<global\b[^>]*>(.*?)</global\s*>", masked, re.S | re.I)
-if len(global_blocks) != 1:
-    sys.exit(f"ossec.conf debe contener exactamente un bloque <global> activo (encontré {len(global_blocks)}).")
-if len(re.findall(r"<logall_json\b", global_blocks[0], re.I)) > 1:
-    sys.exit("el bloque <global> contiene logall_json duplicado.")
+if not global_blocks:
+    sys.exit("ossec.conf no contiene bloques <global> activos.")
+if sum(len(re.findall(r"<logall_json\b", block, re.I)) for block in global_blocks) > 1:
+    sys.exit("los bloques <global> contienen logall_json duplicado.")
 
 lines = open(sys.argv[2], encoding="utf-8").read().splitlines(keepends=True)
 modules = [i for i, line in enumerate(lines) if re.match(r"^\s*-\s*module:\s*wazuh\s*(?:#.*)?$", line.rstrip("\r\n"))]
@@ -74,11 +74,14 @@ import re, sys
 manager = open(sys.argv[1], encoding="utf-8").read()
 masked = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), manager, flags=re.S)
 matches = list(re.finditer(r"<global\b[^>]*>(.*?)</global\s*>", masked, re.S | re.I))
-if len(matches) != 1:
-    sys.exit(f"ossec.conf debe contener exactamente un bloque <global> activo (encontré {len(matches)}).")
-global_block = matches[0].group(1)
-m = re.search(r"<logall_json>\s*(yes|no)\s*</logall_json>", global_block, re.I)
-print("logall_json=" + (m.group(1).lower() if m else "default-no"))
+if not matches:
+    sys.exit("ossec.conf no contiene bloques <global> activos.")
+values = []
+for section in matches:
+    values.extend(re.findall(r"<logall_json>\s*(yes|no)\s*</logall_json>", section.group(1), re.I))
+if len(values) > 1:
+    sys.exit("los bloques <global> contienen logall_json duplicado.")
+print("logall_json=" + (values[0].lower() if values else "default-no"))
 lines = open(sys.argv[2], encoding="utf-8").read().splitlines()
 module = next(i for i, line in enumerate(lines) if re.match(r"^\s*-\s*module:\s*wazuh\s*$", line))
 archive = next(i for i in range(module + 1, len(lines)) if re.match(r"^\s*archives:\s*$", lines[i]))
@@ -175,23 +178,28 @@ manager = open(manager_path, encoding="utf-8").read()
 masked = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), manager, flags=re.S)
 pattern = re.compile(r"(<global\b[^>]*>)(.*?)(</global\s*>)", re.S | re.I)
 matches = list(pattern.finditer(masked))
-if len(matches) != 1:
-    sys.exit(f"ossec.conf debe contener exactamente un bloque <global> activo (encontré {len(matches)}).")
-begin, body, end = matches[0].groups()
+if not matches:
+    sys.exit("ossec.conf no contiene bloques <global> activos.")
 tag = re.compile(r"<logall_json\b[^>]*>.*?</logall_json\s*>", re.S | re.I)
-body_start = matches[0].start(2)
-body_end = matches[0].end(2)
-original_body = manager[body_start:body_end]
-masked_body = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), original_body, flags=re.S)
-tag_matches = list(tag.finditer(masked_body))
-if len(tag_matches) > 1:
-    sys.exit("el bloque <global> contiene logall_json duplicado.")
-if tag_matches:
-    match = tag_matches[0]
+tag_locations = []
+for section in matches:
+    body_start, body_end = section.start(2), section.end(2)
+    original_body = manager[body_start:body_end]
+    masked_body = re.sub(r"<!--.*?-->", lambda m: re.sub(r"[^\n]", " ", m.group(0)), original_body, flags=re.S)
+    tag_locations.extend((section, original_body, match) for match in tag.finditer(masked_body))
+if len(tag_locations) > 1:
+    sys.exit("los bloques <global> contienen logall_json duplicado.")
+if tag_locations:
+    section, original_body, match = tag_locations[0]
+    body_start, body_end = section.start(2), section.end(2)
     body = original_body[:match.start()] + "<logall_json>yes</logall_json>" + original_body[match.end():]
+    manager = manager[:body_start] + body + manager[body_end:]
 else:
+    section = matches[0]
+    body_start, body_end = section.start(2), section.end(2)
+    original_body = manager[body_start:body_end]
     body = original_body.rstrip() + "\n    <logall_json>yes</logall_json>\n  "
-manager = manager[:matches[0].start()] + begin + body + end + manager[matches[0].end():]
+    manager = manager[:body_start] + body + manager[body_end:]
 open(manager_path, "w", encoding="utf-8").write(manager)
 
 lines = open(filebeat_path, encoding="utf-8").read().splitlines(keepends=True)
