@@ -201,9 +201,10 @@ jobs:
           echo 'Waiting for Wazuh HTTPS bootstrap to finish...'
           ready=false
           for attempt in $(seq 1 80); do
-            if curl --fail --silent --max-time 15 "$dashboard_url" -o /dev/null; then
+            status="$(curl --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' "$dashboard_url" || true)"
+            if [[ "$status" == 200 || "$status" == 401 ]]; then
               ready=true
-              echo "Wazuh Dashboard HTTPS: ready (attempt $attempt)"
+              echo "Wazuh Dashboard HTTPS: reachable (HTTP $status, attempt $attempt)"
               break
             fi
             if (( attempt % 4 == 0 )); then
