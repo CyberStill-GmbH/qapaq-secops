@@ -19,8 +19,6 @@
         "transitions": []
       }
     ],
-    "ism_template": [
-      { "index_patterns": ["wazuh-archives-*"], "priority": 200 }
-    ]
+    "ism_template": [{ "index_patterns": ["wazuh-archives-*"], "priority": 200 }]
   }
 }
