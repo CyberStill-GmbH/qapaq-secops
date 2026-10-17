@@ -141,6 +141,24 @@ get_ec2_state() {
     --query 'Reservations[0].Instances[0].State.Name' --output text
 }
 
+wait_rds_stopped() {
+  local attempt status
+  for attempt in $(seq 1 80); do
+    status="$(aws rds describe-db-instances --db-instance-identifier "$RDS_ID" \
+      --query 'DBInstances[0].DBInstanceStatus' --output text)"
+    case "$status" in
+      stopped) log 'RDS reached stopped state.'; return 0 ;;
+      stopping|available) ;;
+      *) fail "RDS entered unexpected state $status while stopping." ;;
+    esac
+    if (( attempt % 4 == 0 )); then
+      log "Waiting for RDS to stop ($attempt/80 checks)."
+    fi
+    sleep 15
+  done
+  fail 'RDS did not reach stopped state within 20 minutes.'
+}
+
 if [[ "$OPERATION" == stop ]]; then
   log "Preflight passed: account=$actual_account, region=$EXPECTED_REGION, RDS=$rds_before, EC2=$ec2_state, secret_count=$secret_count, Valkey=$valkey_status."
   for service in "${ECS_SERVICES[@]}"; do
@@ -149,9 +167,9 @@ if [[ "$OPERATION" == stop ]]; then
 
   rds_status="$(aws rds describe-db-instances --db-instance-identifier "$RDS_ID" --query 'DBInstances[0].DBInstanceStatus' --output text)"
   case "$rds_status" in
-    available) aws rds stop-db-instance --db-instance-identifier "$RDS_ID" >/dev/null; aws rds wait db-instance-stopped --db-instance-identifier "$RDS_ID" ;;
+    available) aws rds stop-db-instance --db-instance-identifier "$RDS_ID" >/dev/null; wait_rds_stopped ;;
     stopped) ;;
-    stopping) aws rds wait db-instance-stopped --db-instance-identifier "$RDS_ID" ;;
+    stopping) wait_rds_stopped ;;
     *) fail "RDS is in unexpected state $rds_status; ECS has been scaled down, but no further stop was attempted." ;;
   esac
 
