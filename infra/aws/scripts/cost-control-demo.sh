@@ -215,6 +215,6 @@ fi
 
 echo >> "$GITHUB_STEP_SUMMARY"
 echo "Operation: **$OPERATION**" >> "$GITHUB_STEP_SUMMARY"
-echo "AWS account/region: `$actual_account/$EXPECTED_REGION`" >> "$GITHUB_STEP_SUMMARY"
+printf 'AWS account/region: `%s/%s`\n' "$actual_account" "$EXPECTED_REGION" >> "$GITHUB_STEP_SUMMARY"
 echo "Persistent data checks: Terraform state bucket, three configured S3 data buckets, unchanged Secrets Manager name set, existing RDS instance, encrypted attached Wazuh EBS volumes." >> "$GITHUB_STEP_SUMMARY"
 echo 'No resource deletion, secret value read, snapshot deletion, DNS update, Terraform destroy, or Valkey mutation was performed.' >> "$GITHUB_STEP_SUMMARY"
