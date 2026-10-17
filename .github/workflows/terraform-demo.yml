@@ -116,7 +116,16 @@ jobs:
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch' && (inputs.action == 'apply' || inputs.action == 'bootstrap-dns')
-        run: terraform apply -input=false -auto-approve -no-color tfplan
+        run: |
+          set -euo pipefail
+          for service in api krakend worker; do
+            desired="$(aws ecs describe-services --cluster qapaq-secops-demo --services "qapaq-secops-demo-$service" --query 'services[0].desiredCount' --output text)"
+            if [[ "$desired" == 0 || "$desired" == None ]]; then
+              echo "::error::Demo cost-control pause detected (ECS $service desired_count=0). Resume with AWS Demo Cost Control before a Terraform apply."
+              exit 1
+            fi
+          done
+          terraform apply -input=false -auto-approve -no-color tfplan
 
 
       - name: Verify Wazuh initialization and recover the gateway
