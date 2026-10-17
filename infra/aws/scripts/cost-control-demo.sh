@@ -32,10 +32,12 @@ actual_account="$(aws sts get-caller-identity --query Account --output text)"
 cd infra/aws
 terraform init -input=false -no-color
 [[ "$(terraform workspace show)" == default ]] || fail 'Refusing a non-default Terraform workspace.'
-terraform state list | grep -Fxq 'module.database.aws_db_instance.this' || fail 'RDS resource is not in the expected Terraform state.'
-terraform state list | grep -Fxq 'module.wazuh_public.aws_instance.this' || fail 'Wazuh EC2 resource is not in the expected Terraform state.'
+terraform_state="$(terraform state list)"
+state_contains() { grep -Fxq "$1" <<< "$terraform_state"; }
+state_contains 'module.database.aws_db_instance.this' || fail 'RDS resource is not in the expected Terraform state.'
+state_contains 'module.wazuh_public.aws_instance.this' || fail 'Wazuh EC2 resource is not in the expected Terraform state.'
 for address in "${ECS_ADDRESSES[@]}"; do
-  terraform state list | grep -Fxq "$address" || fail "ECS resource is absent from Terraform state: $address."
+  state_contains "$address" || fail "ECS resource is absent from Terraform state: $address."
 done
 
 aws s3api head-bucket --bucket "$STATE_BUCKET" >/dev/null || fail 'Terraform state bucket is not accessible.'
