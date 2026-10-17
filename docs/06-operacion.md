@@ -62,6 +62,7 @@ del ALB, y el log driver `awslogs` de la tarea ECS de la API (ya está configura
 
 | Situación | Acción |
 | --- | --- |
+| Pausar o reanudar la demo AWS conservando state y datos | [Control de costos reversible](operations/aws-demo-cost-control.md) |
 | La fuente «Wazuh Indexer · alertas» está en rojo | `GET /api/operations/health`. Desde la EC2, `curl --cacert` al proxy nginx con `qapaq_reader`. Workflow `repair-ingestion.yml` |
 | Nadie puede entrar al dashboard | Probar `curl -i https://<dominio>/api/auth/introspect` con cookie. Si la API cae, el break-glass es el usuario interno `admin` por `https://<ip-privada>:5601` vía SSM port-forward, nunca público |
 | Disco del Indexer > 80 % | `GET _plugins/_ism/explain/wazuh-alerts-*` para ver índices atascados en una fase. Revisar el repo `qapaq-s3` |

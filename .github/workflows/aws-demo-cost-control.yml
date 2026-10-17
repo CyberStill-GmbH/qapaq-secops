@@ -1,0 +1,57 @@
+name: AWS Demo Cost Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Reversible demo shutdown or resume
+        type: choice
+        required: true
+        options:
+          - stop
+          - resume
+      confirmation:
+        description: Type STOP-QAPAQ-DEMO or RESUME-QAPAQ-DEMO to match the selected operation
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-demo
+  cancel-in-progress: false
+
+jobs:
+  cost-control:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: '955200662475'
+      TF_IN_AUTOMATION: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          aws-region: us-east-1
+          role-session-name: qapaq-secops-cost-control
+          allowed-account-ids: '955200662475'
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Reversible stop or resume
+        env:
+          OPERATION: ${{ inputs.operation }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: bash infra/aws/scripts/cost-control-demo.sh
