@@ -14,6 +14,7 @@ Filtros reproducibles:
 - VM Wazuh: `armRegionName eq 'chilecentral' and serviceName eq 'Virtual Machines' and armSkuName eq 'Standard_F4s_v2' and priceType eq 'Consumption'`; medidor Linux de consumo regular, excluyendo Windows, Spot y Low Priority.
 - PostgreSQL: `armRegionName eq 'chilecentral' and serviceName eq 'Azure Database for PostgreSQL' and priceType eq 'Consumption'`; producto `Flexible Server Burstable BS Series Compute`, SKU `B2S`.
 - Alternativa VM reducida: mismo filtro de VM, SKU `Standard_B2ms`, medidor Linux de consumo regular.
+- Azure Firewall: `armRegionName eq 'chilecentral' and serviceName eq 'Azure Firewall' and priceType eq 'Consumption'`; medidores `Basic Deployment`, `Basic Data Processed`, `Standard Deployment` y `Standard Data Processed`. La consulta puede reproducirse en la [Azure Retail Prices API](https://prices.azure.com/api/retail/prices?%24filter=armRegionName%20eq%20%27chilecentral%27%20and%20serviceName%20eq%20%27Azure%20Firewall%27%20and%20priceType%20eq%20%27Consumption%27).
 
 La documentación oficial de [Wazuh Quickstart](https://documentation.wazuh.com/current/quickstart.html) recomienda **4 vCPU, 8 GiB y 50 GB** para 1–25 agentes en all-in-one. `Standard_F4s_v2` entrega 4 vCPU y 8 GiB según la [especificación de Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/compute-optimized/fsv2-series).
 
@@ -25,7 +26,11 @@ La documentación oficial de [Wazuh Quickstart](https://documentation.wazuh.com/
 | PostgreSQL Flexible Server | `B2S`, USD 0.0952/h | **USD 69.50/mes** | Solo cómputo Burstable |
 | **Piso de cómputo** |  | **USD 242.51/mes** | Sin discos, backups, Container Apps, Ankay, ACR, Key Vault, red, logs ni salida |
 
-El piso supera el umbral de alertas de USD 200 en **USD 42.51/mes** antes de sumar cualquiera de los servicios restantes. Los dos valores fueron consultados en la API el 2026-10-20 y tienen `effectiveStartDate` 2025-10-01 para la VM y 2025-04-01 para PostgreSQL.
+El módulo `siem_host` requiere egress controlado a través de Azure Firewall. La consulta de precios del mismo día devuelve Basic a USD 0.395/h más USD 0.065/GB procesado y Standard a USD 1.25/h más USD 0.016/GB procesado. Con 730 horas al mes, el fijo de Firewall es USD 288.35 para Basic y USD 912.50 para Standard, antes del procesamiento y de IP pública. El piso combinado Wazuh + PostgreSQL + Firewall queda, por tanto, en **USD 530.86/mes con Basic** o **USD 1,155.01/mes con Standard**, sin el resto del SOC.
+
+Basic admite filtrado FQDN para HTTP/S, pero limita el throughput a 250 Mbps, no tiene DNS proxy y deja la inteligencia de amenazas en modo alerta. Standard ofrece filtrado de inteligencia de amenazas en modo deny y DNS proxy, con un costo fijo sustancialmente superior. Si la política de la financiera exige bloquear por threat intelligence en el firewall, Basic no la satisface; la decisión de SKU debe quedar explícita en el modelo de amenazas y ser aceptada por el responsable antes de plan/apply. Consultar la [matriz oficial de capacidades por SKU](https://learn.microsoft.com/en-us/azure/firewall/features-by-sku).
+
+El piso de Wazuh + PostgreSQL, sin firewall, supera el umbral de alertas de USD 200 en **USD 42.51/mes** antes de sumar cualquiera de los servicios restantes. Las tarifas de cómputo base fueron consultadas en la API el 2026-10-20 y tienen `effectiveStartDate` 2025-10-01 para la VM y 2025-04-01 para PostgreSQL.
 
 Una VM `Standard_B2ms` cuesta USD 0.116/h, o **USD 84.68/mes**. Junto con PostgreSQL B2S sumaría **USD 154.18/mes** de cómputo. B2ms entrega 2 vCPU y 8 GiB: no cumple la recomendación de 4 vCPU de Wazuh y deja apenas USD 45.82 para todos los recursos faltantes. No se considera una configuración resiliente ni apta para cargas de estrés; solo puede evaluarse como demo limitada, aceptando menor capacidad y sin objetivo de HA.
 

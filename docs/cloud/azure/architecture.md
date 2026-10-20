@@ -50,7 +50,7 @@ El primer despliegue en un único host SIEM es una demo con punto único de fall
 
 Valkey es degradable: PostgreSQL continúa como fuente de verdad; sesiones, cache y jobs requieren comportamiento explícito ante su caída, reintentos, idempotencia y reconciliación. El código actual no demuestra ese worker ni procesamiento de M365, Sophos o Cato en Azure.
 
-El cálculo actual de Wazuh + PostgreSQL ya supera USD 200/mes antes de Valkey, almacenamiento/backup, Key Vault, red, observabilidad, ACR y Ankay. Ver [`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md). USD 200 genera avisos solamente: no es tope de facturación y no apaga ni destruye recursos. Recalcular con SKU y volumen reales antes de cualquier plan/apply.
+El módulo de host requiere Azure Firewall, que no existe en el root actual. En Chile Central, el precio de lista observado agrega USD 288.35/mes fijos con Basic o USD 912.50/mes con Standard, más procesamiento. El piso combinado Wazuh + PostgreSQL + Firewall sube a USD 530.86 o USD 1,155.01/mes, respectivamente, antes de los demás servicios. Basic limita throughput a 250 Mbps y solo alerta sobre threat intelligence; Standard admite modo deny. Ver [`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) y la [matriz oficial de capacidades por SKU](https://learn.microsoft.com/en-us/azure/firewall/features-by-sku). USD 200 genera avisos solamente: no es tope de facturación y no apaga ni destruye recursos. Recalcular con SKU y volumen reales antes de cualquier plan/apply.
 
 ## Gaps que bloquean afirmar “operativo”
 

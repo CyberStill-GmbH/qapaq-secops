@@ -14,9 +14,11 @@ Estado: **preparación local; despliegue sin verificar**. No se ejecutó `plan`
 remoto, `apply` ni cutover DNS, y no hay evidencia actual del state remoto o del
 inventario Azure. La región base es **Chile Central** (`chilecentral`), seleccionada
 por proximidad geográfica a Perú. La revalidación oficial del 2026-10-20 mide un
-piso de USD 242.51/mes por cómputo de Wazuh recomendado y PostgreSQL B2S, antes del
-resto del SOC; excede el umbral de alertas de USD 200, que no es un límite de
-facturación ni apaga recursos. Antes de `apply` se deben revisar el costo completo,
-el plan exacto, state/recursos, residencia, SKU/cuotas y latencia real desde la
-red de QAPAQ. Imágenes publicadas, restore y conectores probados también son
-gates de producción.
+piso de USD 242.51/mes por cómputo de Wazuh recomendado y PostgreSQL B2S. Al
+sumar el egress firewall requerido por los módulos host, el piso sube a USD
+530.86/mes con Firewall Basic o USD 1,155.01/mes con Standard, antes del
+procesamiento, discos y demás servicios. Ambos exceden el umbral de alertas de
+USD 200, que no es un límite de facturación ni apaga recursos. Antes de `apply`
+se deben revisar el costo completo, el plan exacto, state/recursos, residencia,
+SKU/cuotas y latencia real desde la red de QAPAQ. Imágenes publicadas, restore y
+conectores probados también son gates de producción.
