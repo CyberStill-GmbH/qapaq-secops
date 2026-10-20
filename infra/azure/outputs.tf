@@ -1,6 +1,6 @@
 output "resource_group_name" {
   description = "Resource group Azure de este stack independiente."
-  value       = azurerm_resource_group.this.name
+  value       = data.azurerm_resource_group.this.name
 }
 
 output "container_registry_login_server" {

@@ -61,3 +61,9 @@ jobs:
 
       - name: Validate configuration
         run: terraform -chdir=infra/azure validate -no-color
+
+      - name: Initialize Azure bootstrap without cloud credentials
+        run: terraform -chdir=infra/azure/bootstrap init -backend=false -input=false -no-color
+
+      - name: Validate Azure bootstrap configuration
+        run: terraform -chdir=infra/azure/bootstrap validate -no-color

@@ -38,6 +38,18 @@ variable "github_repository" {
   default     = "CyberStill-GmbH/qapaq-secops"
 }
 
+variable "github_owner_id" {
+  description = "Immutable GitHub owner ID included in the OIDC subject."
+  type        = string
+  default     = "220633794"
+}
+
+variable "github_repository_id" {
+  description = "Immutable GitHub repository ID included in the OIDC subject."
+  type        = string
+  default     = "1374673243"
+}
+
 variable "github_environment" {
   description = "GitHub Environment que restringe el subject OIDC del publicador Azure."
   type        = string

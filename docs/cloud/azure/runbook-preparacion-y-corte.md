@@ -79,7 +79,8 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   faltan. Las variables `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` también
   faltan porque el ACR aún no existe. La identidad publisher que Terraform crea
   recibe `AcrPush` y su federación usa el subject
-  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`. El environment
+  `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`.
+  El environment
   `azure-demo` sí existe y está restringido a la rama `main`, requiere revisión,
   impide autoaprobación y tiene desactivado el bypass administrativo. La
   protección del environment no crea por sí sola la identidad ni la federación
@@ -137,8 +138,9 @@ ni artefactos.
 Los workflows de publicación leen `AZURE_ACR_PUBLISHER_CLIENT_ID`,
 `AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID` desde repository secrets (con
 fallback a variables). El `AZURE_ACR_PUBLISHER_CLIENT_ID` debe corresponder a la
-identidad federada que Terraform crea con `AcrPush`, cuyo subject es
-`repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`. El artifact de GitHub
+identidad federada que Terraform crea con `AcrPush`, cuyo subject inmutable es
+`repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`.
+El artifact de GitHub
 se conserva un día entre jobs. Esta pipeline no instala el `.deb`, no modifica
 una VM ni ejecuta Terraform. ACR conserva endpoint público autenticado con RBAC;
 antes de tratarlo como registro productivo, restringir acceso a red o usar un

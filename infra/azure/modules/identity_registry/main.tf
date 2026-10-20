@@ -20,7 +20,14 @@ resource "azurerm_federated_identity_credential" "github" {
   parent_id           = azurerm_user_assigned_identity.github_publisher.id
   audience            = ["api://AzureADTokenExchange"]
   issuer              = "https://token.actions.githubusercontent.com"
-  subject             = "repo:${var.github_repository}:environment:${var.github_environment}"
+  subject = format(
+    "repo:%s@%s/%s@%s:environment:%s",
+    split("/", var.github_repository)[0],
+    var.github_owner_id,
+    split("/", var.github_repository)[1],
+    var.github_repository_id,
+    var.github_environment,
+  )
 }
 
 
@@ -41,6 +48,7 @@ resource "azurerm_role_assignment" "acr_pull" {
   scope                = azurerm_container_registry.this.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.runtime.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 
@@ -48,6 +56,7 @@ resource "azurerm_role_assignment" "acr_push" {
   scope                = azurerm_container_registry.this.id
   role_definition_name = "AcrPush"
   principal_id         = azurerm_user_assigned_identity.github_publisher.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 
@@ -55,6 +64,7 @@ resource "azurerm_role_assignment" "key_vault_reader" {
   scope                = var.key_vault_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.runtime.principal_id
+  principal_type       = "ServicePrincipal"
 }
 
 

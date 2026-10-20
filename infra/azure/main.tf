@@ -10,16 +10,14 @@ locals {
   acr_name       = substr("${substr(local.name_base, 0, 44)}${local.suffix}", 0, 50)
 }
 
-resource "azurerm_resource_group" "this" {
-  name     = "rg-${local.name_base}-${local.suffix}"
-  location = var.location
-  tags     = var.tags
+data "azurerm_resource_group" "this" {
+  name = "rg-${local.name_base}-${local.suffix}"
 }
 
 module "network" {
   source              = "./modules/network"
-  resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
+  resource_group_name = data.azurerm_resource_group.this.name
+  location            = data.azurerm_resource_group.this.location
   name_base           = local.name_base
   address_space       = var.address_space
   tags                = var.tags
@@ -27,8 +25,8 @@ module "network" {
 
 module "observability" {
   source                   = "./modules/observability"
-  resource_group_name      = azurerm_resource_group.this.name
-  location                 = azurerm_resource_group.this.location
+  resource_group_name      = data.azurerm_resource_group.this.name
+  location                 = data.azurerm_resource_group.this.location
   name_base                = local.name_base
   container_apps_subnet_id = module.network.container_apps_subnet_id
   tags                     = var.tags
@@ -36,8 +34,8 @@ module "observability" {
 
 module "data" {
   source                         = "./modules/data"
-  resource_group_name            = azurerm_resource_group.this.name
-  location                       = azurerm_resource_group.this.location
+  resource_group_name            = data.azurerm_resource_group.this.name
+  location                       = data.azurerm_resource_group.this.location
   name_base                      = local.name_base
   suffix                         = local.suffix
   storage_name                   = local.storage_name
@@ -59,23 +57,25 @@ module "data" {
 }
 
 module "identity_registry" {
-  source              = "./modules/identity_registry"
-  resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
-  name_base           = local.name_base
-  suffix              = local.suffix
-  acr_name            = local.acr_name
-  github_repository   = var.github_repository
-  github_environment  = var.github_environment
-  environment         = var.environment
-  key_vault_id        = module.data.key_vault_id
-  storage_account_id  = module.data.storage_account_id
-  tags                = var.tags
+  source               = "./modules/identity_registry"
+  resource_group_name  = data.azurerm_resource_group.this.name
+  location             = data.azurerm_resource_group.this.location
+  name_base            = local.name_base
+  suffix               = local.suffix
+  acr_name             = local.acr_name
+  github_repository    = var.github_repository
+  github_owner_id      = var.github_owner_id
+  github_repository_id = var.github_repository_id
+  github_environment   = var.github_environment
+  environment          = var.environment
+  key_vault_id         = module.data.key_vault_id
+  storage_account_id   = module.data.storage_account_id
+  tags                 = var.tags
 }
 
 module "runtime" {
   source                                   = "./modules/runtime"
-  resource_group_name                      = azurerm_resource_group.this.name
+  resource_group_name                      = data.azurerm_resource_group.this.name
   environment                              = var.environment
   name_base                                = local.name_base
   tags                                     = var.tags

@@ -16,22 +16,31 @@ existente, autenticada con OIDC. Debe limitarse al resource group de la demo y a
 contenedor remoto de state. No se debe reutilizar la identidad del publicador ni
 dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
-## Secuencia recomendada
+## Secuencia de bootstrap revisable
 
-1. Crear y proteger un backend de state independiente. Habilitar versionado,
-   soft delete, bloqueo por lease y RBAC; no guardar el state en GitHub artifacts.
-2. Crear el resource group destino de QAPAQ y una identidad bootstrap dedicada.
-3. Agregar a esa identidad una credencial federada con issuer
+1. Usar `infra/azure/bootstrap` desde Azure Cloud Shell autenticado para crear el
+   state Storage y el grupo destino protegido. El state account tiene versionado,
+   soft delete, keys y acceso anónimo deshabilitados, container privado y acceso
+   de red público requerido por el runner GitHub-hosted. Migrar el state local
+   del bootstrap a `bootstrap/terraform.tfstate` antes de cerrar la sesión.
+2. El bootstrap crea una User Assigned Managed Identity con issuer
    `https://token.actions.githubusercontent.com`, audience
-   `api://AzureADTokenExchange` y subject
-   `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`.
-4. Conceder permisos mínimos revisados para los recursos del plan en el resource
-   group destino y acceso de datos solo al state container. Revisar por separado
-   cualquier permiso para crear role assignments; no conceder Owner a nivel de
-   suscripción como atajo.
-5. El environment `azure-demo` existe; solo admite `main`, exige aprobación de
+   `api://AzureADTokenExchange` y subject inmutable
+   `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`.
+   GitHub informa `use_immutable_subject=true` para este repo; el formato sigue
+   la [referencia OIDC oficial](https://docs.github.com/en/actions/reference/security/oidc).
+3. Los permisos de la identidad se limitan a `Contributor` y `Role Based Access
+   Control Administrator` dentro del resource group QAPAQ, `Storage Blob Data
+   Contributor` en el Storage Account de state y `Cost Management Contributor`
+   en la suscripción para el presupuesto del root. Una condición ABAC restringe
+   la delegación a `AcrPull`, `AcrPush`, `Key Vault Secrets User` y `Storage
+   Blob Data Contributor` para service principals, y bloquea la autoasignación.
+   El operador bootstrap recibe acceso Blob solo en el Storage Account de state.
+   No se concede Owner/Contributor a nivel de suscripción a GitHub.
+4. El root `infra/azure` consulta el resource group creado por bootstrap; no lo
+   administra y no puede destruirlo. El environment `azure-demo` existe; solo admite `main`, exige aprobación de
    `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
-6. Configurar GitHub repository secrets sin imprimir sus valores:
+5. Configurar GitHub repository secrets sin imprimir valores secretos:
 
    ```powershell
    gh secret set AZURE_TERRAFORM_CLIENT_ID --repo CyberStill-GmbH/qapaq-secops
@@ -39,14 +48,15 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
    # AZURE_TENANT_ID y AZURE_SUBSCRIPTION_ID ya existen como repository secrets.
    ```
 
-   `AZURE_TERRAFORM_CLIENT_ID` debe ser el Client ID de la identidad bootstrap
-   para plan/apply. `AZURE_POSTGRES_ADMIN_PASSWORD` es la credencial nueva del
+   `AZURE_TERRAFORM_CLIENT_ID` es el Client ID de la identidad bootstrap
+   para plan/apply; se usa como dato de configuración de identidad, sin client
+   secret. `AZURE_POSTGRES_ADMIN_PASSWORD` es la credencial nueva del
    usuario bootstrap PostgreSQL; el estado y el plan Terraform pueden contenerla,
    por lo que se limitan a state remoto cifrado y al artifact efímero del propio
    run. No reutilizar contraseñas de AWS. El Client ID de `github_publisher` es
    otra identidad y va en `AZURE_ACR_PUBLISHER_CLIENT_ID`, que se obtiene del
    output Terraform después del primer apply controlado.
-7. Definir como GitHub variables los datos no secretos del backend remoto ya
+6. Definir como GitHub variables los datos no secretos del backend remoto ya
    creado y protegido:
 
    ```powershell
@@ -57,7 +67,7 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
    ```
 
    No llenar valores de ejemplo antes de crear el state backend.
-8. El workflow `.github/workflows/terraform-azure.yml` se ejecuta solo por
+7. El workflow `.github/workflows/terraform-azure.yml` se ejecuta solo por
    `workflow_dispatch` desde `main`. La validación de PR no accede a Azure. El
    plan usa OIDC y el environment `azure-demo`; la opción `apply` exige una
    referencia HTTPS al costo mensual revisado, guarda el plan por un día y espera
@@ -66,7 +76,7 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
    rechaza `delete`, `forget` y reemplazos. El plan binario puede contener valores
    sensibles: el repositorio debe seguir privado y no se debe descargar ni
    compartir el artifact fuera de los revisores autorizados.
-9. Después del primer apply y de que ACR exista, definir como GitHub variables:
+8. Después del primer apply y de que ACR exista, definir como GitHub variables:
 
    ```powershell
    gh variable set AZURE_ACR_NAME --body "<acr-name>" --repo CyberStill-GmbH/qapaq-secops

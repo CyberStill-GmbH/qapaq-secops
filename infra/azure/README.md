@@ -66,6 +66,10 @@ lleguen después de aplicarlo.
   Key Vault, Storage, ACR, Container Apps, identidades y role assignments.
 - Backend remoto Terraform en Azure Storage dedicado, con versionado, acceso RBAC
   mínimo, soft delete y locking. El backend no forma parte de este root.
+- `bootstrap/` define el backend remoto, la identidad OIDC de Terraform, las
+  asignaciones RBAC y crea el grupo destino protegido. El bootstrap todavía debe
+  ejecutarse manualmente tras revisar su plan; este root consulta el grupo con
+  `data.azurerm_resource_group` y solo crea recursos dentro de él.
 - Runner Terraform dentro de la VNet (self-hosted o red equivalente): Key Vault,
   Blob y PostgreSQL son privados, y el provider usa Microsoft Entra para el
   recurso Blob. Un GitHub-hosted runner público no puede administrar el contenedor
@@ -96,9 +100,15 @@ archivo versionado.
 
 1. Revisar [arquitectura Azure](../../docs/cloud/azure/architecture.md), el ADR
    Azure específico y los costos de la región escogida.
-2. Crear el backend remoto por un stack de bootstrap separado y restringirlo.
-3. Configurar `subscription_id`, `tenant_id`, región y password vía variables
-   seguras; no completar DNS todavía.
+2. Revisar y aplicar manualmente `bootstrap/` con la cuenta Azure autorizada.
+   Sus roles de GitHub se limitan a Contributor y Role Based Access Control
+   Administrator en el grupo QAPAQ, Cost Management Contributor en la
+   suscripción y acceso de datos al Storage de state. Migrar el state bootstrap
+   local al backend cifrado/versionado antes de cerrar la sesión.
+3. Definir en GitHub `AZURE_TERRAFORM_CLIENT_ID`, las variables
+   `AZURE_TF_STATE_*` y `AZURE_POSTGRES_ADMIN_PASSWORD` por canales seguros; los
+   IDs de tenant y suscripción ya están configurados. El Client ID no es secreto,
+   pero el workflow lo toma de GitHub Secrets por configuración. No completar DNS.
 4. Ejecutar `terraform fmt -check`, `terraform init` con el backend Azure y
    `terraform validate`; generar un plan nuevo y revisar cada recurso, costo y
    destrucción antes de solicitar autorización de apply.
