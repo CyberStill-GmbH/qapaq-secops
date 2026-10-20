@@ -59,7 +59,7 @@ El módulo de host requiere Azure Firewall, que no existe en el root actual. En 
 ## Gaps que bloquean afirmar “operativo”
 
 - Los módulos `siem_host` y `ankay_host` pasan validación aislada, pero ninguno está integrado al root. `siem_host` tampoco instala KrakenD ni dispone del bundle QAPAQ completo; se requieren integración, CI, plan remoto y evidencia de runtime antes de declarar despliegue Azure.
-- El instalador `wazuh/core` y Office 365 está acoplado a SSM/Secrets Manager/CA RDS de AWS. Falta adaptación equivalente a Managed Identity/Key Vault y a PostgreSQL Azure, con permisos mínimos.
+- El instalador `wazuh/core` y Office 365 sigue acoplado a SSM/Secrets Manager de AWS. Se añadió `wazuh/core/build-azure.sh` para compilar el core usando el almacén de CA del runner en lugar del bundle RDS; aún falta el bootstrap Azure de secretos/Office 365 con Managed Identity/Key Vault, permisos mínimos y validación de TLS contra PostgreSQL Azure. Este helper no equivale a un release bundle instalado.
 - No hay Valkey en Terraform Azure ni prueba de TLS/auth, disponibilidad, no-eviction, backup o recuperación. El worker visible no crea consumidor BullMQ; `qapaq_jobs` no prueba cola activa.
 - La integración M365 y sus reglas/configuración necesitan instalarse en Manager y comprobarse con eventos sintéticos/lecturas reales. Eso no prueba retención retroactiva ni ingestión actual.
 - Sophos y Cato figuran sin contratos de fuente validados. No se declara API, polling, agent, política o alerta conectada por la presencia de nombres o secretos.
