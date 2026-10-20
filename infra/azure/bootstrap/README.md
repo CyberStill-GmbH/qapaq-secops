@@ -9,9 +9,10 @@ workflow principal hasta revisar este código, el plan y los roles.
 
 - Grupo `state` dedicado y Storage Account LRS con HTTPS/TLS 1.2, claves
   compartidas y acceso anónimo deshabilitados, versionado de blobs y soft delete
-  de 30 días. El endpoint de red es público para que el runner GitHub-hosted
-  pueda usar el backend; autorización de datos exige Entra ID y RBAC. Migrar a
-  private endpoint requerirá un runner dentro de la VNet.
+  de 30 días. La red usa firewall `Deny` por defecto y permite solo las IPv4/CIDR
+  de salida estables autorizadas en `state_storage_allowed_ipv4`; RBAC/Entra ID
+  sigue siendo obligatorio. No se aceptan rangos públicos amplios ni el egress
+  dinámico del runner estándar de GitHub.
 - Contenedor privado de state y grupo destino `rg-*`, ambos con `prevent_destroy`.
 - User-assigned managed identity federada únicamente con el subject inmutable
   `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`
@@ -42,14 +43,21 @@ export TF_VAR_subscription_id="$(az account show --query id --output tsv)"
 export TF_VAR_tenant_id="$(az account show --query tenantId --output tsv)"
 export TF_VAR_bootstrap_operator_object_id="$(az ad signed-in-user show --query id --output tsv)"
 export TF_VAR_state_storage_account_name="<storage-account-name-unico>"
+# Añadir solo las IPv4/CIDR de salida estables del runner aprobado, separadas por coma.
+export TF_VAR_state_storage_allowed_ipv4='["<runner-static-egress-ip>/32"]'
 cd infra/azure/bootstrap
 terraform init -backend=false
 terraform plan -input=false -out=bootstrap.tfplan
 terraform show -no-color bootstrap.tfplan
 ```
 
-Verificar nombres, scopes RBAC, retención y configuración de red antes de
-aplicar. El único permiso a nivel de suscripción de la identidad de GitHub es
+Verificar nombres, scopes RBAC, retención, firewall `Deny` e IPs estables
+autorizadas antes de aplicar. Los runners estándar de GitHub usan egress
+dinámico y no deben añadirse como firewall allowlist; usar un runner mayor con
+IPs estáticas habilitadas en GitHub Enterprise Cloud o un runner propio con
+egress estático. Si ese runner no está disponible, no se puede completar el
+bootstrap/camino remoto desde Actions con esta política; no abrir el Storage a
+todo Internet como workaround. El único permiso a nivel de suscripción de la identidad de GitHub es
 Cost Management Contributor. La aplicación no cambia DNS ni lee ni crea secretos
 de proveedores. La delegación RBAC usa una condición ABAC basada en los
 [ejemplos de Microsoft](https://learn.microsoft.com/azure/role-based-access-control/delegate-role-assignments-examples).
@@ -79,6 +87,15 @@ gh variable set AZURE_TF_STATE_STORAGE_ACCOUNT --body "$(terraform output -raw s
 gh variable set AZURE_TF_STATE_CONTAINER --body "$(terraform output -raw state_container_name)" --repo CyberStill-GmbH/qapaq-secops
 gh variable set AZURE_TF_STATE_KEY --body "$(terraform output -raw state_key)" --repo CyberStill-GmbH/qapaq-secops
 ```
+
+Configurar además `AZURE_TF_RUNNER_LABELS` como variable de repositorio con
+JSON array de etiquetas de un runner que tenga salida estable permitida por el
+firewall del state. Para un runner propio etiquetado `qapaq-azure-state`, por
+ejemplo: `['self-hosted','linux','x64','qapaq-azure-state']` (usar JSON con
+comillas dobles al guardarlo). Para GitHub larger runner, usar la etiqueta
+exacta del runner al que se asignó IP estática. El workflow Terraform rechaza
+la ejecución si falta esta variable. Las validaciones de PR y builds continúan
+en runners GitHub-hosted estándar sin credenciales cloud.
 
 `AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID` ya existen. La contraseña nueva de
 PostgreSQL se genera y carga por separado en `AZURE_POSTGRES_ADMIN_PASSWORD`;

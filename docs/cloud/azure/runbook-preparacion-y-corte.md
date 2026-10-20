@@ -277,8 +277,12 @@ usar una clave compartida como sustituto del control de acceso.
 ## Gates antes de declarar el servicio listo
 
 1. Autenticarse a Azure y AWS; seleccionar la suscripción/tenant correctos.
-2. Crear state backend y runner privado con acceso mínimo; instalar herramientas
-   fijadas y confirmar el lockfile del provider.
+2. Crear state backend con firewall `Deny` y salida estable autorizada del
+   runner. Los runners estándar GitHub-hosted tienen IP dinámica y no son una
+   allowlist segura; usar runner mayor con IP estática (GitHub Enterprise Cloud)
+   o runner propio dentro de una red controlada. Si no se cumple, detener el
+   bootstrap y no abrir el state a Internet. Instalar herramientas fijadas y
+   confirmar el lockfile del provider.
 3. Resolver las decisiones de región, residencia de datos y costeo real con SKUs,
    GB de logs, retención, backups y réplicas; no exceder USD 200/mes.
 4. Publicar imágenes compatibles por CI, fijar digests y validar Queue/Worker

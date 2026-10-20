@@ -45,6 +45,11 @@ resource "azurerm_storage_account" "state" {
   shared_access_key_enabled       = false
   default_to_oauth_authentication = true
   allow_nested_items_to_be_public = false
+  network_rules {
+    default_action = "Deny"
+    bypass         = []
+    ip_rules       = var.state_storage_allowed_ipv4
+  }
   blob_properties {
     versioning_enabled = true
 

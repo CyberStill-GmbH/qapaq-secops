@@ -70,6 +70,16 @@ variable "state_storage_account_name" {
   }
 }
 
+variable "state_storage_allowed_ipv4" {
+  description = "IPv4 addresses/CIDR ranges with stable egress for Terraform state access (for example, a GitHub larger runner with static IPs or a private self-hosted runner egress). Do not use broad public ranges."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.state_storage_allowed_ipv4) > 0 && length(var.state_storage_allowed_ipv4) <= 400 && alltrue([for address in var.state_storage_allowed_ipv4 : can(cidrnetmask(address))])
+    error_message = "Provide 1-400 valid IPv4 CIDR ranges for stable, approved runner egress; Azure Storage network rules deny all other network sources."
+  }
+}
+
 variable "bootstrap_operator_object_id" {
   description = "Entra object ID of the user running the one-time bootstrap and state migration."
   type        = string
