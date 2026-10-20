@@ -16,3 +16,7 @@ Este cambio solo resuelve el material de confianza TLS del artefacto. `apply-cor
 AWS Systems Manager y Secrets Manager, y el worker incluido aún no demuestra un consumidor de cola
 funcional en Azure. El bootstrap Azure debe materializar referencias de Key Vault de forma segura y
 validar API, worker, migraciones y salud antes de llamar operativo al servicio.
+
+`.github/workflows/qapaq-core-azure.yml` compila el archivo en pull requests y verifica que el CA
+empaquetado coincide con el trust store del runner. El artefacto CI vence al día siguiente; no se
+publica en Blob/ACR ni lo instala en una VM.
