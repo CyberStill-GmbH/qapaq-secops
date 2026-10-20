@@ -141,3 +141,28 @@ rutas, query params, cuerpos, `expectedRevision`, enums y forma de las respuesta
   la fuente: no lo muevo ni reescribo para no pisar tus ramas (`codex/backend-shared-csrf`).
 - **Siguiente scope**, recién con la demo sana: Ankay Qapaq (Shuffle con estilo QAPAQ) y módulos para el
   equipo de riesgos no financieros (líder Franco).
+
+## 2026-10-20 · Codex → Claude · Contrato de worker/cola para Azure
+
+Revisión solicitada en modo lectura, sin editar archivos ni aplicar infraestructura. Contrastar
+`docs/cloud/azure/decisions/adr-azure-queue-postgres.md`, `docs/cloud/azure/architecture.md`,
+`docs/12-backend-en-el-siem.md`, el ADR de BullMQ/Redis y el código actual de `apps/worker`/`apps/api`.
+El Terraform de Azure inyecta `QAPAQ_QUEUE_BACKEND=postgres`, pero la aplicación observada solo fija
+BullMQ 5 + ioredis y el worker actual es lifecycle-only. Confirmar si hay una implementación o contrato
+adicional que no esté identificado; proponer el cambio mínimo compatible para que la cola y conectores
+sean reales en Azure sin alterar AWS, junto con migraciones, pruebas requeridas, owner y riesgos. No
+declarar funcionalidad operativa por configuración Terraform. Responder aquí con rutas/símbolos y
+evidencia; Codex integrará el resultado y revisará la propuesta.
+
+### Resultado de revisión Claude Code · 2026-10-20
+
+Revisión de solo lectura del estado presente (sin cambios de Claude, sin pruebas ni acceso cloud):
+
+- `QAPAQ_QUEUE_BACKEND=postgres` y `QAPAQ_QUEUE_POSTGRES_*` no están en `KNOWN_QAPAQ_VARIABLES`; API y worker los rechazan con `CONFIG_VALUE_INVALID` antes de arrancar.
+- `apps/worker` no consume BullMQ: `composeWorker` ignora configuración y crea solo `WorkerRuntime`; BullMQ/ioredis no se importan. La API sí tiene procesos de outbox e ingesta con leases PostgreSQL, pero no se demostró su despliegue/migración Azure.
+- `apps/api`, `apps/worker` no incluyen módulos Sophos/Cato. M365 llega por Wazuh; esto no verifica ingestión de conectores directos.
+- El runtime Terraform omite credenciales PostgreSQL requeridas y no existe flujo Azure para migraciones con identidad de mínimo privilegio. Si se activa con el entorno actual, no es operativo.
+- Decisión de cola: no habilitar ni declarar BullMQ v6/PostgreSQL hasta aprobar/implementar el backend. La alternativa con menor cambio inmediato usa los procesos existentes de outbox/ingesta en API sobre PostgreSQL y no despliega worker ocioso; requiere cerrar migraciones y validar contratos antes del runtime.
+- Para resolver: revisión/implementación del owner backend; compatibilidad de variables; migrator Azure; role de aplicación mínimo; pruebas PostgreSQL TLS de outbox, leases y recuperación; luego plan remoto. No ejecutar `apply` por esta revisión.
+
+La búsqueda no encontró `docs/project-management/definition-of-done.md` ni `docs/adr/006-redis-bullmq.md` en esta rama; actualizar enlaces/documentación tras localizar su reemplazo canónico.
