@@ -155,7 +155,8 @@ El primer entregable de código debería ser la **Fase 0** y los contratos de la
   README.
 - [Arquitectura Azure](architecture.md), [runbook de corte](runbook-preparacion-y-corte.md)
   y [ADR Azure de cola](decisions/adr-azure-queue-postgres.md).
-- [ADR-006 Redis/BullMQ](../../adr/006-redis-bullmq.md) y
+- [Decisiones técnicas vigentes](../../10-decisiones.md) (A9/A18) y
+  [modelo de caché y colas](../../11-cache-y-colas.md), consolidación de los ADR históricos, y
   [README AWS](../../../infra/aws/README.md).
 - [Azure Cost Management budgets](https://learn.microsoft.com/en-us/azure/cost-management-billing/costs/tutorial-acm-create-budgets):
   los umbrales de presupuesto generan avisos, pero no afectan los recursos ni

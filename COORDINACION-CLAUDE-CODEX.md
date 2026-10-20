@@ -165,4 +165,7 @@ Revisión de solo lectura del estado presente (sin cambios de Claude, sin prueba
 - Decisión de cola: no habilitar ni declarar BullMQ v6/PostgreSQL hasta aprobar/implementar el backend. La alternativa con menor cambio inmediato usa los procesos existentes de outbox/ingesta en API sobre PostgreSQL y no despliega worker ocioso; requiere cerrar migraciones y validar contratos antes del runtime.
 - Para resolver: revisión/implementación del owner backend; compatibilidad de variables; migrator Azure; role de aplicación mínimo; pruebas PostgreSQL TLS de outbox, leases y recuperación; luego plan remoto. No ejecutar `apply` por esta revisión.
 
-La búsqueda no encontró `docs/project-management/definition-of-done.md` ni `docs/adr/006-redis-bullmq.md` en esta rama; actualizar enlaces/documentación tras localizar su reemplazo canónico.
+La consolidación documental retiró esas rutas del árbol actual: `docs/10-decisiones.md` y
+`docs/11-cache-y-colas.md` son ahora la referencia vigente, y los textos históricos se conservan
+en Git (el baseline `050f9fa` contiene ADR-006 y la Definition of Done). El informe de paridad Azure
+enlaza ahora las referencias vigentes.
