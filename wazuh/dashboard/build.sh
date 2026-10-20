@@ -205,7 +205,12 @@ if [ "$MODE" = source ]; then
   rm -rf "$OSD/plugins/wazuh-security-dashboards-plugin"
   cp -R "$SECURITY_SRC" "$OSD/plugins/wazuh-security-dashboards-plugin"
   log "Compilando wazuh-security-dashboards-plugin (sin cambios)"
-  (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn install --non-interactive && yarn build)
+  if [ -f "$OSD/plugins/wazuh-security-dashboards-plugin/yarn.lock" ]; then
+    (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn install --frozen-lockfile --non-interactive)
+  else
+    (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn install --non-interactive)
+  fi
+  (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn build)
   cp "$OSD"/plugins/wazuh-security-dashboards-plugin/build/*.zip "$PKG/security/"
 fi
 
