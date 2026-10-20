@@ -37,3 +37,8 @@ output "edge_default_fqdn" {
   description = "FQDN temporal administrado por Azure para el edge, si enable_runtime=true. DNS custom queda fuera de este stack."
   value       = module.runtime.edge_default_fqdn
 }
+
+output "siem_private_ip" {
+  description = "IP privada del SIEM QAPAQ cuando se habilita el host. null mientras falten las gates de release y red."
+  value       = try(module.siem_host[0].private_ip_address, null)
+}

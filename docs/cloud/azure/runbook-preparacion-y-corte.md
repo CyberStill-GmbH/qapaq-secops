@@ -4,7 +4,7 @@
 
 Este runbook conserva abajo observaciones fechadas del 2026-10-20. Para el diseño objetivo prevalece [`architecture.md`](architecture.md), basado en `docs/10-decisiones.md` A5–A9/A13/A18/A20/A22 y `docs/12-backend-en-el-siem.md`.
 
-El destino Azure es Wazuh QAPAQ 4.14.8 / OSD 2.19.6 con edge Nginx QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 junto al SIEM; PostgreSQL durable; Valkey para sesiones, cache-aside y BullMQ; KrakenD para ingesta según A8; y Ankay como Shuffle completo en un host privado separado, tras `/ankay/*` con la sesión/autorización QAPAQ actual. Hay módulos de host SIEM y Ankay en elaboración/revisión, aún sin integrar ni consumir desde el root. CI, plan y apply siguen pendientes; este diseño no certifica un despliegue.
+El destino Azure es Wazuh QAPAQ 4.14.8 / OSD 2.19.6 con edge Nginx QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 junto al SIEM; PostgreSQL durable; Valkey para sesiones, cache-aside y BullMQ; KrakenD para ingesta según A8; y Ankay como Shuffle completo en un host privado separado, tras `/ankay/*` con la sesión/autorización QAPAQ actual. `siem_host` ya está conectado al root detrás del objeto opcional `siem_host`, desactivado por defecto; `ankay_host` sigue aislado. CI, bundle, plan y apply siguen pendientes; este diseño no certifica un despliegue.
 
 Antes de usar este runbook, tener presentes estos gates:
 

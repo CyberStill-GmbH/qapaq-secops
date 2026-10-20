@@ -5,3 +5,4 @@ output "postgres_private_dns_zone_id" { value = azurerm_private_dns_zone.postgre
 output "key_vault_private_dns_zone_id" { value = azurerm_private_dns_zone.key_vault.id }
 output "blob_private_dns_zone_id" { value = azurerm_private_dns_zone.blob.id }
 output "virtual_network_id" { value = azurerm_virtual_network.this.id }
+output "virtual_network_name" { value = azurerm_virtual_network.this.name }

@@ -92,3 +92,40 @@ module "runtime" {
 
   depends_on = [module.identity_registry, module.data]
 }
+
+# Wazuh QAPAQ is a dedicated VM, not one of the generic Container Apps above. Keep it
+# disabled until the operator supplies an audited firewall, immutable release bundle,
+# approved ingress CIDRs, Key Vault secret references, and a private SSH recovery key.
+module "siem_host" {
+  count  = var.siem_host == null ? 0 : 1
+  source = "./modules/siem_host"
+
+  resource_group_name          = data.azurerm_resource_group.this.name
+  location                     = data.azurerm_resource_group.this.location
+  name_base                    = local.name_base
+  virtual_network_name         = module.network.virtual_network_name
+  firewall_private_ip          = try(var.siem_host.firewall_private_ip, "")
+  firewall_policy_reference    = try(var.siem_host.firewall_policy_reference, "")
+  private_endpoint_subnet_cidr = cidrsubnet(var.address_space, 12, 257)
+  postgres_subnet_cidr         = cidrsubnet(var.address_space, 12, 256)
+  address_prefix               = try(var.siem_host.address_prefix, "")
+  vm_size                      = try(var.siem_host.vm_size, "")
+  admin_ssh_public_key         = try(var.siem_host.admin_ssh_public_key, "")
+  ubuntu_image_version         = try(var.siem_host.ubuntu_image_version, "")
+  data_disk_size_gb            = try(var.siem_host.data_disk_size_gb, 128)
+  dashboard_ingress_cidrs      = try(var.siem_host.dashboard_ingress_cidrs, toset([]))
+  agent_ingress_cidrs          = try(var.siem_host.agent_ingress_cidrs, toset([]))
+  key_vault_id                 = module.data.key_vault_id
+  key_vault_uri                = module.data.key_vault_uri
+  core_secret_names            = try(var.siem_host.core_secret_names, {})
+  wazuh_secret_names           = try(var.siem_host.wazuh_secret_names, {})
+  core_environment             = try(var.siem_host.core_environment, {})
+  container_registry_id        = module.identity_registry.container_registry_id
+  artifact_container_scope_id  = module.data.siem_release_container_id
+  evidence_container_scope_id  = module.data.raw_container_id
+  bootstrap_bundle_blob_url    = try(var.siem_host.bootstrap_bundle_blob_url, "")
+  bootstrap_bundle_sha256      = try(var.siem_host.bootstrap_bundle_sha256, "")
+  tags                         = var.tags
+
+  depends_on = [module.network, module.data, module.identity_registry]
+}

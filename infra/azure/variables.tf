@@ -111,6 +111,27 @@ variable "enable_runtime" {
   default     = false
 }
 
+variable "siem_host" {
+  description = "Configuración completa para habilitar el host Wazuh QAPAQ. null mantiene el módulo apagado; habilitar requiere firewall auditado, bundle inmutable, clave pública y CIDR aprobados."
+  type = object({
+    firewall_private_ip       = string
+    firewall_policy_reference = string
+    address_prefix            = string
+    vm_size                   = string
+    admin_ssh_public_key      = string
+    ubuntu_image_version      = string
+    data_disk_size_gb         = number
+    dashboard_ingress_cidrs   = set(string)
+    agent_ingress_cidrs       = set(string)
+    core_secret_names         = map(string)
+    wazuh_secret_names        = map(string)
+    core_environment          = map(string)
+    bootstrap_bundle_blob_url = string
+    bootstrap_bundle_sha256   = string
+  })
+  default = null
+}
+
 variable "key_vault_secret_ids" {
   description = "Secretos precreados en Key Vault, por servicio y nombre lógico. Nunca se aceptan valores secretos en tfvars."
   type        = map(map(string))

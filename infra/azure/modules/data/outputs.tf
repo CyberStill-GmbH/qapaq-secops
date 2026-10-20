@@ -9,3 +9,4 @@ output "siem_release_container_id" { value = azurerm_storage_container.siem_rele
 output "siem_release_container_name" { value = azurerm_storage_container.siem_release.name }
 output "key_vault_id" { value = azurerm_key_vault.this.id }
 output "key_vault_name" { value = azurerm_key_vault.this.name }
+output "key_vault_uri" { value = azurerm_key_vault.this.vault_uri }

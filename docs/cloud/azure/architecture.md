@@ -19,13 +19,13 @@ Ankay Qapaq es Shuffle completo fijado en `ankay/upstream.lock`, con el overlay 
 
 A18 registró inicialmente la simplificación de lanzamiento sin colas nuevas; A9, decisión posterior, actualiza el objetivo e incorpora Valkey/BullMQ para sesiones, caché y jobs. Esa parte se habilita por fases, cuando exista un consumidor real probado y esté definido el comportamiento ante caída de Valkey.
 
-**La arquitectura anterior describe el destino, no evidencia de operación.** El root `infra/azure` actual crea una fundación de red/datos/identidad y Container Apps opcionales genéricas. No crea un host Wazuh, instala el `.deb`, despliega `qapaq-core`, aprovisiona Valkey, ni crea la VM/Compose de Ankay. Los módulos `siem_host` y `ankay_host` existen y pasan validación Terraform sin credenciales, pero siguen aislados: no están conectados al root ni validados con un plan Azure. No se debe activar el runtime genérico como sustituto de estos componentes.
+**La arquitectura anterior describe el destino, no evidencia de operación.** El root `infra/azure` crea una fundación de red/datos/identidad y Container Apps opcionales genéricas. El módulo `siem_host` ahora está conectado al root mediante el objeto opcional `siem_host`, apagado cuando es `null`; esto prepara el cableado, pero no instala el `.deb` ni despliega hasta proporcionar un bundle válido y las dependencias auditadas. El root todavía no aprovisiona Valkey ni la VM/Compose de Ankay. No se debe activar el runtime genérico como sustituto de estos componentes.
 
 ## Traducción Azure del diseño
 
 | Capacidad objetivo | Traducción Azure | Estado / gate |
 | --- | --- | --- |
-| Manager, Indexer y Dashboard QAPAQ | VM Linux SIEM con artefactos fijados por versión/digest, disco de datos y recuperación probada | `modules/siem_host` está implementado y validado de forma aislada, pero no está integrado al root ni es desplegable todavía. Falta construir/publicar el bundle instalable y revisar un plan Azure. Mantener Indexer, Manager y Dashboard privados; solo edge y puertos de agentes aprobados pueden alcanzar el host. |
+| Manager, Indexer y Dashboard QAPAQ | VM Linux SIEM con artefactos fijados por versión/digest, disco de datos y recuperación probada | `modules/siem_host` está conectado al root detrás del objeto opcional `siem_host` y validado. Sigue apagado por defecto. Falta construir/publicar el bundle instalable, proporcionar firewall/red/secretos revisados y analizar un plan Azure. Mantener Indexer, Manager y Dashboard privados; solo edge y puertos de agentes aprobados pueden alcanzar el host. |
 | Edge QAPAQ | Nginx en el host SIEM, TLS en la entrada pública elegida; proxy al Dashboard y API local | Reutilizar `wazuh/edge`; falta IaC/bootstrap Azure y prueba end-to-end. El cutover DNS queda fuera hasta aprobar destino, TLS y pruebas. |
 | API gateway de ingesta | KrakenD interno entre `qapaq-core` y Wazuh Indexer mientras A8 lo requiera | El root y `siem_host` todavía no instalan KrakenD en el host SIEM. Debe integrarse conforme A8; no afirmar que una ruta alternativa ya reemplaza su contrato. |
 | Núcleo QAPAQ | API y worker Node 24 como servicios systemd en el host SIEM; API en `127.0.0.1:3000` | El código/instalador actual usa AWS SSM, Secrets Manager y CA RDS. Se requiere un bootstrap Azure con Managed Identity/Key Vault y PostgreSQL privado, sin modificar o rotar secretos de AWS. |
@@ -58,7 +58,7 @@ El módulo de host requiere Azure Firewall, que no existe en el root actual. En 
 
 ## Gaps que bloquean afirmar “operativo”
 
-- Los módulos `siem_host` y `ankay_host` pasan validación aislada, pero ninguno está integrado al root. `siem_host` tampoco instala KrakenD ni dispone del bundle QAPAQ completo; se requieren integración, CI, plan remoto y evidencia de runtime antes de declarar despliegue Azure.
+- `siem_host` está integrado al root detrás de un gate opcional, pero sigue sin bundle instalable, configuración aprobada ni plan Azure. `ankay_host` sigue aislado y no integrado. El host SIEM tampoco instala KrakenD; se requieren artefactos, CI, plan remoto y evidencia de runtime antes de declarar despliegue Azure.
 - El instalador `wazuh/core` y Office 365 sigue acoplado a SSM/Secrets Manager de AWS. Se añadió `wazuh/core/build-azure.sh` para compilar el core usando el almacén de CA del runner en lugar del bundle RDS; aún falta el bootstrap Azure de secretos/Office 365 con Managed Identity/Key Vault, permisos mínimos y validación de TLS contra PostgreSQL Azure. Este helper no equivale a un release bundle instalado.
 - No hay Valkey en Terraform Azure ni prueba de TLS/auth, disponibilidad, no-eviction, backup o recuperación. El worker visible no crea consumidor BullMQ; `qapaq_jobs` no prueba cola activa.
 - La integración M365 y sus reglas/configuración necesitan instalarse en Manager y comprobarse con eventos sintéticos/lecturas reales. Eso no prueba retención retroactiva ni ingestión actual.

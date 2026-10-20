@@ -92,8 +92,10 @@ preflight del módulo, no se debe habilitar runtime ni declarar el SIEM listo.
 
 ## Preflight de módulo
 
-La integración posterior debe inicializar Terraform con AzureRM 4.x y ejecutar `terraform validate`.
-Antes de habilitar el ingress o aplicar, también debe verificar:
+El módulo está conectado a `infra/azure/main.tf` detrás del objeto opcional `siem_host` y permanece
+apagado cuando ese objeto es `null`. La integración debe inicializar Terraform con AzureRM 4.x y
+ejecutar `terraform validate`. Antes de completar el objeto, habilitar el ingress o aplicar, también
+debe verificar:
 
 1. El bundle existe en Blob privado y su digest coincide con el manifiesto de release de CI.
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
