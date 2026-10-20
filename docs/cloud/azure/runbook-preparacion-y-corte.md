@@ -63,11 +63,12 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   concede permisos Azure.
 - En GitHub están creados los repository secrets `AZURE_TENANT_ID` y
   `AZURE_SUBSCRIPTION_ID`; se comprobó solo el nombre/metadata, no sus valores.
-  Los workflows de publicación aceptan también `AZURE_CLIENT_ID` como secret o
-  variable. Ese Client ID todavía falta. Las variables `AZURE_ACR_NAME` y
-  `AZURE_ACR_LOGIN_SERVER` también faltan porque el ACR aún no existe. El Client
-  ID debe identificar la UAMI publisher que Terraform crea con `AcrPush`, cuya
-  federación usa el subject
+  La futura pipeline Terraform requiere una identidad bootstrap separada con el
+  secret `AZURE_TERRAFORM_CLIENT_ID`. Los workflows de publicación aceptan
+  `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable. Ambos Client IDs aún
+  faltan. Las variables `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` también
+  faltan porque el ACR aún no existe. La identidad publisher que Terraform crea
+  recibe `AcrPush` y su federación usa el subject
   `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`.
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
   faltan producto/edición, API y versión, región, autenticación, permisos,
@@ -113,19 +114,20 @@ commit y el SHA-256 del paquete; registra y muestra la referencia por digest del
 manifiesto. El token de ACR es temporal de Entra, se entrega a ORAS por stdin y no se guarda en variables
 ni artefactos.
 
-Los workflows leen `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
-`AZURE_SUBSCRIPTION_ID` desde repository secrets (con fallback a variables).
-El `AZURE_CLIENT_ID` debe corresponder a la identidad federada que Terraform
-crea con `AcrPush`, cuyo subject es
+Los workflows de publicación leen `AZURE_ACR_PUBLISHER_CLIENT_ID`,
+`AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID` desde repository secrets (con
+fallback a variables). El `AZURE_ACR_PUBLISHER_CLIENT_ID` debe corresponder a la
+identidad federada que Terraform crea con `AcrPush`, cuyo subject es
 `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`. El artifact de GitHub
 se conserva un día entre jobs. Esta pipeline no instala el `.deb`, no modifica
 una VM ni ejecuta Terraform. ACR conserva endpoint público autenticado con RBAC;
 antes de tratarlo como registro productivo, restringir acceso a red o usar un
 runner privado y revisar retención/immutability del registry.
 
-La publicación cloud no se ha ejecutado: el environment `azure-demo`, el
-`AZURE_CLIENT_ID`, las variables del registry, el state remoto, el registry
-Azure y el plan de costo siguen pendientes.
+La publicación cloud no se ha ejecutado: el environment `azure-demo`, la
+identidad bootstrap `AZURE_TERRAFORM_CLIENT_ID`, la identidad publicadora
+`AZURE_ACR_PUBLISHER_CLIENT_ID`, las variables del registry, el state remoto, el
+registry Azure y el plan de costo siguen pendientes.
 Tampoco existe la VM Wazuh con identidad `AcrPull`; por eso no se creó el
 artifact ni se publicó nada a ACR.
 
