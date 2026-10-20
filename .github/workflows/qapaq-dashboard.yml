@@ -41,8 +41,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: qapaq-siem
-  cancel-in-progress: false
+  group: qapaq-siem-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   AWS_REGION: us-east-1
