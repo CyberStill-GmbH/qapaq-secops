@@ -54,22 +54,26 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
 - La preparación está publicada en el PR draft
   [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
-  `codex/azure-mainline-preparation`, commit `3ba696c`. La validación sin
-  credenciales (`fmt`, `init -backend=false`, `validate`) pasó en CI. El run de
-  seguridad del commit aún estaba ejecutándose al capturar este estado. No hay
-  plan/apply Azure. La publicación de artefactos a ACR sigue siendo manual y
-  requiere que exista el environment `azure-demo`, la identidad OIDC, ACR y
-  variables de destino; Terraform por sí solo no configura el workflow ni
-  concede permisos Azure.
+  `codex/azure-mainline-preparation`, commit `7932552`. El run de CI Security
+  [39416565647](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39416565647)
+  y el build cloud-free de Ankay
+  [39415831111](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39415831111)
+  pasaron. La validación Terraform sin credenciales (`fmt`,
+  `init -backend=false`, `validate`) pasó en
+  [39415831181](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39415831181).
+  Estos checks no ejecutaron plan/apply ni accedieron a Azure. La publicación a
+  ACR sigue siendo manual y requiere environment, OIDC, ACR y variables de
+  destino; Terraform por sí solo no configura el workflow ni concede permisos.
 - En GitHub están creados los repository secrets `AZURE_TENANT_ID` y
   `AZURE_SUBSCRIPTION_ID`; se comprobó solo el nombre/metadata, no sus valores.
   La futura pipeline Terraform requiere una identidad bootstrap separada con el
-  secret `AZURE_TERRAFORM_CLIENT_ID`. Los workflows de publicación aceptan
+  secret `AZURE_TERRAFORM_CLIENT_ID`. Los workflows de publicación leen
   `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable. Ambos Client IDs aún
   faltan. Las variables `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` también
   faltan porque el ACR aún no existe. La identidad publisher que Terraform crea
   recibe `AcrPush` y su federación usa el subject
-  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`.
+  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`. El environment
+  sigue sin existir (la consulta GitHub API devolvió 404).
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
   faltan producto/edición, API y versión, región, autenticación, permisos,
   datasets, cuotas, replay, credencial y conectores validados. Tener credenciales
