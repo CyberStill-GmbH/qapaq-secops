@@ -68,7 +68,7 @@ resource "azurerm_storage_account" "evidence" {
 
   network_rules {
     default_action = "Deny"
-    bypass         = ["None"]
+    bypass         = ["AzureServices"]
   }
 
   blob_properties {
