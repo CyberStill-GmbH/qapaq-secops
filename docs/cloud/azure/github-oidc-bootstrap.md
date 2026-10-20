@@ -94,11 +94,11 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 - Existen los repository secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
   `AZURE_SUBSCRIPTION_ID`; también aparece `ENTRA_CLIENT_SECRET`. Solo se
   consultaron nombres y metadata, nunca sus valores.
-- Los workflows no consumen el nombre genérico `AZURE_CLIENT_ID`: Terraform
-  exige `AZURE_TERRAFORM_CLIENT_ID`, y los publicadores esperan
-  `AZURE_ACR_PUBLISHER_CLIENT_ID`. Confirmar la federación OIDC y los roles del
-  principal antes de mapearlo a cualquiera de esos nombres. Mantener separadas
-  las identidades de IaC y `AcrPush` que define este diseño.
+- Terraform acepta `AZURE_TERRAFORM_CLIENT_ID` y usa `AZURE_CLIENT_ID` como
+  alternativa si el nombre dedicado todavía no está creado. El principal debe
+  tener la federación OIDC `azure-demo` y permisos acotados para IaC; la mera
+  presencia del secreto no prueba esos permisos. Los publicadores siguen
+  exigiendo `AZURE_ACR_PUBLISHER_CLIENT_ID`, separado para `AcrPush`.
 - No existen `AZURE_POSTGRES_ADMIN_PASSWORD`, las cuatro variables
   `AZURE_TF_STATE_*`, `AZURE_TF_RUNNER_LABELS`, `AZURE_ACR_NAME` ni
   `AZURE_ACR_LOGIN_SERVER` entre los repository secrets/variables verificados.

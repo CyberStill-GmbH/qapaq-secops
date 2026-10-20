@@ -111,9 +111,9 @@ archivo versionado.
    local al backend cifrado/versionado antes de cerrar la sesión.
 3. GitHub ya contiene `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
    `AZURE_SUBSCRIPTION_ID` como repository secrets. El workflow Terraform
-   requiere el Client ID de la identidad bootstrap bajo el nombre
-   `AZURE_TERRAFORM_CLIENT_ID`; comprobar que `AZURE_CLIENT_ID` corresponde a
-   ese principal y que su federación OIDC/roles son correctos antes de mapearlo.
+   prefiere `AZURE_TERRAFORM_CLIENT_ID` y acepta `AZURE_CLIENT_ID` como
+   alternativa. Verificar que el principal tiene la federación OIDC y roles
+   acotados esperados antes de ejecutar el workflow.
    Configurar también las variables `AZURE_TF_STATE_*`,
    `AZURE_TF_RUNNER_LABELS` y el secreto `AZURE_POSTGRES_ADMIN_PASSWORD` por
    canales seguros. No completar DNS en esta fase.

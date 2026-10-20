@@ -69,13 +69,12 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
 - GitHub Actions ya tiene configurados, como repository secrets, los nombres
   `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID`; también
   aparece `ENTRA_CLIENT_SECRET`. Solo se inspeccionaron nombres/metadata; no se
-  leyeron valores. Los workflows Terraform de este PR esperan
+  leyeron valores. Los workflows Terraform de este PR prefieren
   `AZURE_TERRAFORM_CLIENT_ID`, mientras los publicadores esperan
-  `AZURE_ACR_PUBLISHER_CLIENT_ID`. La existencia de `AZURE_CLIENT_ID` confirma
-  que se cargó una identidad, pero no que tenga la federación OIDC y los roles
-  específicos de IaC y ACR. No se debe reutilizarla en ambos flujos hasta
-  validar principal, federación y alcance RBAC; el diseño separa esas
-  identidades por mínimo privilegio.
+  `AZURE_ACR_PUBLISHER_CLIENT_ID`. Terraform acepta `AZURE_CLIENT_ID` como
+  alternativa a `AZURE_TERRAFORM_CLIENT_ID`; la identidad ACR continúa separada.
+  La presencia del secreto no prueba la federación OIDC ni los roles del
+  principal; validar eso con el plan autenticado.
 - Terraform requiere además `AZURE_POSTGRES_ADMIN_PASSWORD` y variables del
   state `AZURE_TF_STATE_RESOURCE_GROUP`, `AZURE_TF_STATE_STORAGE_ACCOUNT`,
   `AZURE_TF_STATE_CONTAINER` y `AZURE_TF_STATE_KEY`. La publicación requiere
