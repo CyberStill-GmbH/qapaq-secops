@@ -1,222 +1,83 @@
 # Arquitectura cloud propuesta — QAPAQ SecOps en Azure
 
-**Estado:** propuesta de despliegue, Terraform preparado y no aplicado.
-**Alcance:** un stack Azure con state separado de AWS y datos SOC privados.
-**Presupuesto de notificación:** USD 200/mes; es un umbral de alertas, no un
-límite de gasto. Por decisión del dueño del proyecto, no se apagará ni destruirá
-infraestructura al alcanzar ese importe. El costo mensual completo sigue pendiente
-de cotización y revisión antes de aplicar.
-**Región base:** Chile Central (`chilecentral`), elegida por proximidad geográfica
-a Perú. Es una estimación de latencia: la ruta del ISP y la ubicación de usuarios
-pueden cambiar el resultado; medir RTT desde la red de QAPAQ antes del cutover.
-La residencia de datos y la disponibilidad de SKU/cuotas requieren verificación
-antes de aplicar.
+**Estado:** arquitectura objetivo documentada; Terraform Azure actual no la despliega completa y no se ha aplicado desde esta rama.
+**Fuente de producto:** `docs/10-decisiones.md` (A5–A9, A13, A18, A20, A22, ADR-030) y `docs/12-backend-en-el-siem.md` (opción B).
+**Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
+**Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado.
 
-## Decisiones de arquitectura
+## Objetivo y estado real
 
-1. **Entrada web y balanceo.** Azure Container Apps administra el ingress HTTPS y
-   balancea réplicas del edge. El edge entrega la UI QAPAQ y enruta `/api` al
-   gateway. KrakenD continúa como API Gateway de aplicación, en red interna. No
-   se agrega Azure Application Gateway en esta fase porque duplicaría la capa de
-   entrada y su costo debe justificarse por WAF, private ingress o TLS central.
-   El entorno ACA configurado es externo. En este modo, el tráfico público llega
-   por la IP administrada por ACA; una NSG en su subnet no filtra las peticiones
-   públicas. Solo `edge` puede tener ingress externo y la sesión QAPAQ se conserva
-   en esa capa. No mapear `app.jappi.net.pe` hasta decidir si el control de
-   aplicación es suficiente o si el presupuesto permite un perímetro WAF/LB;
-   este control no está implementado ni certificado.
-2. **API y workers.** API y worker son Container Apps privadas, con identidad
-   administrada. El worker conserva réplicas mínimas 1 para polling/recovery; no
-   scale-to-zero mientras deba consumir M365, Sophos y Cato. API/worker escalan
-   dentro de límites iniciales modestos, que requieren benchmark.
-3. **Cola Azure sin servicio de mensajería separado.** La propuesta usa BullMQ v6
-   PostgreSQL backend en una base `qapaq_jobs` separada de `qapaq_secops`, sobre
-   un Azure PostgreSQL Flexible Server privado. La cola guarda trabajos/referencias
-   pequeñas; la evidencia raw y los eventos viven en sus stores, no en BullMQ.
-4. **Idempotencia y pérdidas.** PostgreSQL/outbox es la admisión durable. Solo se
-   confirma un cursor tras la escritura durable y transacción de admisión. Los
-   workers procesan al menos una vez y son idempotentes; jobs agotados se ponen
-   en cuarentena/replay según contrato. BullMQ no reemplaza inbox, manifiestos,
-   checkpoints ni auditoría.
-5. **Datos y secretos.** PostgreSQL usa subnet delegada privada; Key Vault y Blob
-   tienen private endpoints. La identidad de runtime recibe permisos mínimos.
-   Terraform crea el vault, no los valores de secretos.
-6. **Observabilidad separada.** Log Analytics recibe salud y logs operativos de
-   Azure, API y workers. Wazuh/OpenSearch conserva eventos de seguridad; la cola
-   no es almacenamiento de telemetría. Redactar tokens, contenido de correo y
-   credenciales antes de telemetría.
-7. **Wazuh y SOAR.** QAPAQ SecOps es el Dashboard Wazuh con su overlay QAPAQ
-   fijado al release compatible. **Ankay Qapaq es Shuffle modificado**: el overlay
-   `ankay/` rebrandea y endurece el frontend; backend, Orborus, workers y OpenSearch
-   son los componentes de Shuffle fijados en `ankay/upstream.lock`. No es un segundo
-   SOAR ni un backend Ayni que reemplace a Shuffle. Por el socket Docker que necesita
-   Orborus, el diseño previsto es un host Linux privado dedicado con Compose y
-   volúmenes persistentes; no un Container App aislado. El edge del Dashboard debe
-   enrutar `/ankay/*` con sesión QAPAQ y autorización, sin acceso directo público.
-   El root Azure todavía no despliega Wazuh ni Ankay: faltan el paquete/imagen
-   verificable de Dashboard, módulo del host y disco de Ankay, Compose Azure,
-   publicación de artefactos por CI y prueba de persistencia/recuperación.
+QAPAQ SecOps es la distribución oficial de Wazuh 4.14.8 / OpenSearch Dashboards 2.19.6 con el overlay versionado de QAPAQ en `wazuh/dashboard/`. No es una aplicación web nueva ni un fork de Manager o Indexer. La UI incluye los plugins QAPAQ `qapaq_ops` y `qapaq_i18n`; el login del Dashboard sigue la sesión QAPAQ protegida por el edge existente.
 
-## Diagrama de despliegue
+El destino de la opción B es un host SIEM Azure que ejecuta Manager, Indexer, Dashboard QAPAQ y `qapaq-core` (API más worker, Node 24). `qapaq-core` escucha solo en loopback; PostgreSQL conserva el estado durable y Valkey aporta sesión, caché y cola BullMQ. KrakenD permanece en la ruta de ingesta API → Indexer conforme a A8; se retira solo cuando se implemente y valide lectura equivalente a través del proxy Nginx. `apps/api` y `apps/worker` siguen siendo fuentes vigentes hasta que se cumplan las pruebas de paridad de `docs/12`.
 
-```mermaid
-flowchart LR
-  A[Analistas SOC] -->|HTTPS| E[Azure Container Apps ingress + LB]
-  E --> EDGE[QAPAQ edge]
-  EDGE --> WEB[QAPAQ UI]
-  EDGE --> KR[KrakenD API Gateway]
-  KR --> API[QAPAQ API]
-  AGENTS[Agentes Wazuh] -->|TCP 1514| LB[Azure Standard Load Balancer<br/>allowlist o red privada]
-  AGENTS -->|TCP 1515 · enrolamiento| LB
-  LB -->|solo puertos de agentes| WAZUH[Wazuh QAPAQ / OpenSearch<br/>paquete Azure pendiente]
-  API --> APPDB[(PostgreSQL qapaq_secops)]
-  API --> JOBS[(PostgreSQL qapaq_jobs<br/>BullMQ v6 backend propuesto)]
-  WORKER[QAPAQ workers] --> JOBS
-  WORKER --> APPDB
-  WORKER --> BLOB[(Blob raw/evidencia)]
-  WORKER --> WAZUH
-  KR --> WAZUH
-  WORKER --> M365[M365 APIs]
-  WORKER --> SOPHOS[Sophos APIs]
-  WORKER --> CATO[Cato APIs]
-  API -. Managed Identity .-> KV[Key Vault]
-  WORKER -. Managed Identity .-> KV
-  API -. logs operativos .-> LAW[Log Analytics]
-  WORKER -. logs operativos .-> LAW
-  subgraph ANKAYHOST[VM Linux privada dedicada · Compose]
-    ANKFE[Frontend Shuffle con overlay Ankay]
-    ANKBE[Backend Shuffle Go]
-    ORB[Orborus + workers]
-    ANKOS[(OpenSearch propio de Ankay)]
-    ANKFE --> ANKBE
-    ANKBE --> ORB
-    ANKBE --- ANKOS
-  end
-  EDGE -. /ankay/* · sesión QAPAQ + autorización .-> ANKFE
-  API -. webhook firmado · contrato por implementar .-> ANKBE
-  ANKBE -. callback firmado · contrato por implementar .-> API
-```
+Ankay Qapaq es Shuffle completo fijado en `ankay/upstream.lock`, con el overlay de marca QAPAQ. Corre en un host Linux privado separado con Compose, Orborus, workers, backend y OpenSearch propios. El edge del SIEM expone `/ankay/*` reutilizando la sesión y autorización QAPAQ actuales; no se publica Ankay directamente. A13 lo ubica después del lanzamiento del SIEM.
 
-El diagrama editable completo está en
-[`diagrams/qapaq-azure.mmd`](diagrams/qapaq-azure.mmd). El dibujo es el estado
-objetivo; Wazuh y Ankay están pendientes. Las flechas de proveedores representan
-conexiones salientes autorizadas desde adaptadores, no confirman que todos los
-conectores estén implementados.
+A18 registró inicialmente la simplificación de lanzamiento sin colas nuevas; A9, decisión posterior, actualiza el objetivo e incorpora Valkey/BullMQ para sesiones, caché y jobs. Esa parte se habilita por fases, cuando exista un consumidor real probado y esté definido el comportamiento ante caída de Valkey.
 
-## Cola, conectores y límites de carga
+**La arquitectura anterior describe el destino, no evidencia de operación.** El root `infra/azure` actual crea una fundación de red/datos/identidad y Container Apps opcionales genéricas. No crea un host Wazuh, instala el `.deb`, despliega `qapaq-core`, aprovisiona Valkey, ni crea la VM/Compose de Ankay. Hay un módulo de host SIEM en elaboración/revisión fuera del root integrado; no es consumible ni despliegue operativo. No se debe activar su runtime genérico como sustituto de estos componentes.
 
-```text
-M365 / Sophos / Cato
-        │ APIs autorizadas, paginación y cuotas por proveedor
-        ▼
-QAPAQ provider adapters → raw durable Blob + PostgreSQL inbox/outbox/checkpoint
-                                               │ commit durable
-                                               ▼
-                                  BullMQ v6 / PostgreSQL (qapaq_jobs)
-                                               │ referencias, reintentos
-                                               ▼
-                                      workers QAPAQ
-                                               │ validar/normalizar
-                             ┌─────────────────┴──────────────────┐
-                             ▼                                    ▼
-                  QAPAQ SecurityEvent                 Wazuh/OpenSearch
-```
+## Traducción Azure del diseño
 
-La conexión a PostgreSQL es privada y con TLS. No se escribe el body del
-proveedor en la cola, secrets, traces ni logs operativos. Los adaptadores conservan
-cursores independientes, backoff por `Retry-After`, cuotas y DLQ/replay. El uso
-del gateway KrakenD se limita a las rutas de proveedores que tengan contrato
-explícito; la API REST de Microsoft/Sophos/Cato no debe tunelizarse por KrakenD
-sin decisión y prueba de esos contratos.
+| Capacidad objetivo | Traducción Azure | Estado / gate |
+| --- | --- | --- |
+| Manager, Indexer y Dashboard QAPAQ | VM Linux SIEM con artefactos fijados por versión/digest, disco de datos y recuperación probada | El módulo de host SIEM está en elaboración/revisión, pero aún no está integrado al root ni es consumible; también falta la instalación y publicación del paquete compatible. Mantener Indexer, Manager y Dashboard privados; solo edge y puertos de agentes aprobados pueden alcanzar el host. |
+| Edge QAPAQ | Nginx en el host SIEM, TLS en la entrada pública elegida; proxy al Dashboard y API local | Reutilizar `wazuh/edge`; falta IaC/bootstrap Azure y prueba end-to-end. El cutover DNS queda fuera hasta aprobar destino, TLS y pruebas. |
+| API gateway de ingesta | KrakenD interno entre `qapaq-core` y Wazuh Indexer mientras A8 lo requiera | El root Azure todavía no instala KrakenD en el host SIEM; cualquier módulo de host en elaboración debe integrar esta pieza conforme A8. No afirmar que una ruta alternativa ya reemplaza su contrato. |
+| Núcleo QAPAQ | API y worker Node 24 como servicios systemd en el host SIEM; API en `127.0.0.1:3000` | El código/instalador actual usa AWS SSM, Secrets Manager y CA RDS. Se requiere un bootstrap Azure con Managed Identity/Key Vault y PostgreSQL privado, sin modificar o rotar secretos de AWS. |
+| Estado durable | Azure Database for PostgreSQL Flexible Server privado, TLS, base/rol de aplicación mínimo y migraciones versionadas | El root crea servidor y bases, pero falta identidad runtime/migrator Azure comprobado. El password administrador queda en Terraform state: state remoto cifrado/versionado y acceso restringido son precondición. |
+| Sesiones, cache-aside y jobs | servicio Redis/Valkey privado elegido tras verificar disponibilidad Azure, compatibilidad, TLS, auth, persistencia y política `noeviction` requerida por BullMQ | No existe provisionamiento Valkey en el root. A9 define BullMQ sobre Valkey; el worker actual es lifecycle-only y no consume BullMQ. No declarar colas, conectores ni procesamiento operativo hasta implementar y probar. No sustituirlo por BullMQ/PostgreSQL sin decisión revisada. |
+| Ankay Qapaq | VM Linux privada separada, Compose y discos persistentes; frontend Ankay + servicios upstream Shuffle completos y OpenSearch propio | El módulo `ankay_host` está en elaboración/revisión, aún no integrado al root ni consumible; el workflow construye/publica el overlay del frontend, no aprovisiona backend, Orborus, workers o OpenSearch. También faltan Compose Azure, backup/restore y prueba de carga. |
+| Secretos | Key Vault con RBAC mínimo, acceso privado y Managed Identity por runtime | Terraform crea el vault, no secretos. Faltan los adaptadores del instalador para leer Key Vault. No copiar valores a Git, tfvars o logs; AWS sigue siendo otra cuenta/state. |
+| Artefactos | ACR para OCI/imágenes y, si se aprueba el contrato, artefactos versionados por digest | Workflows de build/publicación no instalan en VM ni aplican Terraform. Fijar procedencia, SBOM, digest y permisos antes de bootstrap. |
+| Logs operativos | Azure Monitor/Log Analytics solo para salud y plataforma, sujeto al control de residencia/retención | Separar de eventos de seguridad y evidencia mantenidos en Wazuh/OpenSearch. No está demostrado que el código Azure emita logs de aplicación hacia Log Analytics ni hacia Wazuh. |
+| DNS y certificado | Solo `app.jappi.net.pe` después de TLS, endpoint y pruebas; Route 53 mantiene state independiente | El Terraform Azure no gestiona DNS. No hacer corte ni borrar registros como parte de esta arquitectura documental. |
 
-## Modelo de resiliencia
+## Flujo de tráfico
 
-- **Demo base:** una región, un Flexible Server sin HA zonal, Container Apps y
-  backups automáticos. Resiste reinicios y pérdida de una réplica; no ofrece
-  continuidad ante caída regional ni un SLA de producción.
-- **Escala vertical/horizontal:** escalar workers en función de backlog y cuotas,
-  con concurrencia y límites por conector; confirmar headroom con pruebas propias.
-- **Recovery:** restore a entorno aislado, correr migraciones, reconciliar
-  checkpoints/outbox y reencolar jobs desde admisión durable. Nunca borrar datos
-  con `terraform destroy` como operación de apagado.
-- **Falla de PostgreSQL:** detener polls y no avanzar cursores. La plataforma
-  queda degradada; configurar alertas de saturación, conexiones, storage y lag.
-- **Pérdida de cola:** reconstruir jobs a partir del outbox/checkpoints y ejecutar
-  reconciliation; no presentar la cola como única fuente de verdad.
+1. Navegador → edge Nginx QAPAQ por HTTPS. El edge valida/reutiliza la sesión QAPAQ y enruta UI y API según configuración aprobada.
+2. Edge → Dashboard local y `qapaq-core` en loopback. La ruta `/ankay/*` pasa por el mismo control de sesión y autorización y luego por red privada al host Ankay.
+3. `qapaq-core` → PostgreSQL privado para casos, auditoría, outbox y estado durable. Valkey aporta sesiones/caché/jobs cuando su servicio y el consumidor real existan.
+4. Para la ingesta definida por A8, KrakenD → Indexer privado bajo contrato de lectura aprobado. El acceso de Manager/Indexer/API no se publica a Internet.
+5. Agentes → Manager por TCP 1514; enrolamiento TCP 1515 solo desde redes/cidrs autorizados. Wazuh API 55000 e Indexer 9200 permanecen privados.
+6. Ankay mantiene su OpenSearch y almacenamiento separados. El diseño de integración Wazuh → Shuffle y los playbooks son gates hasta comprobar el webhook y la autorización de cada acción.
 
-## Conectividad de agentes Wazuh
+Los eventos de seguridad, los logs operativos y los datos crudos de proveedor tienen retenciones y permisos distintos. Mantener eventos de seguridad y alertas en Wazuh/OpenSearch; logs de host/plataforma en la solución Azure aprobada. A11 fija snapshots y evidencia en S3 y excluye Azure: no usar Blob para ese fin hasta aprobar una decisión nueva que resuelva residencia, Object Lock y retención. La base de jobs contiene referencias/estado, nunca secretos ni cuerpos crudos.
 
-Los agentes requieren TCP 1514 para reportar al manager; el enrolamiento normal
-usa TCP 1515 y el API de Wazuh escucha en TCP 55000. El diseño reserva un Azure
-Standard Load Balancer solo para 1514/1515. No publica 55000, Indexer 9200 ni el
-Dashboard 443: esos accesos quedan privados detrás del edge QAPAQ. La documentación
-oficial lista esos puertos como servicios separados del manager, API, Indexer y
-Dashboard.
+## Disponibilidad, resiliencia y costos
 
-El allowlist de origen y el transporte privado deben quedar definidos antes de
-crear reglas de entrada. Priorizar las redes privadas de QAPAQ conectadas por Cato;
-si no hay ruta privada, requerir CIDRs de egreso autorizados y limitar la regla a
-1514/1515. Con la lista vacía, el firewall debe denegar agentes nuevos y no declarar
-la capacidad como operativa. No abrir `0.0.0.0/0` para resolver el enrolamiento.
+El primer despliegue en un único host SIEM es una demo con punto único de falla, aun con PostgreSQL administrado. La VM separada de Ankay evita compartir su socket Docker y superficie de ejecución con el SIEM, pero agrega costo y operación. El objetivo productivo requeriría estrategia de recuperación del host, replicación/restore de datos, pruebas de fallas y cotización de alta disponibilidad; no se declara HA por tener un balanceador.
 
-## Costos y escalamiento
+Valkey es degradable: PostgreSQL continúa como fuente de verdad; sesiones, cache y jobs requieren comportamiento explícito ante su caída, reintentos, idempotencia y reconciliación. El código actual no demuestra ese worker ni procesamiento de M365, Sophos o Cato en Azure.
 
-La revalidación de
-[`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) estima
-USD 173.01/mes solo por cómputo para el tamaño Wazuh recomendado y USD 69.50/mes
-para PostgreSQL B2S; el piso de USD 242.51 supera el umbral de notificación de
-USD 200 antes del resto del SOC. La cifra de PostgreSQL debe confirmarse con la
-cotización del tenant. Ninguna estimación incluye todavía todos los discos,
-backups, tráfico, Container Apps, Ankay, Log Analytics, ACR ni un Wazuh
-distribuido para tolerancia a fallos.
+El cálculo actual de Wazuh + PostgreSQL ya supera USD 200/mes antes de Valkey, almacenamiento/backup, Key Vault, red, observabilidad, ACR y Ankay. Ver [`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md). USD 200 genera avisos solamente: no es tope de facturación y no apaga ni destruye recursos. Recalcular con SKU y volumen reales antes de cualquier plan/apply.
 
-Antes de ejecutar `apply`, revisar el costo total estimado, el plan exacto y el
-alcance de facturación. Mantener avisos en USD 200; no configurar apagado ni
-`destroy` automático por presupuesto. La oferta Azure Free para PostgreSQL B1MS es
-condicional, limitada a 12 meses y no cubre el tier General Purpose HA; su
-elegibilidad y disponibilidad en la suscripción no se han comprobado.
-Recalcular el alcance con Cost Management/cotización de la cuenta, cuotas y
-volumen real de datos. Azure Cost Management budgets son alertas, no límites
-duros de gasto.
+## Gaps que bloquean afirmar “operativo”
 
-## Seguridad y separación AWS
+- No hay un módulo de host SIEM integrado/consumible para Manager, Indexer, Dashboard, `qapaq-core`, KrakenD o agentes. Existe trabajo de módulo en elaboración/revisión, pero requiere integración al root, CI y plan/apply antes de crear recursos; no hay despliegue Azure certificado.
+- El instalador `wazuh/core` y Office 365 está acoplado a SSM/Secrets Manager/CA RDS de AWS. Falta adaptación equivalente a Managed Identity/Key Vault y a PostgreSQL Azure, con permisos mínimos.
+- No hay Valkey en Terraform Azure ni prueba de TLS/auth, disponibilidad, no-eviction, backup o recuperación. El worker visible no crea consumidor BullMQ; `qapaq_jobs` no prueba cola activa.
+- La integración M365 y sus reglas/configuración necesitan instalarse en Manager y comprobarse con eventos sintéticos/lecturas reales. Eso no prueba retención retroactiva ni ingestión actual.
+- Sophos y Cato figuran sin contratos de fuente validados. No se declara API, polling, agent, política o alerta conectada por la presencia de nombres o secretos.
+- Teams tiene código preparado para Wazuh 4.x y QAPAQ, pero no está instalado en Manager Azure ni validado con un webhook real.
+- Ankay tiene overlay y upstream fijado; el módulo de host está en elaboración/revisión, sin integración al root. Falta desplegar backend/Orborus/workers/OpenSearch, persistencia, ruta protegida y playbooks con callbacks/SoD comprobados. El workflow de publicación no constituye despliegue.
+- El role de aplicación PostgreSQL, migraciones Azure, identidad/runner OIDC, estado remoto y costo total requieren evidencia antes de activar IaC.
+- Región/residencia de datos, DNS/TLS/cutover, agentes autorizados, restauración, carga y operación de incidentes requieren validación con el dueño.
 
-- El state usa un backend Azure Storage dedicado y key distinta; nunca reutiliza
-  el S3/state de AWS.
-- PostgreSQL, Key Vault, logs y storage vitales tienen `prevent_destroy`; Key
-  Vault incluye purge protection y Blob usa versionado y retención de borrado.
-- El Key Vault y Blob no tienen red pública; los Container Apps reciben permisos
-  mediante managed identity. ACR deshabilita usuario admin.
-- DNS, dominios y certificados quedan fuera de este root y del primer apply.
-- `terraform destroy` no constituye procedimiento de apagado: retirar primero
-  workloads, preservar y verificar copias, y aprobar por separado la baja de
-  recursos protegidos.
+## Secuencia de implementación revisable
 
-## Fuentes técnicas de diseño
+1. Cerrar compatibilidad de artefactos Wazuh 4.14.8 / OSD 2.19.6, bootstrap Azure y permisos de managed identity; preparar state remoto seguro.
+2. Proveer plan de VM, discos, red privada, agent ports permitidos, ACR y Key Vault. No exponer 9200/55000.
+3. Adaptar e instalar `qapaq-core` en Node 24, KrakenD y M365 desde Azure sin rotar secretos; crear rol PostgreSQL de aplicación y ejecutar migraciones controladas.
+4. Provisionar Valkey compatible y verificar degradación; implementar y probar el worker/cola real antes de habilitar procesos.
+5. Provisionar Ankay en VM privada separada, con persistencia/backups; probar `/ankay/*` con la sesión y rol actuales, y ejercicios sin acciones automáticas.
+6. Probar paridad de `docs/12`, fuentes sintéticas y restore; revisar costo total, exposición y rollback.
+7. Solo tras aprobación operativa, preparar cambio DNS limitado, verificar TLS, acceso, ingestión y alertas. Registrar evidencias redactadas y digests.
 
-- [Ingress de Azure Container Apps](https://learn.microsoft.com/azure/container-apps/ingress): termina TLS y balancea el tráfico HTTP entre réplicas, por lo que esta fase no agrega otro Load Balancer HTTP.
-- [Redes virtuales para Container Apps](https://learn.microsoft.com/azure/container-apps/custom-virtual-networks): subnet delegada y exclusiva para el entorno.
-- [Conectividad entre Container Apps](https://learn.microsoft.com/azure/container-apps/connect-apps): service discovery y routing internos del entorno.
-- [Azure Private Link para Key Vault](https://learn.microsoft.com/azure/key-vault/general/private-link-service): private endpoint y DNS privado para acceso desde VNet.
-- [PostgreSQL Flexible Server privado](https://registry.terraform.io/providers/hashicorp/azurerm/4.62.0/docs/resources/postgresql_flexible_server): subnet delegada, private DNS y acceso público deshabilitado.
-- [Puertos requeridos por Wazuh](https://documentation.wazuh.com/current/getting-started/architecture.html): separa agent communication 1514, enrollment 1515, API 55000, Indexer 9200 y Dashboard 443.
-- [BullMQ PostgreSQL](https://docs.bullmq.io/guide/postgresql): backend opcional PostgreSQL; el baseline QAPAQ aún requiere aprobar BullMQ 6.
+## Fuentes de diseño
 
-## Gates antes de habilitar tráfico real
-
-1. Resolver la decisión de BullMQ v6/PostgreSQL en ADR Azure y revisar fin de
-   soporte/licencias/compatibilidad; el baseline compartido aún fija BullMQ 5.
-2. Implementar y probar productores/consumidores reales. El `apps/worker` actual
-   es un lifecycle/health stub, no un poller de M365/Sophos/Cato.
-3. CI Azure con OIDC para construir, escanear y publicar cinco imágenes por
-   digest; el Terraform crea identidad y ACR, pero no cambia el workflow.
-4. Cargar secretos fuera de Terraform, con consentimiento/rotación y permisos de
-   solo lectura de las APIs de proveedor.
-5. Provisionar Wazuh QAPAQ con paquete/instalación Azure fijada y restore probado.
-   Provisionar Ankay desde el overlay fijado más los servicios backend de Shuffle,
-   en VM privada dedicada; validar volumen/backup y que la sesión QAPAQ protege
-   `/ankay/*` con autorización por rol.
-6. Probar synthetic events de cada proveedor: paginación, throttling, replay,
-   duplicado, cuarentena, DLQ y disponibilidad visible en SOC/OpenSearch.
-7. Revisar plan exacto, destrucciones, residencia, exposición, costo, backup y
-   rollback antes de un apply aprobado.
+- [`docs/10-decisiones.md`](../../10-decisiones.md): A5–A9, A13, A18, A20, A22 y ADR-030.
+- [`docs/12-backend-en-el-siem.md`](../../12-backend-en-el-siem.md): opción B, implementación y pruebas de paridad.
+- [`docs/11-cache-y-colas.md`](../../11-cache-y-colas.md): rol previsto para Valkey y BullMQ.
+- [`docs/14-ankay-conexion-qapaq.md`](../../14-ankay-conexion-qapaq.md): integración y gates de Ankay.
+- [`infra/azure/README.md`](../../../infra/azure/README.md): alcance real de IaC Azure.

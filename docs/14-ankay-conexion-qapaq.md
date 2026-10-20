@@ -1,8 +1,10 @@
 # 14 · Arquitectura: conexión de Ankay Qapaq con QAPAQ SecOps
 
 Propuesta para leer de una sola vez cómo se conecta el SOAR (Ankay Qapaq, [13](13-ankay-qapaq.md)) con el
-SIEM QAPAQ. Regla central: **QAPAQ decide y deja evidencia; Ankay ejecuta.** No hay otro camino hacia
-Ankay: ni Wazuh, ni el navegador del analista, ni otro servicio lo invocan directamente.
+SIEM QAPAQ. Regla central: **QAPAQ Core gobierna y deja evidencia; Shuffle/Ankay ejecuta.** El
+analista llega a la interfaz solo por `/ankay/*` detrás del edge QAPAQ y de una sesión válida. La
+ejecución automatizada solo puede salir de QAPAQ Core después del catálogo y la aprobación definidos;
+Wazuh, el navegador y otros servicios no llaman al webhook de ejecución directamente.
 
 ## 1. Contexto: quién usa qué
 
@@ -22,8 +24,8 @@ flowchart TB
 
 | Persona | Entra a | Puede |
 | --- | --- | --- |
-| Analista SOC | SIEM (`qapaq_ops`) | Pedir acciones del catálogo y ver su estado. **No entra a Ankay** |
-| Líder SOC | SIEM | Aprobar con step-up (nunca lo que pidió) y entrar a Ankay en modo lectura |
+| Analista SOC | SIEM (`qapaq_ops`) | Pedir acciones del catálogo y ver su estado. La ruta Ankay exige sesión QAPAQ; el rol/capability que habilita el editor debe aplicarse en servidor antes de abrir acceso de diseño |
+| Líder SOC | SIEM | Aprobar con step-up (nunca lo que pidió); accede al editor solo si su rol Ankay lo permite |
 | Ingeniero de automatización (rol nuevo `qapaq.automation.engineer`, **pendiente de aprobación del dueño**) | Ankay | Diseñar workflows y publicarlos como versión candidata. Una versión entra al catálogo solo con la aprobación del Líder SOC |
 | Auditor | SIEM | Leer la auditoría de cada ejecución |
 
@@ -61,11 +63,27 @@ flowchart LR
 
 | Flujo | Origen → destino | Puerto | Control |
 | --- | --- | --- | --- |
-| UI de Ankay | Navegador → `https://<host-QAPAQ>/ankay/` → edge → frontend privado | 443 + red privada | `auth_request` contra la sesión QAPAQ; Ankay conserva su SSO/roles propios. Sin acceso público directo a Ankay |
+| UI de Ankay | Navegador → `https://<host-QAPAQ>/ankay/` → edge → frontend privado | 443 + red privada | El `auth_request` existente valida la sesión QAPAQ y redirige al login si falta. No hay prueba de autorización por rol en esa ubicación; la política de roles del editor sigue siendo un gate. Sin acceso público directo a Ankay |
 | Disparo de ejecución | Núcleo (host SIEM) → backend de Ankay | 5001 | SG solo desde el SG del host SIEM, cabecera de autenticación del webhook y firma HMAC |
-| Callback | Workers de Ankay → listener privado del edge → núcleo | 8443 | SG solo desde el SG de Ankay y firma HMAC. El listener solo expone `/api/integrations/ankay/*` |
+| Callback | Worker/Ankay → API privada de QAPAQ Core | HTTPS privado | Salida iniciada desde Ankay; firma HMAC y replay protection requeridas. La API/callback y su contrato no están implementados ni verificados todavía; no se abre un listener 8443 en el edge |
 | Acciones externas | Workers → Internet | 443 | Egress por el NAT con allowlist de destinos (Graph, threat intel aprobada). Nada más sale |
-| Monitoreo | Agente Wazuh en el host de Ankay → Manager | 1514/1515 | El SIEM vigila al SOAR: logs, FIM e integridad del host (N1/SBS) |
+| Monitoreo | Agente Wazuh en el host de Ankay → Manager | TCP 1514 tras enrolamiento controlado | El SIEM podrá vigilar logs, FIM e integridad del host cuando exista Manager Azure y el agente esté instalado. El módulo no lo instala ni prueba esta conexión |
+
+### Variante Azure en preparación
+
+Azure prevé un VM Linux privado con Docker Compose en una subnet dedicada. El ingress HTTPS del edge
+QAPAQ en Container Apps sería el único origen permitido para el puerto frontend; la subnet ACA de
+QAPAQ API sería el origen permitido para el webhook backend. OpenSearch y el datastore quedan solo en
+la red Docker interna, y sus datos/configuración viven en un disco administrado independiente. La
+NSG del módulo deniega otros ingresos, SSH e internet directo; el egress esperado va por Azure
+Firewall con allowlist de FQDNs/servicios y una UDR de la subnet. El módulo no crea esa subnet,
+Firewall, UDR, edge ni API; `firewall_policy_reference` es solo un gate documental.
+
+El edge solo debe apuntar a la IP privada del módulo después de verificar el servicio y una petición
+anónima que regrese al login QAPAQ. La ruta actual usa `auth_request` pero no acredita autorización
+de rol. No modificar el flujo de login/cookies: antes de habilitar acceso de diseño, probar sesión,
+revocación, capacidad del usuario y roles propios de Shuffle. El diagrama AWS/VPC anterior conserva
+la topología de referencia; el root Azure aún no consume esta salida.
 
 ## 3. Secuencia de una acción
 
@@ -90,7 +108,7 @@ sequenceDiagram
   AK-->>CO: 200 {execution_id}
   CO->>DB: DISPATCHED + execution_id
   AK->>X: acción (credencial de la app en Ankay)
-  AK->>CO: callback firmado {executionKey, status, resumen}
+  AK->>CO: callback firmado {executionKey, status, resumen} (contrato pendiente)
   CO->>DB: SUCCEEDED o FAILED + AuditEvent + timeline del incidente
   CO-->>AN: /api/changes despierta la vista (long-poll)
 ```
@@ -143,7 +161,7 @@ X-Qapaq-Execution-Key: 7f3c…        (idempotencia)
 X-Qapaq-Signature: sha256=<HMAC(clave, timestamp + "." + cuerpo)>
 Authorization: <secreto del webhook en Shuffle>
 { "executionKey": "7f3c…", "actionId": "m365.revoke-sessions", "version": "3",
-  "params": { "userRef": "ent_9a1…" }, "incidentRef": "inc_51…", "callback": "https://siem.internal:8443/api/integrations/ankay/callback" }
+  "params": { "userRef": "ent_9a1…" }, "incidentRef": "inc_51…", "callback": "https://qapaq-api.internal/api/integrations/ankay/callback" }
 ```
 
 - El primer paso de cada workflow es una app QAPAQ de validación (Python, versionada en `ankay/apps`, F2).
@@ -167,14 +185,14 @@ resultados en Shuffle v2.3.0.
 | SIEM ↔ Ankay | SG en ambos sentidos, HMAC con timestamp y nonce (`executionKey`), y la clave en Secrets Manager. **No se rota en el despliegue** (A20); su rotación es un procedimiento aparte |
 | Credenciales de acción | Las tiene Ankay (p. ej. la app de Graph con permiso mínimo), en Secrets Manager. **QAPAQ nunca tiene escritura sobre Graph** ni Ankay credenciales del Indexer o del Manager. Active Response va por un adaptador QAPAQ con allowlist |
 | Datos | Ankay guarda definiciones de workflow y ejecuciones con referencias. La evidencia y la auditoría viven en QAPAQ (RDS, cadena hash; S3 para evidencia) |
-| Supply chain | Imagen de Ankay construida desde el tag fijado y su SHA, con el código fuente publicado (AGPL), en ECR con tag inmutable. Las apps de Shuffle permitidas forman una allowlist revisada |
-| Monitoreo | Agente Wazuh en el host de Ankay: el SIEM vigila al SOAR (FIM, accesos, Docker) |
+| Supply chain | El frontend tiene build verificable desde el commit fijado y publica su fuente AGPL. El runtime completo requiere digests inmutables verificados de backend, Orborus, worker, OpenSearch y datastore, más Compose con SHA aprobado. El workflow actual no construye esos componentes |
+| Monitoreo | Un agente Wazuh en el host es objetivo de operación; instalación y FIM no están preparados en el módulo Azure y dependen de un Manager alcanzable |
 
 ## 7. Resiliencia
 
 | Falla | Comportamiento |
 | --- | --- |
-| Ankay caído o lento | El job queda en la cola con backoff y el breaker se abre. El analista ve «pendiente de ejecución». Nada se pierde: el outbox en Postgres es la verdad |
+| Ankay caído o lento | Diseño objetivo: el job queda en la cola con backoff y el breaker se abre. La implementación QAPAQ/Ankay y esta recuperación todavía no están integradas en runtime Azure |
 | Timeout ambiguo | `UNKNOWN` y luego reconciliación. Sin reintento ciego |
 | Valkey caído | El núcleo despacha desde el outbox en proceso (degradado, docs/11) |
 | Callback perdido | La reconciliación por `execution_id` lo recupera |

@@ -1,5 +1,19 @@
 # Runbook Azure: secretos, publicación y corte
 
+## Alineación vigente de arquitectura
+
+Este runbook conserva abajo observaciones fechadas del 2026-10-20. Para el diseño objetivo prevalece [`architecture.md`](architecture.md), basado en `docs/10-decisiones.md` A5–A9/A13/A18/A20/A22 y `docs/12-backend-en-el-siem.md`.
+
+El destino Azure es Wazuh QAPAQ 4.14.8 / OSD 2.19.6 con edge Nginx QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 junto al SIEM; PostgreSQL durable; Valkey para sesiones, cache-aside y BullMQ; KrakenD para ingesta según A8; y Ankay como Shuffle completo en un host privado separado, tras `/ankay/*` con la sesión/autorización QAPAQ actual. Hay módulos de host SIEM y Ankay en elaboración/revisión, aún sin integrar ni consumir desde el root. CI, plan y apply siguen pendientes; este diseño no certifica un despliegue.
+
+Antes de usar este runbook, tener presentes estos gates:
+
+- `enable_runtime` crea cinco Container Apps genéricas; no sustituye Wazuh ni representa A22. Una base `qapaq_jobs` tampoco acredita una cola activa. A9 define Valkey/BullMQ, pero el worker actual es lifecycle-only y no consume BullMQ.
+- `wazuh/core` y Office 365 aún dependen de AWS SSM, Secrets Manager y la CA RDS. Se requiere una adaptación Azure con Managed Identity/Key Vault y PostgreSQL Azure. No rotar los secretos AWS existentes.
+- No afirmar M365, Sophos, Cato, Teams, agentes o playbooks operativos sin pruebas contra los servicios Azure. El workflow Ankay publica el overlay de frontend; no instala backend, Orborus, workers ni OpenSearch.
+- A11 fija snapshots/evidencia en S3 y excluye Azure. No usar Blob para esos datos hasta que una decisión revisada defina residencia, Object Lock y retención.
+- USD 200/mes es un umbral de alertas, sin apagado ni `destroy`. La estimación actual ya supera ese importe antes de los componentes restantes.
+- No aplicar el paso DNS de abajo como si el destino fuera Container Apps. Primero debe existir el edge del host SIEM con TLS y hostname probado. El Terraform Azure no administra Route 53.
 **Estado:** preparación; no hay recursos Azure aplicados ni DNS cambiado.
 **Región configurada:** Chile Central (`chilecentral`).
 **Umbral de alerta de presupuesto:** USD 200/mes; no es un tope ni apaga recursos.
@@ -75,13 +89,16 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   alternativa a `AZURE_TERRAFORM_CLIENT_ID`; la identidad ACR continúa separada.
   La presencia del secreto no prueba la federación OIDC ni los roles del
   principal; validar eso con el plan autenticado.
-- Terraform requiere además `AZURE_POSTGRES_ADMIN_PASSWORD` y variables del
-  state `AZURE_TF_STATE_RESOURCE_GROUP`, `AZURE_TF_STATE_STORAGE_ACCOUNT`,
-  `AZURE_TF_STATE_CONTAINER` y `AZURE_TF_STATE_KEY`. La publicación requiere
-  `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` después de crear el ACR. El
-  workflow de plan/apply requiere `AZURE_TF_RUNNER_LABELS`. Estas entradas no
-  estaban configuradas en el inventario consultado. GitHub reporta cero runners
-  propios registrados, y no se ejecutó una autenticación OIDC desde Actions.
+- Terraform requiere `AZURE_POSTGRES_ADMIN_PASSWORD`; el propietario confirmó que
+  el repository secret fue creado/actualizado después del inventario inicial. No
+  se leyó ni se registra su valor. Este secret por sí solo no habilita el workflow:
+  faltan el backend remoto/state (`AZURE_TF_STATE_RESOURCE_GROUP`,
+  `AZURE_TF_STATE_STORAGE_ACCOUNT`, `AZURE_TF_STATE_CONTAINER`,
+  `AZURE_TF_STATE_KEY`) y conectividad del runner a los endpoints privados.
+  La publicación requiere `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` después de
+  crear el registry; plan/apply requiere `AZURE_TF_RUNNER_LABELS`. GitHub reportó
+  cero runners propios en el inventario fechado y no se ha demostrado OIDC ni
+  egress privado desde Actions.
   El environment `azure-demo` está restringido a `main` y requiere revisión;
   eso no prueba la identidad o el acceso al state.
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
@@ -209,7 +226,7 @@ credencial, webhook y ejecución reales siguen pendientes; no están creados ni
 aplicados por Terraform.
 
 El catálogo inicial de playbooks está en
-[`docs/security/ankay-playbooks/`](../../security/ankay-playbooks/). Define el
+el directorio `docs/security/ankay-playbooks/` (no presente en esta rama). Define el
 trigger directo Wazuh solo para triage read-only; ejecución de acciones requiere
 despachador del outbox QAPAQ, callback firmado, permisos revisados y aprobación
 SoD. VirusTotal queda bloqueado hasta confirmar licencia Enterprise/comercial,
@@ -238,7 +255,7 @@ workflow del Dashboard. El workflow está en PR #75; sus checks de PR no publica
 imágenes ni se autentican en Azure.
 
 El baseline profesional de agentes, malware, telemetría y respuesta está en
-[`docs/security/qapaq-sophos-cato-wazuh-baseline.md`](../../security/qapaq-sophos-cato-wazuh-baseline.md).
+el documento `docs/security/qapaq-sophos-cato-wazuh-baseline.md` (no presente en esta rama).
 Es una propuesta, no una comprobación ni aplicación de políticas en proveedores.
 Sophos y Cato permanecen `TO_BE_PROVIDED`/`planned` en el inventario de fuentes;
 faltan contratos de API/licencia/tenant y las credenciales de acceso a sus

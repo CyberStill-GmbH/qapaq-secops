@@ -1,0 +1,32 @@
+#cloud-config
+write_files:
+  - path: /etc/ankay/compose.yaml
+    owner: root:root
+    permissions: '0600'
+    encoding: b64
+    content: ${compose_b64}
+  - path: /etc/ankay/compose.sha256
+    owner: root:root
+    permissions: '0600'
+    content: ${compose_sha}
+  - path: /usr/local/sbin/ankay-prepare-data-disk
+    owner: root:root
+    permissions: '0750'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      disk=/dev/disk/azure/scsi1/lun0
+      [[ -b "$disk" ]] || { echo "Persistent Ankay data disk is missing: $disk" >&2; exit 1; }
+      if ! blkid "$disk" >/dev/null 2>&1; then
+        mkfs.ext4 -F "$disk"
+      fi
+      uuid="$(blkid -s UUID -o value "$disk")"
+      [[ -n "$uuid" ]] || { echo "Could not read the Ankay data disk UUID" >&2; exit 1; }
+      install -d -o root -g root -m 0750 /mnt/ankay
+      grep -Fq "UUID=$uuid /mnt/ankay " /etc/fstab || echo "UUID=$uuid /mnt/ankay ext4 defaults,nofail 0 2" >> /etc/fstab
+      mountpoint -q /mnt/ankay || mount /mnt/ankay
+      install -d -o root -g root -m 0750 /mnt/ankay/opensearch /mnt/ankay/apps /mnt/ankay/files
+      printf '%s  %s\n' "${compose_sha}" /etc/ankay/compose.yaml | sha256sum --check --status
+      echo "Ankay data disk mounted; Compose pinned and staged, services intentionally not started."
+runcmd:
+  - [bash, -lc, /usr/local/sbin/ankay-prepare-data-disk]

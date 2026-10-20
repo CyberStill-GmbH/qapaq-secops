@@ -67,3 +67,15 @@ jobs:
 
       - name: Validate Azure bootstrap configuration
         run: terraform -chdir=infra/azure/bootstrap validate -no-color
+
+      - name: Initialize the isolated SIEM host module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/siem_host init -backend=false -input=false -no-color
+
+      - name: Validate the SIEM host module
+        run: terraform -chdir=infra/azure/modules/siem_host validate -no-color
+
+      - name: Initialize the isolated Ankay host module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/ankay_host init -backend=false -input=false -no-color
+
+      - name: Validate the Ankay host module
+        run: terraform -chdir=infra/azure/modules/ankay_host validate -no-color

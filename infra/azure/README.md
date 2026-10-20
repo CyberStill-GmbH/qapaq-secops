@@ -1,161 +1,130 @@
 # QAPAQ SecOps en Azure
 
-Este root es independiente de `infra/aws`: usa otra suscripción, state backend,
-identidades, red, secretos y recursos. Ninguna zona DNS ni recurso AWS se importa
-ni se modifica aquí.
+Este root es independiente de `infra/aws`: usa una suscripción, state, identidad,
+red y secretos propios. No importa ni cambia recursos AWS o DNS. La arquitectura
+documentada para el destino Azure se rige por [`docs/cloud/azure/architecture.md`](../../docs/cloud/azure/architecture.md),
+con `docs/10-decisiones.md` y `docs/12-backend-en-el-siem.md` como fuentes de producto.
 
-## Estado
+## Estado real del root
 
-**Preparación IaC — no aplicada, no lista para recibir datos reales.** La
-infraestructura incluye red privada, Azure Database for PostgreSQL Flexible
-Server con bases separadas para aplicación y jobs, Key Vault, Blob privado para
-raw/evidencia, Log Analytics, Container Apps, ACR y federación OIDC de GitHub.
-Los Container Apps no se crean por defecto (`enable_runtime = false`) hasta
-publicar y revisar las cinco imágenes fijadas por digest.
+**Fundación IaC; no equivale a un SOC operativo.** El root puede crear red,
+PostgreSQL Flexible Server y sus bases, Key Vault, Blob privado, Log Analytics,
+Container Apps Environment, ACR e identidad/federación OIDC, sujeto a bootstrap,
+state, permisos, cuotas y revisión de plan. `enable_runtime` está apagado por
+defecto.
 
-## Módulos del root
+El runtime opcional existente es genérico: `edge`, `web`, `gateway`, `api` y
+`worker` en Container Apps. No representa el destino de A6/A8/A9/A13/A22 y no
+se debe activar como sustituto del SIEM. En particular, este root no crea ni
+instala Manager/Indexer/Dashboard Wazuh, `qapaq-core`, KrakenD en el host SIEM,
+Valkey ni Ankay/Shuffle. Tampoco cambia DNS.
 
-El root ahora separa responsabilidades y conserva bloqueos `prevent_destroy` en
-datos y observabilidad:
+El diseño objetivo se traduce a Azure así:
 
-| Módulo                      | Responsabilidad                                                                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `modules/network`           | VNet, subnets delegadas y DNS privado para PostgreSQL, Key Vault y Blob.                                                       |
-| `modules/observability`     | Log Analytics y Container Apps Environment.                                                                                    |
-| `modules/data`              | PostgreSQL, bases separadas, Storage de evidencia, Key Vault y endpoints privados.                                             |
-| `modules/identity_registry` | Identidades administradas, federación GitHub OIDC, ACR y asignaciones RBAC mínimas.                                            |
-| `modules/runtime`           | Edge, web, KrakenD, API y worker genéricos, desactivados hasta recibir digests verificados. No despliega Wazuh QAPAQ ni Ankay. |
+- VM SIEM con Manager, Indexer y Dashboard 4.14.8 / OSD 2.19.6 y overlay QAPAQ.
+- Nginx edge QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 como servicios
+  locales y KrakenD para la ingesta mientras lo requiera A8.
+- Azure PostgreSQL privado como persistencia durable; Valkey compatible pendiente
+  de SKU/compatibilidad y de un consumidor BullMQ funcional.
+- VM Linux privada separada para Ankay, con Shuffle completo, Orborus, workers,
+  OpenSearch y persistencia. `/ankay/*` atraviesa el edge QAPAQ con la sesión y
+  autorización existentes.
 
-`moved.tf` preserva las direcciones anteriores del root al migrar cualquier state
-existente. Aun así, inicializa el backend remoto y revisa el plan exacto antes de
-aplicar: los bloques `moved` no reemplazan el respaldo ni la revisión del state.
-La modularización mejora la separación de cambios; no agrega por sí sola
-Wazuh/Indexer/Dashboard, Ankay/Shuffle, conectores Sophos/Cato, DNS ni un worker
-operativo. Ankay es Shuffle v2.3.0 con overlay de marca/CSP solo en el frontend;
-backend, Orborus, workers y OpenSearch propios siguen siendo los componentes fijados
-por el upstream. Como Orborus necesita el socket Docker, su destino previsto es
-una VM Linux privada dedicada con Compose y almacenamiento persistente, no uno de
-los Container Apps genéricos de `modules/runtime`.
+Estos son objetivos de diseño, no componentes desplegados por este root. El código
+actual de `qapaq-core`/Office 365 usa AWS SSM, Secrets Manager y la CA de RDS; su
+instalación requiere adaptación Azure con Managed Identity/Key Vault y PostgreSQL
+Azure. El worker actual es lifecycle-only y no consume BullMQ. No hay evidencia de
+conectores Sophos o Cato operativos; Teams y M365 deben probarse en los servicios
+reales antes de declarar cobertura.
 
-La comparación de cobertura con AWS confirma que este root sigue siendo una
-fundación, no una traducción completa del despliegue. Ver
-[`revisión de paridad y plan de cierre`](../../docs/cloud/azure/terraform-parity-review-2026-10-19.md)
-antes de preparar el primer plan remoto.
+## Módulos que sí están en Terraform
 
-La revalidación del 2026-10-20 estima USD 173.01/mes por el cómputo del Wazuh
-all-in-one recomendado y USD 69.50/mes por PostgreSQL B2S: piso de USD 242.51/mes
-sin el resto del SOC. Supera el umbral de alertas de USD 200, que no detiene el
-gasto ni ejecuta un destroy. Ver
-[viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-20.md);
-el presupuesto de USD 200 es una alerta, no una condición de apagado ni un tope
-de consumo. Mantener la estimación actualizada y revisar los cargos posibles
-antes de cada fase; el umbral por sí solo no bloquea el trabajo solicitado.
-Antes de aplicar, generar y revisar el plan remoto exacto y confirmar que el
-state, las credenciales y las reglas de red sean los previstos.
+| Módulo                      | Alcance actual                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/network`           | VNet, subnets delegadas y DNS privado para servicios con endpoint privado.                                                                        |
+| `modules/observability`     | Log Analytics y Container Apps Environment.                                                                                                       |
+| `modules/data`              | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, Storage/Blob, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa. |
+| `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y asignaciones RBAC del root.                                                                            |
+| `modules/runtime`           | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                |
 
-El stack no incluye todavía el nodo/instalador de Wazuh, Ankay ni cambios DNS.
-El paquete actual de Wazuh y sus overlays se deben validar para Azure, y la
-instalación del runtime de BullMQ con backend PostgreSQL requiere cambio y
-verificación de aplicación antes de habilitar `enable_runtime`.
+`moved.tf` preserva direcciones anteriores durante migraciones de state. Los
+bloqueos `prevent_destroy` protegen recursos definidos, pero no sustituyen un
+state remoto seguro, backups verificados ni una revisión del plan.
 
-Se incluye un presupuesto Azure de USD 200/mes como umbral de notificaciones de costo real
-al 50/75/90/100% y costo proyectado al 100%. Es una alerta, no un límite de
-consumo; confirmar moneda/alcance de facturación y verificar que los correos
-lleguen después de aplicarlo.
+## Presupuesto y datos
 
-## Requisitos previos
+USD 200/mes es un umbral de alertas, **no** un tope de facturación ni una regla de
+apagado o `destroy`. La estimación vigente de cómputo Wazuh + PostgreSQL supera
+ese umbral y no incluye todos los discos, backup, Valkey, red, observabilidad,
+ACR ni la VM/almacenamiento de Ankay. Revisar
+[viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-20.md)
+y cotizar la arquitectura completa antes del plan.
 
-- Región aprobada por residencia de datos para M365/Sophos/Cato y evidencia SOC.
-- Suscripción Azure, tenant Entra y permisos para Resource Groups, VNet, PostgreSQL,
-  Key Vault, Storage, ACR, Container Apps, identidades y role assignments.
-- Backend remoto Terraform en Azure Storage dedicado, con versionado, acceso RBAC
-  mínimo, soft delete y locking. El backend no forma parte de este root.
-- `bootstrap/` define el backend remoto, la identidad OIDC de Terraform, las
-  asignaciones RBAC y crea el grupo destino protegido. El bootstrap todavía debe
-  ejecutarse manualmente tras revisar su plan; este root consulta el grupo con
-  `data.azurerm_resource_group` y solo crea recursos dentro de él.
-- Runner Terraform dentro de la VNet (self-hosted o red equivalente): Key Vault,
-  Blob y PostgreSQL son privados, y el provider usa Microsoft Entra para el
-  recurso Blob. Un GitHub-hosted runner público no puede administrar el contenedor
-  raw por su endpoint privado. La identidad del runner requiere contributor del
-  plano de control y `Storage Blob Data Contributor` limitado al storage de state
-  y al storage de evidencia según cada operación.
-- Publicador GitHub Actions con environment `azure-demo` y federación OIDC. La
-  identidad tiene `AcrPush`; el runtime tiene `AcrPull`, lectura de Key Vault y
-  escritura Blob. No hay credenciales de registry estáticas.
-- `.github/workflows/qapaq-dashboard-azure.yml` puede publicar el `.deb` QAPAQ
-  como OCI artifact a ACR, pero solo por despacho manual desde `main`. El build
-  de PR no tiene OIDC. El workflow está propuesto en PR #75; aún no está en
-  `main` y no instala Wazuh:
-  falta aplicar el registry, configurar environment/variables y añadir el host
-  Wazuh con identidad de solo lectura.
-- Las imágenes `edge`, `web`, `gateway`, `api` y `worker` deben existir en ACR y
-  apuntar a digests SHA-256 aprobados. No usar tags `latest`.
-- Crear fuera de Terraform los secretos de runtime en Key Vault y proveer solo
-  sus URIs versionados, nunca los valores.
+La decisión A11 fija snapshots y evidencia en S3 y excluye Azure. No usar Blob
+como archivo SOC hasta aprobar una decisión nueva sobre residencia, Object Lock
+y retención. Separar eventos de
+seguridad en Wazuh/OpenSearch, logs operativos en el destino de observabilidad
+aprobado y referencias/estado de jobs en la cola. No guardar secretos ni payloads
+crudos en la cola.
 
-`postgres_admin_password` es una variable sensible necesaria para crear el
-servidor. Terraform la conserva en state; por eso no debe usarse este root sin
-state remoto cifrado, versionado y de acceso restringido. Cargarla por una
-variable de entorno temporal o el secret store del runner; nunca desde un
-archivo versionado.
+`postgres_admin_password` es sensible y Terraform lo conserva en state. Usar
+backend remoto cifrado, versionado y acceso mínimo antes de operar el root; nunca
+cargar el valor a Git o a un archivo versionado. El rol runtime de PostgreSQL y
+las migraciones Azure aún necesitan implementarse y validarse. Terraform crea el
+Key Vault, no los valores de secretos.
+
+## Requisitos antes de un plan remoto
+
+- Confirmar suscripción, tenant, región y residencia autorizada para eventos y
+  evidencia; validar cuota y disponibilidad de SKU.
+- Bootstrap de grupo, state Azure Storage remoto, versionado/soft delete, locking,
+  OIDC de GitHub y RBAC mínimo. Usar runner con conectividad privada si se requieren
+  endpoints privados.
+- Acordar el diseño de host SIEM, edge/TLS, discos, backup/restore, firewall y
+  allowlist de agentes. No publicar Manager API 55000, Indexer 9200 ni Dashboard
+  interno.
+- Integrar y revisar los módulos de host SIEM y Ankay que están en elaboración; añadir/validar bootstrap Azure para Wazuh, `qapaq-core`, KrakenD y Ankay, más
+  adaptación de secretos AWS→Key Vault y creación del rol PostgreSQL mínimo.
+- Validar el backend de jobs aprobado: A9 indica Valkey/BullMQ; el worker debe
+  consumir realmente la cola y pasar pruebas de caída/reintento/idempotencia antes
+  de habilitarlo. No presentar PostgreSQL como backend BullMQ por configuración.
+- Fijar artefactos e imágenes por digest, escaneos, SBOM/procedencia y permisos de
+  publicación/lectura ACR. Las pipelines de publicación no instalan el runtime ni
+  aplican Terraform.
+- Validar M365 en Wazuh con eventos sintéticos y alertas; establecer contrato
+  Sophos/Cato y verificar Teams con endpoint de prueba. Los nombres de secretos o
+  reglas no acreditan conexión.
+- Aprobar costo completo y conservar USD 200 como alerta solamente; revisar el
+  plan exacto, reemplazos/destrucciones, `prevent_destroy`, red, rollback y backups.
 
 ## Secuencia propuesta
 
-1. Revisar [arquitectura Azure](../../docs/cloud/azure/architecture.md), el ADR
-   Azure específico y los costos de la región escogida.
-2. Revisar y aplicar manualmente `bootstrap/` con la cuenta Azure autorizada.
-   Sus roles de GitHub se limitan a Contributor y Role Based Access Control
-   Administrator en el grupo QAPAQ, Cost Management Contributor en la
-   suscripción y acceso de datos al Storage de state. Migrar el state bootstrap
-   local al backend cifrado/versionado antes de cerrar la sesión.
-3. GitHub ya contiene `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
-   `AZURE_SUBSCRIPTION_ID` como repository secrets. El workflow Terraform
-   prefiere `AZURE_TERRAFORM_CLIENT_ID` y acepta `AZURE_CLIENT_ID` como
-   alternativa. Verificar que el principal tiene la federación OIDC y roles
-   acotados esperados antes de ejecutar el workflow.
-   Configurar también las variables `AZURE_TF_STATE_*`,
-   `AZURE_TF_RUNNER_LABELS` y el secreto `AZURE_POSTGRES_ADMIN_PASSWORD` por
-   canales seguros. No completar DNS en esta fase.
-4. Ejecutar `terraform fmt -check`, `terraform init` con el backend Azure y
-   `terraform validate`; generar un plan nuevo y revisar cada recurso, costo y
-   destrucción antes de solicitar autorización de apply.
-5. Aplicar primero la base de datos/red/Key Vault/ACR. Publicar las imágenes por
-   CI con OIDC y reemplazar variables vacías por digests verificados.
-6. Completar las migraciones del código/queue y secretos en Key Vault. Solo
-   entonces activar runtime, ejecutar plan nuevo y evaluar el diff.
-7. Agregar Wazuh y la ruta pública en una fase posterior con artefactos, TLS,
-   recuperación y presupuesto revisados. La ruta DNS se prepara aparte y requiere
-   una decisión de cutover.
+1. Revisar [`arquitectura Azure`](../../docs/cloud/azure/architecture.md),
+   [`paridad IaC`](../../docs/cloud/azure/terraform-parity-review-2026-10-19.md)
+   y [`costo`](../../docs/cloud/azure/cost-feasibility-2026-10-20.md).
+2. Preparar el bootstrap y state backend; confirmar identidad OIDC, acceso al
+   state y permisos acotados. Generar plan remoto nuevo y revisar cada cambio.
+3. Completar módulos/instalación del host SIEM, `qapaq-core`, KrakenD, Valkey y
+   Ankay con almacenamiento y recuperación; adaptar Key Vault/Managed Identity.
+4. Publicar/instalar artefactos fijados, ejecutar migraciones y configurar fuentes
+   solo tras verificar contratos y secretos por canales seguros.
+5. Probar paridad descrita en `docs/12-backend-en-el-siem.md`, agentes de prueba,
+   ingestión, reglas, sesiones, recuperación, playbooks read-only y notificaciones.
+6. Revisar costos, residencia, TLS, exposición y rollback. El cutover de
+   `app.jappi.net.pe` se trata por separado; este root no gestiona DNS.
 
-## Protección de datos
+## Protecciones y límites
 
-PostgreSQL, bases, Key Vault, Log Analytics, Storage Account y contenedor raw usan
-`prevent_destroy`. Key Vault tiene soft-delete y purge protection; Blob tiene
-versionado y recuperación por borrado. Esto no sustituye backup/restore probado.
-Un operador tendrá que retirar esas protecciones con un cambio revisado antes de
-cualquier retiro intencional de datos.
+PostgreSQL, Key Vault, Log Analytics y Storage usan `prevent_destroy` donde lo
+define el código. Key Vault tiene soft delete/purge protection; Blob cuenta con
+versionado/recuperación según el módulo. Confirmar política y restore efectivo
+antes de almacenar datos reales. Un retiro intencional requiere un cambio revisado
+de esas protecciones y aprobación separada.
 
-Los logs operativos de API/workers y plataforma van a Log Analytics. Los eventos
-de seguridad, raw de proveedor, alertas y evidencia permanecen en sus stores SOC
-separados; el queue backend conserva únicamente estado/referencias de jobs, no
-payloads crudos ni secretos. Ver el [diagrama Azure](../../docs/cloud/azure/diagrams/qapaq-azure.mmd).
+Los logs operativos de plataforma se separan de eventos y evidencia SOC. El diseño
+Azure todavía debe decidir destino/retención conforme a residencia. No afirmar que
+Log Analytics recibe logs de aplicación ni que Wazuh procesa conectores hasta ver
+una prueba real.
 
-## Componentes fuera de este root
-
-- Wazuh manager/indexer/dashboard con branding QAPAQ: requiere un build/paquete
-  Azure publicado con `.github/workflows/qapaq-dashboard-azure.yml` y un host
-  Azure con `AcrPull`; el `bootstrap.sh.tftpl` AWS usa IAM/SSM y no es portable.
-- Ankay Qapaq (Shuffle modificado): desplegar frontend overlay y servicios backend
-  de Shuffle en host privado dedicado, con persistencia, ruta `/ankay/*` protegida
-  y egress restringido; el menú no debe indicar disponibilidad antes del smoke.
-- Dominio `app.jappi.net.pe`, TLS y cutover: este root solo expone el FQDN Azure
-  de prueba del edge cuando el runtime se active. No escribe DNS.
-- `.github/workflows/azure-terraform-validate.yml` verifica fmt/init/validate y
-  la guarda anti-destrucción sin credenciales cloud. El workflow
-  `.github/workflows/terraform-azure.yml` permite dispatch manual desde `main`,
-  crea un plan con OIDC, exige una referencia HTTPS de costo y aprobación del
-  environment antes de aplicar el mismo plan. Bloquea cualquier `delete`,
-  `forget` o reemplazo. Aún no se ha autenticado ni ejecutado porque faltan la
-  identidad bootstrap, el backend remoto y las variables de state. La validación
-  Terraform y los builds cloud-free de Ankay sí corrieron en PR #75.
+Ver el [diagrama de destino Azure](../../docs/cloud/azure/diagrams/qapaq-azure.mmd)
+y el [runbook Azure](../../docs/cloud/azure/runbook-preparacion-y-corte.md).

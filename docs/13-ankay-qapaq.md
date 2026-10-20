@@ -10,6 +10,29 @@ dueño con Franco.
 
 **Arquitectura de la conexión con QAPAQ SecOps:** [14](14-ankay-conexion-qapaq.md).
 
+### Estado de Ankay para Azure (20-10-2026)
+
+El único artefacto ejecutable que hoy se construye en CI es el **frontend** rebrandeado desde
+Shuffle v2.3.0 y su código fuente AGPL. Ese workflow no construye ni publica backend, Orborus,
+worker, OpenSearch ni el datastore; su build verde no demuestra que Ankay completo arranque.
+`ankay/upstream.lock` fija el commit de fuente, pero no fija los digests de las imágenes de runtime.
+
+Se preparó `infra/azure/modules/ankay_host/` como módulo aislado, aún sin conexión al root Azure.
+Exige digests SHA-256 ACR para frontend, backend, Orborus, worker dinámico, OpenSearch y datastore,
+además del Compose completo con su SHA revisado. Crea VM Linux sin IP pública, NSG restrictiva,
+identidad ACR de solo lectura y disco persistente con `prevent_destroy`; solo deja el Compose
+verificado en disco. No instala ni inicia Shuffle y su salida informa `host_prepared_runtime_not_started`.
+No existen aún imágenes/digests aprobados para todos esos componentes ni prueba de login, ejecución,
+persistencia o recuperación en Azure.
+
+El módulo requiere una subnet dedicada, ruta 0/0 a Azure Firewall con allowlist revisada, IP del edge,
+API, firewall, SKU de VM y versión exacta de Ubuntu. `firewall_policy_reference` documenta una policy
+externa: el módulo no crea ni configura el Firewall ni confirma que esa UDR exista. No se puede
+conectar al root sin añadir subnet, direcciones estables, firewall y revisar costos. La VM, disco,
+NAT/firewall y egreso autorizado agregan cargos mensuales; cotizar la SKU y el volumen antes de
+integrar o aplicar. El workflow `ankay-azure-iac.yml` solo valida formato/esquema Terraform y no tiene
+credenciales cloud ni despliega recursos.
+
 **Reparto:** Claude hace este plan y el rebrand del frontend. Codex despliega el SIEM y continúa la
 integración. El dueño verifica el DevSecOps de Terraform.
 
@@ -63,21 +86,21 @@ Principios de ADR-028 que se mantienen:
 
 | Decisión | Opciones | Recomendación | Por qué |
 | --- | --- | --- | --- |
-| **Dónde corre** | (a) en el host del SIEM; (b) EC2 privada dedicada; (c) ECS Fargate | **(b)**, `t3.large` en la subred privada | (a) compite por memoria con el Indexer, el Manager y el núcleo en un `t3.xlarge` ya cargado. (c) no es viable: orborus necesita el socket de Docker para lanzar los workers. (b) aísla fallas y carga |
+| **Dónde corre** | (a) en el host del SIEM; (b) host Linux privado dedicado; (c) servicio de contenedores sin socket Docker | **(b)**, aislado del SIEM; en AWS la propuesta original usa EC2 privada | (a) compite por memoria con Indexer, Manager y núcleo. Orborus necesita una interfaz Docker para lanzar workers efímeros. Un servicio que no exponga esa capacidad no sirve como sustituto directo. El socket Docker equivale a control root del host y exige aislamiento estricto |
 | **Base de datos de Ankay** | Reutilizar el Indexer de Wazuh o un OpenSearch propio | **Propio**, un nodo pequeño | Reutilizar ahorra unos 2 GB, pero mezcla datos del SOAR con el SIEM, complica el Security plugin y acopla los upgrades. Un fallo de uno no debe tumbar al otro |
 | **Identidad** | (a) SSO OpenID nativo de Shuffle contra Entra; (b) edge QAPAQ con `auth_request` | **(b) como puerta obligatoria más (a) para la sesión interna de Shuffle** | Shuffle no admite proxy auth y tiene sesiones propias. Ankay se publica **solo detrás del edge del SIEM** (`/ankay/` en el mismo host), que valida la sesión QAPAQ en cada request y conserva el SSO/roles propios de Ankay. La ruta no cambia autenticación, cookies ni roles QAPAQ. Al revocar la sesión QAPAQ, se pierde acceso al frontend en ≤ 5 s. Los analistas piden acciones desde el SIEM. Detalle en [14](14-ankay-conexion-qapaq.md) |
 | **Rebrand** | Fork completo o overlay con codemod | **Overlay** (`ankay/`): 3 parches, arte con los mismos nombres de archivo y un codemod basado en AST | Unas 290 apariciones visibles y 460 colores en 180 archivos. Un fork se desincroniza en cada versión; el overlay se vuelve a aplicar sobre cualquier tag |
 | **Servicios externos** (N1: no tercerizar) | Permitir o bloquear la nube de Shuffle, Algolia y servicios en Cloud Run | **Bloquear**: CSP de mismo origen en el frontend (parche 0003) y egress del host solo a destinos aprobados | El frontend llama a `shuffler.io`, Algolia y servicios de terceros. Con la CSP y el egress cerrado, no sale información del SOC. Se pierde la búsqueda de apps en la nube: las apps se cargan localmente |
 | **Licencia** (AGPL-3.0) | Uso sin cambios o modificado | **Modificado, con el código fuente servido en `/source/`** | §13 de la AGPL: quien use Ankay por red debe poder obtener el código fuente modificado. `ankay/build.sh` lo empaqueta y lo publica dentro de la imagen. Pendiente: dictamen de Legal (U-022) |
 | **Idioma** | Inglés de Shuffle o español | Inglés en la fase 1 y `qapaq_i18n` adaptado a React/MUI en una fase posterior | El editor lo usa un equipo técnico reducido; la UI del SIEM, que usan todos, ya está en español |
-| **Costo** | — | Aprox. USD 60/mes (`t3.large` y 50 GB gp3) | Se suma a la demo; se apaga con su propio flag de Terraform |
+| **Costo** | — | Estimación histórica AWS: aprox. USD 60/mes (`t3.large` y 50 GB gp3); Azure requiere cotización aparte | No extrapolar ese monto a Azure. VM, discos, firewall y egreso se deben cotizar con SKU y región aprobadas antes del plan |
 
 ## 4. Fases y aceptación
 
 | Fase | Contenido | Owner | Acepta cuando |
 | --- | --- | --- | --- |
 | **F0 · Rebrand del frontend** | Overlay `ankay/` | Claude | **Hecho en esta rama.** Los parches aplican sobre v2.3.0, el codemod pasa 8/8 tests, modifica 101 archivos sin romper sintaxis ni comparaciones y el build local llega hasta la imagen |
-| F1 · Infraestructura | EC2 privada con Docker Compose de Shuffle, imagen `ankay-qapaq-frontend` en ECR, TLS interno, SG solo desde el host del SIEM, egress con allowlist, secretos en Secrets Manager y snapshots de su OpenSearch a S3 | Codex, con la verificación del dueño | Ankay responde solo desde la VPC, sin internet salvo destinos aprobados. El plan de Terraform no expone nada público |
+| F1 · Infraestructura | Host Linux privado con Compose completo, imágenes por digest, almacenamiento persistente, ruta protegida por sesión QAPAQ y egress por allowlist | Codex, con verificación del dueño | Todas las imágenes y servicios fijados, plan sin ingress público, policy/UDR revisadas, secretos por referencias seguras, y prueba de arranque/restauración. En Azure el módulo host está preparado pero no conectado al root ni desplegado |
 | F2 · Conector SIEM ↔ Ankay | Cola `ankay` (docs/11), webhook firmado con HMAC, `executionKey` y callback autenticado hacia el núcleo | Backend | Una acción aprobada llega una sola vez aunque se reintente. Un timeout queda `UNKNOWN` y se reconcilia |
 | F3 · Primeros playbooks | `enrich.ip-reputation` (sin efectos) → `endpoint.block-ip` (Wazuh AR) → `m365.revoke-sessions` (Graph), cada uno con aprobación | Backend y SOC | Ciclo completo en un sandbox con auditoría y SoD |
 | F4 · Ankay dentro del SIEM | Catálogo, estado de ejecuciones y aprobaciones en `qapaq_ops`, más deep link al editor | Frontend | El analista no necesita entrar a Ankay para pedir ni seguir una acción |

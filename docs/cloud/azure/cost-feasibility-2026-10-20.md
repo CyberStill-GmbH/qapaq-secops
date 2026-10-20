@@ -38,3 +38,20 @@ El piso medido de USD 242.51/mes supera el umbral de notificación de USD 200, y
 Antes de aplicar, completar la cotización del stack y registrar la proyección, los posibles cargos por encima de los créditos y los efectos de cada recurso. Mantener el presupuesto Terraform de USD 200 como alerta solamente; no incorporar apagado ni `destroy` automático. Revisar el plan exacto, almacenamiento/retención, HA y restore antes de ejecutar.
 
 Este cálculo es un control de viabilidad, no una cotización contractual. La estimación del tenant y el plan Terraform siguen siendo gates previos al despliegue.
+
+## Reconciliación con el diseño Azure QAPAQ vigente
+
+La cifra de este informe cubre únicamente los SKU explicitados en cada escenario.
+El objetivo A22 añade `qapaq-core` al host SIEM y no requiere una VM de API/worker
+separada; sí requiere dimensionamiento de memoria/CPU y PostgreSQL privado. A9
+requiere además Valkey compatible con Valkey, TLS, auth y capacidad persistente, y
+A13 requiere una VM privada separada para Ankay/Shuffle completo y su OpenSearch.
+No se ha cotizado ninguno de estos componentes adicionales ni los discos de datos,
+backups, egreso, Key Vault, ACR, reglas de red y observabilidad.
+
+Por ello, el piso de los escenarios de Wazuh + PostgreSQL no equivale al precio
+final del objetivo y no permite asegurar que el stack completo quede bajo USD 200
+ni bajo un crédito promocional. USD 200 permanece configurado como umbral de
+alerta, sin apagado ni `destroy`; calcular el costo restante con precios de la
+suscripción, SKU disponibles, capacidad y retención elegidas antes de aprobar un
+plan. El documento no constituye una cotización contractual.
