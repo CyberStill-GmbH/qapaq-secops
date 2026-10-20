@@ -52,12 +52,23 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   sin módulo Terraform Azure ni manifiesto Compose Azure verificado. El
   instalador versionado de Wazuh Office 365 usa AWS Secrets Manager y requiere
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
-- `.github/workflows/azure-terraform-validate.yml` valida Terraform sin acceder a
-  Azure. `.github/workflows/qapaq-dashboard-azure.yml` separa build sin OIDC en
-  PR y publicación manual desde `main` con OIDC/AcrPush. Ninguno se ha publicado
-  ni ejecutado desde GitHub en esta rama; no hay plan/apply Azure. El
-  environment `azure-demo` declarado para OIDC tampoco existe; la federación en
-  Terraform por sí sola no crea permisos Azure ni configura el workflow.
+- La preparación está publicada en el PR draft
+  [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
+  `codex/azure-mainline-preparation`, commit `3ba696c`. La validación sin
+  credenciales (`fmt`, `init -backend=false`, `validate`) pasó en CI. El run de
+  seguridad del commit aún estaba ejecutándose al capturar este estado. No hay
+  plan/apply Azure. La publicación de artefactos a ACR sigue siendo manual y
+  requiere que exista el environment `azure-demo`, la identidad OIDC, ACR y
+  variables de destino; Terraform por sí solo no configura el workflow ni
+  concede permisos Azure.
+- En GitHub están creados los repository secrets `AZURE_TENANT_ID` y
+  `AZURE_SUBSCRIPTION_ID`; se comprobó solo el nombre/metadata, no sus valores.
+  Los workflows de publicación aceptan también `AZURE_CLIENT_ID` como secret o
+  variable. Ese Client ID todavía falta. Las variables `AZURE_ACR_NAME` y
+  `AZURE_ACR_LOGIN_SERVER` también faltan porque el ACR aún no existe. El Client
+  ID debe identificar la UAMI publisher que Terraform crea con `AcrPush`, cuya
+  federación usa el subject
+  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`.
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
   faltan producto/edición, API y versión, región, autenticación, permisos,
   datasets, cuotas, replay, credencial y conectores validados. Tener credenciales
@@ -92,7 +103,7 @@ El flujo Azure debe:
    el tag por sí solo no es prueba de inmutabilidad.
 
 El workflow `.github/workflows/qapaq-dashboard-azure.yml` implementa el tramo de
-build y publicación, pero aún no ha corrido en GitHub. El build/PR no recibe
+build y publicación; su validación cloud-free puede correr en PR. El build/PR no recibe
 `id-token`; la publicación requiere `workflow_dispatch`, `publish_to_acr=true`,
 `main` y el environment `azure-demo`. Falla antes de autenticarse si se despacha
 desde otra rama o faltan las variables. Usa acciones fijadas a commit y ORAS
@@ -102,18 +113,19 @@ commit y el SHA-256 del paquete; registra y muestra la referencia por digest del
 manifiesto. El token de ACR es temporal de Entra, se entrega a ORAS por stdin y no se guarda en variables
 ni artefactos.
 
-Variables requeridas en el environment (IDs/host, no valores de secreto):
-`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`,
-`AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER`. `AZURE_CLIENT_ID` debe corresponder
-a la identidad federada que Terraform crea con `AcrPush`, cuyo subject es
+Los workflows leen `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
+`AZURE_SUBSCRIPTION_ID` desde repository secrets (con fallback a variables).
+El `AZURE_CLIENT_ID` debe corresponder a la identidad federada que Terraform
+crea con `AcrPush`, cuyo subject es
 `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`. El artifact de GitHub
 se conserva un día entre jobs. Esta pipeline no instala el `.deb`, no modifica
 una VM ni ejecuta Terraform. ACR conserva endpoint público autenticado con RBAC;
 antes de tratarlo como registro productivo, restringir acceso a red o usar un
 runner privado y revisar retención/immutability del registry.
 
-La publicación no se ha ejecutado: el environment `azure-demo`, las variables
-OIDC, el state remoto, el registry Azure y el plan de costo siguen pendientes.
+La publicación cloud no se ha ejecutado: el environment `azure-demo`, el
+`AZURE_CLIENT_ID`, las variables del registry, el state remoto, el registry
+Azure y el plan de costo siguen pendientes.
 Tampoco existe la VM Wazuh con identidad `AcrPull`; por eso no se creó el
 artifact ni se publicó nada a ACR.
 
@@ -201,7 +213,8 @@ hay imagen publicada ni despliegue funcional. Se añadió
 `.github/workflows/ankay-azure.yml`: el job de PR no recibe credenciales cloud y
 compila el contenedor en GitHub Actions; la publicación manual a ACR está
 restringida a `main` y depende del mismo environment/identidad OIDC que el
-workflow del Dashboard. El workflow aún no está en GitHub ni ejecutó.
+workflow del Dashboard. El workflow está en PR #75; sus checks de PR no publican
+imágenes ni se autentican en Azure.
 
 El baseline profesional de agentes, malware, telemetría y respuesta está en
 [`docs/security/qapaq-sophos-cato-wazuh-baseline.md`](../../security/qapaq-sophos-cato-wazuh-baseline.md).

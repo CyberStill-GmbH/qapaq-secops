@@ -77,7 +77,8 @@ lleguen después de aplicarlo.
   escritura Blob. No hay credenciales de registry estáticas.
 - `.github/workflows/qapaq-dashboard-azure.yml` puede publicar el `.deb` QAPAQ
   como OCI artifact a ACR, pero solo por despacho manual desde `main`. El build
-  de PR no tiene OIDC. Este workflow aún no está en GitHub y no instala Wazuh:
+  de PR no tiene OIDC. El workflow está propuesto en PR #75; aún no está en
+  `main` y no instala Wazuh:
   falta aplicar el registry, configurar environment/variables y añadir el host
   Wazuh con identidad de solo lectura.
 - Las imágenes `edge`, `web`, `gateway`, `api` y `worker` deben existir en ACR y
