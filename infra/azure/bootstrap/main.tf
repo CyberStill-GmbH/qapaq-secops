@@ -32,6 +32,11 @@ resource "azurerm_resource_group" "state" {
   }
 }
 
+# Time-bound exception: the owner authorized a public endpoint for GitHub-hosted
+# runners. The data plane still requires Entra ID/RBAC; anonymous blobs and
+# shared keys stay disabled. Reassess before expiry and prefer private networking
+# if a runner with controlled egress becomes available.
+#trivy:ignore:AZU-0012:exp:2026-11-20
 resource "azurerm_storage_account" "state" {
   name                            = var.state_storage_account_name
   resource_group_name             = azurerm_resource_group.state.name

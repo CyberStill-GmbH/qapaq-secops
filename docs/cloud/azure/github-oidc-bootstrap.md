@@ -143,3 +143,9 @@ deshabilitadas, versionado y soft delete de 30 días. Esto evita allowlists de I
 dinámicas, pero expone el endpoint a la red pública; no se habilitarán anonymous
 blobs ni autenticación por shared key. Falta aplicar y validar el bootstrap antes
 de publicar variables de backend o ejecutar un plan remoto.
+
+Trivy reporta `AZU-0012` como CRITICAL para esta excepción de red. El ignore está
+limitado al recurso de state y vence el **2026-11-20**; no representa que el riesgo
+desaparezca ni elimina los controles de autenticación. Revalidar antes del
+vencimiento y retirar la excepción si se migra a conectividad privada/egress
+controlado.
