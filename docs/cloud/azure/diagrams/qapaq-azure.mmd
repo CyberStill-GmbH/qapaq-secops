@@ -1,0 +1,72 @@
+flowchart LR
+  subgraph Internet[Internet y proveedores autorizados]
+    Analysts[Analistas SOC]
+    M365[Microsoft 365 APIs]
+    Sophos[Sophos APIs]
+    Cato[Cato APIs]
+  end
+
+  subgraph Azure[Azure Chile Central · red privada]
+    subgraph Edge[Container Apps Environment · ingress HTTPS y balanceo administrado]
+      EDGE[QAPAQ edge · único ingreso público]
+      WEB[QAPAQ SecOps UI]
+      KR[KrakenD API Gateway · interno]
+      API[QAPAQ API]
+      WORKER[Workers/conectores · min replicas 1]
+      EDGE --> WEB
+      EDGE --> KR
+      KR --> API
+      API --> APPDB
+      API --> JOBDB
+      WORKER --> JOBDB
+      WORKER --> APPDB
+    end
+
+    subgraph PrivateData[Subnets privadas y endpoints privados]
+      APPDB[(Azure PostgreSQL · qapaq_secops)]
+      JOBDB[(Azure PostgreSQL · qapaq_jobs / BullMQ v6 backend)]
+      BLOB[(Azure Blob · raw/evidencia cifrada, versionada)]
+      KV[Azure Key Vault · RBAC y purge protection]
+    WAZUH[Wazuh QAPAQ / OpenSearch · paquete Azure pendiente]
+    subgraph AnkayHost[VM privada dedicada · Docker Compose]
+      ANKFE[Ankay UI · overlay Shuffle QAPAQ]
+      ANKBE[Shuffle backend Go]
+      ORB[Orborus + workers]
+      ANKOS[(OpenSearch propio de Shuffle)]
+      ANKFE --> ANKBE
+      ANKBE --> ORB
+      ANKBE --- ANKOS
+    end
+    end
+
+    LAW[Log Analytics · telemetría operativa]
+    ACR[ACR · imágenes por digest, admin deshabilitado]
+    GH[GitHub Actions OIDC · publicador ACR]
+
+    WORKER -->|envelope/event reference| BLOB
+    WORKER -->|poll y normalización| WAZUH
+    KR -->|lecturas autorizadas, contrato Wazuh| WAZUH
+    EDGE -. /ankay/* · sesión QAPAQ + rol .-> ANKFE
+    API -. webhook firmado · contrato pendiente .-> ANKBE
+    ANKBE -. callback firmado · contrato pendiente .-> API
+    KV -. managed identity .-> API
+    KV -. managed identity .-> WORKER
+    LAW -. platform/runtime logs only .-> API
+    LAW -. platform/runtime logs only .-> WORKER
+    GH -->|federación, AcrPush| ACR
+    ACR -->|AcrPull managed identity| EDGE
+    ACR --> WEB
+    ACR --> KR
+    ACR --> API
+    ACR --> WORKER
+  end
+
+  Analysts -->|HTTPS| EDGE
+  WORKER -->|HTTPS outbound, per-source quotas| M365
+  WORKER -->|HTTPS outbound, per-source quotas| Sophos
+  WORKER -->|HTTPS outbound, per-source quotas| Cato
+
+  classDef ready fill:#18222d,stroke:#6f9fbd,color:#fff;
+  classDef gated fill:#302c25,stroke:#e5a82f,color:#fff,stroke-dasharray: 5 5;
+  class EDGE,WEB,KR,API,WORKER,APPDB,JOBDB,BLOB,KV,LAW,ACR,GH ready;
+  class ANKFE,ANKBE,ORB,ANKOS,WAZUH gated;
