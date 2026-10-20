@@ -34,6 +34,10 @@ for patch in "$HERE"/frontend/patches/*.patch; do
   echo "parche aplicado: $(basename "$patch")"
 done
 
+# Shuffle v2.3.0 provides this supported source-level subpathing pattern for reverse proxies.
+# Keep the frontend deployable under the QAPAQ edge's protected /ankay/ prefix.
+node "$HERE/frontend/subpath.mjs" "$FE"
+
 grep -v '^#' "$HERE/frontend/assets/targets.tsv" | while IFS=$'\t' read -r src dst _; do
   [[ -n "$src" ]] || continue
   [[ -f "$FE/$dst" ]] || { echo "destino de arte inexistente en upstream: $dst" >&2; exit 1; }

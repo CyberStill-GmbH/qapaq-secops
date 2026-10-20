@@ -53,8 +53,8 @@ jobs:
       - name: Install the root codemod dependency
         run: pnpm install --frozen-lockfile --filter qapaq-secops
 
-      - name: Test the brand codemod
-        run: node --test ankay/frontend/rebrand.test.mjs
+      - name: Test Ankay branding and protected subpath overlay
+        run: node --test ankay/frontend/rebrand.test.mjs ankay/frontend/subpath.test.mjs
 
       - name: Build from the pinned Shuffle source and verify its image
         shell: bash

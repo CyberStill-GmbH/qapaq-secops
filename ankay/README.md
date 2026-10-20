@@ -1,5 +1,7 @@
 # ankay/ — Ankay Qapaq (Shuffle con identidad QAPAQ)
 
+El frontend se construye para alojarse en la ruta `/ankay/` detrás de la sesión QAPAQ. La autenticación propia de Ankay conserva el control de acceso a sus funciones.
+
 Overlay versionado sobre **Shuffle v2.3.0** ([`upstream.lock`](upstream.lock)). Plan completo, tradeoffs
 y fases en [`docs/13-ankay-qapaq.md`](../docs/13-ankay-qapaq.md).
 
@@ -24,7 +26,7 @@ ruta pública.
 ```bash
 pnpm install                                    # el codemod usa el TypeScript del monorepo
 bash ankay/build.sh out/ ankay-qapaq-frontend:dev
-node --test ankay/frontend/rebrand.test.mjs     # 11 pruebas del codemod
+node --test ankay/frontend/rebrand.test.mjs ankay/frontend/subpath.test.mjs
 ```
 
 ## Subir de versión de Shuffle

@@ -34,7 +34,7 @@ flowchart LR
   U((Navegador)) -->|HTTPS 443| EDGE
   subgraph VPC["VPC 10.0.0.0/16"]
     subgraph SIEMHOST["Host SIEM QAPAQ (subred pública, EIP)"]
-      EDGE["nginx edge<br/>wazuh. / app. / ankay."]
+      EDGE["nginx edge<br/>host QAPAQ: /ankay/"]
       OSD[Dashboard + qapaq_ops]
       CORE["Núcleo QAPAQ<br/>API 127.0.0.1:3000 + worker"]
       CB["listener privado :8443<br/>solo /api/integrations/ankay/*"]
@@ -61,7 +61,7 @@ flowchart LR
 
 | Flujo | Origen → destino | Puerto | Control |
 | --- | --- | --- | --- |
-| UI de Ankay | Navegador → edge → frontend de Ankay | 443 | `auth_request` contra la sesión QAPAQ más el rol. Sin acceso público directo a Ankay |
+| UI de Ankay | Navegador → `https://<host-QAPAQ>/ankay/` → edge → frontend privado | 443 + red privada | `auth_request` contra la sesión QAPAQ; Ankay conserva su SSO/roles propios. Sin acceso público directo a Ankay |
 | Disparo de ejecución | Núcleo (host SIEM) → backend de Ankay | 5001 | SG solo desde el SG del host SIEM, cabecera de autenticación del webhook y firma HMAC |
 | Callback | Workers de Ankay → listener privado del edge → núcleo | 8443 | SG solo desde el SG de Ankay y firma HMAC. El listener solo expone `/api/integrations/ankay/*` |
 | Acciones externas | Workers → Internet | 443 | Egress por el NAT con allowlist de destinos (Graph, threat intel aprobada). Nada más sale |
@@ -189,8 +189,8 @@ ingenieros de automatización.
 
 ## 9. Decisiones abiertas
 
-1. **Rol nuevo `qapaq.automation.engineer`** en Entra para el editor de Ankay. Requiere tu aprobación,
-   porque los roles son una decisión de negocio.
+1. **Rol `qapaq.automation.engineer`** para el editor de Ankay. Requiere aprobación del dueño y
+   asignación en el sistema de identidad de Ankay; la ruta del edge solo exige la sesión QAPAQ.
 2. **U-022:** dictamen de Legal sobre AGPL con el frontend modificado.
 3. **App de validación HMAC** en Ankay (F2): Python, versionada en el repo.
 4. **Listener privado :8443** del edge para los callbacks: se agrega en `wazuh/edge` en F2.
