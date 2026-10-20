@@ -1,0 +1,43 @@
+name: QAPAQ Wazuh endpoint detections
+
+on:
+  pull_request:
+    paths:
+      - 'infra/wazuh/endpoint/**'
+      - '.github/workflows/wazuh-endpoint-detection.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/wazuh/endpoint/**'
+      - '.github/workflows/wazuh-endpoint-detection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-detections-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  endpoint-logtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start isolated Wazuh Manager 4.14.8
+        run: docker run --detach --rm --name qapaq-wazuh-endpoint-test wazuh/wazuh-manager:4.14.8
+      - name: Wait for Manager and run positive/negative fixtures
+        run: |
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-analysisd -t >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          bash infra/wazuh/endpoint/tests/run-logtest.sh qapaq-wazuh-endpoint-test

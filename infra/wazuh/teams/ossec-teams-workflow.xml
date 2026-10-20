@@ -1,0 +1,9 @@
+<!-- La URL firmada solo se lee desde este archivo protegido; no va en ossec.conf. -->
+<integration>
+  <name>custom-qapaq-teams</name>
+  <hook_url>/var/ossec/etc/integrations/qapaq-teams-workflow-url</hook_url>
+  <level>12</level>
+  <alert_format>json</alert_format>
+  <timeout>10</timeout>
+  <retries>3</retries>
+</integration>

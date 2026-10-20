@@ -1,0 +1,159 @@
+#!/var/ossec/framework/python/bin/python3
+"""Wazuh 4.x notification adapter for Microsoft Teams Workflows.
+
+The third integratord argument is a path to a root-managed secret file, not a
+webhook URL. The signed URL is never copied to logs or command-line arguments.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import stat
+import sys
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
+
+
+MINIMUM_LEVEL = 12
+REQUEST_TIMEOUT_SECONDS = 10
+MAX_FIELD_LENGTH = 160
+WORKFLOW_PATH_MARKERS = ("/workflows/", "/powerautomate/automations/direct/workflows/")
+LEGACY_CONNECTOR_MARKER = "/incomingwebhook/"
+
+
+def _safe_text(value: object, fallback: str) -> str:
+    if not isinstance(value, (str, int)):
+        return fallback
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", str(value)).strip()
+    return text[:MAX_FIELD_LENGTH] or fallback
+
+
+def _workflow_url(path: Path) -> str:
+    if path.is_symlink():
+        raise ValueError("workflow secret file permissions are invalid")
+    metadata = path.stat()
+    if not stat.S_ISREG(metadata.st_mode) or (os.name != "nt" and metadata.st_mode & 0o007):
+        raise ValueError("workflow secret file permissions are invalid")
+    value = path.read_text(encoding="utf-8").strip()
+    parsed = urlparse(value)
+    hostname = (parsed.hostname or "").lower()
+    allowed_host = hostname.endswith(".logic.azure.com") or hostname.endswith(
+        ".api.powerplatform.com"
+    )
+    path_lower = parsed.path.lower()
+    is_workflow_path = any(marker in path_lower for marker in WORKFLOW_PATH_MARKERS)
+    is_legacy_connector = LEGACY_CONNECTOR_MARKER in path_lower
+    if (
+        parsed.scheme != "https"
+        or not allowed_host
+        or not is_workflow_path
+        or is_legacy_connector
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        raise ValueError("webhook is not a supported Teams Workflows endpoint")
+    return value
+
+
+def _payload(alert: dict[str, object]) -> tuple[dict[str, object], str] | None:
+    rule = alert.get("rule")
+    if not isinstance(rule, dict):
+        return None
+    try:
+        level = int(rule.get("level", -1))
+    except (TypeError, ValueError):
+        return None
+    if level < MINIMUM_LEVEL:
+        return None
+
+    alert_id = _safe_text(alert.get("id"), "sin-id")
+    rule_id = _safe_text(rule.get("id"), "sin-regla")
+    timestamp = _safe_text(alert.get("timestamp"), "sin-fecha")
+    message = {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [
+                        {
+                            "type": "TextBlock",
+                            "size": "Medium",
+                            "weight": "Bolder",
+                            "wrap": True,
+                            "text": "QAPAQ SecOps · alerta crítica de Wazuh",
+                        },
+                        {
+                            "type": "FactSet",
+                            "facts": [
+                                {"title": "Nivel", "value": str(level)},
+                                {"title": "Regla", "value": rule_id},
+                                {"title": "Alerta", "value": alert_id},
+                                {"title": "Fecha", "value": timestamp},
+                            ],
+                        },
+                    ],
+                },
+            }
+        ],
+    }
+    return message, alert_id
+
+
+def send_alert(alert_path: Path, secret_path: Path) -> int:
+    try:
+        alert = json.loads(alert_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        print("QAPAQ Teams: no se pudo leer el archivo de alerta JSON.", file=sys.stderr)
+        return 1
+    if not isinstance(alert, dict):
+        print("QAPAQ Teams: el formato de alerta no es un objeto JSON.", file=sys.stderr)
+        return 1
+
+    payload = _payload(alert)
+    if payload is None:
+        return 0
+
+    message, alert_id = payload
+    try:
+        workflow_url = _workflow_url(secret_path)
+        request = Request(
+            workflow_url,
+            data=json.dumps(message, ensure_ascii=False).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "client-request-id": alert_id,
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+            if 200 <= response.status < 300:
+                return 0
+            print(f"QAPAQ Teams: Workflows respondió HTTP {response.status}.", file=sys.stderr)
+            return 1
+    except HTTPError as error:
+        print(f"QAPAQ Teams: Workflows respondió HTTP {error.code}.", file=sys.stderr)
+        return 1
+    except (OSError, URLError, ValueError) as error:
+        # No imprimir el texto de error: urllib puede incluir la URL firmada.
+        print(f"QAPAQ Teams: envío fallido ({type(error).__name__}).", file=sys.stderr)
+        return 1
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 4:
+        print("QAPAQ Teams: faltan argumentos de Wazuh Integratord.", file=sys.stderr)
+        return 1
+    return send_alert(Path(argv[1]), Path(argv[3]))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

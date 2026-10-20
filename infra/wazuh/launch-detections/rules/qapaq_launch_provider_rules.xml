@@ -1,0 +1,174 @@
+<!--
+  Reglas locales del perfil multifuente QAPAQ. IDs reservados: 101200-101214.
+  Requieren eventos JSON normalizados por adapters autorizados con integration=qapaq-provider.
+  Estos patrones no simulan un conector: hasta que el adapter entregue el contrato, la regla
+  no verá eventos. Monitor-only; ninguna regla ejecuta Active Response.
+-->
+<group name="qapaq_provider,qapaq_multisource,">
+  <rule id="101200" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">qapaq-provider</field>
+    <description>QAPAQ: evento de proveedor normalizado recibido.</description>
+    <options>no_full_log</options>
+    <group>qapaq_provider_base,</group>
+  </rule>
+
+  <rule id="101201" level="15">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">sophos</field>
+    <field name="qapaq_event_type">threat_detected</field>
+    <field name="qapaq_severity" type="pcre2">(?i)^(high|critical)$</field>
+    <field name="qapaq_status" type="pcre2">(?i)^(active|unresolved|detected)$</field>
+    <description>QAPAQ P0: Sophos detectó una amenaza alta/crítica activa en endpoint $(qapaq_endpoint_id).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1204</id><id>T1059</id></mitre>
+    <group>qapaq_malware,qapaq_sophos,</group>
+  </rule>
+
+  <rule id="101202" level="14">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">sophos</field>
+    <field name="qapaq_event_type">remediation_result</field>
+    <field name="qapaq_remedy_result" type="pcre2">(?i)^(FAILED_TO_DELETE|OTHER_ERROR|FAILED_TO_DELETE_SYSTEM_PROTECTED)$</field>
+    <description>QAPAQ P0: Sophos no pudo remediar la amenaza en $(qapaq_endpoint_id); requiere respuesta del SOC.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562</id></mitre>
+    <group>qapaq_malware,qapaq_sophos,qapaq_remediation_failed,</group>
+  </rule>
+
+  <rule id="101203" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">cato</field>
+    <field name="qapaq_event_type">threat_verdict</field>
+    <field name="qapaq_action">allowed</field>
+    <field name="qapaq_severity" type="pcre2">(?i)^(high|critical)$</field>
+    <description>QAPAQ P1: Cato permitió tráfico con veredicto de amenaza alta/crítica desde $(qapaq_source_ip) hacia $(qapaq_destination).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1071</id></mitre>
+    <group>qapaq_network,qapaq_cato,qapaq_threat_allowed,</group>
+  </rule>
+
+  <rule id="101204" level="5">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">cato</field>
+    <field name="qapaq_event_type">threat_verdict</field>
+    <field name="qapaq_action">blocked</field>
+    <description>QAPAQ: Cato bloqueó un evento de amenaza; correlacionar antes de elevar prioridad.</description>
+    <options>no_full_log</options>
+    <group>qapaq_network,qapaq_cato,qapaq_blocked,</group>
+  </rule>
+
+  <rule id="101205" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">entra</field>
+    <field name="qapaq_event_type">risky_signin</field>
+    <field name="qapaq_severity" type="pcre2">(?i)^(high|critical)$</field>
+    <description>QAPAQ P1: Entra informó un inicio de sesión de riesgo alto para $(qapaq_user_id) desde $(qapaq_source_ip).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>qapaq_identity,qapaq_entra,qapaq_risky_signin,</group>
+  </rule>
+
+  <rule id="101206" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">entra</field>
+    <field name="qapaq_event_type">privileged_role_assigned</field>
+    <field name="qapaq_change_status">unapproved</field>
+    <description>QAPAQ P0: asignación de rol privilegiado Entra sin cambio aprobado; actor $(qapaq_actor), destino $(qapaq_user_id).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098.003</id></mitre>
+    <group>qapaq_identity,qapaq_entra,qapaq_privilege_escalation,</group>
+  </rule>
+
+  <rule id="101207" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">active_directory</field>
+    <field name="qapaq_event_type">privileged_group_member_added</field>
+    <field name="qapaq_change_status">unapproved</field>
+    <description>QAPAQ P0: miembro agregado a grupo privilegiado de AD sin cambio aprobado; host $(qapaq_host), destino $(qapaq_user_id).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098.007</id></mitre>
+    <group>qapaq_identity,qapaq_active_directory,qapaq_privilege_escalation,</group>
+  </rule>
+
+  <rule id="101208" level="14">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">windows</field>
+    <field name="qapaq_event_type">security_log_cleared</field>
+    <description>QAPAQ P0: se limpió el registro Security de Windows en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1070.001</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_windows,</group>
+  </rule>
+
+  <rule id="101209" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">windows</field>
+    <field name="qapaq_event_type">antivirus_realtime_disabled</field>
+    <description>QAPAQ P0: protección antimalware en tiempo real deshabilitada en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_windows,</group>
+  </rule>
+
+  <rule id="101210" level="10">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">windows</field>
+    <field name="qapaq_event_type">powershell_encoded_suspicious_parent</field>
+    <description>QAPAQ P1: PowerShell codificado iniciado por proceso no habitual en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1059.001</id><id>T1027</id></mitre>
+    <group>qapaq_execution,qapaq_windows,</group>
+  </rule>
+
+  <rule id="101211" level="10">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">windows</field>
+    <field name="qapaq_event_type" type="pcre2">^(scheduled_task_created|service_installed)$</field>
+    <field name="qapaq_change_status" type="pcre2">^(unapproved|unknown)$</field>
+    <description>QAPAQ P1: nueva tarea o servicio sin cambio aprobado en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1053.005</id><id>T1543.003</id></mitre>
+    <group>qapaq_persistence,qapaq_windows,</group>
+  </rule>
+
+  <rule id="101212" level="9">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">wazuh</field>
+    <field name="qapaq_event_type">persistence_path_change</field>
+    <field name="qapaq_path_scope">approved_persistence_path</field>
+    <description>QAPAQ P1: cambio de archivo bajo ruta de persistencia monitoreada en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1547</id></mitre>
+    <group>qapaq_persistence,qapaq_fim,</group>
+  </rule>
+
+  <rule id="101215" level="3">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">linux</field>
+    <field name="qapaq_event_type">ssh_auth_failure</field>
+    <description>QAPAQ: fallo de autenticación SSH desde $(qapaq_source_ip) en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <group>qapaq_linux,qapaq_authentication_failed,</group>
+  </rule>
+
+  <rule id="101213" level="12" frequency="8" timeframe="300" ignore="300">
+    <if_matched_sid>101215</if_matched_sid>
+    <same_field>qapaq_source_ip</same_field>
+    <description>QAPAQ P1: ráfaga de fallos SSH desde $(qapaq_source_ip) en cinco minutos.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110.001</id></mitre>
+    <group>qapaq_linux,qapaq_brute_force,</group>
+  </rule>
+
+  <rule id="101214" level="9">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">linux</field>
+    <field name="qapaq_event_type">sudo_privileged_command</field>
+    <field name="qapaq_change_status">unapproved</field>
+    <description>QAPAQ P1: uso privilegiado de sudo fuera de cambio aprobado en $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1548.003</id></mitre>
+    <group>qapaq_linux,qapaq_privilege_escalation,</group>
+  </rule>
+</group>
