@@ -28,7 +28,7 @@ Secrets User` y `Storage Blob Data Contributor` para service principals, y
   `Cost Management Contributor` a nivel de suscripción para que el root existente
   pueda gestionar el presupuesto mensual.
 - El usuario autenticado que ejecuta el bootstrap recibe `Storage Blob Data
-  Contributor` solo en el Storage Account de state para crear el contenedor y
+Contributor` solo en el Storage Account de state para crear el contenedor y
   migrar el backend. Terraform deriva su object ID de la sesión AzureRM; no se
   copia el identificador a GitHub ni a variables locales.
 
