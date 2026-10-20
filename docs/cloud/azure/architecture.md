@@ -64,12 +64,15 @@ flowchart LR
   EDGE --> WEB[QAPAQ UI]
   EDGE --> KR[KrakenD API Gateway]
   KR --> API[QAPAQ API]
+  AGENTS[Agentes Wazuh] -->|TCP 1514| LB[Azure Standard Load Balancer<br/>allowlist o red privada]
+  AGENTS -->|TCP 1515 · enrolamiento| LB
+  LB -->|solo puertos de agentes| WAZUH[Wazuh QAPAQ / OpenSearch<br/>paquete Azure pendiente]
   API --> APPDB[(PostgreSQL qapaq_secops)]
   API --> JOBS[(PostgreSQL qapaq_jobs<br/>BullMQ v6 backend propuesto)]
   WORKER[QAPAQ workers] --> JOBS
   WORKER --> APPDB
   WORKER --> BLOB[(Blob raw/evidencia)]
-  WORKER --> WAZUH[Wazuh QAPAQ / OpenSearch<br/>paquete Azure pendiente]
+  WORKER --> WAZUH
   KR --> WAZUH
   WORKER --> M365[M365 APIs]
   WORKER --> SOPHOS[Sophos APIs]
@@ -139,10 +142,25 @@ sin decisión y prueba de esos contratos.
 - **Pérdida de cola:** reconstruir jobs a partir del outbox/checkpoints y ejecutar
   reconciliation; no presentar la cola como única fuente de verdad.
 
+## Conectividad de agentes Wazuh
+
+Los agentes requieren TCP 1514 para reportar al manager; el enrolamiento normal
+usa TCP 1515 y el API de Wazuh escucha en TCP 55000. El diseño reserva un Azure
+Standard Load Balancer solo para 1514/1515. No publica 55000, Indexer 9200 ni el
+Dashboard 443: esos accesos quedan privados detrás del edge QAPAQ. La documentación
+oficial lista esos puertos como servicios separados del manager, API, Indexer y
+Dashboard.
+
+El allowlist de origen y el transporte privado deben quedar definidos antes de
+crear reglas de entrada. Priorizar las redes privadas de QAPAQ conectadas por Cato;
+si no hay ruta privada, requerir CIDRs de egreso autorizados y limitar la regla a
+1514/1515. Con la lista vacía, el firewall debe denegar agentes nuevos y no declarar
+la capacidad como operativa. No abrir `0.0.0.0/0` para resolver el enrolamiento.
+
 ## Costos y escalamiento
 
 La revalidación de
-[`cost-feasibility-2026-10-19.md`](cost-feasibility-2026-10-19.md) confirma
+[`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) confirma
 USD 173.01/mes de cómputo para el tamaño Wazuh recomendado. Las tarifas previas
 de PostgreSQL no se pudieron verificar hoy; el piso completo y la alta
 disponibilidad siguen pendientes de cotización actual. El margen de cómputo
@@ -178,6 +196,7 @@ duros de gasto.
 - [Conectividad entre Container Apps](https://learn.microsoft.com/azure/container-apps/connect-apps): service discovery y routing internos del entorno.
 - [Azure Private Link para Key Vault](https://learn.microsoft.com/azure/key-vault/general/private-link-service): private endpoint y DNS privado para acceso desde VNet.
 - [PostgreSQL Flexible Server privado](https://registry.terraform.io/providers/hashicorp/azurerm/4.62.0/docs/resources/postgresql_flexible_server): subnet delegada, private DNS y acceso público deshabilitado.
+- [Puertos requeridos por Wazuh](https://documentation.wazuh.com/current/getting-started/architecture.html): separa agent communication 1514, enrollment 1515, API 55000, Indexer 9200 y Dashboard 443.
 - [BullMQ PostgreSQL](https://docs.bullmq.io/guide/postgresql): backend opcional PostgreSQL; el baseline QAPAQ aún requiere aprobar BullMQ 6.
 
 ## Gates antes de habilitar tráfico real
