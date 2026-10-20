@@ -100,10 +100,10 @@ describe('Wazuh Office 365 · reglas locales', () => {
 describe('Wazuh Office 365 · casos de logtest', () => {
   it('cada caso tiene una expectativa y apunta a una regla existente u oficial', async () => {
     const cases = (await readFile(resolve(BASE, 'tests/logtest-cases.jsonl'), 'utf8'))
-      .split('\n')
+      .split(/\r?\n/u)
       .filter((line) => line.trim().length > 0);
     const expected = (await readFile(resolve(BASE, 'tests/expected-rules.txt'), 'utf8'))
-      .split('\n')
+      .split(/\r?\n/u)
       .filter((line) => line.trim().length > 0);
     const local = new Set((await rules()).map((rule) => rule.id));
 
