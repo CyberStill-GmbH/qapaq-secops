@@ -9,10 +9,12 @@ workflow principal hasta revisar este código, el plan y los roles.
 
 - Grupo `state` dedicado y Storage Account LRS con HTTPS/TLS 1.2, claves
   compartidas y acceso anónimo deshabilitados, versionado de blobs y soft delete
-  de 30 días. La red usa firewall `Deny` por defecto y permite solo las IPv4/CIDR
-  de salida estables autorizadas en `state_storage_allowed_ipv4`; RBAC/Entra ID
-  sigue siendo obligatorio. No se aceptan rangos públicos amplios ni el egress
-  dinámico del runner estándar de GitHub.
+  de 30 días. La red usa firewall `Deny` por defecto, permite la excepción de
+  red `AzureServices` de servicios Microsoft confiables y permite clientes
+  normales solo desde las IPv4/CIDR de salida estables autorizadas en
+  `state_storage_allowed_ipv4`; RBAC/Entra ID sigue siendo obligatorio. No se
+  aceptan rangos públicos amplios ni el egress dinámico del runner estándar de
+  GitHub.
 - Contenedor privado de state y grupo destino `rg-*`, ambos con `prevent_destroy`.
 - User-assigned managed identity federada únicamente con el subject inmutable
   `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`
@@ -51,8 +53,8 @@ terraform plan -input=false -out=bootstrap.tfplan
 terraform show -no-color bootstrap.tfplan
 ```
 
-Verificar nombres, scopes RBAC, retención, firewall `Deny` e IPs estables
-autorizadas antes de aplicar. Los runners estándar de GitHub usan egress
+Verificar nombres, scopes RBAC, retención, firewall `Deny`, la excepción de
+servicios Microsoft confiables e IPs estables autorizadas antes de aplicar. Los runners estándar de GitHub usan egress
 dinámico y no deben añadirse como firewall allowlist; usar un runner mayor con
 IPs estáticas habilitadas en GitHub Enterprise Cloud o un runner propio con
 egress estático. Si ese runner no está disponible, no se puede completar el
