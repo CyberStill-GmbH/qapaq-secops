@@ -42,10 +42,12 @@ fundación, no una traducción completa del despliegue. Ver
 [`revisión de paridad y plan de cierre`](../../docs/cloud/azure/terraform-parity-review-2026-10-19.md)
 antes de preparar el primer plan remoto.
 
-La revalidación del 2026-10-19 confirma USD 173.01/mes solo por el cómputo del
-Wazuh all-in-one recomendado; dejó sin confirmar la tarifa actual de PostgreSQL
-y el total de la cuenta. Ver [viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-19.md);
-no habilitar runtime hasta cotizar la cuenta y reconciliar el presupuesto completo.
+La revalidación oficial del 2026-10-20 confirma USD 173.01/mes por el cómputo del
+Wazuh all-in-one recomendado y USD 69.50/mes por PostgreSQL B2S: piso de USD
+242.51/mes sin el resto del SOC. Supera el límite mensual de USD 200. Ver
+[viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-20.md);
+no habilitar runtime ni aplicar este stack hasta acordar alcance y presupuesto y
+cotizar los demás componentes.
 
 El stack no incluye todavía el nodo/instalador de Wazuh, Ankay ni cambios DNS.
 El paquete actual de Wazuh y sus overlays se deben validar para Azure, y la
