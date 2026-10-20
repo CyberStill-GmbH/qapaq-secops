@@ -66,6 +66,11 @@ resource "azurerm_storage_account" "evidence" {
   infrastructure_encryption_enabled = true
   tags                              = var.tags
 
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["None"]
+  }
+
   blob_properties {
     versioning_enabled = true
     delete_retention_policy {
@@ -146,6 +151,11 @@ resource "azurerm_key_vault" "this" {
   soft_delete_retention_days    = 90
   public_network_access_enabled = false
   tags                          = var.tags
+
+  network_acls {
+    default_action = "Deny"
+    bypass         = "None"
+  }
 
   lifecycle {
     prevent_destroy = true

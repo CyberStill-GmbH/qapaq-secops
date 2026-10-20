@@ -18,13 +18,13 @@ publicar y revisar las cinco imágenes fijadas por digest.
 El root ahora separa responsabilidades y conserva bloqueos `prevent_destroy` en
 datos y observabilidad:
 
-| Módulo | Responsabilidad |
-| --- | --- |
-| `modules/network` | VNet, subnets delegadas y DNS privado para PostgreSQL, Key Vault y Blob. |
-| `modules/observability` | Log Analytics y Container Apps Environment. |
-| `modules/data` | PostgreSQL, bases separadas, Storage de evidencia, Key Vault y endpoints privados. |
-| `modules/identity_registry` | Identidades administradas, federación GitHub OIDC, ACR y asignaciones RBAC mínimas. |
-| `modules/runtime` | Edge, web, KrakenD, API y worker genéricos, desactivados hasta recibir digests verificados. No despliega Wazuh QAPAQ ni Ankay. |
+| Módulo                      | Responsabilidad                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `modules/network`           | VNet, subnets delegadas y DNS privado para PostgreSQL, Key Vault y Blob.                                                       |
+| `modules/observability`     | Log Analytics y Container Apps Environment.                                                                                    |
+| `modules/data`              | PostgreSQL, bases separadas, Storage de evidencia, Key Vault y endpoints privados.                                             |
+| `modules/identity_registry` | Identidades administradas, federación GitHub OIDC, ACR y asignaciones RBAC mínimas.                                            |
+| `modules/runtime`           | Edge, web, KrakenD, API y worker genéricos, desactivados hasta recibir digests verificados. No despliega Wazuh QAPAQ ni Ankay. |
 
 `moved.tf` preserva las direcciones anteriores del root al migrar cualquier state
 existente. Aun así, inicializa el backend remoto y revisa el plan exacto antes de
