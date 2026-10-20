@@ -5,6 +5,15 @@
 **Ámbito:** despliegue Azure únicamente. No modifica ADR-006/ADR-016 ni la cola
 Redis/BullMQ que usa o pueda usar AWS.
 
+> **Revisión de dirección 2026-10-20:** esta propuesta no está aprobada y no
+> sustituye A9 de `docs/10-decisiones.md`, que fija Valkey/BullMQ como objetivo.
+> Azure Managed Redis (Redis 7.4.x) queda como candidato de servicio administrado
+> compatible a evaluar, no como Valkey ni como decisión de despliegue. El worker
+> actual todavía no consume BullMQ; por eso no se debe provisionar un broker
+> Azure hasta implementar y probar el consumidor, el manejo de `noeviction`, TLS,
+> autenticación, failover y el costo en Chile Central. Esta aclaración no cambia
+> la infraestructura AWS.
+
 ## Contexto
 
 Azure requiere trabajo durable para desacoplar adaptadores de M365, Sophos y
