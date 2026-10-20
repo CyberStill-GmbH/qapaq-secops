@@ -27,8 +27,10 @@ Secrets User` y `Storage Blob Data Contributor` para service principals, y
 - `Storage Blob Data Contributor` solo en el Storage Account de state y
   `Cost Management Contributor` a nivel de suscripción para que el root existente
   pueda gestionar el presupuesto mensual.
-- El operador bootstrap recibe `Storage Blob Data Contributor` solo en el
-  Storage Account de state para crear el contenedor y migrar el backend.
+- El usuario autenticado que ejecuta el bootstrap recibe `Storage Blob Data
+  Contributor` solo en el Storage Account de state para crear el contenedor y
+  migrar el backend. Terraform deriva su object ID de la sesión AzureRM; no se
+  copia el identificador a GitHub ni a variables locales.
 
 El bootstrap operador necesita permisos para crear grupos/Storage, identidades y
 asignaciones de roles con esos alcances. Si Azure no autoriza una asignación, no
@@ -43,7 +45,6 @@ En Azure Cloud Shell (Bash), autenticado en la suscripción destino:
 az account show --query '{subscription:id,tenant:tenantId,state:state}' --output json
 export TF_VAR_subscription_id="$(az account show --query id --output tsv)"
 export TF_VAR_tenant_id="$(az account show --query tenantId --output tsv)"
-export TF_VAR_bootstrap_operator_object_id="$(az ad signed-in-user show --query id --output tsv)"
 export TF_VAR_state_storage_account_name="<storage-account-name-unico>"
 cd infra/azure/bootstrap
 terraform init -backend=false

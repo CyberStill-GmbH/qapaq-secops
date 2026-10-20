@@ -70,16 +70,6 @@ variable "state_storage_account_name" {
   }
 }
 
-variable "bootstrap_operator_object_id" {
-  description = "Entra object ID of the user running the one-time bootstrap and state migration."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[0-9a-fA-F-]{36}$", var.bootstrap_operator_object_id))
-    error_message = "Provide the Entra object ID of the signed-in operator as a UUID."
-  }
-}
-
 variable "state_container_name" {
   description = "Private blob container for Terraform state."
   type        = string

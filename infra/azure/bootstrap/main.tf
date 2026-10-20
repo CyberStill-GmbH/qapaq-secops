@@ -22,6 +22,8 @@ locals {
   delegated_role_definition_set = join(", ", local.delegated_role_definition_ids)
 }
 
+data "azurerm_client_config" "current" {}
+
 resource "azurerm_resource_group" "state" {
   name     = local.state_resource_group_name
   location = var.location
@@ -89,7 +91,7 @@ resource "azurerm_storage_container" "state" {
 resource "azurerm_role_assignment" "operator_state_access" {
   scope                = azurerm_storage_account.state.id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = var.bootstrap_operator_object_id
+  principal_id         = data.azurerm_client_config.current.object_id
   principal_type       = "User"
 }
 
