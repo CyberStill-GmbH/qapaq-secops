@@ -91,26 +91,30 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
 ## Estado observado el 2026-10-20
 
-- Existen los repository secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
-  `AZURE_SUBSCRIPTION_ID`; también aparece `ENTRA_CLIENT_SECRET`. Solo se
-  consultaron nombres y metadata, nunca sus valores.
+- Existen los repository secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+  `AZURE_SUBSCRIPTION_ID` y `AZURE_POSTGRES_ADMIN_PASSWORD`; también aparece
+  `ENTRA_CLIENT_SECRET`. Solo se consultaron nombres y metadata, nunca sus
+  valores. `AZURE_CLIENT_ID` sirve como fallback para el Client ID Terraform,
+  aunque se recomienda renombrarlo a `AZURE_TERRAFORM_CLIENT_ID` para distinguir
+  su uso del principal publicador.
 - Terraform acepta `AZURE_TERRAFORM_CLIENT_ID` y usa `AZURE_CLIENT_ID` como
   alternativa si el nombre dedicado todavía no está creado. El principal debe
   tener la federación OIDC `azure-demo` y permisos acotados para IaC; la mera
   presencia del secreto no prueba esos permisos. Los publicadores siguen
   exigiendo `AZURE_ACR_PUBLISHER_CLIENT_ID`, separado para `AcrPush`.
-- No existen `AZURE_POSTGRES_ADMIN_PASSWORD`, las cuatro variables
-  `AZURE_TF_STATE_*`, `AZURE_TF_RUNNER_LABELS`, `AZURE_ACR_NAME` ni
-  `AZURE_ACR_LOGIN_SERVER` entre los repository secrets/variables verificados.
-  GitHub reporta cero runners propios registrados. Los secrets de tenant y
-  suscripción están presentes, pero no se ha demostrado todavía una sesión OIDC
-  de Actions ni acceso al backend remoto.
+- No existen las cuatro variables `AZURE_TF_STATE_*`, `AZURE_TF_RUNNER_LABELS`,
+  `AZURE_ACR_NAME` ni `AZURE_ACR_LOGIN_SERVER` entre los repository variables
+  verificados. GitHub reporta cero runners propios registrados. La presencia de
+  los secrets no demuestra una sesión OIDC de Actions ni acceso al backend
+  remoto; tampoco acredita por sí sola que el Client ID tenga federación y roles
+  correctos.
 - El environment `azure-demo` está limitado a `main`, exige aprobación de
   `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
 - `infra/azure` cuenta ahora con un workflow manual plan/apply protegido. No se
-  ha ejecutado: la identidad bootstrap, el backend remoto y sus variables
-  todavía no existen. La validación Terraform de PR sigue ejecutando
-  `init -backend=false` y no autentica con Azure.
+  ha ejecutado: faltan las variables para seleccionar el backend remoto y un
+  runner con salida estable autorizada por su firewall. No se ha verificado el
+  estado real de los recursos bootstrap en Azure. La validación Terraform de PR
+  ejecuta `init -backend=false` y no autentica con Azure.
 - Los workflows de build/publicación de Ankay y Dashboard aceptan
   `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable y tenant/subscription
   como secrets o variables. Publicar requiere ACR ya creado, OIDC funcional y
