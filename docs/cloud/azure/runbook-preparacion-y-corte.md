@@ -27,10 +27,10 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
 
 - El Terraform de Azure crea red privada, PostgreSQL, Key Vault, Blob, Log
   Analytics, Container Apps Environment y ACR. `enable_runtime` sigue en
-  `false`; no están publicadas las cinco imágenes de edge, web, gateway, API y
-  worker fijadas por digest. La IaC y workflows Azure están preparados en la
-  rama local `codex/azure-mainline-preparation`, sin commit ni push; `main` remoto
-  todavía no contiene esos archivos.
+  `false`; no están publicadas las cinco imágenes genéricas edge, web, gateway,
+  API y worker fijadas por digest. La IaC y workflows Azure están publicados en
+  la rama `codex/azure-mainline-preparation` y en el PR draft #75; `main` remoto
+  todavía no contiene esos cambios.
 - No está configurado un backend remoto para el state. El password bootstrap de
   PostgreSQL es sensible, pero Terraform lo conserva en state; el primer apply
   requiere state remoto cifrado, versionado y de acceso restringido.
@@ -54,18 +54,21 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
 - La preparación está publicada en el PR draft
   [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
-  `codex/azure-mainline-preparation`, commit `7932552`. El run de CI Security
-  [39416565647](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39416565647)
+  `codex/azure-mainline-preparation`, HEAD `28b3c24`. En ese SHA pasaron CI
+  Security ([39421073240](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073240)),
+  la validación Terraform sin credenciales (`fmt`, `init -backend=false`,
+  `validate`; [39421073247](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073247))
   y el build cloud-free de Ankay
-  [39415831111](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39415831111)
-  pasaron. La validación Terraform sin credenciales (`fmt`,
-  `init -backend=false`, `validate`) pasó en
-  [39415831181](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39415831181).
-  Estos checks no ejecutaron plan/apply ni accedieron a Azure. La publicación a
-  ACR sigue siendo manual y requiere environment, OIDC, ACR y variables de
-  destino; Terraform por sí solo no configura el workflow ni concede permisos.
-- En GitHub están creados los repository secrets `AZURE_TENANT_ID` y
-  `AZURE_SUBSCRIPTION_ID`; se comprobó solo el nombre/metadata, no sus valores.
+  ([39421073229](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073229)).
+  Los workflows QAPAQ SIEM ([39421073315](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073315))
+  y QAPAQ Dashboard Azure
+  ([39421073241](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073241))
+  estaban pendientes en la última consulta. Los checks completados no ejecutaron
+  plan/apply ni accedieron a Azure. La publicación a ACR sigue siendo manual y
+  requiere identidad OIDC, ACR y variables de destino.
+- En GitHub están creados los repository secrets `AZURE_TENANT_ID`,
+  `AZURE_SUBSCRIPTION_ID` y `ENTRA_CLIENT_SECRET`; se comprobaron solo nombres y
+  metadata, nunca se leyeron sus valores.
   La futura pipeline Terraform requiere una identidad bootstrap separada con el
   secret `AZURE_TERRAFORM_CLIENT_ID`. Los workflows de publicación leen
   `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable. Ambos Client IDs aún
@@ -73,7 +76,10 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   faltan porque el ACR aún no existe. La identidad publisher que Terraform crea
   recibe `AcrPush` y su federación usa el subject
   `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo`. El environment
-  sigue sin existir (la consulta GitHub API devolvió 404).
+  `azure-demo` sí existe y está restringido a la rama `main`, requiere revisión,
+  impide autoaprobación y tiene desactivado el bypass administrativo. La
+  protección del environment no crea por sí sola la identidad ni la federación
+  OIDC de Azure.
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
   faltan producto/edición, API y versión, región, autenticación, permisos,
   datasets, cuotas, replay, credencial y conectores validados. Tener credenciales
@@ -84,10 +90,13 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   apunta Vercel en `codexpt.jappi.net.pe`, fuera de los hostnames de corte. No se
   borró ningún DNS porque no existe un destino web antiguo en los hostnames
   solicitados; quitar CAA no redirige el tráfico y alteraría la política TLS.
-- En esta comprobación `aws sts get-caller-identity` respondió como la cuenta
-  `955200662475` con ARN `root`; no se usará esa identidad para cambios. Azure CLI
-  no está instalado y no hay credencial Azure de CLI disponible. No se verificó
-  contenido ni existencia de secretos en AWS, Azure, Sophos o Cato.
+- En la consulta de solo lectura de Cloud Shell del 2026-10-20, Azure reportó
+  cero grupos de recursos y cero recursos. No se ejecutó un apply desde este
+  checkout. La CLI `az` local no está instalada, así que este dato no sustituye
+  una nueva consulta autenticada justo antes del plan. `aws sts
+  get-caller-identity` respondió como la cuenta `955200662475` con ARN `root`; no
+  se usará esa identidad para cambios. No se inspeccionaron valores de secretos
+  en Azure, AWS, Sophos o Cato.
 
 ## Publicación del Dashboard QAPAQ a Azure Container Registry
 
@@ -128,10 +137,10 @@ una VM ni ejecuta Terraform. ACR conserva endpoint público autenticado con RBAC
 antes de tratarlo como registro productivo, restringir acceso a red o usar un
 runner privado y revisar retención/immutability del registry.
 
-La publicación cloud no se ha ejecutado: el environment `azure-demo`, la
-identidad bootstrap `AZURE_TERRAFORM_CLIENT_ID`, la identidad publicadora
-`AZURE_ACR_PUBLISHER_CLIENT_ID`, las variables del registry, el state remoto, el
-registry Azure y el plan de costo siguen pendientes.
+La publicación cloud no se ha ejecutado: aunque el environment `azure-demo` ya
+está creado, la identidad bootstrap `AZURE_TERRAFORM_CLIENT_ID`, la identidad
+publicadora `AZURE_ACR_PUBLISHER_CLIENT_ID`, las variables del registry, el state
+remoto, el registry Azure y el plan de costo siguen pendientes.
 Tampoco existe la VM Wazuh con identidad `AcrPull`; por eso no se creó el
 artifact ni se publicó nada a ACR.
 
