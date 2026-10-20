@@ -94,11 +94,11 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   se leyó ni se registra su valor. Este secret por sí solo no habilita el workflow:
   faltan el backend remoto/state (`AZURE_TF_STATE_RESOURCE_GROUP`,
   `AZURE_TF_STATE_STORAGE_ACCOUNT`, `AZURE_TF_STATE_CONTAINER`,
-  `AZURE_TF_STATE_KEY`) y conectividad del runner a los endpoints privados.
+  `AZURE_TF_STATE_KEY`) y validar el acceso OIDC al state.
   La publicación requiere `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` después de
-  crear el registry; plan/apply requiere `AZURE_TF_RUNNER_LABELS`. GitHub reportó
-  cero runners propios en el inventario fechado y no se ha demostrado OIDC ni
-  egress privado desde Actions.
+  crear el registry; plan/apply usa runner GitHub-hosted y no requiere
+  `AZURE_TF_RUNNER_LABELS`. GitHub reportó cero runners propios en el inventario
+  fechado y todavía no se ha demostrado OIDC desde Actions.
   El environment `azure-demo` está restringido a `main` y requiere revisión;
   eso no prueba la identidad o el acceso al state.
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
@@ -291,12 +291,12 @@ usar una clave compartida como sustituto del control de acceso.
 ## Gates antes de declarar el servicio listo
 
 1. Autenticarse a Azure y AWS; seleccionar la suscripción/tenant correctos.
-2. Crear state backend con firewall `Deny` y salida estable autorizada del
-   runner. Los runners estándar GitHub-hosted tienen IP dinámica y no son una
-   allowlist segura; usar runner mayor con IP estática (GitHub Enterprise Cloud)
-   o runner propio dentro de una red controlada. Si no se cumple, detener el
-   bootstrap y no abrir el state a Internet. Instalar herramientas fijadas y
-   confirmar el lockfile del provider.
+2. Crear state backend con endpoint de red público y acceso de datos protegido
+   por Entra ID/OIDC y RBAC, sin shared keys ni acceso anónimo. Esta decisión
+   permite runners GitHub-hosted con egress dinámico y expone el endpoint a la
+   red pública; mantener container privado, alcance RBAC mínimo, environment
+   protegido y revisión del plan. Instalar herramientas fijadas y confirmar el
+   lockfile del provider.
 3. Resolver las decisiones de región y residencia; cotizar SKUs, GB de logs,
    retención, backups y réplicas. Mantener USD 200/mes como umbral de alerta; no
    programar apagado o destroy automático por alcanzar ese monto.

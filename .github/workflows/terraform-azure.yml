@@ -33,16 +33,10 @@ jobs:
         env:
           APPLY: ${{ inputs.apply }}
           COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
-          AZURE_TF_RUNNER_LABELS: ${{ vars.AZURE_TF_RUNNER_LABELS }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo '::error::Terraform Azure is restricted to main.'; exit 1; }
-          jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' \
-            <<<"$AZURE_TF_RUNNER_LABELS" >/dev/null || {
-            echo '::error::Set the AZURE_TF_RUNNER_LABELS repository variable to the JSON labels of a runner with stable, allowlisted egress to the protected Terraform state.'
-            exit 1
-          }
           if [[ "$APPLY" == true ]]; then
             [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
               echo '::error::Apply requires an HTTPS reference to the reviewed Azure monthly cost estimate.'
@@ -53,7 +47,7 @@ jobs:
   plan:
     name: Create and summarize protected Terraform plan
     needs: [preflight]
-    runs-on: ${{ fromJSON(vars.AZURE_TF_RUNNER_LABELS) }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: azure-demo
     permissions:
@@ -156,7 +150,7 @@ jobs:
     name: Apply the exact reviewed plan
     if: ${{ inputs.apply }}
     needs: [plan]
-    runs-on: ${{ fromJSON(vars.AZURE_TF_RUNNER_LABELS) }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: azure-demo
     permissions:

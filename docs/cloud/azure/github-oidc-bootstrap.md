@@ -20,9 +20,10 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
 1. Usar `infra/azure/bootstrap` desde Azure Cloud Shell autenticado para crear el
    state Storage y el grupo destino protegido. El state account tiene versionado,
-   soft delete, keys y acceso anónimo deshabilitados, container privado y firewall
-   limitado a egress estable autorizado. No abrirlo a Internet ni permitir el
-   egress dinámico de runners estándar. Migrar el state local del bootstrap a
+   soft delete, keys y acceso anónimo deshabilitados, container privado y endpoint
+   de red público para admitir egress dinámico de GitHub-hosted runners. El acceso
+   a datos requiere Entra ID/OIDC y RBAC; el endpoint público no habilita acceso
+   anónimo. Migrar el state local del bootstrap a
    `bootstrap/terraform.tfstate` antes de cerrar la sesión.
 2. El bootstrap crea una User Assigned Managed Identity con issuer
    `https://token.actions.githubusercontent.com`, audience
@@ -102,7 +103,7 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
   tener la federación OIDC `azure-demo` y permisos acotados para IaC; la mera
   presencia del secreto no prueba esos permisos. Los publicadores siguen
   exigiendo `AZURE_ACR_PUBLISHER_CLIENT_ID`, separado para `AcrPush`.
-- No existen las cuatro variables `AZURE_TF_STATE_*`, `AZURE_TF_RUNNER_LABELS`,
+- No existen las cuatro variables `AZURE_TF_STATE_*`,
   `AZURE_ACR_NAME` ni `AZURE_ACR_LOGIN_SERVER` entre los repository variables
   verificados. GitHub reporta cero runners propios registrados. La presencia de
   los secrets no demuestra una sesión OIDC de Actions ni acceso al backend
@@ -110,9 +111,9 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
   correctos.
 - El environment `azure-demo` está limitado a `main`, exige aprobación de
   `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
-- `infra/azure` cuenta ahora con un workflow manual plan/apply protegido. No se
-  ha ejecutado: faltan las variables para seleccionar el backend remoto y un
-  runner con salida estable autorizada por su firewall. No se ha verificado el
+- `infra/azure` cuenta ahora con un workflow manual plan/apply protegido. El
+  workflow usa runners GitHub-hosted; no requiere `AZURE_TF_RUNNER_LABELS`. No se
+  ha ejecutado: faltan las variables para seleccionar el backend remoto. No se ha verificado el
   estado real de los recursos bootstrap en Azure. La validación Terraform de PR
   ejecuta `init -backend=false` y no autentica con Azure.
 - Los workflows de build/publicación de Ankay y Dashboard aceptan
@@ -132,3 +133,13 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
   sea destruido o reemplazado.
 - El primer apply todavía requiere un plan y costo detallados; este documento no
   autoriza ejecutarlo.
+
+## Decisión de conectividad del state · 2026-10-20
+
+El propietario autorizó usar el endpoint público de Azure Storage con OIDC y sin
+acceso anónimo para que Terraform funcione desde runners GitHub-hosted. La
+implementación conserva container privado, RBAC de mínimo alcance, shared keys
+deshabilitadas, versionado y soft delete de 30 días. Esto evita allowlists de IP
+dinámicas, pero expone el endpoint a la red pública; no se habilitarán anonymous
+blobs ni autenticación por shared key. Falta aplicar y validar el bootstrap antes
+de publicar variables de backend o ejecutar un plan remoto.

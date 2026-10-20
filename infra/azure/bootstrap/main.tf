@@ -46,9 +46,10 @@ resource "azurerm_storage_account" "state" {
   default_to_oauth_authentication = true
   allow_nested_items_to_be_public = false
   network_rules {
-    default_action = "Deny"
+    # Public endpoint supports GitHub-hosted runners with dynamic egress.
+    # Data access still requires Entra ID RBAC: shared keys and anonymous blobs are disabled.
+    default_action = "Allow"
     bypass         = ["AzureServices"]
-    ip_rules       = var.state_storage_allowed_ipv4
   }
   blob_properties {
     versioning_enabled = true
