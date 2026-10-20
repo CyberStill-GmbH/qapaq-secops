@@ -7,6 +7,8 @@ location        = "chilecentral" # Santiago: región cercana a Perú; confirmar 
 # Inyectar como variable de entorno segura TF_VAR_postgres_admin_password.
 # El valor no debe escribirse en este archivo ni en comandos/logs.
 
+# El frontend SOC es el Dashboard Wazuh QAPAQ del host SIEM, no una web Container App.
+# Mantener desactivado el runtime genérico hasta completar la integración del host.
 enable_runtime = false
 
 # Para habilitar runtime, poblar con imágenes de ACR fijadas a SHA-256 tras CI:

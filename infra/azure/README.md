@@ -13,6 +13,12 @@ Container Apps Environment, ACR e identidad/federación OIDC, sujeto a bootstrap
 state, permisos, cuotas y revisión de plan. `enable_runtime` está apagado por
 defecto.
 
+El único frontend previsto para QAPAQ SecOps es el Wazuh Dashboard modificado de
+`wazuh/dashboard/`, servido por el host SIEM detrás del edge QAPAQ. No se despliega
+Vercel ni una aplicación web separada para el SOC. El runtime genérico de Container
+Apps no es el frontend oficial y debe permanecer desactivado mientras se completa
+la integración del host SIEM y `qapaq-core`.
+
 El runtime opcional existente es genérico: `edge`, `web`, `gateway`, `api` y
 `worker` en Container Apps. No representa el destino de A6/A8/A9/A13/A22 y no
 se debe activar como sustituto del SIEM. En particular, este root no crea ni

@@ -9,6 +9,10 @@
 
 QAPAQ SecOps es la distribución oficial de Wazuh 4.14.8 / OpenSearch Dashboards 2.19.6 con el overlay versionado de QAPAQ en `wazuh/dashboard/`. No es una aplicación web nueva ni un fork de Manager o Indexer. La UI incluye los plugins QAPAQ `qapaq_ops` y `qapaq_i18n`; el login del Dashboard sigue la sesión QAPAQ protegida por el edge existente.
 
+Este Dashboard Wazuh modificado es el único frontend del SOC. Vercel y una web
+Container Apps separada quedan fuera de la topología objetivo; `enable_runtime`
+permanece apagado y no se debe tratar como publicación de la UI QAPAQ.
+
 El destino de la opción B es un host SIEM Azure que ejecuta Manager, Indexer, Dashboard QAPAQ y `qapaq-core` (API más worker, Node 24). `qapaq-core` escucha solo en loopback; PostgreSQL conserva el estado durable y Valkey aporta sesión, caché y cola BullMQ. KrakenD permanece en la ruta de ingesta API → Indexer conforme a A8; se retira solo cuando se implemente y valide lectura equivalente a través del proxy Nginx. `apps/api` y `apps/worker` siguen siendo fuentes vigentes hasta que se cumplan las pruebas de paridad de `docs/12`.
 
 Ankay Qapaq es Shuffle completo fijado en `ankay/upstream.lock`, con el overlay de marca QAPAQ. Corre en un host Linux privado separado con Compose, Orborus, workers, backend y OpenSearch propios. El edge del SIEM expone `/ankay/*` reutilizando la sesión y autorización QAPAQ actuales; no se publica Ankay directamente. A13 lo ubica después del lanzamiento del SIEM.
