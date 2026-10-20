@@ -54,23 +54,27 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
 - La preparación está publicada en el PR draft
   [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
-  `codex/azure-mainline-preparation`, HEAD `a8a7a75` (2026-10-20). En ese SHA
-  pasaron la validación Terraform sin credenciales (`fmt`, `init -backend=false`,
-  `validate`; [39426155477](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39426155477)),
+  `codex/azure-mainline-preparation`, HEAD `a837a5a` (2026-10-20). A las
+  13:19 UTC pasaron la validación Terraform sin credenciales (`fmt`,
+  `init -backend=false`, `validate`; [39428331947](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428331947)),
   el build cloud-free de Ankay
-  ([39426155457](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39426155457)),
-  `quality` y análisis de código en CI Security
-  ([39426155400](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39426155400)).
-  En la última consulta seguían ejecutándose la verificación de imágenes de CI
-  Security, el build del paquete Dashboard Azure y la validación del Dashboard
-  dentro de QAPAQ SIEM. El workflow de publicación Ankay fue omitido por ser un
-  PR; ningún check ejecutó plan/apply, autenticó contra Azure ni publicó artefactos.
-  La rama no está fusionada a `main`.
+  ([39428332002](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428332002)),
+  `CI / required`, `discover`, CodeQL y los demás checks observados en CI
+  Security ([39428331964](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428331964)).
+  El build del paquete Dashboard Azure ([39428332001](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428332001))
+  y la validación de Dashboard en QAPAQ SIEM ([39428331982](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428331982))
+  seguían en curso. La publicación de Ankay fue omitida por ser un PR; ningún
+  check ejecutó plan/apply, autenticó contra Azure ni publicó artefactos. La
+  rama no está fusionada a `main`.
 - En GitHub están creados los repository secrets `AZURE_TENANT_ID`,
   `AZURE_SUBSCRIPTION_ID` y `ENTRA_CLIENT_SECRET`; se comprobaron solo nombres y
   metadata, nunca se leyeron sus valores.
-  La futura pipeline Terraform requiere una identidad bootstrap separada con el
-  secret `AZURE_TERRAFORM_CLIENT_ID`. Los workflows de publicación leen
+  La pipeline Terraform requiere una identidad bootstrap separada con los
+  secrets `AZURE_TERRAFORM_CLIENT_ID` y `AZURE_POSTGRES_ADMIN_PASSWORD`, además
+  de las variables `AZURE_TF_STATE_RESOURCE_GROUP`,
+  `AZURE_TF_STATE_STORAGE_ACCOUNT`, `AZURE_TF_STATE_CONTAINER` y
+  `AZURE_TF_STATE_KEY` para el backend remoto. Estos valores no existen todavía.
+  Los workflows de publicación leen
   `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable. Ambos Client IDs aún
   faltan. Las variables `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` también
   faltan porque el ACR aún no existe. La identidad publisher que Terraform crea
