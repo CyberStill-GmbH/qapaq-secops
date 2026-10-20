@@ -54,18 +54,18 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
 - La preparación está publicada en el PR draft
   [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
-  `codex/azure-mainline-preparation`, HEAD `28b3c24`. En ese SHA pasaron CI
-  Security ([39421073240](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073240)),
-  la validación Terraform sin credenciales (`fmt`, `init -backend=false`,
-  `validate`; [39421073247](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073247))
-  y el build cloud-free de Ankay
-  ([39421073229](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073229)).
-  Los workflows QAPAQ SIEM ([39421073315](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073315))
-  y QAPAQ Dashboard Azure
-  ([39421073241](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39421073241))
-  estaban pendientes en la última consulta. Los checks completados no ejecutaron
-  plan/apply ni accedieron a Azure. La publicación a ACR sigue siendo manual y
-  requiere identidad OIDC, ACR y variables de destino.
+  `codex/azure-mainline-preparation`, HEAD `a8a7a75` (2026-10-20). En ese SHA
+  pasaron la validación Terraform sin credenciales (`fmt`, `init -backend=false`,
+  `validate`; [39426155477](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39426155477)),
+  el build cloud-free de Ankay
+  ([39426155457](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39426155457)),
+  `quality` y análisis de código en CI Security
+  ([39426155400](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39426155400)).
+  En la última consulta seguían ejecutándose la verificación de imágenes de CI
+  Security, el build del paquete Dashboard Azure y la validación del Dashboard
+  dentro de QAPAQ SIEM. El workflow de publicación Ankay fue omitido por ser un
+  PR; ningún check ejecutó plan/apply, autenticó contra Azure ni publicó artefactos.
+  La rama no está fusionada a `main`.
 - En GitHub están creados los repository secrets `AZURE_TENANT_ID`,
   `AZURE_SUBSCRIPTION_ID` y `ENTRA_CLIENT_SECRET`; se comprobaron solo nombres y
   metadata, nunca se leyeron sus valores.
@@ -91,9 +91,12 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   borró ningún DNS porque no existe un destino web antiguo en los hostnames
   solicitados; quitar CAA no redirige el tráfico y alteraría la política TLS.
 - En la consulta de solo lectura de Cloud Shell del 2026-10-20, Azure reportó
-  cero grupos de recursos y cero recursos. No se ejecutó un apply desde este
-  checkout. La CLI `az` local no está instalada, así que este dato no sustituye
-  una nueva consulta autenticada justo antes del plan. `aws sts
+  cero grupos de recursos y cero recursos. El portal mantiene activa la sesión
+  `cguevara@qapaq.pe`, pero Cloud Shell aparece desconectado y el control
+  `Connect` no acepta la interacción automatizada; se requiere reconectarlo antes
+  de volver a consultar la suscripción. No se ejecutó un apply desde este checkout.
+  La CLI `az` local no está instalada, así que el inventario citado no sustituye
+  una consulta autenticada inmediata antes del plan. `aws sts
   get-caller-identity` respondió como la cuenta `955200662475` con ARN `root`; no
   se usará esa identidad para cambios. No se inspeccionaron valores de secretos
   en Azure, AWS, Sophos o Cato.
