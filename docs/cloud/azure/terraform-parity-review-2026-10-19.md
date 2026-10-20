@@ -220,3 +220,24 @@ se prepara ni ejecuta un plan de creación todavía.
 ## Actualización de contrato de entorno · 2026-10-20
 
 Se retiraron de Terraform las variables `QAPAQ_QUEUE_*` que la configuración de aplicación rechazaba. El workflow Azure ahora compara las variables QAPAQ explícitas de API/worker con `KNOWN_QAPAQ_VARIABLES` mediante `scripts/check-azure-runtime-env.mjs`. La cola no quedó implementada: `qapaq_jobs` sigue sin consumidor y el worker continúa siendo lifecycle-only. Esta corrección elimina una causa concreta de reinicio, pero no resuelve credenciales/rol PostgreSQL ni migraciones y no autoriza `enable_runtime`.
+
+## Revisión de pin de Wazuh QAPAQ · 2026-10-20
+
+El `bootstrap.sh.tftpl` de AWS descarga `wazuh-install.sh` desde la ruta de
+serie (`${WAZUH_VERSION%.*}`), no desde un artefacto fijado al patch. Por eso,
+`wazuh_version = 4.14.8` no garantiza que el instalador despliegue exactamente
+4.14.8. El overlay QAPAQ actual fija Wazuh 4.14.8 y OSD 2.19.6; la lista oficial
+consultada ya publica paquetes 4.14.9. No se debe copiar ese bootstrap a Azure
+ni considerar compatible el paquete del Dashboard con un manager/indexer de
+patch distinto sin una prueba de compatibilidad.
+
+El módulo Azure de Wazuh debe fijar versiones exactas de manager, Filebeat,
+indexer y Dashboard; verificar hashes/firma del artefacto; instalar el `.deb`
+QAPAQ construido para la misma versión; y no actualizar automáticamente por la
+ruta móvil de la serie. La documentación oficial describe la instalación
+asistida y los puertos de agente 1514/TCP y enrolamiento 1515/TCP:
+[installation assistant](https://documentation.wazuh.com/current/installation-guide/wazuh-server/installation-assistant.html),
+[agent enrollment troubleshooting](https://documentation.wazuh.com/current/user-manual/agent/agent-enrollment/troubleshooting.html),
+[package list](https://documentation.wazuh.com/current/installation-guide/packages-list.html).
+La verificación de compatibilidad y el módulo Azure de Wazuh/Ankay siguen
+pendientes; ningún manager, agente o playbook está desplegado por este PR.
