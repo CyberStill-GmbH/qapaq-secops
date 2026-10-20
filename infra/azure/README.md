@@ -133,9 +133,11 @@ payloads crudos ni secretos. Ver el [diagrama Azure](../../docs/cloud/azure/diag
   y egress restringido; el menú no debe indicar disponibilidad antes del smoke.
 - Dominio `app.jappi.net.pe`, TLS y cutover: este root solo expone el FQDN Azure
   de prueba del edge cuando el runtime se active. No escribe DNS.
-- `.github/workflows/azure-terraform-validate.yml` verifica fmt/init/validate sin
-  credenciales cloud. `.github/workflows/qapaq-dashboard-azure.yml` contiene el
-  build PR y publicación manual del `.deb` a ACR mediante OIDC/ORAS. Ninguno se
-  ha publicado ni ejecutado desde GitHub en esta rama. No existe aún workflow de
-  plan/apply/despliegue; el environment `azure-demo`, el backend remoto y la
-  federación Azure siguen pendientes de crear y probar.
+- `.github/workflows/azure-terraform-validate.yml` verifica fmt/init/validate y
+  la guarda anti-destrucción sin credenciales cloud. El workflow
+  `.github/workflows/terraform-azure.yml` permite dispatch manual desde `main`,
+  crea un plan con OIDC, exige una referencia HTTPS de costo y aprobación del
+  environment antes de aplicar el mismo plan. Bloquea cualquier `delete`,
+  `forget` o reemplazo. Aún no se ha autenticado ni ejecutado porque faltan la
+  identidad bootstrap, el backend remoto y las variables de state. La validación
+  Terraform y los builds cloud-free de Ankay sí corrieron en PR #75.

@@ -35,18 +35,38 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
    ```powershell
    gh secret set AZURE_TERRAFORM_CLIENT_ID --repo CyberStill-GmbH/qapaq-secops
+   gh secret set AZURE_POSTGRES_ADMIN_PASSWORD --repo CyberStill-GmbH/qapaq-secops
    # AZURE_TENANT_ID y AZURE_SUBSCRIPTION_ID ya existen como repository secrets.
    ```
 
    `AZURE_TERRAFORM_CLIENT_ID` debe ser el Client ID de la identidad bootstrap
-   para la futura pipeline de Terraform. El Client ID de `github_publisher` es
+   para plan/apply. `AZURE_POSTGRES_ADMIN_PASSWORD` es la credencial nueva del
+   usuario bootstrap PostgreSQL; el estado y el plan Terraform pueden contenerla,
+   por lo que se limitan a state remoto cifrado y al artifact efímero del propio
+   run. No reutilizar contraseñas de AWS. El Client ID de `github_publisher` es
    otra identidad y va en `AZURE_ACR_PUBLISHER_CLIENT_ID`, que se obtiene del
    output Terraform después del primer apply controlado.
-7. Crear un workflow separado de `plan` y `apply`: plan en PR sin secretos,
-   artefacto de plan protegido y vinculado al commit, revisión de altas/cambios/
-   destroys y costo, y apply solo desde `main` después de aprobación del
-   environment. No aplicar un plan distinto al revisado.
-8. Después del primer apply y de que ACR exista, definir como GitHub variables:
+7. Definir como GitHub variables los datos no secretos del backend remoto ya
+   creado y protegido:
+
+   ```powershell
+   gh variable set AZURE_TF_STATE_RESOURCE_GROUP --body "<resource-group>" --repo CyberStill-GmbH/qapaq-secops
+   gh variable set AZURE_TF_STATE_STORAGE_ACCOUNT --body "<storage-account>" --repo CyberStill-GmbH/qapaq-secops
+   gh variable set AZURE_TF_STATE_CONTAINER --body "<container>" --repo CyberStill-GmbH/qapaq-secops
+   gh variable set AZURE_TF_STATE_KEY --body "qapaq-secops/demo/terraform.tfstate" --repo CyberStill-GmbH/qapaq-secops
+   ```
+
+   No llenar valores de ejemplo antes de crear el state backend.
+8. El workflow `.github/workflows/terraform-azure.yml` se ejecuta solo por
+   `workflow_dispatch` desde `main`. La validación de PR no accede a Azure. El
+   plan usa OIDC y el environment `azure-demo`; la opción `apply` exige una
+   referencia HTTPS al costo mensual revisado, guarda el plan por un día y espera
+   otra aprobación del mismo environment después de mostrar el resumen. El
+   apply verifica commit y checksum y ejecuta exactamente ese plan. La guarda
+   rechaza `delete`, `forget` y reemplazos. El plan binario puede contener valores
+   sensibles: el repositorio debe seguir privado y no se debe descargar ni
+   compartir el artifact fuera de los revisores autorizados.
+9. Después del primer apply y de que ACR exista, definir como GitHub variables:
 
    ```powershell
    gh variable set AZURE_ACR_NAME --body "<acr-name>" --repo CyberStill-GmbH/qapaq-secops
@@ -62,14 +82,17 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
 - Existen los repository secrets `AZURE_TENANT_ID` y
   `AZURE_SUBSCRIPTION_ID`; solo se consultaron nombres y metadata.
-- No existe `AZURE_CLIENT_ID`/`AZURE_TERRAFORM_CLIENT_ID`,
-  `AZURE_ACR_PUBLISHER_CLIENT_ID`, `AZURE_ACR_NAME` ni
-  `AZURE_ACR_LOGIN_SERVER` entre los repository secrets/variables verificados.
+- No existen `AZURE_TERRAFORM_CLIENT_ID`, `AZURE_POSTGRES_ADMIN_PASSWORD`,
+  las cuatro variables `AZURE_TF_STATE_*`, `AZURE_ACR_PUBLISHER_CLIENT_ID`,
+  `AZURE_ACR_NAME` ni `AZURE_ACR_LOGIN_SERVER` entre los repository
+  secrets/variables verificados. `AZURE_TENANT_ID` y
+  `AZURE_SUBSCRIPTION_ID` sí están configurados.
 - El environment `azure-demo` está limitado a `main`, exige aprobación de
   `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
-- `infra/azure` no tiene aún pipeline cloud para inicializar backend, planear ni
-  aplicar. La validación Terraform actual ejecuta `init -backend=false` y no
-  autentica con Azure.
+- `infra/azure` cuenta ahora con un workflow manual plan/apply protegido. No se
+  ha ejecutado: la identidad bootstrap, el backend remoto y sus variables
+  todavía no existen. La validación Terraform de PR sigue ejecutando
+  `init -backend=false` y no autentica con Azure.
 - Los workflows de build/publicación de Ankay y Dashboard aceptan
   `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable y tenant/subscription
   como secrets o variables. Publicar requiere ACR ya creado, OIDC funcional y

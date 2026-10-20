@@ -4,17 +4,23 @@ on:
   pull_request:
     paths:
       - ".github/workflows/azure-terraform-validate.yml"
+      - ".github/workflows/terraform-azure.yml"
       - "infra/azure/**"
       - "platform/configuration/src/schema/environment.schema.ts"
       - "scripts/check-azure-runtime-env.mjs"
+      - "scripts/ci/azure-tf-plan-summary.mjs"
+      - "scripts/ci/azure-tf-plan-summary.test.mjs"
   push:
     branches:
       - main
     paths:
       - ".github/workflows/azure-terraform-validate.yml"
+      - ".github/workflows/terraform-azure.yml"
       - "infra/azure/**"
       - "platform/configuration/src/schema/environment.schema.ts"
       - "scripts/check-azure-runtime-env.mjs"
+      - "scripts/ci/azure-tf-plan-summary.mjs"
+      - "scripts/ci/azure-tf-plan-summary.test.mjs"
   workflow_dispatch:
 
 permissions:
@@ -37,6 +43,9 @@ jobs:
 
       - name: Verify Azure runtime environment contract
         run: node scripts/check-azure-runtime-env.mjs
+
+      - name: Verify Azure Terraform plan guard
+        run: node --test scripts/ci/azure-tf-plan-summary.test.mjs
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
