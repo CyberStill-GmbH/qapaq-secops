@@ -5,7 +5,9 @@ const schema = readFileSync('platform/configuration/src/schema/environment.schem
 const schemaStart = schema.indexOf('export const KNOWN_QAPAQ_VARIABLES = new Set([');
 const schemaEnd = schema.indexOf(']);', schemaStart);
 if (schemaStart < 0 || schemaEnd < 0) throw new Error('No se encontró KNOWN_QAPAQ_VARIABLES');
-const known = new Set([...schema.slice(schemaStart, schemaEnd).matchAll(/'([^']+)'/gu)].map((m) => m[1]));
+const known = new Set(
+  [...schema.slice(schemaStart, schemaEnd).matchAll(/'([^']+)'/gu)].map((m) => m[1]),
+);
 
 function envBlock(service) {
   const serviceStart = terraform.indexOf(`    ${service} = {`);
@@ -24,10 +26,13 @@ function envBlock(service) {
 
 const failures = [];
 for (const service of ['api', 'worker']) {
-  const configured = [...envBlock(service).matchAll(/^\s*(QAPAQ_[A-Z0-9_]+)\s*=/gmu)].map((m) => m[1]);
+  const configured = [...envBlock(service).matchAll(/^\s*(QAPAQ_[A-Z0-9_]+)\s*=/gmu)].map(
+    (m) => m[1],
+  );
   for (const name of configured) {
     if (!known.has(name)) failures.push(`${service}: ${name} no está en KNOWN_QAPAQ_VARIABLES`);
-    if (name.startsWith('QAPAQ_QUEUE_')) failures.push(`${service}: ${name} no tiene implementación de runtime`);
+    if (name.startsWith('QAPAQ_QUEUE_'))
+      failures.push(`${service}: ${name} no tiene implementación de runtime`);
   }
 }
 if (failures.length) {
