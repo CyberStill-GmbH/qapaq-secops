@@ -2,8 +2,10 @@
 
 **Estado:** propuesta de despliegue, Terraform preparado y no aplicado.
 **Alcance:** un stack Azure con state separado de AWS y datos SOC privados.
-**Objetivo de gasto de trabajo:** hasta USD 200/mes; aún no certificado. Los
-presupuestos de Azure notifican umbrales y no detienen automáticamente el gasto.
+**Presupuesto de notificación:** USD 200/mes; es un umbral de alertas, no un
+límite de gasto. Por decisión del dueño del proyecto, no se apagará ni destruirá
+infraestructura al alcanzar ese importe. El costo mensual completo sigue pendiente
+de cotización y revisión antes de aplicar.
 **Región base:** Chile Central (`chilecentral`), elegida por proximidad geográfica
 a Perú. Es una estimación de latencia: la ruta del ISP y la ubicación de usuarios
 pueden cambiar el resultado; medir RTT desde la red de QAPAQ antes del cutover.
@@ -160,16 +162,17 @@ la capacidad como operativa. No abrir `0.0.0.0/0` para resolver el enrolamiento.
 ## Costos y escalamiento
 
 La revalidación de
-[`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) confirma
-USD 173.01/mes de cómputo para el tamaño Wazuh recomendado. Las tarifas previas
-de PostgreSQL no se pudieron verificar hoy; el piso completo y la alta
-disponibilidad siguen pendientes de cotización actual. El margen de cómputo
-Wazuh dentro de USD 200 sería USD 26.99 para PostgreSQL y todo lo demás. Ninguna
-estimación incluye todavía todos los discos, backups, tráfico, Container Apps,
-Ankay, Log Analytics, ACR ni un Wazuh distribuido para tolerancia a fallos.
+[`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) estima
+USD 173.01/mes solo por cómputo para el tamaño Wazuh recomendado y USD 69.50/mes
+para PostgreSQL B2S; el piso de USD 242.51 supera el umbral de notificación de
+USD 200 antes del resto del SOC. La cifra de PostgreSQL debe confirmarse con la
+cotización del tenant. Ninguna estimación incluye todavía todos los discos,
+backups, tráfico, Container Apps, Ankay, Log Analytics, ACR ni un Wazuh
+distribuido para tolerancia a fallos.
 
-No ejecutar apply hasta verificar el costo total bajo el tope de USD 200 ni
-presentar el diseño de una región y un nodo como resiliente. La oferta Azure Free para PostgreSQL B1MS es
+Antes de ejecutar `apply`, revisar el costo total estimado, el plan exacto y el
+alcance de facturación. Mantener avisos en USD 200; no configurar apagado ni
+`destroy` automático por presupuesto. La oferta Azure Free para PostgreSQL B1MS es
 condicional, limitada a 12 meses y no cubre el tier General Purpose HA; su
 elegibilidad y disponibilidad en la suscripción no se han comprobado.
 Recalcular el alcance con Cost Management/cotización de la cuenta, cuotas y

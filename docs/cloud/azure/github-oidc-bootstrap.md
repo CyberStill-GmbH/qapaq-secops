@@ -1,6 +1,6 @@
 # Bootstrap de GitHub OIDC para Azure
 
-**Estado:** bootstrap OIDC incompleto; el environment de GitHub está creado, pero no hay identidad ni despliegue Azure.
+**Estado:** los IDs base de Azure están cargados en GitHub; bootstrap OIDC, backend remoto y despliegue Azure siguen pendientes.
 **Repositorio:** `CyberStill-GmbH/qapaq-secops`.
 **Environment GitHub:** `azure-demo` (solo `main`, aprobador requerido y bypass administrativo desactivado).
 
@@ -20,9 +20,10 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
 1. Usar `infra/azure/bootstrap` desde Azure Cloud Shell autenticado para crear el
    state Storage y el grupo destino protegido. El state account tiene versionado,
-   soft delete, keys y acceso anónimo deshabilitados, container privado y acceso
-   de red público requerido por el runner GitHub-hosted. Migrar el state local
-   del bootstrap a `bootstrap/terraform.tfstate` antes de cerrar la sesión.
+   soft delete, keys y acceso anónimo deshabilitados, container privado y firewall
+   limitado a egress estable autorizado. No abrirlo a Internet ni permitir el
+   egress dinámico de runners estándar. Migrar el state local del bootstrap a
+   `bootstrap/terraform.tfstate` antes de cerrar la sesión.
 2. El bootstrap crea una User Assigned Managed Identity con issuer
    `https://token.actions.githubusercontent.com`, audience
    `api://AzureADTokenExchange` y subject inmutable
@@ -90,13 +91,20 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 
 ## Estado observado el 2026-10-20
 
-- Existen los repository secrets `AZURE_TENANT_ID` y
-  `AZURE_SUBSCRIPTION_ID`; solo se consultaron nombres y metadata.
-- No existen `AZURE_TERRAFORM_CLIENT_ID`, `AZURE_POSTGRES_ADMIN_PASSWORD`,
-  las cuatro variables `AZURE_TF_STATE_*`, `AZURE_ACR_PUBLISHER_CLIENT_ID`,
-  `AZURE_ACR_NAME` ni `AZURE_ACR_LOGIN_SERVER` entre los repository
-  secrets/variables verificados. `AZURE_TENANT_ID` y
-  `AZURE_SUBSCRIPTION_ID` sí están configurados.
+- Existen los repository secrets `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
+  `AZURE_SUBSCRIPTION_ID`; también aparece `ENTRA_CLIENT_SECRET`. Solo se
+  consultaron nombres y metadata, nunca sus valores.
+- Los workflows no consumen el nombre genérico `AZURE_CLIENT_ID`: Terraform
+  exige `AZURE_TERRAFORM_CLIENT_ID`, y los publicadores esperan
+  `AZURE_ACR_PUBLISHER_CLIENT_ID`. Confirmar la federación OIDC y los roles del
+  principal antes de mapearlo a cualquiera de esos nombres. Mantener separadas
+  las identidades de IaC y `AcrPush` que define este diseño.
+- No existen `AZURE_POSTGRES_ADMIN_PASSWORD`, las cuatro variables
+  `AZURE_TF_STATE_*`, `AZURE_TF_RUNNER_LABELS`, `AZURE_ACR_NAME` ni
+  `AZURE_ACR_LOGIN_SERVER` entre los repository secrets/variables verificados.
+  GitHub reporta cero runners propios registrados. Los secrets de tenant y
+  suscripción están presentes, pero no se ha demostrado todavía una sesión OIDC
+  de Actions ni acceso al backend remoto.
 - El environment `azure-demo` está limitado a `main`, exige aprobación de
   `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
 - `infra/azure` cuenta ahora con un workflow manual plan/apply protegido. No se

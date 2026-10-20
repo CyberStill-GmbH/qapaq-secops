@@ -2,8 +2,8 @@
 
 **Revalidación:** 2026-10-20 (America/Lima)  
 **Moneda:** USD, precios retail públicos sin descuentos ni beneficios de suscripción  
-**Límite mensual de referencia:** USD 200  
-**Estado:** el tamaño recomendado para Wazuh más PostgreSQL ya excede el límite antes de los demás servicios; no aplicar con este alcance.
+**Umbral mensual de alertas:** USD 200 (no es un tope de gasto)
+**Estado:** el piso de cómputo supera el umbral antes de los demás servicios; la cotización total y el plan exacto siguen pendientes de revisión antes del apply.
 
 ## Método y fuentes
 
@@ -25,16 +25,16 @@ La documentación oficial de [Wazuh Quickstart](https://documentation.wazuh.com/
 | PostgreSQL Flexible Server | `B2S`, USD 0.0952/h | **USD 69.50/mes** | Solo cómputo Burstable |
 | **Piso de cómputo** |  | **USD 242.51/mes** | Sin discos, backups, Container Apps, Ankay, ACR, Key Vault, red, logs ni salida |
 
-El piso supera el límite de referencia de USD 200 en **USD 42.51/mes** antes de sumar cualquiera de los servicios restantes. Los dos valores fueron consultados en la API el 2026-10-20 y tienen `effectiveStartDate` 2025-10-01 para la VM y 2025-04-01 para PostgreSQL.
+El piso supera el umbral de alertas de USD 200 en **USD 42.51/mes** antes de sumar cualquiera de los servicios restantes. Los dos valores fueron consultados en la API el 2026-10-20 y tienen `effectiveStartDate` 2025-10-01 para la VM y 2025-04-01 para PostgreSQL.
 
 Una VM `Standard_B2ms` cuesta USD 0.116/h, o **USD 84.68/mes**. Junto con PostgreSQL B2S sumaría **USD 154.18/mes** de cómputo. B2ms entrega 2 vCPU y 8 GiB: no cumple la recomendación de 4 vCPU de Wazuh y deja apenas USD 45.82 para todos los recursos faltantes. No se considera una configuración resiliente ni apta para cargas de estrés; solo puede evaluarse como demo limitada, aceptando menor capacidad y sin objetivo de HA.
 
-La suscripción mostró anteriormente USD 200 de créditos promocionales con vencimiento el 18 de noviembre de 2026. Ese saldo no limita el consumo mensual ni cubre costos después del vencimiento. No se descontó del cálculo.
+La suscripción mostró USD 200 de créditos promocionales con vencimiento el 18 de noviembre de 2026. Ese saldo no limita el consumo mensual y puede agotarse antes de que termine el mes; los cargos posteriores podrían facturarse según las condiciones de la suscripción. No se descontó del cálculo.
 
 ## Decisión operativa
 
-Con el tope mensual de USD 200, no hay un perfil que a la vez mantenga Wazuh al tamaño recomendado, PostgreSQL, QAPAQ/Ankay, colas, conectores M365/Sophos/Cato, persistencia, observabilidad y la resiliencia solicitada. No se debe presentar una VM subdimensionada como “lista para producción” ni ejecutar `apply` con el alcance actual.
+El piso medido de USD 242.51/mes supera el umbral de notificación de USD 200, y aún faltan cómputo, almacenamiento, respaldo, observabilidad, Ankay y egreso. El dueño del proyecto decidió usar USD 200 como umbral de aviso, sin apagado ni destrucción automática; por tanto, la cifra no es un límite de facturación. No se debe presentar una VM subdimensionada como “lista para producción”.
 
-Antes de aplicar, se requiere una de estas decisiones de alcance/costo: aumentar el presupuesto; reducir formalmente la demo y aceptar las limitaciones de B2ms; o mantener los datos y servicios críticos detenidos hasta financiar un perfil operativo. En cualquiera de los casos hay que presupuestar el resto del stack y revisar el plan exacto, almacenamiento/retención, HA y restore. El presupuesto de Terraform solo genera alertas: no impone un tope de gasto.
+Antes de aplicar, completar la cotización del stack y registrar la proyección, los posibles cargos por encima de los créditos y los efectos de cada recurso. Mantener el presupuesto Terraform de USD 200 como alerta solamente; no incorporar apagado ni `destroy` automático. Revisar el plan exacto, almacenamiento/retención, HA y restore antes de ejecutar.
 
 Este cálculo es un control de viabilidad, no una cotización contractual. La estimación del tenant y el plan Terraform siguen siendo gates previos al despliegue.

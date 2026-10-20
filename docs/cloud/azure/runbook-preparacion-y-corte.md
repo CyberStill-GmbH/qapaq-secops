@@ -2,15 +2,13 @@
 
 **Estado:** preparación; no hay recursos Azure aplicados ni DNS cambiado.
 **Región configurada:** Chile Central (`chilecentral`).
-**Presupuesto de referencia:** hasta USD 200/mes; sin plan de costos verificado.
+**Umbral de alerta de presupuesto:** USD 200/mes; no es un tope ni apaga recursos.
 **Crédito de cuenta observado:** USD 200 restantes, con vencimiento el 18 de
 noviembre de 2026. Es crédito temporal, no un límite mensual de consumo.
 
 Este runbook fija el orden para una futura activación y los controles que impiden
 declararla operativa antes de una prueba real. Nunca registrar aquí los valores de
 secretos ni adjuntarlos a planes, logs o artefactos de CI.
-
-## Estado comprobado en este checkout
 
 ## Inventario Azure observado (solo lectura, 2026-10-20)
 
@@ -21,9 +19,10 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   `Enabled`, cero grupos de recursos y cero recursos. La consulta no creó ni
   modificó recursos. La CLI local de Windows sigue sin instalarse.
 - Esta evidencia confirma que no hay infraestructura desplegada en esa
-  suscripción en el momento de la consulta. El saldo de crédito no vuelve viable
-  el stack: el piso estimado de un mes Wazuh + PostgreSQL es USD 242.51 antes de
-  los demás componentes y supera los USD 200 disponibles.
+  suscripción en el momento de la consulta. El piso estimado de un mes Wazuh +
+  PostgreSQL es USD 242.51 antes de los demás componentes. Supera el umbral de
+  alertas de USD 200 y los créditos promocionales observados; los créditos no
+  son un límite de facturación y pueden agotarse antes de terminar el mes.
 
 - El Terraform de Azure crea red privada, PostgreSQL, Key Vault, Blob, Log
   Analytics, Container Apps Environment y ACR. `enable_runtime` sigue en
@@ -54,37 +53,38 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
 - La preparación está publicada en el PR draft
   [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
-  `codex/azure-mainline-preparation`, HEAD `a837a5a` (2026-10-20). A las
-  13:19 UTC pasaron la validación Terraform sin credenciales (`fmt`,
-  `init -backend=false`, `validate`; [39428331947](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428331947)),
-  el build cloud-free de Ankay
-  ([39428332002](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428332002)),
-  `CI / required`, `discover`, CodeQL y los demás checks observados en CI
-  Security ([39428331964](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428331964)).
-  El build del paquete Dashboard Azure ([39428332001](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428332001))
-  y la validación de Dashboard en QAPAQ SIEM ([39428331982](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39428331982))
-  seguían en curso. La publicación de Ankay fue omitida por ser un PR; ningún
+  `codex/azure-mainline-preparation`, HEAD
+  `047af939243d127a8b44ef2a7728c1a0c13b24c5` (2026-10-20). Los checks del PR
+  pasaron: validación Terraform sin credenciales
+  ([39436886565](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886565)),
+  build cloud-free de Ankay
+  ([39436886570](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886570)),
+  QAPAQ SIEM ([39436886494](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886494)),
+  publicación Dashboard Azure en modo PR sin publicar
+  ([39436886859](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886859))
+  y CI Security ([39436886867](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886867)).
+  Ambos jobs de publicación se omitieron porque el evento era un PR; ningún
   check ejecutó plan/apply, autenticó contra Azure ni publicó artefactos. La
-  rama no está fusionada a `main`.
-- En GitHub están creados los repository secrets `AZURE_TENANT_ID`,
-  `AZURE_SUBSCRIPTION_ID` y `ENTRA_CLIENT_SECRET`; se comprobaron solo nombres y
-  metadata, nunca se leyeron sus valores.
-  La pipeline Terraform requiere una identidad bootstrap separada con los
-  secrets `AZURE_TERRAFORM_CLIENT_ID` y `AZURE_POSTGRES_ADMIN_PASSWORD`, además
-  de las variables `AZURE_TF_STATE_RESOURCE_GROUP`,
-  `AZURE_TF_STATE_STORAGE_ACCOUNT`, `AZURE_TF_STATE_CONTAINER` y
-  `AZURE_TF_STATE_KEY` para el backend remoto. Estos valores no existen todavía.
-  Los workflows de publicación leen
-  `AZURE_ACR_PUBLISHER_CLIENT_ID` como secret o variable. Ambos Client IDs aún
-  faltan. Las variables `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` también
-  faltan porque el ACR aún no existe. La identidad publisher que Terraform crea
-  recibe `AcrPush` y su federación usa el subject
-  `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`.
-  El environment
-  `azure-demo` sí existe y está restringido a la rama `main`, requiere revisión,
-  impide autoaprobación y tiene desactivado el bypass administrativo. La
-  protección del environment no crea por sí sola la identidad ni la federación
-  OIDC de Azure.
+  rama continúa sin fusionar a `main`.
+- GitHub Actions ya tiene configurados, como repository secrets, los nombres
+  `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID`; también
+  aparece `ENTRA_CLIENT_SECRET`. Solo se inspeccionaron nombres/metadata; no se
+  leyeron valores. Los workflows Terraform de este PR esperan
+  `AZURE_TERRAFORM_CLIENT_ID`, mientras los publicadores esperan
+  `AZURE_ACR_PUBLISHER_CLIENT_ID`. La existencia de `AZURE_CLIENT_ID` confirma
+  que se cargó una identidad, pero no que tenga la federación OIDC y los roles
+  específicos de IaC y ACR. No se debe reutilizarla en ambos flujos hasta
+  validar principal, federación y alcance RBAC; el diseño separa esas
+  identidades por mínimo privilegio.
+- Terraform requiere además `AZURE_POSTGRES_ADMIN_PASSWORD` y variables del
+  state `AZURE_TF_STATE_RESOURCE_GROUP`, `AZURE_TF_STATE_STORAGE_ACCOUNT`,
+  `AZURE_TF_STATE_CONTAINER` y `AZURE_TF_STATE_KEY`. La publicación requiere
+  `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` después de crear el ACR. El
+  workflow de plan/apply requiere `AZURE_TF_RUNNER_LABELS`. Estas entradas no
+  estaban configuradas en el inventario consultado. GitHub reporta cero runners
+  propios registrados, y no se ejecutó una autenticación OIDC desde Actions.
+  El environment `azure-demo` está restringido a `main` y requiere revisión;
+  eso no prueba la identidad o el acceso al state.
 - El inventario de fuentes marca Sophos y Cato como `TO_BE_PROVIDED`/`planned`:
   faltan producto/edición, API y versión, región, autenticación, permisos,
   datasets, cuotas, replay, credencial y conectores validados. Tener credenciales
@@ -95,14 +95,12 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   apunta Vercel en `codexpt.jappi.net.pe`, fuera de los hostnames de corte. No se
   borró ningún DNS porque no existe un destino web antiguo en los hostnames
   solicitados; quitar CAA no redirige el tráfico y alteraría la política TLS.
-- En la consulta de solo lectura de Cloud Shell del 2026-10-20, Azure reportó
-  cero grupos de recursos y cero recursos. El portal mantiene activa la sesión
-  `cguevara@qapaq.pe`, pero Cloud Shell aparece desconectado y el control
-  `Connect` no acepta la interacción automatizada; se requiere reconectarlo antes
-  de volver a consultar la suscripción. No se ejecutó un apply desde este checkout.
-  La CLI `az` local no está instalada, así que el inventario citado no sustituye
-  una consulta autenticada inmediata antes del plan. `aws sts
-  get-caller-identity` respondió como la cuenta `955200662475` con ARN `root`; no
+- En la última lectura autenticada de Azure se observó la suscripción `Enabled`,
+  la cuenta `cguevara@qapaq.pe` con `Owner` en el ámbito de suscripción y cero
+  grupos de recursos en el portal. No se ejecutó un apply desde este checkout.
+  La CLI `az` local no está instalada; renovar inventario desde Cloud Shell o
+  Actions antes del plan. `aws sts get-caller-identity` respondió como la cuenta
+  `955200662475` con ARN `root`; no
   se usará esa identidad para cambios. No se inspeccionaron valores de secretos
   en Azure, AWS, Sophos o Cato.
 
@@ -283,8 +281,9 @@ usar una clave compartida como sustituto del control de acceso.
    o runner propio dentro de una red controlada. Si no se cumple, detener el
    bootstrap y no abrir el state a Internet. Instalar herramientas fijadas y
    confirmar el lockfile del provider.
-3. Resolver las decisiones de región, residencia de datos y costeo real con SKUs,
-   GB de logs, retención, backups y réplicas; no exceder USD 200/mes.
+3. Resolver las decisiones de región y residencia; cotizar SKUs, GB de logs,
+   retención, backups y réplicas. Mantener USD 200/mes como umbral de alerta; no
+   programar apagado o destroy automático por alcanzar ese monto.
 4. Publicar imágenes compatibles por CI, fijar digests y validar Queue/Worker
    PostgreSQL en el código de aplicación. La infraestructura actual no demuestra
    que la cola esté implementada en runtime.

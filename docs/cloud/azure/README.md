@@ -15,8 +15,8 @@ remoto, `apply` ni cutover DNS, y no hay evidencia actual del state remoto o del
 inventario Azure. La región base es **Chile Central** (`chilecentral`), seleccionada
 por proximidad geográfica a Perú. La revalidación oficial del 2026-10-20 mide un
 piso de USD 242.51/mes por cómputo de Wazuh recomendado y PostgreSQL B2S, antes del
-resto del SOC; excede el límite mensual de USD 200. Por ello, el diseño no está
-listo para `apply` con ese presupuesto. Antes de hacerlo se deben resolver alcance
-y presupuesto, verificar state/recursos, residencia, SKU/cuotas, costo completo y
-latencia real desde la red de QAPAQ. Imágenes publicadas, restore y conectores
-probados también son gates de producción.
+resto del SOC; excede el umbral de alertas de USD 200, que no es un límite de
+facturación ni apaga recursos. Antes de `apply` se deben revisar el costo completo,
+el plan exacto, state/recursos, residencia, SKU/cuotas y latencia real desde la
+red de QAPAQ. Imágenes publicadas, restore y conectores probados también son
+gates de producción.

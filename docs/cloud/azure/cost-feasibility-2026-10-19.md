@@ -1,8 +1,13 @@
-# Viabilidad de costo Azure — Chile Central
+# Viabilidad de costo Azure — Chile Central (histórico)
+
+> Esta revisión del 2026-10-19 trataba USD 200 como límite mensual. La decisión
+> vigente usa USD 200 solo como umbral de alertas y no apaga recursos. Consulta
+> [`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) para el estado
+> vigente; las cifras de esta nota son históricas.
 
 **Revalidación:** 2026-10-19 (America/Lima)
 **Moneda:** USD, tarifa pública retail sin descuentos/beneficios de la suscripción
-**Límite vigente del diseño:** USD 200 por mes
+**Límite usado en esta revisión histórica:** USD 200 por mes
 **Estado:** cotización incompleta; no se debe aplicar hasta revalidar todos los componentes.
 
 Una nota de sesión anterior registró **USD 200 en créditos** con vencimiento el
@@ -35,7 +40,7 @@ El [quickstart de Wazuh](https://documentation.wazuh.com/current/quickstart.html
 - **Subtotal previo, aún no confirmado:** USD 242.51/mes usando ese valor provisional de
   PostgreSQL; incluye solo cómputo Wazuh y PostgreSQL, antes de discos, copias,
   almacenamiento de evidencia, Container Apps, registro, red, monitorización y salida.
-- **Margen dentro del tope de USD 200:** tras el cómputo Wazuh quedarían USD 26.99/mes
+- **Margen dentro del límite histórico de USD 200:** tras el cómputo Wazuh quedarían USD 26.99/mes
   para PostgreSQL y todos los demás componentes. No hay una cotización completa que pruebe
   que ese margen sea suficiente.
 - **Cola opcional Azure Managed Redis B0:** USD 0.0224/h × 730 = USD 16.35/mes adicionales; no está implementada en IaC ni conectada al worker. No se suma al subtotal porque ADR-AZ-001 propone PostgreSQL, pero muestra el costo si se elige ese servicio administrado.
@@ -71,7 +76,7 @@ y runtime para simular ahorro, ni desplegaré un stack parcial como si fuera res
 Para conservar Wazuh/M365 activo 24/7, QAPAQ, persistencia, Ankay y conectores, el gate
 de presupuesto requiere una cotización completa por SKU, datos/retención y tráfico.
 **No se debe aplicar el stack** hasta revalidar PostgreSQL, almacenamiento, red,
-observabilidad, Ankay y cargos de la suscripción y compararlos con el límite de USD 200.
+observabilidad, Ankay y cargos de la suscripción y compararlos con el límite histórico de USD 200.
 
 ## Implicaciones para Terraform
 

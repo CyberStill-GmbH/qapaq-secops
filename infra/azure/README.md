@@ -42,19 +42,23 @@ fundación, no una traducción completa del despliegue. Ver
 [`revisión de paridad y plan de cierre`](../../docs/cloud/azure/terraform-parity-review-2026-10-19.md)
 antes de preparar el primer plan remoto.
 
-La revalidación oficial del 2026-10-20 confirma USD 173.01/mes por el cómputo del
-Wazuh all-in-one recomendado y USD 69.50/mes por PostgreSQL B2S: piso de USD
-242.51/mes sin el resto del SOC. Supera el límite mensual de USD 200. Ver
+La revalidación del 2026-10-20 estima USD 173.01/mes por el cómputo del Wazuh
+all-in-one recomendado y USD 69.50/mes por PostgreSQL B2S: piso de USD 242.51/mes
+sin el resto del SOC. Supera el umbral de alertas de USD 200, que no detiene el
+gasto ni ejecuta un destroy. Ver
 [viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-20.md);
-no habilitar runtime ni aplicar este stack hasta acordar alcance y presupuesto y
-cotizar los demás componentes.
+el presupuesto de USD 200 es una alerta, no una condición de apagado ni un tope
+de consumo. Mantener la estimación actualizada y revisar los cargos posibles
+antes de cada fase; el umbral por sí solo no bloquea el trabajo solicitado.
+Antes de aplicar, generar y revisar el plan remoto exacto y confirmar que el
+state, las credenciales y las reglas de red sean los previstos.
 
 El stack no incluye todavía el nodo/instalador de Wazuh, Ankay ni cambios DNS.
 El paquete actual de Wazuh y sus overlays se deben validar para Azure, y la
 instalación del runtime de BullMQ con backend PostgreSQL requiere cambio y
 verificación de aplicación antes de habilitar `enable_runtime`.
 
-Se incluye un presupuesto Azure de USD 200/mes con notificaciones de costo real
+Se incluye un presupuesto Azure de USD 200/mes como umbral de notificaciones de costo real
 al 50/75/90/100% y costo proyectado al 100%. Es una alerta, no un límite de
 consumo; confirmar moneda/alcance de facturación y verificar que los correos
 lleguen después de aplicarlo.
@@ -105,10 +109,14 @@ archivo versionado.
    Administrator en el grupo QAPAQ, Cost Management Contributor en la
    suscripción y acceso de datos al Storage de state. Migrar el state bootstrap
    local al backend cifrado/versionado antes de cerrar la sesión.
-3. Definir en GitHub `AZURE_TERRAFORM_CLIENT_ID`, las variables
-   `AZURE_TF_STATE_*` y `AZURE_POSTGRES_ADMIN_PASSWORD` por canales seguros; los
-   IDs de tenant y suscripción ya están configurados. El Client ID no es secreto,
-   pero el workflow lo toma de GitHub Secrets por configuración. No completar DNS.
+3. GitHub ya contiene `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y
+   `AZURE_SUBSCRIPTION_ID` como repository secrets. El workflow Terraform
+   requiere el Client ID de la identidad bootstrap bajo el nombre
+   `AZURE_TERRAFORM_CLIENT_ID`; comprobar que `AZURE_CLIENT_ID` corresponde a
+   ese principal y que su federación OIDC/roles son correctos antes de mapearlo.
+   Configurar también las variables `AZURE_TF_STATE_*`,
+   `AZURE_TF_RUNNER_LABELS` y el secreto `AZURE_POSTGRES_ADMIN_PASSWORD` por
+   canales seguros. No completar DNS en esta fase.
 4. Ejecutar `terraform fmt -check`, `terraform init` con el backend Azure y
    `terraform validate`; generar un plan nuevo y revisar cada recurso, costo y
    destrucción antes de solicitar autorización de apply.
