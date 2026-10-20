@@ -2,7 +2,7 @@
 
 **Estado:** bootstrap OIDC incompleto; el environment de GitHub está creado, pero no hay identidad ni despliegue Azure.
 **Repositorio:** `CyberStill-GmbH/qapaq-secops`.
-**Environment GitHub:** `azure-demo` (política de rama `main`; aún sin aprobadores requeridos).
+**Environment GitHub:** `azure-demo` (solo `main`, aprobador requerido y bypass administrativo desactivado).
 
 ## Por qué hacen falta dos identidades
 
@@ -29,10 +29,8 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
    group destino y acceso de datos solo al state container. Revisar por separado
    cualquier permiso para crear role assignments; no conceder Owner a nivel de
    suscripción como atajo.
-5. El environment `azure-demo` ya existe y solo permite despliegues de la rama
-   `main`. Antes de habilitar cualquier `apply`, agregar al menos un aprobador
-   requerido y desactivar el bypass de administradores. Hoy la regla solo limita
-   la rama; no exige aprobación humana.
+5. El environment `azure-demo` existe; solo admite `main`, exige aprobación de
+   `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
 6. Configurar GitHub repository secrets sin imprimir sus valores:
 
    ```powershell
@@ -67,8 +65,8 @@ dar permisos de suscripción Owner/Contributor para resolver el ciclo inicial.
 - No existe `AZURE_CLIENT_ID`/`AZURE_TERRAFORM_CLIENT_ID`,
   `AZURE_ACR_PUBLISHER_CLIENT_ID`, `AZURE_ACR_NAME` ni
   `AZURE_ACR_LOGIN_SERVER` entre los repository secrets/variables verificados.
-- El environment `azure-demo` fue creado y limitado a la rama `main`. No tiene
-  aprobadores requeridos; el bypass de administradores sigue permitido.
+- El environment `azure-demo` está limitado a `main`, exige aprobación de
+  `CesarGuevaraQapaq`, impide autoaprobación y desactiva el bypass administrativo.
 - `infra/azure` no tiene aún pipeline cloud para inicializar backend, planear ni
   aplicar. La validación Terraform actual ejecuta `init -backend=false` y no
   autentica con Azure.
