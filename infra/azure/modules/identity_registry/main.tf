@@ -69,7 +69,7 @@ resource "azurerm_role_assignment" "key_vault_reader" {
 
 
 resource "azurerm_role_assignment" "raw_blob_writer" {
-  scope                = var.storage_account_id
+  scope                = var.raw_container_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.runtime.principal_id
 }

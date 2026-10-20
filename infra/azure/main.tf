@@ -69,7 +69,7 @@ module "identity_registry" {
   github_environment   = var.github_environment
   environment          = var.environment
   key_vault_id         = module.data.key_vault_id
-  storage_account_id   = module.data.storage_account_id
+  raw_container_id     = module.data.raw_container_id
   tags                 = var.tags
 }
 

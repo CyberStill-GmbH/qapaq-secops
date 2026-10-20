@@ -97,6 +97,18 @@ resource "azurerm_storage_container" "raw" {
   }
 }
 
+# Separado de los eventos crudos para que la identidad de la VM SIEM solo lea artefactos
+# versionados del release y no obtenga acceso a la evidencia SOC.
+resource "azurerm_storage_container" "siem_release" {
+  name                  = "siem-release"
+  storage_account_id    = azurerm_storage_account.evidence.id
+  container_access_type = "private"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 
 resource "azurerm_private_endpoint" "key_vault" {
   name                = "pe-${var.name_base}-vault"

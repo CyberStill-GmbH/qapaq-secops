@@ -9,5 +9,5 @@ variable "github_owner_id" { type = string }
 variable "github_repository_id" { type = string }
 variable "github_environment" { type = string }
 variable "key_vault_id" { type = string }
-variable "storage_account_id" { type = string }
+variable "raw_container_id" { type = string }
 variable "tags" { type = map(string) }
