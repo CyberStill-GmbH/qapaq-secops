@@ -5,12 +5,16 @@ on:
     paths:
       - ".github/workflows/azure-terraform-validate.yml"
       - "infra/azure/**"
+      - "platform/configuration/src/schema/environment.schema.ts"
+      - "scripts/check-azure-runtime-env.mjs"
   push:
     branches:
       - main
     paths:
       - ".github/workflows/azure-terraform-validate.yml"
       - "infra/azure/**"
+      - "platform/configuration/src/schema/environment.schema.ts"
+      - "scripts/check-azure-runtime-env.mjs"
   workflow_dispatch:
 
 permissions:
@@ -30,6 +34,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Verify Azure runtime environment contract
+        run: node scripts/check-azure-runtime-env.mjs
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1

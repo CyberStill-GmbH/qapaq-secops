@@ -216,3 +216,7 @@ elige entorno de consumo heredado, el mínimo documentado es `/23`. Esta revisi�
 no cambia la configuración de red ni afirma que se haya probado el ingress en
 Azure. El costo estimado permanece por encima del saldo disponible, así que no
 se prepara ni ejecuta un plan de creación todavía.
+
+## Actualización de contrato de entorno · 2026-10-20
+
+Se retiraron de Terraform las variables `QAPAQ_QUEUE_*` que la configuración de aplicación rechazaba. El workflow Azure ahora compara las variables QAPAQ explícitas de API/worker con `KNOWN_QAPAQ_VARIABLES` mediante `scripts/check-azure-runtime-env.mjs`. La cola no quedó implementada: `qapaq_jobs` sigue sin consumidor y el worker continúa siendo lifecycle-only. Esta corrección elimina una causa concreta de reinicio, pero no resuelve credenciales/rol PostgreSQL ni migraciones y no autoriza `enable_runtime`.

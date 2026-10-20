@@ -169,3 +169,7 @@ La consolidación documental retiró esas rutas del árbol actual: `docs/10-deci
 `docs/11-cache-y-colas.md` son ahora la referencia vigente, y los textos históricos se conservan
 en Git (el baseline `050f9fa` contiene ADR-006 y la Definition of Done). El informe de paridad Azure
 enlaza ahora las referencias vigentes.
+
+### Corrección Codex · 2026-10-20 · contrato Terraform/runtime
+
+Se retiraron de `infra/azure/modules/runtime/main.tf` las cinco variables `QAPAQ_QUEUE_*` por servicio que no estaban soportadas por `KNOWN_QAPAQ_VARIABLES` ni por un backend ejecutable. Se añadió `scripts/check-azure-runtime-env.mjs` al workflow de validación Azure para impedir que vuelvan variables QAPAQ desconocidas o de cola sin implementación. La comprobación local pasa. Esto evita ese fallo temprano de configuración, pero no habilita runtime: siguen faltando migraciones Azure, usuario/secretos de aplicación PostgreSQL y un worker funcional; `qapaq_jobs` permanece sin consumer.

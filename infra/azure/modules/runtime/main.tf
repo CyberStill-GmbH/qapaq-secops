@@ -43,20 +43,15 @@ locals {
       cpu          = 0.5
       memory       = "1Gi"
       env = {
-        NODE_ENV                      = "production"
-        QAPAQ_PROFILE                 = "production"
-        QAPAQ_API_HOST                = "0.0.0.0"
-        QAPAQ_API_PORT                = "3000"
-        QAPAQ_SOC_PERSISTENCE         = "postgres"
-        QAPAQ_POSTGRES_HOST           = var.postgres_fqdn
-        QAPAQ_POSTGRES_PORT           = "5432"
-        QAPAQ_POSTGRES_DATABASE       = var.app_database_name
-        QAPAQ_POSTGRES_TLS            = "true"
-        QAPAQ_QUEUE_BACKEND           = "postgres"
-        QAPAQ_QUEUE_POSTGRES_HOST     = var.postgres_fqdn
-        QAPAQ_QUEUE_POSTGRES_PORT     = "5432"
-        QAPAQ_QUEUE_POSTGRES_DATABASE = var.queue_database_name
-        QAPAQ_QUEUE_POSTGRES_TLS      = "true"
+        NODE_ENV                = "production"
+        QAPAQ_PROFILE           = "production"
+        QAPAQ_API_HOST          = "0.0.0.0"
+        QAPAQ_API_PORT          = "3000"
+        QAPAQ_SOC_PERSISTENCE   = "postgres"
+        QAPAQ_POSTGRES_HOST     = var.postgres_fqdn
+        QAPAQ_POSTGRES_PORT     = "5432"
+        QAPAQ_POSTGRES_DATABASE = var.app_database_name
+        QAPAQ_POSTGRES_TLS      = "true"
       }
     }
     worker = {
@@ -68,13 +63,8 @@ locals {
       cpu          = 0.5
       memory       = "1Gi"
       env = {
-        NODE_ENV                      = "production"
-        QAPAQ_PROFILE                 = "production"
-        QAPAQ_QUEUE_BACKEND           = "postgres"
-        QAPAQ_QUEUE_POSTGRES_HOST     = var.postgres_fqdn
-        QAPAQ_QUEUE_POSTGRES_PORT     = "5432"
-        QAPAQ_QUEUE_POSTGRES_DATABASE = var.queue_database_name
-        QAPAQ_QUEUE_POSTGRES_TLS      = "true"
+        NODE_ENV      = "production"
+        QAPAQ_PROFILE = "production"
       }
     }
   }
