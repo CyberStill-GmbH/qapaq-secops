@@ -38,21 +38,38 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   alertas de USD 200 y los créditos promocionales observados; los créditos no
   son un límite de facturación y pueden agotarse antes de terminar el mes.
 
-- El Terraform de Azure crea red privada, PostgreSQL, Key Vault, Blob, Log
-  Analytics, Container Apps Environment y ACR. `enable_runtime` sigue en
-  `false`; no están publicadas las cinco imágenes genéricas edge, web, gateway,
-  API y worker fijadas por digest. La IaC y workflows Azure están publicados en
-  la rama `codex/azure-mainline-preparation` y en el PR draft #75; `main` remoto
-  todavía no contiene esos cambios.
-- No está configurado un backend remoto para el state. El password bootstrap de
-  PostgreSQL es sensible, pero Terraform lo conserva en state; el primer apply
-  requiere state remoto cifrado, versionado y de acceso restringido.
-- No hay Terraform Azure de Wazuh/Ankay ni artefacto Azure de Wazuh verificado.
-  El build reproducible del Dashboard QAPAQ sí pasó en el workflow `QAPAQ SIEM`
-  de `main`: run [38883516883](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/38883516883),
-  job `build-dashboard` exitoso el 2026-10-16; verificó el `.deb` con
-  `SHA256SUMS` y lo publicó de forma inmutable en el bucket S3 de AWS. Ese flujo
-  no publica a ACR/Blob ni despliega en Azure. El repositorio separado
+- El PR #75 se integró en `main` el 2026-10-20 (America/Lima), merge
+  `48cbad26fa3e5d7d5f22e6b5658de11245ac0a4e`. `infra/azure` incluye la base de
+  red/datos/identidad y conecta `modules/siem_host` detrás del objeto opcional
+  `siem_host`, que permanece apagado cuando es `null`. `enable_runtime=false`; el
+  runtime genérico no es el frontend ni el SIEM de destino.
+- GitHub Actions ya expone las cuatro variables del backend remoto
+  (`AZURE_TF_STATE_RESOURCE_GROUP`, `AZURE_TF_STATE_STORAGE_ACCOUNT`,
+  `AZURE_TF_STATE_CONTAINER`, `AZURE_TF_STATE_KEY`). El acceso OIDC al state y
+  la identidad Azure no se han demostrado porque el workflow remoto espera
+  aprobación de `azure-demo` antes de inicializar Terraform. No se ha leído ni
+  escrito state con ese workflow.
+- El módulo SIEM requiere un bundle instalable completo que aún no existe. El
+  workflow experimental construye Manager/Indexer y verifica Filebeat, pero sus
+  paquetes son temporales y no incluyen `install.sh`, Dashboard QAPAQ ni core.
+  Los workflows Azure de Dashboard y core son separados: el core Azure ya pasó
+  build/checksum en el run
+  [39531106649](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531106649);
+  el Dashboard se compila en
+  [39531035378](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531035378)
+  y continuaba en ejecución a la hora de esta actualización. Ninguno de esos
+  runs publica a Azure ni despliega una VM.
+- El módulo `ankay_host` existe aislado, pero el root no lo instancia. Su
+  `cloud-init` monta y prepara el Compose; no instala ni arranca Shuffle,
+  Orborus, workers, OpenSearch o el backend. El workflow de Ankay en
+  [39530587455](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39530587455)
+  terminó el build sin publicar a ACR.
+- El workflow heredado `QAPAQ SIEM` de `main` construyó `qapaq-core` y publicó
+  el artefacto inmutable a S3 de AWS en el run
+  [39530587442](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39530587442).
+  El job `build-dashboard` de ese run seguía activo en la última lectura. Esto
+  es publicación de artefactos, no despliegue ni cambio de infraestructura. El
+  workflow Azure separado no reutiliza esa publicación. El repositorio separado
   [`CyberStill-GmbH/qapaq-dashboard`](https://github.com/CyberStill-GmbH/qapaq-dashboard)
   reporta versión `5.1.0-alpha0` en `main`; no sustituye el overlay compatible
   que se fija en `qapaq-secops/wazuh/dashboard/upstream.lock` para Wazuh 4.14.8 /
@@ -61,29 +78,26 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   Shuffle v2.3.0, construye el frontend con overlay QAPAQ y publica su fuente
   correspondiente bajo AGPL. El backend Go, Orborus, workers y OpenSearch son
   upstream Shuffle sin modificar. Orborus necesita acceso al socket Docker; el
-  diseño apunta a una VM Linux privada con Compose y volúmenes persistentes, aún
-  sin módulo Terraform Azure ni manifiesto Compose Azure verificado. El
+  diseño apunta a una VM Linux privada con Compose y volúmenes persistentes. El
+  módulo Azure aislado no demuestra el Compose ni el runtime funcional. El
   instalador versionado de Wazuh Office 365 usa AWS Secrets Manager y requiere
   adaptación explícita a Key Vault antes de ejecutarse en Azure.
-- La preparación está publicada en el PR draft
-  [#75](https://github.com/CyberStill-GmbH/qapaq-secops/pull/75), rama
-  `codex/azure-mainline-preparation`, HEAD
-  `047af939243d127a8b44ef2a7728c1a0c13b24c5` (2026-10-20). Los checks del PR
-  pasaron: validación Terraform sin credenciales
-  ([39436886565](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886565)),
-  build cloud-free de Ankay
-  ([39436886570](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886570)),
-  QAPAQ SIEM ([39436886494](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886494)),
-  publicación Dashboard Azure en modo PR sin publicar
-  ([39436886859](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886859))
-  y CI Security ([39436886867](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39436886867)).
-  Ambos jobs de publicación se omitieron porque el evento era un PR; ningún
-  check ejecutó plan/apply, autenticó contra Azure ni publicó artefactos. La
-  rama continúa sin fusionar a `main`.
+- CI Security pasó en el run
+  [39530588011](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39530588011).
+  La validación del Terraform Azure y la validación aislada del host Ankay
+  pasaron en los runs de `main`; son pruebas de código, no autenticación Azure
+  ni despliegues.
+- El workflow Terraform Azure se lanzó con `apply=false` en
+  [39530618084](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39530618084).
+  Permanece esperando aprobación de `azure-demo` antes de generar el plan. La
+  API de GitHub reportó que el usuario que lanzó el run no puede aprobar su
+  propio deployment; el revisor configurado es `CesarGuevaraQapaq`. El run actual
+  solo puede generar un plan; no puede aplicar recursos. No se ejecutó apply ni
+  se cambió DNS.
 - GitHub Actions ya tiene configurados, como repository secrets, los nombres
   `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` y `AZURE_SUBSCRIPTION_ID`; también
   aparece `ENTRA_CLIENT_SECRET`. Solo se inspeccionaron nombres/metadata; no se
-  leyeron valores. Los workflows Terraform de este PR prefieren
+  leyeron valores. Los workflows Terraform prefieren
   `AZURE_TERRAFORM_CLIENT_ID`, mientras los publicadores esperan
   `AZURE_ACR_PUBLISHER_CLIENT_ID`. Terraform acepta `AZURE_CLIENT_ID` como
   alternativa a `AZURE_TERRAFORM_CLIENT_ID`; la identidad ACR continúa separada.
@@ -91,10 +105,10 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   principal; validar eso con el plan autenticado.
 - Terraform requiere `AZURE_POSTGRES_ADMIN_PASSWORD`; el propietario confirmó que
   el repository secret fue creado/actualizado después del inventario inicial. No
-  se leyó ni se registra su valor. Este secret por sí solo no habilita el workflow:
-  faltan el backend remoto/state (`AZURE_TF_STATE_RESOURCE_GROUP`,
-  `AZURE_TF_STATE_STORAGE_ACCOUNT`, `AZURE_TF_STATE_CONTAINER`,
-  `AZURE_TF_STATE_KEY`) y validar el acceso OIDC al state.
+  se leyó ni se registra su valor. El backend remoto/state tiene configuradas
+  las variables `AZURE_TF_STATE_RESOURCE_GROUP`,
+  `AZURE_TF_STATE_STORAGE_ACCOUNT`, `AZURE_TF_STATE_CONTAINER` y
+  `AZURE_TF_STATE_KEY`; todavía falta demostrar el acceso OIDC a Azure y al state.
   La publicación requiere `AZURE_ACR_NAME` y `AZURE_ACR_LOGIN_SERVER` después de
   crear el registry; plan/apply usa runner GitHub-hosted y no requiere
   `AZURE_TF_RUNNER_LABELS`. GitHub reportó cero runners propios en el inventario
