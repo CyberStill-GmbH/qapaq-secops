@@ -107,8 +107,8 @@ jobs:
           [[ "$(dpkg-deb -f "$package" Version)" == "4.14.8-1" ]]
           [[ "$(dpkg-deb -f "$package" Architecture)" == "amd64" ]]
           install -D "$package" "$RUNNER_TEMP/manager-artifact/$(basename "$package")"
-          sha256sum "$RUNNER_TEMP/manager-artifact/$(basename "$package")" > "$RUNNER_TEMP/manager-artifact/SHA256SUMS"
-          sha512sum "$RUNNER_TEMP/manager-artifact/$(basename "$package")" > "$RUNNER_TEMP/manager-artifact/SHA512SUMS"
+          (cd "$RUNNER_TEMP/manager-artifact" && sha256sum "$(basename "$package")" > SHA256SUMS)
+          (cd "$RUNNER_TEMP/manager-artifact" && sha512sum "$(basename "$package")" > SHA512SUMS)
           jq -n \
             --arg repository 'https://github.com/wazuh/wazuh' \
             --arg commit "$WAZUH_MANAGER_SHA" \
@@ -205,8 +205,8 @@ jobs:
           [[ "$(dpkg-deb -f "$package" Version)" == "4.14.8-1" ]]
           [[ "$(dpkg-deb -f "$package" Architecture)" == "amd64" ]]
           install -D "$package" "$RUNNER_TEMP/indexer-artifact/$(basename "$package")"
-          sha256sum "$RUNNER_TEMP/indexer-artifact/$(basename "$package")" > "$RUNNER_TEMP/indexer-artifact/SHA256SUMS"
-          sha512sum "$RUNNER_TEMP/indexer-artifact/$(basename "$package")" > "$RUNNER_TEMP/indexer-artifact/SHA512SUMS"
+          (cd "$RUNNER_TEMP/indexer-artifact" && sha256sum "$(basename "$package")" > SHA256SUMS)
+          (cd "$RUNNER_TEMP/indexer-artifact" && sha512sum "$(basename "$package")" > SHA512SUMS)
           jq -n \
             --arg repository 'https://github.com/wazuh/wazuh-indexer' \
             --arg commit "$WAZUH_INDEXER_SHA" \
@@ -294,8 +294,8 @@ jobs:
           curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
             "https://raw.githubusercontent.com/wazuh/wazuh/$WAZUH_MANAGER_SHA/extensions/elasticsearch/7.x/wazuh-template.json" \
             --output "$RUNNER_TEMP/filebeat-artifact/wazuh-template.json"
-          sha256sum "$RUNNER_TEMP/filebeat-artifact"/* > "$RUNNER_TEMP/filebeat-artifact/SHA256SUMS"
-          sha512sum "$RUNNER_TEMP/filebeat-artifact"/* > "$RUNNER_TEMP/filebeat-artifact/SHA512SUMS"
+          (cd "$RUNNER_TEMP/filebeat-artifact" && sha256sum ./*.deb ./*.tar.gz ./*.json > SHA256SUMS)
+          (cd "$RUNNER_TEMP/filebeat-artifact" && sha512sum ./*.deb ./*.tar.gz ./*.json > SHA512SUMS)
           jq -n \
             --arg packageVersion "$FILEBEAT_VERSION" \
             --arg packageSha256 "$FILEBEAT_DEB_SHA256" \
