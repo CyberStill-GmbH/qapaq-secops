@@ -52,6 +52,16 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
 - El módulo SIEM requiere un bundle instalable completo que aún no existe. El
   workflow experimental construye Manager/Indexer y verifica Filebeat, pero sus
   paquetes son temporales y no incluyen `install.sh`, Dashboard QAPAQ ni core.
+  En los runs experimentales
+  [39531441349](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531441349)
+  y
+  [39531495712](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531495712),
+  Indexer falló al crear `artifacts/maven`: el contenedor builder corre como UID 1000
+  y el checkout bind-mounted pertenecía al runner. Se añadió al branch de preparación
+  una concesión temporal de ownership del checkout Indexer al UID 1000 del builder,
+  con restauración al UID del runner; el builder escribe en Gradle/build y `artifacts/`.
+  Falta ejecutar CI con esa corrección. El builder
+  no produjo ni publicó un `.deb` validado.
   Los workflows Azure de Dashboard y core son separados: el core Azure ya pasó
   build/checksum en el run
   [39531106649](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531106649);
