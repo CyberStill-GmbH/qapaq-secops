@@ -1,5 +1,18 @@
 locals {
-  name = "${var.name_base}-ankay"
+  name              = "${var.name_base}-ankay"
+  compose_document  = try(yamldecode(var.compose_yaml), {})
+  compose_services  = try(local.compose_document.services, {})
+  expected_services = ["shuffle-security", "frontend", "backend", "orborus", "opensearch"]
+  compose_service_images_match = length(keys(local.compose_services)) == length(local.expected_services) && alltrue([
+    for service in local.expected_services : try(local.compose_services[service].image == var.container_images[service], false)
+  ])
+  compose_has_expected_worker_image = contains(
+    try(local.compose_services.orborus.environment, []),
+    "SHUFFLE_WORKER_IMAGE=${var.container_images.worker}"
+  )
+  compose_keeps_internal_services_unpublished = alltrue([
+    for service in ["shuffle-security", "opensearch"] : length(try(local.compose_services[service].ports, [])) == 0
+  ])
   cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     compose_b64  = base64encode(var.compose_yaml)
     compose_sha  = var.compose_sha256
@@ -248,8 +261,23 @@ resource "azurerm_linux_virtual_machine" "ankay" {
     }
 
     precondition {
-      condition     = alltrue([for image in values(var.container_images) : startswith(image, "${var.container_registry_login_server}/") && strcontains(var.compose_yaml, image)])
-      error_message = "El Compose debe referenciar exactamente los seis digests aprobados del ACR, incluido el worker dinámico."
+      condition     = length(var.container_images) == 6 && alltrue([for image in values(var.container_images) : startswith(image, "${var.container_registry_login_server}/")])
+      error_message = "Los cinco servicios Compose y el worker dinámico deben usar digests del ACR indicado."
+    }
+
+    precondition {
+      condition     = local.compose_service_images_match && !contains(keys(local.compose_services), "worker") && !contains(keys(local.compose_services), "datastore")
+      error_message = "Compose debe declarar exactamente shuffle-security, frontend, backend, orborus y opensearch; worker es dinámico y datastore no forma parte del contrato upstream."
+    }
+
+    precondition {
+      condition     = local.compose_has_expected_worker_image
+      error_message = "Orborus debe declarar SHUFFLE_WORKER_IMAGE con el digest ACR aprobado para el worker dinámico."
+    }
+
+    precondition {
+      condition     = local.compose_keeps_internal_services_unpublished
+      error_message = "shuffle-security y OpenSearch no pueden publicar puertos del host; el edge usa frontend y OpenSearch queda en la red Compose."
     }
   }
 }

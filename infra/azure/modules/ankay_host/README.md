@@ -18,12 +18,17 @@ or change the QAPAQ login.
   Wazuh Manager TCP/1514 have separate rules. Firewall policy itself is outside this module.
 - An exact Ubuntu 24.04 Marketplace version, a cost-approved VM SKU, and the operator's SSH **public**
   key. No public IP or inbound SSH rule is created. Use Azure Run Command/serial console for bootstrap.
-- A non-secret Compose file and its SHA-256. Terraform checks the SHA and that all six ACR references
-  (frontend, backend, Orborus, worker image used by Orborus, OpenSearch, datastore) appear exactly.
-  Every reference must end in a full OCI `@sha256:` digest. Do not put actual credentials in Compose;
-  Terraform state and VM `custom_data` retain the Compose content.
-- ACR repositories containing every image. The only current Ankay build workflow covers the frontend;
-  the remaining images and datastore source/image digests have not been approved or verified.
+- A non-secret Compose file and its SHA-256. The contract is exactly five services:
+  `shuffle-security`, `frontend`, `backend`, `orborus`, and `opensearch`. The separate worker image
+  is launched dynamically by Orborus through `SHUFFLE_WORKER_IMAGE`; it is not a persistent service.
+  Terraform validates the five service image references, the worker reference, and the Compose SHA.
+  Every image must use a full OCI `@sha256:` digest from the configured ACR. `shuffle-security` and
+  OpenSearch must not publish host ports; OpenSearch stays on the Compose network. Do not put actual
+  credentials in Compose; Terraform state and VM `custom_data` retain the Compose content.
+- ACR repositories containing all six images. The current Ankay build workflow covers only the
+  frontend. Backend, Orborus, worker, `shuffle-security`, and OpenSearch digests have not been
+  approved or verified. Upstream Compose uses floating `latest` for Shuffle services; do not use
+  those mutable tags in an Azure deployment.
 
 ## Data and trust boundaries
 
@@ -37,8 +42,17 @@ Only the edge subnet reaches the frontend port, and only the QAPAQ API subnet re
 webhook port. Network rules cannot distinguish individual Container Apps sharing that subnet, so the
 webhook still needs application authentication/HMAC and replay defense. `/ankay/*` remains behind
 the existing QAPAQ `auth_request`; this module adds no public route and does not provide QAPAQ role
-authorization. OpenSearch has no host port rule. Do not expose the Docker socket beyond the Shuffle
-components that must launch workers: Docker socket access is effectively host-root authority.
+authorization. `shuffle-security` and OpenSearch have no host port mappings or NSG ingress.
+
+**High-risk Docker boundary:** upstream Compose mounts `/var/run/docker.sock` into both backend and
+Orborus. A process with socket access can control the host Docker daemon, create privileged
+containers, mount host paths, and read host data; this is effectively root authority. Orborus needs
+Docker access to start ephemeral workers. The upstream Compose also sets `seccomp:unconfined` on
+Orborus, weakening syscall isolation. Do not copy that setting automatically. Before runtime approval,
+review whether backend needs direct socket access, evaluate a narrowly filtered socket proxy and
+test Orborus compatibility, remove `seccomp:unconfined` if supported, and keep Ankay on a dedicated
+VM isolated from the SIEM with minimal outbound access. These changes require runtime verification;
+the Terraform module does not implement them.
 
 The module only exposes TCP/80/443 internet destinations through the forced route. Azure Firewall
 must deny by default and allow only the exact registry, package, provider/API, and approved threat

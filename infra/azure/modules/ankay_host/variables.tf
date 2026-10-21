@@ -134,27 +134,21 @@ variable "container_registry_login_server" {
 }
 
 variable "container_images" {
-  description = "Digests OCI previamente verificados y replicados al ACR para todos los componentes Shuffle."
+  description = "Digests OCI previamente verificados en ACR: cinco servicios Compose y la imagen de worker que Orborus ejecuta dinámicamente."
   type        = map(string)
   validation {
     condition = length(var.container_images) == 6 && alltrue([
-      for key in ["frontend", "backend", "orborus", "worker", "opensearch", "datastore"] : contains(keys(var.container_images), key)
+      for key in ["shuffle-security", "frontend", "backend", "orborus", "opensearch", "worker"] : contains(keys(var.container_images), key)
       ]) && alltrue([
       for image in values(var.container_images) : can(regex("^[a-z0-9]{5,50}\\.azurecr\\.io/[a-zA-Z0-9._/-]+@sha256:[0-9a-f]{64}$", image))
     ])
-    error_message = "Fija frontend, backend, orborus, worker, opensearch y datastore a imágenes ACR por digest SHA-256 completo."
+    error_message = "Fija shuffle-security, frontend, backend, orborus, opensearch y worker a imágenes ACR por digest SHA-256 completo. Worker es una imagen dinámica, no un servicio Compose."
   }
 }
 
 variable "compose_yaml" {
-  description = "Compose revisado y sin secretos; debe incluir servicios/backend, datastore, OpenSearch, Orborus y el digest de worker dinámico. Se guarda en custom_data/state."
+  description = "Compose revisado y sin secretos con exactamente shuffle-security, frontend, backend, orborus y opensearch. El worker va en SHUFFLE_WORKER_IMAGE de Orborus, no como servicio. Se guarda en custom_data/state."
   type        = string
-  validation {
-    condition = alltrue([
-      for service in ["frontend", "backend", "orborus", "opensearch", "datastore"] : can(regex("(?m)^\\s*${service}:\\s*$", var.compose_yaml))
-    ])
-    error_message = "El Compose debe declarar frontend, backend, orborus, opensearch y datastore."
-  }
 }
 
 variable "compose_sha256" {
