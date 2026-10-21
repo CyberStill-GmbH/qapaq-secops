@@ -156,6 +156,16 @@ jobs:
         working-directory: upstream/wazuh-indexer/docker/ci
         run: bash ./ci.sh up
 
+      - name: Grant the pinned builder UID access to its checked-out source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$GITHUB_WORKSPACE/upstream/wazuh-indexer"
+          [[ -d "$source/.git" ]] || { echo '::error::The checked-out Wazuh Indexer source is missing.'; exit 1; }
+          # The official build container runs as UID 1000 and writes Gradle/build/artifacts
+          # into the bind-mounted checkout. Restore ownership before checkout post-cleanup.
+          sudo chown -R 1000:1000 "$source"
+
       - name: Build and assemble Debian package using official scripts
         working-directory: upstream/wazuh-indexer
         run: |
@@ -192,6 +202,16 @@ jobs:
         if: always()
         working-directory: upstream/wazuh-indexer/docker/ci
         run: bash ./ci.sh down
+
+      - name: Restore runner ownership of the temporary source checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$GITHUB_WORKSPACE/upstream/wazuh-indexer"
+          if [[ -d "$source/.git" ]]; then
+            sudo chown -R "$(id -u):$(id -g)" "$source"
+          fi
 
       - name: Upload ephemeral Indexer package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
