@@ -41,8 +41,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: qapaq-siem
-  cancel-in-progress: false
+  group: qapaq-siem-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   AWS_REGION: us-east-1
@@ -216,7 +216,7 @@ jobs:
             scripts/indexer-admin.sh \
             indexer/security/apply-security.sh indexer/security/config.qapaq.yml \
             indexer/security/roles.qapaq.yml indexer/security/roles_mapping.qapaq.yml \
-            core/apply-core.sh edge/apply-edge.sh edge/qapaq-edge.conf \
+            core/apply-core.sh edge/apply-edge.sh edge/qapaq-edge.conf edge/qapaq-ankay.location.conf \
             dashboard/opensearch_dashboards.qapaq.yml | base64 -w0)"
 
           remote_script="$(cat <<REMOTE

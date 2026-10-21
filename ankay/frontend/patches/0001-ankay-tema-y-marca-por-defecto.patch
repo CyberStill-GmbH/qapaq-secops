@@ -1,0 +1,33 @@
+diff --git a/frontend/src/context/ContextApi.jsx b/frontend/src/context/ContextApi.jsx
+index 4fc2e27..e2d4c5e 100644
+--- a/frontend/src/context/ContextApi.jsx
++++ b/frontend/src/context/ContextApi.jsx
+@@ -47,7 +47,7 @@ export const AppContext = (props) => {
+     const [leftSideBarOpenByClick, setLeftSideBarOpenByClick] = useState(currentLocation?.includes('/workflows/') ? false : true)
+     const [windowWidth, setWindowWidth] = useState(serverside === true ? 100 : window.innerWidth);
+     const [brandColor, setBrandColor] = useState(() => localStorage.getItem("brandColor") || "#ff8544");
+-    const [brandName, setBrandName] = useState(()=> localStorage.getItem("brandName") || "Shuffle");
++    const [brandName, setBrandName] = useState(()=> localStorage.getItem("brandName") || "Ankay Qapaq");
+     const [updateOrg, setUpdateOrg] = useState(false);
+ 
+     const [themeMode, setThemeMode] = useState(() => {
+diff --git a/frontend/src/theme.jsx b/frontend/src/theme.jsx
+index 7c981b2..4a5f640 100644
+--- a/frontend/src/theme.jsx
++++ b/frontend/src/theme.jsx
+@@ -18,11 +18,11 @@ const theme = createTheme(adaptV4Theme({
+     type: "dark",
+     //inputColor: "#383B40",
+     
+-	inputColor: "rgba(39,41,45,1)",
+-    surfaceColor: "#27292d",
++	inputColor: "#18181b",
++    surfaceColor: "#18181b",
+     //platformColor: "#1c1c1d",
+-    platformColor: "#212121",
+-    backgroundColor: "#1a1a1a",
++    platformColor: "#111113",
++    backgroundColor: "#080808",
+ 	distributionColor: "#40E0D0",
+ 
+     green: "#5cc879",

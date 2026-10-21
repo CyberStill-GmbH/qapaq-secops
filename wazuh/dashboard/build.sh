@@ -133,8 +133,13 @@ build_plugin() {
   local dir="$1" dest="$2" id zip
   id="$(jq -r '.id' "$dir/opensearch_dashboards.json")"
   log "Compilando plugin $id"
-  if [ -f "$dir/yarn.lock" ] || jq -e '(.dependencies // {}) | length > 0' "$dir/package.json" >/dev/null; then
-    (cd "$dir" && yarn install --frozen-lockfile --non-interactive || yarn install --non-interactive)
+  if [ -f "$dir/yarn.lock" ]; then
+    # Con lockfile, un error debe detener el build: el fallback sin lock podía resolver
+    # dependencias distintas y ocultar incompatibilidades entre npm/Yarn o el upstream.
+    (cd "$dir" && yarn install --frozen-lockfile --non-interactive)
+  elif jq -e '(.dependencies // {}) | length > 0' "$dir/package.json" >/dev/null; then
+    # Algunos plugins upstream aún no publican lockfile; su install queda explícito y visible.
+    (cd "$dir" && yarn install --non-interactive)
   fi
   (cd "$dir" && OPENSEARCH_DASHBOARDS_VERSION="$OSD_VERSION" \
     node ../../scripts/plugin_helpers build --opensearch-dashboards-version "$OSD_VERSION")
@@ -200,7 +205,12 @@ if [ "$MODE" = source ]; then
   rm -rf "$OSD/plugins/wazuh-security-dashboards-plugin"
   cp -R "$SECURITY_SRC" "$OSD/plugins/wazuh-security-dashboards-plugin"
   log "Compilando wazuh-security-dashboards-plugin (sin cambios)"
-  (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn install --non-interactive && yarn build)
+  if [ -f "$OSD/plugins/wazuh-security-dashboards-plugin/yarn.lock" ]; then
+    (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn install --frozen-lockfile --non-interactive)
+  else
+    (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn install --non-interactive)
+  fi
+  (cd "$OSD/plugins/wazuh-security-dashboards-plugin" && yarn build)
   cp "$OSD"/plugins/wazuh-security-dashboards-plugin/build/*.zip "$PKG/security/"
 fi
 

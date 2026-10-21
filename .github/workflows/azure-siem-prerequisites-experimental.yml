@@ -1,0 +1,329 @@
+name: Azure SIEM prerequisite packages (experimental)
+
+on:
+  workflow_dispatch:
+    inputs:
+      acknowledge_experimental:
+        description: Confirm this produces temporary prerequisite artifacts only; it does not build or deploy the SIEM bundle
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-siem-prerequisites-${{ github.run_id }}
+  cancel-in-progress: false
+
+env:
+  WAZUH_MANAGER_SHA: f470ad7db717b18db7feeed568949643698f0f34
+  WAZUH_INDEXER_SHA: 9f4796b8738969ac50ea8b6d23cdea5ce1a8565a
+  WAZUH_VERSION: 4.14.8
+  OSD_COMPAT_VERSION: 2.19.6
+  FILEBEAT_VERSION: 7.10.2-2
+  WAZUH_SIGNING_KEY_SHA256: a378ca8dfa6b72122df288f64a0cde54f1cbfa3db9b43e6865cb73def35b5b17 # gitleaks:allow -- public SHA-256 integrity pin for the official Wazuh signing key, not a credential
+  FILEBEAT_DEB_SHA256: dc47340830b37007d18c86c779d480a4bfc86f2da43d4476a0b439d002f9e14b
+  FILEBEAT_MODULE_SHA256: 7a8c67c47b22f89ab271b7e35f108f18b2215b7aa411cdd23c9994393070d38d
+
+jobs:
+  acknowledge:
+    name: Require explicit experimental acknowledgement
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Fail closed unless this manual run is acknowledged
+        env:
+          ACKNOWLEDGED: ${{ inputs.acknowledge_experimental }}
+        run: |
+          set -euo pipefail
+          [[ "$ACKNOWLEDGED" == "true" ]] || {
+            echo 'This workflow is experimental and creates temporary build artifacts only. Set acknowledge_experimental=true to continue.' >&2
+            exit 1
+          }
+
+  manager:
+    name: Build Wazuh Manager 4.14.8 from immutable source
+    needs: acknowledge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout QAPAQ repository without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout official Wazuh source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: wazuh/wazuh
+          ref: ${{ env.WAZUH_MANAGER_SHA }}
+          path: upstream/wazuh-manager
+          persist-credentials: false
+
+      - name: Verify source identity
+        working-directory: upstream/wazuh-manager
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$WAZUH_MANAGER_SHA" ]]
+          git cat-file -e "$WAZUH_MANAGER_SHA^{commit}"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/wazuh/wazuh/commits/$WAZUH_MANAGER_SHA" \
+            | jq -e --arg sha "$WAZUH_MANAGER_SHA" '.sha == $sha and .commit.verification.verified == true' >/dev/null
+
+      - name: Build manager Debian package using the official builder
+        working-directory: upstream/wazuh-manager
+        run: |
+          set -euo pipefail
+          bash packages/generate_package.sh \
+            --target manager \
+            --architecture amd64 \
+            --revision 1 \
+            --store "$RUNNER_TEMP/manager-output" \
+            --checksum \
+            --system deb \
+            --sources "$GITHUB_WORKSPACE/upstream/wazuh-manager"
+
+      - name: Verify package version and record provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(find "$RUNNER_TEMP/manager-output" -maxdepth 1 -type f -name '*.deb' -print)
+          [[ "${#packages[@]}" == 1 ]] || { echo "Expected one Manager .deb, found ${#packages[@]}" >&2; exit 1; }
+          package="${packages[0]}"
+          [[ "$(dpkg-deb -f "$package" Package)" == "wazuh-manager" ]]
+          [[ "$(dpkg-deb -f "$package" Version)" == "4.14.8-1" ]]
+          [[ "$(dpkg-deb -f "$package" Architecture)" == "amd64" ]]
+          install -D "$package" "$RUNNER_TEMP/manager-artifact/$(basename "$package")"
+          sha256sum "$RUNNER_TEMP/manager-artifact/$(basename "$package")" > "$RUNNER_TEMP/manager-artifact/SHA256SUMS"
+          sha512sum "$RUNNER_TEMP/manager-artifact/$(basename "$package")" > "$RUNNER_TEMP/manager-artifact/SHA512SUMS"
+          jq -n \
+            --arg repository 'https://github.com/wazuh/wazuh' \
+            --arg commit "$WAZUH_MANAGER_SHA" \
+            --arg version "$(dpkg-deb -f "$package" Version)" \
+            --arg package "$(basename "$package")" \
+            --arg sha256 "$(sha256sum "$package" | cut -d' ' -f1)" \
+            --arg sha512 "$(sha512sum "$package" | cut -d' ' -f1)" \
+            '{status:"experimental", component:"wazuh-manager", repository:$repository, sourceCommit:$commit, package:$package, debVersion:$version, sha256:$sha256, sha512:$sha512, buildMethod:"official packages/generate_package.sh; Debian amd64; revision 1"}' \
+            > "$RUNNER_TEMP/manager-artifact/provenance.json"
+
+      - name: Upload ephemeral Manager package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-siem-manager-4.14.8-experimental
+          path: ${{ runner.temp }}/manager-artifact/
+          if-no-files-found: error
+          retention-days: 1
+
+  indexer:
+    name: Build Wazuh Indexer 4.14.8 from immutable source
+    needs: acknowledge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout QAPAQ repository without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout official Wazuh Indexer source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: wazuh/wazuh-indexer
+          ref: ${{ env.WAZUH_INDEXER_SHA }}
+          path: upstream/wazuh-indexer
+          persist-credentials: false
+
+      - name: Verify source identity and build version
+        working-directory: upstream/wazuh-indexer
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$WAZUH_INDEXER_SHA" ]]
+          [[ "$(bash packaging_scripts/product_version.sh)" == "$WAZUH_VERSION" ]]
+          [[ "$(bash packaging_scripts/upstream_version.sh)" == "$OSD_COMPAT_VERSION" ]]
+          git cat-file -e "$WAZUH_INDEXER_SHA^{commit}"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/wazuh/wazuh-indexer/commits/$WAZUH_INDEXER_SHA" \
+            | jq -e --arg sha "$WAZUH_INDEXER_SHA" '.sha == $sha and .commit.verification.verified == true' >/dev/null
+
+      - name: Start the official build and assemble containers
+        working-directory: upstream/wazuh-indexer/docker/ci
+        run: bash ./ci.sh up
+
+      - name: Build and assemble Debian package using official scripts
+        working-directory: upstream/wazuh-indexer
+        run: |
+          set -euo pipefail
+          docker exec wi-build_4.14.8 bash packaging_scripts/build.sh -a x64 -d deb
+          docker exec wi-assemble_4.14.8 bash packaging_scripts/assemble.sh -a x64 -d deb -r 1
+
+      - name: Verify package version and record provenance
+        working-directory: upstream/wazuh-indexer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(find artifacts/dist -maxdepth 1 -type f -name 'wazuh-indexer_*.deb' -print)
+          [[ "${#packages[@]}" == 1 ]] || { echo "Expected one Indexer .deb, found ${#packages[@]}" >&2; exit 1; }
+          package="${packages[0]}"
+          [[ "$(dpkg-deb -f "$package" Package)" == "wazuh-indexer" ]]
+          [[ "$(dpkg-deb -f "$package" Version)" == "4.14.8-1" ]]
+          [[ "$(dpkg-deb -f "$package" Architecture)" == "amd64" ]]
+          install -D "$package" "$RUNNER_TEMP/indexer-artifact/$(basename "$package")"
+          sha256sum "$RUNNER_TEMP/indexer-artifact/$(basename "$package")" > "$RUNNER_TEMP/indexer-artifact/SHA256SUMS"
+          sha512sum "$RUNNER_TEMP/indexer-artifact/$(basename "$package")" > "$RUNNER_TEMP/indexer-artifact/SHA512SUMS"
+          jq -n \
+            --arg repository 'https://github.com/wazuh/wazuh-indexer' \
+            --arg commit "$WAZUH_INDEXER_SHA" \
+            --arg version "$(dpkg-deb -f "$package" Version)" \
+            --arg package "$(basename "$package")" \
+            --arg sha256 "$(sha256sum "$package" | cut -d' ' -f1)" \
+            --arg sha512 "$(sha512sum "$package" | cut -d' ' -f1)" \
+            --arg osdCompatibility "$(bash packaging_scripts/upstream_version.sh)" \
+            '{status:"experimental", component:"wazuh-indexer", repository:$repository, sourceCommit:$commit, package:$package, debVersion:$version, sha256:$sha256, sha512:$sha512, openSearchDashboardsCompatibility:$osdCompatibility, buildMethod:"official docker/ci/ci.sh and packaging_scripts build/assemble; Debian amd64; revision 1"}' \
+            > "$RUNNER_TEMP/indexer-artifact/provenance.json"
+
+      - name: Stop official build containers
+        if: always()
+        working-directory: upstream/wazuh-indexer/docker/ci
+        run: bash ./ci.sh down
+
+      - name: Upload ephemeral Indexer package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-siem-indexer-4.14.8-experimental
+          path: ${{ runner.temp }}/indexer-artifact/
+          if-no-files-found: error
+          retention-days: 1
+
+  filebeat:
+    name: Verify and collect Filebeat 7.10.2-2 from signed Wazuh APT
+    needs: acknowledge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout QAPAQ repository without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify Wazuh signing key and signed APT package
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/wazuh-archive-key.asc"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            https://packages.wazuh.com/key/GPG-KEY-WAZUH --output "$key"
+          echo "$WAZUH_SIGNING_KEY_SHA256  $key" | sha256sum --check --status
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ca-certificates gnupg
+          sudo install -d -m 0755 /usr/share/keyrings
+          gpg --batch --yes --dearmor --output "$RUNNER_TEMP/wazuh-archive-keyring.gpg" "$key"
+          sudo install -m 0644 "$RUNNER_TEMP/wazuh-archive-keyring.gpg" /usr/share/keyrings/wazuh-archive-keyring.gpg
+          echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/wazuh-archive-keyring.gpg] https://packages.wazuh.com/4.x/apt/ stable main' \
+            | sudo tee /etc/apt/sources.list.d/wazuh.list >/dev/null
+          sudo apt-get update
+          apt-cache show "filebeat=$FILEBEAT_VERSION" > "$RUNNER_TEMP/filebeat-package-metadata.txt"
+          grep -Fx "Version: $FILEBEAT_VERSION" "$RUNNER_TEMP/filebeat-package-metadata.txt"
+          grep -Fx "SHA256: $FILEBEAT_DEB_SHA256" "$RUNNER_TEMP/filebeat-package-metadata.txt"
+          mkdir -p "$RUNNER_TEMP/filebeat-artifact"
+          (cd "$RUNNER_TEMP/filebeat-artifact" && apt-get download "filebeat=$FILEBEAT_VERSION")
+          package="$RUNNER_TEMP/filebeat-artifact/filebeat_${FILEBEAT_VERSION}_amd64.deb"
+          [[ -f "$package" ]]
+          echo "$FILEBEAT_DEB_SHA256  $package" | sha256sum --check --status
+          [[ "$(dpkg-deb -f "$package" Package)" == "filebeat" ]]
+          [[ "$(dpkg-deb -f "$package" Version)" == "$FILEBEAT_VERSION" ]]
+          [[ "$(dpkg-deb -f "$package" Architecture)" == "amd64" ]]
+
+      - name: Collect pinned Wazuh Filebeat module and template
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            https://packages.wazuh.com/4.x/filebeat/wazuh-filebeat-0.5.tar.gz \
+            --output "$RUNNER_TEMP/filebeat-artifact/wazuh-filebeat-0.5.tar.gz"
+          echo "$FILEBEAT_MODULE_SHA256  $RUNNER_TEMP/filebeat-artifact/wazuh-filebeat-0.5.tar.gz" | sha256sum --check --status
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            "https://raw.githubusercontent.com/wazuh/wazuh/$WAZUH_MANAGER_SHA/extensions/elasticsearch/7.x/wazuh-template.json" \
+            --output "$RUNNER_TEMP/filebeat-artifact/wazuh-template.json"
+          sha256sum "$RUNNER_TEMP/filebeat-artifact"/* > "$RUNNER_TEMP/filebeat-artifact/SHA256SUMS"
+          sha512sum "$RUNNER_TEMP/filebeat-artifact"/* > "$RUNNER_TEMP/filebeat-artifact/SHA512SUMS"
+          jq -n \
+            --arg packageVersion "$FILEBEAT_VERSION" \
+            --arg packageSha256 "$FILEBEAT_DEB_SHA256" \
+            --arg moduleSha256 "$FILEBEAT_MODULE_SHA256" \
+            --arg sourceCommit "$WAZUH_MANAGER_SHA" \
+            --arg templateSha256 "$(sha256sum "$RUNNER_TEMP/filebeat-artifact/wazuh-template.json" | cut -d' ' -f1)" \
+            '{status:"experimental", component:"filebeat", repository:"https://packages.wazuh.com/4.x/apt/", packageVersion:$packageVersion, packageSha256:$packageSha256, aptMetadataSignatureVerified:true, wazuhModule:"0.5", moduleSha256:$moduleSha256, templateSourceCommit:$sourceCommit, templateSha256:$templateSha256}' \
+            > "$RUNNER_TEMP/filebeat-artifact/provenance.json"
+
+      - name: Upload ephemeral Filebeat artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-siem-filebeat-7.10.2-2-experimental
+          path: ${{ runner.temp }}/filebeat-artifact/
+          if-no-files-found: error
+          retention-days: 1
+
+  evidence:
+    name: Assemble expiring provenance evidence (not an install bundle)
+    needs: [manager, indexer, filebeat]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Download the three build outputs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: azure-siem-*-experimental
+          path: ${{ runner.temp }}/prerequisites
+
+      - name: Verify all package provenance and write a non-release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/prerequisites"
+          manager="$root/azure-siem-manager-4.14.8-experimental"
+          indexer="$root/azure-siem-indexer-4.14.8-experimental"
+          filebeat="$root/azure-siem-filebeat-7.10.2-2-experimental"
+          test -s "$manager/provenance.json"
+          test -s "$indexer/provenance.json"
+          test -s "$filebeat/provenance.json"
+          jq -e '.status == "experimental" and .sourceCommit == env.WAZUH_MANAGER_SHA and .debVersion == "4.14.8-1"' "$manager/provenance.json" >/dev/null
+          jq -e '.status == "experimental" and .sourceCommit == env.WAZUH_INDEXER_SHA and .debVersion == "4.14.8-1" and .openSearchDashboardsCompatibility == env.OSD_COMPAT_VERSION' "$indexer/provenance.json" >/dev/null
+          jq -e '.status == "experimental" and .packageVersion == env.FILEBEAT_VERSION and .aptMetadataSignatureVerified == true' "$filebeat/provenance.json" >/dev/null
+          (cd "$manager" && sha256sum --check SHA256SUMS)
+          (cd "$indexer" && sha256sum --check SHA256SUMS)
+          (cd "$filebeat" && sha256sum --check SHA256SUMS)
+          mkdir -p "$RUNNER_TEMP/evidence"
+          jq -n \
+            --arg status 'experimental-prerequisite-artifacts-only' \
+            --arg managerSha "$WAZUH_MANAGER_SHA" \
+            --arg indexerSha "$WAZUH_INDEXER_SHA" \
+            --arg wazuhVersion "$WAZUH_VERSION" \
+            --arg osdCompatibility "$OSD_COMPAT_VERSION" \
+            --arg filebeatVersion "$FILEBEAT_VERSION" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            '{status:$status, runtimeReady:false, installBundle:false, cloudPublication:false, versions:{wazuhManager:$wazuhVersion, wazuhIndexer:$wazuhVersion, openSearchDashboardsCompatibility:$osdCompatibility, filebeat:$filebeatVersion}, sourceCommits:{wazuhManager:$managerSha, wazuhIndexer:$indexerSha}, actionsRun:{id:$runId, attempt:$runAttempt}, artifacts:["azure-siem-manager-4.14.8-experimental","azure-siem-indexer-4.14.8-experimental","azure-siem-filebeat-7.10.2-2-experimental"], limitations:["Dashboard QAPAQ and qapaq-core are not included.","This is not the siem_host bootstrap bundle and cannot be applied.","Source-package builds are not locally executable/validated in this Windows worktree.","Upstream builders may download mutable base images or dependencies; this workflow records source and output hashes but does not claim bit-for-bit reproducibility."]}' \
+            > "$RUNNER_TEMP/evidence/prerequisites-manifest.json"
+          cp "$manager/provenance.json" "$RUNNER_TEMP/evidence/manager-provenance.json"
+          cp "$indexer/provenance.json" "$RUNNER_TEMP/evidence/indexer-provenance.json"
+          cp "$filebeat/provenance.json" "$RUNNER_TEMP/evidence/filebeat-provenance.json"
+
+      - name: Upload ephemeral evidence for one day
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-siem-prerequisites-manifest-experimental
+          path: ${{ runner.temp }}/evidence/
+          if-no-files-found: error
+          retention-days: 1

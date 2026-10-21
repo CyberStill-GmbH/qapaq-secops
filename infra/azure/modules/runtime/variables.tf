@@ -1,0 +1,14 @@
+variable "resource_group_name" { type = string }
+variable "environment" { type = string }
+variable "name_base" { type = string }
+variable "tags" { type = map(string) }
+variable "container_images" { type = map(string) }
+variable "enable_runtime" { type = bool }
+variable "key_vault_secret_ids" { type = map(map(string)) }
+variable "container_app_environment_id" { type = string }
+variable "container_app_environment_default_domain" { type = string }
+variable "runtime_identity_id" { type = string }
+variable "container_registry_login_server" { type = string }
+variable "postgres_fqdn" { type = string }
+variable "app_database_name" { type = string }
+variable "queue_database_name" { type = string }

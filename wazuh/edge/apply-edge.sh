@@ -18,6 +18,7 @@
 #
 # Variables: SOC_HOSTNAME (dominio público; p. ej. wazuh.jappi.net.pe)
 #            QAPAQ_API    (salida `qapaq_edge_api_origin` de Terraform; p. ej. http://api.demo.qapaq.internal:3000)
+#            ANKAY_UPSTREAM (opcional; host:puerto privado del frontend Ankay)
 #            CERT_NAME    (opcional; certificado de Let's Encrypt, por defecto qapaq-wazuh-dashboard)
 #            SOC_EXTRA_HOSTNAMES (opcional; p. ej. "app.jappi.net.pe": hostnames adicionales del mismo SIEM.
 #                         Expande el certificado con certbot (HTTP-01; el DNS ya debe apuntar a este host).
@@ -35,6 +36,29 @@ for host in ${SOC_EXTRA_HOSTNAMES:-}; do
 done
 [[ "$SOC_HOSTNAME" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]] || fail 'SOC_HOSTNAME inválido'
 [[ "$QAPAQ_API" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || fail 'QAPAQ_API debe ser scheme://host[:puerto], sin ruta'
+ANKAY_LOCATION=""
+if [[ -n "${ANKAY_UPSTREAM:-}" ]]; then
+  [[ "$ANKAY_UPSTREAM" =~ ^[A-Za-z0-9.-]+:[0-9]{1,5}$ ]] || fail 'ANKAY_UPSTREAM debe ser host:puerto privado, sin esquema ni ruta'
+  ankay_host="${ANKAY_UPSTREAM%:*}"
+  ankay_port="${ANKAY_UPSTREAM##*:}"
+  (( 10#$ankay_port >= 1 && 10#$ankay_port <= 65535 )) || fail 'puerto ANKAY_UPSTREAM fuera de rango'
+  if [[ "$ankay_host" =~ ^[0-9]+(\.[0-9]+){3}$ ]]; then
+    IFS=. read -r a b c d <<<"$ankay_host"
+    for octet in "$a" "$b" "$c" "$d"; do
+      [[ "$octet" =~ ^[0-9]{1,3}$ ]] && (( 10#$octet <= 255 )) || fail 'IPv4 ANKAY_UPSTREAM inválida'
+    done
+    if ! (( a == 10 || (a == 172 && b >= 16 && b <= 31) || (a == 192 && b == 168) )); then
+      fail 'ANKAY_UPSTREAM IPv4 debe estar en una red RFC1918'
+    fi
+  else
+    [[ "$ankay_host" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.internal$ ]] ||
+      fail 'ANKAY_UPSTREAM DNS debe usar el sufijo privado .internal'
+  fi
+  ankay_code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://$ANKAY_UPSTREAM/" || true)"
+  [[ "$ankay_code" == 200 ]] || fail "Ankay privado no responde HTTP 200 en $ANKAY_UPSTREAM/ (HTTP $ankay_code); edge sin cambios"
+  ANKAY_LOCATION="$(envsubst '${ANKAY_UPSTREAM}' <"$here/qapaq-ankay.location.conf")"
+fi
+export ANKAY_LOCATION
 [[ -r "/etc/letsencrypt/live/$CERT_NAME/fullchain.pem" ]] || fail "no existe el certificado $CERT_NAME"
 if [[ -n "${SOC_EXTRA_HOSTNAMES:-}" ]]; then
   domains=(-d "$SOC_HOSTNAME"); for host in $SOC_EXTRA_HOSTNAMES; do domains+=(-d "$host"); done
@@ -93,7 +117,7 @@ done
 info 'dashboard en 127.0.0.1:5601 con login QAPAQ'
 
 # 4 · edge nginx
-envsubst '${SOC_SERVER_NAMES} ${QAPAQ_API} ${CERT_NAME}' <"$here/qapaq-edge.conf" >"$work/edge.conf"
+envsubst '${SOC_SERVER_NAMES} ${QAPAQ_API} ${CERT_NAME} ${ANKAY_LOCATION}' <"$here/qapaq-edge.conf" >"$work/edge.conf"
 mkdir -p /var/cache/nginx/qapaq_auth
 install -m 0644 "$work/edge.conf" "$NGINX_CONF"
 if ! nginx -t; then restore; fail 'nginx -t falló; restaurado'; fi
@@ -109,4 +133,8 @@ login="$(probe /qapaq/login text/html)"
 [[ "$root" == "302 https://$SOC_HOSTNAME/qapaq/login?nextUrl=/" ]] || { restore; fail "/ sin sesión → '$root' (esperado 302 al login); restaurado"; }
 [[ "$api" == 401* ]] || { restore; fail "/api/alerts sin sesión → '$api' (esperado 401); restaurado"; }
 [[ "$login" == 200* ]] || { restore; fail "/qapaq/login → '$login' (esperado 200); restaurado"; }
-info "edge activo en https://$SOC_HOSTNAME (login QAPAQ, proxy auth, API privada)"
+if [[ -n "${ANKAY_UPSTREAM:-}" ]]; then
+  ankay="$(probe /ankay/ text/html)"
+  [[ "$ankay" == "302 https://$SOC_HOSTNAME/qapaq/login?nextUrl=/ankay/" ]] || { restore; fail "/ankay/ anónimo → '$ankay' (esperado login QAPAQ); restaurado"; }
+fi
+info "edge activo en https://$SOC_HOSTNAME (login QAPAQ, proxy auth, API privada${ANKAY_UPSTREAM:+, Ankay con sesión y rol})"

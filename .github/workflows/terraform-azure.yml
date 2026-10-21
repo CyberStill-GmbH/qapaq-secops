@@ -1,0 +1,221 @@
+name: Terraform Azure plan and apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the exact plan after the azure-demo environment approval
+        type: boolean
+        required: true
+        default: false
+      cost_review_reference:
+        description: HTTPS reference to the reviewed monthly Azure cost estimate (required for apply)
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-azure-demo
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Check branch and apply review inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Require main and a cost review reference before apply
+        env:
+          APPLY: ${{ inputs.apply }}
+          COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo '::error::Terraform Azure is restricted to main.'; exit 1; }
+          if [[ "$APPLY" == true ]]; then
+            [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
+              echo '::error::Apply requires an HTTPS reference to the reviewed Azure monthly cost estimate.'
+              exit 1
+            }
+          fi
+
+  plan:
+    name: Create and summarize protected Terraform plan
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: azure-demo
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_TERRAFORM_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_postgres_admin_password: ${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}
+      TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_TF_STATE_RESOURCE_GROUP }}
+      TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
+      TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ vars.AZURE_TF_STATE_KEY }}
+      COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate OIDC, state backend and Terraform inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_VAR_postgres_admin_password \
+            TF_STATE_RESOURCE_GROUP TF_STATE_STORAGE_ACCOUNT TF_STATE_CONTAINER TF_STATE_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing required GitHub secret or variable: $name"; exit 1; }
+          done
+          [[ "$TF_STATE_STORAGE_ACCOUNT" =~ ^[a-z0-9]{3,24}$ ]] || { echo '::error::Invalid Azure state storage account name.'; exit 1; }
+          [[ "$TF_STATE_CONTAINER" =~ ^[a-z0-9-]{3,63}$ ]] || { echo '::error::Invalid Azure state container name.'; exit 1; }
+          if [[ "${{ inputs.apply }}" == true ]]; then
+            printf '%s\n' "Cost estimate reference: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Check format
+        run: terraform fmt -check -recursive
+
+      - name: Initialize the protected Azure Storage backend with OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Validate
+        run: terraform validate -no-color
+
+      - name: Create saved plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -no-color -out="$RUNNER_TEMP/azure.tfplan"
+          terraform show -json "$RUNNER_TEMP/azure.tfplan" > "$RUNNER_TEMP/azure-plan.json"
+
+      - name: Reject destructive actions and summarize resource changes
+        run: node scripts/ci/azure-tf-plan-summary.mjs "$RUNNER_TEMP/azure-plan.json"
+        working-directory: .
+
+      - name: Record commit and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/plan.commit"
+          sha256sum "$RUNNER_TEMP/azure.tfplan" | awk '{print $1}' > "$RUNNER_TEMP/plan.sha256"
+
+      - name: Upload the sensitive saved plan for same-run apply
+        if: ${{ inputs.apply }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-tfplan-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/azure.tfplan
+            ${{ runner.temp }}/plan.commit
+            ${{ runner.temp }}/plan.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  apply:
+    name: Apply the exact reviewed plan
+    if: ${{ inputs.apply }}
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: azure-demo
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_TERRAFORM_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_postgres_admin_password: ${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}
+      TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_TF_STATE_RESOURCE_GROUP }}
+      TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
+      TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ vars.AZURE_TF_STATE_KEY }}
+    steps:
+      - name: Checkout the exact planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download this run's saved plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: azure-tfplan-${{ github.sha }}
+          path: ${{ runner.temp }}/azure-plan
+
+      - name: Verify commit and saved-plan checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(cat "$RUNNER_TEMP/azure-plan/plan.commit")" == "$GITHUB_SHA" ]] || {
+            echo '::error::Saved plan commit does not match this workflow run.'
+            exit 1
+          }
+          expected="$(cat "$RUNNER_TEMP/azure-plan/plan.sha256")"
+          actual="$(sha256sum "$RUNNER_TEMP/azure-plan/azure.tfplan" | awk '{print $1}')"
+          [[ "$expected" == "$actual" ]] || { echo '::error::Saved Terraform plan checksum mismatch.'; exit 1; }
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Initialize the same protected Azure Storage backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Apply only the reviewed saved plan
+        run: terraform apply -input=false -auto-approve -no-color "$RUNNER_TEMP/azure-plan/azure.tfplan"

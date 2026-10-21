@@ -1,0 +1,26 @@
+# Copiar a un archivo tfvars local ignorado por Git, nunca guardar secretos aquí.
+# El backend remoto y la suscripción requieren bootstrapping.
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+location        = "chilecentral" # Santiago: región cercana a Perú; confirmar residencia y SKU/cuotas.
+
+# Inyectar como variable de entorno segura TF_VAR_postgres_admin_password.
+# El valor no debe escribirse en este archivo ni en comandos/logs.
+
+# El frontend SOC es el Dashboard Wazuh QAPAQ del host SIEM, no una web Container App.
+# Mantener desactivado el runtime genérico hasta completar la integración del host.
+enable_runtime = false
+
+# Para habilitar runtime, poblar con imágenes de ACR fijadas a SHA-256 tras CI:
+# container_images = {
+#   edge    = "<acr>.azurecr.io/qapaq-edge@sha256:<64-hex>"
+#   web     = "<acr>.azurecr.io/qapaq-web@sha256:<64-hex>"
+#   gateway = "<acr>.azurecr.io/qapaq-gateway@sha256:<64-hex>"
+#   api     = "<acr>.azurecr.io/qapaq-api@sha256:<64-hex>"
+#   worker  = "<acr>.azurecr.io/qapaq-worker@sha256:<64-hex>"
+# }
+
+# Los URIs versionados de secretos se agregan solo después de crearlos fuera de Terraform.
+# key_vault_secret_ids = {
+#   api = { QAPAQ_ENTRA_CLIENT_SECRET = "https://<vault>.vault.azure.net/secrets/<name>/<version>" }
+# }

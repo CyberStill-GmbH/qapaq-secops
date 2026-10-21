@@ -1,0 +1,6 @@
+# Ankay Qapaq = Shuffle rebrandeado como overlay (docs/13). Subir de versión = cambiar estas líneas,
+# regenerar los parches si no aplican y volver a correr ankay/build.sh.
+SHUFFLE_REPO=https://github.com/Shuffle/Shuffle.git
+SHUFFLE_TAG=v2.3.0
+SHUFFLE_SHA=473cc335e5fcc663006d8e5ca16af5ee71fefa68
+SHUFFLE_LICENSE=AGPL-3.0

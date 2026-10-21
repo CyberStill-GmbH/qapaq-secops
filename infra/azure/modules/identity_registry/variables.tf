@@ -1,0 +1,13 @@
+variable "resource_group_name" { type = string }
+variable "location" { type = string }
+variable "name_base" { type = string }
+variable "suffix" { type = string }
+variable "environment" { type = string }
+variable "acr_name" { type = string }
+variable "github_repository" { type = string }
+variable "github_owner_id" { type = string }
+variable "github_repository_id" { type = string }
+variable "github_environment" { type = string }
+variable "key_vault_id" { type = string }
+variable "raw_container_id" { type = string }
+variable "tags" { type = map(string) }

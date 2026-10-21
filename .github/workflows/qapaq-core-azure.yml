@@ -1,0 +1,77 @@
+name: QAPAQ core Azure build
+
+on:
+  pull_request:
+    paths:
+      - "wazuh/core/**"
+      - "apps/api/**"
+      - "apps/worker/**"
+      - "platform/database/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/qapaq-core-azure.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-core-azure-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build and verify Azure core archive without cloud credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+
+      - name: Enable the package manager pinned by package.json
+        run: corepack enable
+
+      - name: Build Azure-targeted core release with system CA trust
+        run: bash wazuh/core/build-azure.sh "$RUNNER_TEMP/qapaq-core-azure"
+
+      - name: Verify archive identity, checksums, and Azure CA input
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/qapaq-core-azure"
+          mapfile -t archives < <(find "$dir" -maxdepth 1 -type f -name 'qapaq-core-*.tar.gz' -print)
+          [[ "${#archives[@]}" == 1 ]] || { echo 'Expected one QAPAQ core archive.' >&2; exit 1; }
+          (cd "$dir" && sha256sum --check SHA256SUMS)
+          archive="${archives[0]}"
+          top="$(tar -tzf "$archive" | sed -n '1{s,/.*,,;p;}')"
+          [[ "$top" =~ ^qapaq-core-[0-9a-f]{12}$ ]]
+          release="$(tar -xOf "$archive" "$top/RELEASE")"
+          [[ "$release" == "${GITHUB_SHA:0:12}" ]]
+          archive_ca="$(tar -xOf "$archive" "$top/certs/rds-global-bundle.pem" | sha256sum | awk '{print $1}')"
+          runner_ca="$(sha256sum /etc/ssl/certs/ca-certificates.crt | awk '{print $1}')"
+          [[ "$archive_ca" == "$runner_ca" ]] || { echo 'Azure core archive does not contain the runner system CA store.' >&2; exit 1; }
+          {
+            echo '## Azure QAPAQ core build'
+            echo '- Build target: system CA trust store; no AWS RDS CA download.'
+            echo '- Cloud credentials: none.'
+            echo '- Release archive is an intermediate artifact, not a complete Wazuh install bundle.'
+            echo '- Runtime, PostgreSQL TLS, worker, and service health still require Azure integration tests.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload ephemeral build artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qapaq-core-azure-${{ github.sha }}
+          path: ${{ runner.temp }}/qapaq-core-azure/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1

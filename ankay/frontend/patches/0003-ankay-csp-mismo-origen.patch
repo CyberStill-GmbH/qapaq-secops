@@ -1,0 +1,24 @@
+diff --git a/frontend/confd/templates/nginx.conf b/frontend/confd/templates/nginx.conf
+index 2c9df91..394f0ab 100755
+--- a/frontend/confd/templates/nginx.conf
++++ b/frontend/confd/templates/nginx.conf
+@@ -58,7 +58,8 @@ http {
+ 
+ 			# security headers
+ 			add_header X-XSS-Protection "1; mode=block";
+-			# add_header Content-Security-Policy "default-src 'self'";
++			# Ankay Qapaq: sin servicios externos (N1/N2, sin tercerizar ante la SBS). Solo mismo origen.
++			add_header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+ 			add_header Referrer-Policy "no-referrer";
+ 			server_tokens off;
+ 
+@@ -99,7 +100,8 @@ http {
+ 
+ 			# security headers
+ 			add_header X-XSS-Protection "1; mode=block";
+-			# add_header Content-Security-Policy "default-src 'self'";
++			# Ankay Qapaq: sin servicios externos (N1/N2, sin tercerizar ante la SBS). Solo mismo origen.
++			add_header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+ 			add_header Referrer-Policy "no-referrer";
+ 			server_tokens off;
+ 

@@ -1,0 +1,263 @@
+locals {
+  name = "${var.name_base}-ankay"
+  cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
+    compose_b64  = base64encode(var.compose_yaml)
+    compose_sha  = var.compose_sha256
+    data_disk_gb = var.data_disk_size_gb
+  })
+}
+
+resource "azurerm_network_security_group" "ankay" {
+  name                = "nsg-${local.name}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = merge(var.tags, { service = "ankay" })
+
+  security_rule {
+    name                       = "AllowQapaqEdgeToAnkayFrontend"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = tostring(var.frontend_port)
+    source_address_prefix      = var.edge_subnet_cidr
+    destination_address_prefix = var.private_ip_address
+  }
+
+  security_rule {
+    name                       = "AllowQapaqApiToAnkayWebhook"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = tostring(var.backend_port)
+    source_address_prefix      = var.qapaq_api_subnet_cidr
+    destination_address_prefix = var.private_ip_address
+  }
+
+  security_rule {
+    name                       = "DenyOtherInbound"
+    priority                   = 400
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowAzurePlatformDns"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "53"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzurePlatformDNS"
+  }
+
+  security_rule {
+    name                       = "AllowQapaqCallback"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = tostring(var.api_port)
+    source_address_prefix      = var.private_ip_address
+    destination_address_prefix = "${var.qapaq_api_private_ip}/32"
+  }
+
+  # HTTPS to public endpoints is force-routed through Azure Firewall; default-deny FQDN policy remains a deployment gate.
+  #trivy:ignore:AZU-0051:exp:2026-11-20
+  security_rule {
+    name                       = "AllowHttpEgressForFirewallInspection"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["80", "443"]
+    source_address_prefix      = var.private_ip_address
+    destination_address_prefix = "Internet"
+  }
+
+  dynamic "security_rule" {
+    for_each = var.wazuh_manager_private_ip == "" ? [] : [var.wazuh_manager_private_ip]
+    content {
+      name                       = "AllowWazuhAgentToManager"
+      priority                   = 130
+      direction                  = "Outbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "1514"
+      source_address_prefix      = var.private_ip_address
+      destination_address_prefix = "${security_rule.value}/32"
+    }
+  }
+
+  security_rule {
+    name                       = "DenyOtherVnetEgress"
+    priority                   = 300
+    direction                  = "Outbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  security_rule {
+    name                       = "DenyDirectInternetEgress"
+    priority                   = 310
+    direction                  = "Outbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "Internet"
+  }
+}
+
+resource "azurerm_network_interface" "ankay" {
+  name                = "nic-${local.name}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = merge(var.tags, { service = "ankay" })
+
+  ip_configuration {
+    name                          = "private"
+    subnet_id                     = var.subnet_id
+    private_ip_address_allocation = "Static"
+    private_ip_address            = var.private_ip_address
+  }
+}
+
+resource "azurerm_network_interface_security_group_association" "ankay" {
+  network_interface_id      = azurerm_network_interface.ankay.id
+  network_security_group_id = azurerm_network_security_group.ankay.id
+}
+
+resource "azurerm_route_table" "ankay" {
+  name                          = "rt-${local.name}"
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  bgp_route_propagation_enabled = false
+  tags                          = merge(var.tags, { service = "ankay" })
+
+  route {
+    name                   = "force-internet-egress-through-firewall"
+    address_prefix         = "0.0.0.0/0"
+    next_hop_type          = "VirtualAppliance"
+    next_hop_in_ip_address = var.firewall_private_ip
+  }
+}
+
+resource "azurerm_subnet_route_table_association" "ankay" {
+  subnet_id      = var.subnet_id
+  route_table_id = azurerm_route_table.ankay.id
+}
+
+resource "azurerm_user_assigned_identity" "ankay" {
+  name                = "id-${local.name}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = merge(var.tags, { service = "ankay" })
+}
+
+resource "azurerm_role_assignment" "acr_pull" {
+  scope                = var.container_registry_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.ankay.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_managed_disk" "ankay_data" {
+  name                          = "disk-${local.name}-data"
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  storage_account_type          = "StandardSSD_LRS"
+  create_option                 = "Empty"
+  disk_size_gb                  = var.data_disk_size_gb
+  network_access_policy         = "DenyAll"
+  public_network_access_enabled = false
+  tags                          = merge(var.tags, { service = "ankay", data_role = "workflow-and-opensearch" })
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "azurerm_linux_virtual_machine" "ankay" {
+  name                            = local.name
+  computer_name                   = "ankay-qapaq"
+  location                        = var.location
+  resource_group_name             = var.resource_group_name
+  size                            = var.vm_size
+  admin_username                  = var.admin_username
+  disable_password_authentication = true
+  network_interface_ids           = [azurerm_network_interface.ankay.id]
+  custom_data                     = base64encode(local.cloud_init)
+  encryption_at_host_enabled      = true
+  secure_boot_enabled             = true
+  vtpm_enabled                    = true
+  patch_mode                      = "AutomaticByPlatform"
+  provision_vm_agent              = true
+  tags                            = merge(var.tags, { service = "ankay" })
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.ankay.id]
+  }
+
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = var.admin_ssh_public_key
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "ubuntu-24_04-lts"
+    sku       = "server"
+    version   = var.ubuntu_image_version
+  }
+
+  os_disk {
+    name                 = "disk-${local.name}-os"
+    caching              = "ReadWrite"
+    storage_account_type = "StandardSSD_LRS"
+    disk_size_gb         = 64
+  }
+
+  boot_diagnostics {}
+
+  lifecycle {
+    prevent_destroy = true
+
+    precondition {
+      condition     = sha256(var.compose_yaml) == var.compose_sha256
+      error_message = "El SHA-256 del Compose no coincide con la referencia revisada."
+    }
+
+    precondition {
+      condition     = alltrue([for image in values(var.container_images) : startswith(image, "${var.container_registry_login_server}/") && strcontains(var.compose_yaml, image)])
+      error_message = "El Compose debe referenciar exactamente los seis digests aprobados del ACR, incluido el worker dinámico."
+    }
+  }
+}
+
+resource "azurerm_virtual_machine_data_disk_attachment" "ankay_data" {
+  managed_disk_id    = azurerm_managed_disk.ankay_data.id
+  virtual_machine_id = azurerm_linux_virtual_machine.ankay.id
+  lun                = 0
+  caching            = "ReadWrite"
+  create_option      = "Attach"
+}
