@@ -62,9 +62,24 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   [39535588443](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39535588443).
   En esa misma ejecución, Manager construyó el paquete principal y el de símbolos, pero
   la validación falló porque contaba todos los `.deb` como si fueran el único Manager.
-  Se está ajustando la selección por el campo Debian `Package=wazuh-manager`; aún falta
-  repetir el build y confirmar el artefacto. Los paquetes experimentales no se han
-  publicado ni instalado.
+  El PR #78 corrigió la selección por metadato Debian `Package=wazuh-manager` y se
+  integró en `main` como `d59bca44872bf5f430c9cf3cec5b381a48f35b04`. En el run
+  [39644906120](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39644906120),
+  Filebeat pasó firma/checksum; el job Manager seguía compilando en la última lectura.
+  Indexer volvió a fallar, ahora porque `download.eclipse.org/eclipse/updates/4.29/p2.index`
+  respondió HTML de mantenimiento en vez del índice P2. El endpoint presenta el mismo
+  contenido HTML desde el runner y desde la estación de revisión, así que es una
+  dependencia externa del build, no un fallo del paquete ni una conexión Azure.
+  Los paquetes experimentales no se han publicado ni instalado.
+
+- Actualización CI 2026-10-21: el pin de KrakenD Go se actualizó a 1.26.10 para incluir
+  la corrección oficial de CVE-2026-111943; el PR #78 y los escaneos Trivy de contenedores
+  pasaron y se integraron en `main`. Para el bloqueo Eclipse se está preparando el overlay
+  QAPAQ [`wazuh-indexer-spotless-jdt-lockfile.patch`](../../../infra/azure/overlays/wazuh-indexer-spotless-jdt-lockfile.patch),
+  limitado a la dependencia de formato de build. La compilación deberá registrar su SHA-256
+  junto a la procedencia y demostrar que resuelve JDT 4.29 desde Maven Central. No modifica
+  el código runtime de Wazuh. El overlay sigue sin validación de GitHub Actions al momento
+  de esta nota.
   Los workflows Azure de Dashboard y core son separados: el core Azure pasó
   build/checksum en el run
   [39531106649](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531106649);
