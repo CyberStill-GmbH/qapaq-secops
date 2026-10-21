@@ -57,18 +57,21 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   y
   [39531495712](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531495712),
   Indexer falló al crear `artifacts/maven`: el contenedor builder corre como UID 1000
-  y el checkout bind-mounted pertenecía al runner. Se añadió al branch de preparación
-  una concesión temporal de ownership del checkout Indexer al UID 1000 del builder,
-  con restauración al UID del runner; el builder escribe en Gradle/build y `artifacts/`.
-  Falta ejecutar CI con esa corrección. El builder
-  no produjo ni publicó un `.deb` validado.
-  Los workflows Azure de Dashboard y core son separados: el core Azure ya pasó
+  y el checkout bind-mounted pertenecía al runner. La corrección temporal de ownership
+  se integró en `main`; el builder Indexer ya terminó y validó su `.deb` en el run
+  [39535588443](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39535588443).
+  En esa misma ejecución, Manager construyó el paquete principal y el de símbolos, pero
+  la validación falló porque contaba todos los `.deb` como si fueran el único Manager.
+  Se está ajustando la selección por el campo Debian `Package=wazuh-manager`; aún falta
+  repetir el build y confirmar el artefacto. Los paquetes experimentales no se han
+  publicado ni instalado.
+  Los workflows Azure de Dashboard y core son separados: el core Azure pasó
   build/checksum en el run
   [39531106649](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531106649);
-  el Dashboard se compila en
-  [39531035378](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531035378)
-  y continuaba en ejecución a la hora de esta actualización. Ninguno de esos
-  runs publica a Azure ni despliega una VM.
+  el Dashboard compiló y subió un artefacto temporal en
+  [39531035378](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39531035378),
+  pero su job de publicación a ACR fue omitido porque requiere ejecución manual en `main`.
+  Ninguno de esos runs despliega una VM.
 - El módulo `ankay_host` existe aislado, pero el root no lo instancia. Su
   `cloud-init` monta y prepara el Compose; no instala ni arranca Shuffle,
   Orborus, workers, OpenSearch o el backend. El workflow de Ankay en

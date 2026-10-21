@@ -91,10 +91,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t packages < <(find "$RUNNER_TEMP/manager-output" -maxdepth 1 -type f -name '*.deb' -print)
-          [[ "${#packages[@]}" == 1 ]] || { echo "Expected one Manager .deb, found ${#packages[@]}" >&2; exit 1; }
-          package="${packages[0]}"
-          [[ "$(dpkg-deb -f "$package" Package)" == "wazuh-manager" ]]
+          package=""
+          manager_package_count=0
+          while IFS= read -r candidate; do
+            if [[ "$(dpkg-deb -f "$candidate" Package)" == "wazuh-manager" ]]; then
+              package="$candidate"
+              manager_package_count=$((manager_package_count + 1))
+            fi
+          done < <(find "$RUNNER_TEMP/manager-output" -maxdepth 1 -type f -name '*.deb' -print | sort)
+          [[ "$manager_package_count" == 1 ]] || {
+            echo "Expected one package with Debian Package=wazuh-manager; found $manager_package_count" >&2
+            exit 1
+          }
           [[ "$(dpkg-deb -f "$package" Version)" == "4.14.8-1" ]]
           [[ "$(dpkg-deb -f "$package" Architecture)" == "amd64" ]]
           install -D "$package" "$RUNNER_TEMP/manager-artifact/$(basename "$package")"

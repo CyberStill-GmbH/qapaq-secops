@@ -2,11 +2,11 @@
 #
 # La imagen oficial `krakend:3.0.0` trae Go 1.26.8 y x/net 0.58.0, con CVEs HIGH de denegación
 # de servicio (CVE-2026-78667, CVE-2026-78669, CVE-2026-97031). KrakenD es el borde detrás del
-# ALB público, así que esos CVEs no se ignoran: se recompila la misma versión con Go 1.26.9
+# ALB público, así que esos CVEs no se ignoran: se recompila la misma versión con Go 1.26.10
 # y x/net 0.60.0. Cuando KrakenD publique una imagen corregida, se vuelve a `FROM krakend:<versión>`.
 # Pasos de compilación tomados del Dockerfile y el Makefile de krakend-ce v3.0.0 (Apache 2.0).
 
-FROM golang:1.26.9-alpine3.23@sha256:6750308561953d451210ed1a8086d36c8c8bdcbf672d38d9d0d424b8a7a0216c AS build
+FROM golang:1.26.10-alpine3.23@sha256:a07f231c19b03e6106cf442f02a5bcf262147e744d15b7b5e4b6d81d420c70a0 AS build
 ARG KRAKEND_VERSION=3.0.0
 # Commit de la etiqueta v3.0.0; si la etiqueta se moviera, la compilación falla.
 ARG KRAKEND_COMMIT=1bd4af95102cef14795f60f4201de72130fc6423
