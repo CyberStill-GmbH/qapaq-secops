@@ -19,6 +19,7 @@ concurrency:
 env:
   WAZUH_MANAGER_SHA: f470ad7db717b18db7feeed568949643698f0f34
   WAZUH_INDEXER_SHA: 9f4796b8738969ac50ea8b6d23cdea5ce1a8565a
+  WAZUH_INDEXER_OVERLAY_SHA256: 46d3c422e9d590263e1a162cd645c84168ee90611a2eb543a158fa47cd08e1ec
   WAZUH_VERSION: 4.14.8
   OSD_COMPAT_VERSION: 2.19.6
   FILEBEAT_VERSION: 7.10.2-2
@@ -160,6 +161,17 @@ jobs:
             "https://api.github.com/repos/wazuh/wazuh-indexer/commits/$WAZUH_INDEXER_SHA" \
             | jq -e --arg sha "$WAZUH_INDEXER_SHA" '.sha == $sha and .commit.verification.verified == true' >/dev/null
 
+      - name: Apply the pinned offline JDT formatter overlay
+        working-directory: upstream/wazuh-indexer
+        shell: bash
+        run: |
+          set -euo pipefail
+          overlay="$GITHUB_WORKSPACE/infra/azure/overlays/wazuh-indexer-spotless-jdt-lockfile.patch"
+          echo "$WAZUH_INDEXER_OVERLAY_SHA256  $overlay" | sha256sum --check --status
+          git apply --check "$overlay"
+          git apply "$overlay"
+          grep -Fq 'id "com.diffplug.spotless" version "8.10.2" apply false' build.gradle
+
       - name: Start the official build and assemble containers
         working-directory: upstream/wazuh-indexer/docker/ci
         run: bash ./ci.sh up
@@ -200,10 +212,11 @@ jobs:
             --arg commit "$WAZUH_INDEXER_SHA" \
             --arg version "$(dpkg-deb -f "$package" Version)" \
             --arg package "$(basename "$package")" \
+            --arg overlaySha256 "$WAZUH_INDEXER_OVERLAY_SHA256" \
             --arg sha256 "$(sha256sum "$package" | cut -d' ' -f1)" \
             --arg sha512 "$(sha512sum "$package" | cut -d' ' -f1)" \
             --arg osdCompatibility "$(bash packaging_scripts/upstream_version.sh)" \
-            '{status:"experimental", component:"wazuh-indexer", repository:$repository, sourceCommit:$commit, package:$package, debVersion:$version, sha256:$sha256, sha512:$sha512, openSearchDashboardsCompatibility:$osdCompatibility, buildMethod:"official docker/ci/ci.sh and packaging_scripts build/assemble; Debian amd64; revision 1"}' \
+            '{status:"experimental", component:"wazuh-indexer", repository:$repository, sourceCommit:$commit, buildOverlaySha256:$overlaySha256, package:$package, debVersion:$version, sha256:$sha256, sha512:$sha512, openSearchDashboardsCompatibility:$osdCompatibility, buildMethod:"official docker/ci/ci.sh and packaging_scripts build/assemble with pinned QAPAQ Spotless 8.10.2 build-only overlay; Debian amd64; revision 1"}' \
             > "$RUNNER_TEMP/indexer-artifact/provenance.json"
 
       - name: Stop official build containers
@@ -327,7 +340,7 @@ jobs:
           test -s "$indexer/provenance.json"
           test -s "$filebeat/provenance.json"
           jq -e '.status == "experimental" and .sourceCommit == env.WAZUH_MANAGER_SHA and .debVersion == "4.14.8-1"' "$manager/provenance.json" >/dev/null
-          jq -e '.status == "experimental" and .sourceCommit == env.WAZUH_INDEXER_SHA and .debVersion == "4.14.8-1" and .openSearchDashboardsCompatibility == env.OSD_COMPAT_VERSION' "$indexer/provenance.json" >/dev/null
+          jq -e '.status == "experimental" and .sourceCommit == env.WAZUH_INDEXER_SHA and .buildOverlaySha256 == env.WAZUH_INDEXER_OVERLAY_SHA256 and .debVersion == "4.14.8-1" and .openSearchDashboardsCompatibility == env.OSD_COMPAT_VERSION' "$indexer/provenance.json" >/dev/null
           jq -e '.status == "experimental" and .packageVersion == env.FILEBEAT_VERSION and .aptMetadataSignatureVerified == true' "$filebeat/provenance.json" >/dev/null
           (cd "$manager" && sha256sum --check SHA256SUMS)
           (cd "$indexer" && sha256sum --check SHA256SUMS)
@@ -337,12 +350,13 @@ jobs:
             --arg status 'experimental-prerequisite-artifacts-only' \
             --arg managerSha "$WAZUH_MANAGER_SHA" \
             --arg indexerSha "$WAZUH_INDEXER_SHA" \
+            --arg indexerOverlaySha256 "$WAZUH_INDEXER_OVERLAY_SHA256" \
             --arg wazuhVersion "$WAZUH_VERSION" \
             --arg osdCompatibility "$OSD_COMPAT_VERSION" \
             --arg filebeatVersion "$FILEBEAT_VERSION" \
             --arg runId "$GITHUB_RUN_ID" \
             --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
-            '{status:$status, runtimeReady:false, installBundle:false, cloudPublication:false, versions:{wazuhManager:$wazuhVersion, wazuhIndexer:$wazuhVersion, openSearchDashboardsCompatibility:$osdCompatibility, filebeat:$filebeatVersion}, sourceCommits:{wazuhManager:$managerSha, wazuhIndexer:$indexerSha}, actionsRun:{id:$runId, attempt:$runAttempt}, artifacts:["azure-siem-manager-4.14.8-experimental","azure-siem-indexer-4.14.8-experimental","azure-siem-filebeat-7.10.2-2-experimental"], limitations:["Dashboard QAPAQ and qapaq-core are not included.","This is not the siem_host bootstrap bundle and cannot be applied.","Source-package builds are not locally executable/validated in this Windows worktree.","Upstream builders may download mutable base images or dependencies; this workflow records source and output hashes but does not claim bit-for-bit reproducibility."]}' \
+            '{status:$status, runtimeReady:false, installBundle:false, cloudPublication:false, versions:{wazuhManager:$wazuhVersion, wazuhIndexer:$wazuhVersion, openSearchDashboardsCompatibility:$osdCompatibility, filebeat:$filebeatVersion}, sourceCommits:{wazuhManager:$managerSha, wazuhIndexer:$indexerSha}, buildOverlays:{wazuhIndexerSpotless:{version:"8.10.2",sha256:$indexerOverlaySha256}}, actionsRun:{id:$runId, attempt:$runAttempt}, artifacts:["azure-siem-manager-4.14.8-experimental","azure-siem-indexer-4.14.8-experimental","azure-siem-filebeat-7.10.2-2-experimental"], limitations:["Dashboard QAPAQ and qapaq-core are not included.","This is not the siem_host bootstrap bundle and cannot be applied.","Source-package builds are not locally executable/validated in this Windows worktree.","Upstream builders may download mutable base images or dependencies; this workflow records source and output hashes but does not claim bit-for-bit reproducibility."]}' \
             > "$RUNNER_TEMP/evidence/prerequisites-manifest.json"
           cp "$manager/provenance.json" "$RUNNER_TEMP/evidence/manager-provenance.json"
           cp "$indexer/provenance.json" "$RUNNER_TEMP/evidence/indexer-provenance.json"
