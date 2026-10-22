@@ -5,6 +5,7 @@ FROM ${GO_BUILDER_IMAGE} AS builder
 WORKDIR /app
 RUN mkdir -p /app_sdk
 
+COPY backend/go-app/moby-shuffle-shared/ /app/moby-shuffle-shared/
 COPY backend/go-app/go.mod backend/go-app/go.sum ./
 RUN go mod download
 

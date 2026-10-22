@@ -11,6 +11,8 @@
     "shuffleShared": {
       "module": "github.com/shuffle/shuffle-shared",
       "version": "v1.3.22",
+      "repository": "https://github.com/Shuffle/shuffle-shared.git",
+      "commit": "f81e48ec7dfdd9fd0b94c207fb6b58535ed52a90",
       "sum": "h1:Xb9EnYLyrhlP8AiH52Frst6iflIkbxyBmG/bntpRo5o=",
       "goModSum": "h1:0vOWNn+aXibNcbjROmrgszm3/KirYtwzE5BuVnCzQVE=",
       "license": "AGPL-3.0",
@@ -69,7 +71,7 @@
   },
   "componentStatus": {
     "frontend": "build-from-pinned-shuffle-source",
-    "backend": "build-from-pinned-shuffle-source",
+    "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
     "worker": "build-from-pinned-shuffle-source",
     "opensearch": "pull-by-pinned-platform-digest",
     "orborus": "blocked-license-review",
@@ -78,17 +80,17 @@
   "securityBlockers": {
     "dockerSdk": {
       "module": "github.com/docker/docker@v28.3.3+incompatible",
-      "status": "blocked-until-sdk-migration-and-engine-upgrade",
+      "status": "backend-migrated-worker-still-blocked",
       "cves": ["CVE-2026-41567", "CVE-2026-42306"],
       "requiredEngineVersion": "29.5.1",
-      "reason": "The deprecated github.com/docker/docker module has no patched release. The official github.com/moby/moby/v2 root module builds the Engine and is not intended as a library; migrating client/API imports requires a separate compatibility change and runtime tests against Engine 29.5.1 or later."
+      "reason": "The backend and its pinned shuffle-shared overlay use the official github.com/moby/moby/client and /api modules. The worker still uses the deprecated SDK, so the component set remains blocked from publication until worker migration and runtime tests against Engine 29.5.1 or later."
     },
     "mobyGoArchive": {
       "module": "github.com/moby/go-archive@v0.1.0",
-      "status": "blocked-until-docker-sdk-migration",
+      "status": "worker-still-blocked",
       "cves": ["CVE-2026-17106"],
       "fixedVersion": "v0.3.0",
-      "reason": "The patched v0.3.x API removes archive.Compression, which the pinned Docker SDK v28.3.3 uses in pkg/archive/archive_deprecated.go. Keep v0.1.0 until the SDK migration is implemented and compatibility tests pass."
+      "reason": "The backend module no longer includes go-archive after migrating to Moby client/api. The worker still uses the deprecated Docker SDK and retains go-archive v0.1.0; upgrade that dependency with the worker migration and verify compatibility before publication."
     }
   }
 }

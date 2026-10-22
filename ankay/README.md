@@ -92,7 +92,7 @@ y verificación reproducible de componentes Ankay pertenece al workflow personal
 `.github/ci/verify-container-images.sh` aún enumera imágenes por separado y no debe
 considerarse evidencia de que haya construido backend o worker.
 
-### Dependencias y bloqueo de Docker SDK
+### Migración parcial del Docker SDK
 
 Backend y worker compilan con Go `1.27.3` fijado por digest sobre Alpine `3.23`; las imágenes
 runtime usan Alpine `3.22.6` fijado por digest. El overlay
@@ -109,24 +109,21 @@ host oficial y localhost. El overlay usa `&&`, preserva esas dos opciones y norm
 demás hosts a `https://shuffler.io`. Esta ruta solo aplica al endpoint administrativo de
 cloud sync legado; no participa en el runtime QAPAQ ni en los jobs de Ankay.
 
-El módulo upstream `github.com/docker/docker v28.3.3+incompatible` (`CVE-2026-41567` y
-`CVE-2026-42306`) y `github.com/moby/go-archive v0.1.0` (`CVE-2026-17106`) siguen bloqueando
-el release. No existe versión corregida del módulo `github.com/docker/docker`. El proyecto Moby
-depreca `github.com/docker/docker` y ofrece módulos separados
-para `client` y `api`; `github.com/moby/moby/v2` es el código fuente del Engine, compila binarios
-y no promete estabilidad como biblioteca. No se cambia el import path en este parche porque
-backend y worker consumen numerosos paquetes y tipos del SDK antiguo. El bump de `go-archive`
-a `v0.3.0` rompe compilación porque elimina `archive.Compression`, usado por el SDK en
-`pkg/archive/archive_deprecated.go`. El daemon conectado al socket debe cumplir Engine `29.5.1`
-o posterior para contener las dos vulnerabilidades del Engine.
+El backend del overlay migra a los módulos oficiales `github.com/moby/moby/client v0.2.1` y
+`github.com/moby/moby/api v1.53.0`. También fija `shuffle-shared` a su commit fuente, aplica un
+overlay reproducible para el helper Docker y elimina `go-dockerclient` del backend. Las
+operaciones de build, pull, list, tag y export de imágenes usan Moby. El requisito Docker SDK
+obsoleto que `shuffle/singul` conserva en su `go.mod` no es importado por código; `go mod why`
+confirma que el backend no necesita ese módulo y el overlay lo excluye del grafo.
 
-La migración debe ir en un cambio independiente: portar primero imports y firmas a los módulos
-oficiales `github.com/moby/moby/client` y `github.com/moby/moby/api`, compilar y ejecutar pruebas
-del SDK contra Engine 29.5.1+; cubrir pull/create/start/exec/copy/inspect/remove, cancelación y
-errores de API; probar worker dinámico y el contrato del socket; luego escanear binarios/imágenes.
-Mantener `go-archive v0.1.0` hasta migrar el SDK que depende de su API antigua. No habilitar ACR ni
-runtime hasta que ese gate pase. El registro estructurado está en
-`azure-components.lock.json`; Trivy no se suprime ni se allowlistea para ocultar estos CVE.
+La migración del worker está pendiente. Ese componente aún compila con
+`github.com/docker/docker v28.3.3+incompatible` (`CVE-2026-41567`, `CVE-2026-42306`) y
+`github.com/moby/go-archive v0.1.0` (`CVE-2026-17106`), por lo que el conjunto Ankay sigue bloqueado
+para publicación. No subir imágenes ni habilitar el host hasta portar el worker, validar los
+contratos de socket y operaciones contra Engine 29.5.1+, y pasar los gates de Trivy de backend y
+worker. La migración del backend se verificó con `go test ./...`; no se pudo probar contra un
+daemon Engine local. El registro de fuentes, versiones y bloqueos está en
+`azure-components.lock.json`; Trivy no se suprime ni se allowlistea.
 
 ## Uso
 

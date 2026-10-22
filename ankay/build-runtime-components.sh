@@ -20,8 +20,11 @@ app_sdk_repo="$(jq -r '.sources.appSdk.repository' "$lock_file")"
 app_sdk_sha="$(jq -r '.sources.appSdk.commit' "$lock_file")"
 app_sdk_file="$(jq -r '.sources.appSdk.file' "$lock_file")"
 app_sdk_file_sha="$(jq -r '.sources.appSdk.fileSha256' "$lock_file")"
+shuffle_shared_repo="$(jq -r '.sources.shuffleShared.repository' "$lock_file")"
+shuffle_shared_sha="$(jq -r '.sources.shuffleShared.commit' "$lock_file")"
 require_sha shuffle.commit "$shuffle_sha"
 require_sha appSdk.commit "$app_sdk_sha"
+require_sha shuffleShared.commit "$shuffle_shared_sha"
 [[ "$app_sdk_file_sha" =~ ^[0-9a-f]{64}$ ]] || { echo 'appSdk.fileSha256 no es un SHA-256 completo' >&2; exit 1; }
 
 fetch_commit() {
@@ -38,17 +41,33 @@ fetch_commit() {
 
 fetch_commit "$shuffle_repo" "$shuffle_sha" "$work_dir/shuffle"
 fetch_commit "$app_sdk_repo" "$app_sdk_sha" "$work_dir/app-sdk"
+fetch_commit "$shuffle_shared_repo" "$shuffle_shared_sha" "$work_dir/shuffle-shared"
 shuffle_shared_sums_patch="$root/ankay/runtime/shuffle-shared-v1.3.22-sums.patch"
 shuffle_runtime_security_patch="$root/ankay/runtime/shuffle-runtime-security-upgrades.patch"
 shuffle_runtime_source_patch="$root/ankay/runtime/shuffle-runtime-vet-and-cloud-url.patch"
+shuffle_runtime_moby_patch="$root/ankay/runtime/shuffle-runtime-moby-v29.patch"
+shuffle_shared_moby_patch="$root/ankay/runtime/shuffle-shared-moby-v29.patch"
 git -C "$work_dir/shuffle" apply --check "$shuffle_shared_sums_patch"
 git -C "$work_dir/shuffle" apply "$shuffle_shared_sums_patch"
 git -C "$work_dir/shuffle" apply --check "$shuffle_runtime_security_patch"
 git -C "$work_dir/shuffle" apply "$shuffle_runtime_security_patch"
 git -C "$work_dir/shuffle" apply --check "$shuffle_runtime_source_patch"
 git -C "$work_dir/shuffle" apply "$shuffle_runtime_source_patch"
+git -C "$work_dir/shuffle" apply --check "$shuffle_runtime_moby_patch"
+git -C "$work_dir/shuffle" apply "$shuffle_runtime_moby_patch"
+git -C "$work_dir/shuffle-shared" apply --check "$shuffle_shared_moby_patch"
+git -C "$work_dir/shuffle-shared" apply "$shuffle_shared_moby_patch"
+shared_overlay="$work_dir/shuffle/backend/go-app/moby-shuffle-shared"
+mkdir -p "$shared_overlay"
+git -C "$work_dir/shuffle-shared" archive "$shuffle_shared_sha" -- . ':(exclude)app_upload' |
+  tar -xf - -C "$shared_overlay"
+cp "$work_dir/shuffle-shared/shared.go" "$work_dir/shuffle-shared/codegen.go" \
+  "$work_dir/shuffle-shared/go.mod" "$work_dir/shuffle-shared/go.sum" "$shared_overlay/"
 grep -qi 'GNU AFFERO GENERAL PUBLIC LICENSE' "$work_dir/shuffle/LICENSE" || {
   echo 'La fuente Shuffle no acredita AGPL-3.0 en LICENSE' >&2; exit 1;
+}
+grep -qi 'GNU AFFERO GENERAL PUBLIC LICENSE' "$work_dir/shuffle-shared/LICENSE" || {
+  echo 'La fuente shuffle-shared no acredita AGPL-3.0 en LICENSE' >&2; exit 1;
 }
 grep -q 'MIT License' "$work_dir/app-sdk/LICENSE" || {
   echo 'La fuente app_sdk no acredita MIT en LICENSE' >&2; exit 1;
@@ -112,8 +131,11 @@ mkdir -p "$work_dir/source/ankay-overlay"
 cp "$shuffle_shared_sums_patch" "$work_dir/source/ankay-overlay/"
 cp "$shuffle_runtime_security_patch" "$work_dir/source/ankay-overlay/"
 cp "$shuffle_runtime_source_patch" "$work_dir/source/ankay-overlay/"
+cp "$shuffle_runtime_moby_patch" "$shuffle_shared_moby_patch" "$work_dir/source/ankay-overlay/"
 cp "$work_dir/shuffle/backend/go-app/main.go" "$work_dir/source/shuffle/backend/go-app/main.go"
 cp "$work_dir/shuffle/backend/go-app/docker.go" "$work_dir/source/shuffle/backend/go-app/docker.go"
+cp "$work_dir/shuffle/backend/go-app/walkoff.go" "$work_dir/source/shuffle/backend/go-app/walkoff.go"
+cp -a "$shared_overlay" "$work_dir/source/shuffle/backend/go-app/moby-shuffle-shared"
 cp "$work_dir/shuffle/backend/go-app/cloud_sync_url_test.go" "$work_dir/source/shuffle/backend/go-app/cloud_sync_url_test.go"
 cp "$work_dir/shuffle/functions/onprem/worker/worker.go" "$work_dir/source/shuffle/functions/onprem/worker/worker.go"
 cp "$root/ankay/runtime/Dockerfile.backend" "$root/ankay/runtime/Dockerfile.worker" "$work_dir/source/"
@@ -132,7 +154,7 @@ jq -n \
   --arg backend_archive_sha "$backend_archive_sha" --arg worker_archive_sha "$worker_archive_sha" \
   --arg opensearch_archive_sha "$opensearch_archive_sha" --arg source_archive_sha "$source_archive_sha" \
   --argjson lock "$(cat "$lock_file")" \
-  '{schemaVersion:1, targetPlatform:"linux/amd64", sourceCommits:{shuffle:$shuffle_sha, appSdk:$app_sdk_sha},
+  '{schemaVersion:1, targetPlatform:"linux/amd64", sourceCommits:{shuffle:$shuffle_sha, shuffleShared:$shuffle_shared_sha, appSdk:$app_sdk_sha},
     built:{backend:{imageId:$backend_id, archiveSha256:$backend_archive_sha, license:"AGPL-3.0"},
       worker:{imageId:$worker_id, archiveSha256:$worker_archive_sha, license:"AGPL-3.0"}},
     pinned:{opensearch:{image:($lock.sources.opensearch.repository + "@" + $lock.sources.opensearch.amd64Digest),

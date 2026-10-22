@@ -79,7 +79,7 @@ test('runtime components use a fixed non-root identity with only backend generat
     assert.doesNotMatch(dockerfile, /chown\s+-R/);
   }
 
-  assert.match(backend, /mkdir -p \/app\/generated\s+\\\n\s+&& chown 10001:10001 \/app\/generated/);
+  assert.match(backend, /mkdir -p \/app\/generated\s+\\\r?\n\s+&& chown 10001:10001 \/app\/generated/);
   assert.doesNotMatch(worker, /chown|chmod/);
 });
 
@@ -165,19 +165,52 @@ test('runtime source overlay fixes vet format diagnostics and tests sync URL all
   assert.match(patch, /strings\.ReplaceAll\(name, "\.\", "-"\)/);
 });
 
-test('unpatched Docker SDK advisories remain explicit release blockers', () => {
+test('backend Docker SDK migration uses pinned Moby overlays and corresponding shared source', () => {
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  const backendPatch = readFileSync(
+    new URL('./runtime/shuffle-runtime-moby-v29.patch', import.meta.url),
+    'utf8',
+  );
+  const sharedPatch = readFileSync(
+    new URL('./runtime/shuffle-shared-moby-v29.patch', import.meta.url),
+    'utf8',
+  );
+  const dockerfile = readFileSync(new URL('./runtime/Dockerfile.backend', import.meta.url), 'utf8');
+  const shared = lock.sources.shuffleShared;
+
+  assert.equal(shared.repository, 'https://github.com/Shuffle/shuffle-shared.git');
+  assert.match(shared.commit, /^[0-9a-f]{40}$/);
+  assert.match(buildScript, /fetch_commit "\$shuffle_shared_repo" "\$shuffle_shared_sha"/);
+  assert.match(buildScript, /apply --check "\$shuffle_runtime_moby_patch"/);
+  assert.match(buildScript, /apply --check "\$shuffle_shared_moby_patch"/);
+  assert.match(buildScript, /git -C "\$work_dir\/shuffle-shared" archive "\$shuffle_shared_sha"/);
+  assert.match(buildScript, /:\(exclude\)app_upload/);
+  assert.match(buildScript, /sourceCommits:\{shuffle:\$shuffle_sha, shuffleShared:\$shuffle_shared_sha/);
+  assert.match(dockerfile, /COPY backend\/go-app\/moby-shuffle-shared\/ \/app\/moby-shuffle-shared\//);
+  assert.match(backendPatch, /github\.com\/moby\/moby\/client/);
+  assert.match(backendPatch, /ImageSave\(ctx, \[\]string\{tagFound\}\)/);
+  assert.doesNotMatch(backendPatch, /\+\s*"github\.com\/fsouza\/go-dockerclient"/);
+  assert.doesNotMatch(backendPatch, /\+\s*github\.com\/moby\/go-archive/);
+  assert.match(sharedPatch, /github\.com\/moby\/moby\/client/);
+  assert.doesNotMatch(sharedPatch, /\+\s*"github\.com\/docker\/docker/);
+});
+
+test('worker Docker SDK advisories remain explicit release blockers', () => {
   const blocker = lock.securityBlockers.dockerSdk;
   assert.equal(blocker.module, 'github.com/docker/docker@v28.3.3+incompatible');
-  assert.equal(blocker.status, 'blocked-until-sdk-migration-and-engine-upgrade');
+  assert.equal(blocker.status, 'backend-migrated-worker-still-blocked');
   assert.deepEqual(blocker.cves, ['CVE-2026-41567', 'CVE-2026-42306']);
   assert.equal(blocker.requiredEngineVersion, '29.5.1');
-  assert.match(blocker.reason, /separate compatibility change and runtime tests/);
+  assert.match(blocker.reason, /worker still uses the deprecated SDK/);
   const archive = lock.securityBlockers.mobyGoArchive;
   assert.equal(archive.module, 'github.com/moby/go-archive@v0.1.0');
-  assert.equal(archive.status, 'blocked-until-docker-sdk-migration');
+  assert.equal(archive.status, 'worker-still-blocked');
   assert.deepEqual(archive.cves, ['CVE-2026-17106']);
   assert.equal(archive.fixedVersion, 'v0.3.0');
-  assert.match(archive.reason, /removes archive\.Compression/);
+  assert.match(archive.reason, /worker still uses the deprecated Docker SDK/);
 });
 
 test('unverified service sources remain blocked instead of receiving mutable tags', () => {
