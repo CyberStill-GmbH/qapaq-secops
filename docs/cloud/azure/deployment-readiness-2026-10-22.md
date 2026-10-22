@@ -1,5 +1,33 @@
 # Azure deployment readiness — 2026-10-22
 
+## Revalidación de main y Actions — 2026-10-22
+
+- SHA de `main` auditado: `6fef9139a019d66bed415a25c71190f3741b408e`.
+- El workflow protegido [39778076475](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778076475)
+  completó `Check branch and apply review inputs` correctamente. El job
+  `Create and summarize protected Terraform plan` sigue en `waiting`; por ello,
+  **no hay un plan nuevo ni evidencia de apply para este SHA**.
+- El run de validación [39778487520](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778487520)
+  terminó con el job `validate-dashboard` en verde: construyó y verificó el
+  paquete `.deb` QAPAQ del Dashboard sin credenciales AWS. `build-dashboard`,
+  `build-core` y `deploy` quedaron `skipped`; no se consideran builds ni un
+  despliegue realizados.
+- El run [39778486904](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778486904)
+  seguía `in_progress` al consultar GitHub; el paso activo era `Build QAPAQ
+  Dashboard package`. La verificación y la publicación de su artefacto todavía
+  estaban pendientes, así que no se cuenta como paquete terminado.
+- La configuración Terraform conserva `enable_runtime = false`, `siem_host = null`
+  y `ankay_host = null` por defecto. El runtime genérico, QAPAQ Wazuh y Ankay no
+  están habilitados mediante esta configuración base; la cola Valkey/BullMQ,
+  gateway KrakenD, DNS público/TLS, adaptadores M365/Sophos/Cato/Teams, agentes
+  registrados y playbooks tampoco tienen un despliegue operativo demostrado.
+- El cálculo documentado para Wazuh recomendado + PostgreSQL + Azure Firewall
+  Basic supera USD 530/mes antes de Ankay y componentes adicionales. El budget
+  de USD 200 emite avisos y **no** es un límite de facturación ni apaga recursos.
+
+Esta actualización registra estados consultados de Actions y código Terraform;
+no cambia infraestructura, secretos ni DNS.
+
 ## Execution evidence — 2026-10-22
 
 - **Estado más reciente:** PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100)
