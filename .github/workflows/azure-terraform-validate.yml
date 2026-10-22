@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   validate:
-    name: fmt, init and validate (no cloud credentials)
+    name: fmt, init, validate and test (no cloud credentials)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -76,6 +76,9 @@ jobs:
 
       - name: Validate the SIEM host module
         run: terraform -chdir=infra/azure/modules/siem_host validate -no-color
+
+      - name: Test the SIEM host module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/siem_host test -no-color
 
       - name: Initialize the isolated Ankay host module without cloud credentials
         run: terraform -chdir=infra/azure/modules/ankay_host init -backend=false -input=false -no-color
