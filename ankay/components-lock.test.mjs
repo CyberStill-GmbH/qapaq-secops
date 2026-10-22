@@ -75,7 +75,10 @@ test('pinned shuffle-shared sums are applied to both source modules before image
   ];
 
   for (const sum of expected) assert.equal(sumsPatch.split(sum).length - 1, 2);
-  assert.match(buildScript, /git -C "\$work_dir\/shuffle" apply --check "\$shuffle_shared_sums_patch"/);
+  assert.match(
+    buildScript,
+    /git -C "\$work_dir\/shuffle" apply --check "\$shuffle_shared_sums_patch"/,
+  );
   assert.match(buildScript, /git -C "\$work_dir\/shuffle" apply "\$shuffle_shared_sums_patch"/);
   assert.match(buildScript, /cp "\$work_dir\/shuffle\/backend\/go-app\/go\.sum"/);
   assert.match(buildScript, /cp "\$work_dir\/shuffle\/functions\/onprem\/worker\/go\.sum"/);
