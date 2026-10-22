@@ -1,8 +1,43 @@
 # Azure deployment readiness — 2026-10-22
 
+## Revalidación de main y Actions — 2026-10-22
+
+- SHA de `main` auditado: `6fef9139a019d66bed415a25c71190f3741b408e`.
+- El workflow protegido [39778076475](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778076475)
+  completó `Check branch and apply review inputs` correctamente. El job
+  `Create and summarize protected Terraform plan` sigue en `waiting`; por ello,
+  **no hay un plan nuevo ni evidencia de apply para este SHA**.
+- Consulta visual de solo lectura en Azure Portal, 2026-10-22 aproximadamente
+  13:40 UTC: el grupo `rg-qapaqsecopsdemo-66f8c73b` muestra 18 recursos.
+  PostgreSQL está Ready,
+  con Burstable B2s, 32 GiB y alta disponibilidad desactivada. La lista no muestra
+  una VM/Container App de runtime de QAPAQ o Ankay; este inventario no confirma
+  que estén desplegados. No se abrieron secretos.
+- El run de validación [39778487520](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778487520)
+  terminó con el job `validate-dashboard` en verde: construyó y verificó el
+  paquete `.deb` QAPAQ del Dashboard sin credenciales AWS. `build-dashboard`,
+  `build-core` y `deploy` quedaron `skipped`; no se consideran builds ni un
+  despliegue realizados.
+- El run [39778486904](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778486904)
+  terminó `success`: construyó y verificó el paquete QAPAQ Dashboard y subió el
+  artefacto inmutable de esa corrida. El paso `Publish verified OCI artifact to
+  ACR (manual, main only)` quedó `skipped` porque el evento fue `pull_request`;
+  por tanto, el paquete no se publicó en ACR ni se instaló en Azure.
+- La configuración Terraform conserva `enable_runtime = false`, `siem_host = null`
+  y `ankay_host = null` por defecto. El runtime genérico, QAPAQ Wazuh y Ankay no
+  están habilitados mediante esta configuración base; la cola Valkey/BullMQ,
+  gateway KrakenD, DNS público/TLS, adaptadores M365/Sophos/Cato/Teams, agentes
+  registrados y playbooks tampoco tienen un despliegue operativo demostrado.
+- El cálculo documentado para Wazuh recomendado + PostgreSQL + Azure Firewall
+  Basic supera USD 530/mes antes de Ankay y componentes adicionales. El budget
+  de USD 200 emite avisos y **no** es un límite de facturación ni apaga recursos.
+
+Esta actualización registra estados consultados de Actions y código Terraform;
+no cambia infraestructura, secretos ni DNS.
+
 ## Execution evidence — 2026-10-22
 
-- **Estado más reciente:** PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100)
+- **Registro histórico del reporte previo:** PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100)
   se integró en `main`, ahora en `048716ada8e3e5e077b044888b1291ec101506d4`. El PR
   solo añadió validación de la referencia de secreto en Key Vault y casos de
   `terraform test`; no cambió recursos de Azure.
@@ -46,7 +81,7 @@ The configuration specifies OAuth/RBAC, disabled shared keys and anonymous acces
 
 ## Previous portal snapshot — not a current inventory
 
-An earlier read-only portal inspection on 2026-10-22 recorded 18 resources across the subscription, including 15 in the demo resource group. Its exact time relative to the later apply is not recorded, so this is retained as a dated snapshot only: it must not be treated as a refreshed ARM inventory or as proof of today's exact resource count. The current Actions evidence confirms only the four resources created by run 39766635034. No current full-subscription inventory was established for this update.
+An earlier read-only portal inspection on 2026-10-22 recorded 18 resources across the subscription, including 15 in the demo resource group. Its exact observation time was not recorded. The later visual Portal observation at approximately 13:40 UTC showed 18 resources in the demo resource group; these counts belong to different snapshots and the newer observation supersedes the older group count for this report. This is a portal view, not a refreshed ARM/CLI inventory, and it does not establish the exact current subscription-wide count. The current Actions evidence confirms only the four resources created by run 39766635034. No current full-subscription inventory was established for this update.
 
 The earlier portal snapshot recorded PostgreSQL `psql-qapaqsecopsdemo-66f8c73b` as Ready in Chile Central, PostgreSQL 16.15, Burstable B2s (2 vCPU / 4 GiB), 32 GiB storage, zone 1, with high availability disabled. This is historical evidence, not a fresh health check. No database setting was changed by the artifact-channel apply.
 
