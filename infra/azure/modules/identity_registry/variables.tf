@@ -11,4 +11,5 @@ variable "github_environment" { type = string }
 variable "key_vault_id" { type = string }
 variable "raw_container_id" { type = string }
 variable "siem_release_container_id" { type = string }
+variable "legacy_siem_release_container_id" { type = string }
 variable "tags" { type = map(string) }

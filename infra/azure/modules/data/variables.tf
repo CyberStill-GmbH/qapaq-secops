@@ -3,6 +3,7 @@ variable "location" { type = string }
 variable "name_base" { type = string }
 variable "suffix" { type = string }
 variable "storage_name" { type = string }
+variable "release_storage_name" { type = string }
 variable "key_vault_name" { type = string }
 variable "tenant_id" { type = string }
 variable "postgres_admin_login" { type = string }
