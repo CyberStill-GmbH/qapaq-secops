@@ -57,6 +57,27 @@ El montaje anterior es un contrato requerido del runtime. Hasta que Compose o el
 orquestador lo aplique y se verifique conectividad TLS a OpenSearch, no declarar
 Ankay listo para Terraform/runtime.
 
+## Bloqueo de ejecución sin privilegios
+
+CI mantiene `filesystem` en rojo por Trivy `DS-0002` (HIGH): backend y worker
+conservan el usuario root de upstream. Ambos usan el cliente Docker; la configuración
+upstream monta `/var/run/docker.sock` para backend y Orborus, y el worker ejecuta
+acciones vía Docker. Ese socket entrega autoridad equivalente a root del host.
+Cambiar a `USER` sin conocer el GID del socket y sin preparar permisos de lectura y
+escritura para los directorios hotload/archivos puede romper el runtime. Antes de
+quitar este bloqueo, versiona Compose con usuario no-root, grupo suplementario
+explícito para el socket y ownership probado de los volúmenes; valida ejecución de
+workflows de extremo a extremo. No se suprime `DS-0002` hasta esa prueba.
+
+## Verificación de imágenes en CI
+
+Los Dockerfiles de backend y worker están registrados en `.github/ci/containers.json`
+para que discovery los detecte y habilite los controles de contenedor. La construcción
+y verificación reproducible de componentes Ankay pertenece al workflow personalizado
+`.github/workflows/ankay-azure.yml`; el verificador genérico
+`.github/ci/verify-container-images.sh` aún enumera imágenes por separado y no debe
+considerarse evidencia de que haya construido backend o worker.
+
 ## Uso
 
 ```bash

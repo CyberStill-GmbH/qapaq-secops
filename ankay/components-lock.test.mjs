@@ -13,6 +13,23 @@ test('locks Shuffle and app_sdk to full source commits with declared licenses', 
   assert.match(lock.sources.appSdk.commit, /^[0-9a-f]{40}$/);
   assert.match(lock.sources.appSdk.fileSha256, /^[0-9a-f]{64}$/);
   assert.equal(lock.sources.appSdk.license, 'MIT');
+  assert.equal(
+    lock.sources.appSdk.fileSha256,
+    'f4a0820309df6e2768ffb233ef4848051b62515da0864fca279c6f903bc877a5',
+  );
+});
+
+test('runtime source checksum is computed from the pinned Git blob', () => {
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  assert.match(buildScript, /\.sources\.appSdk\.file'\s+"\$lock_file"/);
+  assert.match(
+    buildScript,
+    /git -C "\$work_dir\/app-sdk" cat-file blob "\$app_sdk_sha:\$app_sdk_file"/,
+  );
+  assert.doesNotMatch(buildScript, /sha256sum "\$work_dir\/app-sdk\/shuffle_sdk\/shuffle_sdk\.py"/);
 });
 
 test('runtime component refs use immutable digests and linux/amd64 target', () => {

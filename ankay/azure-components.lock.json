@@ -26,7 +26,7 @@
       "commit": "b504768b30cadc3681ed1e4c900d933f7dac5c42",
       "license": "MIT",
       "file": "shuffle_sdk/shuffle_sdk.py",
-      "fileSha256": "036b94a9b1f23a13adb269c718edef6a3cae7c3f87f7d25e05cba3fb2fce9ecc"
+      "fileSha256": "f4a0820309df6e2768ffb233ef4848051b62515da0864fca279c6f903bc877a5"
     },
     "orborus": {
       "repository": "https://github.com/Shuffle/orborus.git",

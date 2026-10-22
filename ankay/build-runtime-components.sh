@@ -18,6 +18,7 @@ shuffle_repo="$(jq -r '.sources.shuffle.repository' "$lock_file")"
 shuffle_sha="$(jq -r '.sources.shuffle.commit' "$lock_file")"
 app_sdk_repo="$(jq -r '.sources.appSdk.repository' "$lock_file")"
 app_sdk_sha="$(jq -r '.sources.appSdk.commit' "$lock_file")"
+app_sdk_file="$(jq -r '.sources.appSdk.file' "$lock_file")"
 app_sdk_file_sha="$(jq -r '.sources.appSdk.fileSha256' "$lock_file")"
 require_sha shuffle.commit "$shuffle_sha"
 require_sha appSdk.commit "$app_sdk_sha"
@@ -43,9 +44,9 @@ grep -qi 'GNU AFFERO GENERAL PUBLIC LICENSE' "$work_dir/shuffle/LICENSE" || {
 grep -q 'MIT License' "$work_dir/app-sdk/LICENSE" || {
   echo 'La fuente app_sdk no acredita MIT en LICENSE' >&2; exit 1;
 }
-actual_app_sdk_file_sha="$(sha256sum "$work_dir/app-sdk/shuffle_sdk/shuffle_sdk.py" | awk '{print $1}')"
+actual_app_sdk_file_sha="$(git -C "$work_dir/app-sdk" cat-file blob "$app_sdk_sha:$app_sdk_file" | sha256sum | awk '{print $1}')"
 [[ "$actual_app_sdk_file_sha" == "$app_sdk_file_sha" ]] || {
-  echo 'El archivo app_sdk no coincide con su SHA-256 fijado' >&2; exit 1;
+  echo 'El blob app_sdk no coincide con su SHA-256 fijado' >&2; exit 1;
 }
 
 go_builder_image="$(jq -r '.buildBases.golang125' "$lock_file")"

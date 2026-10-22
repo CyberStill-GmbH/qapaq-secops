@@ -14,5 +14,13 @@
   {
     "dockerfile": "platform/database/Dockerfile.migrator",
     "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.backend",
+    "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.worker",
+    "context": "."
   }
 ]
