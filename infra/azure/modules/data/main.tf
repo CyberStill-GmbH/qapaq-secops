@@ -110,9 +110,10 @@ resource "azurerm_storage_container" "siem_release" {
   }
 }
 
-# CI publica bundles no confidenciales mediante OIDC desde runners GitHub-hosted.
-# Esta cuenta separada tiene endpoint público autenticado; el contenedor sigue privado,
-# no admite claves compartidas ni acceso anónimo. Los eventos SOC permanecen en evidence.
+# Excepción temporal: CI publica bundles no confidenciales por OIDC desde runners
+# GitHub-hosted con egress dinámico. El endpoint exige Entra/RBAC; no hay claves
+# compartidas ni acceso anónimo. Reemplazar por runner privado antes del vencimiento.
+#trivy:ignore:AZU-0012:exp:2026-11-20
 resource "azurerm_storage_account" "siem_release" {
   name                              = var.release_storage_name
   resource_group_name               = var.resource_group_name
@@ -128,6 +129,11 @@ resource "azurerm_storage_account" "siem_release" {
   allow_nested_items_to_be_public   = false
   infrastructure_encryption_enabled = true
   tags                              = merge(var.tags, { data_role = "siem-release-artifacts" })
+
+  network_rules {
+    default_action = "Allow"
+    bypass         = ["AzureServices"]
+  }
 
   blob_properties {
     versioning_enabled = true

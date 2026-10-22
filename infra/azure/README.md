@@ -61,7 +61,9 @@ El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob 
 Contributor` queda limitado al contenedor privado `siem-release` de una cuenta dedicada
 de artefactos. Esa cuenta acepta tráfico por endpoint público autenticado para que los
 runners GitHub-hosted puedan publicar, pero bloquea claves compartidas y acceso anónimo;
-la VM SIEM llega por su private endpoint. El account de artefactos no guarda evidencia SOC.
+la VM SIEM llega por su private endpoint. La excepción Trivy `AZU-0012` vence el
+2026-11-20; antes se debe migrar la publicación a un runner con egress privado. El account
+de artefactos no guarda evidencia SOC.
 La cuenta `evidence` permanece privada y su contenedor `security-event-raw` no cambia. El
 contenedor `siem-release` previo en esa cuenta y su grant publisher se conservan mediante
 una migración de dirección Terraform; no se destruyen ni se reutilizan para el canal nuevo.

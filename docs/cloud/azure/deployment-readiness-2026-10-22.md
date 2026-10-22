@@ -21,6 +21,8 @@ The existing SIEM release container is inside the evidence Storage account, whos
 
 This is source-only preparation. No Azure plan, apply, account creation, data migration, or DNS change has occurred for it. Local `terraform fmt`, `init -backend=false`, and `validate` passed with azurerm 4.81.0. The exact remote plan must confirm only expected additions/RBAC and zero data destruction before any apply.
 
+The change is committed as `3fa7811` in [PR #96](https://github.com/CyberStill-GmbH/qapaq-secops/pull/96). Local and remote Terraform validation passed. The first CI scan found `AZU-0012` on the release account because GitHub-hosted runners need a public endpoint. A time-bounded exception through 2026-11-20 now documents the same OIDC-only tradeoff already used for the state account; the release container stays private, anonymous access and shared keys remain disabled, and the scan must pass on the updated commit. No remote plan or apply has been run for this candidate.
+
 ## Live Azure inventory
 
 Read-only portal inspection on 2026-10-22 showed 18 resources across the subscription. The demo resource group `rg-qapaqsecopsdemo-66f8c73b` has 15: two user-assigned identities, Key Vault, Log Analytics workspace, two private endpoints and their NICs, three private DNS zones, PostgreSQL Flexible Server, ACR, Storage Account, and VNet. The separate Terraform-state resource group has the state Storage Account and its GitHub OIDC identity; Azure Network Watcher is in `NetworkWatcherRG`. No Azure Firewall, SIEM VM, Ankay VM, public IP, or load balancer appears anywhere in the subscription inventory. Therefore the SIEM module's required firewall dependency is absent and the current state cannot provide a public HTTPS endpoint.
