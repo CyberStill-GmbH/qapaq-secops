@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "targetPlatform": "linux/amd64",
+  "sources": {
+    "shuffle": {
+      "repository": "https://github.com/Shuffle/Shuffle.git",
+      "tag": "v2.3.0",
+      "commit": "473cc335e5fcc663006d8e5ca16af5ee71fefa68",
+      "license": "AGPL-3.0"
+    },
+    "shuffleShared": {
+      "module": "github.com/shuffle/shuffle-shared",
+      "version": "v1.3.22",
+      "sum": "h1:Xb9EnYLyrhlP8AiH52Frst6iflIkbxyBmG/bntpRo5o=",
+      "goModSum": "h1:0vOWNn+aXibNcbjROmrgszm3/KirYtwzE5BuVnCzQVE=",
+      "license": "AGPL-3.0",
+      "tlsContract": {
+        "skipVerifyDefault": false,
+        "certificateFileEnv": "SHUFFLE_OPENSEARCH_CERTIFICATE_FILE",
+        "certificateDirectoryEnv": "SHUFFLE_CERT_DIR",
+        "certificateDirectoryAppliedWhenEnvironmentIs": "not-cloud"
+      }
+    },
+    "appSdk": {
+      "repository": "https://github.com/Shuffle/app_sdk.git",
+      "commit": "b504768b30cadc3681ed1e4c900d933f7dac5c42",
+      "license": "MIT",
+      "file": "shuffle_sdk/shuffle_sdk.py",
+      "fileSha256": "036b94a9b1f23a13adb269c718edef6a3cae7c3f87f7d25e05cba3fb2fce9ecc"
+    },
+    "orborus": {
+      "repository": "https://github.com/Shuffle/orborus.git",
+      "tag": "v2.3.0",
+      "commit": "adcc814cb355b7f4b6cb869e0d8d5eed3c6baa95",
+      "license": "NOASSERTION",
+      "status": "blocked",
+      "reason": "The pinned repository has no LICENSE file or GitHub SPDX license metadata; do not redistribute/build for runtime until licensing is confirmed."
+    },
+    "shuffleSecurity": {
+      "repository": "https://github.com/Shuffle/shuffle-security.git",
+      "commit": "7a4077c1353b3b7da93098acefb199d61894ebbf",
+      "license": "NOASSERTION",
+      "status": "blocked",
+      "reason": "No LICENSE file or GitHub SPDX license metadata, and this repository's current security-console frontend is not proven compatible with Shuffle v2.3.0; do not use as the classic shuffle-security service."
+    },
+    "opensearch": {
+      "repository": "docker.io/opensearchproject/opensearch",
+      "tag": "3.2.0",
+      "indexDigest": "sha256:23297b8d8545e129dd58c254ed08d786dc552410ba772983ad2af31048d2f04b",
+      "amd64Digest": "sha256:eab536fd3e19f208e07b65ac8ee6c4bde9b02cb6f191ace87569f922e14b802a",
+      "license": "Apache-2.0",
+      "status": "pinned"
+    }
+  },
+  "buildBases": {
+    "golang125": "docker.io/library/golang:1.25@sha256:699337d620559a59b4a2bb298ad59611e535d2ee755a34cf2d2a98f37578dc80",
+    "alpine3222": "docker.io/library/alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412",
+    "node23": "docker.io/library/node:23@sha256:9a25b5a6f9a90218b73a62205f111e71de5e4289aee952b4dd7e86f7498f2544",
+    "nginx1293": "docker.io/library/nginx:1.29.3@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51"
+  },
+  "componentStatus": {
+    "frontend": "build-from-pinned-shuffle-source",
+    "backend": "build-from-pinned-shuffle-source",
+    "worker": "build-from-pinned-shuffle-source",
+    "opensearch": "pull-by-pinned-platform-digest",
+    "orborus": "blocked-license-review",
+    "shuffle-security": "blocked-license-and-compatibility-review"
+  }
+}

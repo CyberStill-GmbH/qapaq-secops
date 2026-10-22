@@ -21,6 +21,42 @@ requiere `workflow_dispatch`, `main`, `publish_to_acr=true` y el environment
 registra el digest OCI. Publicar la imagen no despliega Shuffle ni habilita una
 ruta pública.
 
+## TLS de OpenSearch
+
+Backend y worker deben montar la CA de OpenSearch en solo lectura en
+`/run/ankay/opensearch-ca`. El archivo `ca.pem` debe contener la CA raíz/intermedia
+que firma el certificado presentado por OpenSearch. No se incluye una CA dentro de
+la imagen ni se desactiva la validación TLS.
+
+```yaml
+services:
+  shuffle-backend:
+    environment:
+      SHUFFLE_OPENSEARCH_CERTIFICATE_FILE: /run/ankay/opensearch-ca/ca.pem
+      SHUFFLE_CERT_DIR: /run/ankay/opensearch-ca
+    volumes:
+      - /var/lib/qapaq/ankay/opensearch-ca:/run/ankay/opensearch-ca:ro
+  shuffle-worker:
+    environment:
+      SHUFFLE_CERT_DIR: /run/ankay/opensearch-ca
+    volumes:
+      - /var/lib/qapaq/ankay/opensearch-ca:/run/ankay/opensearch-ca:ro
+```
+
+Provisiona el archivo en el host desde el almacén de secretos/certificados del
+entorno. El backend lee `SHUFFLE_OPENSEARCH_CERTIFICATE_FILE` en el cliente de
+OpenSearch; si el archivo no existe o no contiene PEM válido, la creación del
+cliente falla. El cliente HTTP compartido de Shuffle añade los certificados PEM
+del directorio `SHUFFLE_CERT_DIR` al almacén de confianza del sistema cuando su
+entorno es `onprem`/`worker`; con un CA privado ausente o incorrecto, la conexión
+TLS no valida. La fuente fijada es `shuffle-shared v1.3.22` (checksum en
+`azure-components.lock.json`): el valor predeterminado de `InsecureSkipVerify` es
+`false`, y `SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY=true` lo habilita explícitamente.
+
+El montaje anterior es un contrato requerido del runtime. Hasta que Compose o el
+orquestador lo aplique y se verifique conectividad TLS a OpenSearch, no declarar
+Ankay listo para Terraform/runtime.
+
 ## Uso
 
 ```bash
