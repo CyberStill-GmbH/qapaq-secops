@@ -30,6 +30,9 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   proceso antes de `mkfs`. Los discos ext4 existentes se preservan; otros formatos no se convierten.
   La primera inicialización tarda más porque lee todo el volumen una vez. El bootstrap también se
   detiene ante datos previos en los puntos de montaje; nunca los oculta ni reforma un disco firmado.
+  No medimos el throughput real del SKU/host Azure. Como ejemplo de dimensionamiento, escanear
+  128 GiB a 100–500 MiB/s toma aproximadamente 22–4 minutos; 64 GiB, 11–2 minutos. Es tiempo
+  adicional al resto del bootstrap y depende de la VM, SKU del disco y host.
 - Identidad asignada a la VM: `AcrPull` en el ACR indicado, lectura del blob de release limitada al
   contenedor, lectura Key Vault limitada a los secretos nombrados y escritura opcional limitada al
   contenedor de evidencia indicado.

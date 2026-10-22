@@ -42,6 +42,10 @@ mismatches stop the bootstrap without formatting. Existing ext4 is mounted witho
 other filesystems are rejected. The first-boot empty-disk scan adds startup time. The host or disk
 must not be replaced without a separate backup and recovery review.
 
+Throughput has not been measured on the target Azure SKU/host. As a sizing example only, scanning
+64 GiB at 100–500 MiB/s takes roughly 11–2 minutes; 128 GiB takes roughly 22–4 minutes. This is
+before the remaining bootstrap work, and actual duration depends on the VM, disk SKU and host.
+
 Only the edge subnet reaches the frontend port, and only the QAPAQ API subnet reaches the backend
 webhook port. Network rules cannot distinguish individual Container Apps sharing that subnet, so the
 webhook still needs application authentication/HMAC and replay defense. `/ankay/*` remains behind
