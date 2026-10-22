@@ -10,9 +10,12 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
 - [Terraform Azure](../../../infra/azure/README.md)
 
-Estado: **preparación local; despliegue sin verificar**. No se ejecutó `plan`
-remoto, `apply` ni cutover DNS, y no hay evidencia actual del state remoto o del
-inventario Azure. La región base es **Chile Central** (`chilecentral`), seleccionada
+Estado: **canal de artefactos aplicado; runtime sin desplegar**. El workflow
+[39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034)
+aplicó cuatro altas y cero cambios o destrucciones para el Storage de releases,
+su contenedor privado, private endpoint y permiso OIDC de publicación. No se hizo
+cutover DNS. El runtime Wazuh y Ankay sigue apagado/no verificado. La región base es
+**Chile Central** (`chilecentral`), seleccionada
 por proximidad geográfica a Perú. La revalidación oficial del 2026-10-20 mide un
 piso de USD 242.51/mes por cómputo de Wazuh recomendado y PostgreSQL B2S. Al
 sumar el egress firewall requerido por los módulos host, el piso sube a USD
