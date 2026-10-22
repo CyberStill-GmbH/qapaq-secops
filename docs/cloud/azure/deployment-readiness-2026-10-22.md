@@ -2,11 +2,19 @@
 
 ## Execution evidence
 
-- Repository: `CyberStill-GmbH/qapaq-secops`, branch `main`, commit `934b423e7e85ff5f31c21ce1a7bc0ff54402095f`.
+- Repository: `CyberStill-GmbH/qapaq-secops`, branch `main`, commit `f2fb3d52c77f055d204f5e096950048fdd0bc6d5`.
 - Workflow: [Terraform Azure plan and apply, run 39756609451](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39756609451).
 - The `azure-demo` deployment gate was approved by the configured reviewer.
 - OIDC validation, backend initialization, formatting, Terraform validation, saved plan creation, and the destructive-action guard all passed.
 - Terraform reported **no changes**. The plan summary found 0 additions, 0 updates, and 0 deletions. The apply job was skipped, so this run did not deploy resources or alter DNS.
+
+## Live Azure inventory
+
+Read-only portal inspection on 2026-10-22 of resource group `rg-qapaqsecopsdemo-66f8c73b` showed 15 resources: two user-assigned identities, Key Vault, Log Analytics workspace, two private endpoints and their NICs, three private DNS zones, PostgreSQL Flexible Server, ACR, Storage Account, and VNet. The inventory contained no Azure Firewall, SIEM VM, Ankay VM, public IP, or load balancer. Therefore the current SIEM host module's required firewall dependency is absent from this resource group; the no-op plan cannot provide a public HTTPS endpoint.
+
+The PostgreSQL server `psql-qapaqsecopsdemo-66f8c73b` is Ready in Chile Central, PostgreSQL 16.15, Burstable B2s (2 vCPU / 4 GiB), 32 GiB storage, zone 1, with high availability disabled. The Azure portal explicitly recommends General Purpose or Memory Optimized for production. This is a resilience and capacity gap for the intended SOC workload; no database setting was changed.
+
+The Key Vault is private and has private endpoints. The portal denied listing secret metadata from the current Cloud Shell session because it was neither on a trusted service path nor using the approved private link. No secret names or values were read. This proves only that the vault is not reachable from that session, not whether particular secrets exist. DNS and Key Vault contents were not changed.
 
 ## What this proves
 
@@ -24,7 +32,7 @@ The existing Terraform state matches the currently enabled root configuration. I
 
 ## Credential handling
 
-The GitHub repository secret *names* include Azure OIDC inputs, the PostgreSQL bootstrap password, and `ENTRA_CLIENT_SECRET`. This audit did not read secret values. No repository-level secret names for Sophos, Cato, Teams, or VirusTotal were present at the time of inspection. Key Vault contents were not inspected by this workflow.
+The GitHub repository secret *names* include Azure OIDC inputs, the PostgreSQL bootstrap password, and `ENTRA_CLIENT_SECRET`. This audit did not read secret values. No repository-level secret names for Sophos, Cato, Teams, or VirusTotal were present at the time of inspection. Key Vault secret names and values remain unverified because private networking denied the portal listing.
 
 ## Next safe sequence
 
