@@ -30,7 +30,7 @@ output "raw_storage_account_name" {
 
 output "container_app_environment_default_domain" {
   description = "Sufijo interno de service discovery de Container Apps."
-  value       = module.observability.container_app_environment_default_domain
+  value       = try(module.observability.container_app_environment_default_domain, null)
 }
 
 output "edge_default_fqdn" {

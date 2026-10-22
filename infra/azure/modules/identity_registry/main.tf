@@ -72,4 +72,5 @@ resource "azurerm_role_assignment" "raw_blob_writer" {
   scope                = var.raw_container_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.runtime.principal_id
+  principal_type       = "ServicePrincipal"
 }
