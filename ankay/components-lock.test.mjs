@@ -56,7 +56,29 @@ test('runtime Dockerfiles receive both pinned build bases before the first FROM'
     assert.match(globalArgs, /^ARG GO_BUILDER_IMAGE\s*\nARG ALPINE_RUNTIME_IMAGE\s*$/);
     assert.match(dockerfile, /FROM \$\{GO_BUILDER_IMAGE\} AS builder/);
     assert.match(dockerfile, /FROM \$\{ALPINE_RUNTIME_IMAGE\}/);
+    assert.match(dockerfile, /RUN go mod download\s*\n/);
   }
+});
+
+test('pinned shuffle-shared sums are applied to both source modules before image builds', () => {
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  const sumsPatch = readFileSync(
+    new URL('./runtime/shuffle-shared-v1.3.22-sums.patch', import.meta.url),
+    'utf8',
+  );
+  const expected = [
+    'github.com/shuffle/shuffle-shared v1.3.22 h1:Xb9EnYLyrhlP8AiH52Frst6iflIkbxyBmG/bntpRo5o=',
+    'github.com/shuffle/shuffle-shared v1.3.22/go.mod h1:0vOWNn+aXibNcbjROmrgszm3/KirYtwzE5BuVnCzQVE=',
+  ];
+
+  for (const sum of expected) assert.equal(sumsPatch.split(sum).length - 1, 2);
+  assert.match(buildScript, /git -C "\$work_dir\/shuffle" apply --check "\$shuffle_shared_sums_patch"/);
+  assert.match(buildScript, /git -C "\$work_dir\/shuffle" apply "\$shuffle_shared_sums_patch"/);
+  assert.match(buildScript, /cp "\$work_dir\/shuffle\/backend\/go-app\/go\.sum"/);
+  assert.match(buildScript, /cp "\$work_dir\/shuffle\/functions\/onprem\/worker\/go\.sum"/);
 });
 
 test('unverified service sources remain blocked instead of receiving mutable tags', () => {
