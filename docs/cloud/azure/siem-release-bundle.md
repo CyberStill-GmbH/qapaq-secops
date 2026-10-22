@@ -1,6 +1,6 @@
 # QAPAQ SIEM Azure release bundle
 
-Status: **candidate builder implemented; not published and not runtime-certified**.
+Status: **candidate builder and OIDC publisher implemented; publication and runtime installation still require execution and verification**.
 
 ## What the workflow produces
 
@@ -18,6 +18,17 @@ The workflow validates successful run IDs, expected workflow paths, branch and e
 checks artifact hashes/provenance; builds the official offline package tree; and uploads a
 seven-day review artifact. It has read-only repository/artifact permissions. It has no Azure
 OIDC permission and does not publish, deploy, run Terraform, or edit DNS.
+
+The separate `.github/workflows/azure-siem-release-publish.yml` accepts a successful bundle-run ID
+and its exact 40-character source SHA. It revalidates that the source run is the expected successful
+`main` workflow and that its matching artifact has not expired, downloads only that artifact,
+verifies `SHA256SUMS`, then signs into Azure with the existing `azure-demo` OIDC identity. It uploads
+to `releases/<source-sha>/` in the private `siem-release` container using Entra RBAC, shared keys
+disabled, anonymous access disabled, and `--overwrite false`. A retry is accepted only if the
+existing blob's SHA metadata and content length match. The workflow requires the non-secret GitHub
+repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI and digest, never
+a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
+DNS.
 
 ## First-boot inputs
 
