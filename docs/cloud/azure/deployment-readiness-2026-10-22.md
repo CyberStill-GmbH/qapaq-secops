@@ -16,6 +16,8 @@ The PostgreSQL server `psql-qapaqsecopsdemo-66f8c73b` is Ready in Chile Central,
 
 The Key Vault is private and has private endpoints. The portal denied listing secret metadata from the current Cloud Shell session because it was neither on a trusted service path nor using the approved private link. No secret names or values were read. This proves only that the vault is not reachable from that session, not whether particular secrets exist. DNS and Key Vault contents were not changed.
 
+Public DNS lookup showed `jappi.net.pe` delegated to four Route 53 name servers. The queried public resolver returned no A or CNAME answer for `app.jappi.net.pe` (only the zone's negative SOA response). No DNS record was modified. A cutover remains premature until Azure has a healthy TLS edge and a stable public address.
+
 ## What this proves
 
 The existing Terraform state matches the currently enabled root configuration. It does not prove that the QAPAQ SecOps runtime is installed or healthy. The root keeps `siem_host` and `ankay_host` unset unless complete configuration is provided; the current plan therefore cannot create either host. A no-op plan must not be reported as a successful application deployment.
