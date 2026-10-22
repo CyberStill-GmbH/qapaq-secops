@@ -42,3 +42,13 @@ output "siem_private_ip" {
   description = "IP privada del SIEM QAPAQ cuando se habilita el host. null mientras falten las gates de release y red."
   value       = try(module.siem_host[0].private_ip_address, null)
 }
+
+output "ankay_private_ip" {
+  description = "IP privada del host Ankay preparado cuando se habilita `ankay_host`; null por defecto."
+  value       = try(module.ankay_host[0].private_ip_address, null)
+}
+
+output "ankay_runtime_status" {
+  description = "Estado informativo del host Ankay; el módulo prepara VM/disco pero no instala ni inicia Shuffle."
+  value       = try(module.ankay_host[0].runtime_status, null)
+}

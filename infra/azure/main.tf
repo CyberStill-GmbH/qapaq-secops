@@ -15,12 +15,13 @@ data "azurerm_resource_group" "this" {
 }
 
 module "network" {
-  source              = "./modules/network"
-  resource_group_name = data.azurerm_resource_group.this.name
-  location            = data.azurerm_resource_group.this.location
-  name_base           = local.name_base
-  address_space       = var.address_space
-  tags                = var.tags
+  source                      = "./modules/network"
+  resource_group_name         = data.azurerm_resource_group.this.name
+  location                    = data.azurerm_resource_group.this.location
+  name_base                   = local.name_base
+  address_space               = var.address_space
+  ankay_subnet_address_prefix = var.ankay_host == null ? null : cidrsubnet(var.address_space, 11, 1)
+  tags                        = var.tags
 }
 
 module "observability" {
@@ -130,4 +131,36 @@ module "siem_host" {
   tags                         = var.tags
 
   depends_on = [module.network, module.data, module.identity_registry]
+}
+
+# Ankay es un host privado de Shuffle separado del SIEM. Su subnet solo existe cuando
+# el operador aporta configuración completa, y comparte la UDR de salida al firewall.
+module "ankay_host" {
+  count  = var.ankay_host == null ? 0 : 1
+  source = "./modules/ankay_host"
+
+  resource_group_name             = data.azurerm_resource_group.this.name
+  location                        = data.azurerm_resource_group.this.location
+  name_base                       = local.name_base
+  subnet_id                       = module.network.ankay_subnet_id
+  confirm_dedicated_subnet        = true
+  private_ip_address              = try(var.ankay_host.private_ip_address, "")
+  edge_subnet_cidr                = "${try(module.siem_host[0].private_ip_address, "0.0.0.0")}/32"
+  qapaq_api_subnet_cidr           = "${try(module.siem_host[0].private_ip_address, "0.0.0.0")}/32"
+  qapaq_api_private_ip            = try(module.siem_host[0].private_ip_address, "0.0.0.0")
+  wazuh_manager_private_ip        = try(module.siem_host[0].private_ip_address, "")
+  firewall_private_ip             = try(var.ankay_host.firewall_private_ip, "")
+  firewall_policy_reference       = try(var.ankay_host.firewall_policy_reference, "")
+  admin_ssh_public_key            = try(var.ankay_host.admin_ssh_public_key, "")
+  vm_size                         = try(var.ankay_host.vm_size, "")
+  ubuntu_image_version            = try(var.ankay_host.ubuntu_image_version, "")
+  data_disk_size_gb               = try(var.ankay_host.data_disk_size_gb, 128)
+  container_registry_id           = module.identity_registry.container_registry_id
+  container_registry_login_server = module.identity_registry.container_registry_login_server
+  container_images                = try(var.ankay_host.container_images, {})
+  compose_yaml                    = try(var.ankay_host.compose_yaml, "")
+  compose_sha256                  = try(var.ankay_host.compose_sha256, "")
+  tags                            = var.tags
+
+  depends_on = [module.network, module.identity_registry, module.siem_host]
 }

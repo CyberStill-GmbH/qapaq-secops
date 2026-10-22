@@ -22,8 +22,10 @@ la integración del host SIEM y `qapaq-core`.
 El runtime opcional existente es genérico: `edge`, `web`, `gateway`, `api` y
 `worker` en Container Apps. No representa el destino de A6/A8/A9/A13/A22 y no
 se debe activar como sustituto del SIEM. En particular, este root no crea ni
-instala Manager/Indexer/Dashboard Wazuh, `qapaq-core`, KrakenD en el host SIEM,
-Valkey ni Ankay/Shuffle. Tampoco cambia DNS.
+instala Manager/Indexer/Dashboard Wazuh, `qapaq-core`, KrakenD en el host SIEM ni
+Valkey. Ankay tiene ahora un cableado root opcional, pero su host sigue apagado
+por defecto y el módulo solo prepara VM/disco y Compose; todavía no instala
+Docker ni inicia Shuffle. Tampoco cambia DNS.
 
 El diseño objetivo se traduce a Azure así:
 
@@ -53,6 +55,7 @@ reales antes de declarar cobertura.
 | `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub puede escribir solo en `siem-release`; ninguna identidad obtiene ambos alcances de Blob.                |
 | `modules/runtime`           | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                          |
 | `modules/siem_host`         | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Requiere firewall existente auditado y bundle inmutable; su ausencia mantiene el host apagado.                                                  |
+| `modules/ankay_host`        | Host Shuffle separado y opcional, con subnet dedicada, UDR al firewall, NSG, identidad ACR y discos con `prevent_destroy`. Solo prepara VM/Compose; no instala Docker ni arranca servicios. Requiere `siem_host`, seis imágenes ACR fijadas por digest, Compose revisado, firewall existente, IP/SKU/clave aprobadas y una configuración `ankay_host` completa. |
 
 El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob Data
 Contributor` queda limitado al contenedor privado `siem-release` para publicar bundles
