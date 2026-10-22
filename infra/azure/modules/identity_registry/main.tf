@@ -75,7 +75,7 @@ resource "azurerm_role_assignment" "raw_blob_writer" {
   principal_type       = "ServicePrincipal"
 }
 
-resource "azurerm_role_assignment" "siem_release_publisher" {
+resource "azurerm_role_assignment" "siem_artifact_publisher" {
   scope                = var.siem_release_container_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.github_publisher.principal_id
