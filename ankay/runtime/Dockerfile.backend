@@ -1,4 +1,5 @@
 ARG GO_BUILDER_IMAGE
+ARG ALPINE_RUNTIME_IMAGE
 FROM ${GO_BUILDER_IMAGE} AS builder
 
 WORKDIR /app
@@ -16,7 +17,6 @@ ADD --checksum=sha256:${APP_SDK_FILE_SHA256} https://raw.githubusercontent.com/S
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -o /app/shufflebackend .
 
-ARG ALPINE_RUNTIME_IMAGE
 FROM ${ALPINE_RUNTIME_IMAGE}
 ENV SHUFFLE_CERT_DIR=/run/ankay/opensearch-ca \
     SHUFFLE_OPENSEARCH_CERTIFICATE_FILE=/run/ankay/opensearch-ca/ca.pem

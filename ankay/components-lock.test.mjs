@@ -44,6 +44,21 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   );
 });
 
+test('runtime Dockerfiles receive both pinned build bases before the first FROM', () => {
+  for (const name of ['backend', 'worker']) {
+    const dockerfile = readFileSync(
+      new URL(`./runtime/Dockerfile.${name}`, import.meta.url),
+      'utf8',
+    );
+    const firstFrom = dockerfile.indexOf('\nFROM ');
+    assert.ok(firstFrom > 0, `${name} has a first FROM instruction`);
+    const globalArgs = dockerfile.slice(0, firstFrom);
+    assert.match(globalArgs, /^ARG GO_BUILDER_IMAGE\s*\nARG ALPINE_RUNTIME_IMAGE\s*$/);
+    assert.match(dockerfile, /FROM \$\{GO_BUILDER_IMAGE\} AS builder/);
+    assert.match(dockerfile, /FROM \$\{ALPINE_RUNTIME_IMAGE\}/);
+  }
+});
+
 test('unverified service sources remain blocked instead of receiving mutable tags', () => {
   for (const key of ['orborus', 'shuffleSecurity']) {
     assert.match(lock.sources[key].commit, /^[0-9a-f]{40}$/);
