@@ -5,7 +5,7 @@ name: QAPAQ SIEM
 # por SSM. Ningún secreto viaja en los comandos: el host lee Secrets Manager con su rol y NO se rotan
 # credenciales (A20).
 #
-#   push a main                → build y publicación inmutable en S3 del dashboard y/o del núcleo
+#   workflow_dispatch step=build → build y publicación legacy en S3 bajo solicitud manual
 #   step=security              → wazuh/indexer/security/apply-security.sh
 #   step=core                  → wazuh/core/apply-core.sh (API 127.0.0.1:3000 y worker; rollback automático)
 #   step=dashboard             → instala el .deb del dashboard publicado para el commit
@@ -13,17 +13,6 @@ name: QAPAQ SIEM
 #   step=all                   → security → core → dashboard → edge
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "wazuh/dashboard/**"
-      - "wazuh/core/**"
-      - "apps/**"
-      - "modules/**"
-      - "platform/**"
-      - "packages/**"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/qapaq-dashboard.yml"
   pull_request:
     paths:
       - "wazuh/dashboard/**"
@@ -98,7 +87,7 @@ jobs:
     needs: [changes]
     if: >-
       needs.changes.outputs.dashboard == 'true' &&
-      (github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all')
+      (github.event_name == 'workflow_dispatch' && (inputs.step == 'build' || inputs.step == 'all'))
     permissions:
       contents: read
       id-token: write
@@ -134,7 +123,7 @@ jobs:
     needs: [changes]
     if: >-
       needs.changes.outputs.core == 'true' &&
-      (github.event_name == 'push' || inputs.step == 'build' || inputs.step == 'all' || inputs.step == 'core')
+      (github.event_name == 'workflow_dispatch' && (inputs.step == 'build' || inputs.step == 'all' || inputs.step == 'core'))
     permissions:
       contents: read
       id-token: write
