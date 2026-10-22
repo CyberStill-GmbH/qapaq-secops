@@ -3,30 +3,35 @@
 **Estado:** arquitectura objetivo documentada; Terraform Azure no la despliega completa. El canal de releases se aplicó el 2026-10-22; Wazuh QAPAQ, Ankay y edge siguen sin desplegar.
 **Fuente de producto:** `docs/10-decisiones.md` (A5–A9, A13, A18, A20, A22, ADR-030) y `docs/12-backend-en-el-siem.md` (opción B).
 **Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
-**Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado.
+**Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado. Las cifras indicadas son estimaciones de lista, no una cotización del tenant.
 
-## Estado observado de Azure — 2026-10-22
+## Snapshot anterior de Azure — 2026-10-22 (no inventario actual)
 
-La cuenta muestra USD 200 de crédito promocional con vencimiento el 18 de noviembre de 2026. Antes del último apply, el grupo
+La observación de portal previa al último apply reportó USD 200 de crédito promocional con vencimiento el 18 de noviembre de 2026. Antes de ese apply, el grupo
 `rg-qapaqsecopsdemo-66f8c73b` tenía 15 recursos de fundación en Chile Central: dos identidades administradas,
 Key Vault, Log Analytics, PostgreSQL Flexible Server y sus bases, Container Registry, Storage, VNet,
 endpoints privados, interfaces de red y zonas DNS privadas. PostgreSQL figura `Ready`, SKU Burstable B2s,
 32 GiB y sin alta disponibilidad. Esta lectura no accedió a valores de secretos.
 
 El workflow Terraform [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034)
-añadió cuatro direcciones Terraform para el Storage dedicado de releases, su contenedor privado,
-private endpoint y permiso de publicación. El apply no modificó ni destruyó recursos. No se refrescó
-el recuento de Azure Resource Manager desde el portal después del apply.
+añadió cuatro recursos para el Storage dedicado de releases, su contenedor privado,
+private endpoint y permiso de publicación. El apply no modificó ni destruyó recursos.
+El posterior plan [39768505115](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39768505115)
+propuso 0 altas, 1 cambio in-place y 0 destrucciones para reglas de red; su apply fue
+omitido. La corrida [39771791770](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39771791770)
+espera aprobación de `azure-demo` y aún no produjo un plan. No se ha refrescado el
+inventario ARM después del apply; este texto conserva un snapshot histórico, no afirma
+el recuento actual de recursos.
 
-Todavía no hay host Wazuh, host Ankay, Azure Firewall, balanceador/edge público ni cambio DNS para
+El snapshot de portal anterior no mostraba host Wazuh, host Ankay, Azure Firewall, balanceador/edge público ni cambio DNS para
 `app.jappi.net.pe`; tampoco hay servicios SIEM/Ankay desplegados. `siem_host`, `ankay_host` y el runtime
 genérico permanecen deshabilitados en Terraform. La ejecución [39751334214](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39751334214)
 fue un plan de solo lectura con cero cambios, no un apply operativo. El apply anterior [39649721166](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39649721166)
 falló al asignar roles de Storage (403 `roleAssignments/write`) y al crear Container Apps por falta de registro
 de `Microsoft.App`; no se debe usar esa ejecución como evidencia de disponibilidad.
 
-La estimación documentada para Wazuh + PostgreSQL + Azure Firewall Basic es de al menos USD 530.86/mes,
-antes de Ankay, discos, tráfico y otros componentes. Los USD 200 son crédito promocional y umbral de aviso,
+La estimación de lista documentada para Wazuh + PostgreSQL + Azure Firewall Basic es de al menos USD 530.86/mes,
+antes de Ankay, discos, tráfico y otros componentes; no es cotización del tenant. Los USD 200 son crédito promocional y umbral de aviso,
 no límite de facturación. Recalcular costo y acciones de cada plan antes de ampliar la infraestructura.
 
 ## Objetivo y estado real
@@ -57,7 +62,7 @@ A18 registró inicialmente la simplificación de lanzamiento sin colas nuevas; A
 | Sesiones, cache-aside y jobs | Servicio Redis-compatible privado con TLS, autenticación, HA y política `noeviction` requerida por BullMQ | Azure Managed Redis es candidato, no Valkey: Microsoft documenta Redis 7.4.x, Private Link/TLS, autenticación Entra y HA. Aún debe verificarse región/SKU exacta, compatibilidad de BullMQ 5.81.5+ioredis 6, política de memoria y costo. El worker actual es lifecycle-only y no consume BullMQ; no provisionar el servicio hasta que exista un consumidor probado. ADR-AZ-001 PostgreSQL sigue siendo una propuesta y no reemplaza A9. |
 | Ankay Qapaq | VM Linux privada separada, Compose y discos persistentes; frontend Ankay + servicios upstream Shuffle completos y OpenSearch propio | `modules/ankay_host` tiene cableado opcional desde el root en la rama de preparación y crea host/disco en subnet dedicada; sigue apagado por defecto, no instala Docker ni inicia Compose. El workflow construye una imagen frontend; falta verificar/publicar el backend, Orborus, workers y OpenSearch, además de Compose Azure, backup/restore y pruebas de carga. |
 | Secretos | Key Vault con RBAC mínimo, acceso privado y Managed Identity por runtime | Terraform crea el vault, no secretos. Faltan los adaptadores del instalador para leer Key Vault. No copiar valores a Git, tfvars o logs; AWS sigue siendo otra cuenta/state. |
-| Artefactos | ACR para OCI/imágenes y cuenta de Blob dedicada para bundle de SIEM, con contenedor privado y acceso de red autenticado por OIDC/RBAC | La cuenta `evidence` de eventos permanece privada. El host SIEM descarga el bundle mediante identidad administrada por private endpoint; GitHub publica por OIDC. Sin claves compartidas ni acceso anónimo. La excepción de endpoint público para CI vence el 2026-11-20 y requiere un runner con egress privado antes de esa fecha. El canal dedicado está preparado en Terraform, aún no aplicado. Fijar procedencia, SBOM, digest y permisos antes de bootstrap. |
+| Artefactos | ACR para OCI/imágenes y cuenta de Blob dedicada para bundle de SIEM, con contenedor privado y acceso de red autenticado por OIDC/RBAC | El apply [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034) creó los recursos del canal dedicado (4 altas, sin cambios ni destrucciones). El host SIEM y la publicación completa del bundle no están verificados. El run [39768505115](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39768505115) planeó un cambio de red in-place con `default_action=Allow` y `AzureServices`; apply se omitió, por lo que no debe contarse como aplicado. La configuración documenta una excepción `AZU-0012` hasta 2026-11-20 para publicación autenticada desde GitHub-hosted runners; reconciliar estado remoto y reachability antes de usarla. El contenedor no permite acceso anónimo. Fijar procedencia, SBOM, digest y permisos antes de bootstrap. |
 | Logs operativos | Azure Monitor/Log Analytics solo para salud y plataforma, sujeto al control de residencia/retención | Separar de eventos de seguridad y evidencia mantenidos en Wazuh/OpenSearch. No está demostrado que el código Azure emita logs de aplicación hacia Log Analytics ni hacia Wazuh. |
 | DNS y certificado | Solo `app.jappi.net.pe` después de TLS, endpoint y pruebas; Route 53 mantiene state independiente | El Terraform Azure no gestiona DNS. No hacer corte ni borrar registros como parte de esta arquitectura documental. |
 

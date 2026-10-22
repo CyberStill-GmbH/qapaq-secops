@@ -1,10 +1,43 @@
 # Runbook Azure: secretos, publicación y corte
 
+## Estado actual — 2026-10-22
+
+PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100) se integró en
+`main`, ahora en `048716ada8e3e5e077b044888b1291ec101506d4`. Solo añadió validación
+de la referencia de secreto en Key Vault y casos de `terraform test`; no modificó
+infraestructura. La validación Azure Terraform
+[39773533408](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39773533408)
+está verde. CI Security
+[39773533266](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39773533266)
+seguía en progreso al momento de esta actualización. Estos checks no ejecutan
+`terraform apply`.
+
+La evidencia de infraestructura y ejecuciones anteriores es:
+
+- [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034)
+  aplicó solo el canal privado de artefactos: Storage dedicado, contenedor Blob
+  privado, private endpoint y RBAC del publicador (**4 altas, 0 cambios,
+  0 destrucciones**). No aplicó un runtime.
+- [39768505115](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39768505115)
+  generó el plan **0 altas, 1 cambio in-place, 0 destrucciones** para cambiar las
+  reglas de red del Storage a `default_action=Allow` y permitir `AzureServices`.
+  `apply` fue omitido: ese cambio no se ejecutó.
+- [39771791770](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39771791770)
+  corresponde al estado anterior y no sustituye un plan validado para el nuevo SHA
+  de `main`.
+
+El runtime Wazuh/QAPAQ/Ankay no está demostrado como desplegado ni operativo en
+Azure; tampoco hay evidencia nueva de salud de integraciones o de endpoint público.
+DNS no se cambió. El apply confirmado no modificó los secretos, el storage de
+eventos/evidencia ni otros recursos existentes. No se hizo una lectura nueva del
+inventario ARM como parte de esta actualización; consultar el portal antes de usar
+una lista de recursos como inventario actual.
+
 ## Aplicación del canal de releases (2026-10-22 11:00 UTC)
 
 - PR [#98](https://github.com/CyberStill-GmbH/qapaq-secops/pull/98), commit `c32ed62`, corrige la colisión del address de Terraform entre el recurso de publicación nuevo y la migración del permiso histórico. CI, seguridad y `fmt/init/validate` pasaron.
 - El workflow protegido [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034) generó y aplicó el plan exacto tras revisión. Resumen: **4 altas, 0 cambios, 0 destrucciones** — Storage de releases, contenedor privado, private endpoint y `Storage Blob Data Contributor` para la identidad publicadora federada.
-- No cambió el storage de eventos/evidencia, los valores de Key Vault, secretos de GitHub, PostgreSQL, DNS ni otros recursos existentes. La ruta nueva está lista para recibir el bundle, pero todavía no hay paquete completo publicado ni instalación de Wazuh/Ankay.
+- No cambió el storage de eventos/evidencia, los valores de Key Vault, secretos de GitHub, PostgreSQL, DNS ni otros recursos existentes. Los recursos del canal de releases existen, pero la publicación end-to-end no está verificada; todavía no hay paquete completo publicado ni instalación de Wazuh/Ankay.
 - No se refrescó el inventario ARM por portal después del apply; la evidencia de estas cuatro altas es el resultado de Terraform en Actions. Verificar el inventario del resource group antes de un plan adicional.
 - Run anterior [39764311183](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39764311183) falló antes del apply por un `moved` block inválido; no produjo cambios.
 - El build experimental [39758248744](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758248744) terminó correctamente para Manager 4.14.8, Indexer y Filebeat; la asamblea solo generó evidencia efímera de procedencia, no un bundle instalable. El archive QAPAQ Core [39758800010](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758800010) pasó validación. El paquete Dashboard [39758795551](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758795551) pasó build, pero la publicación a ACR se omitió. El siguiente gate es ensamblar y validar el bundle completo antes de publicarlo.
@@ -40,7 +73,7 @@
 - Inspeccioné solo nombres de GitHub Secrets/Variables y claves de `.env.example`, sin leer valores: están configurados los datos de OIDC Azure, password de bootstrap PostgreSQL, client secret de Entra y referencias/IDs de tenant y grupo M365/QAPAQ. No encontré nombres de configuración o secretos para Sophos, Cato ni Teams. No he consultado ni cambiado secretos de Key Vault. Por tanto, esas integraciones no están acreditadas ni listas para instalar.
 - Entre `3b58ab9` del plan previo y `4ee8dd6` solo cambió documentación, sin diferencias en `infra/azure` ni en el workflow Terraform.
 - La revisión de `main` confirma que `enable_runtime=false`; `siem_host` y `ankay_host` siguen apagados por defecto. El módulo Ankay crea subnet dedicada y prepara VM/disco y Compose en `cloud-init`: no instala Docker ni arranca Shuffle. Aún faltan el bundle Wazuh integral, imágenes completas de Ankay, Compose probado, credenciales Cato/Sophos/Teams en el almacén autorizado y `tfvars` con red/firewall revisados. El apply reciente solo agregó un permiso Blob acotado; no deja el SOC operativo.
-- La estimación publicada mantiene un piso de USD 530.86/mes con Wazuh, PostgreSQL y Firewall Basic, antes de Ankay, discos, tráfico y observabilidad. El umbral USD 200 solo alerta; no limita cargos ni apaga recursos.
+- La estimación de lista publicada mantiene un piso de USD 530.86/mes con Wazuh, PostgreSQL y Firewall Basic, antes de Ankay, discos, tráfico y observabilidad. No es una cotización del tenant. El umbral USD 200 solo alerta; no limita cargos ni apaga recursos.
 
 No declarar el SOC operativo hasta que se publique y verifique el bundle, el plan completo sea aprobado y aplicado, y las pruebas de salud e integraciones M365, Sophos, Cato, Teams, agentes y Ankay produzcan evidencia de ejecución.
 
