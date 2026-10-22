@@ -36,6 +36,15 @@ export const CAPABILITIES = [
   'observability.read_platform',
   /** Ver el padrón del grupo de admisión y el origen de cada rol (Sprint 5 · fase 3). */
   'users.read',
+  /**
+   * Solicitar que se conceda o retire un rol a un miembro del padrón. La solicitud no cambia nada
+   * hasta que aprobadores distintos la resuelven (entra-soc-user-admin.md).
+   */
+  'roles.request',
+  /** Aprobar o rechazar, en la etapa de Acceso, una solicitud de rol ajena. */
+  'roles.approve',
+  /** Segunda etapa, de Seguridad, para los roles privilegiados (`qapaq.platform.admin`). */
+  'roles.approve.privileged',
   /** Ver sesiones del tenant (quién está dentro, desde dónde y con qué factor). */
   'sessions.read',
   /** Revocar una sesión ajena: acción administrativa auditada. */
@@ -46,6 +55,24 @@ export const CAPABILITIES = [
   'secrets.write',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
+
+/**
+ * Roles que se pueden solicitar desde la administración: los cuatro roles runtime, ni uno más.
+ * `qapaq.platform.admin` es privilegiado y necesita además la etapa de Seguridad.
+ */
+export const REQUESTABLE_ROLES = [
+  'qapaq.auditor',
+  'qapaq.platform.admin',
+  'qapaq.soc.analyst',
+  'qapaq.soc.lead',
+] as const;
+export type RequestableRole = (typeof REQUESTABLE_ROLES)[number];
+export const PRIVILEGED_ROLES: readonly RequestableRole[] = ['qapaq.platform.admin'];
+
+/** Aprobador de la etapa de Acceso (bundle `ACCESS_ADMIN`). */
+export const ACCESS_APPROVER_ROLE = 'qapaq.access.approver';
+/** Revisor de Seguridad privilegiado: segunda etapa de los roles privilegiados. */
+export const SECURITY_APPROVER_ROLE = 'qapaq.security.approver';
 
 /** Roles de aplicación publicados en el app registration de Entra. */
 export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> = Object.freeze({
@@ -104,6 +131,8 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'sources.health.read',
     'observability.read_platform',
     'users.read',
+    // Solicita cambios de rol; no aprueba ninguno (entra-soc-user-admin.md, `PLATFORM_ADMIN`).
+    'roles.request',
     'sessions.read',
     'sessions.revoke',
     'audit.read',
@@ -111,6 +140,11 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'audit.verify',
     'secrets.write',
   ],
+  // Aprobadores de cambios de rol. No son asignables desde la consola ni por `QAPAQ_ROLE_BINDINGS`:
+  // solo los reciben los OID declarados en `QAPAQ_ACCESS_APPROVER_OIDS` y
+  // `QAPAQ_SECURITY_APPROVER_OIDS`, y el BFF vuelve a exigir esa declaración al aprobar.
+  [ACCESS_APPROVER_ROLE]: ['users.read', 'roles.approve'],
+  [SECURITY_APPROVER_ROLE]: ['users.read', 'roles.approve.privileged'],
 });
 
 /** Scopes OAuth del BFF. El scope acota al cliente; la capability acota a la persona. */
@@ -139,6 +173,9 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'incidents.notes.write',
     'notifications.dispatch',
     'sessions.revoke',
+    'roles.request',
+    'roles.approve',
+    'roles.approve.privileged',
   ],
   'audit.read': ['audit.read', 'audit.read_sensitive', 'audit.verify'],
 });

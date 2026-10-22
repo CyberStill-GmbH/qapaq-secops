@@ -47,6 +47,51 @@
       "owner": "application-platform"
     },
     {
+      "path": "/api/admin/users/{oid}/role-grant",
+      "method": "GET",
+      "upstream": "/api/admin/users/{oid}/role-grant",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/users/{oid}/role-requests",
+      "method": "POST",
+      "upstream": "/api/admin/users/{oid}/role-requests",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/role-requests",
+      "method": "GET",
+      "upstream": "/api/admin/role-requests",
+      "query_parameters": ["status", "pageSize", "cursor"],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/role-requests/{requestId}/approve",
+      "method": "POST",
+      "upstream": "/api/admin/role-requests/{requestId}/approve",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
+      "path": "/api/admin/role-requests/{requestId}/reject",
+      "method": "POST",
+      "upstream": "/api/admin/role-requests/{requestId}/reject",
+      "query_parameters": [],
+      "auth": "api-session",
+      "encoding": "no-op",
+      "owner": "application-platform"
+    },
+    {
       "path": "/api/auth/start",
       "method": "GET",
       "upstream": "/api/auth/start",

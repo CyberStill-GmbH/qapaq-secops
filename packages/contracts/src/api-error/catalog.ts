@@ -21,6 +21,7 @@ export const API_ERROR_CODES = [
   'PASSKEY_REQUIRED',
   'NETWORK_NOT_ALLOWED',
   'REQUEST_NOT_VERIFIED',
+  'STEP_UP_REQUIRED',
   'RATE_LIMITED',
   'RESOURCE_UNAVAILABLE',
   'STATE_CONFLICT',
@@ -102,6 +103,16 @@ export const API_ERROR_CATALOG: Readonly<Record<ApiErrorCode, ApiErrorDefinition
     publicMessage: 'No fue posible verificar la solicitud. Recargue la página e intente de nuevo.',
     action: 'reload_resource',
     helpRef: `${HELP_BASE}#request-not-verified`,
+    retriable: false,
+  },
+  // Acción privilegiada sin evidencia de autenticación fuerte y reciente: no se ejecuta nada.
+  // Volver a iniciar sesión no basta mientras el BFF no registre esa evidencia.
+  STEP_UP_REQUIRED: {
+    code: 'STEP_UP_REQUIRED',
+    httpStatus: 403,
+    publicMessage: 'Esta acción requiere una verificación reciente de identidad que no está disponible.',
+    action: 'contact_support',
+    helpRef: `${HELP_BASE}#step-up-required`,
     retriable: false,
   },
   RATE_LIMITED: {

@@ -644,3 +644,54 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
+// Roles concedidos desde la administración; separados de las asignaciones del deploy y de los
+// dueños del grupo. Reemplazo completo bajo compare-and-set sobre `revision`; sin DELETE.
+model AccessRoleGrant {
+  tenantId  String   @map("tenant_id") @db.Text
+  oid       String   @db.Uuid
+  roles     String[] @default([]) @db.Text
+  revision  Int
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(3)
+  updatedBy String   @map("updated_by") @db.Text
+
+  @@id([tenantId, oid], map: "access_role_grants_pkey")
+  @@map("access_role_grants")
+}
+
+// Solicitudes de cambio de rol con aprobación separada (Acceso y, para el rol privilegiado,
+// Seguridad). Solo la aprobación final escribe `access_role_grants`, en la misma transacción que la
+// solicitud y su AuditEvent. CAS sobre `revision`; sin DELETE. Las restricciones de distinción y de
+// etapas viven en la migración; el índice único parcial (una abierta por objetivo y rol) también.
+model AccessRoleRequest {
+  tenantId                  String    @map("tenant_id") @db.Text
+  id                        String    @db.Uuid
+  targetOid                 String    @map("target_oid") @db.Uuid
+  action                    String    @db.Text
+  role                      String    @db.Text
+  reason                    String    @db.Text
+  ticket                    String?   @db.Text
+  expectedGrantRevision     Int       @map("expected_grant_revision")
+  requesterOid              String    @map("requester_oid") @db.Uuid
+  requesterSubjectId        String    @map("requester_subject_id") @db.Text
+  createdAt                 DateTime  @map("created_at") @db.Timestamptz(3)
+  status                    String    @db.Text
+  accessApproverOid         String?   @map("access_approver_oid") @db.Uuid
+  accessApproverSubjectId   String?   @map("access_approver_subject_id") @db.Text
+  accessApprovedAt          DateTime? @map("access_approved_at") @db.Timestamptz(3)
+  accessReason              String?   @map("access_reason") @db.Text
+  securityApproverOid       String?   @map("security_approver_oid") @db.Uuid
+  securityApproverSubjectId String?   @map("security_approver_subject_id") @db.Text
+  securityApprovedAt        DateTime? @map("security_approved_at") @db.Timestamptz(3)
+  securityReason            String?   @map("security_reason") @db.Text
+  closedByOid               String?   @map("closed_by_oid") @db.Uuid
+  closedBy                  String?   @map("closed_by") @db.Text
+  closedAt                  DateTime? @map("closed_at") @db.Timestamptz(3)
+  closedReason              String?   @map("closed_reason") @db.Text
+  revision                  Int
+  updatedAt                 DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@id([tenantId, id], map: "access_role_requests_pkey")
+  @@index([tenantId, status, createdAt(sort: Desc)], map: "access_role_requests_status_idx")
+  @@map("access_role_requests")
+}
+

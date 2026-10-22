@@ -97,7 +97,7 @@ import type { ProcessInfo } from '../soc/operations-health.js';
 import type { EventsReader } from './events-reader.js';
 import type { SourceHealthMonitor } from './source-health.js';
 import type { RoleGrantsConfig } from '@qapaq/configuration';
-import type { DirectoryStore } from '@qapaq/access';
+import type { DirectoryStore, RoleAdministration } from '@qapaq/access';
 import {
   notifyDevices,
   type FallbackChannel,
@@ -204,6 +204,12 @@ export interface RuntimeOptions {
   readonly directory?: RuntimeDirectory;
   /** Roles concedidos por el deploy, para explicar el origen de cada rol en la administración. */
   readonly roleGrantsConfig?: RoleGrantsConfig;
+  /**
+   * Administración de roles: grants dinámicos y solicitudes, con la unidad de trabajo que los
+   * confirma junto a su AuditEvent. Sin ella no se pueden pedir ni aprobar roles desde la consola;
+   * para que los grants cuenten al iniciar sesión, el composition root los suma en `roleGrants`.
+   */
+  readonly roleAdministration?: RoleAdministration;
   /** Destinatarios de Teams por rol (Sprint 5); sin él, la tarjeta sale sin menciones. */
   readonly recipients?: RecipientDirectory;
   /**
@@ -230,6 +236,8 @@ const DISPATCH_BATCH = 5;
  */
 const OUTBOX_LEASE_MS = Math.max(120_000, 2 * DISPATCH_BATCH * RETRY_POLICY.requestTimeoutMs);
 const DEFAULT_DISPATCH_INTERVAL_MS = 5_000;
+/** Pasadas de revocación tras un cambio de roles; cada una relee las sesiones activas. */
+const ROLE_CHANGE_REVOCATION_ATTEMPTS = 3;
 
 /**
  * Scopes que el BFF, como cliente confidencial, siempre solicita. El recorte real lo
@@ -351,6 +359,10 @@ export class SecOpsRuntime {
 
   public get roleGrantsConfig(): RoleGrantsConfig | undefined {
     return this.options.roleGrantsConfig;
+  }
+
+  public get roleAdministration(): RoleAdministration | undefined {
+    return this.options.roleAdministration;
   }
 
   /** Tenant del padrón: el del app registration (instalación de un solo tenant). */
@@ -535,25 +547,69 @@ export class SecOpsRuntime {
   ): Promise<number> {
     let revoked = 0;
     for (const oid of new Set(oids.map((value) => value.toLowerCase()))) {
-      for (const session of await this.sessions.activeByOid(this.tenantId, oid)) {
-        const at = this.now();
-        if (!(await this.sessions.update(revokeSession(session, reason, at), session.revision))) {
-          continue;
-        }
-        revoked += 1;
-        await recordAudit(this.audit, {
-          id: randomUUID(),
-          tenantId: this.tenantId,
-          occurredAt: at,
-          actor: { id: 'system:directory-sync', type: 'service' },
-          action: 'access.session.revoked',
-          resource: { type: 'session', id: session.subjectId },
-          outcome: 'succeeded',
-          correlationId: randomUUID(),
-          reason,
-          metadata: { reference: session.id },
-        });
+      revoked += await this.revokeActiveSessionsOf(
+        oid,
+        reason,
+        { id: 'system:directory-sync', type: 'service' },
+        randomUUID(),
+      );
+    }
+    return revoked;
+  }
+
+  /**
+   * Cambio de roles desde la administración: revoca las sesiones activas de la persona para que
+   * ninguna siga con los roles anteriores. A diferencia del padrón, no hay un ciclo siguiente que
+   * reintente, así que un conflicto de revisión (la sesión justo registró actividad) se relee y
+   * se reintenta aquí. `remaining` > 0 significa que alguna sigue activa tras los reintentos.
+   */
+  public async revokeSessionsForRoleChange(
+    oid: string,
+    actor: { readonly id: string; readonly sessionId: string },
+    correlationId: string,
+  ): Promise<{ readonly revoked: number; readonly remaining: number }> {
+    const key = oid.toLowerCase();
+    let revoked = 0;
+    for (let attempt = 0; attempt < ROLE_CHANGE_REVOCATION_ATTEMPTS; attempt += 1) {
+      revoked += await this.revokeActiveSessionsOf(
+        key,
+        'roles_changed',
+        { id: actor.id, type: 'user', sessionId: actor.sessionId },
+        correlationId,
+      );
+      if ((await this.sessions.activeByOid(this.tenantId, key)).length === 0) {
+        return { revoked, remaining: 0 };
       }
+    }
+    return { revoked, remaining: (await this.sessions.activeByOid(this.tenantId, key)).length };
+  }
+
+  /** Una pasada sobre las sesiones activas de un OID; cada revocación queda auditada. */
+  private async revokeActiveSessionsOf(
+    oid: string,
+    reason: 'membership_removed' | 'ownership_removed' | 'roles_changed',
+    actor: AuditEventDraft['actor'],
+    correlationId: string,
+  ): Promise<number> {
+    let revoked = 0;
+    for (const session of await this.sessions.activeByOid(this.tenantId, oid)) {
+      const at = this.now();
+      if (!(await this.sessions.update(revokeSession(session, reason, at), session.revision))) {
+        continue;
+      }
+      revoked += 1;
+      await recordAudit(this.audit, {
+        id: randomUUID(),
+        tenantId: this.tenantId,
+        occurredAt: at,
+        actor,
+        action: 'access.session.revoked',
+        resource: { type: 'session', id: session.subjectId },
+        outcome: 'succeeded',
+        correlationId,
+        reason,
+        metadata: { reference: session.id },
+      });
     }
     return revoked;
   }
