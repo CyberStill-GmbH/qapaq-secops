@@ -191,6 +191,11 @@ variable "core_secret_names" {
     ])
     error_message = "Los nombres de variables y secretos deben usar caracteres permitidos y no pueden contener valores."
   }
+
+  validation {
+    condition     = !contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET_REF")
+    error_message = "QAPAQ_ENTRA_CLIENT_SECRET_REF es una referencia no secreta y pertenece en core_environment; el valor real QAPAQ_ENTRA_CLIENT_SECRET pertenece en core_secret_names."
+  }
 }
 
 variable "wazuh_secret_names" {
@@ -217,9 +222,16 @@ variable "core_environment" {
       for key, value in var.core_environment :
       can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) &&
       !can(regex("[\\r\\n]", value)) &&
-      !can(regex("(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key))
+      (
+        key == "QAPAQ_ENTRA_CLIENT_SECRET_REF"
+        ? (
+          can(regex("^secret://keyvault/[A-Za-z0-9][A-Za-z0-9-]{0,126}$", value)) &&
+          lookup(var.core_secret_names, "QAPAQ_ENTRA_CLIENT_SECRET", "") == trimprefix(value, "secret://keyvault/")
+        )
+        : !can(regex("(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key))
+      )
     ])
-    error_message = "core_environment admite claves no sensibles en mayúsculas y valores de una sola línea; secretos solo por Key Vault."
+    error_message = "core_environment admite QAPAQ_ENTRA_CLIENT_SECRET_REF solo como secret://keyvault/<nombre> y debe coincidir con core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET; las claves sensibles restantes y los valores multilínea están prohibidos."
   }
 }
 
