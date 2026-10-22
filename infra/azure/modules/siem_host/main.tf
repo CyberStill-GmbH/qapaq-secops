@@ -33,7 +33,9 @@ locals {
   bootstrap_extension_script = <<-SCRIPT
     #!/bin/bash
     set -euo pipefail
+    umask 077
     install -d -m 0700 /etc/qapaq-siem
+    install -m 0600 /dev/null /var/log/qapaq-siem-bootstrap.log
     printf '%s' '${base64encode(local.bootstrap_config)}' | base64 --decode > /etc/qapaq-siem/bootstrap.json
     chmod 0600 /etc/qapaq-siem/bootstrap.json
     exec python3 /usr/local/sbin/qapaq-siem-bootstrap.py >> /var/log/qapaq-siem-bootstrap.log 2>&1
