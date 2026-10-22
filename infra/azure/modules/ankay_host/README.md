@@ -34,9 +34,13 @@ containers, install Wazuh Agent, publish a DNS name, or change the QAPAQ login.
 
 The data disk uses Standard SSD and `prevent_destroy`; the VM also uses `prevent_destroy` to prevent
 an accidental teardown of the host. OpenSearch, workflow files, and app hotload directories should
-be bind-mounted under `/mnt/ankay` in the eventual Compose. The cloud-init bootstrap formats the
-newly created empty managed disk on first boot, mounts it and stages the digest-checked Compose.
-The host or disk must not be replaced without a separate backup and recovery review.
+be bind-mounted under `/mnt/ankay` in the eventual Compose. The bootstrap checks that Azure LUN 0 is
+the expected block device and exact configured size, has no partition/mount conflict, and has no
+filesystem/signature before considering initialization. It reads the full disk and runs `mkfs.ext4`
+only when every byte is zero; unknown signatures, nonzero data, probe errors, or size/identity
+mismatches stop the bootstrap without formatting. Existing ext4 is mounted without reformatting;
+other filesystems are rejected. The first-boot empty-disk scan adds startup time. The host or disk
+must not be replaced without a separate backup and recovery review.
 
 Only the edge subnet reaches the frontend port, and only the QAPAQ API subnet reaches the backend
 webhook port. Network rules cannot distinguish individual Container Apps sharing that subnet, so the

@@ -14,9 +14,10 @@ locals {
     for service in ["shuffle-security", "opensearch"] : length(try(local.compose_services[service].ports, [])) == 0
   ])
   cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    compose_b64  = base64encode(var.compose_yaml)
-    compose_sha  = var.compose_sha256
-    data_disk_gb = var.data_disk_size_gb
+    compose_b64        = base64encode(var.compose_yaml)
+    compose_sha        = var.compose_sha256
+    data_disk_gb       = var.data_disk_size_gb
+    disk_bootstrap_b64 = base64encode(file("${path.module}/prepare-data-disk.py"))
   })
 }
 
