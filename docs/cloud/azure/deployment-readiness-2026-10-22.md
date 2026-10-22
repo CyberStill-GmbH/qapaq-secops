@@ -13,9 +13,10 @@
   `build-core` y `deploy` quedaron `skipped`; no se consideran builds ni un
   despliegue realizados.
 - El run [39778486904](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778486904)
-  seguía `in_progress` al consultar GitHub; el paso activo era `Build QAPAQ
-  Dashboard package`. La verificación y la publicación de su artefacto todavía
-  estaban pendientes, así que no se cuenta como paquete terminado.
+  terminó `success`: construyó y verificó el paquete QAPAQ Dashboard y subió el
+  artefacto inmutable de esa corrida. El paso `Publish verified OCI artifact to
+  ACR (manual, main only)` quedó `skipped` porque el evento fue `pull_request`;
+  por tanto, el paquete no se publicó en ACR ni se instaló en Azure.
 - La configuración Terraform conserva `enable_runtime = false`, `siem_host = null`
   y `ankay_host = null` por defecto. El runtime genérico, QAPAQ Wazuh y Ankay no
   están habilitados mediante esta configuración base; la cola Valkey/BullMQ,
