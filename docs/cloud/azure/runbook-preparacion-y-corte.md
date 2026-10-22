@@ -4,7 +4,35 @@
 
 Este runbook conserva abajo observaciones fechadas del 2026-10-20. Para el diseño objetivo prevalece [`architecture.md`](architecture.md), basado en `docs/10-decisiones.md` A5–A9/A13/A18/A20/A22 y `docs/12-backend-en-el-siem.md`.
 
-El destino Azure es Wazuh QAPAQ 4.14.8 / OSD 2.19.6 con edge Nginx QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 junto al SIEM; PostgreSQL durable; Valkey para sesiones, cache-aside y BullMQ; KrakenD para ingesta según A8; y Ankay como Shuffle completo en un host privado separado, tras `/ankay/*` con la sesión/autorización QAPAQ actual. `siem_host` ya está conectado al root detrás del objeto opcional `siem_host`, desactivado por defecto; `ankay_host` sigue aislado. CI, bundle, plan y apply siguen pendientes; este diseño no certifica un despliegue.
+El destino Azure es Wazuh QAPAQ 4.14.8 / OSD 2.19.6 con edge Nginx QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 junto al SIEM; PostgreSQL durable; Valkey para sesiones, cache-aside y BullMQ; KrakenD para ingesta según A8; y Ankay como Shuffle completo en un host privado separado, tras `/ankay/*` con la sesión/autorización QAPAQ actual. `siem_host` está conectado al root detrás del objeto opcional `siem_host`, desactivado por defecto; `ankay_host` sigue aislado. El apply de infraestructura descrito abajo completó una asignación de identidad acotada; no desplegó ese destino ni certifica el runtime.
+
+## Estado de Azure verificado (2026-10-21, hora de Lima)
+
+- El workflow protegido de Terraform ejecutó el apply en `main`, commit
+  [`9a8fbe3`](https://github.com/CyberStill-GmbH/qapaq-secops/commit/9a8fbe38b8e28b3d26e9e2b1faf0034cb80e1bf5).
+  El [run 39721818427](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39721818427)
+  terminó `success`: **1 recurso añadido, 0 modificados, 0 destruidos**. La única
+  acción fue crear `module.identity_registry.azurerm_role_assignment.raw_blob_writer`,
+  asignando `Storage Blob Data Contributor` a la identidad administrada del runtime,
+  limitado al contenedor `security-event-raw`. El workflow validó el checksum del
+  plan guardado y aplicó ese mismo plan.
+- El [plan posterior 39722269994](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39722269994)
+  terminó `success`: **0 añadidos, 0 modificados, 0 destruidos**; el job de apply
+  fue omitido. Es una comprobación de deriva para el estado Terraform en ese
+  momento, no un health check de aplicaciones.
+- Estos runs no cambiaron DNS, secretos, buckets de evidencia ni datos; tampoco
+  crearon el host Wazuh/Ankay ni activaron conectores. El runtime genérico continúa
+  deshabilitado (`enable_runtime=false`), `siem_host` permanece sin configuración
+  (`null`) y `ankay_host` no está conectado al root. **QAPAQ SecOps y Ankay no están
+  operativos en Azure por este apply.**
+- Siguen pendientes el bundle instalable y bootstrap de Wazuh QAPAQ, Valkey y
+  `qapaq-core` funcional, KrakenD, el despliegue completo de Ankay, migración segura
+  de secretos a Key Vault, configuración/validación real de M365, Sophos, Cato y
+  Teams, agentes/playbooks, TLS y corte DNS. No presentar la base Azure ni el rol
+  Blob como evidencia de que esos servicios están conectados.
+- El presupuesto configurado es una alerta, no un límite de gasto ni un apagado
+  automático. Revisar la estimación de costos y el plan completo antes de habilitar
+  componentes facturables.
 
 Antes de usar este runbook, tener presentes estos gates:
 
@@ -14,7 +42,8 @@ Antes de usar este runbook, tener presentes estos gates:
 - A11 fija snapshots/evidencia en S3 y excluye Azure. No usar Blob para esos datos hasta que una decisión revisada defina residencia, Object Lock y retención.
 - USD 200/mes es un umbral de alertas, sin apagado ni `destroy`. La estimación actual ya supera ese importe antes de los componentes restantes.
 - No aplicar el paso DNS de abajo como si el destino fuera Container Apps. Primero debe existir el edge del host SIEM con TLS y hostname probado. El Terraform Azure no administra Route 53.
-**Estado:** preparación; no hay recursos Azure aplicados ni DNS cambiado.
+**Estado al 2026-10-21:** fundación parcial aplicada y sin deriva Terraform en la
+última lectura; el runtime QAPAQ/Ankay no está desplegado y DNS no fue cambiado.
 **Región configurada:** Chile Central (`chilecentral`).
 **Umbral de alerta de presupuesto:** USD 200/mes; no es un tope ni apaga recursos.
 **Crédito de cuenta observado:** USD 200 restantes, con vencimiento el 18 de
