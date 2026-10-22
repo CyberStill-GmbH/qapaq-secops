@@ -8,7 +8,7 @@
 
 ## Resumen
 
-El costo orientativo del objetivo Azure 24/7 queda en **USD 1,110.58/mes** con Azure Firewall Basic y en **USD 1,729.83/mes** con Standard, antes del egress de Internet, Log Analytics, crecimiento de datos y servicios de proveedores. Ambos casos mantienen Wazuh y Ankay como hosts únicos; el PostgreSQL y el Redis-compatible se modelan con HA, pero eso **no convierte el SOC completo en HA**.
+El costo orientativo del objetivo Azure 24/7 queda en **USD 1,106.93/mes** con Azure Firewall Basic y en **USD 1,726.18/mes** con Standard, antes del egress de Internet, Log Analytics, crecimiento de datos y servicios de proveedores. La corrección refleja el precio vigente del IP público Standard. Ambos casos mantienen Wazuh y Ankay como hosts únicos; PostgreSQL y Redis-compatible se modelan con HA, pero eso **no convierte el SOC completo en HA**.
 
 El presupuesto de USD 200 no alcanza para el objetivo completo. Una demo recortada con Wazuh/QAPAQ en una VM, persistencia local y controles de red acotados puede acercarse al umbral, pero excluye Ankay, firewall administrado, base de datos/cache administradas, backups y observabilidad facturada. No debe presentarse como arquitectura resiliente ni como despliegue productivo.
 
@@ -26,7 +26,7 @@ Supuestos de tamaño:
 - Azure Managed Redis Balanced B0 HA: **USD 26.28/mes**, estimado como dos nodos al precio público de USD 13.14/nodo-mes. No se considera implementación de Valkey ni se afirma compatibilidad operativa con BullMQ; SKU, memoria y comportamiento deben probarse antes de elegirlo.
 - Discos Linux: SIEM Premium SSD LRS P6 (64 GiB) para SO y P10 (128 GiB) para datos; Ankay Standard SSD LRS E6 (64 GiB) para SO y E10 (128 GiB) para datos. El sizing de los discos es un supuesto de esta estimación; imágenes, crecimiento y backups pueden exigir más.
 - Azure Firewall procesa 100 GB/mes en cada variante; egress de Internet no supera los primeros 100 GB/mes del medidor consultado.
-- ACR Basic todo el mes, IP pública estática Standard todo el mes. No se incluyen cobros de transferencia o almacenamiento adicionales del registry.
+- ACR Basic todo el mes, IP pública IPv4 estática Standard todo el mes. No se incluyen cobros de transferencia o almacenamiento adicionales del registry.
 - PostgreSQL conserva 14 días de backup. Se presupone que backup almacenado no excede la cuota incluida equivalente al storage aprovisionado; cualquier exceso se cobra aparte.
 
 ## Estimado 24/7 por recurso
@@ -46,11 +46,11 @@ Supuestos de tamaño:
 | Procesamiento Firewall Basic | 100 GB/mes | 0.065 × 100 | 6.50 |
 | Managed Redis B0 HA | dos nodos, sujeto a validar SKU | precio publicado estimado | 26.28 |
 | ACR Basic | Registry Unit | 0.17 × 30.4167 días | 5.17 |
-| IP pública estática Standard | un IP | 0.01 × 730 h | 7.30 |
+| IP pública IPv4 estática Standard | un IP | 0.005 × 730 h | 3.65 |
 | Egress de Internet | hasta 100 GB/mes | primer tramo observado a USD 0 | 0.00* |
-| **Subtotal Basic** | **componentes enumerados** |  | **1,110.58** |
+| **Subtotal Basic** | **componentes enumerados** |  | **1,106.93** |
 
-La variante Firewall Standard cuesta USD 912.50/mes fijo y USD 0.016/GB procesado. Para los mismos 100 GB, el total estimado pasa a **USD 1,729.83/mes**. El total Standard es más alto pese a su menor precio por GB, por el cargo fijo del servicio.
+La variante Firewall Standard cuesta USD 912.50/mes fijo y USD 0.016/GB procesado. Para los mismos 100 GB, el total estimado pasa a **USD 1,726.18/mes**. El total Standard es más alto pese a su menor precio por GB, por el cargo fijo del servicio.
 
 `*` No significa costo garantizado cero: backup por encima de la cuota, egress sobre el tramo incluido y otros medidores añaden cargos. Una salida de 1,000 GB/mes, con 100 GB en tramo gratuito y 900 GB a USD 0.08/GB, añade aproximadamente **USD 72/mes**. Firewall procesa datos con un medidor distinto.
 
@@ -73,28 +73,28 @@ Estimación de arranque durante 4 horas del escenario Basic, suponiendo 10 GB pr
 | --- | ---: |
 | VMs Wazuh, Ankay y PostgreSQL HA | 3.91 |
 | Firewall Basic fijo | 1.58 |
-| Redis HA e IP estática | 0.18 |
+| Redis HA e IP estática Standard | 0.16 |
 | Discos y storage PostgreSQL prorrateados | 0.35 |
 | ACR Basic: un día de registry | 0.17 |
 | Firewall: 10 GB procesados | 0.65 |
 | Egress: 4 GB bajo el tramo incluido | 0.00* |
-| **Marginal estimado por 4 h** | **6.84** |
+| **Marginal estimado por 4 h** | **6.82** |
 
 Los costos se calculan con los mismos medidores mensuales prorrateados por 4/730 h; el ACR usa el medidor de precio diario. La estimación excluye creación/carga inicial, imágenes, backup, logs y transferencia de evidencia. Si Firewall procesa 100 GB durante esas cuatro horas, añade USD 6.50; al superar los primeros 100 GB de Internet del mes, egress se añade según la tarifa regional. No equivale al costo de una demo completa ni a un presupuesto máximo.
 
-## Opción demo con aviso de USD 200
+## Opción demo con umbral de aviso de USD 200
 
-El siguiente recorte se acerca al umbral, **no conserva el alcance completo**:
+El siguiente subtotal es el costo mensual orientativo con los componentes de la tabla encendidos 24/7 (730 h). Se acerca al umbral de aviso, pero **no conserva el alcance completo** ni representa el stack SIEM + SOAR desplegado:
 
 | Recurso mantenido | SKU / modo | USD/mes |
 | --- | --- | ---: |
 | Wazuh y QAPAQ Core juntos | D4as v5 Linux 4 vCPU/16 GiB, una VM | 176.66 |
 | Disco SO | Standard HDD S6 LRS, 64 GiB | 4.21 |
 | Disco de datos | Standard HDD S10 LRS, 128 GiB | 8.24 |
-| Edge mínimo | un IP público estático Standard | 7.30 |
-| **Subtotal aproximado** |  | **196.41** |
+| Edge mínimo | un IP público IPv4 estático Standard | 3.65 |
+| **Subtotal aproximado, USD/mes** |  | **192.76** |
 
-El subtotal queda bajo USD 200 solo con **menos de 100 GB/mes de egress**, sin registry incremental, backup, Log Analytics, Firewall Azure, PostgreSQL/Redis administrados, DNS, almacenamiento de evidencias, costes de proveedor ni crecimiento. Puede exceder el aviso con un solo medidor adicional. El host corre Postgres/Valkey local solo para demo y no ofrece HA; Standard HDD puede degradar indexación. Hay un único nodo de SIEM, sin réplica ni failover. Las reglas NSG y host firewall limitan exposición, pero no reemplazan inspección de salida; el uso de Cato depende de un túnel, licencias y configuración validados.
+El subtotal de lista queda bajo el umbral de aviso de USD 200 solo con **menos de 100 GB/mes de egress** y bajo estos límites: una VM D4as_v5 para Wazuh + QAPAQ Core, sus dos discos y un IP público Standard. **No incluye Ankay/Shuffle, PostgreSQL ni Redis administrados, Azure Firewall, ACR, backup, Log Analytics, Key Vault, DNS, almacenamiento de evidencia, balanceador/WAF, costes de proveedor ni crecimiento de datos.** Puede superar el umbral con un solo medidor adicional. El host corre PostgreSQL/Valkey local solo para demo y no ofrece HA; Standard HDD puede degradar indexación. Hay un único nodo SIEM, sin réplica ni failover. Las reglas NSG y host firewall limitan exposición, pero no reemplazan inspección de salida; el uso de Cato depende de un túnel, licencias y configuración validados.
 
 **Ankay se deja apagado/no desplegado en esta opción.** Mantenerlo separado con discos persistentes añade USD 20.16/mes aun detenido (sin contar otros recursos), por lo que el total excede el aviso. Si se lanza una VM de Ankay solo bajo demanda, se añade aproximadamente USD 0.97 de cómputo por 4 h, además de almacenamiento, registry, transferencia y estado persistente; el margen de USD 3.59 no basta para certificar que el consumo total quede por debajo de USD 200. No se propone co-localizar Shuffle/OpenSearch con Wazuh: compartiría memoria y dominio de falla y aumentaría el impacto de compromiso. Apagar Ankay reduce costo de VM, pero no apaga automáticamente discos u otros recursos.
 
@@ -115,7 +115,7 @@ Esta opción es un experimento de duración limitada, no una alternativa equival
 
 Precios primarios consultados el 2026-10-22; API en USD, región `chilecentral`:
 
-- [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices). Filtros: `armRegionName eq 'chilecentral' and serviceName eq 'Virtual Machines' and armSkuName eq '<SKU>' and priceType eq 'Consumption'`; PostgreSQL `serviceName eq 'Azure Database for PostgreSQL'`; Firewall `serviceName eq 'Azure Firewall'`; Storage `serviceName eq 'Storage'`; IP `serviceName eq 'Virtual Network'`; egress `serviceName eq 'Bandwidth'`; ACR `serviceName eq 'Container Registry'`.
+- [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices). Filtros: `armRegionName eq 'chilecentral' and serviceName eq 'Virtual Machines' and armSkuName eq '<SKU>' and priceType eq 'Consumption'`; PostgreSQL `serviceName eq 'Azure Database for PostgreSQL'`; Firewall `serviceName eq 'Azure Firewall'`; Storage `serviceName eq 'Storage'`; IP `serviceName eq 'Virtual Network'`; egress `serviceName eq 'Bandwidth'`; ACR `serviceName eq 'Container Registry'`. El precio consultado para `Standard IPv4 Static Public IP` es **USD 0.005/h** (730 h = USD 3.65); `USD 0.01/h` corresponde a otro medidor de IP y no se debe usar para esta línea.
 - [Wazuh Quickstart](https://documentation.wazuh.com/current/quickstart.html) y [VM Fsv2](https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/compute-optimized/fsv2-series): sizing inicial de 1–25 agentes.
 - [PostgreSQL Flexible Server pricing](https://azure.microsoft.com/en-us/pricing/details/postgresql/flexible-server/) y [precios/costos de HA](https://learn.microsoft.com/en-us/azure/reliability/reliability-database-postgresql): tier Burstable no da HA y standby cambia costo.
 - [Azure Firewall pricing](https://azure.microsoft.com/en-us/pricing/details/azure-firewall/) y [capabilities por SKU](https://learn.microsoft.com/en-us/azure/firewall/features-by-sku).

@@ -7,8 +7,8 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [ADR Azure: BullMQ sobre PostgreSQL](decisions/adr-azure-queue-postgres.md)
 - [Diagrama de despliegue](diagrams/qapaq-azure.mmd)
 - [Runbook de secretos, notificaciones y DNS](runbook-preparacion-y-corte.md)
-- [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
-- [Viabilidad de costos en Chile Central, revalidada 2026-10-22](cost-feasibility-2026-10-22.md)
+- [Estimación vigente de costos en Chile Central, consulta 2026-10-22](cost-feasibility-2026-10-22.md)
+- [Estimación anterior del piso Wazuh + PostgreSQL, consulta 2026-10-20](cost-feasibility-2026-10-20.md)
 - [Terraform Azure](../../../infra/azure/README.md)
 
 Estado al **2026-10-22**: **canal privado de artefactos aplicado; runtime no desplegado**.
@@ -37,12 +37,12 @@ El estado de infraestructura confirmado por Actions es:
 No hay evidencia de un runtime Wazuh/QAPAQ o Ankay desplegado, saludable o listo
 para usar. DNS permanece sin corte. El run 39766635034 acredita solo el apply del
 canal de releases, no el despliegue del producto. La región base es **Chile Central** (`chilecentral`), seleccionada
-por proximidad geográfica a Perú. La revalidación oficial del 2026-10-20 mide un
-piso de lista estimado de USD 242.51/mes por cómputo de Wazuh recomendado y PostgreSQL B2S.
-No es una cotización del tenant. Al sumar el egress firewall requerido por los módulos host, el piso sube a USD
-530.86/mes con Firewall Basic o USD 1,155.01/mes con Standard, antes del
-procesamiento, discos y demás servicios. Ambos exceden el umbral de alertas de
-USD 200, que no es un límite de facturación ni apaga recursos. Antes de `apply`
+por proximidad geográfica a Perú. La estimación vigente consultó la Retail Prices API
+el 2026-10-22: el modelo completo descrito allí suma **USD 1,106.93/mes con Firewall
+Basic** o **USD 1,726.18/mes con Standard**, antes de costos omitidos y sin ser una
+cotización del tenant. La estimación del 2026-10-20 se conserva como un cálculo
+anterior y acotado de Wazuh + PostgreSQL. USD 200/mes es un umbral de aviso: no
+limita la facturación, no apaga recursos y no activa `destroy`. Antes de `apply`
 se deben revisar el costo completo, el plan exacto, state/recursos, residencia,
 SKU/cuotas y latencia real desde la red de QAPAQ. Imágenes publicadas, restore y
 conectores probados también son gates de producción.
