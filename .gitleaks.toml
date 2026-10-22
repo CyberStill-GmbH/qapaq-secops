@@ -1,0 +1,12 @@
+title = "QAPAQ SecOps secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Go checksum from SumDB for golang.org/x/oauth2 v0.36.0; narrowly scoped to this checksum line in the generated dependency patch."
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''(^|/)ankay/runtime/shuffle-runtime-security-upgrades\.patch$''']
+regexTarget = "match"
+regexes = ['''^oauth2 v0\.36\.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=$''']
