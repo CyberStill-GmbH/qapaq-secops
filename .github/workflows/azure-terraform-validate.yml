@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   validate:
-    name: fmt, init and validate (no cloud credentials)
+    name: fmt, init, validate and test (no cloud credentials)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -49,6 +49,9 @@ jobs:
 
       - name: Verify SIEM bootstrap suppresses installer output
         run: python3 infra/azure/modules/siem_host/test_bootstrap_siem.py
+
+      - name: Verify SIEM and Ankay disk formatting fails closed
+        run: python3 infra/azure/modules/ankay_host/test_prepare_data_disk.py
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -76,6 +79,9 @@ jobs:
 
       - name: Validate the SIEM host module
         run: terraform -chdir=infra/azure/modules/siem_host validate -no-color
+
+      - name: Test the SIEM host module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/siem_host test -no-color
 
       - name: Initialize the isolated Ankay host module without cloud credentials
         run: terraform -chdir=infra/azure/modules/ankay_host init -backend=false -input=false -no-color
