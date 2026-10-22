@@ -50,6 +50,14 @@ resource "azurerm_subnet" "private_endpoints" {
   private_endpoint_network_policies = "Disabled"
 }
 
+resource "azurerm_subnet" "ankay" {
+  count                = var.ankay_subnet_address_prefix == null ? 0 : 1
+  name                 = "snet-ankay"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.ankay_subnet_address_prefix]
+}
+
 
 resource "azurerm_private_dns_zone" "postgres" {
   name                = "${var.name_base}.postgres.database.azure.com"

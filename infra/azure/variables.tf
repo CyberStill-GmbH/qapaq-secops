@@ -30,6 +30,11 @@ variable "address_space" {
   description = "Address space VNet."
   type        = string
   default     = "10.80.0.0/16"
+
+  validation {
+    condition     = can(cidrnetmask(var.address_space)) && can(regex("/16$", var.address_space))
+    error_message = "address_space debe ser un CIDR IPv4 /16; los índices de subnet del módulo están calculados para ese tamaño."
+  }
 }
 
 variable "github_repository" {
@@ -130,6 +135,29 @@ variable "siem_host" {
     bootstrap_bundle_sha256   = string
   })
   default = null
+}
+
+variable "ankay_host" {
+  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, firewall operativo, seis digests ACR y Compose sin secretos revisado."
+  type = object({
+    private_ip_address        = string
+    firewall_private_ip       = string
+    firewall_policy_reference = string
+    admin_ssh_public_key      = string
+    vm_size                   = string
+    ubuntu_image_version      = string
+    data_disk_size_gb         = optional(number, 128)
+    container_images          = map(string)
+    compose_yaml              = string
+    compose_sha256            = string
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition     = var.ankay_host == null || var.siem_host != null
+    error_message = "Ankay Qapaq requiere que siem_host esté configurado para compartir el edge y callback protegido de QAPAQ."
+  }
 }
 
 variable "key_vault_secret_ids" {
