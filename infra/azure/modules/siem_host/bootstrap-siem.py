@@ -15,6 +15,7 @@ import pathlib
 import pwd
 import re
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -361,34 +362,116 @@ def extract_and_verify(bundle: pathlib.Path, config: dict) -> pathlib.Path:
     return release
 
 
-def install_release(release: pathlib.Path) -> None:
-    installer = release / "install.sh"
-    os.chmod(installer, 0o700)
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "QAPAQ_DATA_ROOT": str(DATA_ROOT),
-            "QAPAQ_CORE_ENV_FILE": str(CORE_ENV_PATH),
-            "QAPAQ_SECRET_DIR": str(WAZUH_SECRET_DIR),
-            "QAPAQ_WAZUH_VERSION": EXPECTED["wazuh_version"],
-            "QAPAQ_OSD_VERSION": EXPECTED["osd_version"],
-            "QAPAQ_CORE_NODE_VERSION": EXPECTED["node_version"],
-            "QAPAQ_RELEASE_DIR": str(release),
-        }
-    )
-    # Wazuh's installation assistant prints generated credentials in its summary.
-    # Do not inherit stdout/stderr into the Custom Script extension log. Keep
-    # diagnostics intentionally generic so secrets cannot leak through a failure.
+def install_state_path() -> pathlib.Path:
+    return DATA_ROOT / "bootstrap-install-state.json"
+
+
+def package_registered(package_name: str) -> bool:
     result = subprocess.run(
-        ["bash", str(installer)],
-        cwd=release,
-        env=environment,
+        ["dpkg-query", "--show", "-f=${db:Status-Status}", package_name],
         check=False,
-        stdout=subprocess.DEVNULL,
+        text=True,
+        stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
-    if result.returncode != 0:
-        fail(f"el instalador del bundle falló (código {result.returncode}); salida suprimida por seguridad")
+    if result.returncode == 0:
+        return bool(result.stdout.strip())
+    if result.returncode == 1:
+        return False
+    fail(f"no se pudo comprobar el estado de {package_name}")
+    raise AssertionError("unreachable")
+
+
+def installer_required(release: pathlib.Path) -> bool:
+    """Run the one-shot installer only on a clean host or for its recorded release.
+
+    The installer may generate credentials and initialize state-bearing services. Re-running
+    it against an existing Wazuh data disk can be destructive, so a new release never triggers
+    an implicit in-place upgrade.
+    """
+    state_path = install_state_path()
+    if state_path.exists():
+        try:
+            state_stat = state_path.lstat()
+        except OSError:
+            fail("no se pudo inspeccionar el registro durable de instalación")
+        if not stat.S_ISREG(state_stat.st_mode):
+            fail("el registro durable no es un archivo normal; no se volverá a instalar")
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            fail("el registro durable de instalación no es válido; no se volverá a instalar")
+        if (
+            state.get("schemaVersion") != 1
+            or not re.fullmatch(r"[0-9a-f]{64}", state.get("artifactSha256", ""))
+            or state.get("artifactSha256") != release.name
+        ):
+            fail("el host ya registra otra release; no se ejecuta una actualización implícita")
+        return False
+
+    package_names = ("wazuh-manager", "wazuh-indexer", "wazuh-dashboard", "filebeat")
+    present = [name for name in package_names if package_registered(name)]
+    state_dirs = (DATA_ROOT / "manager", DATA_ROOT / "indexer", DATA_ROOT / "dashboard")
+    populated_dirs = [path for path in state_dirs if path.exists() and any(path.iterdir())]
+    core_root = pathlib.Path("/opt/qapaq-core")
+    if present or populated_dirs or core_root.exists():
+        fail("hay instalación o datos previos sin registro; se detuvo para proteger el estado existente")
+    return True
+
+
+def record_install_state(release: pathlib.Path) -> None:
+    state_path = install_state_path()
+    state_path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+    temporary_path = state_path.with_name(f".{state_path.name}.tmp")
+    file_descriptor = os.open(
+        temporary_path,
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+        0o600,
+    )
+    with os.fdopen(file_descriptor, "w", encoding="utf-8") as stream:
+        json.dump({"schemaVersion": 1, "artifactSha256": release.name}, stream, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary_path, state_path)
+    os.chmod(state_path, 0o600)
+
+
+def install_release(release: pathlib.Path) -> None:
+    try:
+        manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        fail("manifest.json del bundle no es válido al instalar")
+
+    installer = release / "install.sh"
+    needs_install = installer_required(release)
+    if needs_install:
+        os.chmod(installer, 0o700)
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "QAPAQ_DATA_ROOT": str(DATA_ROOT),
+                "QAPAQ_CORE_ENV_FILE": str(CORE_ENV_PATH),
+                "QAPAQ_SECRET_DIR": str(WAZUH_SECRET_DIR),
+                "QAPAQ_WAZUH_VERSION": EXPECTED["wazuh_version"],
+                "QAPAQ_OSD_VERSION": EXPECTED["osd_version"],
+                "QAPAQ_CORE_NODE_VERSION": EXPECTED["node_version"],
+                "QAPAQ_RELEASE_DIR": str(release),
+            }
+        )
+        # Wazuh's installation assistant prints generated credentials in its summary.
+        # Do not inherit stdout/stderr into the Custom Script extension log. Keep
+        # diagnostics intentionally generic so secrets cannot leak through a failure.
+        result = subprocess.run(
+            ["bash", str(installer)],
+            cwd=release,
+            env=environment,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode != 0:
+            fail(f"el instalador del bundle falló (código {result.returncode}); salida suprimida por seguridad")
 
     manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
     for package_name in ("wazuh-manager", "wazuh-indexer", "wazuh-dashboard", "filebeat"):
@@ -413,6 +496,8 @@ def install_release(release: pathlib.Path) -> None:
             if attempt == 59:
                 fail("qapaq-core no alcanzó /health/ready")
         time.sleep(2)
+    if needs_install:
+        record_install_state(release)
     log("servicios de Wazuh QAPAQ y qapaq-core activos según systemd")
 
 
