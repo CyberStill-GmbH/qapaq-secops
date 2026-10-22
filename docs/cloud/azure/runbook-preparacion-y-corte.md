@@ -341,46 +341,40 @@ por el chat ni guardarlos en `tfvars`, GitHub variables de texto, logs o planes.
 ## Notificaciones Teams
 
 La ruta de notificaciones de QAPAQ (`modules/soar/src/teams-adapter.ts` y
-`teams-payload.ts`) ya utiliza una URL de **Teams Workflows** y adjuntos
-**Adaptive Card**. La suite del adapter pasó 27/27 pruebas del módulo `soar`.
-Microsoft documenta Workflows como receptor de webhook HTTP y la publicación de
-Adaptive Cards; los conectores Office 365 heredados están en retirada.
+`teams-payload.ts`) ya forma una tarjeta Adaptive Card y envía a la URL configurada
+como Teams Workflow. `modules/soar/test/teams-transport.spec.ts` prueba localmente
+el payload, aceptación HTTP, clases de error, timeout y redacción de la URL. Esa
+prueba no acredita entrega en un tenant de Teams.
 
-Se preparó `infra/wazuh/teams/custom-qapaq-teams` como integración personalizada
-del **backend Wazuh Manager 4.x** y `ossec-teams-workflow.xml` como bloque de
-configuración. No es un cambio en `modules/soar` ni en el frontend. El adaptador
-rechaza el webhook heredado `IncomingWebhook`, requiere Teams Workflows y envía una
-tarjeta mínima para reglas de nivel 12 o superior. La URL debe llegar al host desde
-Key Vault mediante identidad administrada y quedar en un archivo protegido; nunca
-se incluye en Git, `ossec.conf`, argumentos visibles o logs.
+En el `main` auditado no hay una integración Wazuh→Teams personalizada que se pueda
+actualizar: `wazuh/manager/integrations/custom-qapaq.py` solo envía alertas a la API
+QAPAQ con HMAC, y `wazuh/manager/ossec.qapaq-integrations.xml.tmpl` configura esa
+ruta y deja Shuffle comentado. No existen en esta rama los archivos
+`infra/wazuh/teams/custom-qapaq-teams`, `ossec-teams-workflow.xml` ni
+`infra/wazuh/shuffle/` que mencionaban versiones anteriores de este runbook. Por
+tanto no hay un emisor Wazuh directo que use el webhook legado `IncomingWebhook`, y
+tampoco está demostrado el rechazo de ese formato en Wazuh. No se debe afirmar que
+esa adaptación está preparada o instalada.
 
-La integración está preparada y probada con datos sintéticos, pero **no está
-instalada ni verificada contra un Manager real**: este checkout no contiene el
-Manager Wazuh modificado ni su paquete Azure, y no se ha identificado una instancia
-Wazuh administrada en la región AWS consultada. Antes del despliegue hay que
-integrar estos archivos al artefacto/bootstrap del Manager 4.x, confirmar una sola
-ruta de notificación para evitar duplicados, provisionar la URL desde Key Vault y
-validar entrega, timeout, rate limit y recuperación del integratord. El aviso de
-Teams no es ACK de un analista. Wazuh 5.x requiere un mecanismo distinto porque
-retiró `<integration>`/`integratord`.
+Para Teams, la ruta de producto vigente es el outbox/adapter QAPAQ. El secreto de la
+URL se resuelve mediante el proveedor de secretos y nunca debe aparecer en Git,
+`ossec.conf`, argumentos o logs. Falta cargarlo desde Key Vault en Azure y ejecutar
+una prueba autorizada de entrega en un canal de prueba. El aviso enviado no es ACK de
+un analista. No se debe activar en paralelo un segundo emisor desde Wazuh sin definir
+deduplicación y el evento dueño del envío.
 
-Para la automatización SOAR se preparó `infra/wazuh/shuffle/`: Wazuh Manager 4.x
-publica al trigger moderno `/api/v1/webhooks/webhook_<id>` de Shuffle con TLS y
-header de autenticación obligatorio, enviando un payload mínimo. El workflow puede
-usar una acción HTTP hacia Teams Workflows solo con almacenamiento cifrado/KMS
-verificado para la URL firmada; si no, el emisor crítico continúa en el outbox de
-QAPAQ (ADR-022) para no duplicar notificaciones. El workflow, host Shuffle,
-credencial, webhook y ejecución reales siguen pendientes; no están creados ni
-aplicados por Terraform.
-
-El catálogo inicial de playbooks está en
-el directorio `docs/security/ankay-playbooks/` (no presente en esta rama). Define el
-trigger directo Wazuh solo para triage read-only; ejecución de acciones requiere
-despachador del outbox QAPAQ, callback firmado, permisos revisados y aprobación
-SoD. VirusTotal queda bloqueado hasta confirmar licencia Enterprise/comercial,
-condiciones de privacidad de IOCs y referencia de secreto en Key Vault. Graph,
-Sophos y Cato no se consideran conectados hasta validar scopes/tenant y entregar
-eventos sintéticos por los conectores reales.
+La plantilla Wazuh mantiene un bloque Shuffle comentado; esto no equivale a una
+integración Ankay funcional. El catálogo y gobernanza de playbooks se especifican en
+`docs/14-ankay-conexion-qapaq.md` y `docs/reference/decisiones/028-shuffle-soar-webhook-adapter.md`.
+El contrato de ejecución desde QAPAQ Core a Shuffle, callback firmado, reconciliación
+de resultados y deduplicación no están implementados ni verificados en Azure. El
+documento `docs/14` marca como pendientes la forma exacta de las respuestas del
+webhook y de los endpoints de resultado en Shuffle v2.3.0, además de la app de
+validación HMAC y la autorización por rol para el editor. No existe en este checkout
+el directorio `docs/security/ankay-playbooks/` ni un conjunto de playbooks cargado.
+VirusTotal permanece sujeto a licencia y a una decisión sobre privacidad de IOCs;
+Graph, Sophos y Cato requieren credenciales de mínimo privilegio, conectores y prueba
+con eventos autorizados antes de considerarse conectados.
 
 Ankay Qapaq **es Shuffle modificado**, no otro producto SOAR: el overlay actual
 cambia marca, arte y CSP del frontend, mientras sus servicios backend siguen el
