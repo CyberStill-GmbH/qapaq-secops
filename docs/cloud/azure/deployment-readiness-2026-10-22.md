@@ -7,6 +7,11 @@
   completó `Check branch and apply review inputs` correctamente. El job
   `Create and summarize protected Terraform plan` sigue en `waiting`; por ello,
   **no hay un plan nuevo ni evidencia de apply para este SHA**.
+- Consulta de solo lectura del portal Azure el 2026-10-22: el grupo
+  `rg-qapaqsecopsdemo-66f8c73b` muestra 18 recursos. PostgreSQL está Ready,
+  con Burstable B2s, 32 GiB y alta disponibilidad desactivada. La lista no muestra
+  una VM/Container App de runtime de QAPAQ o Ankay; este inventario no confirma
+  que estén desplegados. No se abrieron secretos.
 - El run de validación [39778487520](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39778487520)
   terminó con el job `validate-dashboard` en verde: construyó y verificó el
   paquete `.deb` QAPAQ del Dashboard sin credenciales AWS. `build-dashboard`,
@@ -31,7 +36,7 @@ no cambia infraestructura, secretos ni DNS.
 
 ## Execution evidence — 2026-10-22
 
-- **Estado más reciente:** PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100)
+- **Registro histórico del reporte previo:** PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100)
   se integró en `main`, ahora en `048716ada8e3e5e077b044888b1291ec101506d4`. El PR
   solo añadió validación de la referencia de secreto en Key Vault y casos de
   `terraform test`; no cambió recursos de Azure.
