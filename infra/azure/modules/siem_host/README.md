@@ -35,6 +35,11 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
   oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
   código de salida y un mensaje genérico, sin volcar la salida del instalador.
+- La instalación de Wazuh es de una sola ejecución por SHA-256 de release. El bootstrap registra el
+  SHA en el disco persistente después de validar servicios y `/health/ready`; una repetición de la
+  misma release verifica salud sin volver a ejecutar el instalador. Si encuentra paquetes/datos
+  previos sin registro o una release distinta, se detiene para proteger el estado. Las actualizaciones
+  requieren un flujo explícito de migración y rollback; cambiar el bundle no equivale a upgrade seguro.
 - La URL del artefacto debe ser Blob HTTPS privado, sin SAS; el SHA-256 completo lo fija CI. No se usa
   `latest`, AWS SSM ni AWS Secrets Manager. El cambio de artefacto reejecuta la extensión sin recrear
   la VM; el bootstrap falla cerrado si no concuerdan versión, integridad o servicios.

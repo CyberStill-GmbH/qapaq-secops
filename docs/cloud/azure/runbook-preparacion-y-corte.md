@@ -1,9 +1,9 @@
 # Runbook Azure: secretos, publicación y corte
 
-## Actualización de estado (2026-10-22 05:43 UTC)
+## Actualización de estado (2026-10-22 05:54 UTC)
 
 - El PR [#84](https://github.com/CyberStill-GmbH/qapaq-secops/pull/84) se integró en `main` como commit `3eeaed0`. CI Security y la validación Terraform del PR finalizaron en verde. El cambio añade RBAC de publicación limitado al contenedor privado `siem-release` y evita registrar la salida del instalador Wazuh, que puede mostrar contraseñas.
-- El rol nuevo del publicador aún no está aplicado en Azure. La ejecución [39729653639](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39729653639) se despachó con `apply=false` sobre el commit actualizado. Sigue esperando la aprobación del environment `azure-demo` antes de generar el plan; por tanto, todavía no hay un plan nuevo para revisar ni se aplicaron recursos.
+- El rol nuevo del publicador aún no está aplicado en Azure. La ejecución [39729653639](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39729653639) se despachó con `apply=false` sobre `3eeaed0`, anterior al `main` actual (`13df158`). Sigue esperando aprobación del environment `azure-demo` antes de generar un plan; la API de GitHub indica que el iniciador no puede aprobar su propia ejecución y que el único revisor configurado es ese mismo usuario. Por tanto, no hay un plan nuevo que revisar ni recursos aplicados. Esta ejecución obsoleta no sirve para el despliegue: tras resolver la regla de aprobación con un revisor distinto, se debe iniciar otra sobre `main` actual.
 - El workflow de fundación anterior apuntaba al commit `5b6f40d`; se canceló al quedar obsoleto. No se cambió DNS ni se leyó o modificó el valor de ningún secreto.
 - Los builds experimentales de Manager, Indexer, Filebeat, Dashboard y `qapaq-core` están disponibles como artefactos efímeros, pero el manifiesto del workflow de prerequisitos los identifica explícitamente como paquetes intermedios, no como un bundle instalable. El bundle con `install.sh` y bootstrap conjunto aún no existe; `siem_host` sigue desactivado (`null`) y Ankay continúa fuera del root Terraform.
 - La estimación publicada mantiene un piso de USD 530.86/mes con Wazuh, PostgreSQL y Firewall Basic, antes de Ankay, discos, tráfico y observabilidad. El umbral USD 200 solo alerta; no limita cargos ni apaga recursos.
