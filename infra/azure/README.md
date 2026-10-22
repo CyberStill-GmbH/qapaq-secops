@@ -50,9 +50,14 @@ reales antes de declarar cobertura.
 | `modules/network`           | VNet, subnets delegadas y DNS privado para servicios con endpoint privado.                                                                                                                                                  |
 | `modules/observability`     | Log Analytics y Container Apps Environment.                                                                                                                                                                                 |
 | `modules/data`              | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, Storage/Blob con contenedores privados separados `security-event-raw` y `siem-release`, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa. |
-| `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y RBAC. La identidad runtime escribe solo en `security-event-raw`; no recibe acceso a los artefactos de `siem-release`.                                                            |
+| `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub puede escribir solo en `siem-release`; ninguna identidad obtiene ambos alcances de Blob. |
 | `modules/runtime`           | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                          |
 | `modules/siem_host`         | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Requiere firewall existente auditado y bundle inmutable; su ausencia mantiene el host apagado.                                                  |
+
+El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob Data
+Contributor` queda limitado al contenedor privado `siem-release` para publicar bundles
+inmutables; no alcanza `security-event-raw`, Key Vault, ni el resto de la cuenta Storage.
+La identidad de runtime conserva el permiso separado de escritura solo a `security-event-raw`.
 
 `moved.tf` preserva direcciones anteriores durante migraciones de state. Los
 bloqueos `prevent_destroy` protegen recursos definidos, pero no sustituyen un
