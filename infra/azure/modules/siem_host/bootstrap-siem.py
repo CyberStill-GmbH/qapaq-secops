@@ -376,9 +376,19 @@ def install_release(release: pathlib.Path) -> None:
             "QAPAQ_RELEASE_DIR": str(release),
         }
     )
-    result = subprocess.run(["bash", str(installer)], cwd=release, env=environment, check=False)
+    # Wazuh's installation assistant prints generated credentials in its summary.
+    # Do not inherit stdout/stderr into the Custom Script extension log. Keep
+    # diagnostics intentionally generic so secrets cannot leak through a failure.
+    result = subprocess.run(
+        ["bash", str(installer)],
+        cwd=release,
+        env=environment,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     if result.returncode != 0:
-        fail("el instalador del bundle falló; consultar el log sin añadir secretos a stdout")
+        fail(f"el instalador del bundle falló (código {result.returncode}); salida suprimida por seguridad")
 
     manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
     for package_name in ("wazuh-manager", "wazuh-indexer", "wazuh-dashboard", "filebeat"):

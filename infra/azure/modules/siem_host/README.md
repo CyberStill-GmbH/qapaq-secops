@@ -32,6 +32,9 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - Terraform no acepta valores de secretos. La extensión obtiene los secretos en tiempo de ejecución
   por Managed Identity; no se imprimen ni se envían en argumentos de proceso. Las claves privadas SSH
   no se admiten como input.
+- El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
+  oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
+  código de salida y un mensaje genérico, sin volcar la salida del instalador.
 - La URL del artefacto debe ser Blob HTTPS privado, sin SAS; el SHA-256 completo lo fija CI. No se usa
   `latest`, AWS SSM ni AWS Secrets Manager. El cambio de artefacto reejecuta la extensión sin recrear
   la VM; el bootstrap falla cerrado si no concuerdan versión, integridad o servicios.
