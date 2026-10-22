@@ -53,8 +53,14 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 
 ## Contrato obligatorio del artefacto
 
-El módulo **no declara una instalación funcional** hasta que CI publique el bundle de bootstrap que
-consume esta VM. Se requiere un `.tar.gz` privado en Blob con un directorio raíz único que contenga:
+El flujo `.github/workflows/azure-siem-release-bundle.yml` ahora ensambla un candidato de
+instalación offline a partir de artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core).
+El workflow descarga artifacts solo de ejecuciones exitosas de `main` para el mismo SHA y los
+adjunta como artifact revisable por siete días. No los publica a Blob ni realiza apply. Para que el
+módulo pueda consumirlo, todavía hay que promocionar ese `.tar.gz` a un blob privado y fijar su
+URL/SHA en el input del módulo; la aprobación de esa promoción y el despliegue siguen separados.
+
+El `.tar.gz` privado debe tener un directorio raíz único que contenga:
 
 - `manifest.json`, versión 1, con `components` que fije `wazuhManager`, `wazuhIndexer`,
   `wazuhFilebeat` y `wazuhDashboard` a `4.14.8`, `openSearchDashboards` a `2.19.6` y
@@ -66,17 +72,40 @@ consume esta VM. Se requiere un `.tar.gz` privado en Blob con un directorio raí
   y `wazuh-dashboard` (Filebeat se fija a `7.10.2-2`); y `artifacts`, con las rutas `managerDeb`,
   `indexerDeb`, `filebeatDeb`,
   `qapaqDashboardDeb` y `qapaqCoreArchive` incluidas en el mapa de hashes.
-- `install.sh`, instalador idempotente que debe instalar y configurar los componentes del manifiesto,
-  crear `qapaq-core-api` y `qapaq-core-worker`, leer `/etc/qapaq-core/core.env` y `/etc/qapaq-secrets`,
-  y usar `/srv/qapaq-siem` para el estado durable. El bootstrap compara metadatos y versiones Debian
-  instaladas, verifica Node 24.21.0, exige activos los servicios systemd de Wazuh, Filebeat y QAPAQ
-  Core,
-  y comprueba `/health/ready`; eso no sustituye las pruebas de paridad de API, M365 ni el flujo de alertas.
+- `install.sh`, instalador para host limpio que invoca el asistente oficial Wazuh 4.14.8 en modo
+  offline, valida las versiones Debian y ejecuta el instalador QAPAQ core, que ya aporta activación
+  atómica y rollback de sus releases. El bootstrap compara metadatos y versiones Debian instaladas,
+  verifica Node 24.21.0, exige activos Manager, Indexer, Filebeat, Dashboard y QAPAQ Core y comprueba
+  `/health/ready`. El instalador no reejecuta ni actualiza una instalación previa.
+- `official-wazuh/wazuh-offline.tar.gz`, el árbol de paquetes/documentos en el formato esperado por
+  el asistente oficial, `official-wazuh/wazuh-install.sh` construido desde el commit oficial fijado y
+  su licencia GPL-2.0.
 
-El bootstrap también rechaza llamadas shell a AWS SSM/Secrets Manager. El bundle, sus hashes y el
-instalador son un contrato de CI pendiente: el repositorio actual no contiene un release bundle Azure
-que instale manager, indexer, dashboard QAPAQ y core conjuntamente. Hasta producirlo y ejecutar el
-preflight del módulo, no se debe habilitar runtime ni declarar el SIEM listo.
+El bootstrap requiere una referencia Key Vault nombrada `wazuh-install-files.tar.b64` en
+`wazuh_secret_names`. El secreto almacena en una sola línea base64 un `wazuh-install-files.tar`
+generado por el asistente oficial que contiene `wazuh-passwords.txt` y los certificados Wazuh. El
+installer valida su estructura y límites, lo decodifica en `/run` (tmpfs), nunca imprime valores, y
+mantiene la copia instalada bajo permisos `0600` en disco durable para que los adaptadores existentes
+puedan usar el material. No se lee el valor del secreto durante plan/build. El módulo no crea esa
+referencia ni inventa credenciales; si falta o no cumple el formato, el bootstrap falla antes de
+instalar paquetes.
+
+`core_secret_names` y `core_environment` también deben estar completos para el perfil y modos elegidos
+por el sistema (Entra, DB, Key Vault/provider, persistencia y conexiones requeridas). El bundle no
+adivina esa configuración ni cambia los modos del API. El servicio Core puede hacer rollback a un
+release previo si su activación falla; una instalación inicial fallida del asistente Wazuh no borra
+paquetes/datos parcialmente creados. Se deja la VM sin marcar como instalada y requiere diagnóstico
+operador antes de un nuevo intento para preservar el fail-closed.
+
+El candidato no instala ni declara listos el overlay de acceso QAPAQ/roles, el edge TLS y rutas DNS,
+la integración M365, Ankay/Shuffle, Teams, Sophos o Cato. Esos contratos necesitan configuración
+adicional y pruebas de extremo a extremo antes de abrir ingreso o marcar el SOC operativo.
+
+El bootstrap también rechaza llamadas shell a AWS SSM/Secrets Manager. La CI local de este candidato
+valida hashes, paquete, estructura offline y contrato con el bootstrap. Aún hace falta ejecutar el
+workflow con tres run IDs CI exitosos del mismo SHA, probar el artifact resultante en VM Ubuntu 24.04
+aislada, promoverlo a Blob, comprobar las referencias Key Vault y completar las integraciones listadas
+arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declarar el SIEM listo.
 
 ## Límites de este módulo
 
