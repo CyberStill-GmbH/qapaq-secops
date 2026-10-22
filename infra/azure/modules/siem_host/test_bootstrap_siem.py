@@ -11,7 +11,7 @@ import tempfile
 import types
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 BOOTSTRAP_PATH = pathlib.Path(__file__).with_name("bootstrap-siem.py")
@@ -121,6 +121,97 @@ class InstallerIdempotencyTests(unittest.TestCase):
 
             self.assertEqual(failure.exception.code, 1)
             self.assertEqual((manager_data / "state.db").read_text(encoding="utf-8"), "preserve")
+
+
+class DebianArtifactMetadataTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.content = pathlib.Path(self.temporary_directory.name)
+        self.manifest = {
+            "artifacts": {
+                "managerDeb": "manager.deb",
+                "indexerDeb": "indexer.deb",
+                "filebeatDeb": "filebeat.deb",
+                "qapaqDashboardDeb": "dashboard.deb",
+            },
+            "debianPackages": {
+                "wazuh-manager": "4.14.8-1",
+                "wazuh-indexer": "4.14.8-1",
+                "filebeat": "7.10.2-2",
+                "wazuh-dashboard": "4.14.8-1qapaq1",
+            },
+        }
+        for artifact in self.manifest["artifacts"].values():
+            (self.content / artifact).write_bytes(b"test package placeholder")
+
+    def tearDown(self) -> None:
+        self.temporary_directory.cleanup()
+
+    def metadata(self, overrides: dict[tuple[str, str], str] | None = None):
+        expected = {
+            ("manager.deb", "Package"): "wazuh-manager",
+            ("manager.deb", "Version"): "4.14.8-1",
+            ("indexer.deb", "Package"): "wazuh-indexer",
+            ("indexer.deb", "Version"): "4.14.8-1",
+            ("filebeat.deb", "Package"): "filebeat",
+            ("filebeat.deb", "Version"): "7.10.2-2",
+            ("dashboard.deb", "Package"): "wazuh-dashboard",
+            ("dashboard.deb", "Version"): "4.14.8-1qapaq1",
+        }
+        expected.update(
+            {
+                (filename, "Architecture"): "amd64"
+                for filename in ("manager.deb", "indexer.deb", "filebeat.deb", "dashboard.deb")
+            }
+        )
+        expected.update(overrides or {})
+
+        def run_metadata(*args: str, capture: bool = False) -> str:
+            return expected[(pathlib.Path(args[2]).name, args[3])]
+
+        return run_metadata
+
+    def test_accepts_debs_when_metadata_matches_manifest_and_pins(self) -> None:
+        with patch.object(BOOTSTRAP, "run", side_effect=self.metadata()):
+            BOOTSTRAP.validate_debian_artifacts(self.content, self.manifest)
+
+    def test_rejects_package_name_mismatch_before_install(self) -> None:
+        metadata = self.metadata({("manager.deb", "Package"): "unrelated-package"})
+        with patch.object(BOOTSTRAP, "run", side_effect=metadata):
+            with self.assertRaises(SystemExit):
+                BOOTSTRAP.validate_debian_artifacts(self.content, self.manifest)
+
+    def test_rejects_filebeat_version_even_if_manifest_matches_it(self) -> None:
+        self.manifest["debianPackages"]["filebeat"] = "7.10.2-3"
+        metadata = self.metadata({("filebeat.deb", "Version"): "7.10.2-3"})
+        with patch.object(BOOTSTRAP, "run", side_effect=metadata):
+            with self.assertRaises(SystemExit):
+                BOOTSTRAP.validate_debian_artifacts(self.content, self.manifest)
+
+    def test_rejects_non_amd64_package(self) -> None:
+        metadata = self.metadata({("indexer.deb", "Architecture"): "arm64"})
+        with patch.object(BOOTSTRAP, "run", side_effect=metadata):
+            with self.assertRaises(SystemExit):
+                BOOTSTRAP.validate_debian_artifacts(self.content, self.manifest)
+
+
+class RuntimeHealthTests(unittest.TestCase):
+    def test_requires_filebeat_and_core_worker_and_checks_api_readiness(self) -> None:
+        response = MagicMock()
+        response.status = 200
+        response.__enter__.return_value = response
+        with patch.object(BOOTSTRAP, "run") as run_service:
+            with patch.object(BOOTSTRAP.urllib.request, "urlopen", return_value=response):
+                BOOTSTRAP.validate_runtime_health()
+
+        checked_services = {
+            call.args[-1]
+            for call in run_service.call_args_list
+            if call.args[:3] == ("systemctl", "is-active", "--quiet")
+        }
+        self.assertIn("filebeat", checked_services)
+        self.assertIn("qapaq-core-worker", checked_services)
+        self.assertIn("qapaq-core-api", checked_services)
 
 
 if __name__ == "__main__":

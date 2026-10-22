@@ -36,6 +36,12 @@ EXPECTED = {
     "osd_version": "2.19.6",
     "node_version": "24.21.0",
 }
+EXPECTED_DEBIAN_PACKAGES = {
+    "wazuh-manager": ("managerDeb", "wazuh-manager", "prefix", "4.14.8-"),
+    "wazuh-indexer": ("indexerDeb", "wazuh-indexer", "prefix", "4.14.8-"),
+    "filebeat": ("filebeatDeb", "filebeat", "exact", "7.10.2-2"),
+    "wazuh-dashboard": ("qapaqDashboardDeb", "wazuh-dashboard", "exact", "4.14.8-1qapaq1"),
+}
 
 
 def log(message: str) -> None:
@@ -277,6 +283,58 @@ def fetch_bundle(config: dict, destination: pathlib.Path) -> None:
         fail("el SHA-256 del bundle no coincide con el pin configurado")
 
 
+def validate_debian_artifacts(content: pathlib.Path, manifest: dict) -> None:
+    """Verify package metadata before install.sh can execute any package installer."""
+    artifacts = manifest["artifacts"]
+    versions = manifest["debianPackages"]
+    for manifest_name, (
+        artifact_key,
+        expected_name,
+        version_mode,
+        required_version,
+    ) in EXPECTED_DEBIAN_PACKAGES.items():
+        package_path = content.joinpath(*pathlib.PurePosixPath(artifacts[artifact_key]).parts)
+        actual_name = run("dpkg-deb", "--field", str(package_path), "Package", capture=True)
+        actual_version = run("dpkg-deb", "--field", str(package_path), "Version", capture=True)
+        actual_architecture = run("dpkg-deb", "--field", str(package_path), "Architecture", capture=True)
+        if actual_name != expected_name:
+            fail(f"el paquete {manifest_name} no tiene el nombre Debian esperado")
+        if actual_version != versions[manifest_name]:
+            fail(f"la versión Debian de {manifest_name} no coincide con el manifiesto")
+        version_matches = (
+            actual_version.startswith(required_version)
+            if version_mode == "prefix"
+            else actual_version == required_version
+        )
+        if not version_matches:
+            fail(f"la versión Debian de {manifest_name} no corresponde al contrato QAPAQ")
+        if actual_architecture != "amd64":
+            fail(f"el paquete {manifest_name} no es amd64")
+
+
+def validate_runtime_health() -> None:
+    """Require all runtime services declared by the SIEM host contract to be active."""
+    for service in (
+        "wazuh-indexer",
+        "wazuh-manager",
+        "wazuh-dashboard",
+        "filebeat",
+        "qapaq-core-api",
+        "qapaq-core-worker",
+    ):
+        run("systemctl", "is-active", "--quiet", service)
+    for attempt in range(60):
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:3000/health/ready", timeout=3) as response:
+                if response.status == 200:
+                    return
+        except (OSError, urllib.error.URLError):
+            if attempt == 59:
+                fail("qapaq-core no alcanzó /health/ready")
+        time.sleep(2)
+    fail("qapaq-core no alcanzó /health/ready")
+
+
 def extract_and_verify(bundle: pathlib.Path, config: dict) -> pathlib.Path:
     RELEASE_ROOT.mkdir(mode=0o750, parents=True, exist_ok=True)
     release = RELEASE_ROOT / config["artifact_sha256"]
@@ -327,6 +385,8 @@ def extract_and_verify(bundle: pathlib.Path, config: dict) -> pathlib.Path:
                 fail(f"la versión de paquete {name} no corresponde a Wazuh 4.14.8")
         if package_versions["wazuh-dashboard"] != "4.14.8-1qapaq1":
             fail("el paquete instalado del Dashboard no corresponde al build QAPAQ 4.14.8")
+        if package_versions["filebeat"] != "7.10.2-2":
+            fail("la versión Debian de Filebeat no corresponde al pin 7.10.2-2")
         artifact_paths = manifest.get("artifacts", {})
         required_artifacts = {"managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive"}
         if not isinstance(artifact_paths, dict) or not required_artifacts.issubset(artifact_paths):
@@ -350,6 +410,7 @@ def extract_and_verify(bundle: pathlib.Path, config: dict) -> pathlib.Path:
                 fail(f"el hash del artefacto {relative_name} no coincide")
         if any(artifact_paths[key] not in file_hashes for key in required_artifacts):
             fail("cada paquete de sistema debe estar fijado por SHA-256 en files")
+        validate_debian_artifacts(content, manifest)
         for path in content.rglob("*.sh"):
             text = path.read_text(encoding="utf-8", errors="replace")
             if re.search(r"\baws\s+(?:ssm|secretsmanager)\b|aws-secretsmanager:", text, re.IGNORECASE):
@@ -485,17 +546,7 @@ def install_release(release: pathlib.Path) -> None:
     node_version = run(str(node), "--version", capture=True)
     if node_version != f"v{EXPECTED['node_version']}":
         fail("la versión Node del core instalado no coincide con 24.21.0")
-    for service in ("wazuh-indexer", "wazuh-manager", "wazuh-dashboard", "qapaq-core-api"):
-        run("systemctl", "is-active", "--quiet", service)
-    for attempt in range(60):
-        try:
-            with urllib.request.urlopen("http://127.0.0.1:3000/health/ready", timeout=3) as response:
-                if response.status == 200:
-                    break
-        except (OSError, urllib.error.URLError):
-            if attempt == 59:
-                fail("qapaq-core no alcanzó /health/ready")
-        time.sleep(2)
+    validate_runtime_health()
     if needs_install:
         record_install_state(release)
     log("servicios de Wazuh QAPAQ y qapaq-core activos según systemd")
