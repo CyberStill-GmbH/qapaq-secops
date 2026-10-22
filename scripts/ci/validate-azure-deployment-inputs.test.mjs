@@ -121,7 +121,7 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
 });
 
 test('Ankay cannot be enabled without SIEM and literal Compose credentials are rejected', () => {
-  const compose = 'services:\n  backend:\n    environment:\n      API_TOKEN: literal-token\n';
+  const compose = 'services:\n  backend:\n    environment:\n      AWS_ACCESS_KEY_ID: literal-access-key\n';
   const ankay = {
     private_ip_address: '10.80.17.10',
     firewall_private_ip: '10.80.0.4',

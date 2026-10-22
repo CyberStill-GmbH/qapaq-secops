@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const SHA256 = /^[0-9a-f]{64}$/u;
 const SECRET_URI = /^https:\/\/[a-z0-9-]+\.vault\.azure\.net\/secrets\/[A-Za-z0-9-]+\/[A-Za-z0-9-]+$/u;
-const SENSITIVE_ENV_NAME = /(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)/u;
+const SENSITIVE_ENV_NAME = /(PASSWORD|SECRET|TOKEN|API_KEY|ACCESS_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTHORIZATION)/u;
 
 function fail(message) {
   throw new Error(message);
@@ -140,7 +140,7 @@ function validateAnkay(ankay, siem, registry) {
   if (typeof ankay.compose_sha256 !== 'string' || !SHA256.test(ankay.compose_sha256)) fail('ankay_host.compose_sha256 must be lowercase SHA-256.');
   const actual = nodeCreateHash('sha256').update(ankay.compose_yaml).digest('hex');
   if (actual !== ankay.compose_sha256) fail('ankay_host.compose_sha256 does not match compose_yaml.');
-  if (/^\s*(?:-\s*)?[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CONNECTION_STRING)\s*[:=]\s*(?!\$\{|\$[A-Z_])[^\s#][^\r\n]*$/imu.test(ankay.compose_yaml)) fail('ankay_host.compose_yaml appears to contain a literal credential; use secret references and keep values in Key Vault.');
+  if (/^\s*(?:-\s*)?[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|ACCESS_KEY(?:_ID)?|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTHORIZATION)(?:_[A-Z0-9_]+)?\s*[:=]\s*(?!\$\{|\$[A-Z_])[^\s#][^\r\n]*$/imu.test(ankay.compose_yaml)) fail('ankay_host.compose_yaml appears to contain a literal credential; use secret references and keep values in Key Vault.');
 }
 
 function validateKeyVaultIds(ids) {
