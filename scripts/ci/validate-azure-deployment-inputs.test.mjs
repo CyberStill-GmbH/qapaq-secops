@@ -22,7 +22,8 @@ function baseEnv(overrides = {}) {
 function siemHost(overrides = {}) {
   return {
     firewall_private_ip: '10.80.0.4',
-    firewall_policy_reference: '/subscriptions/test/resourceGroups/network/providers/Microsoft.Network/firewallPolicies/demo',
+    firewall_policy_reference:
+      '/subscriptions/test/resourceGroups/network/providers/Microsoft.Network/firewallPolicies/demo',
     address_prefix: '10.80.16.0/27',
     vm_size: 'Standard_D4s_v5',
     admin_ssh_public_key: publicKey,
@@ -52,57 +53,101 @@ test('defaults keep generic runtime, SIEM and Ankay disabled', () => {
 });
 
 test('accepts a complete SIEM configuration with Key Vault names and an immutable bundle reference', () => {
-  assert.deepEqual(validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()) })), {
-    enableRuntime: false,
-    hasSiem: true,
-    hasAnkay: false,
-  });
+  assert.deepEqual(
+    validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()) })),
+    {
+      enableRuntime: false,
+      hasSiem: true,
+      hasAnkay: false,
+    },
+  );
 });
 
 test('rejects malformed JSON and missing required SIEM fields without echoing input values', () => {
-  assert.throws(() => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: '{invalid-secret-shaped-input}' })), /valid JSON/u);
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: '{invalid-secret-shaped-input}' })),
+    /valid JSON/u,
+  );
   const invalid = siemHost();
   delete invalid.bootstrap_bundle_sha256;
-  assert.throws(() => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalid) })), /missing or unsupported fields/u);
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalid) })),
+    /missing or unsupported fields/u,
+  );
 });
 
 test('rejects public addresses for private SIEM and Ankay network endpoints', () => {
-  assert.throws(() => validateDeploymentInputs(baseEnv({
-    TF_VAR_siem_host: JSON.stringify(siemHost({ firewall_private_ip: '8.8.8.8' })),
-  })), /RFC1918 private IPv4/u);
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_siem_host: JSON.stringify(siemHost({ firewall_private_ip: '8.8.8.8' })),
+        }),
+      ),
+    /RFC1918 private IPv4/u,
+  );
 });
 
 test('generic Container Apps cannot be used as a replacement for the SIEM host', () => {
-  assert.throws(() => validateDeploymentInputs(baseEnv({
-    TF_VAR_enable_runtime: 'true',
-    TF_VAR_container_images: JSON.stringify(digestMap(['edge', 'web', 'gateway', 'api', 'worker'])),
-  })), /cannot substitute for siem_host/u);
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_enable_runtime: 'true',
+          TF_VAR_container_images: JSON.stringify(
+            digestMap(['edge', 'web', 'gateway', 'api', 'worker']),
+          ),
+        }),
+      ),
+    /cannot substitute for siem_host/u,
+  );
 });
 
 test('runtime images must be complete and pinned to the configured ACR by SHA-256', () => {
   const images = digestMap(['edge', 'web', 'gateway', 'api', 'worker']);
-  assert.doesNotThrow(() => validateDeploymentInputs(baseEnv({
-    TF_VAR_enable_runtime: 'true',
-    TF_VAR_siem_host: JSON.stringify(siemHost()),
-    TF_VAR_container_images: JSON.stringify(images),
-  })));
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(
+      baseEnv({
+        TF_VAR_enable_runtime: 'true',
+        TF_VAR_siem_host: JSON.stringify(siemHost()),
+        TF_VAR_container_images: JSON.stringify(images),
+      }),
+    ),
+  );
   images.api = `${registry}/api:latest`;
-  assert.throws(() => validateDeploymentInputs(baseEnv({
-    TF_VAR_enable_runtime: 'true',
-    TF_VAR_siem_host: JSON.stringify(siemHost()),
-    TF_VAR_container_images: JSON.stringify(images),
-  })), /SHA-256 digest/u);
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_enable_runtime: 'true',
+          TF_VAR_siem_host: JSON.stringify(siemHost()),
+          TF_VAR_container_images: JSON.stringify(images),
+        }),
+      ),
+    /SHA-256 digest/u,
+  );
 });
 
 test('Key Vault references must be versioned IDs and may not contain values', () => {
-  const ids = { api: { QAPAQ_ENTRA_CLIENT_SECRET: 'https://qapaq.vault.azure.net/secrets/entra-client-secret/version123' } };
-  assert.doesNotThrow(() => validateDeploymentInputs(baseEnv({ TF_VAR_key_vault_secret_ids: JSON.stringify(ids) })));
+  const ids = {
+    api: {
+      QAPAQ_ENTRA_CLIENT_SECRET:
+        'https://qapaq.vault.azure.net/secrets/entra-client-secret/version123',
+    },
+  };
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(baseEnv({ TF_VAR_key_vault_secret_ids: JSON.stringify(ids) })),
+  );
   ids.api.QAPAQ_ENTRA_CLIENT_SECRET = 'plaintext-secret-value';
-  assert.throws(() => validateDeploymentInputs(baseEnv({ TF_VAR_key_vault_secret_ids: JSON.stringify(ids) })), /versioned HTTPS Key Vault secret IDs/u);
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_key_vault_secret_ids: JSON.stringify(ids) })),
+    /versioned HTTPS Key Vault secret IDs/u,
+  );
 });
 
 test('Ankay requires SIEM, six registry digests, and Compose whose hash matches', () => {
-  const compose = 'services:\n  frontend:\n    image: qapaqdemo.azurecr.io/frontend@sha256:' + sha + '\n';
+  const compose =
+    'services:\n  frontend:\n    image: qapaqdemo.azurecr.io/frontend@sha256:' + sha + '\n';
   const ankay = {
     private_ip_address: '10.80.17.10',
     firewall_private_ip: '10.80.0.4',
@@ -110,18 +155,42 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
     admin_ssh_public_key: publicKey,
     vm_size: 'Standard_D4s_v5',
     ubuntu_image_version: '20260101.0',
-    container_images: digestMap(['shuffle-security', 'frontend', 'backend', 'orborus', 'opensearch', 'worker']),
+    container_images: digestMap([
+      'shuffle-security',
+      'frontend',
+      'backend',
+      'orborus',
+      'opensearch',
+      'worker',
+    ]),
     compose_yaml: compose,
     compose_sha256: createHash('sha256').update(compose).digest('hex'),
   };
-  const env = baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()), TF_VAR_ankay_host: JSON.stringify(ankay) });
-  assert.deepEqual(validateDeploymentInputs(env), { enableRuntime: false, hasSiem: true, hasAnkay: true });
+  const env = baseEnv({
+    TF_VAR_siem_host: JSON.stringify(siemHost()),
+    TF_VAR_ankay_host: JSON.stringify(ankay),
+  });
+  assert.deepEqual(validateDeploymentInputs(env), {
+    enableRuntime: false,
+    hasSiem: true,
+    hasAnkay: true,
+  });
   ankay.compose_sha256 = sha;
-  assert.throws(() => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()), TF_VAR_ankay_host: JSON.stringify(ankay) })), /does not match compose_yaml/u);
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_siem_host: JSON.stringify(siemHost()),
+          TF_VAR_ankay_host: JSON.stringify(ankay),
+        }),
+      ),
+    /does not match compose_yaml/u,
+  );
 });
 
 test('Ankay cannot be enabled without SIEM and literal Compose credentials are rejected', () => {
-  const compose = 'services:\n  backend:\n    environment:\n      AWS_ACCESS_KEY_ID: literal-access-key\n';
+  const compose =
+    'services:\n  backend:\n    environment:\n      AWS_ACCESS_KEY_ID: literal-access-key\n';
   const ankay = {
     private_ip_address: '10.80.17.10',
     firewall_private_ip: '10.80.0.4',
@@ -129,10 +198,29 @@ test('Ankay cannot be enabled without SIEM and literal Compose credentials are r
     admin_ssh_public_key: publicKey,
     vm_size: 'Standard_D4s_v5',
     ubuntu_image_version: '20260101.0',
-    container_images: digestMap(['shuffle-security', 'frontend', 'backend', 'orborus', 'opensearch', 'worker']),
+    container_images: digestMap([
+      'shuffle-security',
+      'frontend',
+      'backend',
+      'orborus',
+      'opensearch',
+      'worker',
+    ]),
     compose_yaml: compose,
     compose_sha256: createHash('sha256').update(compose).digest('hex'),
   };
-  assert.throws(() => validateDeploymentInputs(baseEnv({ TF_VAR_ankay_host: JSON.stringify(ankay) })), /requires a configured siem_host/u);
-  assert.throws(() => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()), TF_VAR_ankay_host: JSON.stringify(ankay) })), /literal credential/u);
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_ankay_host: JSON.stringify(ankay) })),
+    /requires a configured siem_host/u,
+  );
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_siem_host: JSON.stringify(siemHost()),
+          TF_VAR_ankay_host: JSON.stringify(ankay),
+        }),
+      ),
+    /literal credential/u,
+  );
 });
