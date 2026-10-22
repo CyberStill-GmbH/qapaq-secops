@@ -53,12 +53,17 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 
 ## Contrato obligatorio del artefacto
 
-El flujo `.github/workflows/azure-siem-release-bundle.yml` ahora ensambla un candidato de
-instalación offline a partir de artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core).
-El workflow descarga artifacts solo de ejecuciones exitosas de `main` para el mismo SHA y los
-adjunta como artifact revisable por siete días. No los publica a Blob ni realiza apply. Para que el
-módulo pueda consumirlo, todavía hay que promocionar ese `.tar.gz` a un blob privado y fijar su
-URL/SHA en el input del módulo; la aprobación de esa promoción y el despliegue siguen separados.
+El flujo `.github/workflows/azure-siem-release-bundle.yml` ensambla el bundle offline a partir de
+artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core). El publisher OIDC ya lo promocionó
+al contenedor Blob privado; la URI y el SHA-256 están en
+[`docs/cloud/azure/siem-release-bundle.md`](../../../../docs/cloud/azure/siem-release-bundle.md).
+La publicación no instala el release. Para desplegar, el objeto `siem_host` aún debe declarar esa
+URI/SHA junto con firewall, red, clave pública y referencias Key Vault revisadas.
+
+La adaptación Azure elimina la dependencia de AWS para bootstrap e instalación: usa Managed Identity
+para descargar el Blob y leer Key Vault, y `apply-core-azure.sh` para activar el core ya compilado.
+No ejecuta AWS CLI, SSM ni Secrets Manager. El instalador AWS permanece separado; el adaptador Azure
+de Office 365 y sus pruebas de lectura siguen pendientes.
 
 El `.tar.gz` privado debe tener un directorio raíz único que contenga:
 
