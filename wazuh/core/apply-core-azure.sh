@@ -7,18 +7,33 @@ umask 077
 fail() { printf 'qapaq-core-azure: ERROR %s\n' "$1" >&2; exit 1; }
 info() { printf 'qapaq-core-azure: %s\n' "$1"; }
 
-archive="${1:?uso: apply-core-azure.sh <archive.tar.gz> <sha256> [env-file]}"
-expected_sha="${2:?uso: apply-core-azure.sh <archive.tar.gz> <sha256> [env-file]}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+verify_only=false
+if [[ "${1:-}" == --verify-only ]]; then
+  verify_only=true
+  shift
+fi
+archive="${1:?uso: apply-core-azure.sh [--verify-only] <archive.tar.gz> <sha256> [env-file]}"
+expected_sha="${2:?uso: apply-core-azure.sh [--verify-only] <archive.tar.gz> <sha256> [env-file]}"
 env_file="${3:-/etc/qapaq-core/core.env}"
 [[ "$expected_sha" =~ ^[0-9a-f]{64}$ ]] || fail 'SHA-256 de release inválido'
 [[ -f "$archive" && ! -L "$archive" ]] || fail 'el archive no es un archivo normal'
+echo "$expected_sha  $archive" | sha256sum --check --status || fail 'checksum del archive no coincide'
+
+for command in sha256sum python3; do
+  command -v "$command" >/dev/null || fail "falta el comando requerido: $command"
+done
+python3 "$HERE/verify_core_archive.py" "$archive" >/dev/null || fail 'validación del archive no pasó'
+if [[ "$verify_only" == true ]]; then
+  info 'archive válido; no se realizó instalación'
+  exit 0
+fi
+
 [[ -f "$env_file" && ! -L "$env_file" ]] || fail 'falta el EnvironmentFile materializado desde Key Vault'
 [[ "$(stat -c '%u' "$env_file")" == 0 ]] || fail 'core.env no pertenece a root'
 mode="$(stat -c '%a' "$env_file")"
 (( (8#$mode & 0077) == 0 )) || fail 'core.env permite acceso a otros usuarios'
-echo "$expected_sha  $archive" | sha256sum --check --status || fail 'checksum del archive no coincide'
-
-for command in curl sha256sum tar systemctl install useradd python3; do
+for command in curl tar systemctl install useradd; do
   command -v "$command" >/dev/null || fail "falta el comando requerido: $command"
 done
 
@@ -49,49 +64,6 @@ cleanup() {
   [[ -z "$link_tmp" ]] || rm -f -- "$link_tmp"
 }
 trap cleanup EXIT
-
-# Rechaza traversal, enlaces fuera de la raíz y tipos especiales antes de extraer.
-# El Node.js distribuido contiene symlinks internos, por eso se permiten solo si quedan bajo la raíz.
-python3 - "$archive" <<'PY'
-import posixpath
-import sys
-import tarfile
-
-archive_path = sys.argv[1]
-root = None
-try:
-    with tarfile.open(archive_path, "r:gz") as tar:
-        members = tar.getmembers()
-        if not members:
-            raise ValueError("archive vacío")
-        for member in members:
-            name = member.name
-            if not name or name.startswith("/") or "\\" in name:
-                raise ValueError("nombre de ruta inválido")
-            normalized = posixpath.normpath(name)
-            if normalized in (".", "..") or normalized.startswith("../"):
-                raise ValueError("path traversal")
-            component = normalized.split("/", 1)[0]
-            if not __import__("re").fullmatch(r"qapaq-core-[0-9a-f]{12}", component):
-                raise ValueError("raíz inesperada")
-            if root is None:
-                root = component
-            if component != root:
-                raise ValueError("más de una raíz")
-            if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
-                raise ValueError("tipo de archivo especial no permitido")
-            if member.issym() or member.islnk():
-                target = member.linkname
-                if not target or target.startswith("/") or "\\" in target:
-                    raise ValueError("destino de enlace inválido")
-                base = posixpath.dirname(normalized) if member.issym() else ""
-                resolved = posixpath.normpath(posixpath.join(base, target))
-                if resolved == ".." or resolved.startswith("../") or not resolved.startswith(root + "/"):
-                    raise ValueError("enlace fuera de la raíz")
-except (OSError, tarfile.TarError, ValueError) as exc:
-    print(f"qapaq-core-azure: ERROR archive inseguro o inválido: {exc}", file=sys.stderr)
-    sys.exit(1)
-PY
 
 top=''
 while IFS= read -r member; do

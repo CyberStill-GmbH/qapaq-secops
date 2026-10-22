@@ -40,6 +40,9 @@ jobs:
       - name: Enable the package manager pinned by package.json
         run: corepack enable
 
+      - name: Test core archive path validation
+        run: python3 -m unittest discover -s wazuh/core/tests -p 'test_*.py'
+
       - name: Check the Azure host installer syntax
         run: bash -n wazuh/core/apply-core-azure.sh
 
@@ -57,6 +60,8 @@ jobs:
           archive="${archives[0]}"
           top="$(tar -tzf "$archive" | sed -n '1{s,/.*,,;p;}')"
           [[ "$top" =~ ^qapaq-core-[0-9a-f]{12}$ ]]
+          archive_sha256="$(sha256sum "$archive" | awk '{print $1}')"
+          bash wazuh/core/apply-core-azure.sh --verify-only "$archive" "$archive_sha256"
           release="$(tar -xOf "$archive" "$top/RELEASE")"
           [[ "$release" == "${GITHUB_SHA:0:12}" ]]
           archive_ca="$(tar -xOf "$archive" "$top/certs/rds-global-bundle.pem" | sha256sum | awk '{print $1}')"

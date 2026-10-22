@@ -22,7 +22,8 @@ bootstrap Azure materializa desde referencias de Key Vault. No llama a AWS, no o
 secretos y no los imprime. Activa el release de forma atómica, espera `/health/ready` y revierte al
 release anterior si la API no está lista; conserva el activo y tres releases previos. El instalador
 requiere que el paquete padre haya verificado los SHA del core archive y materializado el entorno con
-permisos `root:qapaq-core`.
+permisos `root:qapaq-core`. El modo `--verify-only` valida checksum, estructura, enlaces y tipos de
+archivo sin leer el entorno ni cambiar servicios; CI lo ejecuta contra el archive real.
 
 El worker solo se considera iniciado por systemd; eso no prueba consumo efectivo de BullMQ, migraciones
 de PostgreSQL ni procesamiento de jobs. Esas pruebas de integración siguen siendo necesarias antes de
