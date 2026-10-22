@@ -38,10 +38,14 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   assert.match(lock.sources.opensearch.indexDigest, /^sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.amd64Digest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
-  assert.equal(lock.buildBases.golang1273Alpine323,
-    'docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df');
-  assert.equal(lock.buildBases.alpine3226,
-    'docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8');
+  assert.equal(
+    lock.buildBases.golang1273Alpine323,
+    'docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df',
+  );
+  assert.equal(
+    lock.buildBases.alpine3226,
+    'docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8',
+  );
   assert.deepEqual(
     Object.keys(lock.componentStatus).sort(),
     ['backend', 'frontend', 'opensearch', 'orborus', 'shuffle-security', 'worker'].sort(),
