@@ -1,5 +1,14 @@
 # Runbook Azure: secretos, publicación y corte
 
+## Actualización de publicación (2026-10-22 08:42 UTC)
+
+- El PR [#91](https://github.com/CyberStill-GmbH/qapaq-secops/pull/91) se integró en `main` como `b7ff341`. Corrige la instalación de ORAS en el workflow de publicación fijando URL y checksum oficiales de ORAS 1.3.5.
+- El workflow [39745314741](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39745314741) terminó `success`: build y verificación del paquete (`wazuh-dashboard_4.14.8-1qapaq1_amd64.deb`, SHA-256 `e678df149679a5d564f2d3b7d56988c1e2533b7654a1aec0df0975dd7c0b39d8`) y publicación con GitHub OIDC a Azure Container Registry.
+- ACR confirmó el repositorio `qapaq-dashboard`, tag inmutable `git-b7ff341a2e249e69dbcd190c0619c098d4d2eec6-sha256-e678df149679a5d564f2d3b7d56988c1e2533b7654a1aec0df0975dd7c0b39d8` y manifest OCI `sha256:63277d6e56942a2ebe0f2c511d7ee90851160b0caca948eef4a8cc288eb05e2b`. El contenido es un artefacto OCI que transporta el `.deb`, no una imagen de contenedor ni un Dashboard instalado.
+- El build aplicó los overlays QAPAQ sobre Wazuh 4.14.8 / OpenSearch Dashboards 2.19.6 e instaló `qapaqI18n`, `qapaqOps`, Wazuh y los plugins OpenSearch fijados. Usó Node 18.19.0 y Yarn 1.22.22 según el upstream; no hay mezcla de npm y Yarn en el build. Actions dejó una advertencia no bloqueante de que `actions/upload-artifact` será forzado a Node 24; requiere seguimiento de actualización del action.
+- El plan Terraform protegido [39741366185](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39741366185) sobre `main` (`4b310b1`) concluyó **0 altas, 0 cambios, 0 destrucciones**. En el grupo Azure existen recursos fundacionales (identidades, Key Vault, Log Analytics, endpoints privados/DNS, PostgreSQL, ACR, Storage y VNet), pero no existe VM del SIEM, VM Ankay ni Container Apps runtime. Los objetos `siem_host` y `ankay_host` y `enable_runtime` siguen deshabilitados.
+- No se instalaron servicios, no se ejecutó un apply de runtime, no se cambiaron secretos y no se hizo corte DNS. La subida a ACR únicamente demuestra que el paquete está disponible para un futuro instalador.
+
 ## Actualización de estado (2026-10-22 07:22 UTC)
 
 - El PR [#84](https://github.com/CyberStill-GmbH/qapaq-secops/pull/84) se integró en `main` como commit `3eeaed0`; el PR [#86](https://github.com/CyberStill-GmbH/qapaq-secops/pull/86) como `3b58ab9`; y el PR [#87](https://github.com/CyberStill-GmbH/qapaq-secops/pull/87) como `4ee8dd6`. Estos cambios endurecen la publicación de bundles y el bootstrap idempotente; no constituyen un despliegue del SOC.
