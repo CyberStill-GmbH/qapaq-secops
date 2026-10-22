@@ -1,13 +1,13 @@
 # Ankay Qapaq host (Azure, isolated module)
 
-This module is a **preparation artifact**, not part of the Azure root yet. It creates one private
-Ubuntu VM, an attached persistent data disk, a private IP, a narrowly scoped NSG, a managed identity
-with `AcrPull` on one registry, and a route table that forces internet-bound traffic from a dedicated
-subnet through an existing Azure Firewall. It writes the reviewed Compose document to the VM but
-does not install Docker, retrieve secrets, start containers, install Wazuh Agent, publish a DNS name,
-or change the QAPAQ login.
+This module is wired into `infra/azure/main.tf` as an optional host, disabled while `ankay_host` is
+`null`. When enabled, it creates one private Ubuntu VM, an attached persistent data disk, a private
+IP, a narrowly scoped NSG, a managed identity with `AcrPull` on one registry, and a route table that
+forces internet-bound traffic from a dedicated subnet through an existing Azure Firewall. It writes
+the reviewed Compose document to the VM but does not install Docker, retrieve secrets, start
+containers, install Wazuh Agent, publish a DNS name, or change the QAPAQ login.
 
-## Required gates before root wiring
+## Required gates before enabling the module
 
 - A dedicated subnet and non-overlapping static private IPs for the host, edge, QAPAQ API, and Azure
   Firewall. The subnet association is changed to this module's route table; never pass a subnet shared
@@ -62,7 +62,7 @@ is unavailable, the service must remain offline rather than use direct internet 
 ## Validation
 
 `.github/workflows/ankay-azure-iac.yml` checks HCL formatting and provider schema without Azure
-credentials. It does not run a cloud plan. The module is not wired into `infra/azure/main.tf`; no
-resources or DNS changes have been made. After the upstream runtime images, Compose contract, secret
-references and application callback are verified, integrate it into the root, run the protected
-remote plan, inspect cost and every resource action, and only then consider deployment.
+credentials. It does not run a cloud plan. The root wiring is optional and disabled by default; no
+Ankay runtime or DNS change is evidenced by that wiring. After the upstream runtime images, Compose
+contract, secret references and application callback are verified, run the protected remote plan,
+inspect cost and every resource action, and only then consider deployment.

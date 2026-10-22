@@ -1,17 +1,22 @@
 # Arquitectura cloud propuesta — QAPAQ SecOps en Azure
 
-**Estado:** arquitectura objetivo documentada; Terraform Azure actual no la despliega completa y no se ha aplicado desde esta rama.
+**Estado:** arquitectura objetivo documentada; Terraform Azure no la despliega completa. El canal de releases se aplicó el 2026-10-22; Wazuh QAPAQ, Ankay y edge siguen sin desplegar.
 **Fuente de producto:** `docs/10-decisiones.md` (A5–A9, A13, A18, A20, A22, ADR-030) y `docs/12-backend-en-el-siem.md` (opción B).
 **Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
 **Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado.
 
 ## Estado observado de Azure — 2026-10-22
 
-La cuenta muestra USD 200 de crédito promocional con vencimiento el 18 de noviembre de 2026. El grupo
-`rg-qapaqsecopsdemo-66f8c73b` tiene 15 recursos de fundación en Chile Central: dos identidades administradas,
+La cuenta muestra USD 200 de crédito promocional con vencimiento el 18 de noviembre de 2026. Antes del último apply, el grupo
+`rg-qapaqsecopsdemo-66f8c73b` tenía 15 recursos de fundación en Chile Central: dos identidades administradas,
 Key Vault, Log Analytics, PostgreSQL Flexible Server y sus bases, Container Registry, Storage, VNet,
 endpoints privados, interfaces de red y zonas DNS privadas. PostgreSQL figura `Ready`, SKU Burstable B2s,
 32 GiB y sin alta disponibilidad. Esta lectura no accedió a valores de secretos.
+
+El workflow Terraform [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034)
+añadió cuatro direcciones Terraform para el Storage dedicado de releases, su contenedor privado,
+private endpoint y permiso de publicación. El apply no modificó ni destruyó recursos. No se refrescó
+el recuento de Azure Resource Manager desde el portal después del apply.
 
 Todavía no hay host Wazuh, host Ankay, Azure Firewall, balanceador/edge público ni cambio DNS para
 `app.jappi.net.pe`; tampoco hay servicios SIEM/Ankay desplegados. `siem_host`, `ankay_host` y el runtime
@@ -38,7 +43,7 @@ Ankay Qapaq es Shuffle completo fijado en `ankay/upstream.lock`, con el overlay 
 
 A18 registró inicialmente la simplificación de lanzamiento sin colas nuevas; A9, decisión posterior, actualiza el objetivo e incorpora Valkey/BullMQ para sesiones, caché y jobs. Esa parte se habilita por fases, cuando exista un consumidor real probado y esté definido el comportamiento ante caída de Valkey.
 
-**La arquitectura anterior describe el destino, no evidencia de operación.** El root `infra/azure` crea una fundación de red/datos/identidad y Container Apps opcionales genéricas. El módulo `siem_host` está conectado al root mediante el objeto opcional `siem_host`, apagado cuando es `null`; esto prepara el cableado, pero no instala el `.deb` ni despliega hasta proporcionar un bundle válido y las dependencias auditadas. `ankay_host` también tiene cableado opcional en la rama de preparación, con subnet dedicada y la VM/disco aislados, pero permanece apagado por defecto y no instala Docker ni arranca Shuffle. El root todavía no aprovisiona Valkey. No se debe activar el runtime genérico como sustituto de estos componentes.
+**La arquitectura anterior describe el destino, no evidencia de operación.** El root `infra/azure` crea una fundación de red/datos/identidad y Container Apps opcionales genéricas. El módulo `siem_host` está conectado al root mediante el objeto opcional `siem_host`, apagado cuando es `null`; esto prepara el cableado, pero no instala el `.deb` ni despliega hasta proporcionar un bundle válido y las dependencias auditadas. `ankay_host` también tiene cableado opcional en la rama de preparación, con subnet dedicada y la VM/disco aislados, pero permanece apagado por defecto y no instala Docker ni arranca Shuffle. El root todavía no aprovisiona Valkey. El canal dedicado de artefactos se aplicó en el workflow 39766635034; no se debe activar el runtime genérico como sustituto de estos componentes.
 
 ## Traducción Azure del diseño
 

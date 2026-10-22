@@ -1,5 +1,14 @@
 # Runbook Azure: secretos, publicación y corte
 
+## Aplicación del canal de releases (2026-10-22 11:00 UTC)
+
+- PR [#98](https://github.com/CyberStill-GmbH/qapaq-secops/pull/98), commit `c32ed62`, corrige la colisión del address de Terraform entre el recurso de publicación nuevo y la migración del permiso histórico. CI, seguridad y `fmt/init/validate` pasaron.
+- El workflow protegido [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034) generó y aplicó el plan exacto tras revisión. Resumen: **4 altas, 0 cambios, 0 destrucciones** — Storage de releases, contenedor privado, private endpoint y `Storage Blob Data Contributor` para la identidad publicadora federada.
+- No cambió el storage de eventos/evidencia, los valores de Key Vault, secretos de GitHub, PostgreSQL, DNS ni otros recursos existentes. La ruta nueva está lista para recibir el bundle, pero todavía no hay paquete completo publicado ni instalación de Wazuh/Ankay.
+- No se refrescó el inventario ARM por portal después del apply; la evidencia de estas cuatro altas es el resultado de Terraform en Actions. Verificar el inventario del resource group antes de un plan adicional.
+- Run anterior [39764311183](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39764311183) falló antes del apply por un `moved` block inválido; no produjo cambios.
+- El build experimental [39758248744](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758248744) terminó correctamente para Manager 4.14.8, Indexer y Filebeat; la asamblea solo generó evidencia efímera de procedencia, no un bundle instalable. El archive QAPAQ Core [39758800010](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758800010) pasó validación. El paquete Dashboard [39758795551](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758795551) pasó build, pero la publicación a ACR se omitió. El siguiente gate es ensamblar y validar el bundle completo antes de publicarlo.
+
 ## Validación del adaptador Core Azure (2026-10-22 09:20 UTC)
 
 - El PR [#93](https://github.com/CyberStill-GmbH/qapaq-secops/pull/93), commit `b94760b`, agrega el instalador Azure de `qapaq-core` y la validación segura del archive. El workflow [39754134555](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39754134555) pasó: cuatro casos de prueba del validador, sintaxis Bash, build en Ubuntu, checksum y comprobación del trust store CA.

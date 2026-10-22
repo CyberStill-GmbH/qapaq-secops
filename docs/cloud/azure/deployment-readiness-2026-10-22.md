@@ -1,27 +1,23 @@
 # Azure deployment readiness — 2026-10-22
 
-## Execution evidence
+## Execution evidence — 2026-10-22
 
-- Repository: `CyberStill-GmbH/qapaq-secops`, branch `main`, commit `f2fb3d52c77f055d204f5e096950048fdd0bc6d5`.
-- Workflow: [Terraform Azure plan and apply, run 39756609451](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39756609451).
-- The `azure-demo` deployment gate was approved by the configured reviewer.
-- OIDC validation, backend initialization, formatting, Terraform validation, saved plan creation, and the destructive-action guard all passed.
-- Terraform reported **no changes**. The plan summary found 0 additions, 0 updates, and 0 deletions. The apply job was skipped, so this run did not deploy resources or alter DNS.
+- Repository: `CyberStill-GmbH/qapaq-secops`, `main` at `c32ed621af5fc4ba675e1153c26c4b7a7229254b`.
+- The earlier protected run [39756609451](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39756609451) reported 0 additions, 0 updates and 0 deletions; its apply job was skipped.
+- PR [#96](https://github.com/CyberStill-GmbH/qapaq-secops/pull/96) merged as `bdef10f`. CI Security passed in runs [39763925719](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39763925719) and [39763931163](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39763931163); Azure Terraform format/init/validate passed in [39763931208](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39763931208).
+- Terraform workflow [39764311183](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39764311183) passed its preflight and approval gate but failed during `terraform plan` because a `moved` block source address was still declared. It performed no apply.
+- PR [#98](https://github.com/CyberStill-GmbH/qapaq-secops/pull/98) fixed the Terraform address collision and merged to `main` as `c32ed62`; CI, CodeQL, container and Terraform validation checks passed.
+- Protected workflow [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034) completed plan and apply on that commit. The plan contained exactly **4 creates, 0 changes and 0 destroys**: the dedicated `siem-release` Storage account, its private endpoint, its private container, and the publisher `Storage Blob Data Contributor` assignment. Apply reported **4 added, 0 changed, 0 destroyed**. This established the release-artifact path only; it did not install Wazuh or Ankay and did not change DNS, existing evidence data, or secret values.
+- Prior builds for Manager/Indexer/Filebeat, QAPAQ Dashboard, QAPAQ Core and Ankay completed successfully in runs [39731386944](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39731386944), [39731390092](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39731390092), [39731393165](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39731393165) and [39731396102](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39731396102). These are expiring build artifacts, not a composed SIEM release bundle, ACR publication of the complete runtime, or an Azure deployment. The newer Dashboard package build [39758795551](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758795551) also passed but did not publish to ACR.
+- The experimental prerequisite build [39758248744](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758248744) has now completed successfully for the pinned Wazuh Manager 4.14.8, Indexer and Filebeat packages. Its assembly job emits only one-day provenance evidence, explicitly not an install bundle. QAPAQ Core archive [39758800010](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758800010) also built and verified successfully. Dashboard build [39758795551](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39758795551) succeeded, but its ACR publication job was skipped. These outputs are not yet composed, published to the release Storage, or installed.
 
-## Follow-up execution evidence — 10:22 UTC
+## Release artifact network path — applied
 
-- A second protected run, [39762450059](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39762450059), was dispatched on current `main` (`cbe637047e5caa79a5e1113f4239358d2960789c`) with `apply=true` and the cost review reference above.
-- At 10:22 UTC its plan job was still waiting on the `azure-demo` environment reviewer `CesarGuevaraQapaq`; the CLI identity cannot approve that reviewer gate. No Terraform plan or apply step had run in this second run. DNS and Azure resources remain unchanged by it.
-- Wazuh Manager (`39758248744`) and QAPAQ Dashboard (`39758795551`) package builds were still running. Wazuh Indexer and Filebeat jobs had completed successfully. These jobs produce temporary CI artifacts; they are not an install bundle or a deployment.
-- Until the reviewer releases the plan job, the second run has no new plan to inspect. If approved, inspect the generated resource summary before approving the separate apply job.
+The existing SIEM release container is inside the evidence Storage account, whose public network access is disabled. GitHub-hosted runners cannot publish the Wazuh installation bundle there. The new release path uses a separate Storage account with a private container, OAuth/RBAC only, no shared keys, no anonymous access, and a private endpoint for the SIEM VM. The existing evidence account, raw event container, prior release container and its publisher grant are retained; a Terraform `moved` block preserves the old grant while a new container-scoped grant is added.
 
-## Release artifact network path — prepared, not applied
+The Terraform source is merged in PR #96 and applied in workflow 39766635034 after a protected review of the exact plan. Terraform confirms four additions and no updates, deletes or replacements. Existing evidence data and secrets were not modified; no DNS change occurred.
 
-The existing SIEM release container is inside the evidence Storage account, whose public network access is disabled. GitHub-hosted runners cannot publish the Wazuh installation bundle there. A candidate Terraform change is prepared on `codex/azure-siem-runtime-readiness`: a separate, versioned release Storage account with a private container, OAuth/RBAC only, no shared keys, no anonymous access, and a private endpoint for the SIEM VM. The existing evidence account, raw event container, prior release container and its publisher grant are retained; a Terraform `moved` block preserves the old grant while a new container-scoped grant is added.
-
-This is source-only preparation. No Azure plan, apply, account creation, data migration, or DNS change has occurred for it. Local `terraform fmt`, `init -backend=false`, and `validate` passed with azurerm 4.81.0. The exact remote plan must confirm only expected additions/RBAC and zero data destruction before any apply.
-
-The change is committed as `3fa7811` in [PR #96](https://github.com/CyberStill-GmbH/qapaq-secops/pull/96). Local and remote Terraform validation passed. The first CI scan found `AZU-0012` on the release account because GitHub-hosted runners need a public endpoint. A time-bounded exception through 2026-11-20 now documents the same OIDC-only tradeoff already used for the state account; the release container stays private, anonymous access and shared keys remain disabled, and the scan must pass on the updated commit. No remote plan or apply has been run for this candidate.
+The release account/container uses OAuth/RBAC only, disables shared keys and anonymous access, keeps the container private, and provides a private endpoint for the SIEM VM. The existing evidence account, raw event container, prior release container and publisher grant are retained; a Terraform `moved` block preserves the old grant while adding a container-scoped grant on the dedicated artifact account. A time-bounded `AZU-0012` exception expires 2026-11-20 because GitHub-hosted runners require a public authenticated endpoint. The exception does not make the release container public; migrate publication to a private runner before expiry.
 
 ## Live Azure inventory
 
@@ -37,7 +33,7 @@ Public DNS lookup showed `jappi.net.pe` delegated to four Route 53 name servers.
 
 ## What this proves
 
-The existing Terraform state matches the currently enabled root configuration. It does not prove that the QAPAQ SecOps runtime is installed or healthy. The root keeps `siem_host` and `ankay_host` unset unless complete configuration is provided; the current plan therefore cannot create either host. A no-op plan must not be reported as a successful application deployment.
+Terraform state now includes the dedicated artifact channel, but it does not prove that the QAPAQ SecOps runtime is installed or healthy. The root keeps `siem_host` and `ankay_host` unset unless complete configuration is provided; both modules are wired but disabled. The apply was infrastructure preparation, not a successful application deployment.
 
 ## Remaining deployment gates
 
