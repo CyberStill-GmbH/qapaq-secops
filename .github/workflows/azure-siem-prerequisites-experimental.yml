@@ -150,15 +150,15 @@ jobs:
 
       - name: Verify source identity and build version
         working-directory: upstream/wazuh-indexer
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           [[ "$(git rev-parse HEAD)" == "$WAZUH_INDEXER_SHA" ]]
           [[ "$(bash packaging_scripts/product_version.sh)" == "$WAZUH_VERSION" ]]
           [[ "$(bash packaging_scripts/upstream_version.sh)" == "$OSD_COMPAT_VERSION" ]]
           git cat-file -e "$WAZUH_INDEXER_SHA^{commit}"
-          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
-            -H 'Accept: application/vnd.github+json' \
-            "https://api.github.com/repos/wazuh/wazuh-indexer/commits/$WAZUH_INDEXER_SHA" \
+          gh api "repos/wazuh/wazuh-indexer/commits/$WAZUH_INDEXER_SHA" \
             | jq -e --arg sha "$WAZUH_INDEXER_SHA" '.sha == $sha and .commit.verification.verified == true' >/dev/null
 
       - name: Apply the pinned offline JDT formatter overlay
