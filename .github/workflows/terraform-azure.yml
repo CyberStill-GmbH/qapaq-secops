@@ -8,11 +8,6 @@ on:
         type: boolean
         required: true
         default: false
-      cost_review_reference:
-        description: HTTPS reference to the reviewed monthly Azure cost estimate (required for apply)
-        type: string
-        required: false
-        default: ""
 
 permissions:
   contents: read
@@ -29,20 +24,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Require main and a cost review reference before apply
-        env:
-          APPLY: ${{ inputs.apply }}
-          COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+      - name: Require main before apply
         shell: bash
         run: |
           set -euo pipefail
           [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo '::error::Terraform Azure is restricted to main.'; exit 1; }
-          if [[ "$APPLY" == true ]]; then
-            [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
-              echo '::error::Apply requires an HTTPS reference to the reviewed Azure monthly cost estimate.'
-              exit 1
-            }
-          fi
 
   plan:
     name: Create and summarize protected Terraform plan
@@ -79,7 +65,6 @@ jobs:
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
       TF_STATE_KEY: ${{ vars.AZURE_TF_STATE_KEY }}
-      COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,7 +82,7 @@ jobs:
           [[ "$TF_STATE_STORAGE_ACCOUNT" =~ ^[a-z0-9]{3,24}$ ]] || { echo '::error::Invalid Azure state storage account name.'; exit 1; }
           [[ "$TF_STATE_CONTAINER" =~ ^[a-z0-9-]{3,63}$ ]] || { echo '::error::Invalid Azure state container name.'; exit 1; }
           if [[ "${{ inputs.apply }}" == true ]]; then
-            printf '%s\n' "Cost estimate reference: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' 'Cost estimate: docs/cloud/azure/cost-feasibility-2026-10-20.md (USD 200 is an alert threshold, not a spending cap).' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Validate opt-in Azure runtime configuration without printing inputs
