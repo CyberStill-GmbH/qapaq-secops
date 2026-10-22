@@ -130,11 +130,6 @@ resource "azurerm_storage_account" "siem_release" {
   infrastructure_encryption_enabled = true
   tags                              = merge(var.tags, { data_role = "siem-release-artifacts" })
 
-  network_rules {
-    default_action = "Allow"
-    bypass         = ["AzureServices"]
-  }
-
   blob_properties {
     versioning_enabled = true
     delete_retention_policy {

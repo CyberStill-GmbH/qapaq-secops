@@ -22,6 +22,10 @@ flowchart LR
   Core -->|Managed Identity · pendiente| KV[Key Vault privado]
   ACR[ACR · artefactos por digest] -.->|AcrPull · instalación pendiente| SIEM
 
+  SIEM -->|0.0.0.0/0 · UDR de egreso| Firewall[Azure Firewall Standard<br/>egress solamente · condicional a siem_host]
+  AnkayVM -->|0.0.0.0/0 · UDR de egreso| Firewall
+  Firewall -->|allowlist FQDN HTTPS| Internet[(Internet APIs autorizadas<br/>Ubuntu · Entra · Graph · VirusTotal)]
+
   subgraph AnkayVM[VM privada separada · Docker Compose]
     Ankay[Ankay Qapaq<br/>Shuffle frontend con overlay]
     ShuffleAPI[Shuffle backend]
@@ -42,4 +46,4 @@ flowchart LR
   classDef pending fill:#fff2cc,stroke:#c58b00,color:#342600,stroke-dasharray: 5 4;
   classDef target fill:#e2f0d9,stroke:#548235,color:#18320d;
   class Edge,PG,KV,ACR target;
-  class Dashboard,Core,KrakenD,Manager,Indexer,Valkey,Ankay,ShuffleAPI,Orborus,ShuffleOS,M365,Sophos,Cato,Teams,Platform pending;
+  class Dashboard,Core,KrakenD,Manager,Indexer,Valkey,Ankay,ShuffleAPI,Orborus,ShuffleOS,M365,Sophos,Cato,Teams,Platform,Firewall,Internet pending;

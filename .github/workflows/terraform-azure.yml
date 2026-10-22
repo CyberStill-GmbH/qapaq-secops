@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: Apply the exact plan after the azure-demo environment approval
+        description: Apply the exact reviewed plan from this run (main only)
         type: boolean
         required: true
         default: false
