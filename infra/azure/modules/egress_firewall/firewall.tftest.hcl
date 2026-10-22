@@ -1,0 +1,29 @@
+mock_provider "azurerm" {}
+
+run "standard_egress_policy_is_restrictive" {
+  command = plan
+
+  variables {
+    resource_group_name = "rg-qapaq-test"
+    location            = "chilecentral"
+    name_base           = "qapaqsecops"
+    firewall_subnet_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Network/virtualNetworks/vnet-qapaq/subnets/AzureFirewallSubnet"
+    source_cidrs        = ["10.80.16.0/27"]
+    tags                = { project = "qapaq-secops", environment = "test" }
+  }
+
+  assert {
+    condition     = azurerm_firewall.this.sku_tier == "Standard" && azurerm_firewall.this.threat_intel_mode == "Deny"
+    error_message = "The managed egress firewall must use Standard SKU with threat-intelligence deny mode."
+  }
+
+  assert {
+    condition     = azurerm_firewall_policy.this.dns[0].proxy_enabled
+    error_message = "The firewall policy must enable DNS proxy for FQDN application rules."
+  }
+
+  assert {
+    condition     = contains(azurerm_firewall_policy_rule_collection_group.egress.application_rule_collection[0].rule[0].destination_fqdns, "graph.microsoft.com")
+    error_message = "The default allowlist must include Microsoft Graph for the M365 connector."
+  }
+}

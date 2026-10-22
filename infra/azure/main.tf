@@ -26,6 +26,7 @@ module "network" {
   name_base                   = local.name_base
   address_space               = var.address_space
   ankay_subnet_address_prefix = var.ankay_host == null ? null : cidrsubnet(var.address_space, 11, 1)
+  enable_siem_firewall        = var.siem_host != null
   tags                        = var.tags
 }
 
@@ -83,6 +84,25 @@ module "identity_registry" {
   tags                             = var.tags
 }
 
+# Azure networking is provisioned with its own egress firewall. The SIEM VM no longer
+# depends on an AWS-era or manually pre-existing firewall/policy reference.
+module "egress_firewall" {
+  count  = var.siem_host == null ? 0 : 1
+  source = "./modules/egress_firewall"
+
+  resource_group_name = data.azurerm_resource_group.this.name
+  location            = data.azurerm_resource_group.this.location
+  name_base           = local.name_base
+  firewall_subnet_id  = module.network.firewall_subnet_id
+  source_cidrs = toset(concat(
+    [var.siem_host.address_prefix],
+    var.ankay_host == null ? [] : [cidrsubnet(var.address_space, 11, 1)],
+  ))
+  tags = var.tags
+
+  depends_on = [module.network]
+}
+
 module "runtime" {
   source                                   = "./modules/runtime"
   resource_group_name                      = data.azurerm_resource_group.this.name
@@ -114,8 +134,8 @@ module "siem_host" {
   location                     = data.azurerm_resource_group.this.location
   name_base                    = local.name_base
   virtual_network_name         = module.network.virtual_network_name
-  firewall_private_ip          = try(var.siem_host.firewall_private_ip, "")
-  firewall_policy_reference    = try(var.siem_host.firewall_policy_reference, "")
+  firewall_private_ip          = try(module.egress_firewall[0].private_ip_address, "")
+  firewall_policy_reference    = try(module.egress_firewall[0].policy_id, "")
   private_endpoint_subnet_cidr = cidrsubnet(var.address_space, 12, 257)
   postgres_subnet_cidr         = cidrsubnet(var.address_space, 12, 256)
   address_prefix               = try(var.siem_host.address_prefix, "")
@@ -156,8 +176,8 @@ module "ankay_host" {
   qapaq_api_subnet_cidr           = "${try(module.siem_host[0].private_ip_address, "0.0.0.0")}/32"
   qapaq_api_private_ip            = try(module.siem_host[0].private_ip_address, "0.0.0.0")
   wazuh_manager_private_ip        = try(module.siem_host[0].private_ip_address, "")
-  firewall_private_ip             = try(var.ankay_host.firewall_private_ip, "")
-  firewall_policy_reference       = try(var.ankay_host.firewall_policy_reference, "")
+  firewall_private_ip             = try(module.egress_firewall[0].private_ip_address, "")
+  firewall_policy_reference       = try(module.egress_firewall[0].policy_id, "")
   admin_ssh_public_key            = try(var.ankay_host.admin_ssh_public_key, "")
   vm_size                         = try(var.ankay_host.vm_size, "")
   ubuntu_image_version            = try(var.ankay_host.ubuntu_image_version, "")
@@ -169,5 +189,5 @@ module "ankay_host" {
   compose_sha256                  = try(var.ankay_host.compose_sha256, "")
   tags                            = var.tags
 
-  depends_on = [module.network, module.identity_registry, module.siem_host]
+  depends_on = [module.network, module.identity_registry, module.egress_firewall, module.siem_host]
 }

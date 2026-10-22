@@ -24,22 +24,22 @@ variable "virtual_network_name" {
 }
 
 variable "firewall_private_ip" {
-  description = "IP privada IPv4 del Azure Firewall existente que recibe la ruta 0/0 de la subnet SIEM. No tiene valor predeterminado: sin firewall el módulo no puede planificarse."
+  description = "IP privada IPv4 del Azure Firewall Standard administrado por el root, que recibe la ruta 0/0 de la subnet SIEM."
   type        = string
 
   validation {
     condition     = can(cidrhost("${var.firewall_private_ip}/32", 0))
-    error_message = "firewall_private_ip debe ser una IPv4 válida del Azure Firewall existente."
+    error_message = "firewall_private_ip debe ser una IPv4 válida del Azure Firewall administrado."
   }
 }
 
 variable "firewall_policy_reference" {
-  description = "ID/nombre de la Azure Firewall Policy revisada para el SIEM. La policy externa debe denegar por defecto y permitir solo los destinos de release/runtime aprobados."
+  description = "ID de la Azure Firewall Policy Standard creada por el root y asociada al host SIEM."
   type        = string
 
   validation {
     condition     = length(trimspace(var.firewall_policy_reference)) > 0
-    error_message = "La salida del SIEM queda bloqueada hasta declarar la policy de Azure Firewall revisada."
+    error_message = "El root debe entregar la policy del firewall creado para el host SIEM."
   }
 }
 

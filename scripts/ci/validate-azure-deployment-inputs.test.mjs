@@ -21,9 +21,6 @@ function baseEnv(overrides = {}) {
 
 function siemHost(overrides = {}) {
   return {
-    firewall_private_ip: '10.80.0.4',
-    firewall_policy_reference:
-      '/subscriptions/test/resourceGroups/network/providers/Microsoft.Network/firewallPolicies/demo',
     address_prefix: '10.80.16.0/27',
     vm_size: 'Standard_D4s_v5',
     admin_ssh_public_key: publicKey,
@@ -81,10 +78,10 @@ test('rejects public addresses for private SIEM and Ankay network endpoints', ()
     () =>
       validateDeploymentInputs(
         baseEnv({
-          TF_VAR_siem_host: JSON.stringify(siemHost({ firewall_private_ip: '8.8.8.8' })),
+          TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix: '8.8.8.0/27' })),
         }),
       ),
-    /RFC1918 private IPv4/u,
+    /private IPv4 subnet/u,
   );
 });
 
@@ -150,8 +147,6 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
     'services:\n  frontend:\n    image: qapaqdemo.azurecr.io/frontend@sha256:' + sha + '\n';
   const ankay = {
     private_ip_address: '10.80.17.10',
-    firewall_private_ip: '10.80.0.4',
-    firewall_policy_reference: 'demo-firewall-policy',
     admin_ssh_public_key: publicKey,
     vm_size: 'Standard_D4s_v5',
     ubuntu_image_version: '20260101.0',
@@ -193,8 +188,6 @@ test('Ankay cannot be enabled without SIEM and literal Compose credentials are r
     'services:\n  backend:\n    environment:\n      AWS_ACCESS_KEY_ID: literal-access-key\n';
   const ankay = {
     private_ip_address: '10.80.17.10',
-    firewall_private_ip: '10.80.0.4',
-    firewall_policy_reference: 'demo-firewall-policy',
     admin_ssh_public_key: publicKey,
     vm_size: 'Standard_D4s_v5',
     ubuntu_image_version: '20260101.0',
