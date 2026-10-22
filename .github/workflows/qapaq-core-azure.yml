@@ -40,6 +40,9 @@ jobs:
       - name: Enable the package manager pinned by package.json
         run: corepack enable
 
+      - name: Check the Azure host installer syntax
+        run: bash -n wazuh/core/apply-core-azure.sh
+
       - name: Build Azure-targeted core release with system CA trust
         run: bash wazuh/core/build-azure.sh "$RUNNER_TEMP/qapaq-core-azure"
 

@@ -5,6 +5,25 @@
 **Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
 **Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado.
 
+## Estado observado de Azure — 2026-10-22
+
+La cuenta muestra USD 200 de crédito promocional con vencimiento el 18 de noviembre de 2026. El grupo
+`rg-qapaqsecopsdemo-66f8c73b` tiene 15 recursos de fundación en Chile Central: dos identidades administradas,
+Key Vault, Log Analytics, PostgreSQL Flexible Server y sus bases, Container Registry, Storage, VNet,
+endpoints privados, interfaces de red y zonas DNS privadas. PostgreSQL figura `Ready`, SKU Burstable B2s,
+32 GiB y sin alta disponibilidad. Esta lectura no accedió a valores de secretos.
+
+Todavía no hay host Wazuh, host Ankay, Azure Firewall, balanceador/edge público ni cambio DNS para
+`app.jappi.net.pe`; tampoco hay servicios SIEM/Ankay desplegados. `siem_host`, `ankay_host` y el runtime
+genérico permanecen deshabilitados en Terraform. La ejecución [39751334214](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39751334214)
+fue un plan de solo lectura con cero cambios, no un apply operativo. El apply anterior [39649721166](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39649721166)
+falló al asignar roles de Storage (403 `roleAssignments/write`) y al crear Container Apps por falta de registro
+de `Microsoft.App`; no se debe usar esa ejecución como evidencia de disponibilidad.
+
+La estimación documentada para Wazuh + PostgreSQL + Azure Firewall Basic es de al menos USD 530.86/mes,
+antes de Ankay, discos, tráfico y otros componentes. Los USD 200 son crédito promocional y umbral de aviso,
+no límite de facturación. Recalcular costo y acciones de cada plan antes de ampliar la infraestructura.
+
 ## Objetivo y estado real
 
 QAPAQ SecOps es la distribución oficial de Wazuh 4.14.8 / OpenSearch Dashboards 2.19.6 con el overlay versionado de QAPAQ en `wazuh/dashboard/`. No es una aplicación web nueva ni un fork de Manager o Indexer. La UI incluye los plugins QAPAQ `qapaq_ops` y `qapaq_i18n`; el login del Dashboard sigue la sesión QAPAQ protegida por el edge existente.
