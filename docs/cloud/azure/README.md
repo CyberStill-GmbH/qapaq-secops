@@ -8,6 +8,7 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [Diagrama de despliegue](diagrams/qapaq-azure.mmd)
 - [Runbook de secretos, notificaciones y DNS](runbook-preparacion-y-corte.md)
 - [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
+- [Viabilidad de costos en Chile Central, revalidada 2026-10-22](cost-feasibility-2026-10-22.md)
 - [Terraform Azure](../../../infra/azure/README.md)
 
 Estado al **2026-10-22**: **canal privado de artefactos aplicado; runtime no desplegado**.
