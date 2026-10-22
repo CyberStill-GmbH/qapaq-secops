@@ -26,5 +26,10 @@ COPY --from=builder /app_gen/ /app_gen
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /app
+RUN addgroup -S -g 10001 ankay \
+    && adduser -S -D -H -u 10001 -G ankay ankay \
+    && mkdir -p /app/generated \
+    && chown 10001:10001 /app/generated
+USER 10001:10001
 EXPOSE 5001
 CMD ["./shufflebackend"]

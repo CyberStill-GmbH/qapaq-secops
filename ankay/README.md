@@ -57,17 +57,31 @@ El montaje anterior es un contrato requerido del runtime. Hasta que Compose o el
 orquestador lo aplique y se verifique conectividad TLS a OpenSearch, no declarar
 Ankay listo para Terraform/runtime.
 
-## Bloqueo de ejecución sin privilegios
+## Usuario runtime y límite del Docker socket
 
-CI mantiene `filesystem` en rojo por Trivy `DS-0002` (HIGH): backend y worker
-conservan el usuario root de upstream. Ambos usan el cliente Docker; la configuración
-upstream monta `/var/run/docker.sock` para backend y Orborus, y el worker ejecuta
-acciones vía Docker. Ese socket entrega autoridad equivalente a root del host.
-Cambiar a `USER` sin conocer el GID del socket y sin preparar permisos de lectura y
-escritura para los directorios hotload/archivos puede romper el runtime. Antes de
-quitar este bloqueo, versiona Compose con usuario no-root, grupo suplementario
-explícito para el socket y ownership probado de los volúmenes; valida ejecución de
-workflows de extremo a extremo. No se suprime `DS-0002` hasta esa prueba.
+Backend y worker corren como UID/GID fijo `10001:10001`. Solo el backend recibe
+escritura en `/app/generated`, que Shuffle usa para generar los artefactos de apps;
+`/app_gen` permanece de solo lectura para ese usuario. El worker no necesita escribir
+en `/app` según las rutas de escritura revisadas. `ankay/verify-runtime-users.sh`
+comprueba la identidad efectiva y la escritura de esos paths en las imágenes construidas.
+Las carpetas del host que se monten como `/shuffle-apps` o `/shuffle-files` deben
+provisionarse con permisos específicos para este UID/GID; este Dockerfile no cambia
+permisos del host ni de montajes.
+
+La configuración upstream monta `/var/run/docker.sock` para backend y Orborus. El
+acceso de escritura a ese socket sigue entregando autoridad prácticamente equivalente
+a root sobre el daemon y su VM, aunque el proceso dentro del contenedor use UID 10001.
+El runtime debe suministrar el GID numérico real del socket como grupo suplementario al
+backend y a los workers dinámicos; ese contrato todavía no está implementado ni probado
+en Compose/Azure. No usar un montaje `:ro` como sustituto de autorización al API.
+
+El usuario no-root mitiga privilegios del proceso y habilita el control Trivy `DS-0002`,
+pero no contiene el poder del Docker socket. Una VM exclusiva reduce el alcance del
+incidente solo si no comparte workloads, datos ni identidades cloud de privilegio amplio.
+Esto no acredita ejecución de workflows, grupos del socket, permisos de volúmenes,
+aislamiento de workers ni controles de red; **Ankay no queda listo para producción**.
+Mantener el release bloqueado hasta versionar y verificar el contrato del socket y
+ejecutar workflows end-to-end en un host dedicado aislado.
 
 ## Verificación de imágenes en CI
 

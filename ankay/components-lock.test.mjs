@@ -60,6 +60,36 @@ test('runtime Dockerfiles receive both pinned build bases before the first FROM'
   }
 });
 
+test('runtime components use a fixed non-root identity with only backend generation writable', () => {
+  const backend = readFileSync(new URL('./runtime/Dockerfile.backend', import.meta.url), 'utf8');
+  const worker = readFileSync(new URL('./runtime/Dockerfile.worker', import.meta.url), 'utf8');
+
+  for (const dockerfile of [backend, worker]) {
+    assert.match(dockerfile, /addgroup -S -g 10001 ankay/);
+    assert.match(dockerfile, /adduser -S -D -H -u 10001 -G ankay ankay/);
+    assert.match(dockerfile, /USER 10001:10001/);
+    assert.doesNotMatch(dockerfile, /chown\s+-R/);
+  }
+
+  assert.match(backend, /mkdir -p \/app\/generated\s+\\\n\s+&& chown 10001:10001 \/app\/generated/);
+  assert.doesNotMatch(worker, /chown|chmod/);
+});
+
+test('runtime build checks effective users and documents the Docker socket production gate', () => {
+  const runtimeCheck = readFileSync(new URL('./verify-runtime-users.sh', import.meta.url), 'utf8');
+  const workflow = readFileSync(
+    new URL('../.github/workflows/ankay-azure.yml', import.meta.url),
+    'utf8',
+  );
+  const readme = readFileSync(new URL('./README.md', import.meta.url), 'utf8');
+
+  assert.match(runtimeCheck, /test -w \/app\/generated/);
+  assert.match(runtimeCheck, /test ! -w \/app/);
+  assert.match(workflow, /bash ankay\/verify-runtime-users\.sh/);
+  assert.match(readme, /autoridad prácticamente equivalente\s+a root sobre el daemon y su VM/);
+  assert.match(readme, /Ankay no queda listo para producción/);
+});
+
 test('pinned shuffle-shared sums are applied to both source modules before image builds', () => {
   const buildScript = readFileSync(
     new URL('./build-runtime-components.sh', import.meta.url),

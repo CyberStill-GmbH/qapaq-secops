@@ -18,4 +18,7 @@ ENV SHUFFLE_BASE_IMAGE_REGISTRY=docker.io \
 COPY --from=builder /app/worker /app/worker
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 WORKDIR /app
+RUN addgroup -S -g 10001 ankay \
+    && adduser -S -D -H -u 10001 -G ankay ankay
+USER 10001:10001
 CMD ["./worker"]
