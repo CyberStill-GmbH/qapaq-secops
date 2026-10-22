@@ -83,8 +83,8 @@ module "runtime" {
   container_images                         = var.container_images
   enable_runtime                           = var.enable_runtime
   key_vault_secret_ids                     = var.key_vault_secret_ids
-  container_app_environment_id             = module.observability.container_app_environment_id
-  container_app_environment_default_domain = module.observability.container_app_environment_default_domain
+  container_app_environment_id             = var.enable_runtime ? module.observability.container_app_environment_id : ""
+  container_app_environment_default_domain = var.enable_runtime ? module.observability.container_app_environment_default_domain : ""
   runtime_identity_id                      = module.identity_registry.runtime_identity_id
   container_registry_login_server          = module.identity_registry.container_registry_login_server
   postgres_fqdn                            = module.data.postgres_fqdn
