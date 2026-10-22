@@ -1,5 +1,12 @@
 # Runbook Azure: secretos, publicación y corte
 
+## Validación del adaptador Core Azure (2026-10-22 09:20 UTC)
+
+- El PR [#93](https://github.com/CyberStill-GmbH/qapaq-secops/pull/93), commit `b94760b`, agrega el instalador Azure de `qapaq-core` y la validación segura del archive. El workflow [39754134555](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39754134555) pasó: cuatro casos de prueba del validador, sintaxis Bash, build en Ubuntu, checksum y comprobación del trust store CA.
+- El artefacto producido por ese workflow es efímero (retención de un día); **no** se publicó en Blob/ACR ni se instaló en una VM. El workflow no construye el bundle Wazuh/QAPAQ completo y no demuestra worker BullMQ, migraciones o salud de Wazuh.
+- Los checks generales de seguridad/contendedores del PR seguían en curso a esta hora. La rama `main` no cambió por este PR.
+- La última ejecución Terraform observada sobre `main`, [39751334214](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39751334214), sigue siendo solo lectura con cero cambios. No hubo `apply`, cambio DNS, acceso a valores de Key Vault ni mutación de recursos en esta validación.
+
 ## Actualización de publicación (2026-10-22 08:42 UTC)
 
 - El PR [#91](https://github.com/CyberStill-GmbH/qapaq-secops/pull/91) se integró en `main` como `b7ff341`. Corrige la instalación de ORAS en el workflow de publicación fijando URL y checksum oficiales de ORAS 1.3.5.

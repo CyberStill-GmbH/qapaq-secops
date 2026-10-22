@@ -17,6 +17,18 @@ AWS Systems Manager y Secrets Manager, y el worker incluido aún no demuestra un
 funcional en Azure. El bootstrap Azure debe materializar referencias de Key Vault de forma segura y
 validar API, worker, migraciones y salud antes de llamar operativo al servicio.
 
+`apply-core-azure.sh` instala un archive fijado por SHA-256 usando `/etc/qapaq-core/core.env`, que el
+bootstrap Azure materializa desde referencias de Key Vault. No llama a AWS, no obtiene ni rota
+secretos y no los imprime. Activa el release de forma atómica, espera `/health/ready` y revierte al
+release anterior si la API no está lista; conserva el activo y tres releases previos. El instalador
+requiere que el paquete padre haya verificado los SHA del core archive y materializado el entorno con
+permisos `root:qapaq-core`. El modo `--verify-only` valida checksum, estructura, enlaces y tipos de
+archivo sin leer el entorno ni cambiar servicios; CI lo ejecuta contra el archive real.
+
+El worker solo se considera iniciado por systemd; eso no prueba consumo efectivo de BullMQ, migraciones
+de PostgreSQL ni procesamiento de jobs. Esas pruebas de integración siguen siendo necesarias antes de
+usar este adaptador en un bundle de producción.
+
 `.github/workflows/qapaq-core-azure.yml` compila el archivo en pull requests y verifica que el CA
 empaquetado coincide con el trust store del runner. El artefacto CI vence al día siguiente; no se
 publica en Blob/ACR ni lo instala en una VM.
