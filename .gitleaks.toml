@@ -10,3 +10,17 @@ targetRules = ["generic-api-key"]
 paths = ['''(^|/)ankay/runtime/shuffle-runtime-security-upgrades\.patch$''']
 regexTarget = "match"
 regexes = ['''^oauth2 v0\.36\.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=$''']
+
+[[allowlists]]
+description = "Public SHA-256 digest for the official Wazuh signing key; scoped to the release workflow commit and file."
+condition = "AND"
+targetRules = ["generic-api-key"]
+commits = ["6429e91569f31b06fb625125c9a399541548da0d"]
+paths = ['''(^|/)\.github/workflows/azure-siem-release-bundle\.yml$''']
+
+[[allowlists]]
+description = "False positive from the product name Valkey-compatible in an Azure cost feasibility paragraph; scoped to the historical finding commit and document."
+condition = "AND"
+targetRules = ["generic-api-key"]
+commits = ["e93fc79b935b807a7ec3437fecb95be4ff741fdb"]
+paths = ['''(^|/)docs/cloud/azure/cost-feasibility-2026-10-22\.md$''']

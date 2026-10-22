@@ -101,6 +101,7 @@ jobs:
           fi
 
       - name: Validate opt-in Azure runtime configuration without printing inputs
+        working-directory: .
         run: node scripts/ci/validate-azure-deployment-inputs.mjs
 
       - name: Set up Terraform
