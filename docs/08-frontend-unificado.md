@@ -6,18 +6,21 @@ El **dashboard de Wazuh es el shell**. Lo que ya hace bien no se rehace: Discove
 agentes, vulnerabilidades, FIM, MITRE, reglas y gestión de índices. QAPAQ aporta casos, gobierno
 y cambios en vivo **dentro** del mismo shell, como plugin nativo de OpenSearch Dashboards.
 
-## Estado real (revisado el 2026-10-13)
+## Estado real (revisado el 2026-10-22)
 
-El frontend se construye en el **fork `qapaq_ops-dashboard`**: repo local `../wazuh-dashboard-src`,
-rama `qapaq/identity`, sin commitear todavía. Lo trabaja otra sesión.
+La fuente versionada del frontend de demo es el overlay `wazuh/dashboard/` de este repositorio,
+compilado contra **Wazuh 4.14.8 / OpenSearch Dashboards 2.19.6**. El repositorio externo
+`qapaq-dashboard` y su base Wazuh 5.x / OSD 3.x son una línea de migración separada: no se mezclan
+en el artefacto actual por incompatibilidad de plugins y protocolos.
 
 | Pieza | Dónde | Estado |
 | --- | --- | --- |
-| Marca y tema QAPAQ (logos, favicon, tema v9 claro/oscuro, `qapaq_ops_v7_theme_overwrite.css`) | Núcleo del fork (`src/core/...`, `packages/osd-ui-shared-deps/qapaq`) | En curso |
-| Login QAPAQ en `/qapaq/login` y `/qapaq/logout`. `/app/login` y `/login` se reescriben ahí | `src/plugins/qapaq_ops/server` | Hecho |
-| Vistas: alertas, incidentes (tareas, notas, timeline), auditoría e integridad, acceso (usuarios y sesiones), fuentes, Mi sesión | `src/plugins/qapaq_ops/public` | Hecho |
-| Cliente de la API (mismo origen, cookie, CSRF desde `/auth/session`, errores del catálogo) | `public/api/client.ts`, `common/api_contract.ts` | Hecho |
-| Edge nginx y Security plugin (proxy auth) | `qapaq/deploy/` en el fork, y `wazuh/edge` más `wazuh/indexer/security` en este repo | Hay **dos copias**: ver abajo |
+| Marca QAPAQ y navegación de Wazuh | `wazuh/dashboard/patches/`, `assets/`, `plugins/qapaq_ops` | Overlay fijado a OSD 2.19.6 |
+| Login QAPAQ y rutas de dashboard | `plugins/qapaq_ops/server` y `wazuh/edge/` | Se conserva el flujo de identidad existente |
+| Vistas SOC: alertas, incidentes, notificaciones, auditoría, usuarios/sesiones y fuentes | `plugins/qapaq_ops/public/components/` | Compiladas dentro del dashboard |
+| Solicitud y aprobación de roles | `plugins/qapaq_ops/public/components/access_view.tsx` + `apps/api/src/soc/admin-role-grants.controller.ts` | En rama de trabajo; pendiente PR, CI y despliegue |
+| Cliente de la API (same-origin, cookie, CSRF, contrato) | `plugins/qapaq_ops/public/api/` y `common/api_contract.ts` | CSRF se obtiene de la sesión QAPAQ |
+| Edge nginx y Security plugin (proxy auth) | `wazuh/edge/` y `wazuh/indexer/security/` | Fuente del despliegue en este repo |
 
 **`apps/web` se eliminó** (`4eab88f`): sus vistas viven en el plugin `qapaq_ops`.
 
@@ -36,7 +39,8 @@ rama `qapaq/identity`, sin commitear todavía. Lo trabaja otra sesión.
 | `GET /sources/health` → `{checkedAt, sources}` | `sources-health.controller.ts` | ✓ |
 | Login `/api/auth/start?returnTo=`, retorno con `authError`, `correlationId` y `sessionNotice=superseded` | `auth.controller.ts`, `return-to.ts` | ✓ `safeReturnTo` acepta rutas del dashboard |
 | Logout: `/qapaq/logout` → `GET /auth/session` (CSRF) → `POST /auth/logout` | `auth.controller.ts:152` | ✓ |
-| Proxy auth: `GET /api/auth/introspect` → 204 con `x-qapaq-user` y `x-qapaq-roles` | Trabajo en curso **sin commitear en `main`** | ⚠ Bloqueante: sin esto el dashboard no autentica |
+| Proxy auth: `GET /api/auth/introspect` → 204 con `x-qapaq-user` y `x-qapaq-roles` | `apps/api/src/soc/auth.controller.ts`, edge y Security plugin | Verificar con el runbook de release en el entorno objetivo; el build no prueba identidad en vivo |
+| Administración de roles: grant, solicitud, bandeja y aprobación | `/api/admin/users/:oid/role-grant`, `/api/admin/users/:oid/role-requests`, `/api/admin/role-requests` | En esta rama; no afirmar que está desplegado hasta aprobación del PR y migración de BD |
 
 **Endpoints del backend que el plugin todavía no usa:**
 
@@ -48,17 +52,14 @@ rama `qapaq/identity`, sin commitear todavía. Lo trabaja otra sesión.
 | `GET /api/incidents/:id/alerts` | Alertas vinculadas en una sola llamada | Media |
 | `GET /api/operations/health` | Salud operativa | Media |
 | `GET /api/admin/users/:oid` (sesiones de una persona) | Detalle para revocar | Baja |
-| `PUT /api/admin/users/:oid/roles` | Cambio de rol con revocación ([04](04-identidad-y-acceso.md)) | Todavía no existe en el backend |
+| `/api/admin/users/:oid/role-requests` + `/api/admin/role-requests/:id/{approve,reject}` | Solicitud con SoD, aprobación separada, auditoría y revocación al completar ([04](04-identidad-y-acceso.md)) | En rama; la aprobación privilegiada requiere step-up aún no disponible |
 
 ## Riesgos detectados
 
-1. **Versión (bloqueante).** El fork parte de `main` de `wazuh-dashboard`, que es **Wazuh 5.1.0 /
-   OSD 3.6.0** en desarrollo. La demo corre **Wazuh 4.14.8 / OSD 2.19.6**, y un dashboard 3.6 no
-   habla con un Indexer 2.19. Hay dos salidas:
-   - **(a) Recomendada:** fijar el fork al tag `v5.0.x` GA y desplegar un cluster Wazuh 5 nuevo para
-     la plataforma unificada (adelanta la fase 4). Sale una sola vez y sin backport.
-   - (b) Rebasear el fork sobre el tag `v4.14.8`. Los cambios de núcleo (tema, login, logos) van a
-     tener conflictos, y habría que rehacerlos al pasar a 5.x.
+1. **Compatibilidad de versión.** Mantener el artefacto de demo fijado a Wazuh 4.14.8 / OSD 2.19.6.
+   La migración al repositorio `qapaq-dashboard` y a Wazuh 5.x / OSD 3.x requiere una rama y un
+   ciclo de compatibilidad propios, con sus plugins recompilados y pruebas de integración; no forma
+   parte del build de demo actual.
 2. **Colisiones de rutas `/api/*`.** OSD, el plugin de Wazuh y los plugins incluidos usan sus
    propias `/api/*`. El edge enruta a QAPAQ solo una allowlist de prefijos. **Hay que verificar
    `/api/notifications`:** el plugin *Notifications* de OSD (que el fork incluye vía

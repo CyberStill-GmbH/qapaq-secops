@@ -88,32 +88,38 @@ sesión al instante, en la consola y en el dashboard.**
 | Padrón del grupo SOC: membresía, `accountEnabled`, rol efectivo **y su origen**, última actividad, sesiones activas y si la sincronización está vieja | `GET /api/admin/users`, `GET /api/admin/users/:oid` | `apps/api/src/soc/admin-users.controller.ts` |
 | Sesiones recientes y revocación manual | `GET /api/admin/sessions`, `POST /api/admin/sessions/:ref/revoke` | `apps/api/src/soc/admin-sessions.controller.ts` |
 | **Salida del grupo en Entra → revocación automática** | Graph delta → `removedMembers` → `revokeSessionsByOid` (auditado) | `apps/api/src/runtime/directory-sync.ts` |
-| Origen del rol: dueño del grupo, grupo admin, binding de deploy o app role de Entra | `explainRole` | `apps/api/src/runtime/role-grants.ts` |
+| Origen del rol: dueño del grupo, grupo admin, binding de deploy, app role de Entra o asignación aprobada por QAPAQ | `explainRole` | `apps/api/src/runtime/role-grants.ts` |
 
-### Lo que falta (fase 1, código TS)
+### Cambios de rol con aprobación y auditoría
 
-1. **Cambiar el rol desde QAPAQ**: `PUT /api/admin/users/:oid/roles` con `If-Match: <version>`.
-   - Persistencia: tabla `role_assignments` (tenant, oid, roles, version, grantedBy, approvedBy,
-     reason). Se agrega como origen `qapaq_assignment` en `explainRole`, con precedencia sobre
-     `deploy_binding` y `entra_app_role`.
-   - Capacidad nueva `users.roles.assign` (Access Admin o Administrador de plataforma).
-   - SoD: nadie cambia su propio rol. Subir a `qapaq.soc.lead` o `qapaq.platform.admin` crea una
-     **solicitud pendiente** que otra persona aprueba con step-up. Bajar o quitar un rol es
-     inmediato, porque reducir privilegio no necesita doble control.
-   - **En la misma transacción:** el grant, el `AuditEvent` y `revokeSessionsByOid(oid,
-     'ROLE_CHANGED')`. La persona vuelve a entrar y recibe el rol nuevo.
-2. **Más disparadores de revocación en la sincronización Graph:**
-   - `accountEnabled` pasa a `false` → revocar (`ACCOUNT_DISABLED`).
-   - Cambio de app role en Entra (diff de `servicePrincipals/{id}/appRoleAssignedTo` en cada
-     ciclo) → revocar (`ENTRA_ROLE_CHANGED`).
-3. **Corte en vivo, no en la próxima request.** La revocación publica `session.revoked` en
-   `/api/changes`. La consola cierra la sesión al recibirlo. El dashboard la pierde en ≤ 5 s por
-   la caché de `auth_request`. OSD con proxy auth no guarda sesión propia, así que no queda una
-   sesión zombi (verificar en la demo).
-4. **Asociar por OID en el padrón.** La sesión ya guarda `oid` cuando el token lo trae
-   (`openSession`), pero `admin-users.controller.ts` todavía agrupa las sesiones por UPN. Hay que
-   pasar a agrupar por `oid` para que la vista y la revocación sigan siendo exactas aunque cambie
-   el UPN.
+La implementación está en la rama `codex/qapaq-admin-roles-main`; todavía no cuenta como parte de
+`main` ni del despliegue hasta que su PR y CI se completen. El panel del plugin Wazuh usa solicitudes
+de cambio, no escribe grants directamente ni modifica miembros/estado de cuenta en Entra.
+
+| Operación | Endpoint | Control |
+| --- | --- | --- |
+| Leer grant editable y sus fuentes fijas | `GET /api/admin/users/:oid/role-grant` | `users.read`, miembro vigente, padrón Graph fresco |
+| Solicitar concesión o retiro | `POST /api/admin/users/:oid/role-requests` | `roles.request`, CSRF, motivo, revisión CAS y solicitante distinto del objetivo |
+| Consultar bandeja del tenant | `GET /api/admin/role-requests` | Capability de solicitud o aprobación; paginación acotada |
+| Resolver etapa pendiente | `POST /api/admin/role-requests/:id/approve` o `/reject` | Aprobador declarado para la etapa, SoD, CSRF, revisión CAS y motivo |
+
+- Los grants dinámicos viven en `access_role_grants`, separados de las asignaciones del deploy,
+  app roles de Entra y dueños del grupo. `access_role_requests` conserva estado y aprobaciones; el
+  historial íntegro se registra en la cadena de auditoría.
+- Cada decisión exige que solicitante, objetivo y aprobador sean personas distintas y continúen
+  habilitados en el grupo sincronizado. Sin Graph reciente o sin aprobadores declarados, se falla
+  cerrado. `QAPAQ_ACCESS_APPROVER_OIDS` y `QAPAQ_SECURITY_APPROVER_OIDS` se configuran por entorno;
+  no se publican OIDs de usuarios en el repositorio.
+- El rol `qapaq.platform.admin` exige dos aprobaciones (Acceso y Seguridad). La etapa de Seguridad
+  además exige autenticación fuerte y reciente. El login actual no entrega evidencia step-up; por
+  eso hoy esa aprobación está bloqueada intencionalmente. No se relaja ni se simula desde el panel.
+- Tras aprobar el cambio final, el backend confirma grant y auditoría y luego revoca las sesiones
+  en otro store. Si quedan sesiones sin revocar, la respuesta informa `sessionRevocation.remaining`
+  y registra el fallo. No es una transacción atómica entre grant y sesión: cerrar este hueco y
+  verificar la propagación del corte al Dashboard sigue siendo un gate antes de producción.
+- La sincronización del padrón cancela solicitudes abiertas cuando sus participantes dejan de ser
+  miembros. Deshabilitar o dar de baja una cuenta sigue siendo responsabilidad de Entra; QAPAQ solo
+  refleja ese estado y aplica la denegación/revocación correspondiente.
 
 ### Una sola sesión por persona (ya existe)
 
