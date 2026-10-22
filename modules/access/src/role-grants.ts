@@ -46,7 +46,14 @@ export interface RoleGrantStore {
 }
 
 export function emptyRoleGrant(tenantId: string, oid: string): RoleGrant {
-  return { tenantId, oid: oid.toLowerCase(), roles: [], revision: 0, updatedAt: null, updatedBy: null };
+  return {
+    tenantId,
+    oid: oid.toLowerCase(),
+    roles: [],
+    revision: 0,
+    updatedAt: null,
+    updatedBy: null,
+  };
 }
 
 /** Orden estable y sin duplicados: dos reemplazos con los mismos roles guardan lo mismo. */

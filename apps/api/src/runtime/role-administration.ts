@@ -134,9 +134,7 @@ function approversFor(
   stage: 'access' | 'security',
 ): readonly string[] {
   return (
-    (stage === 'access'
-      ? deps.config?.accessApproverOids
-      : deps.config?.securityApproverOids) ?? []
+    (stage === 'access' ? deps.config?.accessApproverOids : deps.config?.securityApproverOids) ?? []
   );
 }
 

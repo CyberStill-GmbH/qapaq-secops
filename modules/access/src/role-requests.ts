@@ -317,9 +317,7 @@ export class InMemoryRoleRequestStore implements RoleRequestStore {
         (row) =>
           row.tenantId === tenantId &&
           isOpenRoleRequest(row) &&
-          (row.targetOid === key ||
-            row.requesterOid === key ||
-            row.accessApproval?.oid === key),
+          (row.targetOid === key || row.requesterOid === key || row.accessApproval?.oid === key),
       ),
     );
   }

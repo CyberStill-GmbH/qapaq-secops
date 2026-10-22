@@ -88,12 +88,7 @@ export function withDynamicGrants(
 }
 
 export type RoleOrigin =
-  | 'group_owner'
-  | 'admin_group'
-  | 'qapaq_assignment'
-  | 'deploy_binding'
-  | 'entra_app_role'
-  | 'none';
+  'group_owner' | 'admin_group' | 'qapaq_assignment' | 'deploy_binding' | 'entra_app_role' | 'none';
 
 /** Origen principal del rol mostrado en el padrón administrativo. */
 export function explainRole(

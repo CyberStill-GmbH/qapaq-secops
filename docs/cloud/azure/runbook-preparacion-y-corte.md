@@ -481,3 +481,11 @@ usar una clave compartida como sustituto del control de acceso.
 La autorización general de despliegue no reemplaza las identidades y permisos
 técnicos de Azure, AWS, Microsoft 365 y Route 53. Sin ellos no se puede ejecutar
 el plan ni certificar una integración real.
+## Administración de roles: gate de aprobación y SoD
+
+PR [#88](https://github.com/CyberStill-GmbH/qapaq-secops/pull/88) prepara solicitudes de rol tenant-scoped con auditoría y revisión en QAPAQ. Esta capacidad aún no está integrada en `main` ni desplegada en Azure; su CI debe repetirse tras actualizar la rama.
+
+- Las solicitudes requieren un padrón Graph reciente y configuración explícita de los grupos de aprobadores de acceso y seguridad. Si falta esa evidencia o configuración, el flujo falla cerrado.
+- La persona solicitante no aprueba su propia solicitud. `qapaq.platform.admin` requiere una segunda aprobación de seguridad y evidencia reciente de step-up; no se relaja OIDC, MFA ni la sesión actual.
+- El grant y su evento de auditoría se guardan en una transacción. La revocación de sesiones es una operación posterior y debe verificarse con `remaining = 0` antes de declarar completa la concesión.
+- No tratar la existencia del código o sus pruebas como prueba de permisos configurados, migración ejecutada o despliegue.

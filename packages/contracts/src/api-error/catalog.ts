@@ -110,7 +110,8 @@ export const API_ERROR_CATALOG: Readonly<Record<ApiErrorCode, ApiErrorDefinition
   STEP_UP_REQUIRED: {
     code: 'STEP_UP_REQUIRED',
     httpStatus: 403,
-    publicMessage: 'Esta acción requiere una verificación reciente de identidad que no está disponible.',
+    publicMessage:
+      'Esta acción requiere una verificación reciente de identidad que no está disponible.',
     action: 'contact_support',
     helpRef: `${HELP_BASE}#step-up-required`,
     retriable: false,

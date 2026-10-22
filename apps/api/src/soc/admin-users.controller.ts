@@ -216,9 +216,7 @@ export class AdminUsersController {
       this.assignmentsByOid(actor.tenantId),
     ]);
     const sessions =
-      sessionIndex.byOid.get(row.oid) ??
-      sessionIndex.byUpn.get(row.upn?.toLowerCase() ?? '') ??
-      [];
+      sessionIndex.byOid.get(row.oid) ?? sessionIndex.byUpn.get(row.upn?.toLowerCase() ?? '') ?? [];
     const currentReference = this.runtime.sessionReferenceOf(session.id);
     return {
       correlationId,
