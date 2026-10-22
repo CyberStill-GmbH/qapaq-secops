@@ -39,8 +39,14 @@ fetch_commit() {
 fetch_commit "$shuffle_repo" "$shuffle_sha" "$work_dir/shuffle"
 fetch_commit "$app_sdk_repo" "$app_sdk_sha" "$work_dir/app-sdk"
 shuffle_shared_sums_patch="$root/ankay/runtime/shuffle-shared-v1.3.22-sums.patch"
+shuffle_runtime_security_patch="$root/ankay/runtime/shuffle-runtime-security-upgrades.patch"
+shuffle_runtime_source_patch="$root/ankay/runtime/shuffle-runtime-vet-and-cloud-url.patch"
 git -C "$work_dir/shuffle" apply --check "$shuffle_shared_sums_patch"
 git -C "$work_dir/shuffle" apply "$shuffle_shared_sums_patch"
+git -C "$work_dir/shuffle" apply --check "$shuffle_runtime_security_patch"
+git -C "$work_dir/shuffle" apply "$shuffle_runtime_security_patch"
+git -C "$work_dir/shuffle" apply --check "$shuffle_runtime_source_patch"
+git -C "$work_dir/shuffle" apply "$shuffle_runtime_source_patch"
 grep -qi 'GNU AFFERO GENERAL PUBLIC LICENSE' "$work_dir/shuffle/LICENSE" || {
   echo 'La fuente Shuffle no acredita AGPL-3.0 en LICENSE' >&2; exit 1;
 }
@@ -52,8 +58,8 @@ actual_app_sdk_file_sha="$(git -C "$work_dir/app-sdk" cat-file blob "$app_sdk_sh
   echo 'El blob app_sdk no coincide con su SHA-256 fijado' >&2; exit 1;
 }
 
-go_builder_image="$(jq -r '.buildBases.golang125' "$lock_file")"
-alpine_runtime_image="$(jq -r '.buildBases.alpine3222' "$lock_file")"
+go_builder_image="$(jq -r '.buildBases.golang1273Alpine323' "$lock_file")"
+alpine_runtime_image="$(jq -r '.buildBases.alpine3226' "$lock_file")"
 opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' "$lock_file")"
 for image in "$go_builder_image" "$alpine_runtime_image" "$opensearch_image"; do
   [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || { echo "Imagen base sin digest: $image" >&2; exit 1; }
@@ -93,7 +99,9 @@ git -C "$work_dir/shuffle" archive "$shuffle_sha" LICENSE backend/go-app backend
   functions/onprem/worker > "$work_dir/source/shuffle/source.tar"
 tar -xf "$work_dir/source/shuffle/source.tar" -C "$work_dir/source/shuffle"
 rm "$work_dir/source/shuffle/source.tar"
+cp "$work_dir/shuffle/backend/go-app/go.mod" "$work_dir/source/shuffle/backend/go-app/go.mod"
 cp "$work_dir/shuffle/backend/go-app/go.sum" "$work_dir/source/shuffle/backend/go-app/go.sum"
+cp "$work_dir/shuffle/functions/onprem/worker/go.mod" "$work_dir/source/shuffle/functions/onprem/worker/go.mod"
 cp "$work_dir/shuffle/functions/onprem/worker/go.sum" "$work_dir/source/shuffle/functions/onprem/worker/go.sum"
 git -C "$work_dir/app-sdk" archive "$app_sdk_sha" LICENSE shuffle_sdk/shuffle_sdk.py \
   > "$work_dir/source/app-sdk/source.tar"
@@ -102,6 +110,12 @@ rm "$work_dir/source/app-sdk/source.tar"
 cp "$root/ankay/azure-components.lock.json" "$work_dir/source/"
 mkdir -p "$work_dir/source/ankay-overlay"
 cp "$shuffle_shared_sums_patch" "$work_dir/source/ankay-overlay/"
+cp "$shuffle_runtime_security_patch" "$work_dir/source/ankay-overlay/"
+cp "$shuffle_runtime_source_patch" "$work_dir/source/ankay-overlay/"
+cp "$work_dir/shuffle/backend/go-app/main.go" "$work_dir/source/shuffle/backend/go-app/main.go"
+cp "$work_dir/shuffle/backend/go-app/docker.go" "$work_dir/source/shuffle/backend/go-app/docker.go"
+cp "$work_dir/shuffle/backend/go-app/cloud_sync_url_test.go" "$work_dir/source/shuffle/backend/go-app/cloud_sync_url_test.go"
+cp "$work_dir/shuffle/functions/onprem/worker/worker.go" "$work_dir/source/shuffle/functions/onprem/worker/worker.go"
 cp "$root/ankay/runtime/Dockerfile.backend" "$root/ankay/runtime/Dockerfile.worker" "$work_dir/source/"
 cp "$root/ankay/build-runtime-components.sh" "$work_dir/source/"
 tar -czf "$out_dir/shuffle-corresponding-source.tar.gz" -C "$work_dir/source" .

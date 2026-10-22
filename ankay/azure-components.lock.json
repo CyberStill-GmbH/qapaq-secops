@@ -53,10 +53,19 @@
     }
   },
   "buildBases": {
-    "golang125": "docker.io/library/golang:1.25@sha256:699337d620559a59b4a2bb298ad59611e535d2ee755a34cf2d2a98f37578dc80",
-    "alpine3222": "docker.io/library/alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412",
+    "golang1273Alpine323": "docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df",
+    "alpine3226": "docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
     "node23": "docker.io/library/node:23@sha256:9a25b5a6f9a90218b73a62205f111e71de5e4289aee952b4dd7e86f7498f2544",
     "nginx1293": "docker.io/library/nginx:1.29.3@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51"
+  },
+  "goSecurityUpgrades": {
+    "minimumToolchain": "1.27.3",
+    "golang.org/x/net": "v0.60.0",
+    "golang.org/x/crypto": "v0.57.0",
+    "golang.org/x/text": "v0.42.0",
+    "golang.org/x/sys": "v0.48.0",
+    "golang.org/x/term": "v0.46.0",
+    "google.golang.org/grpc": "v1.83.2"
   },
   "componentStatus": {
     "frontend": "build-from-pinned-shuffle-source",
@@ -65,5 +74,21 @@
     "opensearch": "pull-by-pinned-platform-digest",
     "orborus": "blocked-license-review",
     "shuffle-security": "blocked-license-and-compatibility-review"
+  },
+  "securityBlockers": {
+    "dockerSdk": {
+      "module": "github.com/docker/docker@v28.3.3+incompatible",
+      "status": "blocked-until-sdk-migration-and-engine-upgrade",
+      "cves": ["CVE-2026-41567", "CVE-2026-42306"],
+      "requiredEngineVersion": "29.5.1",
+      "reason": "The deprecated github.com/docker/docker module has no patched release. The official github.com/moby/moby/v2 root module builds the Engine and is not intended as a library; migrating client/API imports requires a separate compatibility change and runtime tests against Engine 29.5.1 or later."
+    },
+    "mobyGoArchive": {
+      "module": "github.com/moby/go-archive@v0.1.0",
+      "status": "blocked-until-docker-sdk-migration",
+      "cves": ["CVE-2026-17106"],
+      "fixedVersion": "v0.3.0",
+      "reason": "The patched v0.3.x API removes archive.Compression, which the pinned Docker SDK v28.3.3 uses in pkg/archive/archive_deprecated.go. Keep v0.1.0 until the SDK migration is implemented and compatibility tests pass."
+    }
   }
 }

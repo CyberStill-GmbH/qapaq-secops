@@ -38,6 +38,10 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   assert.match(lock.sources.opensearch.indexDigest, /^sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.amd64Digest, /^sha256:[0-9a-f]{64}$/);
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
+  assert.equal(lock.buildBases.golang1273Alpine323,
+    'docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df');
+  assert.equal(lock.buildBases.alpine3226,
+    'docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8');
   assert.deepEqual(
     Object.keys(lock.componentStatus).sort(),
     ['backend', 'frontend', 'opensearch', 'orborus', 'shuffle-security', 'worker'].sort(),
@@ -112,6 +116,64 @@ test('pinned shuffle-shared sums are applied to both source modules before image
   assert.match(buildScript, /git -C "\$work_dir\/shuffle" apply "\$shuffle_shared_sums_patch"/);
   assert.match(buildScript, /cp "\$work_dir\/shuffle\/backend\/go-app\/go\.sum"/);
   assert.match(buildScript, /cp "\$work_dir\/shuffle\/functions\/onprem\/worker\/go\.sum"/);
+  assert.match(buildScript, /cp "\$work_dir\/shuffle\/backend\/go-app\/go\.mod"/);
+  assert.match(buildScript, /cp "\$work_dir\/shuffle\/functions\/onprem\/worker\/go\.mod"/);
+});
+
+test('security upgrades are a pinned upstream overlay compatible with the Go builder', () => {
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  const patch = readFileSync(
+    new URL('./runtime/shuffle-runtime-security-upgrades.patch', import.meta.url),
+    'utf8',
+  );
+  assert.match(buildScript, /apply --check "\$shuffle_runtime_security_patch"/);
+  assert.match(buildScript, /apply "\$shuffle_runtime_security_patch"/);
+  assert.match(patch, /golang\.org\/x\/net v0\.60\.0/);
+  assert.match(patch, /golang\.org\/x\/crypto v0\.57\.0/);
+  assert.match(patch, /golang\.org\/x\/text v0\.42\.0/);
+  assert.doesNotMatch(patch, /github\.com\/moby\/go-archive v0\.3\.0/);
+  assert.match(patch, /^\+go 1\.26\.0$/m);
+  assert.equal(lock.goSecurityUpgrades.minimumToolchain, '1.27.3');
+  assert.equal(lock.goSecurityUpgrades['golang.org/x/net'], 'v0.60.0');
+  assert.equal(lock.goSecurityUpgrades['golang.org/x/crypto'], 'v0.57.0');
+  assert.equal(lock.goSecurityUpgrades['golang.org/x/text'], 'v0.42.0');
+  assert.equal(lock.goSecurityUpgrades['google.golang.org/grpc'], 'v1.83.2');
+});
+
+test('runtime source overlay fixes vet format diagnostics and tests sync URL allowlist', () => {
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  const patch = readFileSync(
+    new URL('./runtime/shuffle-runtime-vet-and-cloud-url.patch', import.meta.url),
+    'utf8',
+  );
+  assert.match(buildScript, /apply --check "\$shuffle_runtime_source_patch"/);
+  assert.match(buildScript, /apply "\$shuffle_runtime_source_patch"/);
+  assert.match(buildScript, /cp "\$work_dir\/shuffle\/backend\/go-app\/cloud_sync_url_test\.go"/);
+  assert.match(patch, /func normalizeCloudSyncBaseURL/);
+  assert.match(patch, /TestNormalizeCloudSyncBaseURL/);
+  assert.match(patch, /https:\/\/eu\.shuffler\.io/);
+  assert.match(patch, /strings\.ReplaceAll\(name, "\.\", "-"\)/);
+});
+
+test('unpatched Docker SDK advisories remain explicit release blockers', () => {
+  const blocker = lock.securityBlockers.dockerSdk;
+  assert.equal(blocker.module, 'github.com/docker/docker@v28.3.3+incompatible');
+  assert.equal(blocker.status, 'blocked-until-sdk-migration-and-engine-upgrade');
+  assert.deepEqual(blocker.cves, ['CVE-2026-41567', 'CVE-2026-42306']);
+  assert.equal(blocker.requiredEngineVersion, '29.5.1');
+  assert.match(blocker.reason, /separate compatibility change and runtime tests/);
+  const archive = lock.securityBlockers.mobyGoArchive;
+  assert.equal(archive.module, 'github.com/moby/go-archive@v0.1.0');
+  assert.equal(archive.status, 'blocked-until-docker-sdk-migration');
+  assert.deepEqual(archive.cves, ['CVE-2026-17106']);
+  assert.equal(archive.fixedVersion, 'v0.3.0');
+  assert.match(archive.reason, /removes archive\.Compression/);
 });
 
 test('unverified service sources remain blocked instead of receiving mutable tags', () => {
