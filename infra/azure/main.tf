@@ -29,6 +29,7 @@ module "observability" {
   location                 = data.azurerm_resource_group.this.location
   name_base                = local.name_base
   container_apps_subnet_id = module.network.container_apps_subnet_id
+  enable_runtime           = var.enable_runtime
   tags                     = var.tags
 }
 

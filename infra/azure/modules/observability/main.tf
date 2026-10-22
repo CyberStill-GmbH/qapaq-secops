@@ -13,6 +13,7 @@ resource "azurerm_log_analytics_workspace" "this" {
 
 
 resource "azurerm_container_app_environment" "this" {
+  count                          = var.enable_runtime ? 1 : 0
   name                           = "cae-${var.name_base}"
   location                       = var.location
   resource_group_name            = var.resource_group_name
