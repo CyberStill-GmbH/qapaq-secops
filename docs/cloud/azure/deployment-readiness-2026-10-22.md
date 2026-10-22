@@ -10,7 +10,7 @@
 
 ## Live Azure inventory
 
-Read-only portal inspection on 2026-10-22 of resource group `rg-qapaqsecopsdemo-66f8c73b` showed 15 resources: two user-assigned identities, Key Vault, Log Analytics workspace, two private endpoints and their NICs, three private DNS zones, PostgreSQL Flexible Server, ACR, Storage Account, and VNet. The inventory contained no Azure Firewall, SIEM VM, Ankay VM, public IP, or load balancer. Therefore the current SIEM host module's required firewall dependency is absent from this resource group; the no-op plan cannot provide a public HTTPS endpoint.
+Read-only portal inspection on 2026-10-22 showed 18 resources across the subscription. The demo resource group `rg-qapaqsecopsdemo-66f8c73b` has 15: two user-assigned identities, Key Vault, Log Analytics workspace, two private endpoints and their NICs, three private DNS zones, PostgreSQL Flexible Server, ACR, Storage Account, and VNet. The separate Terraform-state resource group has the state Storage Account and its GitHub OIDC identity; Azure Network Watcher is in `NetworkWatcherRG`. No Azure Firewall, SIEM VM, Ankay VM, public IP, or load balancer appears anywhere in the subscription inventory. Therefore the SIEM module's required firewall dependency is absent and the current state cannot provide a public HTTPS endpoint.
 
 The PostgreSQL server `psql-qapaqsecopsdemo-66f8c73b` is Ready in Chile Central, PostgreSQL 16.15, Burstable B2s (2 vCPU / 4 GiB), 32 GiB storage, zone 1, with high availability disabled. The Azure portal explicitly recommends General Purpose or Memory Optimized for production. This is a resilience and capacity gap for the intended SOC workload; no database setting was changed.
 
