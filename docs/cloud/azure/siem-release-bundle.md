@@ -1,6 +1,6 @@
 # QAPAQ SIEM Azure release bundle
 
-Status: **candidate builder and OIDC publisher implemented; publication and runtime installation still require execution and verification**.
+Status: **bundle published to private Azure Blob; installation and runtime are not certified**.
 
 ## What the workflow produces
 
@@ -29,6 +29,15 @@ existing blob's SHA metadata and content length match. The workflow requires the
 repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI and digest, never
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
+
+### Published candidate evidence — 2026-10-22
+
+- Publisher run: [39823003732](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39823003732)
+- Source bundle run/SHA: [39819291113](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39819291113) / `f599adf7591cc0adab34d5f43a355073d23f909d`
+- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/f599adf7591cc0adab34d5f43a355073d23f909d/qapaq-siem-f599adf7591c.tar.gz`
+- SHA-256: `3045155b53ff736bdcb157cdea6022b2931b1d4781d89c74ed1a497f38dc8f4e`
+- Size: `5083241196` bytes. The workflow verified the Blob metadata digest and content length after upload.
+- This is an install candidate only. It has not been installed on an Azure VM and does not certify the SOC as operational.
 
 ## First-boot inputs
 
@@ -85,7 +94,7 @@ Azure adapter exists.
 - The candidate must be tested on an isolated Ubuntu 24.04 VM with the real package artifacts and
   pre-provisioned Key Vault refs. This Windows workstation has no working Docker daemon, and no VM
   installation test has run.
-- The candidate must be promoted to a private Blob, then its URL and SHA-256 supplied to Terraform.
+- The published Blob URI and digest must be pinned in the reviewed `siem_host` Terraform input.
 - Key Vault refs, private endpoints, firewall allowlist, subnet routes and core database/identity
   configuration must be verified without displaying secret values.
 - Complete access, edge TLS/DNS, M365, Teams, Ankay and vendor connectors in their own reviewed
