@@ -17,8 +17,6 @@ condition = "AND"
 targetRules = ["generic-api-key"]
 commits = ["6429e91569f31b06fb625125c9a399541548da0d"]
 paths = ['''(^|/)\.github/workflows/azure-siem-release-bundle\.yml$''']
-regexTarget = "match"
-regexes = ['''^a378ca8dfa6b72122df288f64a0cde54f1cbfa3db9b43e6865cb73def35b5b17$''']
 
 [[allowlists]]
 description = "False positive from the product name Valkey-compatible in an Azure cost feasibility paragraph; scoped to the historical finding commit and document."
