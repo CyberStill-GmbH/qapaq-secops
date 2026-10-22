@@ -12,6 +12,9 @@ import tarfile
 
 MAX_ENCODED_BYTES = 24_000
 MAX_ARCHIVE_BYTES = 18_000
+MAX_ARCHIVE_MEMBERS = 32
+MAX_EXTRACTED_BYTES = 4 * 1024 * 1024
+MAX_MEMBER_BYTES = 2 * 1024 * 1024
 PASSWORDS_MEMBER = "wazuh-install-files/wazuh-passwords.txt"
 CERTIFICATES_PREFIX = "wazuh-install-files/wazuh-certificates/"
 
@@ -30,13 +33,32 @@ def decode_and_validate(encoded_path: pathlib.Path, output_path: pathlib.Path) -
     try:
         with tarfile.open(fileobj=io.BytesIO(payload), mode="r:") as archive:
             members = archive.getmembers()
-            names = {member.name for member in members}
-            if len(names) != len(members):
-                raise ValueError("Wazuh archive contains duplicate member paths")
+            if len(members) > MAX_ARCHIVE_MEMBERS:
+                raise ValueError("Wazuh archive contains too many members")
+
+            names: set[str] = set()
+            extracted_bytes = 0
             for member in members:
                 path = pathlib.PurePosixPath(member.name)
-                if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
+                normalized_name = path.as_posix().rstrip("/")
+                if (
+                    normalized_name in {"", "."}
+                    or path.is_absolute()
+                    or ".." in path.parts
+                    or "\\" in member.name
+                    or "\x00" in member.name
+                    or not (member.isfile() or member.isdir())
+                ):
                     raise ValueError("Wazuh archive contains an unsafe member")
+                if normalized_name in names:
+                    raise ValueError("Wazuh archive contains duplicate member paths")
+                names.add(normalized_name)
+                if member.size < 0 or member.size > MAX_MEMBER_BYTES:
+                    raise ValueError("Wazuh archive member exceeds the configured size limit")
+                extracted_bytes += member.size
+                if extracted_bytes > MAX_EXTRACTED_BYTES:
+                    raise ValueError("Wazuh archive exceeds the configured expanded size limit")
+
             if not any(member.name == PASSWORDS_MEMBER and member.isfile() for member in members):
                 raise ValueError("Wazuh archive lacks the official passwords file")
             if not any(member.name.startswith(CERTIFICATES_PREFIX) and member.isfile() for member in members):
