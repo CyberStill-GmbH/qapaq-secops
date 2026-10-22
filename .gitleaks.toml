@@ -15,7 +15,10 @@ regexes = ['''^oauth2 v0\.36\.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=$
 description = "Public SHA-256 digest for the official Wazuh signing key; scoped to the release workflow commit and file."
 condition = "AND"
 targetRules = ["generic-api-key"]
-commits = ["6429e91569f31b06fb625125c9a399541548da0d"]
+commits = [
+  "6429e91569f31b06fb625125c9a399541548da0d",
+  "f599adf7591cc0adab34d5f43a355073d23f909d",
+]
 paths = ['''(^|/)\.github/workflows/azure-siem-release-bundle\.yml$''']
 
 [[allowlists]]
