@@ -6,6 +6,11 @@ locals {
     0,
     24,
   )
+  release_storage_name = substr(
+    "${substr(replace(lower(var.project), "-", ""), 0, min(8, length(replace(lower(var.project), "-", ""))))}${var.environment}rel${local.suffix}",
+    0,
+    24,
+  )
   key_vault_name = "kv-${substr(local.name_base, 0, 12)}-${local.suffix}"
   acr_name       = substr("${substr(local.name_base, 0, 44)}${local.suffix}", 0, 50)
 }
@@ -41,6 +46,7 @@ module "data" {
   name_base                      = local.name_base
   suffix                         = local.suffix
   storage_name                   = local.storage_name
+  release_storage_name           = local.release_storage_name
   key_vault_name                 = local.key_vault_name
   tenant_id                      = var.tenant_id
   postgres_admin_login           = var.postgres_admin_login
@@ -59,21 +65,22 @@ module "data" {
 }
 
 module "identity_registry" {
-  source                    = "./modules/identity_registry"
-  resource_group_name       = data.azurerm_resource_group.this.name
-  location                  = data.azurerm_resource_group.this.location
-  name_base                 = local.name_base
-  suffix                    = local.suffix
-  acr_name                  = local.acr_name
-  github_repository         = var.github_repository
-  github_owner_id           = var.github_owner_id
-  github_repository_id      = var.github_repository_id
-  github_environment        = var.github_environment
-  environment               = var.environment
-  key_vault_id              = module.data.key_vault_id
-  raw_container_id          = module.data.raw_container_id
-  siem_release_container_id = module.data.siem_release_container_id
-  tags                      = var.tags
+  source                           = "./modules/identity_registry"
+  resource_group_name              = data.azurerm_resource_group.this.name
+  location                         = data.azurerm_resource_group.this.location
+  name_base                        = local.name_base
+  suffix                           = local.suffix
+  acr_name                         = local.acr_name
+  github_repository                = var.github_repository
+  github_owner_id                  = var.github_owner_id
+  github_repository_id             = var.github_repository_id
+  github_environment               = var.github_environment
+  environment                      = var.environment
+  key_vault_id                     = module.data.key_vault_id
+  raw_container_id                 = module.data.raw_container_id
+  siem_release_container_id        = module.data.siem_release_container_id
+  legacy_siem_release_container_id = module.data.legacy_siem_release_container_id
+  tags                             = var.tags
 }
 
 module "runtime" {

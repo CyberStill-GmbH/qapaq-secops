@@ -51,15 +51,20 @@ reales antes de declarar cobertura.
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/network`           | VNet, subnets delegadas y DNS privado para servicios con endpoint privado.                                                                                                                                                  |
 | `modules/observability`     | Log Analytics y Container Apps Environment.                                                                                                                                                                                 |
-| `modules/data`              | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, Storage/Blob con contenedores privados separados `security-event-raw` y `siem-release`, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa. |
-| `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub puede escribir solo en `siem-release`; ninguna identidad obtiene ambos alcances de Blob.                |
+| `modules/data`              | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, cuenta evidence privada para `security-event-raw`, cuenta dedicada de releases con `siem-release` privado y acceso de red autenticado, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa. |
+| `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub escribe en el contenedor privado de releases; ninguna identidad obtiene ambos alcances de evidencia y artefactos. |
 | `modules/runtime`           | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                          |
 | `modules/siem_host`         | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Requiere firewall existente auditado y bundle inmutable; su ausencia mantiene el host apagado.                                                  |
 | `modules/ankay_host`        | Host Shuffle separado y opcional, con subnet dedicada, UDR al firewall, NSG, identidad ACR y discos con `prevent_destroy`. Solo prepara VM/Compose; no instala Docker ni arranca servicios. Requiere `siem_host`, seis imágenes ACR fijadas por digest, Compose revisado, firewall existente, IP/SKU/clave aprobadas y una configuración `ankay_host` completa. |
 
 El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob Data
-Contributor` queda limitado al contenedor privado `siem-release` para publicar bundles
-inmutables; no alcanza `security-event-raw`, Key Vault, ni el resto de la cuenta Storage.
+Contributor` queda limitado al contenedor privado `siem-release` de una cuenta dedicada
+de artefactos. Esa cuenta acepta tráfico por endpoint público autenticado para que los
+runners GitHub-hosted puedan publicar, pero bloquea claves compartidas y acceso anónimo;
+la VM SIEM llega por su private endpoint. El account de artefactos no guarda evidencia SOC.
+La cuenta `evidence` permanece privada y su contenedor `security-event-raw` no cambia. El
+contenedor `siem-release` previo en esa cuenta y su grant publisher se conservan mediante
+una migración de dirección Terraform; no se destruyen ni se reutilizan para el canal nuevo.
 La identidad de runtime conserva el permiso separado de escritura solo a `security-event-raw`.
 
 `moved.tf` preserva direcciones anteriores durante migraciones de state. Los

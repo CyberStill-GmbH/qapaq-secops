@@ -8,6 +8,19 @@
 - OIDC validation, backend initialization, formatting, Terraform validation, saved plan creation, and the destructive-action guard all passed.
 - Terraform reported **no changes**. The plan summary found 0 additions, 0 updates, and 0 deletions. The apply job was skipped, so this run did not deploy resources or alter DNS.
 
+## Follow-up execution evidence — 10:22 UTC
+
+- A second protected run, [39762450059](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39762450059), was dispatched on current `main` (`cbe637047e5caa79a5e1113f4239358d2960789c`) with `apply=true` and the cost review reference above.
+- At 10:22 UTC its plan job was still waiting on the `azure-demo` environment reviewer `CesarGuevaraQapaq`; the CLI identity cannot approve that reviewer gate. No Terraform plan or apply step had run in this second run. DNS and Azure resources remain unchanged by it.
+- Wazuh Manager (`39758248744`) and QAPAQ Dashboard (`39758795551`) package builds were still running. Wazuh Indexer and Filebeat jobs had completed successfully. These jobs produce temporary CI artifacts; they are not an install bundle or a deployment.
+- Until the reviewer releases the plan job, the second run has no new plan to inspect. If approved, inspect the generated resource summary before approving the separate apply job.
+
+## Release artifact network path — prepared, not applied
+
+The existing SIEM release container is inside the evidence Storage account, whose public network access is disabled. GitHub-hosted runners cannot publish the Wazuh installation bundle there. A candidate Terraform change is prepared on `codex/azure-siem-runtime-readiness`: a separate, versioned release Storage account with a private container, OAuth/RBAC only, no shared keys, no anonymous access, and a private endpoint for the SIEM VM. The existing evidence account, raw event container, prior release container and its publisher grant are retained; a Terraform `moved` block preserves the old grant while a new container-scoped grant is added.
+
+This is source-only preparation. No Azure plan, apply, account creation, data migration, or DNS change has occurred for it. Local `terraform fmt`, `init -backend=false`, and `validate` passed with azurerm 4.81.0. The exact remote plan must confirm only expected additions/RBAC and zero data destruction before any apply.
+
 ## Live Azure inventory
 
 Read-only portal inspection on 2026-10-22 showed 18 resources across the subscription. The demo resource group `rg-qapaqsecopsdemo-66f8c73b` has 15: two user-assigned identities, Key Vault, Log Analytics workspace, two private endpoints and their NICs, three private DNS zones, PostgreSQL Flexible Server, ACR, Storage Account, and VNet. The separate Terraform-state resource group has the state Storage Account and its GitHub OIDC identity; Azure Network Watcher is in `NetworkWatcherRG`. No Azure Firewall, SIEM VM, Ankay VM, public IP, or load balancer appears anywhere in the subscription inventory. Therefore the SIEM module's required firewall dependency is absent and the current state cannot provide a public HTTPS endpoint.
