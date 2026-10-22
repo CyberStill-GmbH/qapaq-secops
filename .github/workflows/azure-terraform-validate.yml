@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/azure-terraform-validate.yml"
       - ".github/workflows/terraform-azure.yml"
+      - "scripts/ci/validate-azure-deployment-inputs.mjs"
+      - "scripts/ci/validate-azure-deployment-inputs.test.mjs"
       - "infra/azure/**"
       - "platform/configuration/src/schema/environment.schema.ts"
       - "scripts/check-azure-runtime-env.mjs"
@@ -16,6 +18,8 @@ on:
     paths:
       - ".github/workflows/azure-terraform-validate.yml"
       - ".github/workflows/terraform-azure.yml"
+      - "scripts/ci/validate-azure-deployment-inputs.mjs"
+      - "scripts/ci/validate-azure-deployment-inputs.test.mjs"
       - "infra/azure/**"
       - "platform/configuration/src/schema/environment.schema.ts"
       - "scripts/check-azure-runtime-env.mjs"
@@ -43,6 +47,9 @@ jobs:
 
       - name: Verify Azure runtime environment contract
         run: node scripts/check-azure-runtime-env.mjs
+
+      - name: Verify Azure deploy inputs fail closed by default
+        run: node --test scripts/ci/validate-azure-deployment-inputs.test.mjs
 
       - name: Verify Azure Terraform plan guard
         run: node --test scripts/ci/azure-tf-plan-summary.test.mjs

@@ -66,6 +66,15 @@ jobs:
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}
+      # Runtime stays explicitly disabled unless the Azure environment opts in.
+      # SIEM and Ankay JSON contain non-secret configuration and Key Vault names;
+      # secret values must remain in Key Vault and must never be placed here.
+      AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_ACR_LOGIN_SERVER }}
+      TF_VAR_enable_runtime: ${{ vars.AZURE_ENABLE_RUNTIME || 'false' }}
+      TF_VAR_container_images: ${{ secrets.AZURE_CONTAINER_IMAGES_JSON || vars.AZURE_CONTAINER_IMAGES_JSON || '{}' }}
+      TF_VAR_siem_host: ${{ secrets.AZURE_SIEM_HOST_JSON || vars.AZURE_SIEM_HOST_JSON || 'null' }}
+      TF_VAR_ankay_host: ${{ secrets.AZURE_ANKAY_HOST_JSON || vars.AZURE_ANKAY_HOST_JSON || 'null' }}
+      TF_VAR_key_vault_secret_ids: ${{ secrets.AZURE_KEY_VAULT_SECRET_IDS_JSON || vars.AZURE_KEY_VAULT_SECRET_IDS_JSON || '{}' }}
       TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_TF_STATE_RESOURCE_GROUP }}
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
@@ -90,6 +99,9 @@ jobs:
           if [[ "${{ inputs.apply }}" == true ]]; then
             printf '%s\n' "Cost estimate reference: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Validate opt-in Azure runtime configuration without printing inputs
+        run: node scripts/ci/validate-azure-deployment-inputs.mjs
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -170,6 +182,12 @@ jobs:
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}
+      AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_ACR_LOGIN_SERVER }}
+      TF_VAR_enable_runtime: ${{ vars.AZURE_ENABLE_RUNTIME || 'false' }}
+      TF_VAR_container_images: ${{ secrets.AZURE_CONTAINER_IMAGES_JSON || vars.AZURE_CONTAINER_IMAGES_JSON || '{}' }}
+      TF_VAR_siem_host: ${{ secrets.AZURE_SIEM_HOST_JSON || vars.AZURE_SIEM_HOST_JSON || 'null' }}
+      TF_VAR_ankay_host: ${{ secrets.AZURE_ANKAY_HOST_JSON || vars.AZURE_ANKAY_HOST_JSON || 'null' }}
+      TF_VAR_key_vault_secret_ids: ${{ secrets.AZURE_KEY_VAULT_SECRET_IDS_JSON || vars.AZURE_KEY_VAULT_SECRET_IDS_JSON || '{}' }}
       TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_TF_STATE_RESOURCE_GROUP }}
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
