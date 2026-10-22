@@ -5,7 +5,12 @@
  * padrón. Una caída de Graph o del store dinámico nunca concede privilegios adicionales.
  */
 
-import { ACCESS_APPROVER_ROLE, SECURITY_APPROVER_ROLE, type RoleGrantStore } from '@qapaq/access';
+import {
+  ACCESS_APPROVER_ROLE,
+  SECURITY_APPROVER_ROLE,
+  type DirectorySyncState,
+  type RoleGrantStore,
+} from '@qapaq/access';
 import { GROUP_OWNER_ROLE, type RoleGrantsConfig } from '@qapaq/configuration';
 
 /** Dueños del grupo vistos en el directorio; OID en minúsculas. */
@@ -21,6 +26,20 @@ export type RoleGrantResolver = (
   oid: string | undefined,
   groups?: readonly string[],
 ) => Promise<readonly string[]>;
+
+/** El padrón se considera viejo después de tres ciclos de sincronización. */
+export const ROSTER_STALE_AFTER_INTERVALS = 3;
+
+/** Valida que el último padrón confirmado sea reciente; un estado fallido nunca es fresco. */
+export function isRoleRosterFresh(
+  state: DirectorySyncState | undefined,
+  now: Date,
+  intervalMs: number,
+): boolean {
+  if (state?.status !== 'ok' || !state.lastSuccessAt) return false;
+  const age = now.getTime() - state.lastSuccessAt.getTime();
+  return age >= 0 && age <= ROSTER_STALE_AFTER_INTERVALS * intervalMs;
+}
 
 export function createRoleGrantResolver(
   config: RoleGrantsConfig,
@@ -69,6 +88,8 @@ export function withDynamicGrants(
   dynamic: {
     readonly store: RoleGrantStore;
     readonly tenantId: string;
+    /** `true` solo cuando el padrón Graph del grupo de admisión sigue fresco. */
+    readonly isRosterFresh: () => Promise<boolean>;
     /** `true` solo para miembro vigente con `accountEnabled === true`. */
     readonly isActiveMember: (oid: string) => Promise<boolean>;
   },
@@ -78,6 +99,7 @@ export function withDynamicGrants(
     if (!oid) return roles;
     try {
       const key = oid.toLowerCase();
+      if (!(await dynamic.isRosterFresh())) return roles;
       if (!(await dynamic.isActiveMember(key))) return roles;
       const grant = await dynamic.store.current(dynamic.tenantId, key);
       return [...new Set([...roles, ...grant.roles])];

@@ -43,9 +43,13 @@ import {
 } from '@qapaq/access';
 import { recordAudit, type AuditEventDraft } from '@qapaq/audit';
 import type { RoleGrantsConfig } from '@qapaq/configuration';
+import {
+  isRoleRosterFresh,
+  ROSTER_STALE_AFTER_INTERVALS as ROLE_ROSTER_STALE_AFTER_INTERVALS,
+} from './role-grants.js';
 
 /** Un padrón sin éxito durante tres intervalos se declara viejo (igual que la vista de usuarios). */
-export const ROSTER_STALE_AFTER_INTERVALS = 3;
+export const ROSTER_STALE_AFTER_INTERVALS = ROLE_ROSTER_STALE_AFTER_INTERVALS;
 const SYSTEM_ACTOR = 'system:directory-sync';
 
 export interface RoleAdministrationDependencies {
@@ -114,9 +118,7 @@ async function inUnitOfWork<T>(
 
 async function rosterFresh(deps: RoleAdministrationDependencies): Promise<boolean> {
   const state = await deps.directory.store.syncState(deps.tenantId, deps.directory.groupId);
-  if (state?.status !== 'ok' || !state.lastSuccessAt) return false;
-  const age = deps.now().getTime() - state.lastSuccessAt.getTime();
-  return age >= 0 && age <= ROSTER_STALE_AFTER_INTERVALS * deps.directory.intervalMs;
+  return isRoleRosterFresh(state, deps.now(), deps.directory.intervalMs);
 }
 
 /** Miembro vigente del grupo exacto configurado, con la cuenta habilitada. */

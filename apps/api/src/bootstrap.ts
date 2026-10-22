@@ -32,7 +32,11 @@ import {
   WAZUH_DATASET,
 } from './runtime/wazuh-ingestion.js';
 import { EntraClientCredentialsTokenSource } from './runtime/workload-token.js';
-import { createRoleGrantResolver, withDynamicGrants } from './runtime/role-grants.js';
+import {
+  createRoleGrantResolver,
+  isRoleRosterFresh,
+  withDynamicGrants,
+} from './runtime/role-grants.js';
 import { cachedOwnerSource, createDirectorySyncPass } from './runtime/directory-sync.js';
 import { GraphDirectoryReader } from './runtime/graph-directory.js';
 import { directoryRecipients } from './runtime/notification-recipients.js';
@@ -198,6 +202,8 @@ export async function buildApi(
   const ingestionConfig = loadIngestionConfig(environment);
   const roleGrants = loadRoleGrantsConfig(environment);
   const directoryConfig = loadDirectoryConfig(environment);
+  const directoryIntervalMs =
+    directoryConfig.mode === 'graph' ? directoryConfig.intervalMs : undefined;
   const teamsWorkflowUrl = loadTeamsWorkflowUrl(environment);
   const alertMailSender = loadAlertMailSender(environment);
   // Web Push: clave VAPID del secreto; en desarrollo y pruebas, efímera. En producción sin
@@ -315,10 +321,16 @@ export async function buildApi(
     ...(processInfo ? { processInfo } : {}),
     ...(clientSecret !== undefined ? { clientSecret } : {}),
     roleGrants:
-      roleAdministration && rosterGroupId
+      roleAdministration && rosterGroupId && directoryIntervalMs !== undefined
         ? withDynamicGrants(staticRoleGrants, {
             store: roleAdministration.grants,
             tenantId: access.tenantId,
+            isRosterFresh: async () =>
+              isRoleRosterFresh(
+                await directoryStore.syncState(access.tenantId, rosterGroupId),
+                runtime.now(),
+                directoryIntervalMs,
+              ),
             isActiveMember: async (oid) => {
               const member = await directoryStore.member(access.tenantId, rosterGroupId, oid);
               return member?.membership === 'member' && member.accountEnabled === true;
