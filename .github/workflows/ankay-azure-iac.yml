@@ -31,6 +31,9 @@ jobs:
           terraform_version: 1.16.5
           terraform_wrapper: false
 
+      - name: Test fail-closed disk bootstrap
+        run: python3 infra/azure/modules/ankay_host/test_prepare_data_disk.py
+
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive infra/azure/modules/ankay_host
 

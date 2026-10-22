@@ -126,6 +126,78 @@ class InstallerIdempotencyTests(unittest.TestCase):
             self.assertEqual((manager_data / "state.db").read_text(encoding="utf-8"), "preserve")
 
 
+class DataDiskFormattingTests(unittest.TestCase):
+    @staticmethod
+    def result(code: int, output: str = "") -> SimpleNamespace:
+        return SimpleNamespace(returncode=code, stdout=output)
+
+    def test_existing_ext4_is_preserved_without_formatting(self) -> None:
+        with patch.object(BOOTSTRAP.subprocess, "run", return_value=self.result(0, "TYPE=ext4\nUUID=existing\n")):
+            with patch.object(BOOTSTRAP, "run") as command:
+                BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_not_called()
+
+    def test_recognized_non_ext4_filesystem_fails_closed(self) -> None:
+        with patch.object(BOOTSTRAP.subprocess, "run", return_value=self.result(0, "TYPE=xfs\n")):
+            with patch.object(BOOTSTRAP, "run") as command:
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_not_called()
+
+    def test_blkid_operational_error_fails_closed(self) -> None:
+        with patch.object(BOOTSTRAP.subprocess, "run", return_value=self.result(4)):
+            with patch.object(BOOTSTRAP, "run") as command:
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_not_called()
+
+    def test_unrecognized_signature_fails_closed(self) -> None:
+        with patch.object(
+            BOOTSTRAP.subprocess, "run",
+            side_effect=[self.result(2), self.result(0, "offset TYPE\n0000   custom\n")],
+        ):
+            with patch.object(BOOTSTRAP, "run") as command:
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_not_called()
+
+    def test_unrecognized_nonzero_data_fails_closed(self) -> None:
+        with patch.object(
+            BOOTSTRAP.subprocess, "run",
+            side_effect=[self.result(2), self.result(0), self.result(1)],
+        ):
+            with patch.object(BOOTSTRAP, "run") as command:
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_not_called()
+
+    def test_zero_scan_error_fails_closed(self) -> None:
+        with patch.object(
+            BOOTSTRAP.subprocess, "run",
+            side_effect=[self.result(2), self.result(0), self.result(2)],
+        ):
+            with patch.object(BOOTSTRAP, "run") as command:
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_not_called()
+
+    def test_formats_only_when_signature_probe_and_full_zero_scan_pass(self) -> None:
+        with patch.object(
+            BOOTSTRAP.subprocess, "run",
+            side_effect=[self.result(2), self.result(0), self.result(0), self.result(0, "TYPE=ext4\n")],
+        ):
+            with patch.object(BOOTSTRAP, "run") as command:
+                BOOTSTRAP.ensure_ext4_or_format("/dev/sdc", 128 * 1024**3)
+
+        command.assert_called_once_with("mkfs.ext4", "-m", "1", "-L", "qapaq-siem-data", "/dev/sdc")
+
+
 class DebianArtifactMetadataTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -246,7 +318,7 @@ class DebianArtifactMetadataTests(unittest.TestCase):
             with tarfile.open(bundle, "w:gz") as archive:
                 archive.add(bundle_root, arcname=bundle_root.name)
             artifact_sha256 = hashlib.sha256(bundle.read_bytes()).hexdigest()
-            config = {"artifact_sha256": artifact_sha256}
+            config = {"artifact_sha256": artifact_sha256, "data_disk_size_gb": 128}
 
             def copy_bundle(_config: dict, destination: pathlib.Path) -> None:
                 destination.write_bytes(bundle.read_bytes())

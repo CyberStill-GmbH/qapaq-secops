@@ -24,8 +24,15 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - HTTPS y puertos 1514/1515 solo se permiten cuando se proporcionan CIDR de origen aprobados; los
   valores vacíos los dejan cerrados. Ninguna regla acepta `0.0.0.0/0` o `::/0`.
 - Disco administrado de datos con `prevent_destroy`, separado del disco de sistema y montado antes
-  de instalar paquetes. El bootstrap se detiene ante un formato desconocido o ante datos previos en
-  los puntos que se montarían; nunca los oculta ni reforma un disco firmado.
+  de instalar paquetes. Antes de inicializarlo, el bootstrap comprueba el enlace Azure LUN 0,
+  dispositivo de bloques, estructura sin particiones, tamaño exacto configurado, ausencia de firmas
+  con `blkid`/`wipefs` y una lectura completa en cero. Cualquier error o dato no cero detiene el
+  proceso antes de `mkfs`. Los discos ext4 existentes se preservan; otros formatos no se convierten.
+  La primera inicialización tarda más porque lee todo el volumen una vez. El bootstrap también se
+  detiene ante datos previos en los puntos de montaje; nunca los oculta ni reforma un disco firmado.
+  No medimos el throughput real del SKU/host Azure. Como ejemplo de dimensionamiento, escanear
+  128 GiB a 100–500 MiB/s toma aproximadamente 22–4 minutos; 64 GiB, 11–2 minutos. Es tiempo
+  adicional al resto del bootstrap y depende de la VM, SKU del disco y host.
 - Identidad asignada a la VM: `AcrPull` en el ACR indicado, lectura del blob de release limitada al
   contenedor, lectura Key Vault limitada a los secretos nombrados y escritura opcional limitada al
   contenedor de evidencia indicado.

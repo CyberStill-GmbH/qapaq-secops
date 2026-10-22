@@ -82,10 +82,48 @@ def load_config() -> dict:
         fail("el bundle debe estar en Blob privado con URL HTTPS sin SAS")
     if not config.get("identity_client_id"):
         fail("falta client ID de la identidad administrada")
+    if type(config.get("data_disk_size_gb")) is not int or config["data_disk_size_gb"] < 128:
+        fail("el tamaño del disco de datos no coincide con el contrato mínimo del SIEM")
     return config
 
 
-def mount_data_disk() -> None:
+def ensure_ext4_or_format(device: str, expected_size_bytes: int) -> None:
+    fs_probe = subprocess.run(
+        ["blkid", "-p", "-o", "export", device], check=False, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    if fs_probe.returncode == 0:
+        fs_fields = dict(line.split("=", 1) for line in fs_probe.stdout.splitlines() if "=" in line)
+        if fs_fields.get("TYPE") != "ext4":
+            fail("LUN 0 contiene un formato reconocido distinto de ext4; no se modificó")
+        return
+    if fs_probe.returncode != 2 or fs_probe.stdout.strip():
+        fail("blkid no pudo identificar LUN 0 de forma segura; no se modificó")
+
+    signatures = subprocess.run(
+        ["wipefs", "-n", device], check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+    )
+    if signatures.returncode != 0 or signatures.stdout.strip():
+        fail("LUN 0 contiene firmas desconocidas; se detuvo sin formatearlo")
+    zero_scan = subprocess.run(
+        ["cmp", "--silent", f"--bytes={expected_size_bytes}", device, "/dev/zero"],
+        check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    if zero_scan.returncode == 1:
+        fail("LUN 0 contiene datos aunque no tenga firmas; se detuvo sin formatearlo")
+    if zero_scan.returncode != 0:
+        fail("no se pudo confirmar que LUN 0 esté completamente vacío")
+    log("LUN 0 verificado como disco Azure esperado, sin firmas y completamente en cero; se crea ext4")
+    run("mkfs.ext4", "-m", "1", "-L", "qapaq-siem-data", device)
+    fs_probe = subprocess.run(
+        ["blkid", "-p", "-o", "export", device], check=False, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    if fs_probe.returncode != 0 or "TYPE=ext4" not in fs_probe.stdout.splitlines():
+        fail("no se pudo confirmar ext4 después de inicializar LUN 0")
+
+
+def mount_data_disk(expected_size_gb: int) -> None:
     for _ in range(180):
         if DATA_DEVICE.exists():
             break
@@ -93,29 +131,58 @@ def mount_data_disk() -> None:
     else:
         fail("el disco de datos LUN 0 no apareció; no se instaló el SIEM")
 
-    device = str(DATA_DEVICE)
-    fs_type = subprocess.run(
-        ["blkid", "-p", "-s", "TYPE", "-o", "value", device],
+    if not DATA_DEVICE.is_symlink():
+        fail("LUN 0 no es el enlace de dispositivo Azure esperado; no se modificó ningún disco")
+    device = os.path.realpath(str(DATA_DEVICE))
+    try:
+        device_stat = os.stat(device)
+    except OSError:
+        fail("no se pudo inspeccionar el dispositivo Azure LUN 0")
+    if not stat.S_ISBLK(device_stat.st_mode):
+        fail("LUN 0 no resuelve a un dispositivo de bloques; no se modificó ningún disco")
+
+    layout = subprocess.run(
+        ["lsblk", "--json", "--paths", "--output", "NAME,TYPE,PKNAME,FSTYPE,UUID,PARTUUID,PTTYPE,MOUNTPOINTS", device],
         check=False,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
-    if fs_type.returncode != 0:
-        signatures = subprocess.run(
-            ["wipefs", "-n", device], check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-        )
-        if signatures.returncode != 0 or signatures.stdout.strip():
-            fail("el disco tiene una firma desconocida; se detuvo sin formatearlo")
-        log("disco nuevo sin firmas: se crea ext4 antes de instalar paquetes")
-        run("mkfs.ext4", "-m", "1", "-L", "qapaq-siem-data", device)
-        fs_type = subprocess.run(
-            ["blkid", "-p", "-s", "TYPE", "-o", "value", device],
-            check=False,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
+    if layout.returncode != 0:
+        fail("no se pudo verificar la identidad y estructura de LUN 0")
+    try:
+        devices = json.loads(layout.stdout).get("blockdevices", [])
+    except (json.JSONDecodeError, AttributeError):
+        fail("lsblk devolvió una estructura inválida para LUN 0")
+    if len(devices) != 1:
+        fail("LUN 0 no identifica un único disco de datos")
+    disk = devices[0]
+    if (
+        disk.get("type") != "disk"
+        or os.path.realpath(disk.get("name", "")) != device
+        or disk.get("pkname")
+        or disk.get("children")
+        or disk.get("pttype")
+        or disk.get("fstype") not in (None, "ext4")
+        or disk.get("mountpoints") not in (None, [], [None], [str(DATA_ROOT)])
+    ):
+        fail("LUN 0 no es un disco vacío sin particiones ni montajes")
+    try:
+        expected_size_bytes = int(expected_size_gb) * 1024**3
+    except (TypeError, ValueError):
+        fail("el tamaño esperado del disco LUN 0 no es válido")
+    actual_size = subprocess.run(
+        ["blockdev", "--getsize64", device], check=False, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    if actual_size.returncode != 0 or actual_size.stdout.strip() != str(expected_size_bytes):
+        fail("el tamaño de LUN 0 no coincide con el disco de datos declarado")
+
+    ensure_ext4_or_format(device, expected_size_bytes)
+    fs_type = subprocess.run(
+        ["blkid", "-p", "-s", "TYPE", "-o", "value", device],
+        check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
     if fs_type.returncode != 0 or fs_type.stdout.strip() != "ext4":
         fail("el disco durable debe contener ext4; no se modifica un formato distinto")
 
@@ -556,7 +623,7 @@ def main() -> None:
     if os.geteuid() != 0:
         fail("bootstrap requiere root")
     config = load_config()
-    mount_data_disk()
+    mount_data_disk(config["data_disk_size_gb"])
     with tempfile.TemporaryDirectory(prefix="qapaq-siem-bootstrap-") as temp_dir:
         bundle = pathlib.Path(temp_dir) / "siem-release.tar.gz"
         fetch_bundle(config, bundle)
