@@ -56,13 +56,15 @@ consume esta VM. Se requiere un `.tar.gz` privado en Blob con un directorio raí
 - `files`, un mapa de ruta relativa a SHA-256 minúsculo de **cada** script y paquete consumido,
   incluido `install.sh`.
 - `debianPackages`, con la versión exacta instalada de `wazuh-manager`, `wazuh-indexer`, `filebeat`
-  y `wazuh-dashboard`; y `artifacts`, con las rutas `managerDeb`, `indexerDeb`, `filebeatDeb`,
+  y `wazuh-dashboard` (Filebeat se fija a `7.10.2-2`); y `artifacts`, con las rutas `managerDeb`,
+  `indexerDeb`, `filebeatDeb`,
   `qapaqDashboardDeb` y `qapaqCoreArchive` incluidas en el mapa de hashes.
 - `install.sh`, instalador idempotente que debe instalar y configurar los componentes del manifiesto,
-  crear `qapaq-core-api`, leer `/etc/qapaq-core/core.env` y `/etc/qapaq-secrets`, y usar
-  `/srv/qapaq-siem` para el estado durable. El bootstrap compara versiones Debian instaladas, verifica
-  Node 24.21.0, servicios systemd y `/health/ready`; eso no sustituye las pruebas de paridad de API,
-  M365 ni el flujo de alertas.
+  crear `qapaq-core-api` y `qapaq-core-worker`, leer `/etc/qapaq-core/core.env` y `/etc/qapaq-secrets`,
+  y usar `/srv/qapaq-siem` para el estado durable. El bootstrap compara metadatos y versiones Debian
+  instaladas, verifica Node 24.21.0, exige activos los servicios systemd de Wazuh, Filebeat y QAPAQ
+  Core,
+  y comprueba `/health/ready`; eso no sustituye las pruebas de paridad de API, M365 ni el flujo de alertas.
 
 El bootstrap también rechaza llamadas shell a AWS SSM/Secrets Manager. El bundle, sus hashes y el
 instalador son un contrato de CI pendiente: el repositorio actual no contiene un release bundle Azure
