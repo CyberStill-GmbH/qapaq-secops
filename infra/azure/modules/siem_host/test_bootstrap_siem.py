@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
+import json
 import pathlib
 import sys
+import tarfile
 import tempfile
 import types
 import unittest
@@ -194,14 +197,93 @@ class DebianArtifactMetadataTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 BOOTSTRAP.validate_debian_artifacts(self.content, self.manifest)
 
+    def test_invalid_package_metadata_blocks_main_before_install(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = pathlib.Path(temporary_directory)
+            bundle_root = root / "qapaq-siem-release"
+            (bundle_root / "packages").mkdir(parents=True)
+            (bundle_root / "install.sh").write_text(
+                "#!/usr/bin/env bash\n# Test payload; must never execute.\nexit 0\n",
+                encoding="utf-8",
+            )
+            artifact_paths = {
+                "managerDeb": "packages/manager.deb",
+                "indexerDeb": "packages/indexer.deb",
+                "filebeatDeb": "packages/filebeat.deb",
+                "qapaqDashboardDeb": "packages/dashboard.deb",
+                "qapaqCoreArchive": "packages/qapaq-core.tar.gz",
+            }
+            for relative_path in artifact_paths.values():
+                (bundle_root / relative_path).write_bytes(b"test artifact")
+            package_versions = {
+                "wazuh-manager": "4.14.8-1",
+                "wazuh-indexer": "4.14.8-1",
+                "filebeat": "7.10.2-2",
+                "wazuh-dashboard": "4.14.8-1qapaq1",
+            }
+            file_paths = ["install.sh", *artifact_paths.values()]
+            manifest = {
+                "schemaVersion": 1,
+                "components": {
+                    "wazuhManager": "4.14.8",
+                    "wazuhIndexer": "4.14.8",
+                    "wazuhFilebeat": "4.14.8",
+                    "wazuhDashboard": "4.14.8",
+                    "openSearchDashboards": "2.19.6",
+                    "qapaqCoreNode": "24.21.0",
+                },
+                "qapaqDashboardPackage": "4.14.8-1qapaq1",
+                "qapaqCoreSourceCommit": "a" * 12,
+                "debianPackages": package_versions,
+                "artifacts": artifact_paths,
+                "files": {
+                    relative_path: hashlib.sha256((bundle_root / relative_path).read_bytes()).hexdigest()
+                    for relative_path in file_paths
+                },
+            }
+            (bundle_root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            bundle = root / "release.tar.gz"
+            with tarfile.open(bundle, "w:gz") as archive:
+                archive.add(bundle_root, arcname=bundle_root.name)
+            artifact_sha256 = hashlib.sha256(bundle.read_bytes()).hexdigest()
+            config = {"artifact_sha256": artifact_sha256}
+
+            def copy_bundle(_config: dict, destination: pathlib.Path) -> None:
+                destination.write_bytes(bundle.read_bytes())
+
+            def invalid_metadata(*args: str, capture: bool = False) -> str:
+                if args[3] == "Package":
+                    return "not-wazuh-manager"
+                return "4.14.8-1"
+
+            with patch.object(BOOTSTRAP.os, "geteuid", return_value=0, create=True):
+                with patch.object(BOOTSTRAP, "load_config", return_value=config):
+                    with patch.object(BOOTSTRAP, "mount_data_disk"):
+                        with patch.object(BOOTSTRAP, "fetch_bundle", side_effect=copy_bundle):
+                            with patch.object(BOOTSTRAP, "materialize_secrets") as materialize:
+                                with patch.object(BOOTSTRAP, "install_release") as install:
+                                    with patch.object(BOOTSTRAP, "run", side_effect=invalid_metadata):
+                                        with patch.object(BOOTSTRAP, "RELEASE_ROOT", root / "releases"):
+                                            with patch.object(BOOTSTRAP.tarfile.TarFile, "chown"):
+                                                with self.assertRaises(SystemExit):
+                                                    BOOTSTRAP.main()
+
+            materialize.assert_not_called()
+            install.assert_not_called()
+            self.assertFalse((root / "releases" / artifact_sha256).exists())
+
 
 class RuntimeHealthTests(unittest.TestCase):
-    def test_requires_filebeat_and_core_worker_and_checks_api_readiness(self) -> None:
+    @staticmethod
+    def ready_response(status: int) -> MagicMock:
         response = MagicMock()
-        response.status = 200
+        response.status = status
         response.__enter__.return_value = response
+        return response
+
+    def test_requires_filebeat_and_core_worker_and_checks_api_readiness(self) -> None:
         with patch.object(BOOTSTRAP, "run") as run_service:
-            with patch.object(BOOTSTRAP.urllib.request, "urlopen", return_value=response):
+            with patch.object(BOOTSTRAP.urllib.request, "urlopen", return_value=self.ready_response(200)):
                 BOOTSTRAP.validate_runtime_health()
 
         checked_services = {
@@ -212,6 +294,43 @@ class RuntimeHealthTests(unittest.TestCase):
         self.assertIn("filebeat", checked_services)
         self.assertIn("qapaq-core-worker", checked_services)
         self.assertIn("qapaq-core-api", checked_services)
+
+    def test_missing_systemd_service_fails_before_readiness_check(self) -> None:
+        def service_missing(*args: str, **_kwargs: object) -> None:
+            if args[-1] == "filebeat":
+                raise SystemExit(1)
+
+        with patch.object(BOOTSTRAP, "run", side_effect=service_missing):
+            with patch.object(BOOTSTRAP.urllib.request, "urlopen") as urlopen:
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.validate_runtime_health()
+
+        urlopen.assert_not_called()
+
+    def test_readiness_retries_timeout_and_non_200_until_200(self) -> None:
+        with patch.object(BOOTSTRAP, "run"):
+            with patch.object(
+                BOOTSTRAP.urllib.request,
+                "urlopen",
+                side_effect=[TimeoutError("timed out"), self.ready_response(503), self.ready_response(200)],
+            ) as urlopen:
+                with patch.object(BOOTSTRAP.time, "sleep"):
+                    BOOTSTRAP.validate_runtime_health()
+
+        self.assertEqual(urlopen.call_count, 3)
+
+    def test_readiness_fails_after_only_timeouts_or_non_200_responses(self) -> None:
+        with patch.object(BOOTSTRAP, "run"):
+            with patch.object(
+                BOOTSTRAP.urllib.request,
+                "urlopen",
+                side_effect=[TimeoutError("timed out"), *[self.ready_response(503) for _ in range(59)]],
+            ) as urlopen:
+                with patch.object(BOOTSTRAP.time, "sleep"):
+                    with self.assertRaises(SystemExit):
+                        BOOTSTRAP.validate_runtime_health()
+
+        self.assertEqual(urlopen.call_count, 60)
 
 
 if __name__ == "__main__":
