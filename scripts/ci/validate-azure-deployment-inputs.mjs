@@ -95,8 +95,6 @@ function validateSiem(siem) {
   if (siem === null) return;
   object(siem, 'siem_host');
   const required = [
-    'firewall_private_ip',
-    'firewall_policy_reference',
     'address_prefix',
     'vm_size',
     'admin_ssh_public_key',
@@ -111,10 +109,6 @@ function validateSiem(siem) {
     'bootstrap_bundle_sha256',
   ];
   exactKeys(siem, required, [], 'siem_host');
-  if (!isPrivateRfc1918(siem.firewall_private_ip))
-    fail('siem_host.firewall_private_ip must be an RFC1918 private IPv4 address.');
-  if (typeof siem.firewall_policy_reference !== 'string' || !siem.firewall_policy_reference.trim())
-    fail('siem_host.firewall_policy_reference is required.');
   if (
     !validCidr(siem.address_prefix) ||
     !isPrivateRfc1918(siem.address_prefix.split('/')[0]) ||
@@ -201,8 +195,6 @@ function validateAnkay(ankay, siem, registry) {
     fail('ankay_host requires a configured siem_host; Ankay cannot replace the SIEM.');
   const required = [
     'private_ip_address',
-    'firewall_private_ip',
-    'firewall_policy_reference',
     'admin_ssh_public_key',
     'vm_size',
     'ubuntu_image_version',
@@ -211,11 +203,8 @@ function validateAnkay(ankay, siem, registry) {
     'compose_sha256',
   ];
   exactKeys(ankay, required, ['data_disk_size_gb'], 'ankay_host');
-  for (const field of ['private_ip_address', 'firewall_private_ip']) {
-    if (!isPrivateRfc1918(ankay[field]))
-      fail(`ankay_host.${field} must be an RFC1918 private IPv4 address.`);
-  }
-  nonEmptyString(ankay.firewall_policy_reference, 'ankay_host.firewall_policy_reference');
+  if (!isPrivateRfc1918(ankay.private_ip_address))
+    fail('ankay_host.private_ip_address must be an RFC1918 private IPv4 address.');
   if (
     typeof ankay.admin_ssh_public_key !== 'string' ||
     !/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/=]+(?: .*)?$/u.test(

@@ -75,6 +75,12 @@ jobs:
       - name: Validate configuration
         run: terraform -chdir=infra/azure validate -no-color
 
+      - name: Initialize the managed egress firewall module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/egress_firewall init -backend=false -input=false -no-color
+
+      - name: Test the managed egress firewall policy without cloud credentials
+        run: terraform -chdir=infra/azure/modules/egress_firewall test -no-color
+
       - name: Initialize Azure bootstrap without cloud credentials
         run: terraform -chdir=infra/azure/bootstrap init -backend=false -input=false -no-color
 

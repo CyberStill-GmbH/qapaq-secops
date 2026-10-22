@@ -9,8 +9,8 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - VM Ubuntu 24.04 con versión exacta requerida, vTPM, Secure Boot y cifrado de host.
 - Sin dirección IP pública. Sin regla SSH, Manager API ni Indexer en el NSG.
 - Subnet y NSG dedicados dentro del VNet existente, con `default_outbound_access_enabled = false`.
-  La UDR fuerza `0.0.0.0/0` hacia el Azure Firewall existente. Sin su IP privada y una referencia
-  de policy no vacía, Terraform no puede planificar el módulo.
+  Al habilitar `siem_host`, el root crea Azure Firewall Standard, policy y public IP de salida; la
+  UDR fuerza `0.0.0.0/0` hacia ese firewall. No depende de un firewall preexistente.
 - Salida explícita: DNS al resolver de Azure, IMDS para Managed Identity y WireServer/VM Agent en TCP/80 y TCP/32526,
   TCP/443 a la subnet exacta de Private Endpoints,
   TCP/5432 a la subnet exacta de PostgreSQL, y TCP/443 al destino `Internet` a través de la UDR.
@@ -53,12 +53,17 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 
 ## Contrato obligatorio del artefacto
 
-El flujo `.github/workflows/azure-siem-release-bundle.yml` ahora ensambla un candidato de
-instalación offline a partir de artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core).
-El workflow descarga artifacts solo de ejecuciones exitosas de `main` para el mismo SHA y los
-adjunta como artifact revisable por siete días. No los publica a Blob ni realiza apply. Para que el
-módulo pueda consumirlo, todavía hay que promocionar ese `.tar.gz` a un blob privado y fijar su
-URL/SHA en el input del módulo; la aprobación de esa promoción y el despliegue siguen separados.
+El flujo `.github/workflows/azure-siem-release-bundle.yml` ensambla el bundle offline a partir de
+artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core). El publisher OIDC ya lo promocionó
+al contenedor Blob privado; la URI y el SHA-256 están en
+[`docs/cloud/azure/siem-release-bundle.md`](../../../../docs/cloud/azure/siem-release-bundle.md).
+La publicación no instala el release. El objeto `siem_host` debe fijar esa URI/SHA junto con red,
+clave pública y referencias Key Vault revisadas.
+
+La adaptación Azure elimina la dependencia de AWS para bootstrap e instalación: usa Managed Identity
+para descargar el Blob y leer Key Vault, y `apply-core-azure.sh` para activar el core ya compilado.
+No ejecuta AWS CLI, SSM ni Secrets Manager. El instalador AWS permanece separado; el adaptador Azure
+de Office 365 y sus pruebas de lectura siguen pendientes.
 
 El `.tar.gz` privado debe tener un directorio raíz único que contenga:
 
@@ -109,14 +114,10 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
 
 ## Límites de este módulo
 
-- El Azure Firewall y su policy son una dependencia externa obligatoria: `firewall_private_ip` crea
-  la ruta forzada y `firewall_policy_reference` hace explícita la revisión requerida, pero esta
-  referencia es un gate declarativo, no una lectura/verificación de la policy. Antes de integrar,
-  el operador debe inspeccionar la policy por ARM y confirmar default-deny, reglas DNS necesarias,
-  endpoints de artefactos/ACR y APIs autorizadas. Sin firewall operativo, egress queda bloqueado y el
-  bootstrap falla de forma segura. Este módulo no crea ni cobra el firewall; la infraestructura
-  compartida debe presupuestarlo aparte. Azure Firewall tiene costo fijo por hora más procesamiento
-  de datos según SKU/región, así que su cotización es obligatoria antes del plan de entorno.
+- El root crea Azure Firewall Standard y una policy con threat-intelligence deny, proxy DNS y
+  allowlist HTTPS explícita para Ubuntu, Entra, Graph y VirusTotal. El firewall tiene costo fijo por
+  hora y procesamiento; revisar el costo del plan antes del apply. Sophos/Cato requieren endpoints
+  confirmados y un cambio revisado a la allowlist antes de conectar esos proveedores.
 - Los dos CIDR de egress privado deben corresponder a las subnets dedicadas reales de Private
   Endpoints (Blob/Key Vault) y PostgreSQL. No uses el CIDR completo de la VNet como sustituto. No hay
   fallback a Internet directo cuando faltan o no responden esos servicios.
@@ -147,9 +148,8 @@ debe verificar:
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
 3. CIDR de Dashboard y agentes son privados/aprobados y no incluyen `0.0.0.0/0`.
 4. SKU de VM, disco y disponibilidad de Secure Boot/encryption-at-host están confirmados en la región.
-5. El Azure Firewall y su policy existente están operativos, con ruta de retorno, default-deny y
-   allowlist revisada para DNS, releases, ACR y APIs; el `firewall_policy_reference` identifica la
-   policy auditada. La sola cadena de referencia no prueba el contenido de la policy.
+5. El plan crea Firewall Standard, policy, IP pública de salida, subnet dedicada y UDR; revisar
+   costo, fuentes y destinos permitidos antes del apply.
 6. Los CIDR exactos de Private Endpoints y PostgreSQL están reservados y se verificó conectividad
    privada desde la subnet SIEM.
 7. La reserva de IP/rutas y el modo de acceso privado están definidos fuera de este módulo; no hay DNS.
