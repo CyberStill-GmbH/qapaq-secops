@@ -37,3 +37,13 @@
 ## Alcance de esta auditoría
 
 Esta nota registra resultados del plan en GitHub Actions y observaciones del portal; no certifica runtime. No se alteró Terraform de producción, Key Vault, la autenticación, la red, recursos existentes ni DNS. El SOC sigue **no desplegado / no operativo en Azure** hasta que las pruebas de extremo a extremo anteriores tengan evidencia real.
+
+## Revalidación posterior — 2026-10-23
+
+- El último workflow Azure consultado, [40029106928](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40029106928), autentica por OIDC y genera un plan protegido con **0 altas, 0 cambios y 0 eliminaciones**. Se omitió el job apply porque `apply=false`; el resultado no es un despliegue.
+- El environment GitHub `azure-demo` tiene una regla de rama y **ningún revisor requerido**. El flujo Azure no está bloqueado por la protección de approvals que se usaba en AWS. El requisito vigente es el perfil de host SIEM y los demás inputs Azure.
+- Con la sesión Azure de `cguevara@qapaq.pe` y MFA, el registro `qapaqsecopsdemo66f8c73b` muestra los repositorios `ankay-qapaq-frontend` y `qapaq-dashboard`. Ankay frontend tiene tres tags. No aparecen repos de backend ni worker Ankay, por lo que no existe un conjunto completo de imágenes para ejecutar Shuffle.
+- El CI de Ankay [40035289406](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40035289406) pasa sus pruebas del overlay/frontend y termina fallando en el gate de vulnerabilidades del digest OpenSearch 3.9.0 fijado: **37 HIGH** de paquetes Amazon Linux y **71 HIGH** de dependencias Java; **0 CRITICAL**. El job manual de publicación se omitió. No se publicó una imagen nueva.
+- La lista de secretos del Key Vault sigue inaccesible: Azure muestra que el acceso público está deshabilitado y que la solicitud no procede de un servicio confiable ni de un private link aprobado; la tabla indica “unauthorized”. No se leyeron valores ni se cambió la frontera de red o RBAC.
+
+Estos resultados confirman que no existe una barrera AWS que retirar en el flujo Azure. No se debe saltar el gate de imágenes ni aplicar un plan sin el perfil y las referencias de secretos requeridas.
