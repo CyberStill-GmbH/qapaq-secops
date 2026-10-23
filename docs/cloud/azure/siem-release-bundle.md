@@ -38,19 +38,16 @@ DNS.
 
 ### Current published candidate evidence — 2026-10-23
 
-- Prerequisite build: [39867097884](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867097884)
-- Dashboard build: [39866946132](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39866946132)
-- Core build: [39867101453](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867101453)
-- Bundle run: [39875232236](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39875232236)
-- Publisher run: [39876093179](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39876093179)
-- Source SHA: `a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170`
-- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170/qapaq-siem-a3699ccfb7f8.tar.gz`
-- SHA-256: `9f3678a17daa0421694c060255daf5c4167613a442836ca6fb811af8b9234fa0`
-- Size: `5083485460` bytes. The publisher verified the Blob content length and SHA metadata after upload.
+- Prerequisite build: [39883868793](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868793)
+- Dashboard build: [39883868545](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868545)
+- Core build: [39883868998](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868998)
+- Bundle run: [39890065716](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39890065716)
+- Publisher run: [39891503496](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39891503496)
+- Source SHA: `6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f`
+- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f/qapaq-siem-6c3c2b498a8a.tar.gz`
+- SHA-256: `9cfcd1acd6c5c1c78ec10024d6a4b7c3bbd43932ad8931ce3a9d63d126a4ccac`
+- Size: `5083594839` bytes. The publisher verified the Blob content length and SHA metadata after upload.
 - This is a build and publication result only. It does not prove VM provisioning, installation, service health, DNS, or data ingestion.
-
-The prior candidate below is retained as release history and is superseded by the current SHA.
-
 ### Superseded candidate evidence — 2026-10-22
 
 - Publisher run: [39823003732](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39823003732)
@@ -62,7 +59,7 @@ The prior candidate below is retained as release history and is superseded by th
 
 ### Azure Terraform state at publication
 
-- Plan/apply run: [39871214888](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39871214888) completed successfully but made no changes (`0 add, 0 change, 0 destroy`).
+- Plan run: [39989553972](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39989553972) completed successfully but made no changes (`0 add, 0 change, 0 destroy`); apply was skipped.
 - The workflow inputs were `siem_host=null`, `ankay_host=null`, and `enable_runtime=false`; no SIEM or Ankay VM was created.
 - Terraform is independent of AWS. The Azure root creates its own Azure Firewall when `siem_host` is provided; the AWS-era firewall is not a prerequisite.
 
