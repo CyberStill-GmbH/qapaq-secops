@@ -100,15 +100,15 @@ jobs:
         working-directory: .
         run: node scripts/ci/validate-azure-deployment-inputs.mjs
 
-      - name: Require the QAPAQ SIEM host for every SOC plan
-        if: ${{ inputs.deployment_scope == 'soc' }}
+      - name: Require the QAPAQ SIEM host before a SOC apply
+        if: ${{ inputs.apply && inputs.deployment_scope == 'soc' }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           const host = JSON.parse(process.env.TF_VAR_siem_host ?? 'null');
           if (host === null) {
-            console.error('::error::SOC plan refused: configure AZURE_SIEM_HOST_JSON with the Azure VM profile, approved network access, SSH public key, immutable release bundle, and Key Vault secret names. Without it, Terraform cannot plan or deploy Wazuh QAPAQ. Select deployment_scope=foundation only for an intentional foundation-only operation.');
+            console.error('::error::SOC apply refused: configure AZURE_SIEM_HOST_JSON with the Azure VM profile, approved network access, SSH public key, immutable release bundle, and Key Vault secret names. Azure Firewall is provisioned by this Terraform stack; no AWS firewall or AWS runner-network exception is required.');
             process.exit(1);
           }
           NODE
