@@ -89,7 +89,9 @@ credentials, redis references or policy values.
 ## Install behavior and boundaries
 
 The installer runs the official assistant in all-in-one offline mode, verifies the exact package
-versions, installs the QAPAQ core through its atomic release installer, then waits for active
+versions, validates the Office 365 configuration and client secret file materialized from Key Vault,
+installs the QAPAQ core through its atomic release installer, applies the M365 rules/configuration,
+then waits for active
 Manager, Indexer, Filebeat, Dashboard and QAPAQ core services, Indexer TLS health and `/health/ready`.
 Before the first package operation it also requires the official assistant's Ubuntu prerequisites
 (`curl`, `tar`, `gnupg`, `openssl`, `lsof`, `apt-transport-https`, `libcap2-bin`, `debconf`,
@@ -103,11 +105,12 @@ installer intentionally stops without purging packages or deleting state. Operat
 required before retry.
 
 This bundle does **not** currently install/validate the QAPAQ access and role overlay, `qapaq_ops`
-edge route, TLS/DNS, Microsoft 365 collector, Ankay/Shuffle, Teams webhook, Sophos or Cato. The
-Dashboard package contains QAPAQ branding/plugin code, but without edge/auth configuration it is
-not an externally usable QAPAQ SOC. The existing Office 365 script still contains AWS-specific
-secret-provider branches, so it must not be copied into this Azure bundle until a separately tested
-Azure adapter exists.
+edge route, TLS/DNS, Ankay/Shuffle, Teams webhook, Sophos or Cato. It installs M365 rules and
+configuration, but does not prove Graph permissions or event ingestion/indexing. The Azure installer
+passes a Key Vault-materialized `file:` secret source; the shared M365 script retains an AWS
+Secrets Manager branch for AWS deployments, which the Azure path does not invoke. The Dashboard
+package contains QAPAQ branding/plugin code, but without edge/auth configuration it is not an
+externally usable QAPAQ SOC.
 
 ## Remaining evidence before deployment
 
@@ -116,6 +119,8 @@ Azure adapter exists.
   pre-provisioned Key Vault refs. This Windows workstation has no working Docker daemon, and no VM
   installation test has run.
 - The published Blob URI and digest must be pinned in the reviewed `siem_host` Terraform input.
+- The Azure host input must include valid M365 tenant/app IDs and the Key Vault name mapped to
+  `office365-client-secret`; the secret itself must exist before first boot.
 - The Key Vault secret `wazuh-install-files.tar.b64` and the Core/Entra secret references must be provisioned and verified by metadata without reading values. The current Terraform input objects have not been supplied.
 - The bootstrap must install or verify Ubuntu's required packages before invoking the offline installer; no clean-VM installation test has run yet.
 - Key Vault refs, private endpoints, firewall allowlist, subnet routes and core database/identity

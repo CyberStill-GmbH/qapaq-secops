@@ -65,9 +65,11 @@ La publicación no instala el release. El objeto `siem_host` debe fijar esa URI/
 clave pública y referencias Key Vault revisadas.
 
 La adaptación Azure elimina la dependencia de AWS para bootstrap e instalación: usa Managed Identity
-para descargar el Blob y leer Key Vault, y `apply-core-azure.sh` para activar el core ya compilado.
-No ejecuta AWS CLI, SSM ni Secrets Manager. El instalador AWS permanece separado; el adaptador Azure
-de Office 365 y sus pruebas de lectura siguen pendientes.
+para descargar el Blob y leer Key Vault, `apply-core-azure.sh` para activar el core ya compilado y el
+adaptador versionado `office365/apply-office365.sh` para instalar reglas y configuración M365. El
+secreto de la app se materializa desde Key Vault como archivo local de permisos restringidos; no pasa
+por Terraform, argv ni logs. No ejecuta AWS CLI, SSM ni Secrets Manager. La lectura real de Microsoft
+Graph y la llegada de eventos aún requieren una prueba operativa en el tenant.
 
 El `.tar.gz` privado debe tener un directorio raíz único que contenga:
 
@@ -107,10 +109,13 @@ paquetes/datos parcialmente creados. Se deja la VM sin marcar como instalada y r
 operador antes de un nuevo intento para preservar el fail-closed.
 
 El candidato no instala ni declara listos el overlay de acceso QAPAQ/roles, el edge TLS y rutas DNS,
-la integración M365, Ankay/Shuffle, Teams, Sophos o Cato. Esos contratos necesitan configuración
-adicional y pruebas de extremo a extremo antes de abrir ingreso o marcar el SOC operativo.
+Ankay/Shuffle, Teams, Sophos o Cato. M365 instala reglas/configuración durante bootstrap, pero eso no
+demuestra permisos Graph, ingestión ni indexación real. Esos contratos requieren pruebas de extremo a
+extremo antes de abrir ingreso o marcar el SOC operativo.
 
-El bootstrap también rechaza llamadas shell a AWS SSM/Secrets Manager. La CI local de este candidato
+La ejecución Azure entrega exclusivamente `file:` al adaptador M365; no ejecuta la ruta AWS ni llama
+AWS CLI/SSM/Secrets Manager. El script compartido conserva `aws-secretsmanager:` para despliegues AWS.
+La CI local de este candidato
 valida hashes, paquete, estructura offline y contrato con el bootstrap. Aún hace falta ejecutar el
 workflow con tres run IDs CI exitosos del mismo SHA, probar el artifact resultante en VM Ubuntu 24.04
 aislada, promoverlo a Blob, comprobar las referencias Key Vault y completar las integraciones listadas

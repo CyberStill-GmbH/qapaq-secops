@@ -22,15 +22,24 @@ function baseEnv(overrides = {}) {
 function siemHost(overrides = {}) {
   return {
     address_prefix: '10.80.16.0/27',
-    vm_size: 'Standard_D4s_v5',
+    vm_size: 'Standard_F4s_v2',
     admin_ssh_public_key: publicKey,
     ubuntu_image_version: '24.04.202601010',
     data_disk_size_gb: 128,
     dashboard_ingress_cidrs: [],
     agent_ingress_cidrs: ['10.80.0.0/16'],
     core_secret_names: { QAPAQ_ENTRA_CLIENT_SECRET: 'entra-client-secret' },
-    wazuh_secret_names: { 'dashboard-password': 'wazuh-dashboard-password' },
+    wazuh_secret_names: {
+      'dashboard-password': 'wazuh-dashboard-password',
+      'office365-client-secret': 'office365-client-secret',
+    },
     core_environment: { QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret' },
+    office365: {
+      tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+      client_id: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+      api_type: 'commercial',
+      enable_dlp: false,
+    },
     bootstrap_bundle_blob_url: 'https://qapaqdata.blob.core.windows.net/releases/siem.tar.gz',
     bootstrap_bundle_sha256: sha,
     ...overrides,
@@ -82,6 +91,21 @@ test('rejects public addresses for private SIEM and Ankay network endpoints', ()
         }),
       ),
     /private IPv4 subnet/u,
+  );
+});
+
+test('requires a Key Vault-backed Office 365 client secret and valid non-secret config', () => {
+  const invalidSecretMap = siemHost();
+  delete invalidSecretMap.wazuh_secret_names['office365-client-secret'];
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalidSecretMap) })),
+    /must map office365-client-secret/u,
+  );
+
+  const invalidClient = siemHost({ office365: { ...siemHost().office365, client_id: 'not-a-guid' } });
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalidClient) })),
+    /must be GUIDs/u,
   );
 });
 

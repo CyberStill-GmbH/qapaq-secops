@@ -82,6 +82,17 @@ def load_config() -> dict:
         fail("el bundle debe estar en Blob privado con URL HTTPS sin SAS")
     if not config.get("identity_client_id"):
         fail("falta client ID de la identidad administrada")
+    office365 = config.get("office365")
+    if not isinstance(office365, dict):
+        fail("falta configuración no secreta de Microsoft 365")
+    guid_pattern = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+    if not guid_pattern.fullmatch(office365.get("tenant_id", "")) or not guid_pattern.fullmatch(office365.get("client_id", "")):
+        fail("tenant/client ID de Microsoft 365 no son GUID válidos")
+    if office365.get("api_type") not in ("commercial", "gcc", "gcc-high") or type(office365.get("enable_dlp")) is not bool:
+        fail("la configuración de API Microsoft 365 no es válida")
+    secret_names = config.get("wazuh_secret_names", {})
+    if not isinstance(secret_names, dict) or "office365-client-secret" not in secret_names:
+        fail("falta la referencia Key Vault office365-client-secret")
     if type(config.get("data_disk_size_gb")) is not int or config["data_disk_size_gb"] < 128:
         fail("el tamaño del disco de datos no coincide con el contrato mínimo del SIEM")
     return config
@@ -565,7 +576,7 @@ def record_install_state(release: pathlib.Path) -> None:
     os.chmod(state_path, 0o600)
 
 
-def install_release(release: pathlib.Path) -> None:
+def install_release(release: pathlib.Path, config: dict) -> None:
     try:
         manifest = json.loads((release / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -585,6 +596,15 @@ def install_release(release: pathlib.Path) -> None:
                 "QAPAQ_OSD_VERSION": EXPECTED["osd_version"],
                 "QAPAQ_CORE_NODE_VERSION": EXPECTED["node_version"],
                 "QAPAQ_RELEASE_DIR": str(release),
+            }
+        )
+        office365 = config["office365"]
+        environment.update(
+            {
+                "QAPAQ_O365_TENANT_ID": office365["tenant_id"],
+                "QAPAQ_O365_CLIENT_ID": office365["client_id"],
+                "QAPAQ_O365_API_TYPE": office365["api_type"],
+                "QAPAQ_O365_ENABLE_DLP": str(office365["enable_dlp"]).lower(),
             }
         )
         # Wazuh's installation assistant prints generated credentials in its summary.
@@ -629,7 +649,7 @@ def main() -> None:
         fetch_bundle(config, bundle)
         release = extract_and_verify(bundle, config)
         materialize_secrets(config)
-        install_release(release)
+        install_release(release, config)
     log("bootstrap completo; sin cambios DNS ni aperturas adicionales de red")
 
 

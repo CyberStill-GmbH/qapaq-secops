@@ -153,6 +153,16 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         core_installer = pathlib.Path(args.repo_root) / "wazuh" / "core"
         for name in ("apply-core-azure.sh", "verify_core_archive.py"):
             copy_regular(core_installer / name, root / "wazuh" / "core" / name)
+
+        office365 = pathlib.Path(args.repo_root) / "wazuh" / "office365"
+        for relative in (
+            pathlib.Path("apply-office365.sh"),
+            pathlib.Path("ossec-office365.xml.tmpl"),
+            pathlib.Path("rules") / "qapaq_office365_rules.xml",
+            pathlib.Path("lists") / "qapaq-break-glass.example",
+        ):
+            copy_regular(office365 / relative, root / "wazuh" / "office365" / relative)
+
         files = sha256_map(root)
         manifest = {
             "schemaVersion": 1,

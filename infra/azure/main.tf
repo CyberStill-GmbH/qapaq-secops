@@ -150,6 +150,7 @@ module "siem_host" {
   core_secret_names            = try(var.siem_host.core_secret_names, {})
   wazuh_secret_names           = try(var.siem_host.wazuh_secret_names, {})
   core_environment             = try(var.siem_host.core_environment, {})
+  office365                    = try(var.siem_host.office365, null)
   container_registry_id        = module.identity_registry.container_registry_id
   artifact_container_scope_id  = module.data.siem_release_container_id
   evidence_container_scope_id  = module.data.raw_container_id
