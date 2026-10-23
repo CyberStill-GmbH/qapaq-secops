@@ -12,7 +12,12 @@ services:
       timeout: 3s
       retries: 60
       start_period: 30s
-    networks: [smoke]
+    networks:
+      smoke:
+        aliases:
+          # OpenSearch's demo HTTP certificate includes this DNS SAN, not the
+          # Compose service name. Keep normal certificate verification enabled.
+          - node-0.example.com
 
   memcached:
     image: docker.io/library/memcached@sha256:aac456c35cd29635b5501fefac58a2e954752006c9d159fbf520dd785e09cbba
@@ -32,7 +37,7 @@ services:
       SHUFFLE_MEMCACHED: memcached:11211
       SHUFFLE_OPENSEARCH_PASSWORD: ${SMOKE_OPENSEARCH_PASSWORD:?set SMOKE_OPENSEARCH_PASSWORD}
       SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "false"
-      SHUFFLE_OPENSEARCH_URL: https://opensearch:9200
+      SHUFFLE_OPENSEARCH_URL: https://node-0.example.com:9200
       SHUFFLE_OPENSEARCH_USERNAME: admin
     volumes:
       - ${OPENSEARCH_CA_HOST_PATH:?set OPENSEARCH_CA_HOST_PATH}:/run/ankay/opensearch-ca/ca.pem:ro

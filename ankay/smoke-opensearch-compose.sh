@@ -60,7 +60,7 @@ docker run --rm --network "${project_name}_smoke" \
   --env SHUFFLE_OPENSEARCH_CERTIFICATE_FILE=/run/ankay/opensearch-ca/ca.pem \
   --env SHUFFLE_OPENSEARCH_PASSWORD="$smoke_password" \
   --env SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY=false \
-  --env SHUFFLE_OPENSEARCH_URL=https://opensearch:9200 \
+  --env SHUFFLE_OPENSEARCH_URL=https://node-0.example.com:9200 \
   --env SHUFFLE_OPENSEARCH_USERNAME=admin \
   --env SHUFFLE_MEMCACHED=memcached:11211 \
   "$go_builder_image" \

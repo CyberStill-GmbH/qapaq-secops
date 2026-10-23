@@ -92,7 +92,8 @@ test('OpenSearch major-version candidate is tested with ephemeral Compose and Sh
   assert.match(compose, /image: \$\{BACKEND_IMAGE:\?set BACKEND_IMAGE\}/);
   assert.match(compose, /OPENSEARCH_INITIAL_ADMIN_PASSWORD:/);
   assert.match(compose, /SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "false"/);
-  assert.match(compose, /SHUFFLE_OPENSEARCH_URL: https:\/\/opensearch:9200/);
+  assert.match(compose, /SHUFFLE_OPENSEARCH_URL: https:\/\/node-0\.example\.com:9200/);
+  assert.match(compose, /- node-0\.example\.com/);
   assert.match(compose, /\/run\/ankay\/opensearch-ca\/ca\.pem:ro/);
   assert.match(compose, /127\.0\.0\.1:15001:5001/);
   assert.match(smoke, /root-ca\.pem/);
