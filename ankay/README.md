@@ -86,15 +86,18 @@ ejecutar workflows end-to-end en un host dedicado aislado.
 ### Pin de OpenSearch para runtime
 
 El Compose fijado de Shuffle v2.3.0 usa OpenSearch 3.2.0. QAPAQ conserva el contrato
-del servicio y su API, pero fija el contenedor linux/amd64 a OpenSearch 3.9.0 por digest
-inmutable en [`azure-components.lock.json`](azure-components.lock.json), para que el CI
-escanee el mismo artefacto que declara el lock. 3.9.0 es un release oficial; OpenSearch
-documenta que las rupturas de compatibilidad se introducen entre versiones mayores,
-por lo que esta actualización dentro de la rama 3.x mantiene compatibilidad de API
-esperada con Shuffle v2.3.0. No se añade ningún plugin externo: los plugins incluidos
-pertenecen a la misma versión de la imagen.
+del servicio y su API, fija la imagen linux/amd64 de OpenSearch 3.9.0 por digest
+inmutable y construye una capa derivada que actualiza Amazon Linux 2023 al release
+fechado `2023.12.20261013`. El digest vendor, la versión de OS y el Dockerfile derivado
+quedan en [`azure-components.lock.json`](azure-components.lock.json) y en el bundle
+de procedencia. El CI escanea la imagen derivada que se publicaría, no la etiqueta
+mutable del upstream. 3.9.0 es un release oficial; OpenSearch documenta que las
+rupturas de compatibilidad se introducen entre versiones mayores, por lo que esta
+actualización dentro de la rama 3.x mantiene la compatibilidad de API esperada con
+Shuffle v2.3.0. No se añade ningún plugin externo: los plugins incluidos pertenecen
+a la misma versión de la imagen.
 
-La verificación CI construye backend y worker, descarga el OpenSearch fijado y ejecuta
+La verificación CI construye backend, worker y la capa OpenSearch derivada, y ejecuta
 Trivy con su escaneo de vulnerabilidades completo para HIGH/CRITICAL. Eso no equivale
 a una prueba end-to-end de Shuffle contra OpenSearch 3.9.0: antes de activar el runtime
 se debe validar la inicialización de índices, búsquedas y persistencia con el Compose

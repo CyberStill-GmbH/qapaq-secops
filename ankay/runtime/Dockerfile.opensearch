@@ -1,0 +1,12 @@
+ARG OPENSEARCH_BASE_IMAGE
+FROM ${OPENSEARCH_BASE_IMAGE}
+
+ARG AMAZON_LINUX_RELEASE
+
+USER 0
+RUN dnf --releasever="${AMAZON_LINUX_RELEASE}" upgrade --refresh --assumeyes \
+    && test "$(rpm -q --qf '%{VERSION}' system-release)" = "${AMAZON_LINUX_RELEASE}" \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+USER 1000:1000

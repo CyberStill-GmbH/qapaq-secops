@@ -84,12 +84,18 @@ actual_app_sdk_file_sha="$(git -C "$work_dir/app-sdk" cat-file blob "$app_sdk_sh
 go_builder_image="$(jq -r '.buildBases.golang1273Alpine323' "$lock_file")"
 alpine_runtime_image="$(jq -r '.buildBases.alpine3226' "$lock_file")"
 opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' "$lock_file")"
+amazon_linux_release="$(jq -r '.buildPolicy.amazonLinux2023Release' "$lock_file")"
 for image in "$go_builder_image" "$alpine_runtime_image" "$opensearch_image"; do
   [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || { echo "Imagen base sin digest: $image" >&2; exit 1; }
 done
+[[ "$amazon_linux_release" =~ ^2023\.12\.[0-9]{8}$ ]] || {
+  echo "Release Amazon Linux 2023 inválido o no fijado: $amazon_linux_release" >&2
+  exit 1
+}
 
 shuffle_backend="ankay-qapaq-backend:${GITHUB_SHA:-local}"
 shuffle_worker="ankay-qapaq-worker:${GITHUB_SHA:-local}"
+ankay_opensearch="ankay-qapaq-opensearch:${GITHUB_SHA:-local}"
 docker buildx build --platform linux/amd64 --load \
   --build-arg "GO_BUILDER_IMAGE=$go_builder_image" \
   --build-arg "ALPINE_RUNTIME_IMAGE=$alpine_runtime_image" \
@@ -110,12 +116,19 @@ docker buildx build --platform linux/amd64 --load \
   --tag "$shuffle_worker" \
   --file "$root/ankay/runtime/Dockerfile.worker" "$work_dir/shuffle"
 
-docker pull --platform linux/amd64 "$opensearch_image"
-docker image inspect "$opensearch_image" >/dev/null
+docker buildx build --platform linux/amd64 --load \
+  --build-arg "OPENSEARCH_BASE_IMAGE=$opensearch_image" \
+  --build-arg "AMAZON_LINUX_RELEASE=$amazon_linux_release" \
+  --label "org.opencontainers.image.base.name=$opensearch_image" \
+  --label "org.opencontainers.image.base.digest=${opensearch_image##*@}" \
+  --label "org.opencontainers.image.base.version=$amazon_linux_release" \
+  --label 'org.opencontainers.image.licenses=Apache-2.0' \
+  --tag "$ankay_opensearch" \
+  --file "$root/ankay/runtime/Dockerfile.opensearch" "$root/ankay/runtime"
 
 docker save "$shuffle_backend" | gzip -1 > "$out_dir/backend-image.tar.gz"
 docker save "$shuffle_worker" | gzip -1 > "$out_dir/worker-image.tar.gz"
-docker save "$opensearch_image" | gzip -1 > "$out_dir/opensearch-image.tar.gz"
+docker save "$ankay_opensearch" | gzip -1 > "$out_dir/opensearch-image.tar.gz"
 
 mkdir -p "$work_dir/source/shuffle" "$work_dir/source/app-sdk"
 git -C "$work_dir/shuffle" archive "$shuffle_sha" LICENSE backend/go-app backend/app_gen \
@@ -145,7 +158,8 @@ cp "$work_dir/shuffle/backend/go-app/cloud_sync_url_test.go" "$work_dir/source/s
 cp "$work_dir/shuffle/functions/onprem/worker/worker.go" "$work_dir/source/shuffle/functions/onprem/worker/worker.go"
 cp "$work_dir/shuffle/functions/onprem/worker/worker_image_test.go" "$work_dir/source/shuffle/functions/onprem/worker/worker_image_test.go"
 cp -a "$shared_overlay" "$work_dir/source/shuffle/functions/onprem/worker/moby-shuffle-shared"
-cp "$root/ankay/runtime/Dockerfile.backend" "$root/ankay/runtime/Dockerfile.worker" "$work_dir/source/"
+cp "$root/ankay/runtime/Dockerfile.backend" "$root/ankay/runtime/Dockerfile.worker" \
+  "$root/ankay/runtime/Dockerfile.opensearch" "$work_dir/source/"
 cp "$root/ankay/build-runtime-components.sh" "$work_dir/source/"
 tar -czf "$out_dir/shuffle-corresponding-source.tar.gz" -C "$work_dir/source" .
 
@@ -155,17 +169,20 @@ backend_archive_sha="$(sha256sum "$out_dir/backend-image.tar.gz" | awk '{print $
 worker_archive_sha="$(sha256sum "$out_dir/worker-image.tar.gz" | awk '{print $1}')"
 opensearch_archive_sha="$(sha256sum "$out_dir/opensearch-image.tar.gz" | awk '{print $1}')"
 source_archive_sha="$(sha256sum "$out_dir/shuffle-corresponding-source.tar.gz" | awk '{print $1}')"
+opensearch_id="$(docker image inspect --format '{{.Id}}' "$ankay_opensearch")"
 jq -n \
   --arg shuffle_sha "$shuffle_sha" --arg app_sdk_sha "$app_sdk_sha" \
   --arg shuffle_shared_sha "$shuffle_shared_sha" \
   --arg backend_id "$backend_id" --arg worker_id "$worker_id" \
   --arg backend_archive_sha "$backend_archive_sha" --arg worker_archive_sha "$worker_archive_sha" \
-  --arg opensearch_archive_sha "$opensearch_archive_sha" --arg source_archive_sha "$source_archive_sha" \
+  --arg opensearch_id "$opensearch_id" --arg opensearch_archive_sha "$opensearch_archive_sha" \
+  --arg amazon_linux_release "$amazon_linux_release" --arg source_archive_sha "$source_archive_sha" \
   --argjson lock "$(cat "$lock_file")" \
   '{schemaVersion:1, targetPlatform:"linux/amd64", sourceCommits:{shuffle:$shuffle_sha, shuffleShared:$shuffle_shared_sha, appSdk:$app_sdk_sha},
     built:{backend:{imageId:$backend_id, archiveSha256:$backend_archive_sha, license:"AGPL-3.0"},
       worker:{imageId:$worker_id, archiveSha256:$worker_archive_sha, license:"AGPL-3.0"}},
-    pinned:{opensearch:{image:($lock.sources.opensearch.repository + "@" + $lock.sources.opensearch.amd64Digest),
+    pinned:{opensearch:{baseImage:($lock.sources.opensearch.repository + "@" + $lock.sources.opensearch.amd64Digest),
+      derivedImageId:$opensearch_id, amazonLinuxRelease:$amazon_linux_release,
       archiveSha256:$opensearch_archive_sha, license:$lock.sources.opensearch.license}},
     blocked:{orborus:$lock.sources.orborus.reason, shuffleSecurity:$lock.sources.shuffleSecurity.reason},
     sourceArchiveSha256:$source_archive_sha, acrPublication:false, terraformRuntimeReady:false}' \

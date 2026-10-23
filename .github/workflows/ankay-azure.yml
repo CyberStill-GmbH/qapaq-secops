@@ -86,7 +86,7 @@ jobs:
           cp "${sources[0]}" "$RUNNER_TEMP/ankay-publish/"
           (cd "$RUNNER_TEMP/ankay-publish" && sha256sum image.tar.gz *.tar.gz > SHA256SUMS)
 
-      - name: Build pinned backend and worker; verify pinned OpenSearch digest
+      - name: Build pinned backend and worker; patch and verify pinned OpenSearch image
         shell: bash
         run: |
           set -euo pipefail
@@ -97,9 +97,8 @@ jobs:
             "ankay-qapaq-worker:${GITHUB_SHA}"
           bash .github/ci/install-scanner.sh trivy
           export PATH="$RUNNER_TEMP/scanners:$PATH"
-          opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' ankay/azure-components.lock.json)"
           for image in "ankay-qapaq-backend:${GITHUB_SHA}" "ankay-qapaq-worker:${GITHUB_SHA}" \
-            "$opensearch_image"; do
+            "ankay-qapaq-opensearch:${GITHUB_SHA}"; do
             trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
               --no-progress "$image"
           done

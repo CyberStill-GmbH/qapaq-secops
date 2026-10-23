@@ -47,6 +47,7 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
     'sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84',
   );
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
+  assert.equal(lock.buildPolicy.amazonLinux2023Release, '2023.12.20261013');
   assert.equal(
     lock.buildBases.golang1273Alpine323,
     'docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df',
@@ -61,16 +62,20 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   );
 });
 
-test('Ankay CI scans the exact OpenSearch amd64 digest from the component lock', () => {
+test('Ankay builds and scans an OpenSearch image from the pinned vendor digest and dated AL2023 release', () => {
   const workflow = readFileSync(
     new URL('../.github/workflows/ankay-azure.yml', import.meta.url),
     'utf8',
   );
-  assert.match(
-    workflow,
-    /opensearch_image="\$\(jq -r '\.sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest' ankay\/azure-components\.lock\.json\)"/,
-  );
-  assert.match(workflow, /"\$opensearch_image"/);
+  const buildScript = readFileSync(new URL('./build-runtime-components.sh', import.meta.url), 'utf8');
+  const dockerfile = readFileSync(new URL('./runtime/Dockerfile.opensearch', import.meta.url), 'utf8');
+  assert.match(buildScript, /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/);
+  assert.match(buildScript, /OPENSEARCH_BASE_IMAGE=\$opensearch_image/);
+  assert.match(buildScript, /AMAZON_LINUX_RELEASE=\$amazon_linux_release/);
+  assert.match(workflow, /ankay-qapaq-opensearch:\$\{GITHUB_SHA\}/);
+  assert.match(dockerfile, /dnf --releasever="\$\{AMAZON_LINUX_RELEASE\}" upgrade --refresh --assumeyes/);
+  assert.match(dockerfile, /rpm -q --qf '%\{VERSION\}' system-release/);
+  assert.match(dockerfile, /USER 1000:1000/);
   assert.doesNotMatch(workflow, /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/);
 });
 

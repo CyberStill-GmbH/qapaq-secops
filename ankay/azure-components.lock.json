@@ -60,6 +60,9 @@
     "node23": "docker.io/library/node:23@sha256:9a25b5a6f9a90218b73a62205f111e71de5e4289aee952b4dd7e86f7498f2544",
     "nginx1293": "docker.io/library/nginx:1.29.3@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51"
   },
+  "buildPolicy": {
+    "amazonLinux2023Release": "2023.12.20261013"
+  },
   "goSecurityUpgrades": {
     "minimumToolchain": "1.27.3",
     "golang.org/x/net": "v0.60.0",
@@ -73,7 +76,7 @@
     "frontend": "build-from-pinned-shuffle-source",
     "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
     "worker": "build-from-pinned-shuffle-source-with-moby-v29-overlay",
-    "opensearch": "pull-by-pinned-platform-digest",
+    "opensearch": "derived-from-pinned-official-digest-with-deterministic-al2023-updates",
     "orborus": "blocked-license-review",
     "shuffle-security": "blocked-license-and-compatibility-review"
   },
