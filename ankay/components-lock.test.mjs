@@ -37,6 +37,15 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   for (const image of Object.values(lock.buildBases)) assert.match(image, /@sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.indexDigest, /^sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.amd64Digest, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(lock.sources.opensearch.tag, '3.9.0');
+  assert.equal(
+    lock.sources.opensearch.indexDigest,
+    'sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c',
+  );
+  assert.equal(
+    lock.sources.opensearch.amd64Digest,
+    'sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84',
+  );
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
   assert.equal(
     lock.buildBases.golang1273Alpine323,
@@ -49,6 +58,22 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   assert.deepEqual(
     Object.keys(lock.componentStatus).sort(),
     ['backend', 'frontend', 'opensearch', 'orborus', 'shuffle-security', 'worker'].sort(),
+  );
+});
+
+test('Ankay CI scans the exact OpenSearch amd64 digest from the component lock', () => {
+  const workflow = readFileSync(
+    new URL('../.github/workflows/ankay-azure.yml', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    workflow,
+    /opensearch_image="\$\(jq -r '\.sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest' ankay\/azure-components\.lock\.json\)"/,
+  );
+  assert.match(workflow, /"\$opensearch_image"/);
+  assert.doesNotMatch(
+    workflow,
+    /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/,
   );
 });
 

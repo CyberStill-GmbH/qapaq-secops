@@ -97,8 +97,9 @@ jobs:
             "ankay-qapaq-worker:${GITHUB_SHA}"
           bash .github/ci/install-scanner.sh trivy
           export PATH="$RUNNER_TEMP/scanners:$PATH"
+          opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' ankay/azure-components.lock.json)"
           for image in "ankay-qapaq-backend:${GITHUB_SHA}" "ankay-qapaq-worker:${GITHUB_SHA}" \
-            'docker.io/opensearchproject/opensearch@sha256:eab536fd3e19f208e07b65ac8ee6c4bde9b02cb6f191ace87569f922e14b802a'; do
+            "$opensearch_image"; do
             trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
               --no-progress "$image"
           done
