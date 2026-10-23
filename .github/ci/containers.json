@@ -22,5 +22,9 @@
   {
     "dockerfile": "ankay/runtime/Dockerfile.worker",
     "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.opensearch",
+    "context": "ankay/runtime"
   }
 ]
