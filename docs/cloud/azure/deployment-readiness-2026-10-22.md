@@ -1,5 +1,12 @@
 # Azure deployment readiness — 2026-10-22
 
+## Actualización verificada — 2026-10-23 22:22 UTC
+
+- Tras renovar MFA, el portal identifica la sesión como `cguevara@qapaq.pe` con MFA completado. El grupo de despliegue `rg-qapaqsecopsdemo-66f8c73b` lista 18 recursos de base: Key Vault, PostgreSQL Flexible Server, ACR Basic, Storage, VNet, endpoints privados, DNS privado, identidades y Log Analytics.
+- El inventario no muestra VM SIEM, Azure Firewall, Ankay ni Container Apps del runtime. El ACR está en estado `Succeeded`, pero su vista de repositorios permaneció cargando; no afirmo que contenga imágenes.
+- El Key Vault correcto es `kv-qapaqsecopsd-66f8c73b` en el grupo de despliegue. Su vista de secretos devuelve “You are unauthorized to view these contents” y “Public network access is disabled and request is not from a trusted service nor via an approved private link”. MFA renovado no resuelve las restricciones RBAC/de red; no se leyó metadata ni valores de secretos.
+- El workflow `terraform-azure.yml` ya no tiene dependencia de AWS. El run [40029106928](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40029106928) completó autenticación OIDC, backend y plan Terraform con cero cambios; apply se omitió. El bloqueo comprobado sigue siendo `AZURE_ENABLE_RUNTIME`, `AZURE_SIEM_HOST_JSON`, `AZURE_CONTAINER_IMAGES_JSON`, `AZURE_KEY_VAULT_SECRET_IDS_JSON` y el perfil Ankay ausentes, junto con la imposibilidad actual de verificar las referencias de Key Vault.
+
 ## Actualización verificada — 2026-10-23 22:05 UTC
 
 - El plan Azure [40029106928](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40029106928) autenticó por OIDC, inicializó el state remoto y terminó con **0 altas, 0 cambios y 0 destrucciones**; apply se omitió. El entorno `azure-demo` no tiene revisores obligatorios. No queda una dependencia de AWS en este flujo.
