@@ -20,6 +20,12 @@ variables {
   artifact_container_scope_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Storage/storageAccounts/stqapaqtest/blobServices/default/containers/artifacts"
   bootstrap_bundle_blob_url    = "https://stqapaqtest.blob.core.windows.net/artifacts/siem-bootstrap.tar.gz"
   bootstrap_bundle_sha256      = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  office365 = {
+    tenant_id  = "00000000-0000-0000-0000-000000000001"
+    client_id  = "00000000-0000-0000-0000-000000000002"
+    api_type   = "commercial"
+    enable_dlp = false
+  }
 }
 
 run "accepts_matching_key_vault_reference" {
