@@ -102,7 +102,9 @@ test('requires a Key Vault-backed Office 365 client secret and valid non-secret 
     /must map office365-client-secret/u,
   );
 
-  const invalidClient = siemHost({ office365: { ...siemHost().office365, client_id: 'not-a-guid' } });
+  const invalidClient = siemHost({
+    office365: { ...siemHost().office365, client_id: 'not-a-guid' },
+  });
   assert.throws(
     () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalidClient) })),
     /must be GUIDs/u,

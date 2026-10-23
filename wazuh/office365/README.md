@@ -14,13 +14,13 @@ valor de detección y la lista de cuentas de emergencia.
 
 ## Contenido
 
-| Archivo                           | Qué es                                                                                                          |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `ossec-office365.xml.tmpl`        | Bloque `<office365>` con marcadores `QAPAQ:office365`. El secreto se lee de un archivo, nunca de `ossec.conf`.  |
-| `rules/qapaq_office365_rules.xml` | Reglas locales 100502–100530 (rango reservado 100500–100549).                                                   |
+| Archivo                           | Qué es                                                                                                            |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ossec-office365.xml.tmpl`        | Bloque `<office365>` con marcadores `QAPAQ:office365`. El secreto se lee de un archivo, nunca de `ossec.conf`.    |
+| `rules/qapaq_office365_rules.xml` | Reglas locales 100502–100530 (rango reservado 100500–100549).                                                     |
 | `lists/qapaq-break-glass.example` | Formato de la lista CDB de cuentas break-glass. En Azure se provisiona por ambiente desde Key Vault como secreto. |
-| `apply-office365.sh`              | Aplica todo de forma idempotente: respalda, valida con `wazuh-analysisd -t`, restaura si falla y reinicia.      |
-| `tests/`                          | Casos sintéticos para `wazuh-logtest` y su runner.                                                              |
+| `apply-office365.sh`              | Aplica todo de forma idempotente: respalda, valida con `wazuh-analysisd -t`, restaura si falla y reinicia.        |
+| `tests/`                          | Casos sintéticos para `wazuh-logtest` y su runner.                                                                |
 
 El bundle `.github/workflows/azure-siem-release-bundle.yml` incluye estos archivos fijados
 por SHA-256 y `wazuh/azure-release/install.sh` ejecuta el modo `apply` durante el primer
