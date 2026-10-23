@@ -14,6 +14,7 @@ variables {
   admin_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrSSBU5aLhPsPjvwqHInna41VinFclKO7IxLy6VglY5 test@example.invalid"
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
+  dashboard_ingress_cidrs      = ["198.51.100.25/32"]
   key_vault_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.KeyVault/vaults/kv-qapaq-test"
   key_vault_uri                = "https://kv-qapaq-test.vault.azure.net/"
   container_registry_id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.ContainerRegistry/registries/acrqapaqtest"
@@ -38,6 +39,16 @@ run "accepts_matching_key_vault_reference" {
     core_secret_names = {
       QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
     }
+  }
+
+  assert {
+    condition     = one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-acme-http-via-firewall-dnat"]).source_address_prefix == var.firewall_private_ip
+    error_message = "The SIEM NSG must allow HTTP from the Azure Firewall private IP after DNAT source translation."
+  }
+
+  assert {
+    condition     = one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-dashboard-https-approved-sources"]).source_address_prefix == var.firewall_private_ip
+    error_message = "The SIEM NSG must allow HTTPS only from the Azure Firewall private IP; the Firewall DNAT rule filters the original client CIDR."
   }
 }
 

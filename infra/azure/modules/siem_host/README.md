@@ -11,11 +11,13 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - Subnet y NSG dedicados dentro del VNet existente, con `default_outbound_access_enabled = false`.
   Al habilitar `siem_host`, el root crea Azure Firewall Standard, policy, IP pública estable y DNAT
   hacia un Load Balancer interno. La UDR fuerza `0.0.0.0/0` hacia ese firewall; no depende de un
-  firewall de AWS ni de uno preexistente. El DNAT HTTPS y el NSG aplican la misma allowlist de CIDR.
+  firewall de AWS ni de uno preexistente. El DNAT HTTPS evalúa la allowlist original de CIDR.
 - El puerto 80 público solo acepta el DNAT del Firewall para ACME HTTP-01 y redirección a HTTPS.
   El puerto 443 solo se enruta desde `dashboard_ingress_cidrs`; sin CIDR, el dashboard queda cerrado.
-  El TLS termina en el edge Nginx QAPAQ de la VM, no en el Load Balancer. Los agentes continúan
-  usando sus CIDR privados aprobados en 1514/1515.
+  El Firewall SNATea el DNAT a su IP privada, así que el NSG solo permite 80/443 desde esa IP. El TLS
+  termina en el edge Nginx QAPAQ de la VM, no en el Load Balancer. Nginx ve la IP privada del Firewall
+  como peer; la IP original se audita en logs NAT del Firewall. Los agentes continúan usando sus CIDR
+  privados aprobados en 1514/1515.
 - Salida explícita: DNS al resolver de Azure, IMDS para Managed Identity y WireServer/VM Agent en TCP/80 y TCP/32526,
   TCP/443 a la subnet exacta de Private Endpoints,
   TCP/5432 a la subnet exacta de PostgreSQL, y TCP/443 al destino `Internet` a través de la UDR.
