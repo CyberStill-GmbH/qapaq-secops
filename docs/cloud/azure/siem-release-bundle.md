@@ -36,7 +36,20 @@ repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
 
-### Current published candidate evidence — 2026-10-23
+### Latest published candidate evidence — 2026-10-23
+
+- Prerequisite build: [39883868793](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868793)
+- Dashboard build: [39883868545](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868545)
+- Core build: [39883868998](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868998)
+- Bundle run: [39890065716](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39890065716)
+- Publisher run: [39891503496](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39891503496)
+- Source SHA: `6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f`
+- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f/qapaq-siem-6c3c2b498a8a.tar.gz`
+- SHA-256: `9cfcd1acd6c5c1c78ec10024d6a4b7c3bbd43932ad8931ce3a9d63d126a4ccac`
+- Size: `5083594839` bytes. The publisher verified Blob content length and SHA metadata after upload.
+- The exact source artifacts succeeded on the same SHA. The bundle run verified installer, provenance, package hashes and bootstrap contract; the publisher authenticated through Azure OIDC and verified the private Blob. It remains an install candidate, not evidence of a provisioned VM or operational SIEM.
+
+### Previous published candidate evidence — 2026-10-23
 
 - Prerequisite build: [39867097884](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867097884)
 - Dashboard build: [39866946132](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39866946132)
