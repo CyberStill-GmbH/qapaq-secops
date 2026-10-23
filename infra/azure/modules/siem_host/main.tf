@@ -69,9 +69,9 @@ resource "azurerm_network_security_group" "siem" {
       protocol                   = "Tcp"
       source_port_range          = "*"
       destination_port_range     = "80"
-      source_address_prefix      = "Internet"
+      source_address_prefix      = var.firewall_private_ip
       destination_address_prefix = "*"
-      description                = "HTTP público llega solo por DNAT del Firewall; el edge sirve ACME y redirige a HTTPS."
+      description                = "HTTP llega por DNAT/SNAT del Firewall; el edge sirve ACME y redirige a HTTPS."
     }
   }
 
@@ -85,9 +85,9 @@ resource "azurerm_network_security_group" "siem" {
       protocol                   = "Tcp"
       source_port_range          = "*"
       destination_port_range     = "443"
-      source_address_prefixes    = tolist(security_rule.value)
+      source_address_prefix      = var.firewall_private_ip
       destination_address_prefix = "*"
-      description                = "El NSG duplica la allowlist HTTPS del DNAT; sin CIDR el Dashboard queda cerrado."
+      description                = "El Firewall SNATea el flujo DNAT; el backend solo acepta su IP privada. La allowlist del cliente se evalúa en la regla DNAT."
     }
   }
 

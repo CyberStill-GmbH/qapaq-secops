@@ -2,6 +2,10 @@ variable "resource_group_name" { type = string }
 variable "location" { type = string }
 variable "name_base" { type = string }
 variable "firewall_subnet_id" { type = string }
+variable "log_analytics_workspace_id" {
+  description = "Workspace de Azure Monitor que recibe los logs NAT estructurados del Firewall."
+  type        = string
+}
 variable "source_cidrs" {
   description = "Private workload subnets allowed to use the explicitly listed HTTPS destinations."
   type        = set(string)
