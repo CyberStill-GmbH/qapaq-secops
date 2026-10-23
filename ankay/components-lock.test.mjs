@@ -289,6 +289,9 @@ test('workflow parameter examples have a runtime keyword mapping and an OpenSear
   assert.match(smoke, /parameters\.properties\.example\.type == "keyword"/);
   assert.match(smoke, /api\/v1\/health\?force=true/);
   assert.match(smoke, /jq -e '\.success == true'/);
+  assert.match(smoke, /--write-out '%\{http_code\}'/);
+  assert.ok(smoke.indexOf('/api/v1/health?force=true') < smoke.indexOf('workflow-000001/_mapping'));
+  assert.ok(smoke.indexOf('workflow-000001/_mapping') < smoke.indexOf("jq -e '.success == true' \"$RUNNER_TEMP/ankay-backend-health.json\""));
   assert.match(compose, /127\.0\.0\.1:19200:9200/);
   assert.doesNotMatch(compose, /docker\.sock/);
 });

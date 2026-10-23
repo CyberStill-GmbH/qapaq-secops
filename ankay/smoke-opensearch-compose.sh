@@ -51,16 +51,6 @@ docker compose -f "$compose_file" up --detach backend
 # the first-user endpoint. This health route does not require an organization.
 curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-all-errors --retry-delay 2 \
   http://127.0.0.1:15001/api/v1/_ah/health --output /dev/null
-# The pinned shared overlay maps Shuffle parameter examples explicitly as strings.
-# Verify the actual initialized workflow index before registration creates data.
-curl --fail --silent --show-error --retry 30 --retry-connrefused --retry-all-errors --retry-delay 2 \
-  --cacert "$ca_file" --resolve node-0.example.com:19200:127.0.0.1 \
-  --user "admin:$smoke_password" \
-  https://node-0.example.com:19200/workflow-000001/_mapping \
-  | jq -e 'to_entries | length == 1 and .[0].value.mappings.properties.actions.properties.parameters.properties.example.type == "keyword"' >/dev/null || {
-    echo 'El índice workflow no aplicó el mapping keyword para actions.parameters.example.' >&2
-    exit 1
-  }
 # Shuffle's supported first-user registration bootstraps the initial admin,
 # default organization, environment, and API key in a clean OpenSearch store.
 # These credentials and the created indexes are confined to this disposable smoke.
@@ -75,11 +65,24 @@ jq -e '.success == true' "$bootstrap_response" >/dev/null || {
   exit 1
 }
 
-curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-all-errors --retry-delay 2 \
+health_status="$(curl --silent --show-error --retry 90 --retry-connrefused --retry-all-errors --retry-delay 2 \
   http://127.0.0.1:15001/api/v1/health?force=true \
-  --output "$RUNNER_TEMP/ankay-backend-health.json"
-jq -e '.success == true' "$RUNNER_TEMP/ankay-backend-health.json" >/dev/null || {
+  --output "$RUNNER_TEMP/ankay-backend-health.json" --write-out '%{http_code}')"
+
+# Full health initializes Shuffle's default indexes in a clean store. Inspect
+# the mapping only after that supported bootstrap path has run.
+curl --fail --silent --show-error --retry 30 --retry-connrefused --retry-all-errors --retry-delay 2 \
+  --cacert "$ca_file" --resolve node-0.example.com:19200:127.0.0.1 \
+  --user "admin:$smoke_password" \
+  https://node-0.example.com:19200/workflow-000001/_mapping \
+  | jq -e 'to_entries | length == 1 and .[0].value.mappings.properties.actions.properties.parameters.properties.example.type == "keyword"' >/dev/null || {
+    echo 'El índice workflow no aplicó el mapping keyword para actions.parameters.example.' >&2
+    exit 1
+  }
+
+jq -e '.success == true' "$RUNNER_TEMP/ankay-backend-health.json" >/dev/null && [[ "$health_status" == 200 ]] || {
   echo 'Shuffle API health no devolvió success=true contra OpenSearch candidato.' >&2
+  echo "HTTP status: $health_status" >&2
   cat "$RUNNER_TEMP/ankay-backend-health.json" >&2
   docker compose -f "$compose_file" logs --no-color backend opensearch >&2
   exit 1
