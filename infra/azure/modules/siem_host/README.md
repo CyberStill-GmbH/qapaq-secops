@@ -7,10 +7,17 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 ## Controles incluidos
 
 - VM Ubuntu 24.04 con versión exacta requerida, vTPM, Secure Boot y cifrado de host.
-- Sin dirección IP pública. Sin regla SSH, Manager API ni Indexer en el NSG.
+- Sin dirección IP pública. Un Azure Standard Load Balancer interno recibe tráfico del DNAT del Azure Firewall; no hay regla SSH, Manager API ni Indexer en el NSG.
 - Subnet y NSG dedicados dentro del VNet existente, con `default_outbound_access_enabled = false`.
-  Al habilitar `siem_host`, el root crea Azure Firewall Standard, policy y public IP de salida; la
-  UDR fuerza `0.0.0.0/0` hacia ese firewall. No depende de un firewall preexistente.
+  Al habilitar `siem_host`, el root crea Azure Firewall Standard, policy, IP pública estable y DNAT
+  hacia un Load Balancer interno. La UDR fuerza `0.0.0.0/0` hacia ese firewall; no depende de un
+  firewall de AWS ni de uno preexistente. El DNAT HTTPS evalúa la allowlist original de CIDR.
+- El puerto 80 público solo acepta el DNAT del Firewall para ACME HTTP-01 y redirección a HTTPS.
+  El puerto 443 solo se enruta desde `dashboard_ingress_cidrs`; sin CIDR, el dashboard queda cerrado.
+  El Firewall SNATea el DNAT a su IP privada, así que el NSG solo permite 80/443 desde esa IP. El TLS
+  termina en el edge Nginx QAPAQ de la VM, no en el Load Balancer. Nginx ve la IP privada del Firewall
+  como peer; la IP original se audita en logs NAT del Firewall. Los agentes continúan usando sus CIDR
+  privados aprobados en 1514/1515.
 - Salida explícita: DNS al resolver de Azure, IMDS para Managed Identity y WireServer/VM Agent en TCP/80 y TCP/32526,
   TCP/443 a la subnet exacta de Private Endpoints,
   TCP/5432 a la subnet exacta de PostgreSQL, y TCP/443 al destino `Internet` a través de la UDR.
@@ -131,7 +138,8 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   Endpoints (Blob/Key Vault) y PostgreSQL. No uses el CIDR completo de la VNet como sustituto. No hay
   fallback a Internet directo cuando faltan o no responden esos servicios.
 
-- No copia ni elimina datos de AWS, no migra secretos, no crea DNS ni un certificado TLS.
+- No copia ni elimina datos de AWS, no migra secretos, no crea DNS ni un certificado TLS. El output
+  `siem_firewall_public_ip` entrega el destino estable para revisar antes del corte `app.jappi.net.pe`.
 - HTTPS queda denegado por defecto. Al indicar `dashboard_ingress_cidrs`, el operador debe haber
   verificado que el bundle configura el edge QAPAQ con TLS y `auth_request`; el módulo no puede
   certificar esa condición desde Terraform.
@@ -157,8 +165,8 @@ debe verificar:
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
 3. CIDR de Dashboard y agentes son privados/aprobados y no incluyen `0.0.0.0/0`.
 4. SKU de VM, disco y disponibilidad de Secure Boot/encryption-at-host están confirmados en la región.
-5. El plan crea Firewall Standard, policy, IP pública de salida, subnet dedicada y UDR; revisar
-   costo, fuentes y destinos permitidos antes del apply.
+5. El plan crea Firewall Standard con DNAT, IP pública de entrada/salida, Load Balancer interno,
+   subnet dedicada y UDR; revisar costo, CIDR HTTPS, puerto HTTP ACME y destinos permitidos antes del apply.
 6. Los CIDR exactos de Private Endpoints y PostgreSQL están reservados y se verificó conectividad
    privada desde la subnet SIEM.
 7. La reserva de IP/rutas y el modo de acceso privado están definidos fuera de este módulo; no hay DNS.

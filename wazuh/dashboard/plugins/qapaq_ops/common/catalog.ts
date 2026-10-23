@@ -104,6 +104,8 @@ export const API_ERROR_MESSAGE: Record<ApiErrorCode, string> = {
   AUTH_FAILED: 'No fue posible iniciar sesión con esas credenciales.',
   SESSION_EXPIRED: 'Su sesión terminó. Vuelva a iniciar sesión.',
   PASSKEY_REQUIRED: 'Fuera de la red QAPAQ se requiere una passkey registrada.',
+  STEP_UP_REQUIRED:
+    'Esta acción requiere una verificación reciente de identidad que no está disponible.',
   NETWORK_NOT_ALLOWED: 'No fue posible verificar el origen de la conexión.',
   REQUEST_NOT_VERIFIED:
     'No fue posible verificar la solicitud. Recargue la página e intente de nuevo.',

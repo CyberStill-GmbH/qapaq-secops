@@ -11,8 +11,9 @@ locals {
     0,
     24,
   )
-  key_vault_name = "kv-${substr(local.name_base, 0, 12)}-${local.suffix}"
-  acr_name       = substr("${substr(local.name_base, 0, 44)}${local.suffix}", 0, 50)
+  key_vault_name          = "kv-${substr(local.name_base, 0, 12)}-${local.suffix}"
+  acr_name                = substr("${substr(local.name_base, 0, 44)}${local.suffix}", 0, 50)
+  siem_ingress_private_ip = var.siem_host == null ? null : cidrhost(var.siem_host.address_prefix, 10)
 }
 
 data "azurerm_resource_group" "this" {
@@ -90,15 +91,19 @@ module "egress_firewall" {
   count  = var.siem_host == null ? 0 : 1
   source = "./modules/egress_firewall"
 
-  resource_group_name = data.azurerm_resource_group.this.name
-  location            = data.azurerm_resource_group.this.location
-  name_base           = local.name_base
-  firewall_subnet_id  = module.network.firewall_subnet_id
+  resource_group_name        = data.azurerm_resource_group.this.name
+  location                   = data.azurerm_resource_group.this.location
+  name_base                  = local.name_base
+  firewall_subnet_id         = module.network.firewall_subnet_id
+  log_analytics_workspace_id = module.observability.log_analytics_workspace_id
   source_cidrs = toset(concat(
     [var.siem_host.address_prefix],
     var.ankay_host == null ? [] : [cidrsubnet(var.address_space, 11, 1)],
   ))
-  tags = var.tags
+  ingress_lb_private_ip   = local.siem_ingress_private_ip
+  dashboard_ingress_cidrs = var.siem_host == null ? toset([]) : var.siem_host.dashboard_ingress_cidrs
+  ingress_http_enabled    = var.siem_host != null
+  tags                    = var.tags
 
   depends_on = [module.network]
 }
@@ -139,11 +144,13 @@ module "siem_host" {
   private_endpoint_subnet_cidr = cidrsubnet(var.address_space, 12, 257)
   postgres_subnet_cidr         = cidrsubnet(var.address_space, 12, 256)
   address_prefix               = try(var.siem_host.address_prefix, "")
+  ingress_lb_private_ip        = try(local.siem_ingress_private_ip, "")
   vm_size                      = try(var.siem_host.vm_size, "")
   admin_ssh_public_key         = try(var.siem_host.admin_ssh_public_key, "")
   ubuntu_image_version         = try(var.siem_host.ubuntu_image_version, "")
   data_disk_size_gb            = try(var.siem_host.data_disk_size_gb, 128)
   dashboard_ingress_cidrs      = try(var.siem_host.dashboard_ingress_cidrs, toset([]))
+  ingress_http_enabled         = true
   agent_ingress_cidrs          = try(var.siem_host.agent_ingress_cidrs, toset([]))
   key_vault_id                 = module.data.key_vault_id
   key_vault_uri                = module.data.key_vault_uri

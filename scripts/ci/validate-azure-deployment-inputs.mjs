@@ -168,6 +168,8 @@ function validateSiem(siem) {
     fail('siem_host.office365 api_type or enable_dlp is invalid.');
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET'))
     fail('siem_host.core_secret_names must reference the Entra client secret by Key Vault name.');
+  if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_TEAMS_WORKFLOW_URL'))
+    fail('siem_host.core_secret_names must reference the Teams Workflow URL by Key Vault name.');
   if (Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET_REF'))
     fail('siem_host.core_secret_names must contain names only, not secret reference pseudo-keys.');
   stringMap(
@@ -177,6 +179,10 @@ function validateSiem(siem) {
     /^[^\r\n]*$/u,
   );
   for (const key of Object.keys(siem.core_environment)) {
+    if (key === 'QAPAQ_TEAMS_WORKFLOW_URL')
+      fail(
+        'siem_host.core_environment may not contain the signed Teams Workflow URL; map its Key Vault secret name in core_secret_names.',
+      );
     if (key !== 'QAPAQ_ENTRA_CLIENT_SECRET_REF' && SENSITIVE_ENV_NAME.test(key))
       fail(
         'siem_host.core_environment may not contain values under sensitive environment-variable names.',

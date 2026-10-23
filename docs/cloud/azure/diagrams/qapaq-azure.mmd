@@ -1,5 +1,7 @@
 flowchart LR
-  Analysts[Analistas SOC] -->|HTTPS, sesión QAPAQ| Edge
+  Analysts[Analistas SOC] -->|HTTPS, DNS app.jappi.net.pe| Firewall
+  Firewall -->|DNAT 443 allowlist · 80 ACME| SIEM_LB[Azure Standard Load Balancer<br/>frontend privado · sin IP en VM]
+  SIEM_LB -->|TCP 443 / health probe| Edge
 
   subgraph SIEM[VM SIEM Azure · privada salvo edge/puertos aprobados]
     Edge[Nginx edge QAPAQ]
@@ -22,7 +24,7 @@ flowchart LR
   Core -->|Managed Identity · pendiente| KV[Key Vault privado]
   ACR[ACR · artefactos por digest] -.->|AcrPull · instalación pendiente| SIEM
 
-  SIEM -->|0.0.0.0/0 · UDR de egreso| Firewall[Azure Firewall Standard<br/>egress solamente · condicional a siem_host]
+  SIEM -->|0.0.0.0/0 · UDR de egreso| Firewall[Azure Firewall Standard<br/>egress allowlist + DNAT de entrada]
   AnkayVM -->|0.0.0.0/0 · UDR de egreso| Firewall
   Firewall -->|allowlist FQDN HTTPS| Internet[(Internet APIs autorizadas<br/>Ubuntu · Entra · Graph · VirusTotal)]
 
@@ -46,4 +48,4 @@ flowchart LR
   classDef pending fill:#fff2cc,stroke:#c58b00,color:#342600,stroke-dasharray: 5 4;
   classDef target fill:#e2f0d9,stroke:#548235,color:#18320d;
   class Edge,PG,KV,ACR target;
-  class Dashboard,Core,KrakenD,Manager,Indexer,Valkey,Ankay,ShuffleAPI,Orborus,ShuffleOS,M365,Sophos,Cato,Teams,Platform,Firewall,Internet pending;
+  class Dashboard,Core,KrakenD,Manager,Indexer,Valkey,Ankay,ShuffleAPI,Orborus,ShuffleOS,M365,Sophos,Cato,Teams,Platform,SIEM_LB,Firewall,Internet pending;

@@ -331,6 +331,81 @@
       ]
     },
     {
+      "endpoint": "/api/admin/users/{oid}/role-grant",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["Accept", "Content-Type", "Cookie", "Origin", "X-Correlation-Id", "X-Csrf-Token"],
+      "input_query_strings": [],
+      "backend": [{
+        "host": ["{{ env "QAPAQ_API_UPSTREAM" }}"],
+        "url_pattern": "/api/admin/users/{oid}/role-grant",
+        "encoding": "no-op",
+        "method": "GET",
+        "extra_config": {"qos/circuit-breaker": {"interval": 10, "timeout": 5, "max_errors": 3}}
+      }]
+    },
+    {
+      "endpoint": "/api/admin/users/{oid}/role-requests",
+      "method": "POST",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["Accept", "Content-Type", "Cookie", "Origin", "X-Correlation-Id", "X-Csrf-Token"],
+      "input_query_strings": [],
+      "backend": [{
+        "host": ["{{ env "QAPAQ_API_UPSTREAM" }}"],
+        "url_pattern": "/api/admin/users/{oid}/role-requests",
+        "encoding": "no-op",
+        "method": "POST",
+        "extra_config": {"qos/circuit-breaker": {"interval": 10, "timeout": 5, "max_errors": 3}}
+      }]
+    },
+    {
+      "endpoint": "/api/admin/role-requests",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["Accept", "Content-Type", "Cookie", "Origin", "X-Correlation-Id", "X-Csrf-Token"],
+      "input_query_strings": ["status", "pageSize", "cursor"],
+      "backend": [{
+        "host": ["{{ env "QAPAQ_API_UPSTREAM" }}"],
+        "url_pattern": "/api/admin/role-requests",
+        "encoding": "no-op",
+        "method": "GET",
+        "extra_config": {"qos/circuit-breaker": {"interval": 10, "timeout": 5, "max_errors": 3}}
+      }]
+    },
+    {
+      "endpoint": "/api/admin/role-requests/{requestId}/approve",
+      "method": "POST",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["Accept", "Content-Type", "Cookie", "Origin", "X-Correlation-Id", "X-Csrf-Token"],
+      "input_query_strings": [],
+      "backend": [{
+        "host": ["{{ env "QAPAQ_API_UPSTREAM" }}"],
+        "url_pattern": "/api/admin/role-requests/{requestId}/approve",
+        "encoding": "no-op",
+        "method": "POST",
+        "extra_config": {"qos/circuit-breaker": {"interval": 10, "timeout": 5, "max_errors": 3}}
+      }]
+    },
+    {
+      "endpoint": "/api/admin/role-requests/{requestId}/reject",
+      "method": "POST",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["Accept", "Content-Type", "Cookie", "Origin", "X-Correlation-Id", "X-Csrf-Token"],
+      "input_query_strings": [],
+      "backend": [{
+        "host": ["{{ env "QAPAQ_API_UPSTREAM" }}"],
+        "url_pattern": "/api/admin/role-requests/{requestId}/reject",
+        "encoding": "no-op",
+        "method": "POST",
+        "extra_config": {"qos/circuit-breaker": {"interval": 10, "timeout": 5, "max_errors": 3}}
+      }]
+    },
+    {
       "endpoint": "/api/auth/start",
       "method": "GET",
       "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",

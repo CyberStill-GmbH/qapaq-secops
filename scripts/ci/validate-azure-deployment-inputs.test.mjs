@@ -28,7 +28,10 @@ function siemHost(overrides = {}) {
     data_disk_size_gb: 128,
     dashboard_ingress_cidrs: [],
     agent_ingress_cidrs: ['10.80.0.0/16'],
-    core_secret_names: { QAPAQ_ENTRA_CLIENT_SECRET: 'entra-client-secret' },
+    core_secret_names: {
+      QAPAQ_ENTRA_CLIENT_SECRET: 'entra-client-secret',
+      QAPAQ_TEAMS_WORKFLOW_URL: 'teams-workflow-url',
+    },
     wazuh_secret_names: {
       'dashboard-password': 'wazuh-dashboard-password',
       'office365-client-secret': 'office365-client-secret',
@@ -108,6 +111,27 @@ test('requires a Key Vault-backed Office 365 client secret and valid non-secret 
   assert.throws(
     () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalidClient) })),
     /must be GUIDs/u,
+  );
+});
+
+test('requires the signed Teams Workflow URL from Key Vault and rejects it in plain environment config', () => {
+  const missingTeamsSecret = siemHost();
+  delete missingTeamsSecret.core_secret_names.QAPAQ_TEAMS_WORKFLOW_URL;
+  assert.throws(
+    () =>
+      validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(missingTeamsSecret) })),
+    /must reference the Teams Workflow URL by Key Vault name/u,
+  );
+
+  const plainTeamsUrl = siemHost({
+    core_environment: {
+      ...siemHost().core_environment,
+      QAPAQ_TEAMS_WORKFLOW_URL: 'https://example.logic.azure.com/workflow/signed-token',
+    },
+  });
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(plainTeamsUrl) })),
+    /may not contain the signed Teams Workflow URL/u,
   );
 });
 
