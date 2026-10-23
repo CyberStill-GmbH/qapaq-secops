@@ -5,13 +5,17 @@
 **Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
 **Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado. Las cifras indicadas son estimaciones de lista, no una cotización del tenant.
 
-**Propuesta de ingreso en esta rama:** el SIEM conserva una VM privada detrás de un
+**Ingreso ya integrado en `main` (PR #131) y telemetría en revisión en PR #132:** el SIEM conserva una VM privada detrás de un
 Azure Standard Load Balancer interno. La IP pública estática del Azure Firewall
 recibe DNAT TCP/80 solo para ACME/redirección y TCP/443 desde CIDR aprobados; luego
 envía a la IP privada del Load Balancer y al edge QAPAQ. El TLS termina en Nginx.
 Esto elimina la dependencia de AWS y evita asignar IP pública a la VM. No habilita
 el runtime por sí solo: faltan el perfil `siem_host`, CIDR de usuarios, bootstrap del
-edge/certificado y un apply revisado. Un backend único tampoco representa HA.
+edge/certificado y un apply revisado. El Firewall SNATea DNAT; el NSG acepta esos flujos
+solo desde la IP privada del Firewall y la lista original de clientes se aplica en el DNAT.
+PR #132 agrega los eventos `AZFWNatRule` a Log Analytics en tabla resource-specific para
+auditar la IP de origen, separados de los índices Wazuh; su ingesta añade costo. Un backend
+único tampoco representa HA.
 
 ## Snapshot anterior de Azure — 2026-10-22 (no inventario actual)
 

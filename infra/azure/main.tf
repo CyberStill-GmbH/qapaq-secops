@@ -91,10 +91,11 @@ module "egress_firewall" {
   count  = var.siem_host == null ? 0 : 1
   source = "./modules/egress_firewall"
 
-  resource_group_name = data.azurerm_resource_group.this.name
-  location            = data.azurerm_resource_group.this.location
-  name_base           = local.name_base
-  firewall_subnet_id  = module.network.firewall_subnet_id
+  resource_group_name        = data.azurerm_resource_group.this.name
+  location                   = data.azurerm_resource_group.this.location
+  name_base                  = local.name_base
+  firewall_subnet_id         = module.network.firewall_subnet_id
+  log_analytics_workspace_id = module.observability.log_analytics_workspace_id
   source_cidrs = toset(concat(
     [var.siem_host.address_prefix],
     var.ankay_host == null ? [] : [cidrsubnet(var.address_space, 11, 1)],

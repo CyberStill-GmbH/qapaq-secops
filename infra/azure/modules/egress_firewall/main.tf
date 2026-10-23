@@ -99,3 +99,17 @@ resource "azurerm_firewall" "this" {
     public_ip_address_id = azurerm_public_ip.firewall.id
   }
 }
+
+# DNAT SNATea al peer del backend; conservar la IP original de analistas requiere
+# consultar los eventos NAT del Firewall. Resource-specific evita mezclarlos con
+# índices de alertas/archivos de Wazuh.
+resource "azurerm_monitor_diagnostic_setting" "nat_ingress" {
+  name                           = "diag-${var.name_base}-firewall-nat"
+  target_resource_id             = azurerm_firewall.this.id
+  log_analytics_workspace_id     = var.log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  enabled_log {
+    category = "AZFWNatRule"
+  }
+}

@@ -4,14 +4,15 @@ run "standard_egress_policy_is_restrictive" {
   command = plan
 
   variables {
-    resource_group_name     = "rg-qapaq-test"
-    location                = "chilecentral"
-    name_base               = "qapaqsecops"
-    firewall_subnet_id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Network/virtualNetworks/vnet-qapaq/subnets/AzureFirewallSubnet"
-    source_cidrs            = ["10.80.16.0/27"]
-    ingress_lb_private_ip   = "10.80.16.10"
-    dashboard_ingress_cidrs = ["198.51.100.25/32"]
-    tags                    = { project = "qapaq-secops", environment = "test" }
+    resource_group_name        = "rg-qapaq-test"
+    location                   = "chilecentral"
+    name_base                  = "qapaqsecops"
+    firewall_subnet_id         = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Network/virtualNetworks/vnet-qapaq/subnets/AzureFirewallSubnet"
+    log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.OperationalInsights/workspaces/law-qapaq"
+    source_cidrs               = ["10.80.16.0/27"]
+    ingress_lb_private_ip      = "10.80.16.10"
+    dashboard_ingress_cidrs    = ["198.51.100.25/32"]
+    tags                       = { project = "qapaq-secops", environment = "test" }
   }
 
   assert {
@@ -36,5 +37,10 @@ run "standard_egress_policy_is_restrictive" {
       contains(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule[*].destination_ports[0], "443")
     )
     error_message = "Public SIEM ingress must DNAT only HTTP ACME and approved-source HTTPS to the internal load balancer."
+  }
+
+  assert {
+    condition     = contains([for log in azurerm_monitor_diagnostic_setting.nat_ingress.enabled_log : log.category], "AZFWNatRule") && azurerm_monitor_diagnostic_setting.nat_ingress.log_analytics_destination_type == "Dedicated"
+    error_message = "Azure Firewall DNAT logs must be exported to a dedicated resource-specific Log Analytics table for client IP attribution."
   }
 }
