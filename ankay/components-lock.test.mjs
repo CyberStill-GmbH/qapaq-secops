@@ -195,6 +195,7 @@ test('backend Docker SDK migration uses pinned Moby overlays and corresponding s
     buildScript,
     /sourceCommits:\{shuffle:\$shuffle_sha, shuffleShared:\$shuffle_shared_sha/,
   );
+  assert.match(buildScript, /--arg shuffle_shared_sha "\$shuffle_shared_sha"/);
   assert.match(
     dockerfile,
     /COPY backend\/go-app\/moby-shuffle-shared\/ \/app\/moby-shuffle-shared\//,

@@ -157,6 +157,7 @@ opensearch_archive_sha="$(sha256sum "$out_dir/opensearch-image.tar.gz" | awk '{p
 source_archive_sha="$(sha256sum "$out_dir/shuffle-corresponding-source.tar.gz" | awk '{print $1}')"
 jq -n \
   --arg shuffle_sha "$shuffle_sha" --arg app_sdk_sha "$app_sdk_sha" \
+  --arg shuffle_shared_sha "$shuffle_shared_sha" \
   --arg backend_id "$backend_id" --arg worker_id "$worker_id" \
   --arg backend_archive_sha "$backend_archive_sha" --arg worker_archive_sha "$worker_archive_sha" \
   --arg opensearch_archive_sha "$opensearch_archive_sha" --arg source_archive_sha "$source_archive_sha" \
