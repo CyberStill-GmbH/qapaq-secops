@@ -38,7 +38,7 @@ paths = [
   '''(^|/)ankay/runtime/shuffle-shared-moby-v29\.patch$''',
 ]
 regexTarget = "match"
-regexes = ['''^[A-Za-z0-9+/]{43}=$''']
+regexes = ['''^((.+)?h1:)?[A-Za-z0-9+/]{43}=$''']
 
 [[allowlists]]
 description = "Public Go module SHA-256 sums embedded in the Moby v29 worker migration patch; scoped to its commit and dependency patch file."
@@ -47,4 +47,4 @@ targetRules = ["generic-api-key"]
 commits = ["48529ce74ed2fe5c6492b281252cb33fbe10bb80"]
 paths = ['''(^|/)ankay/runtime/shuffle-worker-moby-v29\.patch$''']
 regexTarget = "match"
-regexes = ['''^[A-Za-z0-9+/]{43}=$''']
+regexes = ['''^((.+)?h1:)?[A-Za-z0-9+/]{43}=$''']
