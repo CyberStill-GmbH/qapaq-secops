@@ -79,7 +79,10 @@ test('runtime components use a fixed non-root identity with only backend generat
     assert.doesNotMatch(dockerfile, /chown\s+-R/);
   }
 
-  assert.match(backend, /mkdir -p \/app\/generated\s+\\\r?\n\s+&& chown 10001:10001 \/app\/generated/);
+  assert.match(
+    backend,
+    /mkdir -p \/app\/generated\s+\\\r?\n\s+&& chown 10001:10001 \/app\/generated/,
+  );
   assert.doesNotMatch(worker, /chown|chmod/);
 });
 
@@ -188,8 +191,14 @@ test('backend Docker SDK migration uses pinned Moby overlays and corresponding s
   assert.match(buildScript, /apply --check "\$shuffle_shared_moby_patch"/);
   assert.match(buildScript, /git -C "\$work_dir\/shuffle-shared" archive "\$shuffle_shared_sha"/);
   assert.match(buildScript, /:\(exclude\)app_upload/);
-  assert.match(buildScript, /sourceCommits:\{shuffle:\$shuffle_sha, shuffleShared:\$shuffle_shared_sha/);
-  assert.match(dockerfile, /COPY backend\/go-app\/moby-shuffle-shared\/ \/app\/moby-shuffle-shared\//);
+  assert.match(
+    buildScript,
+    /sourceCommits:\{shuffle:\$shuffle_sha, shuffleShared:\$shuffle_shared_sha/,
+  );
+  assert.match(
+    dockerfile,
+    /COPY backend\/go-app\/moby-shuffle-shared\/ \/app\/moby-shuffle-shared\//,
+  );
   assert.match(backendPatch, /github\.com\/moby\/moby\/client/);
   assert.match(backendPatch, /ImageSave\(ctx, \[\]string\{tagFound\}\)/);
   assert.doesNotMatch(backendPatch, /\+\s*"github\.com\/fsouza\/go-dockerclient"/);
