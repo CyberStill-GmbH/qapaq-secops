@@ -43,13 +43,26 @@ class InstallerOutputTests(unittest.TestCase):
                 with patch.object(BOOTSTRAP, "installer_required", return_value=True):
                     with contextlib.redirect_stdout(captured_output):
                         with self.assertRaises(SystemExit) as failure:
-                            BOOTSTRAP.install_release(release)
+                            BOOTSTRAP.install_release(
+                                release,
+                                {
+                                    "office365": {
+                                        "tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
+                                        "client_id": "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998",
+                                        "api_type": "commercial",
+                                        "enable_dlp": False,
+                                    }
+                                },
+                            )
 
             self.assertEqual(failure.exception.code, 1)
             self.assertNotIn("CANARY_SECRET_FROM_INSTALLER", captured_output.getvalue())
             self.assertIn("código 17", captured_output.getvalue())
             self.assertIs(run_installer.call_args.kwargs["stdout"], BOOTSTRAP.subprocess.DEVNULL)
             self.assertIs(run_installer.call_args.kwargs["stderr"], BOOTSTRAP.subprocess.DEVNULL)
+            self.assertEqual(run_installer.call_args.kwargs["env"]["QAPAQ_O365_TENANT_ID"], "45f2f938-dbe3-4a3e-8a54-930893f94ef8")
+            self.assertEqual(run_installer.call_args.kwargs["env"]["QAPAQ_O365_CLIENT_ID"], "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998")
+            self.assertNotIn("QAPAQ_O365_CLIENT_SECRET", run_installer.call_args.kwargs["env"])
 
 
 class InstallerIdempotencyTests(unittest.TestCase):

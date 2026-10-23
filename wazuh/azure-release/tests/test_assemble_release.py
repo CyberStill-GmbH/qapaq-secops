@@ -32,6 +32,9 @@ class AssembleReleaseTests(unittest.TestCase):
             self.inputs[name] = path
         self.inputs["core"] = self.root / "qapaq-core-0123456789ab.tar.gz"
         self.inputs["core"].write_bytes(b"fake archive input for contract assembly")
+        self.inputs["installer"].write_text(
+            'QAPAQ_O365_SECRET_SOURCE="file:$SECRETS/office365-client-secret"\n', encoding="utf-8"
+        )
         (self.root / "output").mkdir()
         self.args = Namespace(
             assistant_dir=str(self.assistant), output_dir=str(self.root / "output"),
@@ -74,6 +77,15 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertEqual(manifest["qapaqCoreSourceCommit"], "0123456789ab")
         self.assertEqual(manifest["components"]["openSearchDashboards"], "2.19.6")
         self.assertIn("wazuh/azure-release/normalize_ubuntu_apt_sources.py", manifest["files"])
+        self.assertIn("wazuh/office365/apply-office365.sh", manifest["files"])
+        self.assertIn("wazuh/office365/ossec-office365.xml.tmpl", manifest["files"])
+        self.assertIn("wazuh/office365/rules/qapaq_office365_rules.xml", manifest["files"])
+        office365_script = (root / "wazuh" / "office365" / "apply-office365.sh").read_text().lower()
+        self.assertIn("file:*", office365_script)
+        self.assertIn("aws-secretsmanager:*", office365_script)
+        azure_installer = (root / "install.sh").read_text().lower()
+        self.assertIn('qapaq_o365_secret_source="file:$secrets/office365-client-secret"', azure_installer)
+        self.assertNotIn("aws-secretsmanager:", azure_installer)
         self.assertEqual(set(("managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive")) - set(manifest["artifacts"]), set())
         for filename, digest in manifest["files"].items():
             self.assertEqual(assemble_release.sha256(root / filename), digest)

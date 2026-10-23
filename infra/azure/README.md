@@ -38,10 +38,10 @@ El diseño objetivo se traduce a Azure así:
   OpenSearch y persistencia. `/ankay/*` atraviesa el edge QAPAQ con la sesión y
   autorización existentes.
 
-Estos son objetivos de diseño, no componentes desplegados por este root. El código
-actual de `qapaq-core`/Office 365 usa AWS SSM, Secrets Manager y la CA de RDS; su
-instalación requiere adaptación Azure con Managed Identity/Key Vault y PostgreSQL
-Azure. El worker actual es lifecycle-only y no consume BullMQ. No hay evidencia de
+Estos son objetivos de diseño, no componentes desplegados por este root. El bootstrap Azure del SIEM
+ya puede materializar el secreto de Office 365 desde Key Vault y aplicar sus reglas; aún no acredita
+lectura real ni indexación de eventos en el tenant. `qapaq-core` conserva dependencias AWS que deben
+resolverse por separado; el worker actual es lifecycle-only y no consume BullMQ. No hay evidencia de
 conectores Sophos o Cato operativos; Teams y M365 deben probarse en los servicios
 reales antes de declarar cobertura.
 

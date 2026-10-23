@@ -105,6 +105,7 @@ function validateSiem(siem) {
     'core_secret_names',
     'wazuh_secret_names',
     'core_environment',
+    'office365',
     'bootstrap_bundle_blob_url',
     'bootstrap_bundle_sha256',
   ];
@@ -146,6 +147,15 @@ function validateSiem(siem) {
   );
   if (Object.keys(siem.wazuh_secret_names).length === 0)
     fail('siem_host.wazuh_secret_names must reference Wazuh bootstrap secrets by Key Vault name.');
+  if (!Object.hasOwn(siem.wazuh_secret_names, 'office365-client-secret'))
+    fail('siem_host.wazuh_secret_names must map office365-client-secret to a pre-created Key Vault secret.');
+  object(siem.office365, 'siem_host.office365');
+  exactKeys(siem.office365, ['tenant_id', 'client_id', 'api_type', 'enable_dlp'], [], 'siem_host.office365');
+  const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+  if (!guidPattern.test(siem.office365.tenant_id) || !guidPattern.test(siem.office365.client_id))
+    fail('siem_host.office365 tenant_id and client_id must be GUIDs.');
+  if (!['commercial', 'gcc', 'gcc-high'].includes(siem.office365.api_type) || typeof siem.office365.enable_dlp !== 'boolean')
+    fail('siem_host.office365 api_type or enable_dlp is invalid.');
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET'))
     fail('siem_host.core_secret_names must reference the Entra client secret by Key Vault name.');
   if (Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET_REF'))

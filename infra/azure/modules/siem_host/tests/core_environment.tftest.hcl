@@ -102,3 +102,18 @@ run "rejects_unverified_vm_size" {
 
   expect_failures = [var.vm_size]
 }
+
+run "rejects_invalid_office365_ids" {
+  command = plan
+
+  variables {
+    office365 = {
+      tenant_id  = "not-a-guid"
+      client_id  = "00000000-0000-4000-8000-000000000002"
+      api_type   = "commercial"
+      enable_dlp = false
+    }
+  }
+
+  expect_failures = [var.office365]
+}

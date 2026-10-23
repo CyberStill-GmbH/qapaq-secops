@@ -96,10 +96,37 @@ install -d -m 0700 /srv/qapaq-siem/secrets
 install -m 0600 "$work/wazuh-install-files.tar" /srv/qapaq-siem/secrets/wazuh-install-files.tar
 install -m 0600 "$work/wazuh-install-files.tar" /root/wazuh-install-files.tar
 
+# Configure M365 from files that the Azure Managed Identity bootstrap materialized
+# from Key Vault. The secret value never enters Terraform state, argv, or CI output.
+[[ "${QAPAQ_O365_TENANT_ID:-}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] ||
+  fail 'falta QAPAQ_O365_TENANT_ID con un GUID válido'
+[[ "${QAPAQ_O365_CLIENT_ID:-}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] ||
+  fail 'falta QAPAQ_O365_CLIENT_ID con un GUID válido'
+[[ -s "$SECRETS/office365-client-secret" && ! -L "$SECRETS/office365-client-secret" ]] ||
+  fail 'falta el secreto M365 office365-client-secret materializado desde Key Vault'
+office365_env=(
+  QAPAQ_O365_TENANT_ID="$QAPAQ_O365_TENANT_ID"
+  QAPAQ_O365_CLIENT_ID="$QAPAQ_O365_CLIENT_ID"
+  QAPAQ_O365_API_TYPE="${QAPAQ_O365_API_TYPE:-commercial}"
+  QAPAQ_O365_ENABLE_DLP="${QAPAQ_O365_ENABLE_DLP:-false}"
+  QAPAQ_O365_SECRET_SOURCE="file:$SECRETS/office365-client-secret"
+)
+if [[ -s "$SECRETS/break-glass-identities" && ! -L "$SECRETS/break-glass-identities" ]]; then
+  office365_env+=(QAPAQ_BREAK_GLASS_SOURCE="file:$SECRETS/break-glass-identities")
+fi
+# Validate M365 settings and templates before activating QAPAQ Core. This avoids a
+# known bad tenant/app/template leaving Core activated on a host marked incomplete.
+env "${office365_env[@]}" QAPAQ_APPLY_MODE=render \
+  bash "$HERE/wazuh/office365/apply-office365.sh" >/dev/null 2>&1 ||
+  fail 'la validación previa de M365 falló; no se activó QAPAQ Core'
+
 # Install the Azure-targeted QAPAQ core with its own atomic activation and rollback.
 core_sha="$(sha256sum "$CORE_ARCHIVE" | awk '{print $1}')"
 bash "$HERE/wazuh/core/apply-core-azure.sh" "$CORE_ARCHIVE" "$core_sha" \
   >/dev/null 2>&1 || fail 'el instalador QAPAQ core falló; su rollback local quedó activo si había release anterior'
+
+env "${office365_env[@]}" bash "$HERE/wazuh/office365/apply-office365.sh" \
+  >/dev/null 2>&1 || fail 'la configuración M365 o la validación de reglas Wazuh falló; salida suprimida'
 
 for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard qapaq-core-api qapaq-core-worker; do
   systemctl is-active --quiet "$service" || fail "servicio requerido no está activo: $service"
@@ -127,4 +154,4 @@ curl --fail --silent --show-error --max-time 5 --cacert /etc/wazuh-indexer/certs
   -K "$work/indexer-admin.curl" https://127.0.0.1:9200/_cluster/health >/dev/null ||
   fail 'Wazuh Indexer no pasó la comprobación TLS de salud'
 
-info 'instalación base completa; no declara edge/DNS, MFA, M365, roles QAPAQ ni Ankay listos'
+info 'Wazuh QAPAQ, reglas M365 y qapaq-core instalados; edge/DNS, acceso/roles y Ankay requieren despliegue y smoke tests separados'

@@ -240,6 +240,24 @@ variable "core_environment" {
   }
 }
 
+variable "office365" {
+  description = "Configuración no secreta de Microsoft 365; client secret se lee desde el archivo que la Managed Identity materializa desde Key Vault."
+  type = object({
+    tenant_id  = string
+    client_id  = string
+    api_type   = string
+    enable_dlp = bool
+  })
+  validation {
+    condition = (
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.office365.tenant_id)) &&
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.office365.client_id)) &&
+      contains(["commercial", "gcc", "gcc-high"], var.office365.api_type)
+    )
+    error_message = "office365 requiere tenant/client GUID válidos y api_type commercial, gcc o gcc-high."
+  }
+}
+
 variable "container_registry_id" {
   description = "ID del ACR existente, limitado a AcrPull para la identidad de la VM."
   type        = string
