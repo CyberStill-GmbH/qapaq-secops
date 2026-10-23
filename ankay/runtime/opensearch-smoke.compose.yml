@@ -1,0 +1,46 @@
+services:
+  opensearch:
+    image: ${OPENSEARCH_IMAGE:?set OPENSEARCH_IMAGE}
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      node.store.allow_mmap: "false"
+    healthcheck:
+      test: [CMD-SHELL, "curl --fail --silent http://127.0.0.1:9200/ >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+    networks: [smoke]
+
+  memcached:
+    image: docker.io/library/memcached@sha256:aac456c35cd29635b5501fefac58a2e954752006c9d159fbf520dd785e09cbba
+    command: [memcached, -m, "64", -c, "256"]
+    networks: [smoke]
+
+  backend:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    environment:
+      BASE_URL: http://backend:5001
+      ENVIRONMENT_NAME: Ankay compatibility smoke
+      ORG_ID: ankay-opensearch-smoke
+      SHUFFLE_APP_HOTLOAD_FOLDER: /app/generated
+      SHUFFLE_ELASTIC: "true"
+      SHUFFLE_FILE_LOCATION: /app/generated
+      SHUFFLE_HEALTHCHECK_DISABLED: "true"
+      SHUFFLE_MEMCACHED: memcached:11211
+      SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "true"
+      SHUFFLE_OPENSEARCH_URL: http://opensearch:9200
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      memcached:
+        condition: service_started
+    ports:
+      - 127.0.0.1:15001:5001
+    networks: [smoke]
+
+networks:
+  smoke:
+    name: ${COMPOSE_PROJECT_NAME:?set COMPOSE_PROJECT_NAME}_smoke

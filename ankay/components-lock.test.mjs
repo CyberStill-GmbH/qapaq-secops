@@ -37,14 +37,14 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   for (const image of Object.values(lock.buildBases)) assert.match(image, /@sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.indexDigest, /^sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.amd64Digest, /^sha256:[0-9a-f]{64}$/);
-  assert.equal(lock.sources.opensearch.tag, '3.9.0');
+  assert.equal(lock.sources.opensearch.tag, '2.19.7');
   assert.equal(
     lock.sources.opensearch.indexDigest,
-    'sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c',
+    'sha256:1f81bb6a552637d6f551baeb8d8fad5ed969a0577374e76af14d1131ab750cd9',
   );
   assert.equal(
     lock.sources.opensearch.amd64Digest,
-    'sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84',
+    'sha256:7a1c2750965e0e29c71336f220666ec01c9c816050438b680bb7aedd6cabc377',
   );
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
   assert.equal(
@@ -75,6 +75,24 @@ test('Ankay CI scans the exact OpenSearch amd64 digest from the component lock',
     workflow,
     /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/,
   );
+});
+
+test('OpenSearch major-version candidate is tested with ephemeral Compose and Shuffle storage APIs', () => {
+  const compose = readFileSync(
+    new URL('./runtime/opensearch-smoke.compose.yml', import.meta.url),
+    'utf8',
+  );
+  const smoke = readFileSync(
+    new URL('./smoke-opensearch-compose.sh', import.meta.url),
+    'utf8',
+  );
+  assert.match(compose, /image: \$\{OPENSEARCH_IMAGE:\?set OPENSEARCH_IMAGE\}/);
+  assert.match(compose, /image: \$\{BACKEND_IMAGE:\?set BACKEND_IMAGE\}/);
+  assert.match(compose, /DISABLE_SECURITY_PLUGIN: "true"/);
+  assert.match(compose, /127\.0\.0\.1:15001:5001/);
+  assert.match(smoke, /\/api\/v1\/health\?force=true/);
+  assert.match(smoke, /TestOpensearchInit\|TestWorkflowStorageRoundTrip/);
+  assert.match(smoke, /down --volumes --remove-orphans/);
 });
 
 test('runtime Dockerfiles receive both pinned build bases before the first FROM', () => {

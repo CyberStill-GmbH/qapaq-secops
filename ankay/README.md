@@ -83,23 +83,21 @@ aislamiento de workers ni controles de red; **Ankay no queda listo para producci
 Mantener el release bloqueado hasta versionar y verificar el contrato del socket y
 ejecutar workflows end-to-end en un host dedicado aislado.
 
-### Pin de OpenSearch para runtime
+### Candidato OpenSearch 2.19.7 (experimental)
 
-El Compose fijado de Shuffle v2.3.0 usa OpenSearch 3.2.0. QAPAQ conserva el contrato
-del servicio y su API, pero fija el contenedor linux/amd64 a OpenSearch 3.9.0 por digest
-inmutable en [`azure-components.lock.json`](azure-components.lock.json), para que el CI
-escanee el mismo artefacto que declara el lock. 3.9.0 es un release oficial; OpenSearch
-documenta que las rupturas de compatibilidad se introducen entre versiones mayores,
-por lo que esta actualización dentro de la rama 3.x mantiene compatibilidad de API
-esperada con Shuffle v2.3.0. No se añade ningún plugin externo: los plugins incluidos
-pertenecen a la misma versión de la imagen.
+El Compose upstream fijado de Shuffle v2.3.0 usa OpenSearch 3.2.0. La rama candidata
+evalúa el release oficial 2.19.7 por digest inmutable para medir si despeja el gate
+Trivy. Este downgrade cruza el major 3.x → 2.x; la política SemVer de OpenSearch no
+garantiza compatibilidad retroactiva entre majors, por lo que el candidato no se
+promueve solo por pasar el escáner.
 
-La verificación CI construye backend y worker, descarga el OpenSearch fijado y ejecuta
-Trivy con su escaneo de vulnerabilidades completo para HIGH/CRITICAL. Eso no equivale
-a una prueba end-to-end de Shuffle contra OpenSearch 3.9.0: antes de activar el runtime
-se debe validar la inicialización de índices, búsquedas y persistencia con el Compose
-final. En un cluster con datos existentes, no se debe sustituir la imagen como simple
-actualización; debe seguirse el procedimiento de upgrade y respaldo de OpenSearch.
+El workflow ejecuta el backend Shuffle 2.3.0 y el OpenSearch candidato en Compose
+efímero, prueba el endpoint de salud y corre las pruebas de inicialización de índices
+y round-trip de workflows contra OpenSearch/Memcached. Esta cobertura valida las APIs
+que ejercita la suite, pero no sustituye una prueba completa de workflows/Ankay en el
+host final. Los datos son desechables y Compose elimina sus volúmenes al terminar.
+En un cluster con datos existentes, no se debe cambiar de major sin snapshot y sin
+seguir el procedimiento oficial de upgrade.
 
 ## Verificación de imágenes en CI
 

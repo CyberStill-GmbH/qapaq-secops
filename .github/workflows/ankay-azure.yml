@@ -87,6 +87,7 @@ jobs:
           (cd "$RUNNER_TEMP/ankay-publish" && sha256sum image.tar.gz *.tar.gz > SHA256SUMS)
 
       - name: Build pinned backend and worker; verify pinned OpenSearch digest
+        id: runtime-build
         shell: bash
         run: |
           set -euo pipefail
@@ -95,6 +96,16 @@ jobs:
           bash ankay/verify-runtime-users.sh \
             "ankay-qapaq-backend:${GITHUB_SHA}" \
             "ankay-qapaq-worker:${GITHUB_SHA}"
+
+      - name: Compose and Shuffle API smoke against the pinned OpenSearch candidate
+        shell: bash
+        run: bash ankay/smoke-opensearch-compose.sh
+
+      - name: Scan backend, worker, and pinned OpenSearch for HIGH/CRITICAL vulnerabilities
+        if: ${{ always() && steps.runtime-build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
           bash .github/ci/install-scanner.sh trivy
           export PATH="$RUNNER_TEMP/scanners:$PATH"
           opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' ankay/azure-components.lock.json)"
