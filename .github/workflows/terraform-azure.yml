@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: Apply the exact reviewed plan from this run (main only)
+        description: Apply the exact reviewed plan from this run (main or approved Azure demo branch)
         type: boolean
         required: true
         default: false
@@ -32,11 +32,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Require main before apply
+      - name: Require main or the approved Azure demo continuation branch
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo '::error::Terraform Azure is restricted to main.'; exit 1; }
+          [[ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/codex/azure-soc-continuation" ]] || {
+            echo '::error::Terraform Azure is restricted to main or codex/azure-soc-continuation.'
+            exit 1
+          }
 
   plan:
     name: Create and summarize protected Terraform plan
