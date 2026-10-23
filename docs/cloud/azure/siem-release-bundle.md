@@ -88,7 +88,10 @@ plan, or local tooling and is not printed by the installer.
 The Key Vault secret name, current version, value, certificate validity and matching node names have
 not been inspected here. The module references a secret by name (latest version), so a secret-value
 rotation affects the next bootstrap. The Key Vault reference and `core_secret_names` must be verified
-by the owner before applying. The release requires complete `core_environment`/`core_secret_names`
+by the owner before applying. Azure preflight requires both the Entra client secret and
+`QAPAQ_TEAMS_WORKFLOW_URL` to be mapped by name in `core_secret_names`; the signed Workflow URL
+must never be placed in `core_environment`, GitHub variables, Terraform state, or logs. The release
+requires complete `core_environment`/`core_secret_names`
 for the selected production configuration; it does not invent app registrations, database
 credentials, redis references or policy values.
 
