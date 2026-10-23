@@ -1,5 +1,14 @@
 # Azure deployment readiness — 2026-10-22
 
+## Actualización verificada — 2026-10-23 02:00 UTC
+
+- La ejecución Terraform [39882217879](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39882217879) falló en preflight porque se lanzó desde `codex/azure-soc-continuation`; no alcanzó a inicializar Terraform ni a consultar el state. El gate es de rama, no de AWS. La política del environment `azure-demo` también permite únicamente `main`.
+- La ejecución de solo plan [39882384760](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39882384760) sí corrió desde `main` y pasó. El plan fue **0 altas, 0 cambios, 0 destrucciones**; no se ejecutó apply. Entradas: `enable_runtime=false`, `siem_host=null`, `ankay_host=null`.
+- Por ello no se desplegó Wazuh ni Ankay, y no hay endpoint Azure de SOC verificado. Quitar la política de rama no activa el runtime ni añade recursos.
+- Para un plan SOC real siguen faltando el opt-in `AZURE_ENABLE_RUNTIME`, `AZURE_SIEM_HOST_JSON` completo (clave SSH pública, rangos ingress aprobados, configuración M365, referencias Key Vault y URI/SHA del bundle), el mapa de imágenes y las referencias de secretos de Key Vault. No registrar valores de secretos en GitHub variables ni en este documento.
+- Candidato offline para SHA `6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f`: Filebeat, Indexer y Core se verificaron y publicaron como artefactos; la compilación oficial de Manager [39883868793](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868793) y el paquete del Dashboard [39883868545](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868545) siguen en curso. No se ha ensamblado el bundle ni publicado el runtime a Azure.
+- Ankay continúa sin entrega completa: falta validar y fijar backend, worker, Orborus, OpenSearch y Compose antes de habilitarlo. No se modificó DNS.
+
 ## Current verified state — 2026-10-23 00:18 UTC
 
 - PR [#115](https://github.com/CyberStill-GmbH/qapaq-secops/pull/115) merged to `main` as `812a7d7`. It removes the Azure SIEM's dependency on a manually supplied/AWS-era firewall reference by adding an Azure Firewall Standard module, private UDR wiring, DNS proxy, threat-intelligence deny policy, and an explicit HTTPS egress allowlist. CI Security and Azure Terraform validation passed on the merged code.
