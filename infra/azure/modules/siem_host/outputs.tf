@@ -8,6 +8,11 @@ output "private_ip_address" {
   value       = azurerm_network_interface.siem.private_ip_address
 }
 
+output "ingress_load_balancer_private_ip" {
+  description = "Frontend privado de Azure Standard Load Balancer, destino de DNAT del Firewall."
+  value       = azurerm_lb.siem_ingress.frontend_ip_configuration[0].private_ip_address
+}
+
 output "subnet_id" {
   description = "Subnet privada dedicada al host SIEM."
   value       = azurerm_subnet.siem.id

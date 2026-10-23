@@ -46,6 +46,41 @@ resource "azurerm_firewall_policy_rule_collection_group" "egress" {
       destination_fqdns = sort(tolist(var.allowed_fqdns))
     }
   }
+
+  dynamic "nat_rule_collection" {
+    for_each = var.ingress_lb_private_ip == null || (!var.ingress_http_enabled && length(var.dashboard_ingress_cidrs) == 0) ? [] : [true]
+    content {
+      name     = "qapaq-siem-public-ingress"
+      priority = 120
+      action   = "Dnat"
+
+      dynamic "rule" {
+        for_each = var.ingress_http_enabled ? [true] : []
+        content {
+          name                = "qapaq-http-acme-and-redirect"
+          protocols           = ["TCP"]
+          source_addresses    = ["*"]
+          destination_address = azurerm_public_ip.firewall.ip_address
+          destination_ports   = ["80"]
+          translated_address  = var.ingress_lb_private_ip
+          translated_port     = "80"
+        }
+      }
+
+      dynamic "rule" {
+        for_each = length(var.dashboard_ingress_cidrs) == 0 ? [] : [true]
+        content {
+          name                = "qapaq-dashboard-https-approved-sources"
+          protocols           = ["TCP"]
+          source_addresses    = sort(tolist(var.dashboard_ingress_cidrs))
+          destination_address = azurerm_public_ip.firewall.ip_address
+          destination_ports   = ["443"]
+          translated_address  = var.ingress_lb_private_ip
+          translated_port     = "443"
+        }
+      }
+    }
+  }
 }
 
 resource "azurerm_firewall" "this" {

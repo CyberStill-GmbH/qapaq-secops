@@ -148,7 +148,7 @@ variable "data_disk_storage_account_type" {
 }
 
 variable "dashboard_ingress_cidrs" {
-  description = "CIDR de origen aprobado para HTTPS. Vacío significa que 443 queda denegado."
+  description = "CIDR de origen aprobado para HTTPS público. El Firewall DNAT filtra el origen antes del Load Balancer interno."
   type        = set(string)
   default     = []
 
@@ -156,6 +156,22 @@ variable "dashboard_ingress_cidrs" {
     condition     = alltrue([for cidr in var.dashboard_ingress_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
     error_message = "Cada CIDR de ingreso al Dashboard debe ser válido y distinto de cualquier origen de Internet."
   }
+}
+
+variable "ingress_lb_private_ip" {
+  description = "IPv4 fija del frontend privado del Load Balancer SIEM; debe estar libre dentro de la subnet dedicada."
+  type        = string
+
+  validation {
+    condition     = can(cidrhost("${var.ingress_lb_private_ip}/32", 0))
+    error_message = "ingress_lb_private_ip debe ser una IPv4 válida."
+  }
+}
+
+variable "ingress_http_enabled" {
+  description = "Publica HTTP en el edge solo para el challenge ACME HTTP-01 y redirección HTTPS."
+  type        = bool
+  default     = true
 }
 
 variable "agent_ingress_cidrs" {

@@ -7,6 +7,6 @@ output "policy_id" {
   value       = azurerm_firewall_policy.this.id
 }
 output "public_ip_address" {
-  description = "Public source IP used for outbound allowlisting and egress diagnostics."
+  description = "Stable public egress and QAPAQ SIEM DNAT entry IP; DNS must be changed separately after health/TLS validation."
   value       = azurerm_public_ip.firewall.ip_address
 }

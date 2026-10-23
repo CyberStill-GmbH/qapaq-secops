@@ -425,10 +425,12 @@ consolas. No se afirma que sus agentes, reglas o políticas estén aplicados.
 
 ## DNS y TLS para `app.jappi.net.pe`
 
-1. Crear y verificar el edge Azure con ingress HTTPS y obtener su FQDN de salida.
-2. Vincular `app.jappi.net.pe` al Container App y completar la validación del
-   dominio/certificado que Azure requiera. Probar HTTPS, health, login y rutas API
-   usando el hostname temporal antes del corte.
+1. Crear y verificar el host SIEM, Azure Firewall DNAT, Load Balancer interno y edge
+   Nginx con TLS. La IP pública estable pertenece al Firewall; el Dashboard y la VM
+   no reciben IP pública. Probar HTTPS, health, login y rutas API antes del corte.
+2. Confirmar que el Firewall permita solo 443 desde los CIDR aprobados y 80 para
+   ACME HTTP-01/redirección. El edge debe responder al challenge y luego forzar
+   HTTPS. Los puertos de Manager, Indexer y agentes no se abren por este ingreso.
 3. Preparar en Route 53 un cambio revisable de solo el registro `app` hacia el
    destino Azure, con TTL bajo y snapshot del valor anterior. No cambiar la
    delegación de la zona ni otros registros del dominio.
@@ -437,8 +439,8 @@ consolas. No se afirma que sus agentes, reglas o políticas estén aplicados.
    si falla cualquiera de esas comprobaciones.
 
 El registro no se puede preparar con un destino final mientras no exista el
-Container App y el mapeo TLS. El Terraform Azure de este checkout no gestiona
-Route 53; DNS conserva state y operador AWS aparte.
+Firewall DNAT, el edge Nginx con certificado válido y el smoke test. El Terraform
+Azure de este checkout no gestiona Route 53; DNS conserva state y operador AWS aparte.
 
 ## Agentes Wazuh
 
