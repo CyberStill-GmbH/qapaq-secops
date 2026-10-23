@@ -8,6 +8,7 @@
 - El resumen protegido del plan fue **0 altas, 0 cambios, 0 eliminaciones**. El job `apply` fue omitido: no se aplicaron cambios cloud ni DNS.
 - Las entradas efectivas del plan demuestran por qué no aparece un despliegue: `siem_host=null`, `ankay_host=null`, `enable_runtime=false`, `container_images={}` y `key_vault_secret_ids={}`. Por tanto, este plan no propone crear el SIEM, Ankay ni el runtime de QAPAQ.
 - El bundle offline Wazuh/QAPAQ está publicado en Blob privado según [la evidencia de release](siem-release-bundle.md): source SHA `a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170`, SHA-256 `9f3678a17daa0421694c060255daf5c4167613a442836ca6fb811af8b9234fa0`. La publicación no equivale a instalación en una VM.
+- Ankay todavía no está listo para publicar. El fix `0e48d0e32dd65949bcc58b4be5b604b64bd9735d` corrigió el manifiesto y permitió construir Shuffle, backend y worker, pero el scan de la imagen OpenSearch fijada encontró 239 HIGH en el sistema base y 216 HIGH + 11 CRITICAL en dependencias Java ([run 39904645342](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39904645342)). El publish quedó omitido; no se subió imagen runtime a ACR. No se relajó el umbral de seguridad.
 
 ## Secretos y conectividad
 
