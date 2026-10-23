@@ -4,6 +4,7 @@ FROM ${GO_BUILDER_IMAGE} AS builder
 
 WORKDIR /app
 COPY functions/onprem/worker/go.mod functions/onprem/worker/go.sum ./
+COPY functions/onprem/worker/moby-shuffle-shared/ ./moby-shuffle-shared/
 RUN go mod download
 
 COPY functions/onprem/worker/worker.go ./

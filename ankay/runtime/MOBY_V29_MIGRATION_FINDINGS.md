@@ -1,7 +1,8 @@
 # Moby v29 SDK migration findings
 
-Status: backend source overlay prepared on isolated branch `codex/ankay-moby-v29`; worker and
-runtime release remain blocked. No push, ACR publication, Terraform, DNS or deployment was done.
+Status: backend and worker source overlays prepared on isolated branch `codex/ankay-moby-v29`;
+runtime release remains blocked pending an Engine 29.5.1 integration test. No push, ACR
+publication, Terraform, DNS or deployment was done.
 
 ## Backend migration
 
@@ -25,11 +26,25 @@ component lock and build workflow.
 - No Docker Engine daemon is active, so no image scan or integration test against a live daemon is
   claimed. CI remains the final image-scan gate.
 
+## Worker migration
+
+The worker overlay ports container lifecycle, image, task, node, network, and Swarm operations to
+`github.com/moby/moby/client` plus `github.com/moby/moby/api`. It moves Swarm network attachments
+under `TaskTemplate.Networks` and parses hard-coded network ranges into `netip` values expected by
+the new API. `shuffle-shared` is vendored as the same pinned overlay used by the backend and the
+worker module excludes the unused legacy Docker module required by `shuffle/singul`.
+
+- Scratch validation on the pinned Shuffle source: `gofmt`, `go mod tidy`, `go test ./...`, and
+  `go build ./...` pass. `go list -m all` contains Moby client/API and excludes `github.com/docker/docker`
+  and `github.com/moby/go-archive` after excluding the unused SDK requirement from `shuffle/singul`.
+- Trivy 0.74.0 filesystem scan of the exact worker module and patched shared overlay reports zero
+  HIGH/CRITICAL findings. The nested upstream `shuffle-shared/app_upload` module is not copied into
+  the worker build context; it has separate findings and is not built by this runtime.
+- The worker image has not been built or tested against a live Engine; Swarm semantics, API version
+  negotiation and runtime image behavior still require the CI/integration gate before publication.
+
 ## Remaining blockers
 
-- Worker still has more than 50 Moby API incompatibilities in container lifecycle, image, service,
-  network and Swarm operations. It remains on the vulnerable `github.com/docker/docker` SDK and
-  `github.com/moby/go-archive v0.1.0`.
 - The local Docker CLI is 29.4.3, but no Engine daemon is active. Integration tests against Engine
   29.5.1+ are required for image and worker operations, cancellation and API negotiation.
 - Orborus and shuffle-security remain blocked by the license/compatibility findings in

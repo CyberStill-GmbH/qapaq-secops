@@ -72,7 +72,7 @@
   "componentStatus": {
     "frontend": "build-from-pinned-shuffle-source",
     "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
-    "worker": "build-from-pinned-shuffle-source",
+    "worker": "build-from-pinned-shuffle-source-with-moby-v29-overlay",
     "opensearch": "pull-by-pinned-platform-digest",
     "orborus": "blocked-license-review",
     "shuffle-security": "blocked-license-and-compatibility-review"
@@ -80,17 +80,17 @@
   "securityBlockers": {
     "dockerSdk": {
       "module": "github.com/docker/docker@v28.3.3+incompatible",
-      "status": "backend-migrated-worker-still-blocked",
+      "status": "backend-and-worker-migrated-runtime-test-pending",
       "cves": ["CVE-2026-41567", "CVE-2026-42306"],
       "requiredEngineVersion": "29.5.1",
-      "reason": "The backend and its pinned shuffle-shared overlay use the official github.com/moby/moby/client and /api modules. The worker still uses the deprecated SDK, so the component set remains blocked from publication until worker migration and runtime tests against Engine 29.5.1 or later."
+      "reason": "The backend and worker use the official github.com/moby/moby/client and /api modules. The component set remains blocked from publication until CI builds and runtime tests against Engine 29.5.1 or later pass."
     },
     "mobyGoArchive": {
       "module": "github.com/moby/go-archive@v0.1.0",
-      "status": "worker-still-blocked",
+      "status": "removed-from-backend-and-worker-module-graphs",
       "cves": ["CVE-2026-17106"],
       "fixedVersion": "v0.3.0",
-      "reason": "The backend module no longer includes go-archive after migrating to Moby client/api. The worker still uses the deprecated Docker SDK and retains go-archive v0.1.0; upgrade that dependency with the worker migration and verify compatibility before publication."
+      "reason": "Neither the backend nor worker module graph imports go-archive after migrating to Moby client/api. The nested shuffle-shared app_upload module remains excluded from the runtime build context and is not built into either image."
     }
   }
 }
