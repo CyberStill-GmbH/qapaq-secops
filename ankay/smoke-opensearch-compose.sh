@@ -12,6 +12,10 @@ opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opens
 backend_image="ankay-qapaq-backend:${GITHUB_SHA:-local}"
 go_builder_image="$(jq -r '.buildBases.golang1273Alpine323' "$lock_file")"
 ca_file="$RUNNER_TEMP/ankay-opensearch-root-ca.pem"
+bootstrap_file="$RUNNER_TEMP/ankay-smoke-admin.json"
+bootstrap_response="$RUNNER_TEMP/ankay-smoke-registration.json"
+bootstrap_username="ankay-smoke-${GITHUB_RUN_ID:-local}@example.invalid"
+bootstrap_password="Aa1!$(openssl rand -hex 24)"
 # OpenSearch's demo-security bootstrap rejects hex-only passwords. Keep the
 # generated password ephemeral while guaranteeing every required character class.
 smoke_password="Aa1!$(openssl rand -hex 24)"
@@ -29,10 +33,11 @@ cleanup() {
   status=$?
   if (( status != 0 )); then
     echo 'Compose/API smoke failed; collecting ephemeral service logs before cleanup.' >&2
-    docker compose -f "$compose_file" logs --no-color backend opensearch memcached >&2 || true
+    docker compose -f "$compose_file" logs --no-color backend opensearch memcached \
+      | sed -E 's/(api key )[[:alnum:]_-]+/\1[REDACTED]/Ig' >&2 || true
   fi
   docker compose -f "$compose_file" down --volumes --remove-orphans >/dev/null 2>&1 || true
-  rm -f "$ca_file"
+  rm -f "$ca_file" "$bootstrap_file" "$bootstrap_response"
 }
 trap cleanup EXIT
 
@@ -42,6 +47,20 @@ opensearch_container="$(docker compose -f "$compose_file" ps --quiet opensearch)
 docker cp "$opensearch_container:/usr/share/opensearch/config/root-ca.pem" "$ca_file"
 openssl x509 -in "$ca_file" -noout -subject >/dev/null
 docker compose -f "$compose_file" up --detach backend
+# Shuffle's supported first-user registration bootstraps the initial admin,
+# default organization, environment, and API key in a clean OpenSearch store.
+# These credentials and the created indexes are confined to this disposable smoke.
+jq -cn --arg username "$bootstrap_username" --arg password "$bootstrap_password" \
+  '{username: $username, password: $password}' > "$bootstrap_file"
+curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-delay 2 \
+  --header 'Content-Type: application/json' --data-binary "@$bootstrap_file" \
+  "http://127.0.0.1:15001/api/v1/users/register" \
+  --output "$bootstrap_response"
+jq -e '.success == true' "$bootstrap_response" >/dev/null || {
+  echo 'Shuffle first-user registration did not bootstrap an admin organization.' >&2
+  exit 1
+}
+
 curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-all-errors --retry-delay 2 \
   http://127.0.0.1:15001/api/v1/health?force=true \
   --output "$RUNNER_TEMP/ankay-backend-health.json"
