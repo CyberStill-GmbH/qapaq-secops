@@ -159,12 +159,13 @@ variable "dashboard_ingress_cidrs" {
 }
 
 variable "ingress_lb_private_ip" {
-  description = "IPv4 fija del frontend privado del Load Balancer SIEM; debe estar libre dentro de la subnet dedicada."
+  description = "IPv4 fija opcional del frontend privado del Load Balancer SIEM; por defecto usa el host 10 de la subnet dedicada."
   type        = string
+  default     = null
 
   validation {
-    condition     = can(cidrhost("${var.ingress_lb_private_ip}/32", 0))
-    error_message = "ingress_lb_private_ip debe ser una IPv4 válida."
+    condition     = var.ingress_lb_private_ip == null || can(cidrhost("${var.ingress_lb_private_ip}/32", 0))
+    error_message = "ingress_lb_private_ip debe ser una IPv4 válida cuando se proporciona."
   }
 }
 
