@@ -67,13 +67,25 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
     new URL('../.github/workflows/ankay-azure.yml', import.meta.url),
     'utf8',
   );
-  const buildScript = readFileSync(new URL('./build-runtime-components.sh', import.meta.url), 'utf8');
-  const dockerfile = readFileSync(new URL('./runtime/Dockerfile.opensearch', import.meta.url), 'utf8');
-  assert.match(buildScript, /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/);
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  const dockerfile = readFileSync(
+    new URL('./runtime/Dockerfile.opensearch', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    buildScript,
+    /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/,
+  );
   assert.match(buildScript, /OPENSEARCH_BASE_IMAGE=\$opensearch_image/);
   assert.match(buildScript, /AMAZON_LINUX_RELEASE=\$amazon_linux_release/);
   assert.match(workflow, /ankay-qapaq-opensearch:\$\{GITHUB_SHA\}/);
-  assert.match(dockerfile, /dnf --releasever="\$\{AMAZON_LINUX_RELEASE\}" upgrade --refresh --assumeyes/);
+  assert.match(
+    dockerfile,
+    /dnf --releasever="\$\{AMAZON_LINUX_RELEASE\}" upgrade --refresh --assumeyes/,
+  );
   assert.match(dockerfile, /rpm -q --qf '%\{VERSION\}' system-release/);
   assert.match(dockerfile, /USER 1000:1000/);
   assert.doesNotMatch(workflow, /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/);
