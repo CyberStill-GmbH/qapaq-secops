@@ -96,7 +96,7 @@ jobs:
           [[ -f "$bundle" && -f SHA256SUMS ]]
           [[ "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" == 2 ]]
           sha256sum --check --strict SHA256SUMS
-          manifest_name="$(tar -tzf "$bundle" | awk -F/ '$NF == "manifest.json" { print; exit }')"
+          manifest_name="$(tar -tzf "$bundle" | awk -F/ '$NF == "manifest.json" && !found { print; found=1 }')"
           [[ -n "$manifest_name" ]]
           tar -xOf "$bundle" "$manifest_name" \
             | jq -e --arg sha "$SOURCE_SHA" '.status == "installable-candidate" and .qapaqCommit == $sha' >/dev/null || {
