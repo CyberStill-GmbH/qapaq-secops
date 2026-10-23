@@ -74,6 +74,7 @@ class AssembleReleaseTests(unittest.TestCase):
         root = self.root / "output" / "qapaq-siem-0123456789ab"
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["debianPackages"], versions)
+        self.assertEqual(manifest["qapaqCommit"], self.args.qapaq_commit)
         self.assertEqual(manifest["qapaqCoreSourceCommit"], "0123456789ab")
         self.assertEqual(manifest["components"]["openSearchDashboards"], "2.19.6")
         self.assertIn("wazuh/azure-release/normalize_ubuntu_apt_sources.py", manifest["files"])

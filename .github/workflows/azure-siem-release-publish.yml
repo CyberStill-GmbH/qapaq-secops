@@ -8,7 +8,7 @@ on:
         type: string
         required: true
       source_sha:
-        description: Exact 40-character main commit that produced the bundle
+        description: Exact 40-character QAPAQ source commit recorded in the candidate bundle
         type: string
         required: true
 
@@ -53,10 +53,18 @@ jobs:
           done
 
           run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
-          jq -e --arg sha "$SOURCE_SHA" \
-            '.head_sha == $sha and .head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == ".github/workflows/azure-siem-release-bundle.yml"' \
+          jq -e \
+            '.head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == ".github/workflows/azure-siem-release-bundle.yml"' \
             <<<"$run_json" >/dev/null || {
-              echo '::error::Source must be a successful Azure SIEM bundle run on the exact main SHA.'
+              echo '::error::Source must be a successful Azure SIEM bundle run on main.'
+              exit 1
+            }
+          bundle_run_sha="$(jq -er '.head_sha' <<<"$run_json")"
+          compare_json="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$bundle_run_sha")"
+          jq -e --arg sha "$SOURCE_SHA" \
+            '(.status == "ahead" or .status == "identical") and .merge_base_commit.sha == $sha' \
+            <<<"$compare_json" >/dev/null || {
+              echo '::error::Bundle source SHA must be an ancestor of the successful main bundle run.'
               exit 1
             }
 
@@ -88,6 +96,13 @@ jobs:
           [[ -f "$bundle" && -f SHA256SUMS ]]
           [[ "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" == 2 ]]
           sha256sum --check --strict SHA256SUMS
+          manifest_name="$(tar -tzf "$bundle" | awk -F/ '$NF == "manifest.json" { print; exit }')"
+          [[ -n "$manifest_name" ]]
+          tar -xOf "$bundle" "$manifest_name" \
+            | jq -e --arg sha "$SOURCE_SHA" '.status == "installable-candidate" and .qapaqCommit == $sha' >/dev/null || {
+                echo '::error::Bundle manifest does not match the requested QAPAQ source commit.'
+                exit 1
+              }
           digest="$(sha256sum "$bundle" | awk '{print $1}')"
           [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
           size="$(stat -c '%s' "$bundle")"

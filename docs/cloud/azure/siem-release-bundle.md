@@ -14,15 +14,21 @@ the same `main` SHA:
 4. Official `wazuh-installation-assistant` v4.14.8 at immutable commit
    `33d2069715e8500b676d13cefe7ddaea8eb79019` (signature verified by GitHub API).
 
-The workflow validates successful run IDs, expected workflow paths, branch and exact source SHA;
-checks artifact hashes/provenance; builds the official offline package tree; and uploads a
-seven-day review artifact. It has read-only repository/artifact permissions. It has no Azure
-OIDC permission and does not publish, deploy, run Terraform, or edit DNS.
+The workflow runs from `main` and takes `release_sha` plus the three successful build run IDs.
+`release_sha` must be a full commit already merged into the current `main`. Each source run must
+be successful on `main` at that exact SHA, and the install/bootstrap inputs must not have changed
+between that commit and the workflow run. The workflow checks the Wazuh pins, artifact hashes and
+provenance; assembles the official offline package tree; records the full `qapaqCommit` in its
+manifest; and uploads a seven-day review artifact. This permits the release assembler to reuse
+verified, unexpired artifacts after unrelated commits advance `main`, while refusing candidates
+whose package sources or pins have changed. It has read-only repository/artifact permissions. It
+has no Azure OIDC permission and does not publish, deploy, run Terraform, or edit DNS.
 
 The separate `.github/workflows/azure-siem-release-publish.yml` accepts a successful bundle-run ID
-and its exact 40-character source SHA. It revalidates that the source run is the expected successful
-`main` workflow and that its matching artifact has not expired, downloads only that artifact,
-verifies `SHA256SUMS`, then signs into Azure with the existing `azure-demo` OIDC identity. It uploads
+and its 40-character candidate source SHA. It verifies the bundle run is the expected successful
+`main` workflow, the candidate commit is an ancestor of that run, the matching artifact has not
+expired, and the embedded manifest records the same full `qapaqCommit`. It downloads only that
+artifact, verifies `SHA256SUMS`, then signs into Azure with the existing `azure-demo` OIDC identity. It uploads
 to `releases/<source-sha>/` in the private `siem-release` container using Entra RBAC, shared keys
 disabled, anonymous access disabled, and `--overwrite false`. A retry is accepted only if the
 existing blob's SHA metadata and content length match. The workflow requires the non-secret GitHub
