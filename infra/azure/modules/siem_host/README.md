@@ -9,8 +9,8 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - VM Ubuntu 24.04 con versión exacta requerida, vTPM, Secure Boot y cifrado de host.
 - Sin dirección IP pública. Sin regla SSH, Manager API ni Indexer en el NSG.
 - Subnet y NSG dedicados dentro del VNet existente, con `default_outbound_access_enabled = false`.
-  La UDR fuerza `0.0.0.0/0` hacia el Azure Firewall existente. Sin su IP privada y una referencia
-  de policy no vacía, Terraform no puede planificar el módulo.
+  Al habilitar `siem_host`, el root crea Azure Firewall Standard, policy y public IP de salida; la
+  UDR fuerza `0.0.0.0/0` hacia ese firewall. No depende de un firewall preexistente.
 - Salida explícita: DNS al resolver de Azure, IMDS para Managed Identity y WireServer/VM Agent en TCP/80 y TCP/32526,
   TCP/443 a la subnet exacta de Private Endpoints,
   TCP/5432 a la subnet exacta de PostgreSQL, y TCP/443 al destino `Internet` a través de la UDR.
@@ -42,6 +42,10 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
   oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
   código de salida y un mensaje genérico, sin volcar la salida del instalador.
+- `install.sh` instala solo los prerrequisitos faltantes del asistente oficial mediante APT. El helper
+  `normalize_ubuntu_apt_sources.py` cambia a HTTPS únicamente mirrors Ubuntu aprobados y rechaza otras
+  fuentes HTTP activas antes de descargar. No actualiza el sistema completo. El flujo de egress del
+  Firewall permite los FQDN oficiales de Ubuntu por HTTPS.
 - La instalación de Wazuh es de una sola ejecución por SHA-256 de release. El bootstrap registra el
   SHA en el disco persistente después de validar servicios y `/health/ready`; una repetición de la
   misma release verifica salud sin volver a ejecutar el instalador. Si encuentra paquetes/datos
@@ -53,8 +57,21 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 
 ## Contrato obligatorio del artefacto
 
-El módulo **no declara una instalación funcional** hasta que CI publique el bundle de bootstrap que
-consume esta VM. Se requiere un `.tar.gz` privado en Blob con un directorio raíz único que contenga:
+El flujo `.github/workflows/azure-siem-release-bundle.yml` ensambla el bundle offline a partir de
+artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core). El publisher OIDC ya lo promocionó
+al contenedor Blob privado; la URI y el SHA-256 están en
+[`docs/cloud/azure/siem-release-bundle.md`](../../../../docs/cloud/azure/siem-release-bundle.md).
+La publicación no instala el release. El objeto `siem_host` debe fijar esa URI/SHA junto con red,
+clave pública y referencias Key Vault revisadas.
+
+La adaptación Azure elimina la dependencia de AWS para bootstrap e instalación: usa Managed Identity
+para descargar el Blob y leer Key Vault, `apply-core-azure.sh` para activar el core ya compilado y el
+adaptador versionado `office365/apply-office365.sh` para instalar reglas y configuración M365. El
+secreto de la app se materializa desde Key Vault como archivo local de permisos restringidos; no pasa
+por Terraform, argv ni logs. No ejecuta AWS CLI, SSM ni Secrets Manager. La lectura real de Microsoft
+Graph y la llegada de eventos aún requieren una prueba operativa en el tenant.
+
+El `.tar.gz` privado debe tener un directorio raíz único que contenga:
 
 - `manifest.json`, versión 1, con `components` que fije `wazuhManager`, `wazuhIndexer`,
   `wazuhFilebeat` y `wazuhDashboard` a `4.14.8`, `openSearchDashboards` a `2.19.6` y
@@ -66,28 +83,50 @@ consume esta VM. Se requiere un `.tar.gz` privado en Blob con un directorio raí
   y `wazuh-dashboard` (Filebeat se fija a `7.10.2-2`); y `artifacts`, con las rutas `managerDeb`,
   `indexerDeb`, `filebeatDeb`,
   `qapaqDashboardDeb` y `qapaqCoreArchive` incluidas en el mapa de hashes.
-- `install.sh`, instalador idempotente que debe instalar y configurar los componentes del manifiesto,
-  crear `qapaq-core-api` y `qapaq-core-worker`, leer `/etc/qapaq-core/core.env` y `/etc/qapaq-secrets`,
-  y usar `/srv/qapaq-siem` para el estado durable. El bootstrap compara metadatos y versiones Debian
-  instaladas, verifica Node 24.21.0, exige activos los servicios systemd de Wazuh, Filebeat y QAPAQ
-  Core,
-  y comprueba `/health/ready`; eso no sustituye las pruebas de paridad de API, M365 ni el flujo de alertas.
+- `install.sh`, instalador para host limpio que invoca el asistente oficial Wazuh 4.14.8 en modo
+  offline, valida las versiones Debian y ejecuta el instalador QAPAQ core, que ya aporta activación
+  atómica y rollback de sus releases. El bootstrap compara metadatos y versiones Debian instaladas,
+  verifica Node 24.21.0, exige activos Manager, Indexer, Filebeat, Dashboard y QAPAQ Core y comprueba
+  `/health/ready`. El instalador no reejecuta ni actualiza una instalación previa.
+- `official-wazuh/wazuh-offline.tar.gz`, el árbol de paquetes/documentos en el formato esperado por
+  el asistente oficial, `official-wazuh/wazuh-install.sh` construido desde el commit oficial fijado y
+  su licencia GPL-2.0.
 
-El bootstrap también rechaza llamadas shell a AWS SSM/Secrets Manager. El bundle, sus hashes y el
-instalador son un contrato de CI pendiente: el repositorio actual no contiene un release bundle Azure
-que instale manager, indexer, dashboard QAPAQ y core conjuntamente. Hasta producirlo y ejecutar el
-preflight del módulo, no se debe habilitar runtime ni declarar el SIEM listo.
+El bootstrap requiere una referencia Key Vault nombrada `wazuh-install-files.tar.b64` en
+`wazuh_secret_names`. El secreto almacena en una sola línea base64 un `wazuh-install-files.tar`
+generado por el asistente oficial que contiene `wazuh-passwords.txt` y los certificados Wazuh. El
+installer valida su estructura y límites, lo decodifica en `/run` (tmpfs), nunca imprime valores, y
+mantiene la copia instalada bajo permisos `0600` en disco durable para que los adaptadores existentes
+puedan usar el material. No se lee el valor del secreto durante plan/build. El módulo no crea esa
+referencia ni inventa credenciales; si falta o no cumple el formato, el bootstrap falla antes de
+instalar paquetes.
+
+`core_secret_names` y `core_environment` también deben estar completos para el perfil y modos elegidos
+por el sistema (Entra, DB, Key Vault/provider, persistencia y conexiones requeridas). El bundle no
+adivina esa configuración ni cambia los modos del API. El servicio Core puede hacer rollback a un
+release previo si su activación falla; una instalación inicial fallida del asistente Wazuh no borra
+paquetes/datos parcialmente creados. Se deja la VM sin marcar como instalada y requiere diagnóstico
+operador antes de un nuevo intento para preservar el fail-closed.
+
+El candidato no instala ni declara listos el overlay de acceso QAPAQ/roles, el edge TLS y rutas DNS,
+Ankay/Shuffle, Teams, Sophos o Cato. M365 instala reglas/configuración durante bootstrap, pero eso no
+demuestra permisos Graph, ingestión ni indexación real. Esos contratos requieren pruebas de extremo a
+extremo antes de abrir ingreso o marcar el SOC operativo.
+
+La ejecución Azure entrega exclusivamente `file:` al adaptador M365; no ejecuta la ruta AWS ni llama
+AWS CLI/SSM/Secrets Manager. El script compartido conserva `aws-secretsmanager:` para despliegues AWS.
+La CI local de este candidato
+valida hashes, paquete, estructura offline y contrato con el bootstrap. Aún hace falta ejecutar el
+workflow con tres run IDs CI exitosos del mismo SHA, probar el artifact resultante en VM Ubuntu 24.04
+aislada, promoverlo a Blob, comprobar las referencias Key Vault y completar las integraciones listadas
+arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declarar el SIEM listo.
 
 ## Límites de este módulo
 
-- El Azure Firewall y su policy son una dependencia externa obligatoria: `firewall_private_ip` crea
-  la ruta forzada y `firewall_policy_reference` hace explícita la revisión requerida, pero esta
-  referencia es un gate declarativo, no una lectura/verificación de la policy. Antes de integrar,
-  el operador debe inspeccionar la policy por ARM y confirmar default-deny, reglas DNS necesarias,
-  endpoints de artefactos/ACR y APIs autorizadas. Sin firewall operativo, egress queda bloqueado y el
-  bootstrap falla de forma segura. Este módulo no crea ni cobra el firewall; la infraestructura
-  compartida debe presupuestarlo aparte. Azure Firewall tiene costo fijo por hora más procesamiento
-  de datos según SKU/región, así que su cotización es obligatoria antes del plan de entorno.
+- El root crea Azure Firewall Standard y una policy con threat-intelligence deny, proxy DNS y
+  allowlist HTTPS explícita para Ubuntu, Entra, Graph y VirusTotal. El firewall tiene costo fijo por
+  hora y procesamiento; revisar el costo del plan antes del apply. Sophos/Cato requieren endpoints
+  confirmados y un cambio revisado a la allowlist antes de conectar esos proveedores.
 - Los dos CIDR de egress privado deben corresponder a las subnets dedicadas reales de Private
   Endpoints (Blob/Key Vault) y PostgreSQL. No uses el CIDR completo de la VNet como sustituto. No hay
   fallback a Internet directo cuando faltan o no responden esos servicios.
@@ -118,9 +157,8 @@ debe verificar:
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
 3. CIDR de Dashboard y agentes son privados/aprobados y no incluyen `0.0.0.0/0`.
 4. SKU de VM, disco y disponibilidad de Secure Boot/encryption-at-host están confirmados en la región.
-5. El Azure Firewall y su policy existente están operativos, con ruta de retorno, default-deny y
-   allowlist revisada para DNS, releases, ACR y APIs; el `firewall_policy_reference` identifica la
-   policy auditada. La sola cadena de referencia no prueba el contenido de la policy.
+5. El plan crea Firewall Standard, policy, IP pública de salida, subnet dedicada y UDR; revisar
+   costo, fuentes y destinos permitidos antes del apply.
 6. Los CIDR exactos de Private Endpoints y PostgreSQL están reservados y se verificó conectividad
    privada desde la subnet SIEM.
 7. La reserva de IP/rutas y el modo de acceso privado están definidos fuera de este módulo; no hay DNS.

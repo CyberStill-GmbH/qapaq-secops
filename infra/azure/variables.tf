@@ -117,39 +117,51 @@ variable "enable_runtime" {
 }
 
 variable "siem_host" {
-  description = "Configuración completa para habilitar el host Wazuh QAPAQ. null mantiene el módulo apagado; habilitar requiere firewall auditado, bundle inmutable, clave pública y CIDR aprobados."
+  description = "Configuración completa para habilitar el host Wazuh QAPAQ. null mantiene el módulo apagado; al habilitarlo Terraform crea el firewall Azure con policy, bundle inmutable, clave pública y CIDR aprobados."
   type = object({
-    firewall_private_ip       = string
-    firewall_policy_reference = string
-    address_prefix            = string
-    vm_size                   = string
-    admin_ssh_public_key      = string
-    ubuntu_image_version      = string
-    data_disk_size_gb         = number
-    dashboard_ingress_cidrs   = set(string)
-    agent_ingress_cidrs       = set(string)
-    core_secret_names         = map(string)
-    wazuh_secret_names        = map(string)
-    core_environment          = map(string)
+    address_prefix          = string
+    vm_size                 = string
+    admin_ssh_public_key    = string
+    ubuntu_image_version    = string
+    data_disk_size_gb       = number
+    dashboard_ingress_cidrs = set(string)
+    agent_ingress_cidrs     = set(string)
+    core_secret_names       = map(string)
+    wazuh_secret_names      = map(string)
+    core_environment        = map(string)
+    office365 = object({
+      tenant_id  = string
+      client_id  = string
+      api_type   = string
+      enable_dlp = bool
+    })
     bootstrap_bundle_blob_url = string
     bootstrap_bundle_sha256   = string
   })
   default = null
+
+  validation {
+    condition = var.siem_host == null || (
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.tenant_id)) &&
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.client_id)) &&
+      contains(["commercial", "gcc", "gcc-high"], var.siem_host.office365.api_type) &&
+      contains(keys(var.siem_host.wazuh_secret_names), "office365-client-secret")
+    )
+    error_message = "siem_host requiere IDs GUID de Office 365 válidos, api_type admitido y el secreto `office365-client-secret` referenciado por nombre en Key Vault."
+  }
 }
 
 variable "ankay_host" {
-  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, firewall operativo, seis digests ACR y Compose sin secretos revisado."
+  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR y Compose sin secretos revisado; comparte el firewall Azure del SIEM."
   type = object({
-    private_ip_address        = string
-    firewall_private_ip       = string
-    firewall_policy_reference = string
-    admin_ssh_public_key      = string
-    vm_size                   = string
-    ubuntu_image_version      = string
-    data_disk_size_gb         = optional(number, 128)
-    container_images          = map(string)
-    compose_yaml              = string
-    compose_sha256            = string
+    private_ip_address   = string
+    admin_ssh_public_key = string
+    vm_size              = string
+    ubuntu_image_version = string
+    data_disk_size_gb    = optional(number, 128)
+    container_images     = map(string)
+    compose_yaml         = string
+    compose_sha256       = string
   })
   default  = null
   nullable = true

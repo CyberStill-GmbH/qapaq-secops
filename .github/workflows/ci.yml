@@ -168,6 +168,21 @@ jobs:
           FORMAT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.event.merge_group.base_sha }}
         run: pnpm run verify
 
+  azure-siem-release-contract:
+    name: Azure SIEM release bundle contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test candidate assembly and Key Vault certificate input validation
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s wazuh/azure-release/tests -p 'test_*.py' -v
+          python3 -m py_compile wazuh/azure-release/assemble_release.py wazuh/azure-release/verify_wazuh_credentials_tar.py
+          bash -n wazuh/azure-release/install.sh
+
   entrypoints:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -289,7 +304,7 @@ jobs:
   gate:
     name: CI / required
     if: always()
-    needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, c28-krakend, containers]
+    needs: [discover, codeql, secrets, filesystem, pnpm-audit, quality, entrypoints, c04-postgres, c06-base, c28-krakend, containers, azure-siem-release-contract]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -300,7 +315,7 @@ jobs:
           python3 - <<'PY'
           import json, os
           jobs = json.loads(os.environ['RESULTS'])
-          required = ['discover', 'codeql', 'secrets', 'filesystem', 'entrypoints', 'c04-postgres', 'c06-base', 'c28-krakend']
+          required = ['discover', 'codeql', 'secrets', 'filesystem', 'entrypoints', 'c04-postgres', 'c06-base', 'c28-krakend', 'azure-siem-release-contract']
           outputs = jobs['discover']['outputs']
           if outputs.get('has_pnpm') == 'true':
               required += ['pnpm-audit', 'quality']

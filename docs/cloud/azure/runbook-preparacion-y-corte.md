@@ -2,6 +2,19 @@
 
 ## Estado actual — 2026-10-22
 
+### Verificación más reciente — 2026-10-22 18:34 UTC
+
+- PR [#115](https://github.com/CyberStill-GmbH/qapaq-secops/pull/115) ya está integrado en `main` (`812a7d7`). Corrige la dependencia de Azure del firewall anterior: el root ahora crea su propio Azure Firewall Standard y policy al configurar `siem_host`. No existe ya un requisito de firewall AWS ni de referencia manual.
+- El environment `azure-demo` se verificó por GitHub API: solo aplica una regla de rama que permite `main`; no hay revisores requeridos. No es el impedimento actual.
+- El plan de `main` [39829577577](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39829577577) pasó OIDC, backend remoto, validación e inicialización. Después, [39830716725](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39830716725) aplicó el plan nuevo del mismo run: **0 altas, 1 cambio, 0 destrucciones**. El cambio fue solo en reglas de red de `siem-release`; el endpoint público usa OAuth/RBAC, sin acceso anónimo ni shared keys. No crea SIEM, Firewall, Ankay, edge, DNS ni servicios runtime.
+- El input real mantiene `enable_runtime=false`, `siem_host=null` y `ankay_host=null`. GitHub no tiene configuradas las variables JSON requeridas para habilitarlos; no se leyeron valores secretos. Sin perfil VM, clave SSH pública, rangos autorizados, referencias de Key Vault y configuración completa de Ankay, no existe un plan de despliegue del SOC que pueda aplicarse con seguridad.
+- La lectura [39831099993](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39831099993) repitió el cambio de red del Storage después del apply. La [documentación de AzureRM](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_account) requiere `Deny` y al menos una regla al declarar `network_rules`; PR [#116](https://github.com/CyberStill-GmbH/qapaq-secops/pull/116) retiró el bloque incompatible y conservó `public_network_access_enabled=true`, OAuth/RBAC, claves compartidas deshabilitadas y contenedor privado. El plan posterior de solo lectura [39832251308](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39832251308) reportó **“No changes”**.
+- Auditoría de solo lectura de Ankay: el workflow vigente solo construye/publica frontend; faltan backend, Orborus, worker, OpenSearch fijados por digest y Compose aprobado. El bootstrap de la VM no instala Docker ni arranca Shuffle. El host no debe habilitarse hasta resolver ese contrato y su ejecución.
+- El Firewall Standard solo se crea junto con el SIEM configurado y cuesta aproximadamente **USD 912.50/mes**, más procesamiento/IP. El piso documentado Wazuh + PostgreSQL + Firewall Standard es **USD 1,155.01/mes** antes de Ankay y otros costos. El budget de USD 200 genera avisos; no limita cargos ni apaga servicios.
+- No se ejecutó apply ni se cambió DNS. `app.jappi.net.pe` aún no tiene un destino Azure/TLS verificado.
+
+La descripción del botón `apply` del workflow se corrigió para no afirmar que requiere una aprobación de environment inexistente; mantiene la restricción a `main` y aplica el plan guardado de esa misma corrida.
+
 PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100) se integró en
 `main`, ahora en `048716ada8e3e5e077b044888b1291ec101506d4`. Solo añadió validación
 de la referencia de secreto en Key Vault y casos de `terraform test`; no modificó
@@ -114,7 +127,7 @@ El destino Azure es Wazuh QAPAQ 4.14.8 / OSD 2.19.6 con edge Nginx QAPAQ en el h
 Antes de usar este runbook, tener presentes estos gates:
 
 - `enable_runtime` crea cinco Container Apps genéricas; no sustituye Wazuh ni representa A22. Una base `qapaq_jobs` tampoco acredita una cola activa. A9 define Valkey/BullMQ, pero el worker actual es lifecycle-only y no consume BullMQ.
-- `wazuh/core` y Office 365 aún dependen de AWS SSM, Secrets Manager y la CA RDS. Se requiere una adaptación Azure con Managed Identity/Key Vault y PostgreSQL Azure. No rotar los secretos AWS existentes.
+- El bootstrap Azure del SIEM instala la configuración/reglas M365 y obtiene `office365-client-secret` de Key Vault mediante Managed Identity. La lectura real de Graph y la indexación aún no están probadas. `qapaq-core` conserva dependencias AWS/CA RDS que requieren una migración separada. No rotar los secretos AWS existentes.
 - No afirmar M365, Sophos, Cato, Teams, agentes o playbooks operativos sin pruebas contra los servicios Azure. El workflow Ankay publica el overlay de frontend; no instala backend, Orborus, workers ni OpenSearch.
 - A11 fija snapshots/evidencia en S3 y excluye Azure. No usar Blob para esos datos hasta que una decisión revisada defina residencia, Object Lock y retención.
 - USD 200/mes es un umbral de alertas, sin apagado ni `destroy`. La estimación actual ya supera ese importe antes de los componentes restantes.
@@ -214,8 +227,9 @@ secretos ni adjuntarlos a planes, logs o artefactos de CI.
   upstream Shuffle sin modificar. Orborus necesita acceso al socket Docker; el
   diseño apunta a una VM Linux privada con Compose y volúmenes persistentes. El
   módulo Azure aislado no demuestra el Compose ni el runtime funcional. El
-  instalador versionado de Wazuh Office 365 usa AWS Secrets Manager y requiere
-  adaptación explícita a Key Vault antes de ejecutarse en Azure.
+  paquete SIEM ahora incluye el instalador Wazuh Office 365, que consume la
+  credencial desde un archivo materializado por Managed Identity/Key Vault; esto
+  instala reglas, pero no demuestra lectura Graph ni indexación de eventos.
 - CI Security pasó en el run
   [39530588011](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39530588011).
   La validación del Terraform Azure y la validación aislada del host Ankay
@@ -327,7 +341,7 @@ valores desde AWS.
 | API QAPAQ | `QAPAQ_ENTRA_CLIENT_SECRET` | Requiere comprobar la versión vigente en el origen autorizado y copiarla mediante un canal seguro. Tenant ID y client ID son configuración, no secretos. |
 | API QAPAQ | `QAPAQ_TEAMS_WORKFLOW_URL` | Debe ser la URL nueva de Teams Workflows. La URL firmada es una credencial y nunca se imprime ni prueba con `curl -v`. |
 | API/gateway QAPAQ | `QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN` y CA del Indexer, si aplica | Pendientes del paquete y endpoints de Wazuh para Azure; no configurar hasta establecer identidad de solo lectura, TLS y ruta privada. |
-| Manager Wazuh | Credencial de la app Office 365 | Se consume localmente por el módulo `office365`. Migrar el script desde AWS Secrets Manager a Key Vault y comprobar permisos antes de iniciar la lectura. |
+| Manager Wazuh | Credencial de la app Office 365 (`office365-client-secret`) | Se materializa desde Key Vault en el host con Managed Identity y se consume como archivo por el módulo `office365`. Antes de declarar operación, comprobar permisos Graph, lectura e indexación sin imprimir la credencial. |
 | Worker M365/Sophos/Cato | Credenciales de cada conector | M365 conserva la integración aceptada. Sophos y Cato están bloqueados por contratos de API/permisos todavía ausentes. No inyectar secretos a un worker sin adaptador aprobado. |
 | PostgreSQL | Password bootstrap y password de rol runtime | El bootstrap es requerido para crear el servidor y queda en Terraform state. Falta crear un usuario de aplicación de mínimo privilegio y migraciones seguras; no reutilizar el administrador como identidad de runtime. |
 

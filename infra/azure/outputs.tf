@@ -43,6 +43,11 @@ output "siem_private_ip" {
   value       = try(module.siem_host[0].private_ip_address, null)
 }
 
+output "siem_firewall_public_ip" {
+  description = "Egress IP del firewall Standard creado junto con el SIEM. No habilita ingreso público."
+  value       = try(module.egress_firewall[0].public_ip_address, null)
+}
+
 output "ankay_private_ip" {
   description = "IP privada del host Ankay preparado cuando se habilita `ankay_host`; null por defecto."
   value       = try(module.ankay_host[0].private_ip_address, null)

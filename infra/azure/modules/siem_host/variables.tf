@@ -24,22 +24,22 @@ variable "virtual_network_name" {
 }
 
 variable "firewall_private_ip" {
-  description = "IP privada IPv4 del Azure Firewall existente que recibe la ruta 0/0 de la subnet SIEM. No tiene valor predeterminado: sin firewall el módulo no puede planificarse."
+  description = "IP privada IPv4 del Azure Firewall Standard administrado por el root, que recibe la ruta 0/0 de la subnet SIEM."
   type        = string
 
   validation {
     condition     = can(cidrhost("${var.firewall_private_ip}/32", 0))
-    error_message = "firewall_private_ip debe ser una IPv4 válida del Azure Firewall existente."
+    error_message = "firewall_private_ip debe ser una IPv4 válida del Azure Firewall administrado."
   }
 }
 
 variable "firewall_policy_reference" {
-  description = "ID/nombre de la Azure Firewall Policy revisada para el SIEM. La policy externa debe denegar por defecto y permitir solo los destinos de release/runtime aprobados."
+  description = "ID de la Azure Firewall Policy Standard creada por el root y asociada al host SIEM."
   type        = string
 
   validation {
     condition     = length(trimspace(var.firewall_policy_reference)) > 0
-    error_message = "La salida del SIEM queda bloqueada hasta declarar la policy de Azure Firewall revisada."
+    error_message = "El root debe entregar la policy del firewall creado para el host SIEM."
   }
 }
 
@@ -76,6 +76,11 @@ variable "address_prefix" {
 variable "vm_size" {
   description = "SKU de VM validado con la carga Wazuh y la cuota de la suscripción."
   type        = string
+
+  validation {
+    condition     = var.vm_size == "Standard_F4s_v2"
+    error_message = "El bundle Wazuh se publica para amd64 y el perfil demo requiere Standard_F4s_v2; cualquier otro SKU requiere un bundle y una aceptación de arquitectura probados."
+  }
 }
 
 variable "admin_username" {
@@ -232,6 +237,24 @@ variable "core_environment" {
       )
     ])
     error_message = "core_environment admite QAPAQ_ENTRA_CLIENT_SECRET_REF solo como secret://keyvault/<nombre> y debe coincidir con core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET; las claves sensibles restantes y los valores multilínea están prohibidos."
+  }
+}
+
+variable "office365" {
+  description = "Configuración no secreta de Microsoft 365; client secret se lee desde el archivo que la Managed Identity materializa desde Key Vault."
+  type = object({
+    tenant_id  = string
+    client_id  = string
+    api_type   = string
+    enable_dlp = bool
+  })
+  validation {
+    condition = (
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.office365.tenant_id)) &&
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.office365.client_id)) &&
+      contains(["commercial", "gcc", "gcc-high"], var.office365.api_type)
+    )
+    error_message = "office365 requiere tenant/client GUID válidos y api_type commercial, gcc o gcc-high."
   }
 }
 

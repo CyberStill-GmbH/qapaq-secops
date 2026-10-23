@@ -1,9 +1,12 @@
 # Microsoft 365 → Wazuh como código
 
 Estado: reglas y script **verificados contra Wazuh 4.14.7 real** (`wazuh-logtest`, 48/48
-casos; `apply-office365.sh` idempotente sobre el manager). La recolección desde un tenant
-real sigue `BLOCKED` hasta tener el tenant autorizado, la app de Entra y el secreto
-(ADR-024). Fecha: 2026-10-11.
+casos; `apply-office365.sh` idempotente sobre el manager). Azure ahora incluye el script,
+plantilla y reglas en el bundle de primer arranque; la validación de producción todavía
+requiere ejecutar `wazuh-logtest` con 4.14.8 y confirmar lectura real del tenant autorizado
+(ADR-024). En Azure, el secreto se entrega como archivo materializado desde Key Vault por
+Managed Identity y no invoca AWS Secrets Manager. Los flujos AWS existentes conservan su
+adaptador `aws-secretsmanager:`.
 
 Este directorio versiona lo que antes se configuraba a mano en el manager: el módulo
 `office365`, las reglas locales que convierten actividad de Microsoft 365 en alertas con
@@ -11,17 +14,19 @@ valor de detección y la lista de cuentas de emergencia.
 
 ## Contenido
 
-| Archivo                           | Qué es                                                                                                          |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `ossec-office365.xml.tmpl`        | Bloque `<office365>` con marcadores `QAPAQ:office365`. El secreto se lee de un archivo, nunca de `ossec.conf`.  |
-| `rules/qapaq_office365_rules.xml` | Reglas locales 100502–100530 (rango reservado 100500–100549).                                                   |
-| `lists/qapaq-break-glass.example` | Formato de la lista CDB de cuentas break-glass. La lista real se provisiona por ambiente desde Secrets Manager. |
-| `apply-office365.sh`              | Aplica todo de forma idempotente: respalda, valida con `wazuh-analysisd -t`, restaura si falla y reinicia.      |
-| `tests/`                          | Casos sintéticos para `wazuh-logtest` y su runner.                                                              |
+| Archivo                           | Qué es                                                                                                            |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ossec-office365.xml.tmpl`        | Bloque `<office365>` con marcadores `QAPAQ:office365`. El secreto se lee de un archivo, nunca de `ossec.conf`.    |
+| `rules/qapaq_office365_rules.xml` | Reglas locales 100502–100530 (rango reservado 100500–100549).                                                     |
+| `lists/qapaq-break-glass.example` | Formato de la lista CDB de cuentas break-glass. En Azure se provisiona por ambiente desde Key Vault como secreto. |
+| `apply-office365.sh`              | Aplica todo de forma idempotente: respalda, valida con `wazuh-analysisd -t`, restaura si falla y reinicia.        |
+| `tests/`                          | Casos sintéticos para `wazuh-logtest` y su runner.                                                                |
 
-El workflow `.github/workflows/configure-wazuh-office365.yml` empaqueta este directorio y lo
-ejecuta en el manager demo por SSM. Tiene modo `render`, que valida y muestra el bloque sin
-tocar nada, y modo `apply`.
+El bundle `.github/workflows/azure-siem-release-bundle.yml` incluye estos archivos fijados
+por SHA-256 y `wazuh/azure-release/install.sh` ejecuta el modo `apply` durante el primer
+arranque. El client secret y la lista break-glass se leen desde archivos locales creados por
+el bootstrap con la identidad administrada de la VM. El modo `render` sigue disponible para
+validar la plantilla sin tocar el manager.
 
 ## Por qué reglas locales
 
@@ -80,21 +85,22 @@ funcionales solo con un registro real redactado como fixture. Los casos 44–48 
 
 ## Aplicar
 
-1. El dueño de Microsoft 365 carga el client secret en
-   `qapaq-secops/<ambiente>/wazuh/office365-client-secret` y, opcionalmente, los UPN
-   break-glass separados por comas en `qapaq-secops/<ambiente>/wazuh/break-glass-identities`.
-   Terraform (`modules/wazuh_public`) crea los contenedores y el permiso de lectura del host.
-   Agregar esos recursos no reemplaza la instancia.
-2. Ejecutar el workflow en modo `render` para validar entradas y plantilla.
-3. Ejecutar en modo `apply`. La salida muestra las líneas de `wazuh-modulesd:office365`
-   posteriores al reinicio y nunca imprime secretos.
+1. Cargar el client secret con un canal administrativo aprobado en Azure Key Vault. Si se usa
+   la lista break-glass, cargar sus UPN como otro secreto de Key Vault. La Managed Identity
+   SIEM recibe lectura solo en los nombres de secreto asignados a `wazuh_secret_names`.
+2. Configurar `siem_host.office365` con tenant ID, client ID, tipo de API y DLP; guardar solo
+   nombres de secretos en `wazuh_secret_names`, incluyendo `office365-client-secret`.
+3. Generar un plan Terraform remoto y revisar cambios/costos antes de aplicar. El primer
+   arranque materializa secretos localmente y aplica plantilla/reglas con respaldo y rollback.
+4. Tras el despliegue, confirmar que `wazuh-modulesd:office365` inició y validar ingesta real
+   mediante un evento de prueba del tenant autorizado. El build/plan no demuestra ingestión.
 
 Uso manual en un manager:
 
 ```bash
 QAPAQ_O365_TENANT_ID=<guid> QAPAQ_O365_CLIENT_ID=<guid> \
-QAPAQ_O365_SECRET_SOURCE=aws-secretsmanager:qapaq-secops/demo/wazuh/office365-client-secret \
-QAPAQ_BREAK_GLASS_SOURCE=aws-secretsmanager:qapaq-secops/demo/wazuh/break-glass-identities \
+QAPAQ_O365_SECRET_SOURCE=file:/etc/qapaq-secrets/office365-client-secret \
+QAPAQ_BREAK_GLASS_SOURCE=file:/etc/qapaq-secrets/break-glass-identities \
 sudo -E bash apply-office365.sh
 ```
 

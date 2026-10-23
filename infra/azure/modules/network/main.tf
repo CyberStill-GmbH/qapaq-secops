@@ -58,6 +58,14 @@ resource "azurerm_subnet" "ankay" {
   address_prefixes     = [var.ankay_subnet_address_prefix]
 }
 
+resource "azurerm_subnet" "firewall" {
+  count                = var.enable_siem_firewall ? 1 : 0
+  name                 = "AzureFirewallSubnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [cidrsubnet(var.address_space, 10, 256)]
+}
+
 
 resource "azurerm_private_dns_zone" "postgres" {
   name                = "${var.name_base}.postgres.database.azure.com"

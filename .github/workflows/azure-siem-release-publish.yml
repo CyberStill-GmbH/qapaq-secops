@@ -1,0 +1,165 @@
+name: Publish QAPAQ SIEM release to private Azure Blob
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Azure SIEM release-bundle run on main
+        type: string
+        required: true
+      source_sha:
+        description: Exact 40-character QAPAQ source commit recorded in the candidate bundle
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: azure-siem-release-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish immutable SIEM bundle
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    environment: azure-demo
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_ACR_PUBLISHER_CLIENT_ID || vars.AZURE_ACR_PUBLISHER_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+      STORAGE_ACCOUNT: ${{ vars.AZURE_SIEM_RELEASE_STORAGE_ACCOUNT }}
+      CONTAINER: siem-release
+    steps:
+      - name: Validate the source run, commit and retained artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID STORAGE_ACCOUNT; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing required GitHub secret or variable: $name"; exit 1; }
+          done
+
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          jq -e \
+            '.head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == ".github/workflows/azure-siem-release-bundle.yml"' \
+            <<<"$run_json" >/dev/null || {
+              echo '::error::Source must be a successful Azure SIEM bundle run on main.'
+              exit 1
+            }
+          bundle_run_sha="$(jq -er '.head_sha' <<<"$run_json")"
+          compare_json="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$bundle_run_sha")"
+          jq -e --arg sha "$SOURCE_SHA" \
+            '(.status == "ahead" or .status == "identical") and .merge_base_commit.sha == $sha' \
+            <<<"$compare_json" >/dev/null || {
+              echo '::error::Bundle source SHA must be an ancestor of the successful main bundle run.'
+              exit 1
+            }
+
+          artifact_name="qapaq-siem-installable-candidate-$SOURCE_SHA"
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts")"
+          jq -e --arg name "$artifact_name" \
+            '.artifacts[] | select(.name == $name and .expired == false and .size_in_bytes > 0)' \
+            <<<"$artifacts" >/dev/null || {
+              echo '::error::Expected unexpired release artifact is missing.'
+              exit 1
+            }
+          echo "ARTIFACT_NAME=$artifact_name" >> "$GITHUB_ENV"
+
+      - name: Download the verified source-run artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qapaq-siem-installable-candidate-${{ inputs.source_sha }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/qapaq-siem-release
+
+      - name: Verify bundle digest and immutable destination
+        id: bundle
+        working-directory: ${{ runner.temp }}/qapaq-siem-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="qapaq-siem-${SOURCE_SHA:0:12}.tar.gz"
+          [[ -f "$bundle" && -f SHA256SUMS ]]
+          [[ "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" == 2 ]]
+          sha256sum --check --strict SHA256SUMS
+          manifest_name="$(tar -tzf "$bundle" | awk -F/ '$NF == "manifest.json" && !found { print; found=1 }')"
+          [[ -n "$manifest_name" ]]
+          tar -xOf "$bundle" "$manifest_name" \
+            | jq -e --arg sha "$SOURCE_SHA" '.status == "installable-candidate" and .qapaqCommit == $sha' >/dev/null || {
+                echo '::error::Bundle manifest does not match the requested QAPAQ source commit.'
+                exit 1
+              }
+          digest="$(sha256sum "$bundle" | awk '{print $1}')"
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          size="$(stat -c '%s' "$bundle")"
+          (( size > 0 ))
+          blob_name="releases/$SOURCE_SHA/$bundle"
+          printf 'name=%s\ndigest=%s\nsize=%s\nblob_name=%s\n' \
+            "$bundle" "$digest" "$size" "$blob_name" >> "$GITHUB_OUTPUT"
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_ACR_PUBLISHER_CLIENT_ID || vars.AZURE_ACR_PUBLISHER_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID || vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID || vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Upload with Entra RBAC and verify the private Blob
+        working-directory: ${{ runner.temp }}/qapaq-siem-release
+        env:
+          BLOB_NAME: ${{ steps.bundle.outputs.blob_name }}
+          BUNDLE_NAME: ${{ steps.bundle.outputs.name }}
+          BUNDLE_SHA256: ${{ steps.bundle.outputs.digest }}
+          BUNDLE_SIZE: ${{ steps.bundle.outputs.size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          exists="$(az storage blob exists --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+            --container-name "$CONTAINER" --name "$BLOB_NAME" --query exists --output tsv)"
+          if [[ "$exists" == true ]]; then
+            actual_sha="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$BLOB_NAME" --query metadata.sha256 --output tsv)"
+            actual_size="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$BLOB_NAME" --query properties.contentLength --output tsv)"
+            [[ "$actual_sha" == "$BUNDLE_SHA256" && "$actual_size" == "$BUNDLE_SIZE" ]] || {
+              echo '::error::Immutable destination already exists with different content.'
+              exit 1
+            }
+          else
+            az storage blob upload --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$BLOB_NAME" \
+              --file "$BUNDLE_NAME" --overwrite false --max-connections 4 --no-progress \
+              --metadata "sha256=$BUNDLE_SHA256" "source_sha=$SOURCE_SHA" \
+              --content-type application/gzip --output none
+          fi
+
+          actual_sha="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+            --container-name "$CONTAINER" --name "$BLOB_NAME" --query metadata.sha256 --output tsv)"
+          actual_size="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+            --container-name "$CONTAINER" --name "$BLOB_NAME" --query properties.contentLength --output tsv)"
+          [[ "$actual_sha" == "$BUNDLE_SHA256" && "$actual_size" == "$BUNDLE_SIZE" ]]
+          blob_url="https://${STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER}/${BLOB_NAME}"
+          {
+            echo '## QAPAQ SIEM bundle published to private Blob'
+            echo
+            echo "- Source run: [${SOURCE_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID})"
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Blob URI (no SAS): \`${blob_url}\`"
+            echo "- SHA-256: \`${BUNDLE_SHA256}\`"
+            echo "- Size: ${BUNDLE_SIZE} bytes"
+            echo '- Access: private container, Entra RBAC; no shared keys or anonymous access.'
+          } >> "$GITHUB_STEP_SUMMARY"

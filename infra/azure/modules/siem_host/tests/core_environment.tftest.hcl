@@ -10,7 +10,7 @@ variables {
   private_endpoint_subnet_cidr = "10.20.1.0/24"
   postgres_subnet_cidr         = "10.20.2.0/24"
   address_prefix               = "10.20.0.0/16"
-  vm_size                      = "Standard_B2s"
+  vm_size                      = "Standard_F4s_v2"
   admin_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrSSBU5aLhPsPjvwqHInna41VinFclKO7IxLy6VglY5 test@example.invalid"
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
@@ -20,6 +20,12 @@ variables {
   artifact_container_scope_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Storage/storageAccounts/stqapaqtest/blobServices/default/containers/artifacts"
   bootstrap_bundle_blob_url    = "https://stqapaqtest.blob.core.windows.net/artifacts/siem-bootstrap.tar.gz"
   bootstrap_bundle_sha256      = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  office365 = {
+    tenant_id  = "00000000-0000-0000-0000-000000000001"
+    client_id  = "00000000-0000-0000-0000-000000000002"
+    api_type   = "commercial"
+    enable_dlp = false
+  }
 }
 
 run "accepts_matching_key_vault_reference" {
@@ -91,4 +97,29 @@ run "rejects_secret_reference_in_secret_names" {
   }
 
   expect_failures = [var.core_secret_names]
+}
+
+run "rejects_unverified_vm_size" {
+  command = plan
+
+  variables {
+    vm_size = "Standard_B2s"
+  }
+
+  expect_failures = [var.vm_size]
+}
+
+run "rejects_invalid_office365_ids" {
+  command = plan
+
+  variables {
+    office365 = {
+      tenant_id  = "not-a-guid"
+      client_id  = "00000000-0000-4000-8000-000000000002"
+      api_type   = "commercial"
+      enable_dlp = false
+    }
+  }
+
+  expect_failures = [var.office365]
 }

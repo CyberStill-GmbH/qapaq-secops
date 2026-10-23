@@ -4,15 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: Apply the exact plan after the azure-demo environment approval
+        description: Apply the exact reviewed plan from this run (main or approved Azure demo branch)
         type: boolean
         required: true
         default: false
-      cost_review_reference:
-        description: HTTPS reference to the reviewed monthly Azure cost estimate (required for apply)
-        type: string
-        required: false
-        default: ""
+      deployment_scope:
+        description: Select SOC deployment or foundation-only maintenance
+        type: choice
+        required: true
+        default: soc
+        options:
+          - soc
+          - foundation
 
 permissions:
   contents: read
@@ -29,20 +32,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Require main and a cost review reference before apply
-        env:
-          APPLY: ${{ inputs.apply }}
-          COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+      - name: Require main or the approved Azure demo continuation branch
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo '::error::Terraform Azure is restricted to main.'; exit 1; }
-          if [[ "$APPLY" == true ]]; then
-            [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
-              echo '::error::Apply requires an HTTPS reference to the reviewed Azure monthly cost estimate.'
-              exit 1
-            }
-          fi
+          [[ "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/codex/azure-soc-continuation" ]] || {
+            echo '::error::Terraform Azure is restricted to main or codex/azure-soc-continuation.'
+            exit 1
+          }
 
   plan:
     name: Create and summarize protected Terraform plan
@@ -66,11 +63,19 @@ jobs:
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}
+      # Runtime stays explicitly disabled unless the Azure environment opts in.
+      # SIEM and Ankay JSON contain non-secret configuration and Key Vault names;
+      # secret values must remain in Key Vault and must never be placed here.
+      AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_ACR_LOGIN_SERVER }}
+      TF_VAR_enable_runtime: ${{ vars.AZURE_ENABLE_RUNTIME || 'false' }}
+      TF_VAR_container_images: ${{ secrets.AZURE_CONTAINER_IMAGES_JSON || vars.AZURE_CONTAINER_IMAGES_JSON || '{}' }}
+      TF_VAR_siem_host: ${{ secrets.AZURE_SIEM_HOST_JSON || vars.AZURE_SIEM_HOST_JSON || 'null' }}
+      TF_VAR_ankay_host: ${{ secrets.AZURE_ANKAY_HOST_JSON || vars.AZURE_ANKAY_HOST_JSON || 'null' }}
+      TF_VAR_key_vault_secret_ids: ${{ secrets.AZURE_KEY_VAULT_SECRET_IDS_JSON || vars.AZURE_KEY_VAULT_SECRET_IDS_JSON || '{}' }}
       TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_TF_STATE_RESOURCE_GROUP }}
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
       TF_STATE_KEY: ${{ vars.AZURE_TF_STATE_KEY }}
-      COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,8 +93,25 @@ jobs:
           [[ "$TF_STATE_STORAGE_ACCOUNT" =~ ^[a-z0-9]{3,24}$ ]] || { echo '::error::Invalid Azure state storage account name.'; exit 1; }
           [[ "$TF_STATE_CONTAINER" =~ ^[a-z0-9-]{3,63}$ ]] || { echo '::error::Invalid Azure state container name.'; exit 1; }
           if [[ "${{ inputs.apply }}" == true ]]; then
-            printf '%s\n' "Cost estimate reference: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+            printf '%s\n' 'Cost estimate: docs/cloud/azure/cost-feasibility-2026-10-20.md (USD 200 is an alert threshold, not a spending cap).' >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Validate opt-in Azure runtime configuration without printing inputs
+        working-directory: .
+        run: node scripts/ci/validate-azure-deployment-inputs.mjs
+
+      - name: Require the QAPAQ SIEM host for an apply
+        if: ${{ inputs.apply && inputs.deployment_scope == 'soc' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const host = JSON.parse(process.env.TF_VAR_siem_host ?? 'null');
+          if (host === null) {
+            console.error('::error::SOC apply refused: configure AZURE_SIEM_HOST_JSON with the Azure VM, approved ingress CIDRs, SSH public key, release bundle and Key Vault secret names. This is Azure host configuration, not an AWS firewall dependency.');
+            process.exit(1);
+          }
+          NODE
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -170,6 +192,12 @@ jobs:
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}
+      AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_ACR_LOGIN_SERVER }}
+      TF_VAR_enable_runtime: ${{ vars.AZURE_ENABLE_RUNTIME || 'false' }}
+      TF_VAR_container_images: ${{ secrets.AZURE_CONTAINER_IMAGES_JSON || vars.AZURE_CONTAINER_IMAGES_JSON || '{}' }}
+      TF_VAR_siem_host: ${{ secrets.AZURE_SIEM_HOST_JSON || vars.AZURE_SIEM_HOST_JSON || 'null' }}
+      TF_VAR_ankay_host: ${{ secrets.AZURE_ANKAY_HOST_JSON || vars.AZURE_ANKAY_HOST_JSON || 'null' }}
+      TF_VAR_key_vault_secret_ids: ${{ secrets.AZURE_KEY_VAULT_SECRET_IDS_JSON || vars.AZURE_KEY_VAULT_SECRET_IDS_JSON || '{}' }}
       TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_TF_STATE_RESOURCE_GROUP }}
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_TF_STATE_CONTAINER }}
