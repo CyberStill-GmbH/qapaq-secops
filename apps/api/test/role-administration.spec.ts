@@ -236,6 +236,36 @@ describe('administración de roles · casos de uso', () => {
     });
   });
 
+  it('SoD: quien aprobó Acceso tampoco puede cerrar la etapa Seguridad', async () => {
+    const pending = await request('qapaq.platform.admin');
+    const access = await decideRoleRequest(
+      deps(),
+      accessApprover(),
+      approval(pending.id, pending.revision),
+      'corr-access',
+    );
+    expect(access).toMatchObject({
+      ok: true,
+      value: { request: { status: 'pending_security' } },
+    });
+    if (!access.ok) throw new Error('La aprobación de Acceso debía avanzar a Seguridad');
+
+    const samePersonAsSecurity = actor(ACCESS, ['roles.approve.privileged']);
+    const denied = await decideRoleRequest(
+      deps({ config: approvers(ACCESS, ACCESS) }),
+      samePersonAsSecurity,
+      rejection(pending.id, access.value.request.revision),
+      'corr-security-reject',
+    );
+
+    expect(denied).toEqual({ ok: false, failure: 'CONFLICT' });
+    expect(await administration.requests.byId(TENANT, pending.id)).toMatchObject({
+      status: 'pending_security',
+      securityApproval: null,
+    });
+    expect((await grantOf()).revision).toBe(0);
+  });
+
   it('rechazar cierra la solicitud sin tocar el grant y no admite otra decisión', async () => {
     const pending = await request();
     const rejected = await decideRoleRequest(
