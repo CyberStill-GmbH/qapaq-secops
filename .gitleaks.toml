@@ -27,3 +27,24 @@ condition = "AND"
 targetRules = ["generic-api-key"]
 commits = ["e93fc79b935b807a7ec3437fecb95be4ff741fdb"]
 paths = ['''(^|/)docs/cloud/azure/cost-feasibility-2026-10-22\.md$''']
+
+[[allowlists]]
+description = "Public Go module SHA-256 sums embedded in the Moby v29 backend migration patch; scoped to its commit and dependency patch files."
+condition = "AND"
+targetRules = ["generic-api-key"]
+commits = ["79a1964f31fde18d5ba7db1f0eafd0ea3a4366f3"]
+paths = [
+  '''(^|/)ankay/runtime/shuffle-runtime-moby-v29\.patch$''',
+  '''(^|/)ankay/runtime/shuffle-shared-moby-v29\.patch$''',
+]
+regexTarget = "match"
+regexes = ['''^[A-Za-z0-9+/]{43}=$''']
+
+[[allowlists]]
+description = "Public Go module SHA-256 sums embedded in the Moby v29 worker migration patch; scoped to its commit and dependency patch file."
+condition = "AND"
+targetRules = ["generic-api-key"]
+commits = ["48529ce74ed2fe5c6492b281252cb33fbe10bb80"]
+paths = ['''(^|/)ankay/runtime/shuffle-worker-moby-v29\.patch$''']
+regexTarget = "match"
+regexes = ['''^[A-Za-z0-9+/]{43}=$''']
