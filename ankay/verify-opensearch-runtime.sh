@@ -11,6 +11,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
+sudo sysctl -w vm.max_map_count=262144 >/dev/null
+test "$(sysctl -n vm.max_map_count)" -ge 262144
+
 docker run --detach \
   --name "$container" \
   --publish 127.0.0.1:19200:9200 \
@@ -18,7 +21,6 @@ docker run --detach \
   --cpus 2 \
   --ulimit memlock=-1:-1 \
   --ulimit nofile=65536:65536 \
-  --sysctl vm.max_map_count=262144 \
   --env cluster.name=ankay-smoke \
   --env discovery.type=single-node \
   --env OPENSEARCH_INITIAL_ADMIN_PASSWORD="$password" \

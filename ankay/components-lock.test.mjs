@@ -79,6 +79,10 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
     new URL('./runtime/Dockerfile.opensearch', import.meta.url),
     'utf8',
   );
+  const runtimeVerifier = readFileSync(
+    new URL('./verify-opensearch-runtime.sh', import.meta.url),
+    'utf8',
+  );
   assert.match(
     buildScript,
     /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/,
@@ -89,6 +93,8 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   assert.match(buildScript, /verify-opensearch-runtime\.sh" \\\r?\n\s+"\$work_dir\/source\/"/);
   assert.match(workflow, /ankay-qapaq-opensearch:\$\{GITHUB_SHA\}/);
   assert.match(workflow, /bash ankay\/verify-opensearch-runtime\.sh/);
+  assert.match(runtimeVerifier, /sudo sysctl -w vm\.max_map_count=262144/);
+  assert.doesNotMatch(runtimeVerifier, /--sysctl vm\.max_map_count=/);
   assert.match(
     dockerfile,
     /dnf --releasever="\$\{AMAZON_LINUX_RELEASE\}" upgrade --refresh --assumeyes/,
