@@ -20,6 +20,11 @@ export COMPOSE_PROJECT_NAME="$project_name"
 export OPENSEARCH_IMAGE="$opensearch_image"
 export BACKEND_IMAGE="$backend_image"
 cleanup() {
+  status=$?
+  if (( status != 0 )); then
+    echo 'Compose/API smoke failed; collecting ephemeral service logs before cleanup.' >&2
+    docker compose -f "$compose_file" logs --no-color backend opensearch memcached >&2 || true
+  fi
   docker compose -f "$compose_file" down --volumes --remove-orphans >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
