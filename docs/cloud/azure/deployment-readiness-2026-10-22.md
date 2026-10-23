@@ -1,5 +1,13 @@
 # Azure deployment readiness — 2026-10-22
 
+## Actualización verificada — 2026-10-23 21:47 UTC
+
+- Las PR [#131](https://github.com/CyberStill-GmbH/qapaq-secops/pull/131) y [#132](https://github.com/CyberStill-GmbH/qapaq-secops/pull/132) están integradas en `main`. Azure crea su Firewall y su DNAT cuando se configura `siem_host`; el ingreso HTTPS aplica la allowlist de CIDR en el Firewall. Debido al SNAT de DNAT, el NSG del SIEM acepta el peer privado del Firewall y la categoría NAT se envía a Log Analytics para auditoría de la IP original. Esto corrige la dependencia AWS sin abrir el dashboard a `0.0.0.0/0`.
+- El plan protegido y de solo lectura [40029106928](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40029106928) en el `main` actual terminó correctamente con **0 altas, 0 cambios y 0 destrucciones**; apply fue omitido. OIDC, el backend de state y Terraform validaron correctamente.
+- Las entradas efectivas, mostradas por CI sin revelar secretos, siguen siendo `enable_runtime=false`, `siem_host=null`, `ankay_host=null`, `container_images={}` y `key_vault_secret_ids={}`. Por eso el plan no crea firewall, Wazuh/Manager/Indexer/Dashboard, Ankay ni runtime de contenedores. El cambio de código de ingress no equivale a un despliegue.
+- Para habilitar el runtime faltan el perfil `AZURE_SIEM_HOST_JSON` con subnet, clave pública SSH, CIDR de dashboard/agentes, settings de M365, bundle inmutable y nombres de secretos de Key Vault; seis imágenes Ankay fijadas por digest y Compose validado; además de las referencias de secretos versionadas que espera el runtime. No se copiaron valores de secretos a GitHub ni se cambió DNS.
+- `AZFWNatRule` añade costo de ingesta/retención de Log Analytics además del firewall. Revisar el plan de costos actualizado antes de habilitar el SIEM. El estado Terraform actual sigue convergido; Azure todavía no sirve un SOC operativo.
+
 ## Actualización verificada — 2026-10-23 02:16 UTC
 
 - La ejecución Terraform [39882217879](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39882217879) falló en preflight porque se lanzó desde `codex/azure-soc-continuation`; no alcanzó a inicializar Terraform ni a consultar el state. El gate era de rama, no de AWS. La allowlist de `azure-demo` y el workflow ya permiten esa rama; la [PR #125](https://github.com/CyberStill-GmbH/qapaq-secops/pull/125) se integró en `main` como `2c5158810d58b28dfd1902cd0085c879bab4531c`.
