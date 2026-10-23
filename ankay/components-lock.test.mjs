@@ -71,10 +71,7 @@ test('Ankay CI scans the exact OpenSearch amd64 digest from the component lock',
     /opensearch_image="\$\(jq -r '\.sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest' ankay\/azure-components\.lock\.json\)"/,
   );
   assert.match(workflow, /"\$opensearch_image"/);
-  assert.doesNotMatch(
-    workflow,
-    /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/,
-  );
+  assert.doesNotMatch(workflow, /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/);
 });
 
 test('runtime Dockerfiles receive both pinned build bases before the first FROM', () => {
