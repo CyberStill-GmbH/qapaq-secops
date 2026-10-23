@@ -269,6 +269,30 @@ test('backend Docker SDK migration uses pinned Moby overlays and corresponding s
   assert.doesNotMatch(sharedPatch, /\+\s*"github\.com\/docker\/docker/);
 });
 
+test('workflow parameter examples have a runtime keyword mapping and an OpenSearch assertion', () => {
+  const buildScript = readFileSync(
+    new URL('./build-runtime-components.sh', import.meta.url),
+    'utf8',
+  );
+  const mappingPatch = readFileSync(
+    new URL('./runtime/shuffle-shared-workflow-example-mapping.patch', import.meta.url),
+    'utf8',
+  );
+  const smoke = readFileSync(new URL('./smoke-opensearch-compose.sh', import.meta.url), 'utf8');
+  const compose = readFileSync(new URL('./runtime/opensearch-smoke.compose.yml', import.meta.url), 'utf8');
+
+  assert.match(buildScript, /apply --check "\$shuffle_shared_workflow_mapping_patch"/);
+  assert.match(buildScript, /apply "\$shuffle_shared_workflow_mapping_patch"/);
+  assert.match(buildScript, /cp "\$shuffle_shared_workflow_mapping_patch" "\$work_dir\/source\/ankay-overlay\/"/);
+  assert.match(mappingPatch, /"example": \{"type": "keyword"\}/);
+  assert.match(smoke, /workflow-000001\/_mapping/);
+  assert.match(smoke, /parameters\.properties\.example\.type == "keyword"/);
+  assert.match(smoke, /api\/v1\/health\?force=true/);
+  assert.match(smoke, /jq -e '\.success == true'/);
+  assert.match(compose, /127\.0\.0\.1:19200:9200/);
+  assert.doesNotMatch(compose, /docker\.sock/);
+});
+
 test('Moby v29 migration stays blocked until the Engine runtime check passes', () => {
   const blocker = lock.securityBlockers.dockerSdk;
   assert.equal(blocker.module, 'github.com/docker/docker@v28.3.3+incompatible');

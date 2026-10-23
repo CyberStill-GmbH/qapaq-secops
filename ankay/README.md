@@ -57,6 +57,21 @@ El montaje anterior es un contrato requerido del runtime. Hasta que Compose o el
 orquestador lo aplique y se verifique conectividad TLS a OpenSearch, no declarar
 Ankay listo para Terraform/runtime.
 
+## Mapping de ejemplos de workflows
+
+Shuffle v2.3.0 crea el workflow interno de salud con `GetWorkflowTest()`. La acción
+`Date_to_epoch` tiene una fecha ISO-8601 en `actions.parameters.example`, aunque ese
+campo es una cadena descriptiva del parámetro, no una fecha consultable. La detección
+dinámica de fechas de OpenSearch puede fijar el campo como `date`; una escritura posterior
+de otro ejemplo textual entonces falla con `date`→`text`. El overlay
+`runtime/shuffle-shared-workflow-example-mapping.patch` declara esa ruta como `keyword`
+antes de crear los índices. Si un despliegue configura `OPENSEARCH_INDEX_CONFIG`, debe
+preservar el mismo mapping explícito.
+
+El smoke obtiene la mapping real de `workflow-000001` por HTTPS con la CA montada y
+verifica `actions.parameters.example.type == keyword`; no desactiva la seguridad ni
+concluye que Ankay esté operativo solo con una respuesta de salud básica.
+
 ## Usuario runtime y límite del Docker socket
 
 Backend y worker corren como UID/GID fijo `10001:10001`. Solo el backend recibe
@@ -78,6 +93,10 @@ en Compose/Azure. No usar un montaje `:ro` como sustituto de autorización al AP
 El usuario no-root mitiga privilegios del proceso y habilita el control Trivy `DS-0002`,
 pero no contiene el poder del Docker socket. Una VM exclusiva reduce el alcance del
 incidente solo si no comparte workloads, datos ni identidades cloud de privilegio amplio.
+El smoke Compose no dispone de Orborus ni de la ejecución dinámica del worker; tampoco
+monta el socket del runner para el build de apps. Por ello el endpoint de salud integral
+`/api/v1/health?force=true` se conserva como gate explícito y sigue fallando/no validado
+hasta que un runner aislado ejercite el builder y Orborus/worker de extremo a extremo.
 Esto no acredita ejecución de workflows, grupos del socket, permisos de volúmenes,
 aislamiento de workers ni controles de red; **Ankay no queda listo para producción**.
 Mantener el release bloqueado hasta versionar y verificar el contrato del socket y

@@ -1,0 +1,20 @@
+--- a/db-connector.go
++++ b/db-connector.go
+@@ -19267,6 +19267,17 @@
+ 				"refresh_interval": "30s"
+ 			},
+ 			"mappings": {
++				"properties": {
++					"actions": {
++						"properties": {
++							"parameters": {
++								"properties": {
++									"example": {"type": "keyword"}
++								}
++							}
++						}
++					}
++				},
+ 				"dynamic_templates": [
+ 					{
+ 						"strings_as_keywords": {
