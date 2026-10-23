@@ -1,0 +1,30 @@
+diff --git a/backend/go-app/main.go b/backend/go-app/main.go
+index ae61a9e..6086ae1 100755
+--- a/backend/go-app/main.go
++++ b/backend/go-app/main.go
+@@ -5303,11 +5303,6 @@ func runInitEs(ctx context.Context) {
+ 		}
+ 	}
+ 
+-	log.Printf("[INFO] Waiting 30 seconds during init to make sure the opensearch instance is up and running with security features enabled")
+-	time.Sleep(30 * time.Second)
+-
+-	shuffle.InitOpensearchIndexes()
+-
+ 	// FIXME: This should ONLY run on one backend instance. This may cause interference.
+ 	schedules, err := shuffle.GetAllSchedules(ctx, "ALL")
+ 	if err != nil {
+@@ -6501,6 +6496,13 @@ func initHandlers() {
+ 
+ 	if elasticConfig == "elasticsearch" {
+ 		time.Sleep(10 * time.Second)
++		// Install index templates and rollover aliases before starting the API
++		// listener. Registration and the initial Ops health workflow can write
++		// workflow documents during startup; serving them before mappings exist
++		// lets OpenSearch infer ISO date examples as dates, then rejects text.
++		log.Printf("[INFO] Waiting 30 seconds during init to make sure the opensearch instance is up and running with security features enabled")
++		time.Sleep(30 * time.Second)
++		shuffle.InitOpensearchIndexes()
+ 		go runInitEs(ctx)
+ 	} else {
+ 		//go shuffle.runInit(ctx)

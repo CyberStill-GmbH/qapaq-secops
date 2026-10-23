@@ -280,9 +280,19 @@ test('workflow parameter examples have a runtime keyword mapping and an OpenSear
   );
   const smoke = readFileSync(new URL('./smoke-opensearch-compose.sh', import.meta.url), 'utf8');
   const compose = readFileSync(new URL('./runtime/opensearch-smoke.compose.yml', import.meta.url), 'utf8');
+  const startupPatch = readFileSync(
+    new URL('./runtime/shuffle-init-indexes-before-listener.patch', import.meta.url),
+    'utf8',
+  );
 
   assert.match(buildScript, /apply --check "\$shuffle_shared_workflow_mapping_patch"/);
   assert.match(buildScript, /apply "\$shuffle_shared_workflow_mapping_patch"/);
+  assert.match(buildScript, /apply --check "\$shuffle_init_indexes_patch"/);
+  assert.match(buildScript, /apply "\$shuffle_init_indexes_patch"/);
+  assert.match(buildScript, /"\$work_dir\/shuffle-shared\/db-connector\.go"/);
+  const movedIndexInit = startupPatch.lastIndexOf('shuffle.InitOpensearchIndexes()');
+  const backgroundInit = startupPatch.lastIndexOf('go runInitEs(ctx)');
+  assert.ok(movedIndexInit >= 0 && backgroundInit > movedIndexInit);
   assert.match(buildScript, /cp "\$shuffle_shared_workflow_mapping_patch" "\$work_dir\/source\/ankay-overlay\/"/);
   assert.match(mappingPatch, /"example": \{"type": "keyword"\}/);
   assert.match(smoke, /workflow-000001\/_mapping/);

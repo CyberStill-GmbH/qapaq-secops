@@ -49,6 +49,9 @@ shuffle_runtime_moby_patch="$root/ankay/runtime/shuffle-runtime-moby-v29.patch"
 shuffle_shared_moby_patch="$root/ankay/runtime/shuffle-shared-moby-v29.patch"
 shuffle_shared_workflow_mapping_patch="$root/ankay/runtime/shuffle-shared-workflow-example-mapping.patch"
 shuffle_worker_moby_patch="$root/ankay/runtime/shuffle-worker-moby-v29.patch"
+shuffle_init_indexes_patch="$root/ankay/runtime/shuffle-init-indexes-before-listener.patch"
+git -C "$work_dir/shuffle" apply --check "$shuffle_init_indexes_patch"
+git -C "$work_dir/shuffle" apply "$shuffle_init_indexes_patch"
 git -C "$work_dir/shuffle" apply --check "$shuffle_shared_sums_patch"
 git -C "$work_dir/shuffle" apply "$shuffle_shared_sums_patch"
 git -C "$work_dir/shuffle" apply --check "$shuffle_runtime_security_patch"
@@ -68,7 +71,8 @@ mkdir -p "$shared_overlay"
 git -C "$work_dir/shuffle-shared" archive "$shuffle_shared_sha" -- . ':(exclude)app_upload' |
   tar -xf - -C "$shared_overlay"
 cp "$work_dir/shuffle-shared/shared.go" "$work_dir/shuffle-shared/codegen.go" \
-  "$work_dir/shuffle-shared/go.mod" "$work_dir/shuffle-shared/go.sum" "$shared_overlay/"
+  "$work_dir/shuffle-shared/db-connector.go" "$work_dir/shuffle-shared/go.mod" \
+  "$work_dir/shuffle-shared/go.sum" "$shared_overlay/"
 cp -a "$shared_overlay" "$work_dir/shuffle/functions/onprem/worker/moby-shuffle-shared"
 grep -qi 'GNU AFFERO GENERAL PUBLIC LICENSE' "$work_dir/shuffle/LICENSE" || {
   echo 'La fuente Shuffle no acredita AGPL-3.0 en LICENSE' >&2; exit 1;
@@ -140,6 +144,7 @@ cp "$shuffle_runtime_security_patch" "$work_dir/source/ankay-overlay/"
 cp "$shuffle_runtime_source_patch" "$work_dir/source/ankay-overlay/"
 cp "$shuffle_runtime_moby_patch" "$shuffle_shared_moby_patch" "$work_dir/source/ankay-overlay/"
 cp "$shuffle_shared_workflow_mapping_patch" "$work_dir/source/ankay-overlay/"
+cp "$shuffle_init_indexes_patch" "$work_dir/source/ankay-overlay/"
 cp "$shuffle_worker_moby_patch" "$work_dir/source/ankay-overlay/"
 cp "$work_dir/shuffle/backend/go-app/main.go" "$work_dir/source/shuffle/backend/go-app/main.go"
 cp "$work_dir/shuffle/backend/go-app/docker.go" "$work_dir/source/shuffle/backend/go-app/docker.go"

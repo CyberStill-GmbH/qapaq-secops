@@ -65,7 +65,10 @@ campo es una cadena descriptiva del parámetro, no una fecha consultable. La det
 dinámica de fechas de OpenSearch puede fijar el campo como `date`; una escritura posterior
 de otro ejemplo textual entonces falla con `date`→`text`. El overlay
 `runtime/shuffle-shared-workflow-example-mapping.patch` declara esa ruta como `keyword`
-antes de crear los índices. Si un despliegue configura `OPENSEARCH_INDEX_CONFIG`, debe
+antes de crear los índices. El overlay `runtime/shuffle-init-indexes-before-listener.patch`
+mueve la creación de índices/aliases a la inicialización sincrónica del backend, antes de
+abrir el listener HTTP; así el endpoint de alta y su workflow de salud no compiten con la
+instalación de mappings. Si un despliegue configura `OPENSEARCH_INDEX_CONFIG`, debe
 preservar el mismo mapping explícito.
 
 El smoke obtiene la mapping real de `workflow-000001` por HTTPS con la CA montada y
