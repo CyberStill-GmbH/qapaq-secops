@@ -47,6 +47,10 @@ opensearch_container="$(docker compose -f "$compose_file" ps --quiet opensearch)
 docker cp "$opensearch_container:/usr/share/opensearch/config/root-ca.pem" "$ca_file"
 openssl x509 -in "$ca_file" -noout -subject >/dev/null
 docker compose -f "$compose_file" up --detach backend
+# Wait for the backend's listener and its OpenSearch connection before using
+# the first-user endpoint. This health route does not require an organization.
+curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-all-errors --retry-delay 2 \
+  http://127.0.0.1:15001/api/v1/_ah/health --output /dev/null
 # Shuffle's supported first-user registration bootstraps the initial admin,
 # default organization, environment, and API key in a clean OpenSearch store.
 # These credentials and the created indexes are confined to this disposable smoke.

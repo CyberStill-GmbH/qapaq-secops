@@ -100,8 +100,10 @@ test('OpenSearch major-version candidate is tested with ephemeral Compose and Sh
   assert.match(smoke, /root-ca\.pem/);
   assert.match(smoke, /smoke_password="Aa1!\$\(openssl rand -hex 24\)"/);
   assert.match(smoke, /bootstrap_username="ankay-smoke-\$\{GITHUB_RUN_ID:-local\}@example\.invalid"/);
+  assert.match(smoke, /api\/v1\/_ah\/health/);
   assert.match(smoke, /api\/v1\/users\/register/);
   assert.match(smoke, /jq -e '\.success == true' "\$bootstrap_response"/);
+  assert.ok(smoke.indexOf('/api/v1/_ah/health') < smoke.indexOf('/api/v1/users/register'));
   assert.ok(smoke.indexOf('/api/v1/users/register') < smoke.indexOf('/api/v1/health?force=true'));
   assert.match(smoke, /sed -E .*api key .*REDACTED/);
   assert.match(smoke, /openssl x509/);
