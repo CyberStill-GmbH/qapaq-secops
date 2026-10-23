@@ -47,14 +47,15 @@
     },
     "opensearch": {
       "repository": "docker.io/opensearchproject/opensearch",
-      "tag": "3.9.0",
-      "indexDigest": "sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c",
-      "amd64Digest": "sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84",
+      "tag": "2.19.7",
+      "indexDigest": "sha256:1f81bb6a552637d6f551baeb8d8fad5ed969a0577374e76af14d1131ab750cd9",
+      "amd64Digest": "sha256:7a1c2750965e0e29c71336f220666ec01c9c816050438b680bb7aedd6cabc377",
       "license": "Apache-2.0",
       "status": "pinned"
     }
   },
   "buildBases": {
+    "amazonLinux2023": "public.ecr.aws/amazonlinux/amazonlinux:2023.12.20261013.0@sha256:1eb8fe7a098746ce0cd385894f4d512f010feb7ca5ef40e0bac731b71a15feb2",
     "golang1273Alpine323": "docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df",
     "alpine3226": "docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
     "node23": "docker.io/library/node:23@sha256:9a25b5a6f9a90218b73a62205f111e71de5e4289aee952b4dd7e86f7498f2544",
@@ -76,7 +77,7 @@
     "frontend": "build-from-pinned-shuffle-source",
     "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
     "worker": "build-from-pinned-shuffle-source-with-moby-v29-overlay",
-    "opensearch": "derived-from-pinned-official-digest-with-deterministic-al2023-updates",
+    "opensearch": "pinned-opensearch-2.19.7-rebased-onto-deterministic-al2023",
     "orborus": "blocked-license-review",
     "shuffle-security": "blocked-license-and-compatibility-review"
   },

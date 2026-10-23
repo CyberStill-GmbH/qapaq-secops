@@ -84,8 +84,9 @@ actual_app_sdk_file_sha="$(git -C "$work_dir/app-sdk" cat-file blob "$app_sdk_sh
 go_builder_image="$(jq -r '.buildBases.golang1273Alpine323' "$lock_file")"
 alpine_runtime_image="$(jq -r '.buildBases.alpine3226' "$lock_file")"
 opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' "$lock_file")"
+amazon_linux_image="$(jq -r '.buildBases.amazonLinux2023' "$lock_file")"
 amazon_linux_release="$(jq -r '.buildPolicy.amazonLinux2023Release' "$lock_file")"
-for image in "$go_builder_image" "$alpine_runtime_image" "$opensearch_image"; do
+for image in "$go_builder_image" "$alpine_runtime_image" "$opensearch_image" "$amazon_linux_image"; do
   [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || { echo "Imagen base sin digest: $image" >&2; exit 1; }
 done
 [[ "$amazon_linux_release" =~ ^2023\.12\.[0-9]{8}$ ]] || {
@@ -118,9 +119,11 @@ docker buildx build --platform linux/amd64 --load \
 
 docker buildx build --platform linux/amd64 --load \
   --build-arg "OPENSEARCH_BASE_IMAGE=$opensearch_image" \
+  --build-arg "AMAZON_LINUX_IMAGE=$amazon_linux_image" \
   --build-arg "AMAZON_LINUX_RELEASE=$amazon_linux_release" \
-  --label "org.opencontainers.image.base.name=$opensearch_image" \
-  --label "org.opencontainers.image.base.digest=${opensearch_image##*@}" \
+  --label "org.opencontainers.image.base.name=$amazon_linux_image" \
+  --label "org.opencontainers.image.base.digest=${amazon_linux_image##*@}" \
+  --label "io.qapaq.source.opensearch.image=$opensearch_image" \
   --label "org.opencontainers.image.base.version=$amazon_linux_release" \
   --label 'org.opencontainers.image.licenses=Apache-2.0' \
   --tag "$ankay_opensearch" \
@@ -160,7 +163,8 @@ cp "$work_dir/shuffle/functions/onprem/worker/worker_image_test.go" "$work_dir/s
 cp -a "$shared_overlay" "$work_dir/source/shuffle/functions/onprem/worker/moby-shuffle-shared"
 cp "$root/ankay/runtime/Dockerfile.backend" "$root/ankay/runtime/Dockerfile.worker" \
   "$root/ankay/runtime/Dockerfile.opensearch" "$work_dir/source/"
-cp "$root/ankay/build-runtime-components.sh" "$work_dir/source/"
+cp "$root/ankay/build-runtime-components.sh" "$root/ankay/verify-opensearch-runtime.sh" \
+  "$work_dir/source/"
 tar -czf "$out_dir/shuffle-corresponding-source.tar.gz" -C "$work_dir/source" .
 
 backend_id="$(docker image inspect --format '{{.Id}}' "$shuffle_backend")"
@@ -181,7 +185,9 @@ jq -n \
   '{schemaVersion:1, targetPlatform:"linux/amd64", sourceCommits:{shuffle:$shuffle_sha, shuffleShared:$shuffle_shared_sha, appSdk:$app_sdk_sha},
     built:{backend:{imageId:$backend_id, archiveSha256:$backend_archive_sha, license:"AGPL-3.0"},
       worker:{imageId:$worker_id, archiveSha256:$worker_archive_sha, license:"AGPL-3.0"}},
-    pinned:{opensearch:{baseImage:($lock.sources.opensearch.repository + "@" + $lock.sources.opensearch.amd64Digest),
+    pinned:{opensearch:{sourceTag:$lock.sources.opensearch.tag,
+      sourceImage:($lock.sources.opensearch.repository + "@" + $lock.sources.opensearch.amd64Digest),
+      runtimeBase:$lock.buildBases.amazonLinux2023,
       derivedImageId:$opensearch_id, amazonLinuxRelease:$amazon_linux_release,
       archiveSha256:$opensearch_archive_sha, license:$lock.sources.opensearch.license}},
     blocked:{orborus:$lock.sources.orborus.reason, shuffleSecurity:$lock.sources.shuffleSecurity.reason},

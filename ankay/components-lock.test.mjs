@@ -37,16 +37,20 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   for (const image of Object.values(lock.buildBases)) assert.match(image, /@sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.indexDigest, /^sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.amd64Digest, /^sha256:[0-9a-f]{64}$/);
-  assert.equal(lock.sources.opensearch.tag, '3.9.0');
+  assert.equal(lock.sources.opensearch.tag, '2.19.7');
   assert.equal(
     lock.sources.opensearch.indexDigest,
-    'sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c',
+    'sha256:1f81bb6a552637d6f551baeb8d8fad5ed969a0577374e76af14d1131ab750cd9',
   );
   assert.equal(
     lock.sources.opensearch.amd64Digest,
-    'sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84',
+    'sha256:7a1c2750965e0e29c71336f220666ec01c9c816050438b680bb7aedd6cabc377',
   );
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
+  assert.equal(
+    lock.buildBases.amazonLinux2023,
+    'public.ecr.aws/amazonlinux/amazonlinux:2023.12.20261013.0@sha256:1eb8fe7a098746ce0cd385894f4d512f010feb7ca5ef40e0bac731b71a15feb2',
+  );
   assert.equal(lock.buildPolicy.amazonLinux2023Release, '2023.12.20261013');
   assert.equal(
     lock.buildBases.golang1273Alpine323,
@@ -80,12 +84,18 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
     /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/,
   );
   assert.match(buildScript, /OPENSEARCH_BASE_IMAGE=\$opensearch_image/);
+  assert.match(buildScript, /AMAZON_LINUX_IMAGE=\$amazon_linux_image/);
   assert.match(buildScript, /AMAZON_LINUX_RELEASE=\$amazon_linux_release/);
+  assert.match(buildScript, /verify-opensearch-runtime\.sh" \\\r?\n\s+"\$work_dir\/source\/"/);
   assert.match(workflow, /ankay-qapaq-opensearch:\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /bash ankay\/verify-opensearch-runtime\.sh/);
   assert.match(
     dockerfile,
     /dnf --releasever="\$\{AMAZON_LINUX_RELEASE\}" upgrade --refresh --assumeyes/,
   );
+  assert.match(dockerfile, /FROM \$\{OPENSEARCH_BASE_IMAGE\} AS upstream/);
+  assert.match(dockerfile, /FROM \$\{AMAZON_LINUX_IMAGE\}/);
+  assert.match(dockerfile, /COPY --from=upstream --chown=1000:1000 \/usr\/share\/opensearch\//);
   assert.match(dockerfile, /rpm -q --qf '%\{VERSION\}' system-release/);
   assert.match(dockerfile, /USER 1000:1000/);
   assert.doesNotMatch(workflow, /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/);

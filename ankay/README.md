@@ -86,16 +86,17 @@ ejecutar workflows end-to-end en un host dedicado aislado.
 ### Pin de OpenSearch para runtime
 
 El Compose fijado de Shuffle v2.3.0 usa OpenSearch 3.2.0. QAPAQ conserva el contrato
-del servicio y su API, fija la imagen linux/amd64 de OpenSearch 3.9.0 por digest
-inmutable y construye una capa derivada que actualiza Amazon Linux 2023 al release
-fechado `2023.12.20261013`. El digest vendor, la versión de OS y el Dockerfile derivado
-quedan en [`azure-components.lock.json`](azure-components.lock.json) y en el bundle
-de procedencia. El CI escanea la imagen derivada que se publicaría, no la etiqueta
-mutable del upstream. 3.9.0 es un release oficial; OpenSearch documenta que las
-rupturas de compatibilidad se introducen entre versiones mayores, por lo que esta
-actualización dentro de la rama 3.x mantiene la compatibilidad de API esperada con
-Shuffle v2.3.0. No se añade ningún plugin externo: los plugins incluidos pertenecen
-a la misma versión de la imagen.
+del servicio y su API, fija la imagen linux/amd64 oficial de OpenSearch 2.19.7 por
+digest inmutable y construye una imagen derivada sobre Amazon Linux 2023 con release
+fechado `2023.12.20261013`. El upstream 2.19.7 usa Amazon Linux 2, que AWS dejó sin
+soporte estándar el 30 de junio de 2026; la imagen derivada copia únicamente la
+distribución OpenSearch y ejecuta el runtime sobre AL2023. Ambos digests, la versión
+de OS y el Dockerfile derivado quedan en [`azure-components.lock.json`](azure-components.lock.json)
+y en el bundle de procedencia. El CI escanea la imagen derivada y debe arrancarla
+con Security habilitado y comprobar su salud autenticada antes de permitir publicación.
+Shuffle v2.3.0 documenta OpenSearch como su base de datos y usa su API REST; la
+compatibilidad con 2.19.7 debe confirmarse con la inicialización real de índices y
+persistencia del Compose final. No se añade ningún plugin externo.
 
 La verificación CI construye backend, worker y la capa OpenSearch derivada, y ejecuta
 Trivy con su escaneo de vulnerabilidades completo para HIGH/CRITICAL. Eso no equivale

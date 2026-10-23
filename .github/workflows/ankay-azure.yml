@@ -95,6 +95,7 @@ jobs:
           bash ankay/verify-runtime-users.sh \
             "ankay-qapaq-backend:${GITHUB_SHA}" \
             "ankay-qapaq-worker:${GITHUB_SHA}"
+          bash ankay/verify-opensearch-runtime.sh "ankay-qapaq-opensearch:${GITHUB_SHA}"
           bash .github/ci/install-scanner.sh trivy
           export PATH="$RUNNER_TEMP/scanners:$PATH"
           for image in "ankay-qapaq-backend:${GITHUB_SHA}" "ankay-qapaq-worker:${GITHUB_SHA}" \
