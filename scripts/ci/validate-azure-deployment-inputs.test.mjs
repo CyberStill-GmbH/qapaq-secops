@@ -118,7 +118,8 @@ test('requires the signed Teams Workflow URL from Key Vault and rejects it in pl
   const missingTeamsSecret = siemHost();
   delete missingTeamsSecret.core_secret_names.QAPAQ_TEAMS_WORKFLOW_URL;
   assert.throws(
-    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(missingTeamsSecret) })),
+    () =>
+      validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(missingTeamsSecret) })),
     /must reference the Teams Workflow URL by Key Vault name/u,
   );
 
