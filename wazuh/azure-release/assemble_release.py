@@ -110,6 +110,10 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
             pathlib.Path(args.verify_credentials_script),
             root / "wazuh" / "azure-release" / "verify_wazuh_credentials_tar.py",
         )
+        copy_regular(
+            pathlib.Path(args.repo_root) / "wazuh" / "azure-release" / "normalize_ubuntu_apt_sources.py",
+            root / "wazuh" / "azure-release" / "normalize_ubuntu_apt_sources.py",
+        )
 
         packages = {
             "managerDeb": (pathlib.Path(args.manager_deb), "wazuh-manager"),

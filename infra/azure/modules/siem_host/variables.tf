@@ -76,6 +76,11 @@ variable "address_prefix" {
 variable "vm_size" {
   description = "SKU de VM validado con la carga Wazuh y la cuota de la suscripción."
   type        = string
+
+  validation {
+    condition     = var.vm_size == "Standard_F4s_v2"
+    error_message = "El bundle Wazuh se publica para amd64 y el perfil demo requiere Standard_F4s_v2; cualquier otro SKU requiere un bundle y una aceptación de arquitectura probados."
+  }
 }
 
 variable "admin_username" {

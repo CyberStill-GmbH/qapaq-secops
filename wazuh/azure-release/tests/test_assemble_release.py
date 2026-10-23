@@ -73,6 +73,7 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertEqual(manifest["debianPackages"], versions)
         self.assertEqual(manifest["qapaqCoreSourceCommit"], "0123456789ab")
         self.assertEqual(manifest["components"]["openSearchDashboards"], "2.19.6")
+        self.assertIn("wazuh/azure-release/normalize_ubuntu_apt_sources.py", manifest["files"])
         self.assertEqual(set(("managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive")) - set(manifest["artifacts"]), set())
         for filename, digest in manifest["files"].items():
             self.assertEqual(assemble_release.sha256(root / filename), digest)

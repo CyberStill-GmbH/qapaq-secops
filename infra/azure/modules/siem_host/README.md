@@ -42,6 +42,10 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
   oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
   código de salida y un mensaje genérico, sin volcar la salida del instalador.
+- `install.sh` instala solo los prerrequisitos faltantes del asistente oficial mediante APT. El helper
+  `normalize_ubuntu_apt_sources.py` cambia a HTTPS únicamente mirrors Ubuntu aprobados y rechaza otras
+  fuentes HTTP activas antes de descargar. No actualiza el sistema completo. El flujo de egress del
+  Firewall permite los FQDN oficiales de Ubuntu por HTTPS.
 - La instalación de Wazuh es de una sola ejecución por SHA-256 de release. El bootstrap registra el
   SHA en el disco persistente después de validar servicios y `/health/ready`; una repetición de la
   misma release verifica salud sin volver a ejecutar el instalador. Si encuentra paquetes/datos
