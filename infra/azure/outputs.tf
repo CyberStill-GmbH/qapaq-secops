@@ -44,7 +44,7 @@ output "siem_private_ip" {
 }
 
 output "siem_firewall_public_ip" {
-  description = "Egress IP del firewall Standard creado junto con el SIEM. No habilita ingreso público."
+  description = "IP pública estable del Firewall Standard: egress y DNAT de entrada al Load Balancer privado del SIEM cuando su perfil esté habilitado. El DNS sigue manual."
   value       = try(module.egress_firewall[0].public_ip_address, null)
 }
 

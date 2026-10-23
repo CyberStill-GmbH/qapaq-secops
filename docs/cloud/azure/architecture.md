@@ -5,6 +5,14 @@
 **Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
 **Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado. Las cifras indicadas son estimaciones de lista, no una cotización del tenant.
 
+**Propuesta de ingreso en esta rama:** el SIEM conserva una VM privada detrás de un
+Azure Standard Load Balancer interno. La IP pública estática del Azure Firewall
+recibe DNAT TCP/80 solo para ACME/redirección y TCP/443 desde CIDR aprobados; luego
+envía a la IP privada del Load Balancer y al edge QAPAQ. El TLS termina en Nginx.
+Esto elimina la dependencia de AWS y evita asignar IP pública a la VM. No habilita
+el runtime por sí solo: faltan el perfil `siem_host`, CIDR de usuarios, bootstrap del
+edge/certificado y un apply revisado. Un backend único tampoco representa HA.
+
 ## Snapshot anterior de Azure — 2026-10-22 (no inventario actual)
 
 La observación de portal previa al último apply reportó USD 200 de crédito promocional con vencimiento el 18 de noviembre de 2026. Antes de ese apply, el grupo
@@ -57,7 +65,7 @@ A18 registró inicialmente la simplificación de lanzamiento sin colas nuevas; A
 | Capacidad objetivo | Traducción Azure | Estado / gate |
 | --- | --- | --- |
 | Manager, Indexer y Dashboard QAPAQ | VM Linux SIEM con artefactos fijados por versión/digest, disco de datos y recuperación probada | Bundle publicado y verificado; `siem_host` sigue apagado porque falta su perfil de red/VM/SSH y referencias Key Vault. El nuevo módulo crea Azure Firewall Standard y la policy de salida al habilitarlo. Aún debe generarse/revisarse el plan y verificarse la instalación. Mantener Indexer, Manager y Dashboard privados; solo edge y puertos de agentes aprobados pueden alcanzar el host. |
-| Edge QAPAQ | Nginx en el host SIEM, TLS en la entrada pública elegida; proxy al Dashboard y API local | Reutilizar `wazuh/edge`; falta IaC/bootstrap Azure y prueba end-to-end. El cutover DNS queda fuera hasta aprobar destino, TLS y pruebas. |
+| Edge QAPAQ | Nginx en el host SIEM tras Firewall DNAT y Load Balancer interno; TLS en Nginx; proxy al Dashboard y API local | Esta rama prepara DNAT 80/443 restringido, LB interno y NSG. Falta perfil `siem_host`, bootstrap Azure de Nginx/certificado y prueba end-to-end. El cutover DNS queda fuera hasta aprobar destino, TLS y pruebas. |
 | API gateway de ingesta | KrakenD interno entre `qapaq-core` y Wazuh Indexer mientras A8 lo requiera | El root y `siem_host` todavía no instalan KrakenD en el host SIEM. Debe integrarse conforme A8; no afirmar que una ruta alternativa ya reemplaza su contrato. |
 | Núcleo QAPAQ | API y worker Node 24 como servicios systemd en el host SIEM; API en `127.0.0.1:3000` | El bundle Azure incluye `apply-core-azure.sh` y resuelve referencias Key Vault por Managed Identity; no llama AWS SSM/Secrets Manager y usa el trust store del sistema para TLS. Falta instalar el release y probar conexión PostgreSQL/migraciones en Azure. |
 | Estado durable | Azure Database for PostgreSQL Flexible Server privado, TLS, base/rol de aplicación mínimo y migraciones versionadas | El root crea servidor y bases, pero falta identidad runtime/migrator Azure comprobado. El password administrador queda en Terraform state: usar state remoto cifrado/versionado, container privado y RBAC/OIDC. El endpoint de Storage será público para runners GitHub-hosted; shared keys y acceso anónimo permanecen deshabilitados. |
@@ -66,7 +74,7 @@ A18 registró inicialmente la simplificación de lanzamiento sin colas nuevas; A
 | Secretos | Key Vault con RBAC mínimo, acceso privado y Managed Identity por runtime | El bootstrap SIEM lee Key Vault mediante Managed Identity y Terraform limita RBAC a los nombres configurados. Falta verificar referencias existentes en el vault; no copiar valores a Git, tfvars o logs. |
 | Artefactos | ACR para OCI/imágenes y cuenta de Blob dedicada para bundle de SIEM, con contenedor privado y acceso de red autenticado por OIDC/RBAC | El canal dedicado se aplicó en run [39766635034](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39766635034); el cambio de red de publicación se aplicó en [39820862018](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39820862018), y el bundle con SHA-256 `3045155b53ff736bdcb157cdea6022b2931b1d4781d89c74ed1a497f38dc8f4e` se publicó y verificó en [39823003732](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39823003732). Blob sigue privado, sin acceso anónimo ni shared keys. |
 | Logs operativos | Azure Monitor/Log Analytics solo para salud y plataforma, sujeto al control de residencia/retención | Separar de eventos de seguridad y evidencia mantenidos en Wazuh/OpenSearch. No está demostrado que el código Azure emita logs de aplicación hacia Log Analytics ni hacia Wazuh. |
-| DNS y certificado | Solo `app.jappi.net.pe` después de TLS, endpoint y pruebas; Route 53 mantiene state independiente | El Terraform Azure no gestiona DNS. No hacer corte ni borrar registros como parte de esta arquitectura documental. |
+| DNS y certificado | Solo `app.jappi.net.pe` después de TLS, endpoint y pruebas; Route 53 mantiene state independiente | El destino será la IP pública del Azure Firewall cuando el host y DNAT estén aplicados y probados. El Terraform Azure no gestiona DNS. No hacer corte ni borrar registros antes de las verificaciones. |
 
 ## Flujo de tráfico
 
