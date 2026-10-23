@@ -198,19 +198,19 @@ test('backend Docker SDK migration uses pinned Moby overlays and corresponding s
   assert.doesNotMatch(sharedPatch, /\+\s*"github\.com\/docker\/docker/);
 });
 
-test('worker Docker SDK advisories remain explicit release blockers', () => {
+test('Moby v29 migration stays blocked until the Engine runtime check passes', () => {
   const blocker = lock.securityBlockers.dockerSdk;
   assert.equal(blocker.module, 'github.com/docker/docker@v28.3.3+incompatible');
-  assert.equal(blocker.status, 'backend-migrated-worker-still-blocked');
+  assert.equal(blocker.status, 'backend-and-worker-migrated-runtime-test-pending');
   assert.deepEqual(blocker.cves, ['CVE-2026-41567', 'CVE-2026-42306']);
   assert.equal(blocker.requiredEngineVersion, '29.5.1');
-  assert.match(blocker.reason, /worker still uses the deprecated SDK/);
+  assert.match(blocker.reason, /runtime tests against Engine 29\.5\.1 or later pass/);
   const archive = lock.securityBlockers.mobyGoArchive;
   assert.equal(archive.module, 'github.com/moby/go-archive@v0.1.0');
-  assert.equal(archive.status, 'worker-still-blocked');
+  assert.equal(archive.status, 'removed-from-backend-and-worker-module-graphs');
   assert.deepEqual(archive.cves, ['CVE-2026-17106']);
   assert.equal(archive.fixedVersion, 'v0.3.0');
-  assert.match(archive.reason, /worker still uses the deprecated Docker SDK/);
+  assert.match(archive.reason, /nested shuffle-shared app_upload module remains excluded/);
 });
 
 test('unverified service sources remain blocked instead of receiving mutable tags', () => {
