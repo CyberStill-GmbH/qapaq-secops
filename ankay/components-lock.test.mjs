@@ -100,6 +100,7 @@ test('OpenSearch major-version candidate is tested with ephemeral Compose and Sh
   assert.match(smoke, /smoke_password="Aa1!\$\(openssl rand -hex 24\)"/);
   assert.match(smoke, /openssl x509/);
   assert.match(smoke, /\/api\/v1\/health\?force=true/);
+  assert.match(smoke, /--retry-all-errors/);
   assert.match(smoke, /TestOpensearchInit\|TestWorkflowStorageRoundTrip/);
   assert.match(smoke, /down --volumes --remove-orphans/);
 });

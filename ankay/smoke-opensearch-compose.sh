@@ -42,7 +42,7 @@ opensearch_container="$(docker compose -f "$compose_file" ps --quiet opensearch)
 docker cp "$opensearch_container:/usr/share/opensearch/config/root-ca.pem" "$ca_file"
 openssl x509 -in "$ca_file" -noout -subject >/dev/null
 docker compose -f "$compose_file" up --detach backend
-curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-delay 2 \
+curl --fail --silent --show-error --retry 90 --retry-connrefused --retry-all-errors --retry-delay 2 \
   http://127.0.0.1:15001/api/v1/health?force=true \
   --output "$RUNNER_TEMP/ankay-backend-health.json"
 jq -e '.success == true' "$RUNNER_TEMP/ankay-backend-health.json" >/dev/null || {
