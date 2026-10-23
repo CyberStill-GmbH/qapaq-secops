@@ -15,7 +15,7 @@ CERT_ARCHIVE_B64="$SECRETS/wazuh-install-files.tar.b64"
 OFFLINE_ROOT="$HERE/official-wazuh"
 CORE_ARCHIVE="$(find "$HERE/files/core" -maxdepth 1 -type f -name 'qapaq-core-*.tar.gz' -print -quit)"
 
-for command in bash curl dpkg-deb dpkg-query python3 sha256sum tar systemctl; do
+for command in apt-get bash dpkg-deb dpkg-query python3 sha256sum tar systemctl; do
   command -v "$command" >/dev/null 2>&1 || fail "falta dependencia local requerida: $command"
 done
 [[ -s "$OFFLINE_ROOT/wazuh-install.sh" && -s "$OFFLINE_ROOT/wazuh-offline.tar.gz" ]] ||
@@ -24,15 +24,32 @@ done
   fail 'falta Key Vault ref `wazuh-install-files.tar.b64` con certificados y contraseñas Wazuh en base64 de una línea'
 [[ -s "$CORE_ARCHIVE" && ! -L "$CORE_ARCHIVE" ]] || fail 'falta el archive versionado de qapaq-core'
 
-# Match the Ubuntu prerequisites checked by the pinned official assistant before dpkg changes.
-missing_dependencies=()
-for package in curl tar gnupg openssl lsof apt-transport-https libcap2-bin debconf adduser procps; do
+# The Azure Ubuntu image does not include every dependency required by the pinned Wazuh
+# installation assistant. Install only the documented runtime prerequisites, without
+# upgrading the image or contacting any non-Ubuntu repository. Azure Firewall's reviewed
+# FQDN allowlist includes the Ubuntu archive and security endpoints used below.
+required_packages=(curl tar gnupg openssl lsof apt-transport-https libcap2-bin debconf adduser procps)
+missing_packages=()
+for package in "${required_packages[@]}"; do
   status="$(dpkg-query --show -f='${db:Status-Status}' "$package" 2>/dev/null || true)"
-  [[ "$status" == installed ]] || missing_dependencies+=("$package")
+  [[ "$status" == installed ]] || missing_packages+=("$package")
 done
-if (( ${#missing_dependencies[@]} > 0 )); then
-  fail "instala primero dependencias del asistente oficial por el canal apt revisado: ${missing_dependencies[*]}"
+if (( ${#missing_packages[@]} > 0 )); then
+  # Ubuntu 24.04 images can ship HTTP archive URIs, while this subnet permits only
+  # HTTPS through Azure Firewall. Upgrade approved mirrors and fail closed on others.
+  python3 "$HERE/wazuh/azure-release/normalize_ubuntu_apt_sources.py" ||
+    fail 'las fuentes apt contienen HTTP fuera del allowlist Ubuntu; se detuvo antes de descargar paquetes'
+  apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 update >/dev/null ||
+    fail 'no se pudieron actualizar los índices apt por HTTPS a través del firewall aprobado'
+  DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 \
+    install --no-install-recommends --yes "${missing_packages[@]}" >/dev/null ||
+    fail 'no se pudieron instalar los prerrequisitos del asistente Wazuh desde Ubuntu'
 fi
+
+for package in "${required_packages[@]}"; do
+  status="$(dpkg-query --show -f='${db:Status-Status}' "$package" 2>/dev/null || true)"
+  [[ "$status" == installed ]] || fail "prerrequisito del asistente Wazuh no quedó instalado: $package"
+done
 
 work="$(mktemp -d /run/qapaq-siem-install.XXXXXX)"
 cleanup() {
