@@ -1,5 +1,13 @@
 # Azure deployment readiness — 2026-10-22
 
+## Actualización verificada — 2026-10-23 22:05 UTC
+
+- El plan Azure [40029106928](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40029106928) autenticó por OIDC, inicializó el state remoto y terminó con **0 altas, 0 cambios y 0 destrucciones**; apply se omitió. El entorno `azure-demo` no tiene revisores obligatorios. No queda una dependencia de AWS en este flujo.
+- El bundle Wazuh/QAPAQ ya fue construido con procedencia validada y publicado en el Blob privado: bundle [39890065716](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39890065716), publicación [39891503496](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39891503496), SHA fuente `6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f`, SHA-256 `9cfcd1acd6c5c1c78ec10024d6a4b7c3bbd43932ad8931ce3a9d63d126a4ccac`, tamaño `5083594839` bytes. Esto deja preparado el artefacto, pero no crea ni instala una VM.
+- Las variables/secrets de GitHub siguen sin contener `AZURE_SIEM_HOST_JSON`, `AZURE_ANKAY_HOST_JSON`, `AZURE_CONTAINER_IMAGES_JSON`, `AZURE_KEY_VAULT_SECRET_IDS_JSON` ni `AZURE_ENABLE_RUNTIME`. No se leyeron valores de secretos ni se hizo una escritura.
+- La sesión actual no permitió listar la metadata de Key Vault. No se verificó si existen las referencias para `wazuh-install-files.tar.b64`, M365, Entra y Teams; no se abrieron ni alteraron valores secretos.
+- La causa del apply sin recursos es la configuración ausente del host SIEM, no una regla heredada de AWS: sin el perfil CIDR/VM/SSH, referencias de Key Vault y bundle, el flujo SOC debe fallar cerrado. También faltan entradas completas de Ankay, Sophos/Cato/Teams y la revisión de costo del plan con Firewall y Log Analytics. No se cambió DNS; Azure aún no ofrece un SOC operativo.
+
 ## Actualización verificada — 2026-10-23 21:47 UTC
 
 - Las PR [#131](https://github.com/CyberStill-GmbH/qapaq-secops/pull/131) y [#132](https://github.com/CyberStill-GmbH/qapaq-secops/pull/132) están integradas en `main`. Azure crea su Firewall y su DNAT cuando se configura `siem_host`; el ingreso HTTPS aplica la allowlist de CIDR en el Firewall. Debido al SNAT de DNAT, el NSG del SIEM acepta el peer privado del Firewall y la categoría NAT se envía a Log Analytics para auditoría de la IP original. Esto corrige la dependencia AWS sin abrir el dashboard a `0.0.0.0/0`.
