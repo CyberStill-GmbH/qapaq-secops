@@ -12,7 +12,9 @@ opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opens
 backend_image="ankay-qapaq-backend:${GITHUB_SHA:-local}"
 go_builder_image="$(jq -r '.buildBases.golang1273Alpine323' "$lock_file")"
 ca_file="$RUNNER_TEMP/ankay-opensearch-root-ca.pem"
-smoke_password="$(openssl rand -hex 24)"
+# OpenSearch's demo-security bootstrap rejects hex-only passwords. Keep the
+# generated password ephemeral while guaranteeing every required character class.
+smoke_password="Aa1!$(openssl rand -hex 24)"
 
 [[ -f "$source_archive" ]] || { echo 'Falta el tar reproducible de fuente Shuffle generado por el build.' >&2; exit 1; }
 mkdir -p "$source_dir"

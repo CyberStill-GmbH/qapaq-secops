@@ -96,6 +96,7 @@ test('OpenSearch major-version candidate is tested with ephemeral Compose and Sh
   assert.match(compose, /\/run\/ankay\/opensearch-ca\/ca\.pem:ro/);
   assert.match(compose, /127\.0\.0\.1:15001:5001/);
   assert.match(smoke, /root-ca\.pem/);
+  assert.match(smoke, /smoke_password="Aa1!\$\(openssl rand -hex 24\)"/);
   assert.match(smoke, /openssl x509/);
   assert.match(smoke, /\/api\/v1\/health\?force=true/);
   assert.match(smoke, /TestOpensearchInit\|TestWorkflowStorageRoundTrip/);
