@@ -27,7 +27,7 @@ variable "private_ip_address" {
 }
 
 variable "edge_subnet_cidr" {
-  description = "CIDR exacto de la subnet ACA desde la que nginx hace proxy de /ankay/*."
+  description = "Origen privado del edge QAPAQ (en el root actual, la IP del host SIEM como /32) permitido hacia el frontend Ankay."
   type        = string
   validation {
     condition     = can(cidrhost(var.edge_subnet_cidr, 0))
@@ -36,7 +36,7 @@ variable "edge_subnet_cidr" {
 }
 
 variable "qapaq_api_subnet_cidr" {
-  description = "CIDR de la subnet ACA que aloja QAPAQ API y puede llamar al webhook privado."
+  description = "Origen privado del QAPAQ Core (en el root actual, la IP del host SIEM como /32) permitido hacia el webhook Ankay."
   type        = string
   validation {
     condition     = can(cidrhost(var.qapaq_api_subnet_cidr, 0))

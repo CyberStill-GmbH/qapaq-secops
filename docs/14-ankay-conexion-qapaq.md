@@ -71,19 +71,26 @@ flowchart LR
 
 ### Variante Azure en preparación
 
-Azure prevé un VM Linux privado con Docker Compose en una subnet dedicada. El ingress HTTPS del edge
-QAPAQ en Container Apps sería el único origen permitido para el puerto frontend; la subnet ACA de
-QAPAQ API sería el origen permitido para el webhook backend. OpenSearch y el datastore quedan solo en
-la red Docker interna, y sus datos/configuración viven en un disco administrado independiente. La
-NSG del módulo deniega otros ingresos, SSH e internet directo; el egress esperado va por Azure
-Firewall con allowlist de FQDNs/servicios y una UDR de la subnet. El módulo no crea esa subnet,
-Firewall, UDR, edge ni API; `firewall_policy_reference` es solo un gate documental.
+Azure usa dos hosts privados separados. `siem_host` albergará Wazuh QAPAQ, Core y el edge; al
+configurarlo, el root crea Azure Firewall Standard, DNAT y un Load Balancer interno. El Firewall
+filtra HTTPS por los CIDR aprobados y el backend recibe tráfico SNATeado desde la IP privada del
+Firewall. `ankay_host` está conectado opcionalmente al root y usa una subnet dedicada con UDR hacia
+ese mismo Firewall. Su NSG permite el frontend solo desde el host SIEM y el webhook solo desde el
+origen privado de QAPAQ Core; callback y acceso al agente tienen reglas salientes acotadas. No hay
+IP pública ni SSH entrante en el host Ankay. OpenSearch y `shuffle-security` permanecen internos a
+Compose; el disco administrado separado está protegido con `prevent_destroy`.
 
-El edge solo debe apuntar a la IP privada del módulo después de verificar el servicio y una petición
-anónima que regrese al login QAPAQ. La ruta actual usa `auth_request` pero no acredita autorización
-de rol. No modificar el flujo de login/cookies: antes de habilitar acceso de diseño, probar sesión,
-revocación, capacidad del usuario y roles propios de Shuffle. El diagrama AWS/VPC anterior conserva
-la topología de referencia; el root Azure aún no consume esta salida.
+La implementación sigue incompleta. Terraform de Ankay solo provisiona VM/red/disco y escribe el
+Compose: no instala Docker, no inicia servicios, no instala agente Wazuh y no configura backups. El
+workflow actual construye y publica únicamente el frontend rebrandeado; faltan digests aprobados para
+backend, Orborus, worker, `shuffle-security` y OpenSearch, y un Compose Azure fijado por SHA. El
+bootstrap SIEM aún debe entregar un edge TLS con `auth_request` y la ruta `/ankay/*`; el plan actual
+mantiene `siem_host=null` y `ankay_host=null`, así que no existe endpoint publicado ni host Ankay.
+
+Cuando el runtime exista, el edge solo debe apuntar a la IP privada de Ankay después de verificar
+sesión válida, rechazo anónimo, autorización por rol, revocación y callback autenticado. No modificar
+login ni cookies para habilitarlo. El diagrama AWS/VPC anterior conserva la topología de referencia;
+no describe la infraestructura Azure ya cableada en Terraform.
 
 ## 3. Secuencia de una acción
 

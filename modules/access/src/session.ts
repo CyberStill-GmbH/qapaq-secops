@@ -36,6 +36,8 @@ export const SESSION_REVOCATION_REASONS = [
   'membership_removed',
   /** Dejó de ser dueña del grupo: la sesión tenía un rol admin derivado que ya no le corresponde. */
   'ownership_removed',
+  /** Un administrador cambió sus roles concedidos por QAPAQ: la sesión llevaba los anteriores. */
+  'roles_changed',
 ] as const;
 export type SessionRevocationReason = (typeof SESSION_REVOCATION_REASONS)[number];
 

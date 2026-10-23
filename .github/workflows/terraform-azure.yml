@@ -100,7 +100,7 @@ jobs:
         working-directory: .
         run: node scripts/ci/validate-azure-deployment-inputs.mjs
 
-      - name: Require the QAPAQ SIEM host for an apply
+      - name: Require the QAPAQ SIEM host before a SOC apply
         if: ${{ inputs.apply && inputs.deployment_scope == 'soc' }}
         shell: bash
         run: |
@@ -108,7 +108,7 @@ jobs:
           node <<'NODE'
           const host = JSON.parse(process.env.TF_VAR_siem_host ?? 'null');
           if (host === null) {
-            console.error('::error::SOC apply refused: configure AZURE_SIEM_HOST_JSON with the Azure VM, approved ingress CIDRs, SSH public key, release bundle and Key Vault secret names. This is Azure host configuration, not an AWS firewall dependency.');
+            console.error('::error::SOC apply refused: configure AZURE_SIEM_HOST_JSON with the Azure VM profile, approved network access, SSH public key, immutable release bundle, and Key Vault secret names. Azure Firewall is provisioned by this Terraform stack; no AWS firewall or AWS runner-network exception is required.');
             process.exit(1);
           }
           NODE

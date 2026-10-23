@@ -1,10 +1,11 @@
 locals {
-  subnet_name = "snet-${var.name_base}-siem"
-  nsg_name    = "nsg-${var.name_base}-siem"
-  nic_name    = "nic-${var.name_base}-siem"
-  vm_name     = "vm-${var.name_base}-siem"
-  disk_name   = "disk-${var.name_base}-siem-data"
-  identity    = azurerm_user_assigned_identity.siem
+  subnet_name           = "snet-${var.name_base}-siem"
+  nsg_name              = "nsg-${var.name_base}-siem"
+  nic_name              = "nic-${var.name_base}-siem"
+  vm_name               = "vm-${var.name_base}-siem"
+  disk_name             = "disk-${var.name_base}-siem-data"
+  identity              = azurerm_user_assigned_identity.siem
+  ingress_lb_private_ip = var.ingress_lb_private_ip == null ? cidrhost(var.address_prefix, 10) : var.ingress_lb_private_ip
 
   cloud_init = "#cloud-config\n${yamlencode({
     write_files = [{
@@ -59,19 +60,64 @@ resource "azurerm_network_security_group" "siem" {
   tags                = merge(var.tags, { service = "siem-host" })
 
   dynamic "security_rule" {
+    for_each = var.ingress_http_enabled ? { http = true } : {}
+    content {
+      name                       = "allow-acme-http-via-firewall-dnat"
+      priority                   = 102
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "80"
+      source_address_prefix      = var.firewall_private_ip
+      destination_address_prefix = "*"
+      description                = "HTTP llega por DNAT/SNAT del Firewall; el edge sirve ACME y redirige a HTTPS."
+    }
+  }
+
+  dynamic "security_rule" {
     for_each = length(var.dashboard_ingress_cidrs) == 0 ? {} : { https = var.dashboard_ingress_cidrs }
     content {
       name                       = "allow-dashboard-https-approved-sources"
-      priority                   = 100
+      priority                   = 103
       direction                  = "Inbound"
       access                     = "Allow"
       protocol                   = "Tcp"
       source_port_range          = "*"
       destination_port_range     = "443"
-      source_address_prefixes    = tolist(security_rule.value)
+      source_address_prefix      = var.firewall_private_ip
       destination_address_prefix = "*"
-      description                = "HTTPS solo desde CIDR aprobados. Sin CIDR, 443 queda en deny por defecto."
+      description                = "El Firewall SNATea el flujo DNAT; el backend solo acepta su IP privada. La allowlist del cliente se evalúa en la regla DNAT."
     }
+  }
+
+  dynamic "security_rule" {
+    for_each = var.ingress_http_enabled ? { http = true } : {}
+    content {
+      name                       = "allow-lb-health-probe-http"
+      priority                   = 100
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "80"
+      source_address_prefix      = "AzureLoadBalancer"
+      destination_address_prefix = "*"
+      description                = "Health probe HTTP del Load Balancer interno."
+    }
+  }
+
+  security_rule {
+    name                       = "allow-lb-health-probe-https"
+    priority                   = 101
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "*"
+    description                = "Health probe HTTPS del Load Balancer interno."
   }
 
   dynamic "security_rule" {
@@ -291,6 +337,82 @@ resource "azurerm_network_interface" "siem" {
     private_ip_address_allocation = "Dynamic"
     primary                       = true
   }
+}
+
+# El Firewall público aplica DNAT y el Load Balancer interno distribuye tráfico al host
+# privado. La VM no recibe IP pública; el default route al Firewall conserva retorno simétrico.
+resource "azurerm_lb" "siem_ingress" {
+  name                = "lb-${var.name_base}-siem-internal"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "Standard"
+  tags                = merge(var.tags, { service = "siem-ingress" })
+
+  frontend_ip_configuration {
+    name                          = "siem-private"
+    subnet_id                     = azurerm_subnet.siem.id
+    private_ip_address            = local.ingress_lb_private_ip
+    private_ip_address_allocation = "Static"
+  }
+}
+
+resource "azurerm_lb_backend_address_pool" "siem_ingress" {
+  name            = "backend-siem"
+  loadbalancer_id = azurerm_lb.siem_ingress.id
+}
+
+resource "azurerm_network_interface_backend_address_pool_association" "siem_ingress" {
+  network_interface_id    = azurerm_network_interface.siem.id
+  ip_configuration_name   = "private"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.siem_ingress.id
+}
+
+resource "azurerm_lb_probe" "siem_https" {
+  name                = "probe-https"
+  loadbalancer_id     = azurerm_lb.siem_ingress.id
+  protocol            = "Tcp"
+  port                = 443
+  interval_in_seconds = 15
+  number_of_probes    = 2
+}
+
+resource "azurerm_lb_rule" "siem_https" {
+  name                           = "https"
+  loadbalancer_id                = azurerm_lb.siem_ingress.id
+  protocol                       = "Tcp"
+  frontend_port                  = 443
+  backend_port                   = 443
+  frontend_ip_configuration_name = "siem-private"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.siem_ingress.id]
+  probe_id                       = azurerm_lb_probe.siem_https.id
+  disable_outbound_snat          = true
+  tcp_reset_enabled              = true
+  idle_timeout_in_minutes        = 15
+}
+
+resource "azurerm_lb_probe" "siem_http" {
+  count               = var.ingress_http_enabled ? 1 : 0
+  name                = "probe-http"
+  loadbalancer_id     = azurerm_lb.siem_ingress.id
+  protocol            = "Tcp"
+  port                = 80
+  interval_in_seconds = 15
+  number_of_probes    = 2
+}
+
+resource "azurerm_lb_rule" "siem_http" {
+  count                          = var.ingress_http_enabled ? 1 : 0
+  name                           = "http-acme"
+  loadbalancer_id                = azurerm_lb.siem_ingress.id
+  protocol                       = "Tcp"
+  frontend_port                  = 80
+  backend_port                   = 80
+  frontend_ip_configuration_name = "siem-private"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.siem_ingress.id]
+  probe_id                       = azurerm_lb_probe.siem_http[0].id
+  disable_outbound_snat          = true
+  tcp_reset_enabled              = true
+  idle_timeout_in_minutes        = 15
 }
 
 resource "azurerm_managed_disk" "siem_data" {

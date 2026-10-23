@@ -9,6 +9,7 @@ const ONLINE_WINDOW_MS = 30 * 60 * 1000;
 export const ROLE_ORIGIN_LABEL: Record<string, string> = {
   group_owner: 'Dueño del grupo',
   admin_group: 'Grupo administrador',
+  qapaq_assignment: 'Asignación aprobada por QAPAQ',
   deploy_binding: 'Asignación del despliegue',
   entra_app_role: 'Rol de aplicación en Entra',
   none: 'Sin acceso asignado',

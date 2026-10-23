@@ -21,7 +21,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 | N8 | No publicar SLO, EPS ni KPIs sin medición | Vigente | ADR-016 |
 | N9 | Una sola sesión activa por persona. Un login nuevo reemplaza la sesión anterior en la consola y en el dashboard | Vigente (falta hacerla atómica) | ADR-017 |
 | N11 | **Auditable para ISO 27001 y ciberseguridad SBS.** Se conserva toda la evidencia (RDS, S3, auditoría con cadena hash y snapshots) y el diseño se ajustará a sus controles | Vigente (próximo scope) | 2026-10-14 (dueño) |
-| N10 | Cualquier cambio de acceso (rol, grupo, cuenta deshabilitada) revoca la sesión al instante | Gate: falta el cambio de rol en QAPAQ | ADR-017, 2026-10-13 |
+| N10 | Un cambio aprobado de rol o una baja de acceso revoca las sesiones y exige nuevo login | Gate: flujo de roles todavía no desplegado; grant y revocación viven en stores distintos; verificar `remaining = 0` y corte en el Dashboard antes de producción | ADR-017, 2026-10-13 |
 
 ## Arquitectura
 

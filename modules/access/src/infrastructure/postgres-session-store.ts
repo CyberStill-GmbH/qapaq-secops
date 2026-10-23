@@ -175,3 +175,8 @@ export class PostgresSessionStore implements SessionStore {
 
 // Sprint 5 · fase 3: el padrón comparte el subpath `@qapaq/access/postgres`.
 export { DirectoryIntegrityError, PostgresDirectoryStore } from './postgres-directory-store.js';
+// Administración de roles (grants y solicitudes): mismo subpath, sin tocar el `package.json`.
+export {
+  PostgresRoleAdministration,
+  RoleGrantIntegrityError,
+} from './postgres-role-grant-store.js';

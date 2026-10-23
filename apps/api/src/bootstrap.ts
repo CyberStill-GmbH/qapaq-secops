@@ -32,7 +32,11 @@ import {
   WAZUH_DATASET,
 } from './runtime/wazuh-ingestion.js';
 import { EntraClientCredentialsTokenSource } from './runtime/workload-token.js';
-import { createRoleGrantResolver } from './runtime/role-grants.js';
+import {
+  createRoleGrantResolver,
+  isRoleRosterFresh,
+  withDynamicGrants,
+} from './runtime/role-grants.js';
 import { cachedOwnerSource, createDirectorySyncPass } from './runtime/directory-sync.js';
 import { GraphDirectoryReader } from './runtime/graph-directory.js';
 import { directoryRecipients } from './runtime/notification-recipients.js';
@@ -40,7 +44,14 @@ import { GraphMailFallbackChannel } from './runtime/email-fallback.js';
 import { ephemeralVapidKey, VapidPushSender, vapidKeyFrom } from './runtime/web-push.js';
 import { InMemoryPushSubscriptionStore, type PushSubscriptionStore } from '@qapaq/soar';
 import { NotificationDispatcher } from './runtime/notification-dispatcher.js';
-import { DirectoryError, InMemoryDirectoryStore, type DirectoryStore } from '@qapaq/access';
+import {
+  DirectoryError,
+  InMemoryDirectoryStore,
+  InMemoryRoleAdministration,
+  type DirectoryStore,
+  type RoleAdministration,
+} from '@qapaq/access';
+import { clearRemovedMembers } from './runtime/role-administration.js';
 import {
   measureSourceActivity,
   recordSourceHealth,
@@ -83,6 +94,7 @@ interface DurableStores {
   readonly sessions: SessionStore & { close(): Promise<void> };
   readonly directory: DirectoryStore & { close(): Promise<void> };
   readonly push: PushSubscriptionStore & { close(): Promise<void> };
+  readonly roleAdministration: RoleAdministration & { close(): Promise<void> };
 }
 
 /**
@@ -98,7 +110,7 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
   const [
     { PostgresSocPersistence },
     { PostgresNotificationAttemptStore, PostgresPushSubscriptionStore },
-    { PostgresSessionStore, PostgresDirectoryStore },
+    { PostgresSessionStore, PostgresDirectoryStore, PostgresRoleAdministration },
   ] = await Promise.all([
     import('@qapaq/soc/postgres'),
     import('@qapaq/soar/postgres'),
@@ -140,6 +152,14 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
     statementTimeoutMs: postgres.statementTimeoutMs,
     maxConnections: 2,
   });
+  // Grants y solicitudes de rol: una lectura por inicio de sesión y pocos cambios. Sus escrituras
+  // comparten transacción y cadena de auditoría con el SOC (`audit_events`).
+  const roleAdministration = PostgresRoleAdministration.connect({
+    connectionString,
+    connectionTimeoutMs: postgres.connectionTimeoutMs,
+    statementTimeoutMs: postgres.statementTimeoutMs,
+    maxConnections: 2,
+  });
   try {
     // Falla al arrancar, no en la primera alerta: sin base o con esquema viejo no se sirve.
     await soc.ready();
@@ -150,10 +170,11 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
       sessions.close(),
       directory.close(),
       push.close(),
+      roleAdministration.close(),
     ]);
     throw error;
   }
-  return { soc, notifications, sessions, directory, push };
+  return { soc, notifications, sessions, directory, push, roleAdministration };
 }
 
 export async function buildApi(
@@ -181,6 +202,8 @@ export async function buildApi(
   const ingestionConfig = loadIngestionConfig(environment);
   const roleGrants = loadRoleGrantsConfig(environment);
   const directoryConfig = loadDirectoryConfig(environment);
+  const directoryIntervalMs =
+    directoryConfig.mode === 'graph' ? directoryConfig.intervalMs : undefined;
   const teamsWorkflowUrl = loadTeamsWorkflowUrl(environment);
   const alertMailSender = loadAlertMailSender(environment);
   // Web Push: clave VAPID del secreto; en desarrollo y pruebas, efímera. En producción sin
@@ -261,6 +284,20 @@ export async function buildApi(
   }
   const durable = await durableStoresFor(persistenceConfig);
   const directoryStore: DirectoryStore = durable?.directory ?? new InMemoryDirectoryStore();
+  // Los grants dinámicos exigen padrón: sin él no hay cómo validar miembro ni cuenta habilitada,
+  // así que ni se asignan ni cuentan al iniciar sesión.
+  const rosterGroupId =
+    directoryGroupId && directoryConfig.mode === 'graph' ? directoryGroupId : undefined;
+  // En memoria, la unidad de trabajo se apoya en la del SOC en memoria del runtime, dueña de la
+  // cadena de auditoría; `runtime` solo se usa al ejecutar, cuando ya existe.
+  const memoryAdministration = () =>
+    new InMemoryRoleAdministration((work) => runtime.soc.run((context) => work(context.audit)));
+  let roleAdministration: RoleAdministration | undefined;
+  if (rosterGroupId) roleAdministration = durable?.roleAdministration ?? memoryAdministration();
+  const ownerSource = directoryGroupId
+    ? cachedOwnerSource(directoryStore, access.tenantId, directoryGroupId)
+    : undefined;
+  const staticRoleGrants = createRoleGrantResolver(roleGrants, ownerSource);
   // La URL del Teams Workflow es un secreto y se resuelve por `SecretProvider`, no por
   // entorno. Mientras ese provider no esté disponible, el transporte queda sin destino
   // alcanzable y el crítico sale por el fallback de C-20, que es el comportamiento
@@ -283,13 +320,25 @@ export async function buildApi(
     ...(onSignInDenied ? { onSignInDenied } : {}),
     ...(processInfo ? { processInfo } : {}),
     ...(clientSecret !== undefined ? { clientSecret } : {}),
-    roleGrants: createRoleGrantResolver(
-      roleGrants,
-      directoryGroupId
-        ? cachedOwnerSource(directoryStore, access.tenantId, directoryGroupId)
-        : undefined,
-    ),
+    roleGrants:
+      roleAdministration && rosterGroupId && directoryIntervalMs !== undefined
+        ? withDynamicGrants(staticRoleGrants, {
+            store: roleAdministration.grants,
+            tenantId: access.tenantId,
+            isRosterFresh: async () =>
+              isRoleRosterFresh(
+                await directoryStore.syncState(access.tenantId, rosterGroupId),
+                runtime.now(),
+                directoryIntervalMs,
+              ),
+            isActiveMember: async (oid) => {
+              const member = await directoryStore.member(access.tenantId, rosterGroupId, oid);
+              return member?.membership === 'member' && member.accountEnabled === true;
+            },
+          })
+        : staticRoleGrants,
     roleGrantsConfig: roleGrants,
+    ...(roleAdministration ? { roleAdministration } : {}),
     ...(teamsWorkflowUrl ? { teamsWorkflowUrl } : {}),
     // Respaldo: si Teams no confirma, correo a los mismos destinatarios; si no, la consola.
     ...(alertMailSender && clientSecret
@@ -387,12 +436,24 @@ export async function buildApi(
             now: () => runtime.now(),
             // Quien sale del grupo o deja de ser dueño pierde sus sesiones abiertas. Un dueño
             // que sigue declarado en el deploy conserva el admin y no se toca.
+            // La baja también retira sus grants dinámicos y cancela sus solicitudes abiertas: si
+            // vuelve al grupo, no recupera nada sin una solicitud y aprobación nuevas.
             reconcileAccess: async ({ removedMembers, formerOwners }) => {
               await runtime.revokeSessionsByOid(removedMembers, 'membership_removed');
               await runtime.revokeSessionsByOid(
                 formerOwners.filter((oid) => !roleGrants.groupOwnerOids.includes(oid)),
                 'ownership_removed',
               );
+              if (roleAdministration) {
+                await clearRemovedMembers(
+                  {
+                    administration: roleAdministration,
+                    tenantId: access.tenantId,
+                    now: () => runtime.now(),
+                  },
+                  removedMembers,
+                );
+              }
             },
             reader: directoryReader,
           }),
@@ -417,6 +478,7 @@ export async function buildApi(
       await durable?.sessions.close();
       await durable?.directory.close();
       await durable?.push.close();
+      await durable?.roleAdministration.close();
     }, API_SHUTDOWN_TIMEOUT_MS);
   return {
     application,

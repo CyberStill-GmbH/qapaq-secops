@@ -216,6 +216,41 @@ test('administrative session list and revocation preserve the BFF session and CS
   );
 });
 
+test('role-grant requests are session-authenticated and expose no direct grant mutation', () => {
+  const expected = [
+    ['GET', '/api/admin/users/{oid}/role-grant', []],
+    ['POST', '/api/admin/users/{oid}/role-requests', []],
+    ['GET', '/api/admin/role-requests', ['status', 'pageSize', 'cursor']],
+    ['POST', '/api/admin/role-requests/{requestId}/approve', []],
+    ['POST', '/api/admin/role-requests/{requestId}/reject', []],
+  ];
+  for (const [method, path, query] of expected) {
+    const route = applicationRoutes.routes.find(
+      (entry) => entry.method === method && entry.path === path,
+    );
+    assert.ok(route, `missing ${method} ${path}`);
+    assert.equal(route.auth, 'api-session');
+    assert.deepEqual([...route.query_parameters], query);
+    assert.equal(route.encoding, 'no-op');
+    assert.ok(
+      declaredApiRoutes.some(
+        (entry) => entry.path === path && entry.method === method && entry.upstream === path,
+      ),
+      `missing KrakenD proxy for ${method} ${path}`,
+    );
+  }
+  assert.ok(
+    !applicationRoutes.routes.some(
+      (route) => route.method === 'PUT' && route.path.endsWith('/role-grant'),
+    ),
+    'direct role-grant mutation must remain unavailable',
+  );
+  assert.match(
+    template,
+    /"endpoint":\s*"\/api\/admin\/role-requests\/\{requestId\}\/approve"[\s\S]*?"input_headers":\s*\[[^\]]*"Cookie"[^\]]*"X-Csrf-Token"/,
+  );
+});
+
 test('configuration denies broad CORS, accepts no arbitrary upstream and keeps secrets out of tracked config', () => {
   assert.match(template, /"router":\s*\{\s*"disable_access_log":\s*true\s*\}/);
   assert.doesNotMatch(template, /security\/cors|allow_origins.*\*/);

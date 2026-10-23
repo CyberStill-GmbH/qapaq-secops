@@ -256,6 +256,8 @@ jobs:
         run: docker info --format 'Docker {{.ServerVersion}} · {{.NCPU}} CPU · {{.MemTotal}} bytes RAM'
       - name: Run two isolated PostgreSQL, Redis and MinIO environments
         run: pnpm exec vitest run --config vitest.integration.config.ts platform/testing/test/base-environment.integration.spec.ts --reporter=verbose
+      - name: Verify role-request closer SoD migration against PostgreSQL
+        run: pnpm exec vitest run --config vitest.integration.config.ts platform/testing/test/role-request-closer-sod.integration.spec.ts --reporter=verbose
       - name: Validate C-11 durable admission with C-06 PostgreSQL and MinIO
         run: pnpm exec vitest run --config vitest.integration.config.ts modules/telemetry/test/admission.integration.spec.ts --reporter=verbose
       - name: Attach redacted C-06 evidence
