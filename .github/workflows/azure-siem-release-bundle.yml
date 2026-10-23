@@ -3,16 +3,20 @@ name: Azure SIEM offline release bundle
 on:
   workflow_dispatch:
     inputs:
+      release_sha:
+        description: Immutable main commit used by all three successful source builds; must be an ancestor of current main
+        type: string
+        required: true
       prerequisites_run_id:
-        description: Successful azure-siem-prerequisites-experimental.yml run on this exact main commit
+        description: Successful azure-siem-prerequisites-experimental.yml run on release_sha
         type: string
         required: true
       dashboard_run_id:
-        description: Successful qapaq-dashboard-azure.yml run on this exact main commit
+        description: Successful qapaq-dashboard-azure.yml run on release_sha
         type: string
         required: true
       core_run_id:
-        description: Successful qapaq-core-azure.yml run on this exact main commit
+        description: Successful qapaq-core-azure.yml run on release_sha
         type: string
         required: true
 
@@ -21,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: azure-siem-release-bundle-${{ github.sha }}
+  group: azure-siem-release-bundle-${{ inputs.release_sha }}
   cancel-in-progress: false
 
 env:
@@ -48,7 +52,30 @@ jobs:
       - name: Checkout QAPAQ release scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate immutable release commit
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Release SHA must be a full lowercase commit SHA.' >&2; exit 1; }
+          git cat-file -e "$RELEASE_SHA^{commit}"
+          git merge-base --is-ancestor "$RELEASE_SHA" "$GITHUB_SHA" || {
+            echo 'Release SHA must already be merged into the current main branch.' >&2
+            exit 1
+          }
+          git diff --quiet "$RELEASE_SHA" "$GITHUB_SHA" -- \
+            wazuh/azure-release/install.sh wazuh/azure-release/verify_wazuh_credentials_tar.py \
+            wazuh/azure-release/normalize_ubuntu_apt_sources.py \
+            wazuh/core wazuh/dashboard wazuh/office365 \
+            infra/azure/modules/siem_host/bootstrap-siem.py || {
+              echo 'Package, installer, or bootstrap sources changed after release_sha; rebuild the candidate on current main.' >&2
+              exit 1
+            }
+          printf 'Release source: `%s` (ancestor of current main `%s`; package sources unchanged).\n' "$RELEASE_SHA" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Test bundle assembler and certificate archive gate
         run: |
@@ -60,6 +87,7 @@ jobs:
       - name: Validate source workflow run IDs, branch and exact Git SHA
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
           PREREQUISITES_RUN_ID: ${{ inputs.prerequisites_run_id }}
           DASHBOARD_RUN_ID: ${{ inputs.dashboard_run_id }}
           CORE_RUN_ID: ${{ inputs.core_run_id }}
@@ -70,10 +98,10 @@ jobs:
             local run_id="$1" workflow="$2" metadata
             [[ "$run_id" =~ ^[0-9]{1,20}$ ]] || { echo 'Invalid source workflow run id.' >&2; return 1; }
             metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
-            jq -e --arg sha "$GITHUB_SHA" --arg workflow "$workflow" \
+            jq -e --arg sha "$RELEASE_SHA" --arg workflow "$workflow" \
               '.head_sha == $sha and .head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == $workflow' \
               <<<"$metadata" >/dev/null || {
-                echo "Source run $run_id must be successful on this exact main commit and expected workflow ($workflow)." >&2
+                echo "Source run $run_id must be successful on release_sha from main and use the expected workflow ($workflow)." >&2
                 return 1
               }
           }
@@ -92,7 +120,7 @@ jobs:
       - name: Download QAPAQ dashboard package
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: qapaq-dashboard-${{ github.sha }}
+          name: qapaq-dashboard-${{ inputs.release_sha }}
           path: ${{ runner.temp }}/dashboard
           run-id: ${{ inputs.dashboard_run_id }}
           github-token: ${{ github.token }}
@@ -100,14 +128,14 @@ jobs:
       - name: Download QAPAQ core archive
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: qapaq-core-azure-${{ github.sha }}
+          name: qapaq-core-azure-${{ inputs.release_sha }}
           path: ${{ runner.temp }}/core
           run-id: ${{ inputs.core_run_id }}
           github-token: ${{ github.token }}
 
       - name: Verify artifact hashes and exact package revisions
         env:
-          QAPAQ_SHA: ${{ github.sha }}
+          QAPAQ_SHA: ${{ inputs.release_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -149,6 +177,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Confirm Wazuh pins match the selected release source
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u \
+            <(git show "$RELEASE_SHA:.github/workflows/azure-siem-release-bundle.yml" | grep -E '^  (WAZUH_|OSD_|FILEBEAT_)') \
+            <(grep -E '^  (WAZUH_|OSD_|FILEBEAT_)' "$GITHUB_WORKSPACE/.github/workflows/azure-siem-release-bundle.yml")
+
       - name: Verify official assistant tag and build identity
         env:
           GH_TOKEN: ${{ github.token }}
@@ -171,6 +209,8 @@ jobs:
           echo "$WAZUH_SIGNING_KEY_SHA256  $RUNNER_TEMP/GPG-KEY-WAZUH" | sha256sum --check --status
 
       - name: Assemble offline Wazuh QAPAQ bundle and verify bootstrap contract
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -191,10 +231,10 @@ jobs:
             --install-script "$GITHUB_WORKSPACE/wazuh/azure-release/install.sh" \
             --verify-credentials-script "$GITHUB_WORKSPACE/wazuh/azure-release/verify_wazuh_credentials_tar.py" \
             --repo-root "$GITHUB_WORKSPACE" \
-            --output-dir "$RUNNER_TEMP/siem-release" --qapaq-commit "$GITHUB_SHA" \
+            --output-dir "$RUNNER_TEMP/siem-release" --qapaq-commit "$RELEASE_SHA" \
             --manager-commit "$WAZUH_MANAGER_SHA" --indexer-commit "$WAZUH_INDEXER_SHA"
           bundle="$(find "$RUNNER_TEMP/siem-release" -maxdepth 1 -name 'qapaq-siem-*.tar.gz' -print -quit)"
-          python3 - "$GITHUB_WORKSPACE/infra/azure/modules/siem_host/bootstrap-siem.py" "$bundle" <<'PY'
+          python3 - "$GITHUB_WORKSPACE/infra/azure/modules/siem_host/bootstrap-siem.py" "$bundle" "$RELEASE_SHA" <<'PY'
           import hashlib, json, pathlib, sys, tarfile, tempfile
           bootstrap = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
           assert '"managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive"' in bootstrap
@@ -205,6 +245,7 @@ jobs:
               root = manifest_name.rsplit("/", 1)[0]
               manifest = json.load(archive.extractfile(manifest_name))
               assert manifest["status"] == "installable-candidate"
+              assert manifest["qapaqCommit"] == sys.argv[3]
               for name, digest in manifest["files"].items():
                   member = archive.extractfile(f"{root}/{name}")
                   assert hashlib.sha256(member.read()).hexdigest() == digest, name
@@ -213,7 +254,7 @@ jobs:
       - name: Upload reviewable candidate bundle; no cloud publication
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qapaq-siem-installable-candidate-${{ github.sha }}
+          name: qapaq-siem-installable-candidate-${{ inputs.release_sha }}
           path: ${{ runner.temp }}/siem-release/
           if-no-files-found: error
           compression-level: 0
@@ -223,6 +264,7 @@ jobs:
         run: |
           {
             echo '## Azure QAPAQ SIEM release candidate'
+            echo "- QAPAQ source commit: `${{ inputs.release_sha }}` (all source artifacts are validated against this commit)."
             echo '- Produces the exact Blob bundle contract consumed by `siem_host`.'
             echo '- Installs pinned official Wazuh Manager, Indexer, Filebeat, QAPAQ Dashboard and QAPAQ core from offline artifacts.'
             echo '- No Azure login, Key Vault read, Blob publication, Terraform apply, DNS change or deployment occurs in this workflow.'

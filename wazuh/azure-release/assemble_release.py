@@ -167,6 +167,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         manifest = {
             "schemaVersion": 1,
             "status": "installable-candidate",
+            "qapaqCommit": qapaq_commit,
             "components": {
                 "wazuhManager": WAZUH,
                 "wazuhIndexer": WAZUH,
