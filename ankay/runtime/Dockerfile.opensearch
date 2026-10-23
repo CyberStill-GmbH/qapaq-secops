@@ -9,7 +9,7 @@ ARG AMAZON_LINUX_RELEASE
 USER 0
 RUN dnf --releasever="${AMAZON_LINUX_RELEASE}" upgrade --refresh --assumeyes \
     && test "$(rpm -q --qf '%{VERSION}' system-release)" = "${AMAZON_LINUX_RELEASE}" \
-    && dnf install --assumeyes bash coreutils curl-minimal findutils gzip procps-ng shadow-utils tar which \
+    && dnf install --assumeyes bash curl-minimal findutils gzip procps-ng shadow-utils tar which \
     && groupadd --gid 1000 opensearch \
     && useradd --uid 1000 --gid 1000 --home-dir /usr/share/opensearch --no-create-home --shell /sbin/nologin opensearch \
     && dnf clean all \
