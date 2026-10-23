@@ -26,13 +26,18 @@ export {
   type JsonWebKey,
 } from './id-token.js';
 export {
+  ACCESS_APPROVER_ROLE,
   CAPABILITIES,
   capabilitiesForRoles,
   capabilitiesForScopes,
   effectiveCapabilities,
+  PRIVILEGED_ROLES,
+  REQUESTABLE_ROLES,
   ROLE_CAPABILITIES,
   SCOPES,
+  SECURITY_APPROVER_ROLE,
   type Capability,
+  type RequestableRole,
   type Scope,
 } from './capabilities.js';
 export {
@@ -130,3 +135,39 @@ export {
   type MemberDeltaPage,
 } from './directory.js';
 export { InMemoryDirectoryStore } from './memory-directory-store.js';
+export {
+  emptyRoleGrant,
+  InMemoryRoleGrantStore,
+  normalizeGrantRoles,
+  type RoleGrant,
+  type RoleGrantChange,
+  type RoleGrantStore,
+} from './role-grants.js';
+export {
+  approveRoleRequest,
+  cancelRoleRequest,
+  InMemoryRoleAdministration,
+  InMemoryRoleRequestStore,
+  isOpenRoleRequest,
+  isPrivilegedRole,
+  isRequestableRole,
+  OPEN_ROLE_REQUEST_STATUSES,
+  openRoleRequest,
+  pendingStage,
+  rejectRoleRequest,
+  ROLE_REQUEST_ACTIONS,
+  ROLE_REQUEST_LIST_LIMIT,
+  ROLE_REQUEST_STATUSES,
+  rolesAfter,
+  type RoleAdministration,
+  type RoleAdministrationContext,
+  type RoleRequest,
+  type RoleRequestAction,
+  type RoleRequestActor,
+  type RoleRequestClosure,
+  type RoleRequestDecision,
+  type RoleRequestDenial,
+  type RoleRequestResult,
+  type RoleRequestStatus,
+  type RoleRequestStore,
+} from './role-requests.js';

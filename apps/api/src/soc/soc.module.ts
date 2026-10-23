@@ -5,6 +5,7 @@
 
 import { Module, type DynamicModule } from '@nestjs/common';
 
+import { AdminRoleGrantsController } from './admin-role-grants.controller.js';
 import { AdminSessionsController } from './admin-sessions.controller.js';
 import { ChangesController } from './changes.controller.js';
 import { EventsController } from './events.controller.js';
@@ -36,6 +37,7 @@ export class SocModule {
         EventsController,
         SourcesHealthController,
         AdminUsersController,
+        AdminRoleGrantsController,
         MePushController,
         // Las rutas del emisor local solo se registran cuando ese emisor existe.
         ...(runtime.isLocalIdentity ? [LocalAuthController] : []),

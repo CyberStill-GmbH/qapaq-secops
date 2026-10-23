@@ -1,19 +1,16 @@
 /**
- * Sprint 5 — roles concedidos por QAPAQ a una identidad de Entra al iniciar sesión.
+ * Roles concedidos por fuentes QAPAQ y Entra al iniciar sesión.
  *
- * Une cuatro fuentes; los app roles del token se siguen respetando aparte:
- * 1. asignaciones explícitas del deploy (`QAPAQ_ROLE_BINDINGS`);
- * 2. dueños del grupo de admisión declarados en el deploy (`QAPAQ_GROUP_OWNER_OIDS`), con
- *    `qapaq.platform.admin`;
- * 3. dueños leídos del grupo en Microsoft Graph (`GroupOwnerSource`), cuando hay consentimiento;
- * 4. miembros de un grupo admin (`QAPAQ_ADMIN_GROUP_IDS`), con `qapaq.platform.admin`: por el
- *    claim `groups` del token o, si el grupo es el de admisión sincronizado, por el padrón.
- *
- * Quien no aparece en ninguna fuente ni trae app roles no recibe nada: el inicio de sesión lo
- * rechaza como hoy (sin acceso asignado). Una caída de Graph no quita los roles del deploy;
- * solo deja de sumar los dueños leídos hasta la siguiente lectura válida.
+ * Los grants dinámicos de la consola se leen aparte y solo cuentan para miembros vigentes del
+ * padrón. Una caída de Graph o del store dinámico nunca concede privilegios adicionales.
  */
 
+import {
+  ACCESS_APPROVER_ROLE,
+  SECURITY_APPROVER_ROLE,
+  type DirectorySyncState,
+  type RoleGrantStore,
+} from '@qapaq/access';
 import { GROUP_OWNER_ROLE, type RoleGrantsConfig } from '@qapaq/configuration';
 
 /** Dueños del grupo vistos en el directorio; OID en minúsculas. */
@@ -30,18 +27,39 @@ export type RoleGrantResolver = (
   groups?: readonly string[],
 ) => Promise<readonly string[]>;
 
+/** El padrón se considera viejo después de tres ciclos de sincronización. */
+export const ROSTER_STALE_AFTER_INTERVALS = 3;
+
+/** Valida que el último padrón confirmado sea reciente; un estado fallido nunca es fresco. */
+export function isRoleRosterFresh(
+  state: DirectorySyncState | undefined,
+  now: Date,
+  intervalMs: number,
+): boolean {
+  if (state?.status !== 'ok' || !state.lastSuccessAt) return false;
+  const age = now.getTime() - state.lastSuccessAt.getTime();
+  return age >= 0 && age <= ROSTER_STALE_AFTER_INTERVALS * intervalMs;
+}
+
 export function createRoleGrantResolver(
   config: RoleGrantsConfig,
   directory?: GroupOwnerSource,
 ): RoleGrantResolver {
   const deployOwners = new Set(config.groupOwnerOids);
   const adminGroups = new Set(config.adminGroupIds);
+  const accessApprovers = new Set(config.accessApproverOids ?? []);
+  const securityApprovers = new Set(config.securityApproverOids ?? []);
   const directoryIsAdmin =
     directory?.groupId !== undefined && adminGroups.has(directory.groupId.toLowerCase());
+
   return async (oid, groups = []) => {
     if (!oid) return [];
     const key = oid.toLowerCase();
     const roles = new Set<string>(config.bindings[key] ?? []);
+    // Aprobadores: solo por declaración explícita del deploy, nunca derivados de otro rol.
+    if (accessApprovers.has(key)) roles.add(ACCESS_APPROVER_ROLE);
+    if (securityApprovers.has(key)) roles.add(SECURITY_APPROVER_ROLE);
+
     let admin =
       deployOwners.has(key) || groups.some((group) => adminGroups.has(group.toLowerCase()));
     if (!admin && directory) {
@@ -50,7 +68,7 @@ export function createRoleGrantResolver(
           (await directory.owners()).has(key) ||
           (directoryIsAdmin && (await directory.isMember?.(key)) === true);
       } catch {
-        // Sin directorio disponible se conservan los roles del deploy y del token.
+        // Sin directorio disponible se conservan los roles estáticos del deploy/token.
         admin = false;
       }
     }
@@ -59,27 +77,58 @@ export function createRoleGrantResolver(
   };
 }
 
-export type RoleOrigin =
-  'group_owner' | 'admin_group' | 'deploy_binding' | 'entra_app_role' | 'none';
-
 /**
- * Origen principal del rol para la vista de administración. El inicio de sesión une todas las
- * fuentes; aquí se muestra la de mayor precedencia: dueño del grupo (admin) > miembro de un
- * grupo admin > asignación del deploy > app role observado en la última sesión. Sin ninguna:
- * «sin acceso asignado».
+ * Suma los grants dinámicos a lo que resuelve `base` (deploy, Entra y dueños).
+ *
+ * Un grant guardado no concede acceso si el usuario salió del grupo o fue deshabilitado. Si el
+ * padrón o el store falla, el login conserva únicamente las fuentes estáticas ya resueltas.
  */
+export function withDynamicGrants(
+  base: RoleGrantResolver,
+  dynamic: {
+    readonly store: RoleGrantStore;
+    readonly tenantId: string;
+    /** `true` solo cuando el padrón Graph del grupo de admisión sigue fresco. */
+    readonly isRosterFresh: () => Promise<boolean>;
+    /** `true` solo para miembro vigente con `accountEnabled === true`. */
+    readonly isActiveMember: (oid: string) => Promise<boolean>;
+  },
+): RoleGrantResolver {
+  return async (oid, groups = []) => {
+    const roles = await base(oid, groups);
+    if (!oid) return roles;
+    try {
+      const key = oid.toLowerCase();
+      if (!(await dynamic.isRosterFresh())) return roles;
+      if (!(await dynamic.isActiveMember(key))) return roles;
+      const grant = await dynamic.store.current(dynamic.tenantId, key);
+      return [...new Set([...roles, ...grant.roles])];
+    } catch {
+      return roles;
+    }
+  };
+}
+
+export type RoleOrigin =
+  'group_owner' | 'admin_group' | 'qapaq_assignment' | 'deploy_binding' | 'entra_app_role' | 'none';
+
+/** Origen principal del rol mostrado en el padrón administrativo. */
 export function explainRole(
   config: RoleGrantsConfig,
   directoryOwners: ReadonlySet<string>,
   oid: string,
   observedRoles: readonly string[],
   adminGroupMember = false,
+  dynamicGrantRoles: readonly string[] = [],
 ): { readonly roles: readonly string[]; readonly origin: RoleOrigin } {
   const key = oid.toLowerCase();
   if (config.groupOwnerOids.includes(key) || directoryOwners.has(key)) {
     return { roles: [GROUP_OWNER_ROLE], origin: 'group_owner' };
   }
   if (adminGroupMember) return { roles: [GROUP_OWNER_ROLE], origin: 'admin_group' };
+  if (dynamicGrantRoles.length > 0) {
+    return { roles: dynamicGrantRoles, origin: 'qapaq_assignment' };
+  }
   const bound = config.bindings[key];
   if (bound && bound.length > 0) return { roles: bound, origin: 'deploy_binding' };
   if (observedRoles.length > 0) return { roles: observedRoles, origin: 'entra_app_role' };

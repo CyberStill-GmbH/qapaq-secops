@@ -9,6 +9,10 @@
  * - `QAPAQ_ADMIN_GROUP_IDS`: grupos de Entra cuyos miembros reciben `qapaq.platform.admin`.
  *   La pertenencia sale del claim `groups` del token o, si el grupo es el de admisión
  *   sincronizado, del padrón de Graph.
+ * - `QAPAQ_ACCESS_APPROVER_OIDS` / `QAPAQ_SECURITY_APPROVER_OIDS`: aprobadores de las solicitudes
+ *   de rol (etapa de Acceso y etapa de Seguridad del rol privilegiado). No hay valor por defecto
+ *   ni se derivan de otro rol: sin declaración explícita, las solicitudes quedan sin aprobador y la
+ *   API las rechaza. Un mismo OID no puede estar en ambas listas.
  *
  * Los OID son identificadores de Entra, no secretos, pero sí datos internos: llegan por
  * variables del deploy (GitHub Actions → Terraform), no se versionan en el repositorio y no se
@@ -38,6 +42,27 @@ export interface RoleGrantsConfig {
   readonly groupOwnerOids: readonly string[];
   /** Object ID en minúsculas de los grupos cuyos miembros son admin. */
   readonly adminGroupIds: readonly string[];
+  /** Aprobadores de la etapa de Acceso; ausente o vacío = nadie aprueba. */
+  readonly accessApproverOids?: readonly string[];
+  /** Aprobadores de la etapa de Seguridad (rol privilegiado); ausente o vacío = nadie aprueba. */
+  readonly securityApproverOids?: readonly string[];
+}
+
+function oidList(
+  environment: EnvironmentInput,
+  profile: ConfigurationProfile,
+  name: string,
+): string[] {
+  const values = entries(optionalString(environment, profile, name));
+  if (values.length > MAXIMUM_ENTRIES) {
+    throw configurationError('CONFIG_LIMIT_INVALID', name, profile.name, {
+      maximum: MAXIMUM_ENTRIES,
+    });
+  }
+  if (values.some((oid) => !OID_PATTERN.test(oid))) {
+    throw configurationError('CONFIG_VALUE_INVALID', name, profile.name);
+  }
+  return [...new Set(values.map((oid) => oid.toLowerCase()))];
 }
 
 const OID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -97,9 +122,17 @@ export function parseRoleGrants(
       throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ADMIN_GROUP_IDS', profile.name);
     }
   }
+  const accessApproverOids = oidList(environment, profile, 'QAPAQ_ACCESS_APPROVER_OIDS');
+  const securityApproverOids = oidList(environment, profile, 'QAPAQ_SECURITY_APPROVER_OIDS');
+  // Separación de funciones: la misma persona no puede ser las dos etapas.
+  if (securityApproverOids.some((oid) => accessApproverOids.includes(oid))) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_SECURITY_APPROVER_OIDS', profile.name);
+  }
   return {
     bindings,
     groupOwnerOids: [...new Set(ownerEntries.map((oid) => oid.toLowerCase()))],
     adminGroupIds: [...new Set(adminGroupEntries.map((id) => id.toLowerCase()))],
+    accessApproverOids,
+    securityApproverOids,
   };
 }

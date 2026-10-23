@@ -216,7 +216,54 @@ export interface AdminSession {
 
 /** Origen del rol (apps/api/src/runtime/role-grants.ts). */
 export type RoleOrigin =
-  'group_owner' | 'admin_group' | 'deploy_binding' | 'entra_app_role' | 'none';
+  'group_owner' | 'admin_group' | 'qapaq_assignment' | 'deploy_binding' | 'entra_app_role' | 'none';
+
+export type RequestableRole =
+  'qapaq.auditor' | 'qapaq.platform.admin' | 'qapaq.soc.analyst' | 'qapaq.soc.lead';
+export type RoleRequestAction = 'grant' | 'revoke';
+export type RoleRequestStatus =
+  'pending_access' | 'pending_security' | 'approved' | 'rejected' | 'cancelled';
+
+export interface RoleGrantView {
+  readonly correlationId: string;
+  readonly oid: string;
+  readonly eligible: boolean;
+  readonly grant: {
+    readonly roles: readonly RequestableRole[];
+    readonly revision: number;
+    readonly updatedAt: string | null;
+    readonly updatedBy: string | null;
+  };
+  readonly deployRoles: readonly string[];
+  readonly groupOwnerRoles: readonly string[];
+  readonly assignableRoles: readonly RequestableRole[];
+}
+
+export interface RoleRequestView {
+  readonly id: string;
+  readonly targetOid: string;
+  readonly action: RoleRequestAction;
+  readonly role: RequestableRole;
+  readonly reason: string;
+  readonly ticket: string | null;
+  readonly status: RoleRequestStatus;
+  readonly approvalStage: 'access' | 'security' | null;
+  readonly requesterOid: string;
+  readonly priorApproverOid: string | null;
+  readonly securityApproverOid: string | null;
+  readonly closure: { readonly at: string; readonly reason: string } | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly revision: number;
+}
+
+export interface RoleRequestPage {
+  readonly correlationId: string;
+  readonly items: readonly RoleRequestView[];
+  readonly nextCursor: string | null;
+}
+
+export type RoleRequestListResponse = RoleRequestPage;
 
 export interface DirectoryUser {
   readonly oid: string;
@@ -366,6 +413,7 @@ export const API_ERROR_CODES = [
   'AUTH_FAILED',
   'SESSION_EXPIRED',
   'PASSKEY_REQUIRED',
+  'STEP_UP_REQUIRED',
   'NETWORK_NOT_ALLOWED',
   'REQUEST_NOT_VERIFIED',
   'RATE_LIMITED',
@@ -402,6 +450,9 @@ export const CAPABILITIES = {
   auditRead: 'audit.read',
   auditVerify: 'audit.verify',
   usersRead: 'users.read',
+  rolesRequest: 'roles.request',
+  rolesApprove: 'roles.approve',
+  rolesApprovePrivileged: 'roles.approve.privileged',
   sessionsRead: 'sessions.read',
   sessionsRevoke: 'sessions.revoke',
   notificationsRead: 'notifications.read',

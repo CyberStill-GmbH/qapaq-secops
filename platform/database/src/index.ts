@@ -64,3 +64,13 @@ export {
   type DirectoryPersonRow,
   type DirectorySyncStateRow,
 } from './directory-stores.js';
+export {
+  PrismaRoleGrantStore,
+  ROLE_GRANT_QUERY_LIMIT,
+  type RoleGrantRow,
+} from './role-grant-stores.js';
+export {
+  PrismaRoleRequestStore,
+  ROLE_REQUEST_QUERY_LIMIT,
+  type RoleRequestRow,
+} from './role-request-stores.js';

@@ -2,7 +2,7 @@
  * Sprint 5 · fase 3 — padrón del grupo de admisión para la administración (`users.read`).
  *
  * - `GET /api/admin/users`: miembros y dueños del grupo con rol efectivo y su origen
- *   (`group_owner`, `admin_group`, `deploy_binding`, `entra_app_role` o `none` = «sin acceso
+ *   (`group_owner`, `admin_group`, `qapaq_assignment`, `deploy_binding`, `entra_app_role` o `none` = «sin acceso
  *   asignado»), estado
  *   de cuenta y actividad QAPAQ (última solicitud autenticada y sesiones activas). Incluye el
  *   estado de la sincronización y si el padrón está viejo.
@@ -12,8 +12,7 @@
  * Con la sincronización deshabilitada no hay padrón: se listan solo las identidades declaradas
  * en el deploy (dueños y asignaciones), sin nombre, con `membership: null`. Nada se inventa.
  *
- * Las sesiones se asocian a una persona por UPN (la sesión guarda `preferred_username`, no el
- * OID). Es una asociación declarada: un cambio de UPN en Entra la corta hasta el próximo inicio.
+ * Las sesiones se asocian por OID cuando la sesión lo trae y usan UPN solo para sesiones antiguas.
  * Un OID fuera del padrón y fuera del deploy responde igual que uno inexistente.
  */
 
@@ -82,19 +81,40 @@ export class AdminUsersController {
     return { rows, owners };
   }
 
-  private async sessionsByUpn(tenantId: string): Promise<Map<string, Session[]>> {
+  private async sessionsByUser(tenantId: string): Promise<{
+    byOid: Map<string, Session[]>;
+    byUpn: Map<string, Session[]>;
+  }> {
     const since = new Date(this.runtime.now().getTime() - SESSION_WINDOW_MS);
     const sessions = await this.runtime.sessions.recentByTenant(tenantId, since, SESSION_LIMIT);
+    const byOid = new Map<string, Session[]>();
     const byUpn = new Map<string, Session[]>();
     for (const session of sessions) {
+      if (session.oid) {
+        const oid = session.oid.toLowerCase();
+        byOid.set(oid, [...(byOid.get(oid) ?? []), session]);
+        continue;
+      }
       const upn = session.email?.toLowerCase();
       if (!upn) continue;
       byUpn.set(upn, [...(byUpn.get(upn) ?? []), session]);
     }
-    return byUpn;
+    return { byOid, byUpn };
   }
 
-  private view(row: UserRow, owners: ReadonlySet<string>, sessions: readonly Session[]) {
+  private async assignmentsByOid(tenantId: string): Promise<Map<string, readonly string[]>> {
+    const store = this.runtime.roleAdministration?.grants;
+    if (!store) return new Map();
+    const grants = await store.list(tenantId);
+    return new Map(grants.map((grant) => [grant.oid.toLowerCase(), grant.roles]));
+  }
+
+  private view(
+    row: UserRow,
+    owners: ReadonlySet<string>,
+    sessions: readonly Session[],
+    dynamicRoles: readonly string[],
+  ) {
     const active = sessions.filter((session) => session.state === 'active');
     const latest = [...sessions].sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())[0];
     const grants = this.runtime.roleGrantsConfig ?? {
@@ -113,6 +133,7 @@ export class AdminUsersController {
       row.oid,
       latest?.roles ?? [],
       adminGroupMember,
+      dynamicRoles,
     );
     return {
       oid: row.oid,
@@ -162,14 +183,20 @@ export class AdminUsersController {
     const { actor, correlationId } = await readingActor(this.runtime, request);
     if (!actor.capabilities.has('users.read'))
       throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
-    const [{ rows, owners }, sessions, sync] = await Promise.all([
+    const [{ rows, owners }, sessions, assignments, sync] = await Promise.all([
       this.roster(actor.tenantId),
-      this.sessionsByUpn(actor.tenantId),
+      this.sessionsByUser(actor.tenantId),
+      this.assignmentsByOid(actor.tenantId),
       this.syncView(),
     ]);
     const items = [...rows.values()]
       .map((row) =>
-        this.view(row, owners, row.upn ? (sessions.get(row.upn.toLowerCase()) ?? []) : []),
+        this.view(
+          row,
+          owners,
+          sessions.byOid.get(row.oid) ?? sessions.byUpn.get(row.upn?.toLowerCase() ?? '') ?? [],
+          assignments.get(row.oid) ?? [],
+        ),
       )
       .sort((a, b) => (a.displayName ?? a.oid).localeCompare(b.displayName ?? b.oid, 'es'));
     return { correlationId, sync, items, totalCount: items.length };
@@ -184,13 +211,16 @@ export class AdminUsersController {
     const { rows, owners } = await this.roster(actor.tenantId);
     const row = rows.get(oid.toLowerCase());
     if (!row) throw new ApiError('RESOURCE_UNAVAILABLE', correlationId);
-    const sessions = row.upn
-      ? ((await this.sessionsByUpn(actor.tenantId)).get(row.upn.toLowerCase()) ?? [])
-      : [];
+    const [sessionIndex, assignments] = await Promise.all([
+      this.sessionsByUser(actor.tenantId),
+      this.assignmentsByOid(actor.tenantId),
+    ]);
+    const sessions =
+      sessionIndex.byOid.get(row.oid) ?? sessionIndex.byUpn.get(row.upn?.toLowerCase() ?? '') ?? [];
     const currentReference = this.runtime.sessionReferenceOf(session.id);
     return {
       correlationId,
-      user: this.view(row, owners, sessions),
+      user: this.view(row, owners, sessions, assignments.get(row.oid) ?? []),
       sessions: sessions
         .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
         .map((item) => ({
