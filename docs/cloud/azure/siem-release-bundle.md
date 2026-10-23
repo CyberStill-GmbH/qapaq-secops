@@ -1,6 +1,6 @@
 # QAPAQ SIEM Azure release bundle
 
-Status: **candidate builder and OIDC publisher implemented; publication and runtime installation still require execution and verification**.
+Status: **the current-main candidate was built and published to private Azure Blob; no SIEM VM has been provisioned or installed yet**.
 
 ## What the workflow produces
 
@@ -30,7 +30,22 @@ repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
 
-### Published candidate evidence — 2026-10-22
+### Current published candidate evidence — 2026-10-23
+
+- Prerequisite build: [39867097884](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867097884)
+- Dashboard build: [39866946132](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39866946132)
+- Core build: [39867101453](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867101453)
+- Bundle run: [39875232236](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39875232236)
+- Publisher run: [39876093179](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39876093179)
+- Source SHA: `a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170`
+- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170/qapaq-siem-a3699ccfb7f8.tar.gz`
+- SHA-256: `9f3678a17daa0421694c060255daf5c4167613a442836ca6fb811af8b9234fa0`
+- Size: `5083485460` bytes. The publisher verified the Blob content length and SHA metadata after upload.
+- This is a build and publication result only. It does not prove VM provisioning, installation, service health, DNS, or data ingestion.
+
+The prior candidate below is retained as release history and is superseded by the current SHA.
+
+### Superseded candidate evidence — 2026-10-22
 
 - Publisher run: [39823003732](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39823003732)
 - Source bundle run/SHA: [39819291113](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39819291113) / `f599adf7591cc0adab34d5f43a355073d23f909d`
@@ -38,6 +53,12 @@ DNS.
 - SHA-256: `3045155b53ff736bdcb157cdea6022b2931b1d4781d89c74ed1a497f38dc8f4e`
 - Size: `5083241196` bytes. The workflow verified the Blob metadata digest and content length after upload.
 - This is an install candidate only. It has not been installed on an Azure VM and does not certify the SOC as operational.
+
+### Azure Terraform state at publication
+
+- Plan/apply run: [39871214888](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39871214888) completed successfully but made no changes (`0 add, 0 change, 0 destroy`).
+- The workflow inputs were `siem_host=null`, `ankay_host=null`, and `enable_runtime=false`; no SIEM or Ankay VM was created.
+- Terraform is independent of AWS. The Azure root creates its own Azure Firewall when `siem_host` is provided; the AWS-era firewall is not a prerequisite.
 
 ## First-boot inputs
 
@@ -95,6 +116,8 @@ Azure adapter exists.
   pre-provisioned Key Vault refs. This Windows workstation has no working Docker daemon, and no VM
   installation test has run.
 - The published Blob URI and digest must be pinned in the reviewed `siem_host` Terraform input.
+- The Key Vault secret `wazuh-install-files.tar.b64` and the Core/Entra secret references must be provisioned and verified by metadata without reading values. The current Terraform input objects have not been supplied.
+- The bootstrap must install or verify Ubuntu's required packages before invoking the offline installer; no clean-VM installation test has run yet.
 - Key Vault refs, private endpoints, firewall allowlist, subnet routes and core database/identity
   configuration must be verified without displaying secret values.
 - Complete access, edge TLS/DNS, M365, Teams, Ankay and vendor connectors in their own reviewed
