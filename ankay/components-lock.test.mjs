@@ -70,7 +70,9 @@ test('Ankay CI scans the exact OpenSearch amd64 digest from the component lock',
     workflow,
     /opensearch_image="\$\(jq -r '\.sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest' ankay\/azure-components\.lock\.json\)"/,
   );
-  assert.match(workflow, /"\$opensearch_image"/);
+  assert.match(workflow, /"opensearch\|\$\{opensearch_image\}"/);
+  assert.match(workflow, /--severity HIGH,CRITICAL/);
+  assert.match(workflow, /gate_failed=1/);
   assert.doesNotMatch(
     workflow,
     /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/,
@@ -88,8 +90,13 @@ test('OpenSearch major-version candidate is tested with ephemeral Compose and Sh
   );
   assert.match(compose, /image: \$\{OPENSEARCH_IMAGE:\?set OPENSEARCH_IMAGE\}/);
   assert.match(compose, /image: \$\{BACKEND_IMAGE:\?set BACKEND_IMAGE\}/);
-  assert.match(compose, /DISABLE_SECURITY_PLUGIN: "true"/);
+  assert.match(compose, /OPENSEARCH_INITIAL_ADMIN_PASSWORD:/);
+  assert.match(compose, /SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "false"/);
+  assert.match(compose, /SHUFFLE_OPENSEARCH_URL: https:\/\/opensearch:9200/);
+  assert.match(compose, /\/run\/ankay\/opensearch-ca\/ca\.pem:ro/);
   assert.match(compose, /127\.0\.0\.1:15001:5001/);
+  assert.match(smoke, /root-ca\.pem/);
+  assert.match(smoke, /openssl x509/);
   assert.match(smoke, /\/api\/v1\/health\?force=true/);
   assert.match(smoke, /TestOpensearchInit\|TestWorkflowStorageRoundTrip/);
   assert.match(smoke, /down --volumes --remove-orphans/);

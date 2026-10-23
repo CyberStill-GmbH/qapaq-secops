@@ -3,11 +3,11 @@ services:
     image: ${OPENSEARCH_IMAGE:?set OPENSEARCH_IMAGE}
     environment:
       discovery.type: single-node
-      DISABLE_SECURITY_PLUGIN: "true"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${SMOKE_OPENSEARCH_PASSWORD:?set SMOKE_OPENSEARCH_PASSWORD}
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
       node.store.allow_mmap: "false"
     healthcheck:
-      test: [CMD-SHELL, "curl --fail --silent http://127.0.0.1:9200/ >/dev/null"]
+      test: [CMD-SHELL, "curl --fail --silent --insecure -u admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD} https://127.0.0.1:9200/ >/dev/null"]
       interval: 5s
       timeout: 3s
       retries: 60
@@ -30,8 +30,12 @@ services:
       SHUFFLE_FILE_LOCATION: /app/generated
       SHUFFLE_HEALTHCHECK_DISABLED: "true"
       SHUFFLE_MEMCACHED: memcached:11211
-      SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "true"
-      SHUFFLE_OPENSEARCH_URL: http://opensearch:9200
+      SHUFFLE_OPENSEARCH_PASSWORD: ${SMOKE_OPENSEARCH_PASSWORD:?set SMOKE_OPENSEARCH_PASSWORD}
+      SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: "false"
+      SHUFFLE_OPENSEARCH_URL: https://opensearch:9200
+      SHUFFLE_OPENSEARCH_USERNAME: admin
+    volumes:
+      - ${OPENSEARCH_CA_HOST_PATH:?set OPENSEARCH_CA_HOST_PATH}:/run/ankay/opensearch-ca/ca.pem:ro
     depends_on:
       opensearch:
         condition: service_healthy

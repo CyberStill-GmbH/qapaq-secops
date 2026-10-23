@@ -109,11 +109,51 @@ jobs:
           bash .github/ci/install-scanner.sh trivy
           export PATH="$RUNNER_TEMP/scanners:$PATH"
           opensearch_image="$(jq -r '.sources.opensearch.repository + "@" + .sources.opensearch.amd64Digest' ankay/azure-components.lock.json)"
-          for image in "ankay-qapaq-backend:${GITHUB_SHA}" "ankay-qapaq-worker:${GITHUB_SHA}" \
-            "$opensearch_image"; do
-            trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
-              --no-progress "$image"
+          gate_failed=0
+          images=(
+            "backend|ankay-qapaq-backend:${GITHUB_SHA}"
+            "worker|ankay-qapaq-worker:${GITHUB_SHA}"
+            "opensearch|${opensearch_image}"
+          )
+          for entry in "${images[@]}"; do
+            component="${entry%%|*}"
+            image="${entry#*|}"
+            report="$RUNNER_TEMP/trivy-${component}.json"
+            echo "Scanning ${component}: ${image}"
+            # Collect all images first; the explicit JSON gate below still fails on any HIGH/CRITICAL.
+            if ! trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL \
+              --exit-code 0 --format json --output "$report" --no-progress "$image"; then
+              echo "::error::Trivy could not complete the ${component} scan."
+              gate_failed=1
+              continue
+            fi
+            if ! jq -e '.Results | type == "array"' "$report" >/dev/null; then
+              echo "::error::Trivy returned invalid JSON for ${component}."
+              gate_failed=1
+              continue
+            fi
+            finding_count="$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$report")"
+            high_count="$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$report")"
+            critical_count="$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$report")"
+            echo "${component}: ${finding_count} HIGH/CRITICAL (HIGH: ${high_count}, CRITICAL: ${critical_count})"
+            jq -r '[.Results[]? as $result | $result.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL") | {target: $result.Target, severity: .Severity}]
+              | group_by(.target)[]
+              | "  target \(.[0].target): \(length) (HIGH: \([.[] | select(.severity == "HIGH")] | length), CRITICAL: \([.[] | select(.severity == "CRITICAL")] | length))"' "$report"
+            jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")]
+              | sort_by(.Severity, .VulnerabilityID)
+              | .[:10][]
+              | [.Severity, .VulnerabilityID, .PkgName, .InstalledVersion, (.FixedVersion // "no fixed version")]
+              | @tsv' "$report" | while IFS=$'\t' read -r severity cve package installed fixed; do
+                printf '  %s\t%s\t%s\t%s\t%s\n' "$severity" "$cve" "$package" "$installed" "$fixed"
+              done
+            if (( finding_count > 0 )); then
+              gate_failed=1
+            fi
           done
+          if (( gate_failed != 0 )); then
+            echo '::error::At least one Ankay image has HIGH/CRITICAL findings or could not be scanned.'
+            exit 1
+          fi
 
       - name: Upload runtime component evidence (not an ACR release)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
