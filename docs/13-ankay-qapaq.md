@@ -10,15 +10,20 @@ dueño con Franco.
 
 **Arquitectura de la conexión con QAPAQ SecOps:** [14](14-ankay-conexion-qapaq.md).
 
-### Estado de Ankay para Azure (20-10-2026)
+### Estado de Ankay para Azure (revisión 24-10-2026)
 
 El único artefacto ejecutable que hoy se construye en CI es el **frontend** rebrandeado desde
 Shuffle v2.3.0 y su código fuente AGPL. Ese workflow no construye ni publica backend, Orborus,
-worker, OpenSearch ni el datastore; su build verde no demuestra que Ankay completo arranque.
+worker, OpenSearch ni `shuffle-security`; su build verde no demuestra que Ankay completo arranque.
 `ankay/upstream.lock` fija el commit de fuente, pero no fija los digests de las imágenes de runtime.
+El build [40057658958](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40057658958)
+terminó correctamente desde `main` (`c13d968`): validó branding, subpath protegido e imagen de
+frontend y subió un artefacto temporal del run. `publish_to_acr=false`; no publicó a ACR ni desplegó
+Ankay en Azure.
 
-Se preparó `infra/azure/modules/ankay_host/` como módulo aislado, aún sin conexión al root Azure.
-Exige digests SHA-256 ACR para frontend, backend, Orborus, worker dinámico, OpenSearch y datastore,
+`infra/azure/modules/ankay_host/` ya está conectado al root Azure como host opcional, desactivado
+mientras `ankay_host` sea `null`. Exige digests SHA-256 ACR para frontend, backend, Orborus,
+worker dinámico, OpenSearch y `shuffle-security`,
 además del Compose completo con su SHA revisado. Crea VM Linux sin IP pública, NSG restrictiva,
 identidad ACR de solo lectura y disco persistente con `prevent_destroy`; solo deja el Compose
 verificado en disco. No instala ni inicia Shuffle y su salida informa `host_prepared_runtime_not_started`.
