@@ -26,13 +26,17 @@ if len(set(ids)) != len(ids):
     errors.append("IDs QPD duplicados")
 
 known_rules: set[str] = set()
-for path in (root / "infra/wazuh").rglob("*.xml"):
-    try:
-        ET.parse(path)
-    except ET.ParseError as exc:
-        errors.append(f"XML inválido en {path.relative_to(root)}: {exc}")
+rule_roots = (root / "wazuh", root / "infra/wazuh")
+for rule_root in rule_roots:
+    if not rule_root.exists():
         continue
-    known_rules.update(re.findall(r'<rule\s+id="(\d+)"', path.read_text(encoding="utf-8")))
+    for path in rule_root.rglob("*.xml"):
+        try:
+            ET.parse(path)
+        except ET.ParseError as exc:
+            errors.append(f"XML inválido en {path.relative_to(root)}: {exc}")
+            continue
+        known_rules.update(re.findall(r'<rule\s+id="(\d+)"', path.read_text(encoding="utf-8")))
 
 local_rules = ET.parse(package / "rules/qapaq_launch_provider_rules.xml").getroot()
 local_ids = [rule.attrib.get("id") for rule in local_rules.findall(".//rule")]
