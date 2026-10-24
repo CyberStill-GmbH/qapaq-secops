@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
+import stat
 import sys
 import tempfile
 import urllib.error
@@ -14,6 +16,7 @@ import urllib.request
 
 
 MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+MAX_BATCH_BYTES = 64 * 1024 * 1024
 DEFAULT_ENDPOINT = "https://api.catonetworks.com/api/v1/graphql2"
 QUERY = """query eventsFeed($accountIDs: [ID!], $marker: String) {
   eventsFeed(accountIDs: $accountIDs, marker: $marker) {
@@ -66,28 +69,49 @@ def parse_payload(payload: object, account_id: str) -> tuple[str, list[dict]]:
     return marker, events
 
 
-def read_state(path: pathlib.Path) -> str | None:
+def read_state(path: pathlib.Path) -> dict:
     if path.is_symlink():
         raise ProviderError("local cursor state is invalid")
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        return None
+        return {"marker": None}
     except (OSError, json.JSONDecodeError) as error:
         raise ProviderError("local cursor state is invalid") from error
-    marker = raw.get("marker") if isinstance(raw, dict) else None
-    if not isinstance(marker, str) or not marker or len(marker) > 4096:
+    if not isinstance(raw, dict) or set(raw) - {"marker", "pending"}:
         raise ProviderError("local cursor state is invalid")
-    return marker
+    marker = raw.get("marker")
+    if marker is not None and (not isinstance(marker, str) or not marker or len(marker) > 4096):
+        raise ProviderError("local cursor state is invalid")
+    pending = raw.get("pending")
+    if pending is not None:
+        if (
+            not isinstance(pending, dict)
+            or not isinstance(pending.get("marker"), str)
+            or not pending["marker"]
+            or type(pending.get("offset")) is not int
+            or pending["offset"] < 0
+            or type(pending.get("length")) is not int
+            or pending["length"] <= 0
+            or pending["length"] > MAX_BATCH_BYTES
+            or not isinstance(pending.get("sha256"), str)
+            or len(pending["sha256"]) != 64
+            or any(char not in "0123456789abcdef" for char in pending["sha256"])
+        ):
+            raise ProviderError("local pending batch state is invalid")
+    return {"marker": marker, "pending": pending} if pending else {"marker": marker}
 
 
-def save_state(path: pathlib.Path, marker: str) -> None:
+def save_state(path: pathlib.Path, marker: str | None, pending: dict | None = None) -> None:
     path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".cato-marker-", dir=path.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             os.fchmod(stream.fileno(), 0o640)
-            json.dump({"marker": marker}, stream, separators=(",", ":"))
+            state = {"marker": marker}
+            if pending is not None:
+                state["pending"] = pending
+            json.dump(state, stream, separators=(",", ":"))
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
@@ -103,16 +127,75 @@ def save_state(path: pathlib.Path, marker: str) -> None:
             os.unlink(temporary)
 
 
-def append_events(path: pathlib.Path, events: list[dict]) -> None:
-    if not events:
+def serialize_events(events: list[dict]) -> bytes:
+    return b"".join(
+        (json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+        for event in events
+    )
+
+
+def append_bytes(path: pathlib.Path, payload: bytes) -> None:
+    if not payload:
         return
+    if path.is_symlink():
+        raise ProviderError("local event output is invalid")
     path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
     fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o640)
-    with os.fdopen(fd, "a", encoding="utf-8") as stream:
-        for event in events:
-            stream.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
+    with os.fdopen(fd, "ab") as stream:
+        view = memoryview(payload)
+        while view:
+            written = stream.write(view)
+            if written is None or written <= 0:
+                raise OSError("short write to local event output")
+            view = view[written:]
         stream.flush()
         os.fsync(stream.fileno())
+
+
+def output_size(path: pathlib.Path) -> int:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return 0
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ProviderError("local event output is not a regular file")
+    return metadata.st_size
+
+
+def recover_pending(path: pathlib.Path, state_path: pathlib.Path, state: dict) -> tuple[dict, bool]:
+    pending = state.get("pending")
+    if pending is None:
+        return state, False
+
+    size = output_size(path)
+    offset = pending["offset"]
+    length = pending["length"]
+    if size < offset:
+        raise ProviderError("local event output changed during a pending batch")
+
+    if size == offset + length:
+        with path.open("rb") as stream:
+            stream.seek(offset)
+            written_batch = stream.read(length)
+        if len(written_batch) == length and hashlib.sha256(written_batch).hexdigest() == pending["sha256"]:
+            committed = {"marker": pending["marker"]}
+            save_state(state_path, committed["marker"])
+            return committed, True
+
+    if size > offset + length:
+        raise ProviderError("local event output has unexpected data after a pending batch")
+
+    # An incomplete append is rolled back to its recorded byte offset, then fetched again
+    # from the unchanged provider cursor. A complete append is recognized above and the
+    # cursor advances without writing the same Cato events twice.
+    if path.exists():
+        with path.open("r+b") as stream:
+            stream.truncate(offset)
+            stream.flush()
+            os.fsync(stream.fileno())
+    recovered = {"marker": state.get("marker")}
+    save_state(state_path, recovered["marker"])
+    return recovered, False
 
 
 def fetch(endpoint: str, account_id: str, api_key: str, marker: str | None) -> tuple[str, list[dict]]:
@@ -158,11 +241,30 @@ def run(config_path: pathlib.Path) -> int:
             or any(char in api_key for char in "\r\n\x00")
         ):
             raise ProviderError("connector configuration is invalid")
-        old_marker = read_state(state_path)
+        state = read_state(state_path)
+        state, recovered_complete_batch = recover_pending(output_path, state_path, state)
+        if recovered_complete_batch:
+            return 0
+        old_marker = state["marker"]
         new_marker, events = fetch(endpoint, account_id, api_key, old_marker)
-        append_events(output_path, events)
-        # Commit only after the complete response is validated and emitted. A crash before
-        # this point replays the same provider batch rather than silently skipping it.
+        payload = serialize_events(events)
+        if len(payload) > MAX_BATCH_BYTES:
+            raise ProviderError("provider event batch is too large")
+        if not payload:
+            save_state(state_path, new_marker)
+            return 0
+
+        offset = output_size(output_path)
+        pending = {
+            "marker": new_marker,
+            "offset": offset,
+            "length": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        # Persist a write-ahead checkpoint before output. On restart, a complete durable
+        # batch advances the marker; a partial batch is truncated and fetched again.
+        save_state(state_path, old_marker, pending)
+        append_bytes(output_path, payload)
         save_state(state_path, new_marker)
         return 0
     except (OSError, KeyError, TypeError, json.JSONDecodeError, ProviderError):

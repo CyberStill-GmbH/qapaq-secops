@@ -107,6 +107,69 @@ class CatoEventsFeedTests(unittest.TestCase):
             self.assertEqual(json.loads(state.read_text(encoding="utf-8"))["marker"], "marker-2")
             self.assertEqual(json.loads(output.read_text(encoding="utf-8"))["event"]["id"], "evt-1")
 
+    def test_recovers_complete_pending_batch_without_appending_twice(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            secret = base / "api-key"
+            state = base / "state.json"
+            output = base / "events.jsonl"
+            config = base / "config.json"
+            secret.write_text("test-api-key", encoding="utf-8")
+            config.write_text(json.dumps({
+                "account_id": "12345", "api_key_file": str(secret),
+                "state_file": str(state), "output_file": str(output),
+            }), encoding="utf-8")
+
+            actual_save_state = CATO.save_state
+
+            def fail_final_commit(path, marker, pending=None):
+                if marker == "marker-2" and pending is None and output.exists():
+                    raise OSError("simulated crash after durable append")
+                actual_save_state(path, marker, pending)
+
+            with patch.object(CATO, "fetch", return_value=("marker-2", [{"event": {"id": "evt-1"}}])), \
+                 patch.object(CATO, "save_state", side_effect=fail_final_commit):
+                self.assertEqual(CATO.run(config), 1)
+
+            self.assertIn("pending", json.loads(state.read_text(encoding="utf-8")))
+            self.assertEqual(len(output.read_text(encoding="utf-8").splitlines()), 1)
+            with patch.object(CATO, "fetch") as fetch:
+                self.assertEqual(CATO.run(config), 0)
+                fetch.assert_not_called()
+
+            self.assertEqual(json.loads(state.read_text(encoding="utf-8"))["marker"], "marker-2")
+            self.assertEqual(len(output.read_text(encoding="utf-8").splitlines()), 1)
+
+    def test_recovers_partial_append_by_truncating_and_replaying_same_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            secret = base / "api-key"
+            state = base / "state.json"
+            output = base / "events.jsonl"
+            config = base / "config.json"
+            secret.write_text("test-api-key", encoding="utf-8")
+            config.write_text(json.dumps({
+                "account_id": "12345", "api_key_file": str(secret),
+                "state_file": str(state), "output_file": str(output),
+            }), encoding="utf-8")
+            event_batch = [{"event": {"id": "evt-1"}}]
+
+            def fail_after_partial_write(path, payload):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(payload[:8])
+                raise OSError("simulated interrupted write")
+
+            with patch.object(CATO, "fetch", return_value=("marker-2", event_batch)), \
+                 patch.object(CATO, "append_bytes", side_effect=fail_after_partial_write):
+                self.assertEqual(CATO.run(config), 1)
+
+            self.assertIn("pending", json.loads(state.read_text(encoding="utf-8")))
+            with patch.object(CATO, "fetch", return_value=("marker-2", event_batch)):
+                self.assertEqual(CATO.run(config), 0)
+
+            self.assertEqual(json.loads(state.read_text(encoding="utf-8"))["marker"], "marker-2")
+            self.assertEqual(len(output.read_text(encoding="utf-8").splitlines()), 1)
+
 
 class ProviderConfigurationTests(unittest.TestCase):
     def test_config_installs_sources_idempotently_and_keeps_secret_out_of_ossec_xml(self) -> None:

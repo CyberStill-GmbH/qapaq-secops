@@ -15,7 +15,7 @@ Se integra el SIEM Integration API oficial mediante el cliente Sophos Central SI
 
 ## Cato Networks
 
-El collector consulta `eventsFeed` con permiso Cato `Events`. La primera consulta sin marker crea la posición actual y puede no devolver registros; después continúa secuencialmente usando el marker opaco tal como lo entrega Cato. El marker se escribe atómicamente solo después de validar y persistir la respuesta completa. El API conserva la cola aproximadamente tres días; una interrupción mayor puede dejar eventos fuera de la ventana. Los errores GraphQL o de una cuenta no avanzan el marker. El endpoint está fijado a `https://api.catonetworks.com/api/v1/graphql2`.
+El collector consulta `eventsFeed` con permiso Cato `Events`. La primera consulta sin marker crea la posición actual y puede no devolver registros; después continúa secuencialmente usando el marker opaco tal como lo entrega Cato. Para eventos, escribe un checkpoint de recuperación antes del JSONL y confirma el marker después de hacer `fsync` del lote. Si se reinicia tras un append completo pero antes de confirmar el marker, reconoce el hash y el offset del lote ya persistido y no lo vuelve a anexar. Si el append quedó parcial, trunca solo hasta el offset registrado y vuelve a consultar con el marker anterior. El API conserva la cola aproximadamente tres días; una interrupción mayor puede dejar eventos fuera de la ventana. Los errores GraphQL o de una cuenta no avanzan el marker. Esto protege la escritura local del collector; la aceptación end-to-end aún debe comprobar el comportamiento de offsets del logcollector Wazuh después de reiniciar el Manager. El endpoint está fijado a `https://api.catonetworks.com/api/v1/graphql2`.
 
 ## Configuración Terraform no secreta
 
@@ -43,7 +43,7 @@ Los valores `provider_ingestion` son no secretos y quedan en bootstrap config; c
 
 ## Instalación y comprobación
 
-Los timers consultan cada 60 s con jitter; el Manager supervisa JSONL de cada proveedor y etiqueta cada evento como `integration.vendor=sophos|cato`. Los archivos de estado de cursor son locales al SIEM. La aceptación exige confirmar timers activos, último éxito de API sin exponer credenciales, ingestión de fixtures sintéticos en `wazuh-alerts-*`, campos normalizados consultables y ausencia de duplicados/pérdida en reinicio. Un bundle CI exitoso solo acredita empaquetado: no acredita conectividad ni datos reales del tenant.
+Los timers consultan cada 60 s con jitter; el Manager supervisa JSONL de cada proveedor y etiqueta cada evento como `integration.vendor=sophos|cato`. Los archivos de estado de cursor son locales al SIEM. La aceptación exige confirmar timers activos, último éxito de API sin exponer credenciales, ingestión de fixtures sintéticos en `wazuh-alerts-*`, campos normalizados consultables y recuperación sin pérdida ni doble append al reiniciar el collector durante un lote. También debe probarse por separado que el logcollector Wazuh reanuda su offset sin duplicar esos JSONL tras reiniciar el Manager. Un bundle CI exitoso solo acredita empaquetado: no acredita conectividad ni datos reales del tenant.
 
 ## Fuentes primarias
 
