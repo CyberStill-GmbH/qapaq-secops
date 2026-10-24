@@ -1,0 +1,51 @@
+name: QAPAQ Wazuh endpoint detections
+
+on:
+  pull_request:
+    paths:
+      - 'infra/wazuh/endpoint/**'
+      - '.github/workflows/wazuh-endpoint-detection.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/wazuh/endpoint/**'
+      - '.github/workflows/wazuh-endpoint-detection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-detections-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  endpoint-logtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start isolated Wazuh Manager 4.14.8
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-endpoint-test
+          --ulimit nofile=458752:458752
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml:/var/ossec/etc/rules/qapaq_endpoint_rules.xml:ro"
+          wazuh/wazuh-manager:4.14.8
+      - name: Start Manager daemons and run positive/negative fixtures
+        run: |
+          if ! docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-control start; then
+            echo 'Manager start returned a nonzero status; verify the required analysis daemon below.'
+          fi
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-analysisd -t
+          python infra/wazuh/endpoint/tests/validate-fixtures.py

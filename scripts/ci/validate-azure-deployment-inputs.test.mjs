@@ -35,6 +35,7 @@ function siemHost(overrides = {}) {
     wazuh_secret_names: {
       'dashboard-password': 'wazuh-dashboard-password',
       'office365-client-secret': 'office365-client-secret',
+      'wazuh-install-files.tar.b64': 'wazuh-install-files-tar-b64',
     },
     core_environment: { QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret' },
     office365: {
@@ -111,6 +112,18 @@ test('requires a Key Vault-backed Office 365 client secret and valid non-secret 
   assert.throws(
     () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(invalidClient) })),
     /must be GUIDs/u,
+  );
+});
+
+test('requires the Wazuh certificate/password archive before enabling host creation', () => {
+  const missingInstallArchive = siemHost();
+  delete missingInstallArchive.wazuh_secret_names['wazuh-install-files.tar.b64'];
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({ TF_VAR_siem_host: JSON.stringify(missingInstallArchive) }),
+      ),
+    /must map wazuh-install-files\.tar\.b64/u,
   );
 });
 

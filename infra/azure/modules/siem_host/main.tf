@@ -23,6 +23,7 @@ locals {
     key_vault_uri      = trimsuffix(var.key_vault_uri, "/")
     core_secret_names  = var.core_secret_names
     wazuh_secret_names = var.wazuh_secret_names
+    provider_ingestion = var.provider_ingestion
     core_environment   = var.core_environment
     office365          = var.office365
     data_disk_size_gb  = var.data_disk_size_gb

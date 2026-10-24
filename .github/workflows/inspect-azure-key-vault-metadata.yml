@@ -1,0 +1,96 @@
+name: Inspect Azure Key Vault metadata
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inspect-azure-key-vault-metadata
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: List secret names and status only
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: azure-demo
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_TERRAFORM_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - name: Validate target identifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing required Azure identity input: $name"; exit 1; }
+          done
+          [[ "$AZURE_SUBSCRIPTION_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || {
+            echo '::error::Azure subscription ID has an invalid format.'
+            exit 1
+          }
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_TERRAFORM_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Read Key Vault metadata through Azure Resource Manager
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          suffix="$(printf '%s' "${AZURE_SUBSCRIPTION_ID}:qapaq-secops:demo" | sha256sum | cut -c1-8)"
+          resource_group="rg-qapaqsecopsdemo-${suffix}"
+          vault="kv-qapaqsecopsd-${suffix}"
+          vault_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.KeyVault/vaults/${vault}"
+          next_url="https://management.azure.com${vault_id}/secrets?api-version=2025-05-01"
+          page_file="$RUNNER_TEMP/key-vault-metadata-page.json"
+          rows_file="$RUNNER_TEMP/key-vault-metadata.tsv"
+          trap 'rm -f "$page_file" "$rows_file"' EXIT
+          : > "$rows_file"
+
+          while [[ -n "$next_url" ]]; do
+            [[ "$next_url" == https://management.azure.com/* ]] || {
+              echo '::error::Key Vault metadata API returned an unexpected pagination host.'
+              exit 1
+            }
+            az rest --method get --url "$next_url" --output json > "$page_file"
+            jq -er '.value | type == "array"' "$page_file" >/dev/null || {
+              echo '::error::Azure returned an unexpected metadata response.'
+              exit 1
+            }
+
+            jq -r '
+              .value[] |
+              [
+                (.id | split("/")[-1]),
+                ((.properties.attributes.enabled // "unknown") | tostring),
+                ((.properties.attributes.exp // "") | tostring)
+              ] | @tsv
+            ' "$page_file" >> "$rows_file"
+            next_url="$(jq -r '.nextLink // empty' "$page_file")"
+          done
+
+          {
+            echo '## Key Vault metadata (values were not requested)'
+            echo
+            echo '| Secret name | Enabled | Expiry (UTC epoch) |'
+            echo '| --- | --- | --- |'
+            if [[ -s "$rows_file" ]]; then
+              sort -u "$rows_file" | awk -F '\t' '{ printf "| `%s` | %s | %s |\n", $1, $2, ($3 == "" ? "not set" : $3) }'
+            else
+              echo '| *(none returned)* | — | — |'
+            fi
+            echo
+            echo 'This workflow queried only Azure Resource Manager metadata. It did not call the Key Vault data plane or retrieve secret values.'
+          } >> "$GITHUB_STEP_SUMMARY"

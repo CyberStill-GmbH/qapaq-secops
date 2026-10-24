@@ -1,0 +1,13 @@
+[Unit]
+Description=Poll Sophos Central for QAPAQ Wazuh ingestion
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=5min
+RandomizedDelaySec=15s
+Persistent=true
+Unit=qapaq-sophos-ingest.service
+
+[Install]
+WantedBy=timers.target
+

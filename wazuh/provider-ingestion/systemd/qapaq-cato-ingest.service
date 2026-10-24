@@ -1,0 +1,21 @@
+[Unit]
+Description=QAPAQ Cato Networks eventsFeed ingestion
+Wants=network-online.target
+After=network-online.target wazuh-manager.service
+
+[Service]
+Type=oneshot
+User=root
+Group=wazuh
+UMask=0027
+ExecStart=/usr/bin/python3 /var/ossec/integrations/qapaq-cato/events_feed.py --config /var/ossec/etc/qapaq-providers/cato/config.json
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ReadOnlyPaths=/etc/qapaq-secrets
+ReadWritePaths=/var/ossec/var/run/qapaq-providers/cato /var/ossec/logs/qapaq-providers
+TimeoutStartSec=30
+

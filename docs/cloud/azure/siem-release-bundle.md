@@ -36,7 +36,28 @@ repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
 
-### Latest published candidate evidence — 2026-10-23
+The next candidate assembled after the detection-pack change also contains the 30-case catalog,
+the QAPAQ provider rules, the Outlook/Sysmon endpoint rule and an idempotent installer. The
+installer registers `/var/ossec/etc/rules` with the Wazuh ruleset, validates `wazuh-analysisd`,
+and restarts the Manager with rollback if validation or restart fails. This does not enable
+Sophos/Cato collectors: those remain opt-in and need their Key Vault references, provider
+configuration, approved egress and real acceptance. The 2026-10-24 candidate includes the versioned
+provider and endpoint rule files, but does not prove those collectors are enabled or events are arriving.
+
+### Latest published candidate evidence — 2026-10-24
+
+- Prerequisite build: [40080125109](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125109)
+- Dashboard build: [40080125315](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125315)
+- Core build: [40080124975](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080124975)
+- Bundle run: [40084337528](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40084337528)
+- Publisher run: [40086863260](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40086863260)
+- Source SHA: `afdfbaa61f558ab30c307aa4cf6d0fd8a783b15c`
+- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/afdfbaa61f558ab30c307aa4cf6d0fd8a783b15c/qapaq-siem-afdfbaa61f55.tar.gz`
+- SHA-256: `954d284674442645dc4c1a7bf9a991ae7712888a842bff262083dfa66806dbcd`
+- Size: `6959200149` bytes. The publisher verified the Blob content length and SHA metadata after upload. The source-run GitHub artifact was `13921808870` bytes.
+- The exact source artifacts succeeded on the same SHA. The bundle run verified installer, provenance, package hashes and bootstrap contract; the publisher authenticated through Azure OIDC and verified the private Blob. It remains an install candidate, not evidence of a provisioned VM or operational SIEM.
+
+### Previous published candidate evidence — 2026-10-23
 
 - Prerequisite build: [39883868793](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868793)
 - Dashboard build: [39883868545](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868545)
@@ -46,24 +67,8 @@ DNS.
 - Source SHA: `6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f`
 - Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f/qapaq-siem-6c3c2b498a8a.tar.gz`
 - SHA-256: `9cfcd1acd6c5c1c78ec10024d6a4b7c3bbd43932ad8931ce3a9d63d126a4ccac`
-- Size: `5083594839` bytes. The publisher verified Blob content length and SHA metadata after upload.
-- The exact source artifacts succeeded on the same SHA. The bundle run verified installer, provenance, package hashes and bootstrap contract; the publisher authenticated through Azure OIDC and verified the private Blob. It remains an install candidate, not evidence of a provisioned VM or operational SIEM.
-
-### Previous published candidate evidence — 2026-10-23
-
-- Prerequisite build: [39867097884](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867097884)
-- Dashboard build: [39866946132](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39866946132)
-- Core build: [39867101453](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39867101453)
-- Bundle run: [39875232236](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39875232236)
-- Publisher run: [39876093179](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39876093179)
-- Source SHA: `a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170`
-- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/a3699ccfb7f8b8cb36e85c8333d4266c7a2e1170/qapaq-siem-a3699ccfb7f8.tar.gz`
-- SHA-256: `9f3678a17daa0421694c060255daf5c4167613a442836ca6fb811af8b9234fa0`
-- Size: `5083485460` bytes. The publisher verified the Blob content length and SHA metadata after upload.
+- Size: `5083594839` bytes. The publisher verified the Blob content length and SHA metadata after upload.
 - This is a build and publication result only. It does not prove VM provisioning, installation, service health, DNS, or data ingestion.
-
-The prior candidate below is retained as release history and is superseded by the current SHA.
-
 ### Superseded candidate evidence — 2026-10-22
 
 - Publisher run: [39823003732](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39823003732)
@@ -75,7 +80,7 @@ The prior candidate below is retained as release history and is superseded by th
 
 ### Azure Terraform state at publication
 
-- Plan/apply run: [39871214888](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39871214888) completed successfully but made no changes (`0 add, 0 change, 0 destroy`).
+- Latest plan run: [40085138833](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40085138833); it succeeded with `0 add, 0 change, 0 destroy`, so the apply step was skipped.
 - The workflow inputs were `siem_host=null`, `ankay_host=null`, and `enable_runtime=false`; no SIEM or Ankay VM was created.
 - Terraform is independent of AWS. The Azure root creates its own Azure Firewall when `siem_host` is provided; the AWS-era firewall is not a prerequisite.
 
@@ -126,9 +131,10 @@ pre-existing install and is only allowed on a clean host; if its first install f
 installer intentionally stops without purging packages or deleting state. Operator diagnosis is
 required before retry.
 
-This bundle does **not** currently install/validate the QAPAQ access and role overlay, `qapaq_ops`
-edge route, TLS/DNS, Ankay/Shuffle, Teams webhook, Sophos or Cato. It installs M365 rules and
-configuration, but does not prove Graph permissions or event ingestion/indexing. The Azure installer
+This bundle does **not** install/validate the QAPAQ access and role overlay, `qapaq_ops`
+edge route, TLS/DNS, Ankay/Shuffle or Teams webhook. It installs M365 plus the versioned
+QAPAQ detection rules, but does not prove Graph permissions or event ingestion/indexing. Sophos/Cato
+rules are present while their collectors remain disabled unless explicitly configured. The Azure installer
 passes a Key Vault-materialized `file:` secret source; the shared M365 script retains an AWS
 Secrets Manager branch for AWS deployments, which the Azure path does not invoke. The Dashboard
 package contains QAPAQ branding/plugin code, but without edge/auth configuration it is not an

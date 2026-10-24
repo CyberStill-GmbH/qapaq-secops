@@ -128,6 +128,19 @@ bash "$HERE/wazuh/core/apply-core-azure.sh" "$CORE_ARCHIVE" "$core_sha" \
 env "${office365_env[@]}" bash "$HERE/wazuh/office365/apply-office365.sh" \
   >/dev/null 2>&1 || fail 'la configuración M365 o la validación de reglas Wazuh falló; salida suprimida'
 
+provider_config="$work/provider-ingestion.json"
+provider_config_value="${QAPAQ_PROVIDER_INGESTION_JSON:-}"
+if [[ -z "$provider_config_value" ]]; then provider_config_value='{}'; fi
+printf '%s' "$provider_config_value" > "$provider_config"
+python3 "$HERE/wazuh/provider-ingestion/configure.py" \
+  --config "$provider_config" --root /var/ossec --secrets "$SECRETS" \
+  --ossec-conf /var/ossec/etc/ossec.conf >/dev/null 2>&1 ||
+  fail 'la configuración de ingesta Sophos/Cato falló; salida suprimida'
+
+python3 "$HERE/wazuh/launch-detections/install_detection_rules.py" \
+  --bundle-wazuh "$HERE/wazuh" --wazuh-root /var/ossec >/dev/null 2>&1 ||
+  fail 'las reglas QAPAQ de endpoint/proveedores no pasaron validación; se conservó el estado anterior'
+
 for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard qapaq-core-api qapaq-core-worker; do
   systemctl is-active --quiet "$service" || fail "servicio requerido no está activo: $service"
 done
@@ -154,4 +167,4 @@ curl --fail --silent --show-error --max-time 5 --cacert /etc/wazuh-indexer/certs
   -K "$work/indexer-admin.curl" https://127.0.0.1:9200/_cluster/health >/dev/null ||
   fail 'Wazuh Indexer no pasó la comprobación TLS de salud'
 
-info 'Wazuh QAPAQ, reglas M365 y qapaq-core instalados; edge/DNS, acceso/roles y Ankay requieren despliegue y smoke tests separados'
+info 'Wazuh QAPAQ, reglas M365/endpoint/proveedores y qapaq-core instalados; conectores de proveedor requieren aceptación real; edge/DNS, acceso/roles y Ankay siguen separados'

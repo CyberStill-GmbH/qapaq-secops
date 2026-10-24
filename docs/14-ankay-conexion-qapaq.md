@@ -192,7 +192,7 @@ resultados en Shuffle v2.3.0.
 | SIEM ↔ Ankay | SG en ambos sentidos, HMAC con timestamp y nonce (`executionKey`), y la clave en Secrets Manager. **No se rota en el despliegue** (A20); su rotación es un procedimiento aparte |
 | Credenciales de acción | Las tiene Ankay (p. ej. la app de Graph con permiso mínimo), en Secrets Manager. **QAPAQ nunca tiene escritura sobre Graph** ni Ankay credenciales del Indexer o del Manager. Active Response va por un adaptador QAPAQ con allowlist |
 | Datos | Ankay guarda definiciones de workflow y ejecuciones con referencias. La evidencia y la auditoría viven en QAPAQ (RDS, cadena hash; S3 para evidencia) |
-| Supply chain | El frontend tiene build verificable desde el commit fijado y publica su fuente AGPL. El runtime completo requiere digests inmutables verificados de backend, Orborus, worker, OpenSearch y datastore, más Compose con SHA aprobado. El workflow actual no construye esos componentes |
+| Supply chain | El frontend tiene build verificable desde el commit fijado y publica su fuente AGPL. El runtime completo requiere digests inmutables verificados de los cinco servicios Compose (`shuffle-security`, frontend, backend, Orborus y OpenSearch) y la imagen dinámica `worker`, más Compose con SHA aprobado. El workflow actual solo construye el frontend |
 | Monitoreo | Un agente Wazuh en el host es objetivo de operación; instalación y FIM no están preparados en el módulo Azure y dependen de un Manager alcanzable |
 
 ## 7. Resiliencia

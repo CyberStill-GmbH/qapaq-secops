@@ -1,0 +1,20 @@
+<!--
+  Adaptación QAPAQ de una detección SigmaHQ de hijo sospechoso de Outlook.
+  Origen: UUID 208748f7-881d-47ac-a29c-07ea84bf691d; autores Michael Haag,
+  Florian Roth, Markus Neis, Elastic y FPT.EagleEye Team; licencia DRL-1.1.
+  No copiar al ruleset upstream; desplegar como regla local en /var/ossec/etc/rules.
+  La severidad 8 requiere triage y no autoriza respuesta automática.
+-->
+<group name="windows,sysmon,qapaq_endpoint,">
+  <rule id="101100" level="8">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\OUTLOOK\.EXE$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(cmd|powershell|pwsh|mshta|wscript|cscript|regsvr32|msiexec)\.exe$</field>
+    <description>QAPAQ: Outlook inició un proceso que requiere revisión: $(win.eventdata.image). SigmaHQ 208748f7-881d-47ac-a29c-07ea84bf691d; autores Michael Haag, Florian Roth, Markus Neis, Elastic y FPT.EagleEye Team; DRL-1.1.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1204.002</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_phishing_triage,</group>
+  </rule>
+</group>

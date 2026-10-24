@@ -1,0 +1,135 @@
+schemaVersion: 1
+catalogId: qapaq-ankay-initial-soc
+status: design-only
+engine:
+  product: Ankay Qapaq
+  upstream: Shuffle
+  upstreamVersion: 2.3.0
+  overlay: frontend-branding-csp
+webhook:
+  status: not-provisioned
+  method: POST
+  pathPattern: /api/v1/webhooks/webhook_<id>
+  transport: HTTPS
+  legacyWazuhDirectAdapter:
+    allowedFor: read-only-triage
+    minWazuhLevel: 12
+    authHeaderName: X-Qapaq-Integration
+    payload: minimized-alert-metadata
+    hmac: false
+    callback: false
+    mayExecuteActions: false
+  governedActionDispatcher:
+    producer: qapaq-outbox-worker
+    status: not-implemented
+    auth: HMAC-SHA256-with-timestamp-and-replay-protection
+    requiredFields:
+      - playbookId
+      - playbookVersion
+      - executionKey
+      - incidentRef
+      - alertRef
+      - approvalRef
+    callback: signed-qapaq-internal-endpoint
+playbooks:
+  - id: triage.wazuh-high-severity
+    version: "1.0.0"
+    status: prepared-read-only
+    trigger: wazuh-alert-level-12-plus-and-allowlisted-rule-group
+    sources: [wazuh]
+    actions: [validate-schema, deduplicate-alert-id, classify, record-execution]
+    approval: none-for-read-only
+    effects: none
+  - id: phishing.m365-url-triage
+    version: "1.0.0"
+    status: design-only
+    trigger: qapaq-case-admitted-and-mail-alert-correlated
+    sources: [wazuh-m365, microsoft-graph-read-only-when-approved]
+    actions: [normalize-url-without-opening, correlate-events, attach-provenance]
+    approval: none-for-read-only
+    effects: none
+    privacy: no-mail-body-or-attachment-by-default
+  - id: phishing.endpoint-office-child-process
+    version: "0.1.0"
+    status: design-only
+    trigger: qapaq-case-admitted-and-wazuh-rule-101100
+    sources: [wazuh-sysmon]
+    actions: [validate-alert-reference, deduplicate, prepare-analyst-triage-context]
+    approval: none-for-read-only
+    effects: none
+    detectionStatus: candidate-not-installed
+    ruleId: "101100"
+    minimumTelemetry: [sysmon-event-1, win.eventdata.parentImage, win.eventdata.image]
+  - id: threat-intel.lookup
+    version: "1.0.0"
+    status: blocked-on-commercial-virustotal-license
+    trigger: approved-nonsensitive-ioc-reference
+    sources: [virustotal-enterprise, approved-internal-feeds]
+    actions: [lookup-hash-domain-ip-or-reviewed-url, record-source-and-verdict]
+    approval: human-review-before-querying-sensitive-indicators
+    effects: none
+    secretRef: keyvault://qapaq/demo/virustotal-enterprise-lookup
+    submitFiles: false
+  - id: malware.sophos-correlate
+    version: "1.0.0"
+    status: blocked-on-connector-contract-and-tenant-scope
+    trigger: qapaq-case-admitted-and-malware-alert
+    sources: [wazuh, sophos-siem-read-only]
+    actions: [correlate-event-endpoint-hash-time, summarize-provider-verdict]
+    approval: none-for-read-only
+    effects: none
+  - id: network.cato-correlate
+    version: "1.0.0"
+    status: blocked-on-connector-contract-and-tenant-scope
+    trigger: qapaq-case-admitted-and-network-security-alert
+    sources: [wazuh, cato-events-feed-read-only]
+    actions: [correlate-marker-event-site-asset-time, summarize-policy-verdict]
+    approval: none-for-read-only
+    effects: none
+  - id: identity.m365-risk-triage
+    version: "1.0.0"
+    status: design-only
+    trigger: qapaq-case-admitted-and-identity-alert
+    sources: [wazuh-m365, microsoft-graph-read-only-when-approved]
+    actions: [correlate-signin-audit-and-alert-evidence]
+    approval: none-for-read-only
+    effects: none
+  - id: notification.soc-critical
+    version: "1.0.0"
+    status: design-only
+    trigger: qapaq-critical-outbox-event
+    sources: [qapaq-outbox, teams-workflow-via-qapaq-notifier]
+    actions: [deliver-once-per-outbox-event, record-delivery-result]
+    approval: none
+    effects: notification-only
+  - id: containment.endpoint-isolate
+    version: "0.1.0"
+    status: disabled
+    trigger: separately-approved-qapaq-action
+    sources: [sophos]
+    actions: [isolate-approved-endpoint, verify-state, compensate-if-approved]
+    approval: dual-control-and-sod
+    effects: endpoint-isolation
+  - id: containment.cato-block-indicator
+    version: "0.1.0"
+    status: disabled
+    trigger: separately-approved-qapaq-action
+    sources: [cato]
+    actions: [block-exact-approved-indicator-with-expiry, verify, remove-on-expiry]
+    approval: dual-control-and-sod
+    effects: network-policy-change
+  - id: containment.m365-revoke-sessions
+    version: "0.1.0"
+    status: disabled
+    trigger: separately-approved-qapaq-action
+    sources: [microsoft-graph]
+    actions: [revoke-sessions-for-approved-user-reference, verify-and-record]
+    approval: dual-control-and-sod
+    effects: identity-session-revocation
+globalGuards:
+  - no-raw-event-or-mail-body-in-webhook
+  - no-secrets-or-provider-tokens-in-workflow-payload
+  - no-user-selected-playbook-or-untrusted-command-execution
+  - no-automatic-containment-based-only-on-threat-intel-verdict
+  - no-duplicate-critical-teams-send-outside-qapaq-outbox
+  - every-action-has-stable-idempotency-key-and-auditable-result

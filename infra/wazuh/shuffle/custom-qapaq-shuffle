@@ -1,0 +1,168 @@
+#!/var/ossec/framework/python/bin/python3
+"""Forward a minimized Wazuh 4.x alert to an authenticated Shuffle webhook."""
+
+from __future__ import annotations
+
+import ipaddress
+import json
+import os
+import re
+import stat
+import sys
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
+
+
+TIMEOUT_SECONDS = 8
+MAX_TEXT_LENGTH = 160
+WEBHOOK_PATH = re.compile(r"^/api/v1/webhooks/webhook_[A-Za-z0-9_-]{16,128}$")
+AUTH_HEADER_NAME = "X-Qapaq-Integration"
+
+
+def _safe_text(value: object, fallback: str) -> str:
+    if not isinstance(value, (str, int)):
+        return fallback
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", str(value)).strip()
+    return text[:MAX_TEXT_LENGTH] or fallback
+
+
+def _alert_payload(alert: dict[str, object]) -> dict[str, object] | None:
+    rule = alert.get("rule")
+    if not isinstance(rule, dict):
+        return None
+    try:
+        level = int(rule.get("level", -1))
+    except (TypeError, ValueError):
+        return None
+    if level < 12:
+        return None
+
+    agent = alert.get("agent")
+    if not isinstance(agent, dict):
+        agent = {}
+    manager = alert.get("manager")
+    if not isinstance(manager, dict):
+        manager = {}
+    groups = rule.get("groups")
+    safe_groups = []
+    if isinstance(groups, list):
+        safe_groups = [_safe_text(group, "") for group in groups[:12]]
+        safe_groups = [group for group in safe_groups if group]
+
+    # No event raw, username, IP, full_log, location or arbitrary provider data.
+    return {
+        "schemaVersion": "1.0.0",
+        "source": "wazuh",
+        "alert": {
+            "id": _safe_text(alert.get("id"), "unknown"),
+            "timestamp": _safe_text(alert.get("timestamp"), "unknown"),
+            "rule": {
+                "id": _safe_text(rule.get("id"), "unknown"),
+                "level": level,
+                "description": _safe_text(rule.get("description"), "Wazuh alert"),
+                "groups": safe_groups,
+            },
+            "agent": {
+                "id": _safe_text(agent.get("id"), "manager"),
+                "name": _safe_text(agent.get("name"), "Wazuh manager"),
+            },
+            "manager": {"name": _safe_text(manager.get("name"), "unknown")},
+        },
+    }
+
+
+def _endpoint_secret(path: Path) -> tuple[str, str]:
+    if path.is_symlink():
+        raise ValueError("Shuffle secret file is not a regular protected file")
+    metadata = path.stat()
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("Shuffle secret file is not a regular protected file")
+    if os.name != "nt" and metadata.st_mode & 0o027:
+        raise ValueError("Shuffle secret file permissions are too broad")
+
+    config = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("Shuffle secret file has an invalid format")
+    url = config.get("url")
+    token = config.get("header_token")
+    if not isinstance(url, str) or not isinstance(token, str):
+        raise ValueError("Shuffle secret file is missing required values")
+    if not 32 <= len(token) <= 256 or not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
+        raise ValueError("Shuffle webhook header token is invalid")
+
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    try:
+        ipaddress.ip_address(hostname)
+        literal_ip = True
+    except ValueError:
+        literal_ip = False
+    if (
+        parsed.scheme != "https"
+        or not hostname
+        or "." not in hostname
+        or literal_ip
+        or hostname in {"localhost", "localhost.localdomain"}
+        or parsed.port not in (None, 443)
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or not WEBHOOK_PATH.fullmatch(parsed.path)
+    ):
+        raise ValueError("Shuffle webhook URL is invalid")
+    return url, token
+
+
+def forward_alert(alert_path: Path, secret_path: Path) -> int:
+    try:
+        alert = json.loads(alert_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        print("QAPAQ Shuffle: could not read Wazuh alert JSON.", file=sys.stderr)
+        return 1
+    if not isinstance(alert, dict):
+        print("QAPAQ Shuffle: Wazuh alert is not a JSON object.", file=sys.stderr)
+        return 1
+
+    payload = _alert_payload(alert)
+    if payload is None:
+        return 0
+
+    alert_id = str(payload["alert"]["id"])
+    try:
+        url, token = _endpoint_secret(secret_path)
+        request = Request(
+            url,
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                AUTH_HEADER_NAME: token,
+                "client-request-id": alert_id,
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+            if 200 <= response.status < 300:
+                return 0
+            print(f"QAPAQ Shuffle: webhook returned HTTP {response.status}.", file=sys.stderr)
+            return 1
+    except HTTPError as error:
+        print(f"QAPAQ Shuffle: webhook returned HTTP {error.code}.", file=sys.stderr)
+        return 1
+    except (OSError, URLError, ValueError, json.JSONDecodeError) as error:
+        # Do not print exception text: urllib can include the signed webhook URL.
+        print(f"QAPAQ Shuffle: delivery failed ({type(error).__name__}).", file=sys.stderr)
+        return 1
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 4:
+        print("QAPAQ Shuffle: missing Wazuh Integratord arguments.", file=sys.stderr)
+        return 1
+    return forward_alert(Path(argv[1]), Path(argv[3]))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))
