@@ -3,7 +3,7 @@
 **Estado:** arquitectura objetivo documentada; Terraform Azure aún no despliega el SOC. Las PR [#131](https://github.com/CyberStill-GmbH/qapaq-secops/pull/131) y [#132](https://github.com/CyberStill-GmbH/qapaq-secops/pull/132) integraron el ingreso Azure con Firewall/DNAT, Load Balancer interno, NSG compatible con SNAT y auditoría NAT en Log Analytics. El plan de solo lectura [#40029106928](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40029106928) confirmó `siem_host=null`, `ankay_host=null`, runtime deshabilitado y cero cambios; no hay Wazuh QAPAQ, Ankay, edge ni DNS de Azure desplegados.
 **Fuente de producto:** `docs/10-decisiones.md` (A5–A9, A13, A18, A20, A22, ADR-030) y `docs/12-backend-en-el-siem.md` (opción B).
 **Región de referencia:** Chile Central (`chilecentral`), sujeto a disponibilidad de SKU, cuota, residencia aprobada y medición de latencia desde las redes usuarias.
-**Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`; el costo de este objetivo completo no está cotizado. Las cifras indicadas son estimaciones de lista, no una cotización del tenant.
+**Costo:** USD 200/mes es un umbral de alertas. No configura apagado ni `destroy`. La estimación de lista para la arquitectura 24/7 está en [`cost-feasibility-2026-10-22.md`](cost-feasibility-2026-10-22.md); no es una cotización del tenant e identifica los servicios aún excluidos.
 
 **Ingreso y telemetría integrados en `main` (PR #131 y #132):** el SIEM conserva una VM privada detrás de un
 Azure Standard Load Balancer interno. La IP pública estática del Azure Firewall
@@ -44,9 +44,7 @@ de `Microsoft.App`; no se debe usar esa ejecución como evidencia de disponibili
 
 El plan protegido posterior a PR #115 ([39829577577](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39829577577)) confirmó `0 add, 1 change, 0 destroy`, solo para reglas de red del Storage `siem-release`; su apply fue omitido. La regla planeada usa `default_action=Allow` y `AzureServices` bypass, por lo que el endpoint Blob sería accesible desde cualquier red con autorización OAuth/RBAC; no equivale a una allowlist de red. El módulo de Firewall Standard vive en el root Terraform y crea egress solo cuando `siem_host` deja de ser `null`. En consecuencia, el plan actual no aprovisiona firewall, VM SIEM, Ankay, balanceador ni edge.
 
-La estimación de lista documentada para Wazuh + PostgreSQL + Azure Firewall Standard es de al menos USD 1,155.01/mes,
-antes de Ankay, discos, tráfico y otros componentes; no es cotización del tenant. Firewall Basic bajaría el piso estimado a USD 530.86/mes, pero ofrece menos controles. Los USD 200 son crédito promocional y umbral de aviso,
-no límite de facturación. Recalcular costo y acciones de cada plan antes de ampliar la infraestructura.
+El cálculo acotado de Wazuh + PostgreSQL B2S + Azure Firewall Standard daba un piso de lista de USD 1,155.01/mes (Basic: USD 530.86), antes de Ankay, discos, tráfico y otros componentes. La estimación de arquitectura 24/7 más amplia, revalidada el 2026-10-22, es de USD 1,106.93/mes con Basic o USD 1,726.18/mes con Standard, antes de servicios omitidos. Ambas cifras son precios de lista, no cotizaciones del tenant. USD 200 es umbral de aviso, no tope ni crédito; no apaga recursos ni activa `destroy`. Recalcular costo y acciones de cada plan antes de ampliar la infraestructura.
 
 ## Objetivo y estado real
 
@@ -97,7 +95,7 @@ El primer despliegue en un único host SIEM es una demo con punto único de fall
 
 Valkey es degradable: PostgreSQL continúa como fuente de verdad; sesiones, cache y jobs requieren comportamiento explícito ante su caída, reintentos, idempotencia y reconciliación. Azure Managed Redis sería una implementación Redis-compatible del rol en Azure, no una instancia Valkey ni una decisión aprobada. El código actual no demuestra ese worker ni procesamiento de M365, Sophos o Cato en Azure.
 
-El módulo crea Azure Firewall Standard al habilitar el SIEM. En Chile Central, el precio de lista documentado agrega cerca de USD 912.50/mes fijos más procesamiento; el piso Wazuh + PostgreSQL + Firewall se estima en USD 1,155.01/mes antes del resto de servicios. Confirmar disponibilidad exacta de la SKU en la suscripción y volver a cotizar antes del apply. Standard admite threat intelligence en modo deny y DNS proxy; el precio varía por contrato y consumo. Ver [`cost-feasibility-2026-10-20.md`](cost-feasibility-2026-10-20.md) y la [matriz oficial de capacidades por SKU](https://learn.microsoft.com/en-us/azure/firewall/features-by-sku). El budget actual genera avisos solamente.
+El módulo crea Azure Firewall Standard al habilitar el SIEM. En Chile Central, el precio de lista documentado agrega cerca de USD 912.50/mes fijos más procesamiento. Standard admite threat intelligence en modo deny y DNS proxy; el precio varía por contrato y consumo. Ver [`cost-feasibility-2026-10-22.md`](cost-feasibility-2026-10-22.md) y la [matriz oficial de capacidades por SKU](https://learn.microsoft.com/en-us/azure/firewall/features-by-sku). El budget actual genera avisos solamente.
 
 ## Gaps que bloquean afirmar “operativo”
 
