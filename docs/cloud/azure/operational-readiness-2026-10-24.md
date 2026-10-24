@@ -41,3 +41,10 @@ El plan #40061611323 representa la configuración deshabilitada actual, no el SO
 4. Publicar/revisar los artefactos y completar las pruebas de despliegue y runtime: Wazuh, Graph, Sophos, Cato, Teams, Ankay, roles, alertas y recuperación.
 5. Cambiar DNS solo después de HTTPS, autenticación, health checks, ingestión y rollback comprobados.
 
+## Revisión adicional del 24 de octubre
+
+- Tras renovar MFA, el workflow de solo metadatos [#40075969633](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40075969633) autenticó por OIDC y completó la consulta ARM del Key Vault `kv-qapaqsecopsd-66f8c73b`. El resumen de GitHub devolvió **cero nombres de secretos**. La consulta no usó el plano de datos y no leyó valores. Este resultado permite decir que la lista ARM no devolvió objetos de secretos; no demuestra que las credenciales necesarias estén cargadas ni permite leerlas.
+- La inspección de nombres de configuración encontró el environment `azure-demo` sin variables ni secretos. En el repositorio sí existen nombres de credenciales para OIDC de Azure, PostgreSQL y Entra, pero no existen `AZURE_ENABLE_RUNTIME`, `AZURE_SIEM_HOST_JSON`, `AZURE_ANKAY_HOST_JSON`, `AZURE_CONTAINER_IMAGES_JSON` ni `AZURE_KEY_VAULT_SECRET_IDS_JSON`. Tampoco hay nombres de secretos de Sophos, Cato, Teams Workflow o VirusTotal. No se consultaron valores secretos.
+- El plan protegido anterior a esta inspección, [#40075268409](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40075268409), declaró que la infraestructura coincide con el state actual y no ejecutó apply. Como los inputs de runtime están ausentes y sus defaults son `false`/`null`/`{}`, ese plan **no crea ni inicia** QAPAQ SecOps, Wazuh ni Ankay.
+- El despliegue sigue bloqueado por perfiles de host revisables, clave SSH pública recuperable, CIDR de ingreso aprobados, digests de imágenes Ankay, referencias existentes de Key Vault y configuración no secreta para M365/Sophos/Cato. No se deben inventar estos datos ni abrir el acceso de red del vault para sortear la falta de referencias.
+
