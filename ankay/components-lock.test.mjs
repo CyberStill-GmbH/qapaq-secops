@@ -95,6 +95,7 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   assert.match(workflow, /bash ankay\/verify-opensearch-runtime\.sh/);
   assert.match(runtimeVerifier, /sudo sysctl -w vm\.max_map_count=262144/);
   assert.doesNotMatch(runtimeVerifier, /--sysctl vm\.max_map_count=/);
+  assert.match(runtimeVerifier, /password="A\$\(openssl rand -hex 24\)a1!"/);
   assert.match(runtimeVerifier, /docker logs --tail 200/);
   assert.match(runtimeVerifier, /\[REDACTED\]/);
   assert.match(

@@ -3,7 +3,7 @@ set -euo pipefail
 
 image="${1:?uso: verify-opensearch-runtime.sh <image>}"
 container="ankay-opensearch-smoke-${GITHUB_RUN_ID:-local}"
-password="$(openssl rand -hex 24)"
+password="A$(openssl rand -hex 24)a1!"
 response="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/ankay-opensearch-health.json"
 
 cleanup() {
