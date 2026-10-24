@@ -14,6 +14,14 @@ locals {
   key_vault_name          = "kv-${substr(local.name_base, 0, 12)}-${local.suffix}"
   acr_name                = substr("${substr(local.name_base, 0, 44)}${local.suffix}", 0, 50)
   siem_ingress_private_ip = var.siem_host == null ? null : cidrhost(var.siem_host.address_prefix, 10)
+  provider_egress_fqdns = var.siem_host == null ? toset([]) : toset(concat(
+    try(var.siem_host.provider_ingestion["sophos_enabled"], "false") == "true" ? [
+      "id.sophos.com",
+      "api.central.sophos.com",
+      "api-${var.siem_host.provider_ingestion["sophos_data_region"]}.central.sophos.com",
+    ] : [],
+    try(var.siem_host.provider_ingestion["cato_enabled"], "false") == "true" ? ["api.catonetworks.com"] : [],
+  ))
 }
 
 data "azurerm_resource_group" "this" {
@@ -102,8 +110,18 @@ module "egress_firewall" {
   ))
   ingress_lb_private_ip   = local.siem_ingress_private_ip
   dashboard_ingress_cidrs = var.siem_host == null ? toset([]) : var.siem_host.dashboard_ingress_cidrs
-  ingress_http_enabled    = var.siem_host != null
-  tags                    = var.tags
+  allowed_fqdns = setunion(toset([
+    "archive.ubuntu.com",
+    "azure.archive.ubuntu.com",
+    "graph.microsoft.com",
+    "login.microsoftonline.com",
+    "packages.microsoft.com",
+    "security.ubuntu.com",
+    format("%s.virustotal.com", "api"),
+    "acme-v02.api.letsencrypt.org",
+  ]), local.provider_egress_fqdns)
+  ingress_http_enabled = var.siem_host != null
+  tags                 = var.tags
 
   depends_on = [module.network]
 }
@@ -158,6 +176,7 @@ module "siem_host" {
   wazuh_secret_names           = try(var.siem_host.wazuh_secret_names, {})
   core_environment             = try(var.siem_host.core_environment, {})
   office365                    = try(var.siem_host.office365, null)
+  provider_ingestion           = try(var.siem_host.provider_ingestion, {})
   container_registry_id        = module.identity_registry.container_registry_id
   artifact_container_scope_id  = module.data.siem_release_container_id
   evidence_container_scope_id  = module.data.raw_container_id

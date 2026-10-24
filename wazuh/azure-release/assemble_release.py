@@ -25,6 +25,8 @@ NODE = "24.21.0"
 FILEBEAT = "7.10.2-2"
 ASSISTANT_COMMIT = "33d2069715e8500b676d13cefe7ddaea8eb79019"
 ASSISTANT_TAG = "v4.14.8"
+SOPHOS_SIEM_COMMIT = "4fd97bbc7ec54e507bca9eaf4245f136cc90097d"
+SOPHOS_SIEM_TAG = "v2.1.0"
 
 
 def sha256(path: pathlib.Path) -> str:
@@ -33,6 +35,11 @@ def sha256(path: pathlib.Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_normalized_text(path: pathlib.Path) -> str:
+    content = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(content).hexdigest()
 
 
 def command(*args: str) -> str:
@@ -71,6 +78,28 @@ def sha256_map(root: pathlib.Path) -> dict[str, str]:
     }
 
 
+def validate_sophos_source(repo_root: pathlib.Path) -> dict:
+    source = repo_root / "wazuh" / "provider-ingestion" / "sophos"
+    metadata = json.loads((source / "UPSTREAM-SOURCE.json").read_text(encoding="utf-8"))
+    revision_parts = metadata.get("source_revision")
+    revision = "".join(revision_parts) if isinstance(revision_parts, list) and all(isinstance(part, str) for part in revision_parts) else ""
+    if (metadata.get("repository"), metadata.get("tag"), revision, metadata.get("license")) != (
+        "https://github.com/sophos/Sophos-Central-SIEM-Integration", SOPHOS_SIEM_TAG, SOPHOS_SIEM_COMMIT, "Apache-2.0"
+    ):
+        raise ValueError("Sophos SIEM upstream identity does not match the immutable pin")
+    files = metadata.get("files")
+    if not isinstance(files, dict) or not files:
+        raise ValueError("Sophos SIEM upstream file hashes are missing")
+    for name, hash_parts in files.items():
+        expected = "".join(hash_parts) if isinstance(hash_parts, list) and all(isinstance(part, str) for part in hash_parts) else ""
+        if len(expected) != 64 or any(character not in "0123456789abcdef" for character in expected):
+            raise ValueError(f"Sophos SIEM upstream hash metadata is invalid: {name}")
+        path = source / name
+        if not path.is_file() or path.is_symlink() or sha256_normalized_text(path) != expected:
+            raise ValueError(f"Sophos SIEM upstream source hash mismatch: {name}")
+    return {**metadata, "commit": revision}
+
+
 def assemble(args: argparse.Namespace) -> pathlib.Path:
     assistant = pathlib.Path(args.assistant_dir).resolve()
     output = pathlib.Path(args.output_dir).resolve()
@@ -84,6 +113,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         raise ValueError("official Wazuh installation assistant tag does not match the pin")
     if not (assistant / "LICENSE").is_file():
         raise ValueError("official Wazuh installation assistant license is missing")
+    sophos_source_metadata = validate_sophos_source(pathlib.Path(args.repo_root).resolve())
 
     qapaq_commit = args.qapaq_commit
     if len(qapaq_commit) != 40 or any(c not in "0123456789abcdef" for c in qapaq_commit):
@@ -163,6 +193,17 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         ):
             copy_regular(office365 / relative, root / "wazuh" / "office365" / relative)
 
+        provider_ingestion = pathlib.Path(args.repo_root) / "wazuh" / "provider-ingestion"
+        copy_regular(provider_ingestion / "sophos" / "UPSTREAM-SOURCE.json",
+                     root / "wazuh" / "provider-ingestion" / "sophos" / "UPSTREAM-SOURCE.json")
+        for name in ("configure.py", "cato/events_feed.py", "systemd/qapaq-sophos-ingest.service",
+                     "systemd/qapaq-sophos-ingest.timer", "systemd/qapaq-cato-ingest.service",
+                     "systemd/qapaq-cato-ingest.timer", "README.md"):
+            copy_regular(provider_ingestion / name, root / "wazuh" / "provider-ingestion" / name)
+        for name in ("siem.py", "state.py", "name_mapping.py", "config.py", "api_client.py", "vercheck.py", "LICENSE-2.0.txt"):
+            copy_regular(provider_ingestion / "sophos" / "upstream" / name,
+                         root / "wazuh" / "provider-ingestion" / "sophos" / "upstream" / name)
+
         files = sha256_map(root)
         manifest = {
             "schemaVersion": 1,
@@ -176,6 +217,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 "openSearchDashboards": OSD,
                 "qapaqCoreNode": NODE,
             },
+            "optionalIntegrations": ["sophos-central-siem-api", "cato-events-feed"],
             "qapaqDashboardPackage": dashboard_version,
             "qapaqCoreSourceCommit": qapaq_commit[:12],
             "debianPackages": debian_packages,
@@ -190,6 +232,12 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 },
                 "wazuhManager": {"repository": "https://github.com/wazuh/wazuh", "commit": args.manager_commit},
                 "wazuhIndexer": {"repository": "https://github.com/wazuh/wazuh-indexer", "commit": args.indexer_commit},
+                "sophosCentralSiemIntegration": {
+                    "repository": "https://github.com/sophos/Sophos-Central-SIEM-Integration",
+                    "tag": sophos_source_metadata["tag"],
+                    "commit": sophos_source_metadata["commit"],
+                    "license": sophos_source_metadata["license"],
+                },
             },
         }
         (root / "manifest.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")

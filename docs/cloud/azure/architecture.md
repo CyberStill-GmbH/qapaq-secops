@@ -105,7 +105,7 @@ El módulo crea Azure Firewall Standard al habilitar el SIEM. En Chile Central, 
 - El instalador Azure de Wazuh/Core usa Managed Identity y Key Vault; AWS no es requisito para ese despliegue. Office 365 sigue necesitando adaptación Azure para su conector y pruebas reales contra Microsoft Graph.
 - No hay Valkey en Terraform Azure ni prueba de TLS/auth, disponibilidad, no-eviction, backup o recuperación. El worker visible no crea consumidor BullMQ; `qapaq_jobs` no prueba cola activa.
 - La integración M365 y sus reglas/configuración necesitan instalarse en Manager y comprobarse con eventos sintéticos/lecturas reales. Eso no prueba retención retroactiva ni ingestión actual.
-- Sophos y Cato figuran sin contratos de fuente validados. No se declara API, polling, agent, política o alerta conectada por la presencia de nombres o secretos.
+- El overlay Wazuh incluye conectores opcionales para Sophos Central SIEM API y Cato `eventsFeed`, empaquetados con hashes y apagados por defecto. Aún faltan nombres/acceso Key Vault, configuración de tenant/región/account, permisos de API, allowlist final, apply y pruebas sintéticas/reales; por ello no se declara ingestión activa.
 - Teams tiene código preparado para Wazuh 4.x y QAPAQ, pero no está instalado en Manager Azure ni validado con un webhook real.
 - Ankay tiene overlay y upstream fijado; el módulo de host existe fuera del root. Falta integrar el módulo y desplegar backend/Orborus/workers/OpenSearch, persistencia, ruta protegida y playbooks con callbacks/SoD comprobados. El workflow de publicación no constituye despliegue.
 - El role de aplicación PostgreSQL, migraciones Azure, identidad/runner OIDC, estado remoto y costo total requieren evidencia antes de activar IaC.

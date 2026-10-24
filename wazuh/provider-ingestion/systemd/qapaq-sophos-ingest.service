@@ -1,0 +1,22 @@
+[Unit]
+Description=QAPAQ Sophos Central SIEM API ingestion
+Wants=network-online.target
+After=network-online.target wazuh-manager.service
+
+[Service]
+Type=oneshot
+User=root
+Group=wazuh
+UMask=0027
+Environment=SOPHOS_SIEM_HOME=/var/ossec/etc/qapaq-providers/sophos
+ExecStart=/usr/bin/python3 /var/ossec/integrations/qapaq-sophos/siem.py --quiet --config /etc/qapaq-secrets/sophos-client.ini
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ReadOnlyPaths=/etc/qapaq-secrets
+ReadWritePaths=/var/ossec/etc/qapaq-providers/sophos /var/ossec/var/run/qapaq-providers/sophos /var/ossec/logs/qapaq-providers
+TimeoutStartSec=240
+

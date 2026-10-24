@@ -19,6 +19,7 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             'git diff --quiet "$RELEASE_SHA" "$GITHUB_SHA" --',
             "wazuh/azure-release/install.sh wazuh/azure-release/verify_wazuh_credentials_tar.py",
             "wazuh/core wazuh/dashboard wazuh/office365",
+            "wazuh/provider-ingestion",
             "jq -e --arg sha \"$RELEASE_SHA\" --arg workflow \"$workflow\"",
             ".head_sha == $sha and .head_branch == \"main\" and .status == \"completed\" and .conclusion == \"success\"",
             'name: qapaq-dashboard-${{ inputs.release_sha }}',

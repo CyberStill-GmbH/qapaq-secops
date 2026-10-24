@@ -71,6 +71,7 @@ jobs:
             wazuh/azure-release/install.sh wazuh/azure-release/verify_wazuh_credentials_tar.py \
             wazuh/azure-release/normalize_ubuntu_apt_sources.py \
             wazuh/core wazuh/dashboard wazuh/office365 \
+            wazuh/provider-ingestion \
             infra/azure/modules/siem_host/bootstrap-siem.py || {
               echo 'Package, installer, or bootstrap sources changed after release_sha; rebuild the candidate on current main.' >&2
               exit 1
@@ -81,6 +82,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s wazuh/azure-release/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s wazuh/provider-ingestion/tests -p 'test_*.py' -v
+          python3 -m py_compile wazuh/provider-ingestion/configure.py wazuh/provider-ingestion/cato/events_feed.py wazuh/provider-ingestion/sophos/upstream/*.py
           bash -n wazuh/azure-release/install.sh
           python3 -m py_compile wazuh/azure-release/assemble_release.py wazuh/azure-release/verify_wazuh_credentials_tar.py
 
@@ -269,5 +272,5 @@ jobs:
             echo '- Installs pinned official Wazuh Manager, Indexer, Filebeat, QAPAQ Dashboard and QAPAQ core from offline artifacts.'
             echo '- No Azure login, Key Vault read, Blob publication, Terraform apply, DNS change or deployment occurs in this workflow.'
             echo '- First boot still requires the one-line base64 `wazuh-install-files.tar.b64` Key Vault secret, all QAPAQ core secret refs, private network and firewall allowlist.'
-            echo '- It does not configure QAPAQ access roles, Office 365 collection, TLS edge/DNS, Ankay, Sophos or Cato; those have separate integration contracts.'
+            echo '- The bundle contains optional Sophos Central and Cato eventsFeed collectors in the Wazuh overlay. They remain inactive unless Key Vault references, tenant/account configuration and explicit egress are supplied; CI packaging is not tenant acceptance.'
           } >> "$GITHUB_STEP_SUMMARY"

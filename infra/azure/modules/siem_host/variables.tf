@@ -275,6 +275,38 @@ variable "office365" {
   }
 }
 
+variable "provider_ingestion" {
+  description = "Configuración no secreta para los conectores Wazuh de Sophos Central y Cato eventsFeed. Los valores de credenciales solo se referencian por nombre desde Key Vault."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for key, value in var.provider_ingestion :
+      contains(["sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"], key) &&
+      !can(regex("[\\r\\n]", value))
+    ])
+    error_message = "provider_ingestion solo admite flags/IDs no secretos de Sophos y Cato, sin saltos de línea."
+  }
+
+  validation {
+    condition = (
+      lookup(var.provider_ingestion, "sophos_enabled", "false") == "false" ||
+      (lookup(var.provider_ingestion, "sophos_enabled", "false") == "true" &&
+        can(regex("^[0-9a-fA-F-]{36}$", lookup(var.provider_ingestion, "sophos_tenant_id", ""))) &&
+        can(regex("^[a-z0-9-]{2,32}$", lookup(var.provider_ingestion, "sophos_data_region", ""))) &&
+        contains(keys(var.wazuh_secret_names), "sophos-client-id") &&
+      contains(keys(var.wazuh_secret_names), "sophos-client-secret"))
+      ) && (
+      lookup(var.provider_ingestion, "cato_enabled", "false") == "false" ||
+      (lookup(var.provider_ingestion, "cato_enabled", "false") == "true" &&
+        can(regex("^[0-9]{1,20}$", lookup(var.provider_ingestion, "cato_account_id", ""))) &&
+      contains(keys(var.wazuh_secret_names), "cato-api-key"))
+    )
+    error_message = "Al habilitar Sophos/Cato, incluye tenant/región o account ID y las referencias Key Vault `sophos-client-id`, `sophos-client-secret` o `cato-api-key` en wazuh_secret_names."
+  }
+}
+
 variable "container_registry_id" {
   description = "ID del ACR existente, limitado a AcrPull para la identidad de la VM."
   type        = string

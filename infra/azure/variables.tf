@@ -129,6 +129,7 @@ variable "siem_host" {
     core_secret_names       = map(string)
     wazuh_secret_names      = map(string)
     core_environment        = map(string)
+    provider_ingestion      = optional(map(string), {})
     office365 = object({
       tenant_id  = string
       client_id  = string
@@ -145,7 +146,24 @@ variable "siem_host" {
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.tenant_id)) &&
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.client_id)) &&
       contains(["commercial", "gcc", "gcc-high"], var.siem_host.office365.api_type) &&
-      contains(keys(var.siem_host.wazuh_secret_names), "office365-client-secret")
+      contains(keys(var.siem_host.wazuh_secret_names), "office365-client-secret") &&
+      alltrue([
+        for key, value in var.siem_host.provider_ingestion :
+        contains(["sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"], key) &&
+        !can(regex("[\\r\\n]", value))
+      ]) &&
+      (
+        lookup(var.siem_host.provider_ingestion, "sophos_enabled", "false") != "true" ||
+        (can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", lookup(var.siem_host.provider_ingestion, "sophos_tenant_id", ""))) &&
+          can(regex("^[a-z0-9-]{2,32}$", lookup(var.siem_host.provider_ingestion, "sophos_data_region", ""))) &&
+          contains(keys(var.siem_host.wazuh_secret_names), "sophos-client-id") &&
+        contains(keys(var.siem_host.wazuh_secret_names), "sophos-client-secret"))
+      ) &&
+      (
+        lookup(var.siem_host.provider_ingestion, "cato_enabled", "false") != "true" ||
+        (can(regex("^[0-9]{1,20}$", lookup(var.siem_host.provider_ingestion, "cato_account_id", ""))) &&
+        contains(keys(var.siem_host.wazuh_secret_names), "cato-api-key"))
+      )
     )
     error_message = "siem_host requiere IDs GUID de Office 365 válidos, api_type admitido y el secreto `office365-client-secret` referenciado por nombre en Key Vault."
   }

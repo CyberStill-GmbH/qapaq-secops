@@ -65,6 +65,57 @@ class InstallerOutputTests(unittest.TestCase):
             self.assertNotIn("QAPAQ_O365_CLIENT_SECRET", run_installer.call_args.kwargs["env"])
 
 
+class ProviderIngestionValidationTests(unittest.TestCase):
+    def _base_config(self) -> dict:
+        return {
+            "expected": BOOTSTRAP.EXPECTED,
+            "artifact_sha256": "a" * 64,
+            "artifact_url": "https://releases.blob.core.windows.net/private/bundle.tar.gz",
+            "identity_client_id": "managed-identity-client-id",
+            "office365": {
+                "tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
+                "client_id": "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998",
+                "api_type": "commercial",
+                "enable_dlp": False,
+            },
+            "wazuh_secret_names": {"office365-client-secret": "office365-secret"},
+            "data_disk_size_gb": 128,
+        }
+
+    def test_accepts_provider_references_without_secret_values(self) -> None:
+        config = self._base_config()
+        config["provider_ingestion"] = {
+            "sophos_enabled": "true",
+            "sophos_tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
+            "sophos_data_region": "eu01",
+            "cato_enabled": "true",
+            "cato_account_id": "12345",
+        }
+        config["wazuh_secret_names"].update({
+            "sophos-client-id": "sophos-client-id-secret",
+            "sophos-client-secret": "sophos-client-secret-secret",
+            "cato-api-key": "cato-api-key-secret",
+        })
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                self.assertEqual(BOOTSTRAP.load_config()["provider_ingestion"]["cato_account_id"], "12345")
+
+    def test_rejects_enabled_source_without_key_vault_references(self) -> None:
+        config = self._base_config()
+        config["provider_ingestion"] = {
+            "cato_enabled": "true",
+            "cato_account_id": "12345",
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                with self.assertRaises(SystemExit):
+                    BOOTSTRAP.load_config()
+
+
 class InstallerIdempotencyTests(unittest.TestCase):
     def test_same_recorded_release_skips_the_one_shot_installer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

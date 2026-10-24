@@ -1,0 +1,78 @@
+{
+  "repository": "https://github.com/sophos/Sophos-Central-SIEM-Integration",
+  "tag": "v2.1.0",
+  "source_revision": ["4fd97bbc7ec54e507bca", "9eaf4245f136cc90097d"],
+  "license": "Apache-2.0",
+  "files": {
+    "upstream/api_client.py": [
+      "bb4f5433",
+      "b7c266de",
+      "4e0a1994",
+      "76bbb45b",
+      "984910a0",
+      "7c80551b",
+      "7c7ee4dc",
+      "eb8e1b21"
+    ],
+    "upstream/config.py": [
+      "8d04d61c",
+      "123ffa01",
+      "fd2ff097",
+      "5e94621b",
+      "407eb1bc",
+      "142a3960",
+      "90a827fb",
+      "c25bfd23"
+    ],
+    "upstream/LICENSE-2.0.txt": [
+      "cfc7749b",
+      "96f63bd3",
+      "1c3c42b5",
+      "c471bf75",
+      "6814053e",
+      "847c10f3",
+      "eb003417",
+      "bc523d30"
+    ],
+    "upstream/name_mapping.py": [
+      "6a6db846",
+      "233d3942",
+      "b7b62f0a",
+      "ae8e8dfa",
+      "01bb6910",
+      "31958dd0",
+      "ed460526",
+      "42323eb5"
+    ],
+    "upstream/siem.py": [
+      "8ed40350",
+      "652167cc",
+      "12f98617",
+      "009a061b",
+      "1caea6c2",
+      "a31e7491",
+      "09044867",
+      "8186752a"
+    ],
+    "upstream/state.py": [
+      "a827c0b8",
+      "e3b52aaa",
+      "a6c89d9e",
+      "52f3c5ce",
+      "8a551ea5",
+      "8172bfae",
+      "cf465149",
+      "c91f7064"
+    ],
+    "upstream/vercheck.py": [
+      "5f94f292",
+      "8bd944c2",
+      "ff86878b",
+      "4a6cf054",
+      "092b6602",
+      "72fa33fd",
+      "ae56022d",
+      "46ddbcaa"
+    ]
+  }
+}
