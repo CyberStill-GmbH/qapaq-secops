@@ -78,7 +78,10 @@ class ProviderIngestionValidationTests(unittest.TestCase):
                 "api_type": "commercial",
                 "enable_dlp": False,
             },
-            "wazuh_secret_names": {"office365-client-secret": "office365-secret"},
+            "wazuh_secret_names": {
+                "office365-client-secret": "office365-secret",
+                "wazuh-install-files.tar.b64": "wazuh-install-files-tar-b64",
+            },
             "data_disk_size_gb": 128,
         }
 
@@ -114,6 +117,19 @@ class ProviderIngestionValidationTests(unittest.TestCase):
             with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
                 with self.assertRaises(SystemExit):
                     BOOTSTRAP.load_config()
+
+    def test_rejects_missing_install_archive_reference_during_preflight(self) -> None:
+        config = self._base_config()
+        del config["wazuh_secret_names"]["wazuh-install-files.tar.b64"]
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            captured_output = io.StringIO()
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                with contextlib.redirect_stdout(captured_output):
+                    with self.assertRaises(SystemExit):
+                        BOOTSTRAP.load_config()
+            self.assertIn("wazuh-install-files.tar.b64", captured_output.getvalue())
 
 
 class InstallerIdempotencyTests(unittest.TestCase):

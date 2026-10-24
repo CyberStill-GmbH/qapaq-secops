@@ -232,6 +232,11 @@ variable "wazuh_secret_names" {
     ])
     error_message = "Los nombres de archivo y secreto deben ser simples y no contener rutas ni valores."
   }
+
+  validation {
+    condition     = contains(keys(var.wazuh_secret_names), "wazuh-install-files.tar.b64")
+    error_message = "wazuh_secret_names debe referenciar `wazuh-install-files.tar.b64` en Key Vault; el instalador oficial lo requiere antes de preparar el disco de datos."
+  }
 }
 
 variable "core_environment" {

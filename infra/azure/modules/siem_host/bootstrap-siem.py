@@ -91,8 +91,11 @@ def load_config() -> dict:
     if office365.get("api_type") not in ("commercial", "gcc", "gcc-high") or type(office365.get("enable_dlp")) is not bool:
         fail("la configuración de API Microsoft 365 no es válida")
     secret_names = config.get("wazuh_secret_names", {})
-    if not isinstance(secret_names, dict) or "office365-client-secret" not in secret_names:
-        fail("falta la referencia Key Vault office365-client-secret")
+    if not isinstance(secret_names, dict):
+        fail("la configuración de secretos Wazuh debe ser un mapa de referencias Key Vault")
+    for required_secret in ("office365-client-secret", "wazuh-install-files.tar.b64"):
+        if required_secret not in secret_names:
+            fail(f"falta la referencia Key Vault {required_secret}")
     provider_config = config.get("provider_ingestion", {})
     provider_keys = {"sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"}
     if not isinstance(provider_config, dict) or set(provider_config) - provider_keys:
