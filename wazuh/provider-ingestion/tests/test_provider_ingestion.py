@@ -6,6 +6,8 @@ import json
 import pathlib
 import tempfile
 import unittest
+from contextlib import nullcontext
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -191,7 +193,12 @@ class ProviderConfigurationTests(unittest.TestCase):
                 "sophos_enabled": "true", "sophos_tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
                 "sophos_data_region": "eu01", "cato_enabled": "true", "cato_account_id": "12345",
             }), encoding="utf-8")
-            with patch.object(CONFIGURE.subprocess, "run") as systemctl:
+            group_lookup = (
+                patch.object(CONFIGURE.grp, "getgrnam", return_value=SimpleNamespace(gr_gid=0))
+                if CONFIGURE.grp is not None
+                else nullcontext()
+            )
+            with patch.object(CONFIGURE.subprocess, "run") as systemctl, group_lookup:
                 self.assertEqual(CONFIGURE.run(config_path, root, secrets, ossec_conf, units), 0)
                 self.assertEqual(CONFIGURE.run(config_path, root, secrets, ossec_conf, units), 0)
             xml = ossec_conf.read_text(encoding="utf-8")
