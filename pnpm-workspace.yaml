@@ -8,6 +8,7 @@ overrides:
   deepmerge-ts: 8.0.2
   mysql2: 3.24.4
   source-map-js: 1.2.2
+  undici: 8.12.2
 
 allowBuilds:
   '@prisma/engines': true
