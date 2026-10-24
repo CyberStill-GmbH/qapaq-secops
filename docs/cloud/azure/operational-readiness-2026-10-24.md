@@ -43,3 +43,30 @@ El plan #40061611323 representa la configuración deshabilitada actual, no el SO
 4. Publicar/revisar los artefactos y completar las pruebas de despliegue y runtime: Wazuh, Graph, Sophos, Cato, Teams, Ankay, roles, alertas y recuperación.
 5. Cambiar DNS solo después de HTTPS, autenticación, health checks, ingestión y rollback comprobados.
 
+## Contrato mínimo del perfil SIEM
+
+El validador de `main` exige que `AZURE_SIEM_HOST_JSON` sea un objeto completo con:
+`address_prefix`, `vm_size`, `admin_ssh_public_key`, `ubuntu_image_version`,
+`data_disk_size_gb`, `dashboard_ingress_cidrs`, `agent_ingress_cidrs`,
+`core_secret_names`, `wazuh_secret_names`, `core_environment`, `office365`,
+`bootstrap_bundle_blob_url` y `bootstrap_bundle_sha256`. El SKU permitido por el
+módulo es `Standard_F4s_v2`; Ubuntu debe fijarse a una versión numérica `24.04.x`.
+Los CIDR deben elegirse para la red de acceso/agents y revisarse antes del apply.
+
+`office365` requiere `tenant_id`, `client_id`, `api_type` (`commercial`, `gcc` o
+`gcc-high`) y `enable_dlp`; `wazuh_secret_names` debe referenciar el secreto
+`office365-client-secret`. `core_secret_names` debe mapear
+`QAPAQ_ENTRA_CLIENT_SECRET` y `QAPAQ_TEAMS_WORKFLOW_URL` a nombres existentes en
+Key Vault, y `core_environment.QAPAQ_ENTRA_CLIENT_SECRET_REF` debe apuntar al
+mismo nombre (`secret://keyvault/<nombre>`). Los valores no van en este JSON.
+
+La ingesta opcional acepta solo `sophos_enabled`, `sophos_tenant_id`,
+`sophos_data_region`, `cato_enabled` y `cato_account_id`; habilitar Sophos requiere
+sus referencias `sophos-client-id`/`sophos-client-secret`, y Cato requiere
+`cato-api-key`. El bundle se fija con HTTPS Blob URL sin SAS y SHA-256 completo.
+`AZURE_KEY_VAULT_SECRET_IDS_JSON`, si lo consume el runtime, debe llevar URIs
+versionadas de secretos, no valores. La fuente de verdad para este contrato es
+`infra/azure/variables.tf` y `scripts/ci/validate-azure-deployment-inputs.mjs`;
+los nombres reales y versiones del vault siguen sin poder verificarse desde la
+ruta actual.
+
