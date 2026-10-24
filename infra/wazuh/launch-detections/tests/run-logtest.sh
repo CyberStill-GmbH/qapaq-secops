@@ -6,7 +6,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output="$(mktemp)"
 trap 'rm -f "${output}"' EXIT
 
-docker cp "${here}/rules/qapaq_launch_provider_rules.xml" "${container}:/var/ossec/etc/rules/qapaq_launch_provider_rules.xml" >/dev/null
 docker exec "${container}" /var/ossec/bin/wazuh-analysisd -t
 docker exec --interactive "${container}" /var/ossec/bin/wazuh-logtest <"${here}/tests/provider-cases.jsonl" >"${output}" 2>&1
 

@@ -28,10 +28,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Start isolated Wazuh Manager 4.14.8
-        run: docker run --detach --rm --name qapaq-wazuh-endpoint-test --ulimit nofile=458752:458752 wazuh/wazuh-manager:4.14.8
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-endpoint-test
+          --ulimit nofile=458752:458752
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml:/var/ossec/etc/rules/qapaq_endpoint_rules.xml:ro"
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/endpoint/tests/sysmon-fixture-decoder.xml:/var/ossec/etc/rules/qapaq_endpoint_test_decoder.xml:ro"
+          wazuh/wazuh-manager:4.14.8
       - name: Start Manager daemons and run positive/negative fixtures
         run: |
-          docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-control start
+          if ! docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-control start; then
+            echo 'Manager start returned a nonzero status; verify the required analysis daemon below.'
+          fi
           ready=false
           for attempt in $(seq 1 60); do
             if docker exec qapaq-wazuh-endpoint-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then

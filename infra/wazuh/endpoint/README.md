@@ -29,12 +29,13 @@ política.
 
 ## Verificación y uso
 
-`tests/run-logtest.sh` instala la regla solo dentro del contenedor de prueba, valida la
-configuración del Manager y compara la salida de `wazuh-logtest` con los resultados
-esperados. Como el decoder EventChannel nativo no se prueba directamente con
-`wazuh-logtest`, el runner cambia temporalmente la regla base 60000 a decoder JSON
-únicamente dentro del contenedor efímero. Nunca modifica la configuración del Manager
-objetivo. El workflow de GitHub Actions usa `wazuh/wazuh-manager:4.14.8`, la misma
+`tests/run-logtest.sh` valida la configuración del Manager y compara la salida de
+`wazuh-logtest` con los resultados esperados. Como el decoder EventChannel nativo no se
+prueba directamente con `wazuh-logtest`, el workflow monta
+`tests/sysmon-fixture-decoder.xml`, un puente de decoder exclusivo del contenedor efímero
+de CI. Ese puente normaliza los fixtures JSON al grupo `sysmon_event1`; no se incluye en
+el overlay de producción ni cambia reglas upstream. El workflow de GitHub Actions usa
+`wazuh/wazuh-manager:4.14.8`, la misma
 versión base del Dashboard QAPAQ fijado para el despliegue actual. Una prueba verde verifica sintaxis y
 comportamiento con fixtures sintéticos; no acredita cobertura de Sysmon ni tasa de
 falsos positivos en endpoints reales.

@@ -7,24 +7,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output="$(mktemp)"
 trap 'rm -f "${output}"' EXIT
 
-docker cp "${here}/rules/qapaq_endpoint_rules.xml" "${container}:/var/ossec/etc/rules/qapaq_endpoint_rules.xml" >/dev/null
-docker exec "${container}" python3 - <<'PY'
-import re
-from pathlib import Path
-
-path = Path('/var/ossec/ruleset/rules/0575-win-base_rules.xml')
-source = path.read_text(encoding='utf-8')
-updated, count = re.subn(
-    r'(<rule id="60000" level="0">\s*)<category>ossec</category>\s*'
-    r'<decoded_as>windows_eventchannel</decoded_as>',
-    r'\1<decoded_as>json</decoded_as>',
-    source,
-    count=1,
-)
-if count != 1:
-    raise SystemExit('No se pudo preparar el decoder JSON temporal de EventChannel en el contenedor.')
-path.write_text(updated, encoding='utf-8')
-PY
 docker exec "${container}" /var/ossec/bin/wazuh-analysisd -t
 docker exec --interactive "${container}" /var/ossec/bin/wazuh-logtest <"${here}/tests/sysmon-cases.jsonl" >"${output}" 2>&1
 
