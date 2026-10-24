@@ -33,7 +33,8 @@ class AssembleReleaseTests(unittest.TestCase):
         self.inputs["core"] = self.root / "qapaq-core-0123456789ab.tar.gz"
         self.inputs["core"].write_bytes(b"fake archive input for contract assembly")
         self.inputs["installer"].write_text(
-            'QAPAQ_O365_SECRET_SOURCE="file:$SECRETS/office365-client-secret"\n', encoding="utf-8"
+            'QAPAQ_O365_SECRET_SOURCE="file:$SECRETS/office365-client-secret"\n'
+            'QAPAQ_PROVIDER_INGESTION_JSON=optional\n', encoding="utf-8"
         )
         (self.root / "output").mkdir()
         self.args = Namespace(
@@ -81,12 +82,21 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertIn("wazuh/office365/apply-office365.sh", manifest["files"])
         self.assertIn("wazuh/office365/ossec-office365.xml.tmpl", manifest["files"])
         self.assertIn("wazuh/office365/rules/qapaq_office365_rules.xml", manifest["files"])
+        self.assertIn("wazuh/provider-ingestion/cato/events_feed.py", manifest["files"])
+        self.assertIn("wazuh/provider-ingestion/sophos/upstream/LICENSE-2.0.txt", manifest["files"])
+        self.assertIn("wazuh/provider-ingestion/sophos/UPSTREAM-SOURCE.json", manifest["files"])
+        self.assertEqual(
+            manifest["sources"]["sophosCentralSiemIntegration"]["commit"],
+            assemble_release.SOPHOS_SIEM_COMMIT,
+        )
         office365_script = (root / "wazuh" / "office365" / "apply-office365.sh").read_text().lower()
         self.assertIn("file:*", office365_script)
         self.assertIn("aws-secretsmanager:*", office365_script)
         azure_installer = (root / "install.sh").read_text().lower()
         self.assertIn('qapaq_o365_secret_source="file:$secrets/office365-client-secret"', azure_installer)
         self.assertNotIn("aws-secretsmanager:", azure_installer)
+        self.assertIn("qapaq_provider_ingestion_json", azure_installer)
+        self.assertEqual(manifest["optionalIntegrations"], ["sophos-central-siem-api", "cato-events-feed"])
         self.assertEqual(set(("managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive")) - set(manifest["artifacts"]), set())
         for filename, digest in manifest["files"].items():
             self.assertEqual(assemble_release.sha256(root / filename), digest)

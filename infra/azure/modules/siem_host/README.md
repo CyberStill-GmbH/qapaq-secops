@@ -115,10 +115,12 @@ release previo si su activación falla; una instalación inicial fallida del asi
 paquetes/datos parcialmente creados. Se deja la VM sin marcar como instalada y requiere diagnóstico
 operador antes de un nuevo intento para preservar el fail-closed.
 
-El candidato no instala ni declara listos el overlay de acceso QAPAQ/roles, el edge TLS y rutas DNS,
-Ankay/Shuffle, Teams, Sophos o Cato. M365 instala reglas/configuración durante bootstrap, pero eso no
-demuestra permisos Graph, ingestión ni indexación real. Esos contratos requieren pruebas de extremo a
-extremo antes de abrir ingreso o marcar el SOC operativo.
+El candidato incluye conectores Wazuh opcionales para Sophos Central SIEM API y Cato `eventsFeed`.
+Solo se activan con configuración no secreta, referencias Key Vault explícitas y egress aprobado;
+un bundle/plan exitoso no demuestra permisos o ingestión del tenant. Tampoco declara listo el overlay
+de acceso QAPAQ/roles, el edge TLS y rutas DNS, Ankay/Shuffle o Teams. M365 instala reglas/configuración
+durante bootstrap, pero eso no demuestra permisos Graph, ingestión ni indexación real. Esos contratos
+requieren pruebas de extremo a extremo antes de abrir ingreso o marcar el SOC operativo.
 
 La ejecución Azure entrega exclusivamente `file:` al adaptador M365; no ejecuta la ruta AWS ni llama
 AWS CLI/SSM/Secrets Manager. El script compartido conserva `aws-secretsmanager:` para despliegues AWS.
@@ -131,9 +133,9 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
 ## Límites de este módulo
 
 - El root crea Azure Firewall Standard y una policy con threat-intelligence deny, proxy DNS y
-  allowlist HTTPS explícita para Ubuntu, Entra, Graph y VirusTotal. El firewall tiene costo fijo por
-  hora y procesamiento; revisar el costo del plan antes del apply. Sophos/Cato requieren endpoints
-  confirmados y un cambio revisado a la allowlist antes de conectar esos proveedores.
+  allowlist HTTPS explícita para Ubuntu, Entra, Graph y VirusTotal; Sophos/Cato agregan solo sus
+  destinos regionales al habilitar sus módulos. El firewall tiene costo fijo por hora y procesamiento;
+  revisar el costo del plan antes del apply.
 - Los dos CIDR de egress privado deben corresponder a las subnets dedicadas reales de Private
   Endpoints (Blob/Key Vault) y PostgreSQL. No uses el CIDR completo de la VNet como sustituto. No hay
   fallback a Internet directo cuando faltan o no responden esos servicios.

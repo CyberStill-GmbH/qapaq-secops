@@ -93,6 +93,22 @@ def load_config() -> dict:
     secret_names = config.get("wazuh_secret_names", {})
     if not isinstance(secret_names, dict) or "office365-client-secret" not in secret_names:
         fail("falta la referencia Key Vault office365-client-secret")
+    provider_config = config.get("provider_ingestion", {})
+    provider_keys = {"sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"}
+    if not isinstance(provider_config, dict) or set(provider_config) - provider_keys:
+        fail("la configuración de conectores Sophos/Cato contiene campos no admitidos")
+    if any(not isinstance(key, str) or not isinstance(value, str) or "\n" in value or "\r" in value for key, value in provider_config.items()):
+        fail("la configuración de conectores Sophos/Cato debe ser texto no secreto de una sola línea")
+    if provider_config.get("sophos_enabled", "false") not in ("true", "false") or provider_config.get("cato_enabled", "false") not in ("true", "false"):
+        fail("los flags Sophos/Cato deben ser true o false")
+    if provider_config.get("sophos_enabled") == "true":
+        if not guid_pattern.fullmatch(provider_config.get("sophos_tenant_id", "")) or not re.fullmatch(r"[a-z0-9-]{2,32}", provider_config.get("sophos_data_region", "")):
+            fail("Sophos requiere un tenant GUID y data region válidos")
+        if not {"sophos-client-id", "sophos-client-secret"}.issubset(secret_names):
+            fail("Sophos requiere referencias Key Vault de client ID y client secret")
+    if provider_config.get("cato_enabled") == "true":
+        if not re.fullmatch(r"[0-9]{1,20}", provider_config.get("cato_account_id", "")) or "cato-api-key" not in secret_names:
+            fail("Cato requiere account ID y referencia Key Vault de API key")
     if type(config.get("data_disk_size_gb")) is not int or config["data_disk_size_gb"] < 128:
         fail("el tamaño del disco de datos no coincide con el contrato mínimo del SIEM")
     return config
@@ -605,6 +621,7 @@ def install_release(release: pathlib.Path, config: dict) -> None:
                 "QAPAQ_O365_CLIENT_ID": office365["client_id"],
                 "QAPAQ_O365_API_TYPE": office365["api_type"],
                 "QAPAQ_O365_ENABLE_DLP": str(office365["enable_dlp"]).lower(),
+                "QAPAQ_PROVIDER_INGESTION_JSON": json.dumps(config.get("provider_ingestion", {}), separators=(",", ":")),
             }
         )
         # Wazuh's installation assistant prints generated credentials in its summary.
