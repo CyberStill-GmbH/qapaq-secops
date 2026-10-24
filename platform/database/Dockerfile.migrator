@@ -25,10 +25,10 @@ ADD --checksum=sha256:90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34e
 RUN chmod 0755 /qapaq-certs && chmod 0644 /qapaq-certs/rds-global-bundle.pem
 
 COPY . .
-# Prisma CLI y el SDK de Secrets Manager son dependencias de ejecución del migrador. Desplegar
-# solo dependencias de producción excluye testcontainers y el resto del tooling de pruebas.
+# Sin `--prod`: Prisma CLI y el SDK de Secrets Manager son dependencias de desarrollo del
+# paquete y aquí sí se necesitan. La imagen del API sigue sin ellos.
 RUN pnpm --filter @qapaq/database exec prisma generate \
-    && pnpm --filter @qapaq/database deploy --legacy --prod /migrator \
+    && pnpm --filter @qapaq/database deploy --legacy /migrator \
     && rm -rf /migrator/test /migrator/src /migrator/generated
 
 # Runtime distroless como el API: sin shell, apt ni npm (la imagen slim traía CVEs HIGH del SO y
