@@ -33,7 +33,8 @@ política.
 `wazuh-logtest` con los resultados esperados. Como el decoder EventChannel nativo no se
 prueba directamente con `wazuh-logtest`, el workflow monta
 `tests/sysmon-fixture-decoder.xml`, un puente de decoder exclusivo del contenedor efímero
-de CI. Ese puente normaliza los fixtures JSON al grupo `sysmon_event1`; no se incluye en
+de CI. Ese puente normaliza los fixtures JSON al grupo `sysmon_event1` con una regla base
+de nivel 1; no se incluye en
 el overlay de producción ni cambia reglas upstream. El workflow de GitHub Actions usa
 `wazuh/wazuh-manager:4.14.8`, la misma
 versión base del Dashboard QAPAQ fijado para el despliegue actual. Una prueba verde verifica sintaxis y

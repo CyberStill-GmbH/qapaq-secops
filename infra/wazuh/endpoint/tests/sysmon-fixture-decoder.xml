@@ -1,6 +1,6 @@
 <!-- CI-only bridge from the JSON fixture to Wazuh's native sysmon_event1 group. -->
 <group name="sysmon,qapaq_endpoint_fixture,">
-  <rule id="101099" level="0">
+  <rule id="101099" level="1">
     <decoded_as>json</decoded_as>
     <field name="win.system.providerName" type="pcre2">^Microsoft-Windows-Sysmon$</field>
     <field name="win.system.eventID">^1$</field>
