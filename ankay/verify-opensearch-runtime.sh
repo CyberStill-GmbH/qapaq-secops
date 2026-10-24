@@ -41,6 +41,8 @@ done
 
 if [[ "$healthy" != true ]]; then
   echo 'OpenSearch no alcanzó health autenticado en 240 segundos.' >&2
+  docker inspect --format 'estado={{.State.Status}} salida={{.State.ExitCode}} oom={{.State.OOMKilled}}' "$container" >&2 || true
+  docker logs --tail 200 "$container" 2>&1 | sed "s/${password}/[REDACTED]/g" >&2 || true
   exit 1
 fi
 
