@@ -10,14 +10,19 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
 - [Terraform Azure](../../../infra/azure/README.md)
 
-Estado al **2026-10-22**: **canal privado de artefactos aplicado; runtime no desplegado**.
-La validación más reciente de código corresponde a PR
-[#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100), integrado en
-`main` (`048716ada8e3e5e077b044888b1291ec101506d4`). Añadió únicamente validación
-de referencia Key Vault y pruebas Terraform; no modifica infraestructura. La
-validación Azure Terraform [39773533408](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39773533408)
-está verde; CI Security [39773533266](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39773533266)
-seguía en progreso al redactar.
+Estado al **2026-10-24**: **canal privado de artefactos aplicado; runtime no desplegado**.
+La [auditoría de disponibilidad](operational-readiness-2026-10-24.md) registra
+la evidencia más reciente de CI, configuración de runtime, runner y Key Vault.
+El workflow de `main` [#40065066444](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40065066444)
+terminó sus 14 jobs correctamente; esto valida el código, no el despliegue Azure.
+No hay perfil SOC habilitado ni evidencia de Wazuh/Ankay operativo.
+
+Como antecedente del bootstrap, PR [#100](https://github.com/CyberStill-GmbH/qapaq-secops/pull/100),
+integrado en `main` (`048716ada8e3e5e077b044888b1291ec101506d4`), añadió validación
+de referencias Key Vault y pruebas Terraform sin modificar infraestructura. Sus runs
+[39773533408](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39773533408)
+y [39773533266](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39773533266)
+son evidencia histórica; para el estado actual, consultar la auditoría enlazada arriba.
 
 El estado de infraestructura confirmado por Actions es:
 
