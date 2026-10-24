@@ -198,7 +198,12 @@ class ProviderConfigurationTests(unittest.TestCase):
                 if CONFIGURE.grp is not None
                 else nullcontext()
             )
-            with patch.object(CONFIGURE.subprocess, "run") as systemctl, group_lookup:
+            ownership_change = (
+                patch.object(CONFIGURE.os, "chown")
+                if hasattr(CONFIGURE.os, "chown")
+                else nullcontext()
+            )
+            with patch.object(CONFIGURE.subprocess, "run") as systemctl, group_lookup, ownership_change:
                 self.assertEqual(CONFIGURE.run(config_path, root, secrets, ossec_conf, units), 0)
                 self.assertEqual(CONFIGURE.run(config_path, root, secrets, ossec_conf, units), 0)
             xml = ossec_conf.read_text(encoding="utf-8")
