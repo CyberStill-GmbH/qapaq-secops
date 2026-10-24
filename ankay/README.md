@@ -103,9 +103,13 @@ persistencia del Compose final. No se añade ningún plugin externo.
 El agregado upstream `opensaml-3.9.0.0-all.jar` incluye descriptores Maven de Jackson 2.22.2,
 que Trivy reportó como componentes vulnerables, aunque su implementación se carga desde los JAR
 externos de OpenSearch. El parche verifica que `jackson-core` y `jackson-databind` efectivos son
-2.22.3 y sincroniza cuatro descriptores Maven del agregado con esa versión. Antes de reempaquetar,
-comprueba clases Jackson canónicas, multi-release y reubicadas, y aborta ante JARs anidados, firmas
-o digests de manifiesto. Mantiene las referencias de API que OpenSAML usa hacia el runtime externo.
+2.22.3 y sincroniza cuatro descriptores Maven del agregado con esa versión. Comprueba clases Jackson
+canónicas, multi-release y reubicadas, y aborta ante JARs anidados, firmas o digests de manifiesto.
+Como el JAR fijado contiene entradas de licencia duplicadas con solapamiento, el helper agrega las
+cuatro entradas corregidas y redirige solo sus registros del directorio central; no desempaqueta ni
+reconstruye las entradas upstream ajenas al cambio. Limpia los payloads Maven antiguos que quedan
+sin referencia y verifica los cuatro descriptores activos. Mantiene las referencias de API que
+OpenSAML usa hacia el runtime externo.
 Tres colisiones de nombre verificadas en este JAR upstream (`Version`, `ReferenceType` y
 `ContentReference`, bajo `org/opensaml`) se excluyen del cotejo por nombre simple; no se excluyen
 paquetes Jackson ni otras clases con nombres coincidentes. El helper exige el SHA-256 exacto del

@@ -1,4 +1,5 @@
 import hashlib
+import struct
 import tempfile
 import unittest
 import warnings
@@ -172,6 +173,46 @@ class PruneOpenSearchShadowMetadataTests(unittest.TestCase):
                 entries = [entry for entry in archive.infolist() if entry.filename == "META-INF/LICENSE"]
                 actual = [archive.read(entry) for entry in entries]
             self.assertEqual(actual, expected)
+
+    def test_updates_descriptors_without_repacking_overlapping_license_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            jar_path = self._make_jar(Path(directory))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                with zipfile.ZipFile(jar_path, "a") as archive:
+                    archive.writestr("META-INF/LICENSE", b"license one")
+                    archive.writestr("META-INF/LICENSE", b"license two")
+
+            data = bytearray(jar_path.read_bytes())
+            with zipfile.ZipFile(jar_path, "r") as archive:
+                central_position = archive.start_dir
+                license_offsets = []
+                while data[central_position : central_position + 4] == b"PK\x01\x02":
+                    fields = struct.unpack_from("<IHHHHHHIIIHHHHHII", data, central_position)
+                    name_len, extra_len, comment_len = fields[10], fields[11], fields[12]
+                    name_start = central_position + 46
+                    name = bytes(data[name_start : name_start + name_len]).decode("utf-8")
+                    if name == "META-INF/LICENSE":
+                        license_offsets.append((central_position, fields[16]))
+                    central_position += 46 + name_len + extra_len + comment_len
+            self.assertEqual(len(license_offsets), 2)
+            first_local_offset = license_offsets[0][1]
+            second_central_offset = license_offsets[1][0]
+            # Model the official pinned JAR's duplicate central-directory reference
+            # to an overlapping LICENSE record while preserving the overall archive.
+            struct.pack_into("<I", data, second_central_offset + 42, first_local_offset)
+            jar_path.write_bytes(data)
+
+            updated = synchronize_descriptors(jar_path, self._jackson_classes(), self._patched_descriptors())
+            self.assertEqual(updated, 4)
+            with zipfile.ZipFile(jar_path, "r") as archive:
+                self.assertEqual(
+                    sum(entry.filename == "META-INF/LICENSE" for entry in archive.infolist()),
+                    2,
+                )
+                for artifact in ("jackson-core", "jackson-databind"):
+                    path = f"META-INF/maven/com.fasterxml.jackson.core/{artifact}/pom.properties"
+                    self.assertIn("version=2.22.3", archive.read(path).decode())
 
     def test_refuses_duplicate_maven_descriptor_entries(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

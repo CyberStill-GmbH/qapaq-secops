@@ -14,9 +14,11 @@ import hashlib
 import os
 from pathlib import Path
 import stat
+import struct
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 
 
 JACKSON_ARTIFACTS = ("jackson-core", "jackson-databind")
@@ -40,14 +42,168 @@ def _descriptor_names(artifact: str) -> tuple[str, str]:
     return (f"{base}/pom.properties", f"{base}/pom.xml")
 
 
-def _verify_all_entries(archive: zipfile.ZipFile) -> None:
-    # ZipFile.testzip() resolves duplicate names by filename and can report a false
-    # CRC mismatch for valid upstream fat JARs. Opening each ZipInfo verifies every
-    # physical member independently, including duplicate META-INF notices.
-    for entry in archive.infolist():
-        with archive.open(entry) as stream:
-            while stream.read(1024 * 1024):
-                pass
+def _compressed_member(content: bytes, compression: int) -> bytes:
+    if compression == zipfile.ZIP_STORED:
+        return content
+    if compression != zipfile.ZIP_DEFLATED:
+        raise ValueError(f"Unsupported compression method for Maven metadata: {compression}")
+    compressor = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-15)
+    return compressor.compress(content) + compressor.flush()
+
+
+def _central_directory_records(data: bytes, start: int, end: int) -> list[tuple[int, bytes, tuple[int, ...], str]]:
+    records: list[tuple[int, bytes, tuple[int, ...], str]] = []
+    position = start
+    while position < end:
+        if data[position : position + 4] != b"PK\x01\x02" or position + 46 > end:
+            raise ValueError("Unsupported or malformed OpenSAML central directory")
+        fields = struct.unpack_from("<IHHHHHHIIIHHHHHII", data, position)
+        name_len, extra_len, comment_len = fields[10], fields[11], fields[12]
+        record_end = position + 46 + name_len + extra_len + comment_len
+        if record_end > end:
+            raise ValueError("Truncated OpenSAML central directory entry")
+        encoding = "utf-8" if fields[3] & 0x800 else "cp437"
+        name = data[position + 46 : position + 46 + name_len].decode(encoding)
+        records.append((position, data[position:record_end], fields, name))
+        position = record_end
+    if position != end:
+        raise ValueError("Unexpected bytes at end of OpenSAML central directory")
+    return records
+
+
+def _replacement_local_record(name: str, content: bytes, info: zipfile.ZipInfo) -> tuple[bytes, int, int, int]:
+    name_bytes = name.encode("utf-8")
+    compressed = _compressed_member(content, info.compress_type)
+    crc = zlib.crc32(content) & 0xFFFFFFFF
+    year, month, day, _, _, _ = info.date_time
+    dos_date = ((year - 1980) << 9) | (month << 5) | day
+    # New local records use no data descriptor or extra fields. Keep the upstream
+    # compression method and timestamps, but clear descriptor/encryption flags.
+    flags = info.flag_bits & ~0x09
+    local = struct.pack(
+        "<IHHHHHIIIHH",
+        0x04034B50,
+        max(info.extract_version, 20),
+        flags,
+        info.compress_type,
+        info._raw_time,
+        dos_date,
+        crc,
+        len(compressed),
+        len(content),
+        len(name_bytes),
+        0,
+    ) + name_bytes + compressed
+    return local, crc, len(compressed), len(content)
+
+
+def _replace_zip_members(jar_path: Path, replacements: dict[str, bytes]) -> None:
+    original = jar_path.read_bytes()
+    with zipfile.ZipFile(jar_path, "r") as archive:
+        start_dir = archive.start_dir
+        infos = {name: archive.getinfo(name) for name in replacements}
+        original_infos = archive.infolist()
+    eocd = original.rfind(b"PK\x05\x06")
+    if eocd < start_dir or eocd + 22 > len(original):
+        raise ValueError("Could not locate a standard OpenSAML end-of-central-directory record")
+    _, disk, directory_disk, disk_entries, total_entries, directory_size, directory_offset, comment_size = struct.unpack_from(
+        "<IHHHHIIH", original, eocd
+    )
+    if disk or directory_disk or disk_entries != total_entries or total_entries == 0xFFFF or directory_size == 0xFFFFFFFF or directory_offset == 0xFFFFFFFF:
+        raise ValueError("Refusing to rewrite unsupported multi-disk or ZIP64 OpenSAML archive")
+    directory_end = eocd
+    if directory_offset != start_dir or directory_size != directory_end - start_dir or eocd + 22 + comment_size != len(original):
+        raise ValueError("OpenSAML central directory offsets or comment are inconsistent")
+    records = _central_directory_records(original, start_dir, directory_end)
+    replacements_by_old_offset: dict[int, tuple[str, bytes, int, int, int]] = {}
+    appended = bytearray()
+    for name, content in replacements.items():
+        info = infos[name]
+        old_offset = info.header_offset
+        raw = original[old_offset : old_offset + 30]
+        if len(raw) != 30:
+            raise ValueError(f"Truncated local header for {name}")
+        local_fields = struct.unpack("<IHHHHHIIIHH", raw)
+        if local_fields[0] != 0x04034B50 or local_fields[7] == 0xFFFFFFFF or local_fields[8] == 0xFFFFFFFF:
+            raise ValueError(f"Unsupported local header for {name}")
+        if local_fields[2] & 1:
+            raise ValueError(f"Encrypted Maven metadata is not supported: {name}")
+        data_start = old_offset + 30 + local_fields[9] + local_fields[10]
+        data_end = data_start + info.compress_size
+        if data_end > start_dir:
+            raise ValueError(f"Maven metadata data exceeds the local-file area: {name}")
+        target_range = (old_offset, data_end)
+        for other in original_infos:
+            if other is info:
+                continue
+            if other.header_offset == old_offset:
+                raise ValueError(f"Maven metadata local header is shared by another ZIP entry: {name}")
+            other_header = original[other.header_offset : other.header_offset + 30]
+            if len(other_header) != 30 or other_header[:4] != b"PK\x03\x04":
+                raise ValueError(f"Invalid neighboring local ZIP header for {other.filename}")
+            other_fields = struct.unpack("<IHHHHHIIIHH", other_header)
+            other_start = other.header_offset + 30 + other_fields[9] + other_fields[10]
+            other_end = other_start + other.compress_size
+            if target_range[0] < other_end and other.header_offset < target_range[1]:
+                raise ValueError(f"Maven metadata entry overlaps another ZIP member: {name}")
+        # The old entry becomes unreferenced after its central record is redirected.
+        # Clear its compressed payload so stale vulnerable metadata is not left in
+        # the archive's raw bytes.
+        appended_offset = len(appended)
+        local, crc, compressed_size, file_size = _replacement_local_record(name, content, info)
+        replacements_by_old_offset[old_offset] = (name, local, appended_offset, crc, compressed_size, file_size)
+        appended.extend(local)
+
+    patched_records = bytearray()
+    seen: set[str] = set()
+    new_local_base = start_dir
+    for _, record, fields, name in records:
+        replacement = replacements_by_old_offset.get(fields[16])
+        if replacement is None:
+            patched_records.extend(record)
+            continue
+        replacement_name, _, appended_offset, crc, compressed_size, file_size = replacement
+        if replacement_name != name or name in seen:
+            raise ValueError(f"Central-directory mapping is ambiguous for {name}")
+        seen.add(name)
+        new_record = bytearray(record)
+        flags = fields[3] & ~0x09
+        local_offset = new_local_base + appended_offset
+        struct.pack_into("<H", new_record, 8, flags)
+        struct.pack_into("<I", new_record, 16, crc)
+        struct.pack_into("<I", new_record, 20, compressed_size)
+        struct.pack_into("<I", new_record, 24, file_size)
+        struct.pack_into("<I", new_record, 42, local_offset)
+        patched_records.extend(new_record)
+    if seen != set(replacements):
+        raise ValueError(f"Could not uniquely redirect metadata entries: {sorted(set(replacements) - seen)}")
+
+    # Mark old payloads as unreachable and stale-free in the same bytearray.
+    result_prefix = bytearray(original[:start_dir])
+    for old_offset, (name, _, _, _, _, _) in replacements_by_old_offset.items():
+        info = infos[name]
+        local_fields = struct.unpack_from("<IHHHHHIIIHH", original, old_offset)
+        data_start = old_offset + 30 + local_fields[9] + local_fields[10]
+        data_end = data_start + info.compress_size
+        result_prefix[data_start:data_end] = bytes(data_end - data_start)
+    new_directory_offset = len(result_prefix) + len(appended)
+    new_eocd = bytearray(original[eocd:])
+    struct.pack_into("<I", new_eocd, 12, len(patched_records))
+    struct.pack_into("<I", new_eocd, 16, new_directory_offset)
+    output = bytes(result_prefix) + bytes(appended) + bytes(patched_records) + bytes(new_eocd)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{jar_path.name}.", suffix=".tmp", dir=jar_path.parent)
+    os.close(fd)
+    temporary_path = Path(temporary_name)
+    try:
+        temporary_path.write_bytes(output)
+        os.chmod(temporary_path, stat.S_IMODE(jar_path.stat().st_mode))
+        with zipfile.ZipFile(temporary_path, "r") as verified:
+            for name, expected in replacements.items():
+                if verified.read(name) != expected:
+                    raise ValueError(f"Patched Maven metadata failed ZIP verification: {name}")
+        os.replace(temporary_path, jar_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def verify_pinned_opensaml(jar_path: Path, expected_sha256: str = OPEN_SAML_SHA256) -> None:
@@ -124,11 +280,6 @@ def synchronize_descriptors(
     patched_descriptors: dict[str, bytes],
 ) -> int:
     with zipfile.ZipFile(jar_path, "r") as source:
-        try:
-            _verify_all_entries(source)
-        except (zipfile.BadZipFile, RuntimeError) as error:
-            raise ValueError(f"Corrupt OpenSAML archive entry: {error}") from error
-
         entries = {entry.filename for entry in source.infolist()}
         required = {
             descriptor
@@ -213,35 +364,15 @@ def synchronize_descriptors(
             # Copy the exact Maven descriptors from the checksum-pinned patched
             # runtime jar; do not synthesize a POM or rewrite a version heuristically.
             updated_contents[descriptor] = patched_descriptors[descriptor]
-        retained_entries = [
-            (entry, updated_contents.get(entry.filename, source.read(entry)))
-            for entry in source.infolist()
-        ]
-        archive_comment = source.comment
-        original_mode = stat.S_IMODE(jar_path.stat().st_mode)
-    fd, temporary_name = tempfile.mkstemp(prefix=f".{jar_path.name}.", suffix=".tmp", dir=jar_path.parent)
-    os.close(fd)
-    temporary_path = Path(temporary_name)
-    try:
-        with zipfile.ZipFile(temporary_path, "w") as target:
-            target.comment = archive_comment
-            for entry, content in retained_entries:
-                target.writestr(entry, content)
-        os.chmod(temporary_path, original_mode)
-        with zipfile.ZipFile(temporary_path, "r") as verified:
-            try:
-                _verify_all_entries(verified)
-            except (zipfile.BadZipFile, RuntimeError) as error:
-                raise ValueError(f"Rebuilt OpenSAML archive is corrupt: {error}") from error
-            for descriptor in required:
-                content = verified.read(descriptor).decode("utf-8")
-                if EXPECTED_VERSION in content:
-                    raise ValueError(f"Stale Jackson descriptor remains after synchronization: {descriptor}")
-                if descriptor.endswith("pom.properties") and f"version={PATCHED_VERSION}" not in content:
-                    raise ValueError(f"Corrected Jackson version missing after synchronization: {descriptor}")
-        os.replace(temporary_path, jar_path)
-    finally:
-        temporary_path.unlink(missing_ok=True)
+
+    _replace_zip_members(jar_path, updated_contents)
+    with zipfile.ZipFile(jar_path, "r") as verified:
+        for descriptor in required:
+            content = verified.read(descriptor).decode("utf-8")
+            if EXPECTED_VERSION in content:
+                raise ValueError(f"Stale Jackson descriptor remains after synchronization: {descriptor}")
+            if descriptor.endswith("pom.properties") and f"version={PATCHED_VERSION}" not in content:
+                raise ValueError(f"Corrected Jackson version missing after synchronization: {descriptor}")
     return len(updated_contents)
 
 
