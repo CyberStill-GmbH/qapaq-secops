@@ -147,6 +147,7 @@ variable "siem_host" {
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.client_id)) &&
       contains(["commercial", "gcc", "gcc-high"], var.siem_host.office365.api_type) &&
       contains(keys(var.siem_host.wazuh_secret_names), "office365-client-secret") &&
+      contains(keys(var.siem_host.wazuh_secret_names), "wazuh-install-files.tar.b64") &&
       alltrue([
         for key, value in var.siem_host.provider_ingestion :
         contains(["sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"], key) &&
@@ -165,7 +166,7 @@ variable "siem_host" {
         contains(keys(var.siem_host.wazuh_secret_names), "cato-api-key"))
       )
     )
-    error_message = "siem_host requiere IDs GUID de Office 365 válidos, api_type admitido y el secreto `office365-client-secret` referenciado por nombre en Key Vault."
+    error_message = "siem_host requiere IDs GUID de Office 365 válidos, api_type admitido y referencias Key Vault para `office365-client-secret` y `wazuh-install-files.tar.b64`."
   }
 }
 

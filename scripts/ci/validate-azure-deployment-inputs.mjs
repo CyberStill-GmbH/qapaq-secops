@@ -151,6 +151,10 @@ function validateSiem(siem) {
     fail(
       'siem_host.wazuh_secret_names must map office365-client-secret to a pre-created Key Vault secret.',
     );
+  if (!Object.hasOwn(siem.wazuh_secret_names, 'wazuh-install-files.tar.b64'))
+    fail(
+      'siem_host.wazuh_secret_names must map wazuh-install-files.tar.b64 to a pre-created Key Vault secret.',
+    );
   object(siem.office365, 'siem_host.office365');
   exactKeys(
     siem.office365,

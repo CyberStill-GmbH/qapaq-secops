@@ -15,6 +15,7 @@ variables {
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
   dashboard_ingress_cidrs      = ["198.51.100.25/32"]
+  wazuh_secret_names           = { "wazuh-install-files.tar.b64" = "wazuh-install-files-tar-b64" }
   key_vault_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.KeyVault/vaults/kv-qapaq-test"
   key_vault_uri                = "https://kv-qapaq-test.vault.azure.net/"
   container_registry_id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.ContainerRegistry/registries/acrqapaqtest"
@@ -133,4 +134,14 @@ run "rejects_invalid_office365_ids" {
   }
 
   expect_failures = [var.office365]
+}
+
+run "rejects_missing_wazuh_install_archive_reference" {
+  command = plan
+
+  variables {
+    wazuh_secret_names = {}
+  }
+
+  expect_failures = [var.wazuh_secret_names]
 }
