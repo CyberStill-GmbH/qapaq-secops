@@ -29,20 +29,15 @@ política.
 
 ## Verificación y uso
 
-`tests/run-logtest.sh` valida la configuración del Manager y compara la salida de
-`wazuh-logtest` con los resultados esperados. Como el decoder EventChannel nativo no se
-prueba directamente con `wazuh-logtest`, el workflow monta
-`tests/0000-sysmon-fixture-decoder.xml`, un puente de decoder exclusivo del contenedor efímero
-de CI. Ese puente normaliza los fixtures JSON con una regla base de nivel 1. CI verifica
-que la regla de producción conserva su grupo `sysmon_event1` y cambia ese vínculo por
-`if_sid` solo en una copia temporal, porque `wazuh-logtest` no reproduce el decoder
-EventChannel nativo. Así los fixtures prueban los campos y patrones positivos/negativos
-de la regla real, sin instalar el puente ni modificar el overlay de producción. El
-workflow de GitHub Actions usa
-`wazuh/wazuh-manager:4.14.8`, la misma
-versión base del Dashboard QAPAQ fijado para el despliegue actual. Una prueba verde verifica sintaxis y
-comportamiento con fixtures sintéticos; no acredita cobertura de Sysmon ni tasa de
-falsos positivos en endpoints reales.
+El workflow de GitHub Actions monta la regla de producción en un Manager aislado
+`wazuh/wazuh-manager:4.14.8` y ejecuta `wazuh-analysisd -t` para validar su sintaxis y
+referencias al grupo nativo. `tests/validate-fixtures.py` evalúa los casos sintéticos
+positivos/negativos usando los patrones extraídos de la regla real. No suplanta al
+decoder EventChannel ni afirma un `wazuh-logtest` end-to-end; la aceptación final requiere
+eventos Sysmon sintéticos en un Manager de prueba con telemetría Windows habilitada. La
+imagen de CI usa Wazuh 4.14.8, igual a la versión base del Dashboard QAPAQ. Una prueba
+verde valida sintaxis y patrones con fixtures; no acredita cobertura ni tasa de falsos
+positivos en endpoints reales.
 
 La regla aún no está cableada al forwarder Wazuh→Ankay: el adaptador actual solo eleva
 alertas desde nivel 12. No reducir ese umbral global por esta regla. El paso posterior
