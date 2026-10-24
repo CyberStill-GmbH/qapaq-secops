@@ -32,7 +32,7 @@ política.
 `tests/run-logtest.sh` valida la configuración del Manager y compara la salida de
 `wazuh-logtest` con los resultados esperados. Como el decoder EventChannel nativo no se
 prueba directamente con `wazuh-logtest`, el workflow monta
-`tests/sysmon-fixture-decoder.xml`, un puente de decoder exclusivo del contenedor efímero
+`tests/0000-sysmon-fixture-decoder.xml`, un puente de decoder exclusivo del contenedor efímero
 de CI. Ese puente normaliza los fixtures JSON con una regla base de nivel 1. CI verifica
 que la regla de producción conserva su grupo `sysmon_event1` y cambia ese vínculo por
 `if_sid` solo en una copia temporal, porque `wazuh-logtest` no reproduce el decoder
