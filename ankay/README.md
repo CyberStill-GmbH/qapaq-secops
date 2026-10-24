@@ -100,6 +100,15 @@ Shuffle v2.3.0 documenta OpenSearch como su base de datos y usa su API REST; la
 compatibilidad con 3.9.0 debe confirmarse con la inicialización real de índices y
 persistencia del Compose final. No se añade ningún plugin externo.
 
+El agregado upstream `opensaml-3.9.0.0-all.jar` incluye descriptores Maven de Jackson 2.22.2,
+pero no contiene clases Jackson (`JsonFactory`, `ObjectMapper` ni paquetes de implementación).
+El parche de build verifica primero que los JAR efectivos `jackson-core` y `jackson-databind`
+2.22.3 están presentes y que el agregado OpenSAML no tiene clases Jackson; solo entonces quita
+los cuatro descriptores Maven huérfanos que Trivy interpretaba como componentes vulnerables.
+Si aparecen clases, cambia la versión del descriptor o falta el runtime corregido, el build falla.
+Esto no omite CVE ni modifica la lógica de OpenSearch Security; el escaneo HIGH/CRITICAL permanece
+como gate obligatorio.
+
 La verificación CI construye backend, worker y la capa OpenSearch derivada, y ejecuta
 Trivy con su escaneo de vulnerabilidades completo para HIGH/CRITICAL. Eso no equivale
 a una prueba end-to-end de Shuffle contra OpenSearch 3.9.0: antes de activar el runtime

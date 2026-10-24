@@ -32,3 +32,5 @@ while IFS='|' read -r source_jar replacement_jar url sha256; do
     "${#matches[@]}" "$source_jar" "$replacement_jar"
 done < "$lock"
 
+python3 "$(dirname "$0")/prune_opensearch_shadow_metadata.py" "$root"
+

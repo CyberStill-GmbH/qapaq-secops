@@ -66,6 +66,9 @@ jobs:
       - name: Test Ankay branding and protected subpath overlay
         run: node --test ankay/frontend/rebrand.test.mjs ankay/frontend/subpath.test.mjs ankay/components-lock.test.mjs ankay/pin-base-images.test.mjs
 
+      - name: Test OpenSearch shadow dependency metadata verification
+        run: python3 ankay/runtime/test_patch_opensearch_shadow_metadata.py
+
       - name: Build from the pinned Shuffle source and verify its image
         shell: bash
         run: |

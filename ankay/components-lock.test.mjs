@@ -91,6 +91,14 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
     new URL('./runtime/opensearch-dependencies.lock', import.meta.url),
     'utf8',
   );
+  const shadowMetadataPatcher = readFileSync(
+    new URL('./runtime/prune_opensearch_shadow_metadata.py', import.meta.url),
+    'utf8',
+  );
+  const shadowMetadataTests = readFileSync(
+    new URL('./runtime/test_patch_opensearch_shadow_metadata.py', import.meta.url),
+    'utf8',
+  );
   assert.match(
     buildScript,
     /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/,
@@ -120,6 +128,18 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   );
   assert.match(dockerfile, /COPY opensearch-dependencies\.lock/);
   assert.match(dockerfile, /COPY patch-opensearch-dependencies\.sh/);
+  assert.match(dockerfile, /python3/);
+  assert.match(dockerfile, /COPY prune_opensearch_shadow_metadata\.py/);
+  assert.match(dependencyPatcher, /prune_opensearch_shadow_metadata\.py/);
+  assert.match(shadowMetadataPatcher, /Refusing to prune metadata because Jackson classes are present/);
+  assert.match(shadowMetadataPatcher, /EXPECTED_VERSION = "2\.22\.2"/);
+  assert.match(shadowMetadataPatcher, /PATCHED_VERSION = "2\.22\.3"/);
+  assert.match(shadowMetadataPatcher, /verify_patched_runtime\(args\.root\)/);
+  assert.match(shadowMetadataPatcher, /os\.replace\(temporary_path, jar_path\)/);
+  assert.match(shadowMetadataTests, /test_refuses_to_modify_jar_with_jackson_classes/);
+  assert.match(shadowMetadataTests, /test_refuses_unexpected_descriptor_version/);
+  assert.match(shadowMetadataTests, /test_preserves_duplicate_license_entries/);
+  assert.match(shadowMetadataTests, /test_requires_corrected_runtime_jars_and_classes/);
   assert.doesNotMatch(dockerfile, /COPY --chown=0:0 patch-opensearch-dependencies/);
   assert.match(dockerfile, /rpm -q --qf '%\{VERSION\}' system-release/);
   assert.match(dockerfile, /USER 1000:1000/);
