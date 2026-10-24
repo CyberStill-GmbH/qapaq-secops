@@ -101,13 +101,17 @@ compatibilidad con 3.9.0 debe confirmarse con la inicialización real de índice
 persistencia del Compose final. No se añade ningún plugin externo.
 
 El agregado upstream `opensaml-3.9.0.0-all.jar` incluye descriptores Maven de Jackson 2.22.2,
-pero no contiene clases Jackson (`JsonFactory`, `ObjectMapper` ni paquetes de implementación).
-El parche de build verifica primero que los JAR efectivos `jackson-core` y `jackson-databind`
-2.22.3 están presentes y que el agregado OpenSAML no tiene clases Jackson; solo entonces quita
-los cuatro descriptores Maven huérfanos que Trivy interpretaba como componentes vulnerables.
-Si aparecen clases, cambia la versión del descriptor o falta el runtime corregido, el build falla.
-Esto no omite CVE ni modifica la lógica de OpenSearch Security; el escaneo HIGH/CRITICAL permanece
-como gate obligatorio.
+que Trivy reportó como componentes vulnerables, aunque su implementación se carga desde los JAR
+externos de OpenSearch. El parche verifica que `jackson-core` y `jackson-databind` efectivos son
+2.22.3 y sincroniza cuatro descriptores Maven del agregado con esa versión. Antes de reempaquetar,
+comprueba clases Jackson canónicas, multi-release y reubicadas, y aborta ante JARs anidados, firmas
+o digests de manifiesto. Mantiene las referencias de API que OpenSAML usa hacia el runtime externo.
+Tres colisiones de nombre verificadas en este JAR upstream (`Version`, `ReferenceType` y
+`ContentReference`, bajo `org/opensaml`) se excluyen del cotejo por nombre simple; no se excluyen
+paquetes Jackson ni otras clases con nombres coincidentes.
+Cualquier versión o estructura inesperada detiene el build. La corrección solo se considera válida
+cuando el escaneo HIGH/CRITICAL del artefacto terminado pasa en CI; no se omite CVE ni se modifica
+la lógica de OpenSearch Security.
 
 La verificación CI construye backend, worker y la capa OpenSearch derivada, y ejecuta
 Trivy con su escaneo de vulnerabilidades completo para HIGH/CRITICAL. Eso no equivale
