@@ -41,20 +41,20 @@ the QAPAQ provider rules, the Outlook/Sysmon endpoint rule and an idempotent ins
 installer registers `/var/ossec/etc/rules` with the Wazuh ruleset, validates `wazuh-analysisd`,
 and restarts the Manager with rollback if validation or restart fails. This does not enable
 Sophos/Cato collectors: those remain opt-in and need their Key Vault references, provider
-configuration, approved egress and real acceptance. The already published 2026-10-23 candidate
-predates that change and must not be used to claim the rules are installed.
+configuration, approved egress and real acceptance. The 2026-10-24 candidate includes the versioned
+provider and endpoint rule files, but does not prove those collectors are enabled or events are arriving.
 
-### Latest published candidate evidence — 2026-10-23
+### Latest published candidate evidence — 2026-10-24
 
-- Prerequisite build: [39883868793](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868793)
-- Dashboard build: [39883868545](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868545)
-- Core build: [39883868998](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868998)
-- Bundle run: [39890065716](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39890065716)
-- Publisher run: [39891503496](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39891503496)
-- Source SHA: `6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f`
-- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/6c3c2b498a8a9dc43f6a0da45c07244fdf132f2f/qapaq-siem-6c3c2b498a8a.tar.gz`
-- SHA-256: `9cfcd1acd6c5c1c78ec10024d6a4b7c3bbd43932ad8931ce3a9d63d126a4ccac`
-- Size: `5083594839` bytes. The publisher verified Blob content length and SHA metadata after upload.
+- Prerequisite build: [40080125109](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125109)
+- Dashboard build: [40080125315](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125315)
+- Core build: [40080124975](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080124975)
+- Bundle run: [40084337528](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40084337528)
+- Publisher run: [40086863260](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40086863260)
+- Source SHA: `afdfbaa61f558ab30c307aa4cf6d0fd8a783b15c`
+- Private Blob URI (no SAS): `https://qapaqsecdemorel66f8c73b.blob.core.windows.net/siem-release/releases/afdfbaa61f558ab30c307aa4cf6d0fd8a783b15c/qapaq-siem-afdfbaa61f55.tar.gz`
+- SHA-256: `954d284674442645dc4c1a7bf9a991ae7712888a842bff262083dfa66806dbcd`
+- Size: `6959200149` bytes. The publisher verified the Blob content length and SHA metadata after upload. The source-run GitHub artifact was `13921808870` bytes.
 - The exact source artifacts succeeded on the same SHA. The bundle run verified installer, provenance, package hashes and bootstrap contract; the publisher authenticated through Azure OIDC and verified the private Blob. It remains an install candidate, not evidence of a provisioned VM or operational SIEM.
 
 ### Previous published candidate evidence — 2026-10-23
@@ -80,7 +80,7 @@ predates that change and must not be used to claim the rules are installed.
 
 ### Azure Terraform state at publication
 
-- Plan run: [39989553972](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39989553972) completed successfully but made no changes (`0 add, 0 change, 0 destroy`); apply was skipped.
+- Latest plan run: [40085138833](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40085138833); it succeeded with `0 add, 0 change, 0 destroy`, so the apply step was skipped.
 - The workflow inputs were `siem_host=null`, `ankay_host=null`, and `enable_runtime=false`; no SIEM or Ankay VM was created.
 - Terraform is independent of AWS. The Azure root creates its own Azure Firewall when `siem_host` is provided; the AWS-era firewall is not a prerequisite.
 
