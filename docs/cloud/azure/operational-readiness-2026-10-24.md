@@ -19,7 +19,7 @@
 
 ## Servicios e integraciones pendientes
 
-- **Wazuh QAPAQ:** el bundle de release puede empaquetar Manager, Indexer, Dashboard y `qapaq-core`, pero el host permanece deshabilitado. No hay evidencia de instalación, TLS, health checks ni ingestión Azure en ejecución.
+- **Wazuh QAPAQ:** el build de Dashboard [#40067401957](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40067401957) pasó en `main` (`eba3da2`) sin publicar a ACR. El artefacto temporal (`qapaq-dashboard-eba3da2c4e6936a6bdf2f88c532153a944eab234`, 196,337,668 bytes, retención de un día) está fijado a Wazuh 4.14.8/OSD 2.19.6 e incluye el plugin `qapaq_ops` y assets QAPAQ según el lock/README del paquete. El build oficial del Manager [#40067400024](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40067400024) sigue en curso; Indexer y `qapaq-core` ya pasaron. El bundle no se ha ensamblado ni publicado y el host permanece deshabilitado; no hay evidencia de instalación, TLS, health checks ni ingestión Azure en ejecución.
 - **M365/Entra:** hacen falta configuración de Graph en Azure y una lectura real controlada. Las reglas configuradas en código no demuestran eventos indexados.
 - **Sophos/Cato:** el PR #139 agrega collectors con hashes de origen fijados, cursores persistentes y timers; ambos quedan apagados hasta configurar referencias Key Vault, tenant/account, permisos y egress. CI no equivale a aceptación de la API del cliente.
 - **Teams:** el código de integración no está instalado en el Manager Azure ni se validó contra un webhook real.
