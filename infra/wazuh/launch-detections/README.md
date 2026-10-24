@@ -13,7 +13,16 @@ línea JSON por evento con identificadores y campos planos. Ejemplo exclusivamen
 sintético:
 
 ```json
-{"integration":"qapaq-provider","qapaq_vendor":"sophos","qapaq_event_type":"threat_detected","qapaq_severity":"critical","qapaq_status":"active","qapaq_endpoint_id":"endpoint-lab-01","qapaq_user_id":"usuario@qapaq-lab.example","qapaq_source_record_id":"event-synthetic-001"}
+{
+  "integration": "qapaq-provider",
+  "qapaq_vendor": "sophos",
+  "qapaq_event_type": "threat_detected",
+  "qapaq_severity": "critical",
+  "qapaq_status": "active",
+  "qapaq_endpoint_id": "endpoint-lab-01",
+  "qapaq_user_id": "usuario@qapaq-lab.example",
+  "qapaq_source_record_id": "event-synthetic-001"
+}
 ```
 
 El adapter conserva el raw de proveedor fuera de este log, agrega `source_record_id`
