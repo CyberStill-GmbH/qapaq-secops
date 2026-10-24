@@ -45,11 +45,13 @@ valores desconocidos con defaults que eleven prioridad.
 
 ## Aplicación al iniciar Wazuh
 
-Instalar el archivo de reglas en `/var/ossec/etc/rules/`, referenciarlo desde el
-`<ruleset>` activo del Manager y ejecutar `/var/ossec/bin/wazuh-analysisd -t` antes
-de reiniciar. El despliegue Azure aún no tiene módulo/imagen de Wazuh; por tanto no
-hay hook de lanzamiento conectado y este paquete no se aplica a la infraestructura
-por sí mismo. No reiniciar un manager ajeno desde este repositorio.
+El siguiente bundle de release Azure incluye el catálogo y ambas reglas locales QAPAQ.
+Su instalador las copia de forma atómica en `/var/ossec/etc/rules/`, garantiza que el
+directorio está registrado en el `<ruleset>` activo, valida con
+`/var/ossec/bin/wazuh-analysisd -t` y reinicia el Manager con rollback si falla. Esto
+requiere construir y publicar un bundle nuevo y después instalarlo; el candidato Blob
+publicado el 23 de octubre todavía no contiene este cambio. No reiniciar un Manager
+ajeno desde CI.
 
 Las reglas proveedoras solo generarán alertas después de instalar en el Manager el
 adaptador local que escriba el contrato anterior. El archivo del catálogo es fuente

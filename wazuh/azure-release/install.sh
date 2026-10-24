@@ -137,6 +137,10 @@ python3 "$HERE/wazuh/provider-ingestion/configure.py" \
   --ossec-conf /var/ossec/etc/ossec.conf >/dev/null 2>&1 ||
   fail 'la configuración de ingesta Sophos/Cato falló; salida suprimida'
 
+python3 "$HERE/wazuh/launch-detections/install_detection_rules.py" \
+  --bundle-wazuh "$HERE/wazuh" --wazuh-root /var/ossec >/dev/null 2>&1 ||
+  fail 'las reglas QAPAQ de endpoint/proveedores no pasaron validación; se conservó el estado anterior'
+
 for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard qapaq-core-api qapaq-core-worker; do
   systemctl is-active --quiet "$service" || fail "servicio requerido no está activo: $service"
 done
@@ -163,4 +167,4 @@ curl --fail --silent --show-error --max-time 5 --cacert /etc/wazuh-indexer/certs
   -K "$work/indexer-admin.curl" https://127.0.0.1:9200/_cluster/health >/dev/null ||
   fail 'Wazuh Indexer no pasó la comprobación TLS de salud'
 
-info 'Wazuh QAPAQ, reglas M365 y qapaq-core instalados; integraciones de proveedor son opcionales y requieren smoke tests; edge/DNS, acceso/roles y Ankay siguen separados'
+info 'Wazuh QAPAQ, reglas M365/endpoint/proveedores y qapaq-core instalados; conectores de proveedor requieren aceptación real; edge/DNS, acceso/roles y Ankay siguen separados'

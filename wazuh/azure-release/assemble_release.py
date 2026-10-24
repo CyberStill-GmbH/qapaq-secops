@@ -204,6 +204,21 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
             copy_regular(provider_ingestion / "sophos" / "upstream" / name,
                          root / "wazuh" / "provider-ingestion" / "sophos" / "upstream" / name)
 
+        detection_sources = {
+            "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml":
+                pathlib.Path(args.repo_root) / "infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
+            "wazuh/endpoint/rules/qapaq_endpoint_rules.xml":
+                pathlib.Path(args.repo_root) / "infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+            "wazuh/launch-detections/catalog.json":
+                pathlib.Path(args.repo_root) / "docs/security/launch-detection-catalog-2026-10-20.json",
+            "wazuh/launch-detections/install_detection_rules.py":
+                pathlib.Path(args.repo_root) / "wazuh/azure-release/install_detection_rules.py",
+        }
+        for relative, source in detection_sources.items():
+            destination = root / relative
+            copy_regular(source, destination)
+            artifact_paths[f"detection:{relative}"] = destination.relative_to(root).as_posix()
+
         files = sha256_map(root)
         manifest = {
             "schemaVersion": 1,
@@ -218,6 +233,14 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 "qapaqCoreNode": NODE,
             },
             "optionalIntegrations": ["sophos-central-siem-api", "cato-events-feed"],
+            "detectionPack": {
+                "catalog": "wazuh/launch-detections/catalog.json",
+                "rules": [
+                    "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
+                    "wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+                ],
+                "activation": "rules-installed-provider-connectors-remain-opt-in",
+            },
             "qapaqDashboardPackage": dashboard_version,
             "qapaqCoreSourceCommit": qapaq_commit[:12],
             "debianPackages": debian_packages,
