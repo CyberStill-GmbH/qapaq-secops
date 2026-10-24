@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "1.0.0",
+  "profile": "qapaq-financial-demo-v1",
+  "engine": {"name":"Ankay Qapaq","upstream":"Shuffle","version":"2.3.0"},
+  "status": "spec-only-not-importable",
+  "executionBoundary": "QAPAQ adapters and case API; Ankay receives references and may not hold provider credentials",
+  "playbooks": [
+    {
+      "id":"qapaq.phishing-triage","version":"1.0.0","priority":"P0","sources":["m365","entra","sophos"],
+      "trigger":{"catalogDetection":"QPD-001","minimumEvidence":2,"allowlisted":true},
+      "input":{"required":["tenantRef","incidentRef","alertRefs","executionKey"],"prohibited":["mailBody","attachmentBytes","providerToken","rawUrlWithQuery"]},
+      "steps":["validate signed QAPAQ dispatch and expiry","deduplicate executionKey","read correlated M365/Entra/Sophos summaries through QAPAQ adapters","normalize URL as text without visiting it","attach evidence references and provenance to existing incident","submit notification intent through QAPAQ outbox"],
+      "failure":"mark partial/degraded and retain retryable reference; never treat missing provider response as clean",
+      "response":{"mode":"read-only","approval":"not-required-for-read-only","externalEffects":[]}
+    },
+    {
+      "id":"qapaq.identity-compromise-triage","version":"1.0.0","priority":"P0","sources":["entra","active_directory","cato"],
+      "trigger":{"catalogDetection":"QPD-002","minimumEvidence":2,"allowlisted":true},
+      "input":{"required":["tenantRef","incidentRef","identityRef","alertRefs","executionKey"],"prohibited":["password","accessToken","refreshToken"]},
+      "steps":["validate signed dispatch and identity scope","deduplicate executionKey","read Entra sign-in and AD event summaries via QAPAQ","read Cato site/session context via QAPAQ","build UTC timeline with source confidence and missing-data flags","attach analyst questions and evidence references"],
+      "failure":"mark source-specific gaps; do not infer benign status from an unavailable feed",
+      "response":{"mode":"read-only","approval":"not-required-for-read-only","externalEffects":[]}
+    },
+    {
+      "id":"qapaq.malware-network-triage","version":"1.0.0","priority":"P0","sources":["sophos","cato","wazuh"],
+      "trigger":{"catalogDetection":"QPD-003","minimumEvidence":2,"allowlisted":true},
+      "input":{"required":["tenantRef","incidentRef","endpointRef","alertRefs","executionKey"],"prohibited":["sampleBytes","providerToken","privateFileContent"]},
+      "steps":["validate endpoint and tenant references","deduplicate executionKey","read Sophos detection and remedy status","read matching Cato threat events and marker provenance","read Wazuh process/FIM context if available","summarize hash, destination, action and confidence without uploading samples","notify through QAPAQ outbox"],
+      "failure":"preserve evidence refs and mark partial; do not re-run cleanup or containment",
+      "response":{"mode":"read-only","approval":"not-required-for-read-only","externalEffects":[]}
+    },
+    {
+      "id":"qapaq.privilege-and-control-change-triage","version":"1.0.0","priority":"P0","sources":["entra","active_directory","sophos","wazuh"],
+      "trigger":{"catalogDetection":"QPD-004","minimumEvidence":1,"allowlisted":true},
+      "input":{"required":["tenantRef","incidentRef","actorRef","alertRefs","executionKey"],"prohibited":["directoryWriteToken","providerToken"]},
+      "steps":["validate actor/target references","deduplicate executionKey","read role/group change and approved change metadata","read Sophos/Wazuh protection state when trigger is control tampering","show owner, time, change request and evidence lineage","route to human analyst and QAPAQ approval queue if response requested"],
+      "failure":"flag unknown change approval and escalate to analyst; no automatic role revert",
+      "response":{"mode":"read-only","approval":"required-before-any-follow-up-action","externalEffects":[]}
+    },
+    {
+      "id":"qapaq.password-spray-triage","version":"1.0.0","priority":"P1","sources":["entra","active_directory","cato"],
+      "trigger":{"catalogDetection":"QPD-006","minimumEvidence":1,"allowlisted":true},
+      "input":{"required":["tenantRef","incidentRef","sourceRef","alertRefs","executionKey"],"prohibited":["password","authHeader","providerToken"]},
+      "steps":["validate source and tenant scope","deduplicate executionKey","read bounded Entra/AD failure and success summaries","enrich source network with Cato only if available","count distinct identities and successful follow-on logins","attach threshold, window and evidence to incident"],
+      "failure":"mark Cato context unavailable and continue with identity evidence; do not block source IP",
+      "response":{"mode":"read-only","approval":"not-required-for-read-only","externalEffects":[]}
+    },
+    {
+      "id":"qapaq.data-movement-triage","version":"1.0.0","priority":"P1","sources":["m365","cato"],
+      "trigger":{"catalogDetection":"QPD-010","minimumEvidence":2,"allowlisted":true},
+      "input":{"required":["tenantRef","incidentRef","identityRef","alertRefs","executionKey"],"prohibited":["mailBody","documentBytes","providerToken"]},
+      "steps":["validate signed dispatch and case access","deduplicate executionKey","read M365 share/download/export summaries","read Cato destination/volume summary","compare against approved role/site baseline","attach sensitivity and provenance; request human review"],
+      "failure":"do not label exfiltration without correlated evidence and baseline",
+      "response":{"mode":"read-only","approval":"required-before-any-containment","externalEffects":[]}
+    }
+  ],
+  "globalGuards":[
+    "all playbooks are read-only until separately approved action workflows are implemented",
+    "no API keys, OAuth tokens, passwords, raw mailbox body or attachments in Shuffle variables or exports",
+    "all events are untrusted input; validate schema, signature, timestamp, nonce, replay window, tenant and references",
+    "stable executionKey and durable QAPAQ audit/outbox; retries must be idempotent",
+    "source failure or missing telemetry yields degraded/unknown, never healthy or clean",
+    "no URL browsing, file upload, endpoint isolation, IOC block, session revocation, account disablement or policy mutation"
+  ]
+}

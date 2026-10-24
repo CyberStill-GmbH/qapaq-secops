@@ -1,0 +1,54 @@
+name: QAPAQ launch detection pack
+
+on:
+  pull_request:
+    paths:
+      - 'infra/wazuh/launch-detections/**'
+      - 'docs/security/launch-detection-catalog-2026-10-20.json'
+      - '.github/workflows/wazuh-launch-detections.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/wazuh/launch-detections/**'
+      - 'docs/security/launch-detection-catalog-2026-10-20.json'
+      - '.github/workflows/wazuh-launch-detections.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-launch-detections-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-logtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate 30-detection manifest and rule references
+        run: python3 infra/wazuh/launch-detections/validate_catalog.py
+      - name: Start isolated Wazuh Manager 4.14.8
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-launch-test
+          --ulimit nofile=458752:458752
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml:/var/ossec/etc/rules/qapaq_launch_provider_rules.xml:ro"
+          wazuh/wazuh-manager:4.14.8
+      - name: Start Manager daemons and run positive/negative fixtures
+        run: |
+          if ! docker exec qapaq-wazuh-launch-test /var/ossec/bin/wazuh-control start; then
+            echo 'Manager start returned a nonzero status; verify the required analysis daemon below.'
+          fi
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec qapaq-wazuh-launch-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          bash infra/wazuh/launch-detections/tests/run-logtest.sh qapaq-wazuh-launch-test
