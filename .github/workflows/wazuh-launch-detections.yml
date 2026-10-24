@@ -33,11 +33,12 @@ jobs:
         run: python3 infra/wazuh/launch-detections/validate_catalog.py
       - name: Start isolated Wazuh Manager 4.14.8
         run: docker run --detach --rm --name qapaq-wazuh-launch-test --ulimit nofile=458752:458752 wazuh/wazuh-manager:4.14.8
-      - name: Wait for Manager and run positive/negative fixtures
+      - name: Start Manager daemons and run positive/negative fixtures
         run: |
+          docker exec qapaq-wazuh-launch-test /var/ossec/bin/wazuh-control start
           ready=false
           for attempt in $(seq 1 60); do
-            if docker exec qapaq-wazuh-launch-test /var/ossec/bin/wazuh-analysisd -t >/dev/null 2>&1; then
+            if docker exec qapaq-wazuh-launch-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
               ready=true
               break
             fi
