@@ -32,7 +32,7 @@ jobs:
       - name: Validate 30-detection manifest and rule references
         run: python3 infra/wazuh/launch-detections/validate_catalog.py
       - name: Start isolated Wazuh Manager 4.14.8
-        run: docker run --detach --rm --name qapaq-wazuh-launch-test wazuh/wazuh-manager:4.14.8
+        run: docker run --detach --rm --name qapaq-wazuh-launch-test --ulimit nofile=458752:458752 wazuh/wazuh-manager:4.14.8
       - name: Wait for Manager and run positive/negative fixtures
         run: |
           ready=false

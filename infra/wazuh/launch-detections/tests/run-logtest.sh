@@ -7,9 +7,8 @@ output="$(mktemp)"
 trap 'rm -f "${output}"' EXIT
 
 docker cp "${here}/rules/qapaq_launch_provider_rules.xml" "${container}:/var/ossec/etc/rules/qapaq_launch_provider_rules.xml" >/dev/null
-docker cp "${here}/tests/provider-cases.jsonl" "${container}:/tmp/qapaq-provider-cases.jsonl" >/dev/null
 docker exec "${container}" /var/ossec/bin/wazuh-analysisd -t
-docker exec "${container}" sh -c '/var/ossec/bin/wazuh-logtest < /tmp/qapaq-provider-cases.jsonl' >"${output}" 2>&1
+docker exec --interactive "${container}" /var/ossec/bin/wazuh-logtest <"${here}/tests/provider-cases.jsonl" >"${output}" 2>&1
 
 python3 - "${output}" "${here}/tests/expected-rules.txt" <<'PY'
 import re
@@ -20,6 +19,7 @@ text = open(output_path, encoding="utf-8", errors="replace").read()
 blocks = text.split("**Phase 1: Completed pre-decoding.")[1:]
 expected = [line.strip() for line in open(expected_path, encoding="utf-8") if line.strip()]
 if len(blocks) != len(expected):
+    print(text)
     sys.exit(f"logtest procesó {len(blocks)} eventos; se esperaban {len(expected)}")
 
 failures = []
