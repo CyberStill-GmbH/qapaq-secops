@@ -116,6 +116,8 @@ module "egress_firewall" {
     "graph.microsoft.com",
     "login.microsoftonline.com",
     "packages.microsoft.com",
+    "*.logic.azure.com",
+    "*.api.powerplatform.com",
     "security.ubuntu.com",
     format("%s.virustotal.com", "api"),
     "acme-v02.api.letsencrypt.org",

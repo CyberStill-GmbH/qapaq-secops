@@ -180,7 +180,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s wazuh/azure-release/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s infra/wazuh/teams/tests -p 'test_*.py' -v
           python3 -m py_compile wazuh/azure-release/assemble_release.py wazuh/azure-release/verify_wazuh_credentials_tar.py
+          python3 -m py_compile infra/wazuh/teams/apply_teams_workflow.py
           bash -n wazuh/azure-release/install.sh
 
   entrypoints:

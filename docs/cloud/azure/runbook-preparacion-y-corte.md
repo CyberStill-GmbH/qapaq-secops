@@ -360,23 +360,22 @@ La ruta de notificaciones de QAPAQ (`modules/soar/src/teams-adapter.ts` y
 Microsoft documenta Workflows como receptor de webhook HTTP y la publicación de
 Adaptive Cards; los conectores Office 365 heredados están en retirada.
 
-Se preparó `infra/wazuh/teams/custom-qapaq-teams` como integración personalizada
-del **backend Wazuh Manager 4.x** y `ossec-teams-workflow.xml` como bloque de
-configuración. No es un cambio en `modules/soar` ni en el frontend. El adaptador
-rechaza el webhook heredado `IncomingWebhook`, requiere Teams Workflows y envía una
-tarjeta mínima para reglas de nivel 12 o superior. La URL debe llegar al host desde
-Key Vault mediante identidad administrada y quedar en un archivo protegido; nunca
-se incluye en Git, `ossec.conf`, argumentos visibles o logs.
+`infra/wazuh/teams/custom-qapaq-teams` es la integración personalizada del
+**backend Wazuh Manager 4.x**. El bundle Azure versiona ahora el adaptador, el
+actualizador idempotente de `ossec.conf` y su bloque de integración. Al incluir
+`qapaq-teams-workflow-url` en `siem_host.wazuh_secret_names`, el bootstrap obtiene
+la URL de Key Vault por identidad administrada, la conserva como archivo protegido,
+valida el formato de Teams Workflows y reinicia Manager solo después de
+`wazuh-analysisd -t`. Una validación o reinicio fallidos restauran el `ossec.conf`
+previo. La URL no se coloca en Git, `ossec.conf`, argv ni logs. La activación es
+opcional si esa referencia no se configura.
 
-La integración está preparada y probada con datos sintéticos, pero **no está
-instalada ni verificada contra un Manager real**: este checkout no contiene el
-Manager Wazuh modificado ni su paquete Azure, y no se ha identificado una instancia
-Wazuh administrada en la región AWS consultada. Antes del despliegue hay que
-integrar estos archivos al artefacto/bootstrap del Manager 4.x, confirmar una sola
-ruta de notificación para evitar duplicados, provisionar la URL desde Key Vault y
-validar entrega, timeout, rate limit y recuperación del integratord. El aviso de
-Teams no es ACK de un analista. Wazuh 5.x requiere un mecanismo distinto porque
-retiró `<integration>`/`integratord`.
+El código y sus fixtures pasan pruebas sintéticas, pero **no hay evidencia de
+instalación en una VM ni de entrega a un canal Teams real**. Tras publicar el bundle
+actualizado y configurar la referencia Key Vault, hay que validar entrega única con
+una alerta sintética de nivel 12+, supresión de nivel menor, timeout y recuperación
+de `integratord`. El aviso no es ACK de un analista. Wazuh 5.x requiere otro
+mecanismo porque retiró `<integration>`/`integratord`.
 
 Para la automatización SOAR se preparó `infra/wazuh/shuffle/`: Wazuh Manager 4.x
 publica al trigger moderno `/api/v1/webhooks/webhook_<id>` de Shuffle con TLS y

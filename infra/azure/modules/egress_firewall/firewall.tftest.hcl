@@ -32,6 +32,14 @@ run "standard_egress_policy_is_restrictive" {
 
   assert {
     condition = (
+      contains(azurerm_firewall_policy_rule_collection_group.egress.application_rule_collection[0].rule[0].destination_fqdns, "*.logic.azure.com") &&
+      contains(azurerm_firewall_policy_rule_collection_group.egress.application_rule_collection[0].rule[0].destination_fqdns, "*.api.powerplatform.com")
+    )
+    error_message = "The default allowlist must permit HTTPS egress to current Teams Workflows endpoints."
+  }
+
+  assert {
+    condition = (
       length(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection) == 1 &&
       length(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule) == 2 &&
       contains(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule[*].destination_ports[0], "443")

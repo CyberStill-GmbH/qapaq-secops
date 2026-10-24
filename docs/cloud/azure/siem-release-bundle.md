@@ -118,8 +118,9 @@ credentials, redis references or policy values.
 The installer runs the official assistant in all-in-one offline mode, verifies the exact package
 versions, validates the Office 365 configuration and client secret file materialized from Key Vault,
 installs the QAPAQ core through its atomic release installer, applies the M365 rules/configuration,
-then waits for active
-Manager, Indexer, Filebeat, Dashboard and QAPAQ core services, Indexer TLS health and `/health/ready`.
+then installs the optional Microsoft Teams Workflows adapter when its Key Vault name is present
+in `wazuh_secret_names`, and waits for active Manager, Indexer, Filebeat, Dashboard and QAPAQ core
+services, Indexer TLS health and `/health/ready`.
 Before the first package operation it also requires the official assistant's Ubuntu prerequisites
 (`curl`, `tar`, `gnupg`, `openssl`, `lsof`, `apt-transport-https`, `libcap2-bin`, `debconf`,
 `adduser`, `procps`) to already be installed. If any are missing it stops before installing Wazuh;
@@ -132,7 +133,11 @@ installer intentionally stops without purging packages or deleting state. Operat
 required before retry.
 
 This bundle does **not** install/validate the QAPAQ access and role overlay, `qapaq_ops`
-edge route, TLS/DNS, Ankay/Shuffle or Teams webhook. It installs M365 plus the versioned
+edge route, TLS/DNS or Ankay/Shuffle. Teams support is packaged, but actual activation requires
+`wazuh_secret_names.qapaq-teams-workflow-url` to reference the current Workflows URL in Key Vault;
+the bootstrap validates the URL, protects it as a file, updates Wazuh idempotently and rolls back
+`ossec.conf` if analysis validation or restart fails. This does not prove delivery to a real Teams
+channel. The bundle installs M365 plus the versioned
 QAPAQ detection rules, but does not prove Graph permissions or event ingestion/indexing. Sophos/Cato
 rules are present while their collectors remain disabled unless explicitly configured. The Azure installer
 passes a Key Vault-materialized `file:` secret source; the shared M365 script retains an AWS
