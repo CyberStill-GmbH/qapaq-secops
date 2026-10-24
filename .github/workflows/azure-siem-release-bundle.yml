@@ -71,7 +71,7 @@ jobs:
             wazuh/azure-release/install.sh wazuh/azure-release/verify_wazuh_credentials_tar.py \
             wazuh/azure-release/normalize_ubuntu_apt_sources.py \
             wazuh/core wazuh/dashboard wazuh/office365 \
-            wazuh/provider-ingestion \
+            wazuh/provider-ingestion ':!wazuh/provider-ingestion/tests/**' \
             infra/azure/modules/siem_host/bootstrap-siem.py || {
               echo 'Package, installer, or bootstrap sources changed after release_sha; rebuild the candidate on current main.' >&2
               exit 1
