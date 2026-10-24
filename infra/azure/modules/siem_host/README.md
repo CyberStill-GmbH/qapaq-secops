@@ -117,10 +117,13 @@ operador antes de un nuevo intento para preservar el fail-closed.
 
 El candidato incluye conectores Wazuh opcionales para Sophos Central SIEM API y Cato `eventsFeed`.
 Solo se activan con configuración no secreta, referencias Key Vault explícitas y egress aprobado;
-un bundle/plan exitoso no demuestra permisos o ingestión del tenant. Tampoco declara listo el overlay
-de acceso QAPAQ/roles, el edge TLS y rutas DNS, Ankay/Shuffle o Teams. M365 instala reglas/configuración
-durante bootstrap, pero eso no demuestra permisos Graph, ingestión ni indexación real. Esos contratos
-requieren pruebas de extremo a extremo antes de abrir ingreso o marcar el SOC operativo.
+un bundle/plan exitoso no demuestra permisos o ingestión del tenant. La notificación Wazuh a Teams
+Workflows se incluye si `wazuh_secret_names` referencia `qapaq-teams-workflow-url`; el bootstrap
+valida el endpoint, instala el adaptador y su configuración con rollback ante fallas locales. No
+declara listo el overlay de acceso QAPAQ/roles, edge TLS y DNS, Ankay/Shuffle ni demuestra que Teams
+aceptó una alerta real. M365 instala reglas/configuración durante bootstrap, pero eso no demuestra
+permisos Graph, ingestión ni indexación real. Esos contratos requieren pruebas de extremo a extremo
+antes de abrir ingreso o marcar el SOC operativo.
 
 La ejecución Azure entrega exclusivamente `file:` al adaptador M365; no ejecuta la ruta AWS ni llama
 AWS CLI/SSM/Secrets Manager. El script compartido conserva `aws-secretsmanager:` para despliegues AWS.
@@ -133,9 +136,12 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
 ## Límites de este módulo
 
 - El root crea Azure Firewall Standard y una policy con threat-intelligence deny, proxy DNS y
-  allowlist HTTPS explícita para Ubuntu, Entra, Graph y VirusTotal; Sophos/Cato agregan solo sus
-  destinos regionales al habilitar sus módulos. El firewall tiene costo fijo por hora y procesamiento;
+  allowlist HTTPS explícita para Ubuntu, Entra, Graph, Teams Workflows y VirusTotal; Sophos/Cato
+  agregan solo sus destinos regionales al habilitar sus módulos. El firewall tiene costo fijo por hora y procesamiento;
   revisar el costo del plan antes del apply.
+  Teams usa `*.logic.azure.com` y `*.api.powerplatform.com` porque los hosts los asigna el proveedor;
+  son reglas de aplicación solo HTTPS/443 y abarcan cualquier subdominio de esos sufijos. La app valida
+  el endpoint y rechaza otros hosts/puertos. Véase [Azure Firewall FQDN filtering](https://learn.microsoft.com/azure/firewall/firewall-faq#how-do-wildcards-work-in-target-urls-and-target-fqdns-in-application-rules).
 - Los dos CIDR de egress privado deben corresponder a las subnets dedicadas reales de Private
   Endpoints (Blob/Key Vault) y PostgreSQL. No uses el CIDR completo de la VNet como sustituto. No hay
   fallback a Internet directo cuando faltan o no responden esos servicios.
@@ -149,7 +155,7 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   enrolamiento a Internet.
 - No configura snapshots del Indexer en Azure Blob. El diseño vigente describe snapshots S3 y debe
   resolver compatibilidad/retención Azure antes de considerar cubierta la evidencia duradera.
-- No administra API Gateway/KrakenD, Ankay/Shuffle, Sophos, Cato, Teams, reglas M365 ni roles de
+- No administra API Gateway/KrakenD, Ankay/Shuffle, conectores Sophos/Cato, validación de entrega Teams, reglas M365 ni roles de
   usuarios QAPAQ. El bundle de instalación tampoco sustituye las pruebas de esos contratos.
 - El disco persistente de datos está protegido contra `terraform destroy`, pero no reemplaza
   backup/restauración comprobados. La VM conserva `prevent_destroy`; si se reconstruye deliberadamente,
