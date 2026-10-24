@@ -88,12 +88,13 @@ ejecutar workflows end-to-end en un host dedicado aislado.
 El Compose fijado de Shuffle v2.3.0 usa OpenSearch 3.2.0. QAPAQ conserva el contrato
 del servicio y su API, fija la imagen linux/amd64 oficial de OpenSearch 3.9.0 por
 digest inmutable y construye una imagen derivada sobre Amazon Linux 2023 con release
-fechado `2023.12.20261013`. La imagen derivada copia la distribución OpenSearch,
+fechado `2023.12.20261013`. Una etapa intermedia copia la distribución OpenSearch y
 reemplaza siete bibliotecas Java con versiones corregidas y checksum fijado en
 [`runtime/opensearch-dependencies.lock`](runtime/opensearch-dependencies.lock),
-y ejecuta el runtime sobre AL2023. Ambos digests, los parches de dependencias y la versión
-de OS y el Dockerfile derivado quedan en [`azure-components.lock.json`](azure-components.lock.json)
-y en el bundle de procedencia. El CI escanea la imagen derivada y debe arrancarla
+y copia solo el árbol corregido a la imagen final sobre AL2023. Los digests, los
+parches de dependencias, la versión de OS y el Dockerfile derivado quedan en
+[`azure-components.lock.json`](azure-components.lock.json) y en el bundle de procedencia.
+El CI escanea la imagen derivada y debe arrancarla
 con Security habilitado y comprobar su salud autenticada antes de permitir publicación.
 Shuffle v2.3.0 documenta OpenSearch como su base de datos y usa su API REST; la
 compatibilidad con 3.9.0 debe confirmarse con la inicialización real de índices y

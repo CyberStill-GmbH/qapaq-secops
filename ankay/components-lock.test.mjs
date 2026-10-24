@@ -112,7 +112,15 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   );
   assert.match(dockerfile, /FROM \$\{OPENSEARCH_BASE_IMAGE\} AS upstream/);
   assert.match(dockerfile, /FROM \$\{AMAZON_LINUX_IMAGE\}/);
+  assert.match(dockerfile, /FROM \$\{AMAZON_LINUX_IMAGE\} AS dependency-patcher/);
   assert.match(dockerfile, /COPY --from=upstream --chown=1000:1000 \/usr\/share\/opensearch\//);
+  assert.match(
+    dockerfile,
+    /COPY --from=dependency-patcher --chown=1000:1000 \/usr\/share\/opensearch\//,
+  );
+  assert.match(dockerfile, /COPY opensearch-dependencies\.lock/);
+  assert.match(dockerfile, /COPY patch-opensearch-dependencies\.sh/);
+  assert.doesNotMatch(dockerfile, /COPY --chown=0:0 patch-opensearch-dependencies/);
   assert.match(dockerfile, /rpm -q --qf '%\{VERSION\}' system-release/);
   assert.match(dockerfile, /USER 1000:1000/);
   assert.match(dockerfile, /patch-opensearch-dependencies/);

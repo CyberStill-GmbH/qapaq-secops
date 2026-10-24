@@ -2,6 +2,21 @@ ARG OPENSEARCH_BASE_IMAGE
 ARG AMAZON_LINUX_IMAGE
 FROM ${OPENSEARCH_BASE_IMAGE} AS upstream
 
+FROM ${AMAZON_LINUX_IMAGE} AS dependency-patcher
+
+USER 0
+RUN dnf install --assumeyes bash coreutils-single curl-minimal findutils \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+COPY --from=upstream --chown=1000:1000 /usr/share/opensearch/ /usr/share/opensearch/
+COPY opensearch-dependencies.lock /usr/share/opensearch/opensearch-dependencies.lock
+COPY patch-opensearch-dependencies.sh /usr/local/sbin/patch-opensearch-dependencies
+RUN bash /usr/local/sbin/patch-opensearch-dependencies \
+    /usr/share/opensearch /usr/share/opensearch/opensearch-dependencies.lock \
+    && rm -f /usr/share/opensearch/opensearch-dependencies.lock \
+    && rm -f /usr/local/sbin/patch-opensearch-dependencies
+
 FROM ${AMAZON_LINUX_IMAGE}
 
 ARG AMAZON_LINUX_RELEASE
@@ -15,13 +30,7 @@ RUN dnf --releasever="${AMAZON_LINUX_RELEASE}" upgrade --refresh --assumeyes \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
-COPY --from=upstream --chown=1000:1000 /usr/share/opensearch/ /usr/share/opensearch/
-COPY --chown=1000:1000 opensearch-dependencies.lock /usr/share/opensearch/opensearch-dependencies.lock
-COPY --chown=0:0 patch-opensearch-dependencies.sh /usr/local/sbin/patch-opensearch-dependencies
-RUN bash /usr/local/sbin/patch-opensearch-dependencies \
-    /usr/share/opensearch /usr/share/opensearch/opensearch-dependencies.lock \
-    && rm -f /usr/share/opensearch/opensearch-dependencies.lock \
-    && rm -f /usr/local/sbin/patch-opensearch-dependencies
+COPY --from=dependency-patcher --chown=1000:1000 /usr/share/opensearch/ /usr/share/opensearch/
 
 ENV OPENSEARCH_HOME=/usr/share/opensearch
 ENV JAVA_HOME=/usr/share/opensearch/jdk
