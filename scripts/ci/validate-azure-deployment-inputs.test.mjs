@@ -119,7 +119,10 @@ test('requires the Wazuh certificate/password archive before enabling host creat
   const missingInstallArchive = siemHost();
   delete missingInstallArchive.wazuh_secret_names['wazuh-install-files.tar.b64'];
   assert.throws(
-    () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(missingInstallArchive) })),
+    () =>
+      validateDeploymentInputs(
+        baseEnv({ TF_VAR_siem_host: JSON.stringify(missingInstallArchive) }),
+      ),
     /must map wazuh-install-files\.tar\.b64/u,
   );
 });
