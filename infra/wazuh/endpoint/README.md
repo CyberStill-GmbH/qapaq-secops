@@ -1,6 +1,6 @@
 # Detecciones endpoint QAPAQ sobre Wazuh
 
-**Estado: candidata; todavía no instalada en Manager ni observada en endpoints QAPAQ.**
+**Estado: candidata; quedará en el próximo bundle Azure, pero aún no está instalada en un Manager ni observada en endpoints QAPAQ.**
 
 Este paquete incorpora una adaptación acotada de la idea de SigmaHQ “Suspicious Outlook
 Child Process” (UUID `208748f7-881d-47ac-a29c-07ea84bf691d`) para Wazuh 4.14.x. Busca

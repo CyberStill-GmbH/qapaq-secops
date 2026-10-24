@@ -36,6 +36,14 @@ repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
 
+The next candidate assembled after the detection-pack change also contains the 30-case catalog,
+the QAPAQ provider rules, the Outlook/Sysmon endpoint rule and an idempotent installer. The
+installer registers `/var/ossec/etc/rules` with the Wazuh ruleset, validates `wazuh-analysisd`,
+and restarts the Manager with rollback if validation or restart fails. This does not enable
+Sophos/Cato collectors: those remain opt-in and need their Key Vault references, provider
+configuration, approved egress and real acceptance. The already published 2026-10-23 candidate
+predates that change and must not be used to claim the rules are installed.
+
 ### Latest published candidate evidence — 2026-10-23
 
 - Prerequisite build: [39883868793](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/39883868793)
@@ -123,9 +131,10 @@ pre-existing install and is only allowed on a clean host; if its first install f
 installer intentionally stops without purging packages or deleting state. Operator diagnosis is
 required before retry.
 
-This bundle does **not** currently install/validate the QAPAQ access and role overlay, `qapaq_ops`
-edge route, TLS/DNS, Ankay/Shuffle, Teams webhook, Sophos or Cato. It installs M365 rules and
-configuration, but does not prove Graph permissions or event ingestion/indexing. The Azure installer
+This bundle does **not** install/validate the QAPAQ access and role overlay, `qapaq_ops`
+edge route, TLS/DNS, Ankay/Shuffle or Teams webhook. It installs M365 plus the versioned
+QAPAQ detection rules, but does not prove Graph permissions or event ingestion/indexing. Sophos/Cato
+rules are present while their collectors remain disabled unless explicitly configured. The Azure installer
 passes a Key Vault-materialized `file:` secret source; the shared M365 script retains an AWS
 Secrets Manager branch for AWS deployments, which the Azure path does not invoke. The Dashboard
 package contains QAPAQ branding/plugin code, but without edge/auth configuration it is not an

@@ -34,7 +34,8 @@ class AssembleReleaseTests(unittest.TestCase):
         self.inputs["core"].write_bytes(b"fake archive input for contract assembly")
         self.inputs["installer"].write_text(
             'QAPAQ_O365_SECRET_SOURCE="file:$SECRETS/office365-client-secret"\n'
-            'QAPAQ_PROVIDER_INGESTION_JSON=optional\n', encoding="utf-8"
+            'QAPAQ_PROVIDER_INGESTION_JSON=optional\n'
+            'python3 "$HERE/wazuh/launch-detections/install_detection_rules.py"\n', encoding="utf-8"
         )
         (self.root / "output").mkdir()
         self.args = Namespace(
@@ -83,6 +84,12 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertIn("wazuh/office365/ossec-office365.xml.tmpl", manifest["files"])
         self.assertIn("wazuh/office365/rules/qapaq_office365_rules.xml", manifest["files"])
         self.assertIn("wazuh/provider-ingestion/cato/events_feed.py", manifest["files"])
+        self.assertIn("wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml", manifest["files"])
+        self.assertIn("wazuh/endpoint/rules/qapaq_endpoint_rules.xml", manifest["files"])
+        self.assertIn("wazuh/launch-detections/catalog.json", manifest["files"])
+        self.assertIn("wazuh/launch-detections/install_detection_rules.py", manifest["files"])
+        self.assertEqual(manifest["detectionPack"]["activation"], "rules-installed-provider-connectors-remain-opt-in")
+        self.assertIn("install_detection_rules.py", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("wazuh/provider-ingestion/sophos/upstream/LICENSE-2.0.txt", manifest["files"])
         self.assertIn("wazuh/provider-ingestion/sophos/UPSTREAM-SOURCE.json", manifest["files"])
         self.assertEqual(
