@@ -10,16 +10,19 @@ descriptors after proving the Jackson implementation classes are not bundled in 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import stat
 import tempfile
+import xml.etree.ElementTree as ET
 import zipfile
 
 
 JACKSON_ARTIFACTS = ("jackson-core", "jackson-databind")
 EXPECTED_VERSION = "2.22.2"
 PATCHED_VERSION = "2.22.3"
+OPEN_SAML_SHA256 = "2d0c1db9e284a36ec2c279c7b7cb1cdaaae9d64f55f60548a32a1babfddbd1ab"
 PATCHED_RUNTIME_CLASSES = {
     "jackson-core-2.22.3.jar": "com/fasterxml/jackson/core/JsonFactory.class",
     "jackson-databind-2.22.3.jar": "com/fasterxml/jackson/databind/ObjectMapper.class",
@@ -47,26 +50,63 @@ def _verify_all_entries(archive: zipfile.ZipFile) -> None:
                 pass
 
 
-def verify_patched_runtime(root: Path) -> set[str]:
+def verify_pinned_opensaml(jar_path: Path, expected_sha256: str = OPEN_SAML_SHA256) -> None:
+    actual_sha256 = hashlib.sha256(jar_path.read_bytes()).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise ValueError(f"Unexpected pinned OpenSAML aggregate SHA-256: {actual_sha256}")
+
+
+def _local_text(parent: ET.Element, name: str) -> str | None:
+    return next((child.text for child in parent if child.tag.rsplit("}", 1)[-1] == name), None)
+
+
+def _verify_patched_pom(content: bytes, artifact: str) -> None:
+    root = ET.fromstring(content)
+    project = {key: _local_text(root, key) for key in ("groupId", "artifactId", "version")}
+    parent = next((child for child in root if child.tag.rsplit("}", 1)[-1] == "parent"), None)
+    parent_version = _local_text(parent, "version") if parent is not None else None
+    expected = {"groupId": "com.fasterxml.jackson.core", "artifactId": artifact, "version": PATCHED_VERSION}
+    if project != expected or parent_version != PATCHED_VERSION:
+        raise ValueError(f"Patched Maven POM has an unexpected GAV or parent version: {artifact}")
+
+
+def verify_patched_runtime(root: Path) -> tuple[set[str], dict[str, bytes]]:
     jackson_class_basenames: set[str] = set()
+    patched_descriptors: dict[str, bytes] = {}
     for jar_name, required_class in PATCHED_RUNTIME_CLASSES.items():
         matches = list(root.rglob(jar_name))
         if not matches:
             raise ValueError(f"Patched runtime dependency is missing: {jar_name}")
         artifact = jar_name.removesuffix("-2.22.3.jar")
-        properties_name = f"META-INF/maven/com.fasterxml.jackson.core/{artifact}/pom.properties"
+        descriptor_names = _descriptor_names(artifact)
         for jar_path in matches:
             with zipfile.ZipFile(jar_path, "r") as archive:
+                archive_names = [entry.filename for entry in archive.infolist()]
+                for descriptor in descriptor_names:
+                    if archive_names.count(descriptor) != 1:
+                        raise ValueError(f"Expected exactly one patched metadata entry {descriptor} in {jar_path}")
+                    content = archive.read(descriptor)
+                    previous = patched_descriptors.get(descriptor)
+                    if previous is not None and previous != content:
+                        raise ValueError(f"Patched runtime metadata differs across copies: {descriptor}")
+                    patched_descriptors[descriptor] = content
+                properties_name = descriptor_names[0]
                 if properties_name not in archive.namelist():
                     raise ValueError(f"Patched runtime dependency has no Maven version: {jar_path}")
                 properties = archive.read(properties_name).decode("utf-8")
-                versions = [
-                    line.partition("=")[2]
+                property_map = dict(
+                    line.split("=", 1)
                     for line in properties.splitlines()
-                    if line.startswith("version=")
-                ]
-                if versions != [PATCHED_VERSION]:
-                    raise ValueError(f"Unexpected patched dependency version in {jar_path}: {versions}")
+                    if "=" in line
+                )
+                expected_properties = {
+                    "groupId": "com.fasterxml.jackson.core",
+                    "artifactId": artifact,
+                    "version": PATCHED_VERSION,
+                }
+                if any(property_map.get(key) != value for key, value in expected_properties.items()):
+                    raise ValueError(f"Unexpected patched dependency Maven coordinates in {jar_path}")
+                _verify_patched_pom(archive.read(descriptor_names[1]), artifact)
                 if required_class not in archive.namelist():
                     raise ValueError(f"Patched runtime dependency class is missing: {required_class}")
                 jackson_class_basenames.update(
@@ -75,10 +115,14 @@ def verify_patched_runtime(root: Path) -> set[str]:
                     if name.endswith(".class")
                     and Path(name).name not in {"module-info.class", "package-info.class"}
                 )
-    return jackson_class_basenames
+    return jackson_class_basenames, patched_descriptors
 
 
-def synchronize_descriptors(jar_path: Path, jackson_class_basenames: set[str]) -> int:
+def synchronize_descriptors(
+    jar_path: Path,
+    jackson_class_basenames: set[str],
+    patched_descriptors: dict[str, bytes],
+) -> int:
     with zipfile.ZipFile(jar_path, "r") as source:
         try:
             _verify_all_entries(source)
@@ -91,9 +135,12 @@ def synchronize_descriptors(jar_path: Path, jackson_class_basenames: set[str]) -
             for artifact in JACKSON_ARTIFACTS
             for descriptor in _descriptor_names(artifact)
         }
-        if not required.issubset(entries):
-            missing = sorted(required - entries)
-            raise ValueError(f"Expected pinned Jackson metadata is missing: {missing}")
+        entry_names = [entry.filename for entry in source.infolist()]
+        for descriptor in required:
+            if entry_names.count(descriptor) != 1:
+                raise ValueError(f"Expected exactly one pinned Jackson metadata entry {descriptor}")
+            if descriptor not in patched_descriptors:
+                raise ValueError(f"Patched runtime metadata is missing: {descriptor}")
 
         for artifact in JACKSON_ARTIFACTS:
             properties = f"META-INF/maven/com.fasterxml.jackson.core/{artifact}/pom.properties"
@@ -159,13 +206,13 @@ def synchronize_descriptors(jar_path: Path, jackson_class_basenames: set[str]) -
                 old_line = f"version={EXPECTED_VERSION}"
                 if text.splitlines().count(old_line) != 1:
                     raise ValueError(f"Expected one stale version in {descriptor}")
-                text = text.replace(old_line, f"version={PATCHED_VERSION}")
             else:
                 text = content.decode("utf-8")
                 if text.count(EXPECTED_VERSION) != 3:
                     raise ValueError(f"Expected parent, project, and SCM versions in {descriptor}")
-                text = text.replace(EXPECTED_VERSION, PATCHED_VERSION)
-            updated_contents[descriptor] = text.encode("utf-8")
+            # Copy the exact Maven descriptors from the checksum-pinned patched
+            # runtime jar; do not synthesize a POM or rewrite a version heuristically.
+            updated_contents[descriptor] = patched_descriptors[descriptor]
         retained_entries = [
             (entry, updated_contents.get(entry.filename, source.read(entry)))
             for entry in source.infolist()
@@ -205,8 +252,9 @@ def main() -> None:
     jars = list(args.root.rglob("opensaml-3.9.0.0-all.jar"))
     if len(jars) != 1:
         raise SystemExit(f"Expected exactly one pinned OpenSAML aggregate jar; found {len(jars)}")
-    jackson_class_basenames = verify_patched_runtime(args.root)
-    updated = synchronize_descriptors(jars[0], jackson_class_basenames)
+    verify_pinned_opensaml(jars[0])
+    jackson_class_basenames, patched_descriptors = verify_patched_runtime(args.root)
+    updated = synchronize_descriptors(jars[0], jackson_class_basenames, patched_descriptors)
     print(
         f"Updated {updated} Jackson Maven metadata entries from 2.22.2 to 2.22.3; "
         "verified patched runtime jars and no Jackson implementation classes bundled in OpenSAML."

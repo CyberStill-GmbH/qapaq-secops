@@ -108,7 +108,10 @@ comprueba clases Jackson canónicas, multi-release y reubicadas, y aborta ante J
 o digests de manifiesto. Mantiene las referencias de API que OpenSAML usa hacia el runtime externo.
 Tres colisiones de nombre verificadas en este JAR upstream (`Version`, `ReferenceType` y
 `ContentReference`, bajo `org/opensaml`) se excluyen del cotejo por nombre simple; no se excluyen
-paquetes Jackson ni otras clases con nombres coincidentes.
+paquetes Jackson ni otras clases con nombres coincidentes. El helper exige el SHA-256 exacto del
+OpenSAML fijado (`2d0c1db9e284a36ec2c279c7b7cb1cdaaae9d64f55f60548a32a1babfddbd1ab`), rechaza
+descriptores Maven duplicados y copia los cuatro POM/properties directamente desde los JAR
+2.22.3 verificados, validando sus coordenadas Maven.
 Cualquier versión o estructura inesperada detiene el build. La corrección solo se considera válida
 cuando el escaneo HIGH/CRITICAL del artefacto terminado pasa en CI; no se omite CVE ni se modifica
 la lógica de OpenSearch Security.

@@ -131,15 +131,25 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   assert.match(dockerfile, /python3/);
   assert.match(dockerfile, /COPY prune_opensearch_shadow_metadata\.py/);
   assert.match(dependencyPatcher, /prune_opensearch_shadow_metadata\.py/);
-  assert.match(shadowMetadataPatcher, /Refusing to synchronize metadata because Jackson implementation classes are present/);
+  assert.match(
+    shadowMetadataPatcher,
+    /Refusing to synchronize metadata because Jackson implementation classes are present/,
+  );
   assert.match(shadowMetadataPatcher, /EXPECTED_VERSION = "2\.22\.2"/);
   assert.match(shadowMetadataPatcher, /PATCHED_VERSION = "2\.22\.3"/);
+  assert.match(
+    shadowMetadataPatcher,
+    /OPEN_SAML_SHA256 = "2d0c1db9e284a36ec2c279c7b7cb1cdaaae9d64f55f60548a32a1babfddbd1ab"/,
+  );
+  assert.match(shadowMetadataPatcher, /_verify_patched_pom/);
   assert.match(shadowMetadataPatcher, /verify_patched_runtime\(args\.root\)/);
   assert.match(shadowMetadataPatcher, /os\.replace\(temporary_path, jar_path\)/);
   assert.match(shadowMetadataTests, /test_refuses_canonical_and_multi_release_jackson_classes/);
   assert.match(shadowMetadataTests, /test_preserves_references_to_external_jackson_runtime/);
   assert.match(shadowMetadataTests, /test_allows_reviewed_opensaml_class_name_collisions/);
   assert.match(shadowMetadataTests, /test_refuses_nested_archive/);
+  assert.match(shadowMetadataTests, /test_refuses_duplicate_maven_descriptor_entries/);
+  assert.match(shadowMetadataTests, /test_verifies_pinned_opensaml_checksum/);
   assert.match(shadowMetadataTests, /test_refuses_signed_archive_members_and_manifest_digests/);
   assert.match(shadowMetadataTests, /test_refuses_unexpected_descriptor_version/);
   assert.match(shadowMetadataTests, /test_preserves_duplicate_license_entries/);
