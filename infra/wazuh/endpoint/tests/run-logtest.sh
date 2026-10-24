@@ -29,6 +29,7 @@ for index, (block, wanted) in enumerate(zip(blocks, expected), start=1):
     if fired != should_fire:
         failures += 1
         print(f"caso {index:02d}: esperado {wanted}, detección={'101100' if fired else 'ausente'}")
+        print(block)
 print(f"{len(expected) - failures}/{len(expected)} casos correctos")
 sys.exit(1 if failures else 0)
 PY
