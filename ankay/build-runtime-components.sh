@@ -163,6 +163,8 @@ cp "$work_dir/shuffle/functions/onprem/worker/worker_image_test.go" "$work_dir/s
 cp -a "$shared_overlay" "$work_dir/source/shuffle/functions/onprem/worker/moby-shuffle-shared"
 cp "$root/ankay/runtime/Dockerfile.backend" "$root/ankay/runtime/Dockerfile.worker" \
   "$root/ankay/runtime/Dockerfile.opensearch" "$work_dir/source/"
+cp "$root/ankay/runtime/opensearch-dependencies.lock" \
+  "$root/ankay/runtime/patch-opensearch-dependencies.sh" "$work_dir/source/"
 cp "$root/ankay/build-runtime-components.sh" "$root/ankay/verify-opensearch-runtime.sh" \
   "$work_dir/source/"
 tar -czf "$out_dir/shuffle-corresponding-source.tar.gz" -C "$work_dir/source" .

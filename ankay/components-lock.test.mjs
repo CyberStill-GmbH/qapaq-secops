@@ -83,6 +83,14 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
     new URL('./verify-opensearch-runtime.sh', import.meta.url),
     'utf8',
   );
+  const dependencyPatcher = readFileSync(
+    new URL('./runtime/patch-opensearch-dependencies.sh', import.meta.url),
+    'utf8',
+  );
+  const dependencyLock = readFileSync(
+    new URL('./runtime/opensearch-dependencies.lock', import.meta.url),
+    'utf8',
+  );
   assert.match(
     buildScript,
     /sources\.opensearch\.repository \+ "@" \+ \.sources\.opensearch\.amd64Digest/,
@@ -107,6 +115,31 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   assert.match(dockerfile, /COPY --from=upstream --chown=1000:1000 \/usr\/share\/opensearch\//);
   assert.match(dockerfile, /rpm -q --qf '%\{VERSION\}' system-release/);
   assert.match(dockerfile, /USER 1000:1000/);
+  assert.match(dockerfile, /patch-opensearch-dependencies/);
+  assert.match(dependencyPatcher, /sha256sum --check --status/);
+  assert.match(dependencyPatcher, /https:\/\/repo\.maven\.apache\.org\/maven2/);
+  const dependencyRows = dependencyLock
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('|'));
+  assert.deepEqual(
+    dependencyRows.map(([source, replacement]) => [source, replacement]),
+    [
+      ['lz4-java-1.11.2.jar', 'lz4-java-1.11.4.jar'],
+      ['jackson-core-2.22.2.jar', 'jackson-core-2.22.3.jar'],
+      ['jackson-databind-2.22.2.jar', 'jackson-databind-2.22.3.jar'],
+      ['jline-builtins-3.21.0.jar', 'jline-builtins-3.30.15.jar'],
+      ['jsoup-1.23.1.jar', 'jsoup-1.23.2.jar'],
+      ['jackson-core-3.2.2.jar', 'jackson-core-3.2.3.jar'],
+      ['jackson-databind-3.2.2.jar', 'jackson-databind-3.2.3.jar'],
+    ],
+  );
+  for (const [, , url, checksum] of dependencyRows) {
+    assert.match(url, /^https:\/\/repo\.maven\.apache\.org\/maven2\//);
+    assert.match(checksum, /^[0-9a-f]{64}$/);
+  }
+  assert.match(buildScript, /opensearch-dependencies\.lock/);
+  assert.match(buildScript, /patch-opensearch-dependencies\.sh/);
   assert.doesNotMatch(workflow, /opensearchproject\/opensearch@sha256:[0-9a-f]{64}/);
 });
 
