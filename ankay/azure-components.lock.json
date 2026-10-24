@@ -47,9 +47,9 @@
     },
     "opensearch": {
       "repository": "docker.io/opensearchproject/opensearch",
-      "tag": "2.19.7",
-      "indexDigest": "sha256:1f81bb6a552637d6f551baeb8d8fad5ed969a0577374e76af14d1131ab750cd9",
-      "amd64Digest": "sha256:7a1c2750965e0e29c71336f220666ec01c9c816050438b680bb7aedd6cabc377",
+      "tag": "3.9.0",
+      "indexDigest": "sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c",
+      "amd64Digest": "sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84",
       "license": "Apache-2.0",
       "status": "pinned"
     }
@@ -77,7 +77,7 @@
     "frontend": "build-from-pinned-shuffle-source",
     "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
     "worker": "build-from-pinned-shuffle-source-with-moby-v29-overlay",
-    "opensearch": "pinned-opensearch-2.19.7-rebased-onto-deterministic-al2023",
+    "opensearch": "pinned-opensearch-3.9.0-rebased-onto-deterministic-al2023",
     "orborus": "blocked-license-review",
     "shuffle-security": "blocked-license-and-compatibility-review"
   },

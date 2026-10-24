@@ -37,14 +37,14 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   for (const image of Object.values(lock.buildBases)) assert.match(image, /@sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.indexDigest, /^sha256:[0-9a-f]{64}$/);
   assert.match(lock.sources.opensearch.amd64Digest, /^sha256:[0-9a-f]{64}$/);
-  assert.equal(lock.sources.opensearch.tag, '2.19.7');
+  assert.equal(lock.sources.opensearch.tag, '3.9.0');
   assert.equal(
     lock.sources.opensearch.indexDigest,
-    'sha256:1f81bb6a552637d6f551baeb8d8fad5ed969a0577374e76af14d1131ab750cd9',
+    'sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c',
   );
   assert.equal(
     lock.sources.opensearch.amd64Digest,
-    'sha256:7a1c2750965e0e29c71336f220666ec01c9c816050438b680bb7aedd6cabc377',
+    'sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84',
   );
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
   assert.equal(
