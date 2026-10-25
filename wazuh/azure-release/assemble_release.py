@@ -204,6 +204,10 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
             copy_regular(provider_ingestion / "sophos" / "upstream" / name,
                          root / "wazuh" / "provider-ingestion" / "sophos" / "upstream" / name)
 
+        teams = pathlib.Path(args.repo_root) / "infra" / "wazuh" / "teams"
+        for name in ("custom-qapaq-teams", "apply_teams_workflow.py", "ossec-teams-workflow.xml"):
+            copy_regular(teams / name, root / "wazuh" / "teams" / name)
+
         detection_sources = {
             "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml":
                 pathlib.Path(args.repo_root) / "infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
@@ -232,7 +236,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 "openSearchDashboards": OSD,
                 "qapaqCoreNode": NODE,
             },
-            "optionalIntegrations": ["sophos-central-siem-api", "cato-events-feed"],
+            "optionalIntegrations": ["sophos-central-siem-api", "cato-events-feed", "microsoft-teams-workflows"],
             "detectionPack": {
                 "catalog": "wazuh/launch-detections/catalog.json",
                 "rules": [

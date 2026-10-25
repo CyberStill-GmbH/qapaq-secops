@@ -137,6 +137,21 @@ python3 "$HERE/wazuh/provider-ingestion/configure.py" \
   --ossec-conf /var/ossec/etc/ossec.conf >/dev/null 2>&1 ||
   fail 'la configuración de ingesta Sophos/Cato falló; salida suprimida'
 
+# Teams uses the current Workflows endpoint only when the URL was explicitly
+# referenced from Key Vault. The signed URL remains a protected file, never argv,
+# ossec.conf or logs. The installer backs up and validates the Wazuh config.
+teams_workflow_secret="$SECRETS/qapaq-teams-workflow-url"
+if [[ -s "$teams_workflow_secret" && ! -L "$teams_workflow_secret" ]]; then
+  python3 "$HERE/wazuh/teams/apply_teams_workflow.py" \
+    --wazuh-root /var/ossec \
+    --secret-source "$teams_workflow_secret" \
+    --adapter "$HERE/wazuh/teams/custom-qapaq-teams" \
+    --integration-template "$HERE/wazuh/teams/ossec-teams-workflow.xml" \
+    >/dev/null 2>&1 || fail 'la integración Teams Workflows no pasó validación; salida suprimida'
+else
+  info 'Teams Workflows omitido: no se configuró la referencia Key Vault opcional'
+fi
+
 python3 "$HERE/wazuh/launch-detections/install_detection_rules.py" \
   --bundle-wazuh "$HERE/wazuh" --wazuh-root /var/ossec >/dev/null 2>&1 ||
   fail 'las reglas QAPAQ de endpoint/proveedores no pasaron validación; se conservó el estado anterior'

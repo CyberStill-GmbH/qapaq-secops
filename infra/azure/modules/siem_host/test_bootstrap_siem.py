@@ -131,6 +131,26 @@ class ProviderIngestionValidationTests(unittest.TestCase):
                         BOOTSTRAP.load_config()
             self.assertIn("wazuh-install-files.tar.b64", captured_output.getvalue())
 
+    def test_materializes_optional_teams_reference_only_as_root_only_file(self) -> None:
+        config = self._base_config()
+        config["wazuh_secret_names"]["qapaq-teams-workflow-url"] = "teams-workflow"
+        expected_url = "https://prod-01.westus.logic.azure.com/workflows/synthetic?sig=not-real"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            with patch.object(BOOTSTRAP, "WAZUH_SECRET_DIR", root / "secrets"):
+                with patch.object(BOOTSTRAP, "CORE_ENV_PATH", root / "core" / "core.env"):
+                    with patch.object(BOOTSTRAP, "get_token", return_value="synthetic-token"):
+                        with patch.object(BOOTSTRAP, "key_vault_get", return_value=expected_url):
+                            with patch.object(BOOTSTRAP.pwd, "getpwnam", return_value=SimpleNamespace(pw_gid=1000), create=True):
+                                with patch.object(BOOTSTRAP.os, "chown", create=True):
+                                    with patch.object(BOOTSTRAP.os, "O_NOFOLLOW", 0, create=True):
+                                        BOOTSTRAP.materialize_secrets(config)
+
+            secret_file = root / "secrets" / "qapaq-teams-workflow-url"
+            self.assertEqual(secret_file.read_text(encoding="utf-8"), expected_url)
+            if BOOTSTRAP.os.name != "nt":
+                self.assertEqual(secret_file.stat().st_mode & 0o777, 0o600)
+
 
 class InstallerIdempotencyTests(unittest.TestCase):
     def test_same_recorded_release_skips_the_one_shot_installer(self) -> None:
