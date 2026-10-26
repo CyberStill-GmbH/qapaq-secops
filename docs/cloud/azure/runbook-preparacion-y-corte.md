@@ -526,3 +526,34 @@ Azure; su CI debe repetirse tras actualizar la rama.
   posterior y debe verificarse con `remaining = 0` antes de declarar completa la concesión.
 - La existencia del código o sus pruebas no demuestra que permisos estén configurados, que una
   migración se haya ejecutado o que la función esté desplegada.
+
+## Evidencia de preparación de releases — 2026-10-26
+
+- El plan Terraform de `main` [#40349847512](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40349847512)
+  no desplegó el runtime: terminó con cero cambios y `siem_host=null`, `ankay_host=null`,
+  `enable_runtime=false`, `container_images={}` y `key_vault_secret_ids={}`. El job de apply
+  quedó omitido. Esta evidencia reemplaza cualquier interpretación de un plan verde como SOC
+  levantado.
+- El bundle offline Wazuh/QAPAQ se ensambló en [#40162674125](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40162674125)
+  y se publicó al contenedor privado en [#40163193200](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40163193200).
+  SHA-256 del archivo: `be6ea39110b274079cac6b11748cded83be17a5aed90f1381e0212d13570e121`,
+  tamaño 6,959,262,870 bytes. Es un artefacto publicable/instalable, no una instalación ni
+  validación de servicios en una VM.
+- La imagen de Ankay/Shuffle publicada por el workflow [#40091494375](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40091494375)
+  lleva digest `sha256:6bfaa09fe4fcd2a7e86801b921eae0775c85116204d61d257faeab18a1494551`.
+  El plan actual no la referencia y no hay VM/runtime de Ankay desplegado. No declarar playbooks
+  ni acceso desde el Dashboard operativo a partir de la publicación de la imagen.
+- La inspección de metadatos de Key Vault por [#40366129776](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40366129776)
+  encontró únicamente `qapaq-entra-client-secret` habilitado con fecha de expiración no configurada.
+  No leyó valores. No encontró referencias de los secretos de instalación Wazuh, M365, Sophos,
+  Cato o Teams requeridos por el bundle. El workflow existente de seed solo cubre el secreto Entra;
+  no hay evidencia de un seed Azure para el resto.
+- Se revisaron los nombres de variables de los `.env.local` disponibles sin imprimir valores.
+  Están los secretos/token de Sophos, Cato, VirusTotal, Claude y Active Directory, pero no se
+  encontraron las credenciales identificadoras/configuración de Sophos (Client ID, Tenant ID,
+  región), Cato Account ID ni `TEAMS_WORKFLOW_URL`. Los secretos existentes en un archivo local
+  no se han copiado a Key Vault ni se consideran configuración Azure lista.
+- Resultado actual: builds y publicación privada de artefactos comprobados; runtime, instalación,
+  datos M365, conectores Sophos/Cato, notificaciones Teams, agentes y playbooks Ankay pendientes
+  de configuración, despliegue y aceptación real. DNS y Terraform no se modificaron durante esta
+  revisión.
