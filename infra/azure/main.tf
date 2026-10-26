@@ -1,13 +1,15 @@
 locals {
-  name_base = substr(replace(lower("${var.project}-${var.environment}"), "-", ""), 0, 18)
-  suffix    = substr(sha256("${var.subscription_id}:${var.project}:${var.environment}"), 0, 8)
+  name_base           = substr(replace(lower("${var.project}-${var.environment}"), "-", ""), 0, 18)
+  suffix              = substr(sha256("${var.subscription_id}:${var.project}:${var.environment}"), 0, 8)
+  compact_environment = replace(lower(var.environment), "-", "")
+  compact_project     = replace(lower(var.project), "-", "")
   storage_name = substr(
-    "${substr(replace(lower(var.project), "-", ""), 0, 12)}${var.environment}${local.suffix}",
+    "${substr(local.compact_project, 0, min(12, 24 - length(local.compact_environment) - length(local.suffix)))}${local.compact_environment}${local.suffix}",
     0,
     24,
   )
   release_storage_name = substr(
-    "${substr(replace(lower(var.project), "-", ""), 0, min(8, length(replace(lower(var.project), "-", ""))))}${var.environment}rel${local.suffix}",
+    "${substr(local.compact_project, 0, min(8, 24 - length(local.compact_environment) - length("rel") - length(local.suffix)))}${local.compact_environment}rel${local.suffix}",
     0,
     24,
   )
