@@ -8,11 +8,9 @@ trap 'rm -f "${output}"' EXIT
 
 docker cp "${here}/rules/qapaq_active_directory_rules.xml" \
   "${container}:/var/ossec/etc/rules/qapaq_active_directory_rules.xml" >/dev/null
-docker cp "${here}/tests/ad-cases.jsonl" \
-  "${container}:/tmp/qapaq-ad-cases.jsonl" >/dev/null
 docker exec "${container}" /var/ossec/bin/wazuh-analysisd -t
-docker exec --interactive "${container}" sh -c \
-  '/var/ossec/bin/wazuh-logtest < /tmp/qapaq-ad-cases.jsonl' >"${output}" 2>&1
+docker exec --interactive "${container}" /var/ossec/bin/wazuh-logtest \
+  <"${here}/tests/ad-cases.jsonl" >"${output}" 2>&1
 
 python3 - "${output}" "${here}/tests/expected-rules.txt" <<'PY'
 import re
