@@ -10,16 +10,16 @@ de identidad.
 `rules/qapaq_active_directory_rules.xml` reserva IDs `101300–101307` y depende de
 los decoders/reglas Windows de Wazuh 4.14.x:
 
-| ID QAPAQ | Señal | Requisito/precaución |
-|---|---|---|
-| 101300 | Miembro añadido a grupo privilegiado conocido | Eventos 4728/4732/4756; SID integrado para evitar nombres localizados. No cubre grupos delegados propios: añadir sus SIDs con revisión del dueño del dominio. |
-| 101301 | Cambio a política de auditoría | Evento 4719; regla base 60112. |
-| 101302 | Limpieza de Security log | Evento 1102; preservar evidencia del host antes de remediar. |
-| 101303 | Cambio a AdminSDHolder o GPO | Eventos 5136/5137/5141; requiere Directory Service Changes y SACLs. |
-| 101304 | Ticket Kerberos de servicio con RC4 | Evento 4769; hunting nivel 5. RC4 legado no es por sí solo Kerberoasting. |
-| 101305 | TGT emitido sin preautenticación | Evento 4768; revisar cuentas legacy aprobadas y otros campos antes de escalar. |
-| 101306 | Acceso de replicación de directorio candidato a DCSync | Evento 4662 y GUIDs de replicación; nivel moderado porque la replicación legítima genera la misma señal. |
-| 101307 | Fallo de preautenticación Kerberos | Evento 4771; requiere correlación por identidad/origen/ventana para clasificar spray. |
+| ID QAPAQ | Señal                                                  | Requisito/precaución                                                                                                                                          |
+| -------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 101300   | Miembro añadido a grupo privilegiado conocido          | Eventos 4728/4732/4756; SID integrado para evitar nombres localizados. No cubre grupos delegados propios: añadir sus SIDs con revisión del dueño del dominio. |
+| 101301   | Cambio a política de auditoría                         | Evento 4719; regla base 60112.                                                                                                                                |
+| 101302   | Limpieza de Security log                               | Evento 1102; preservar evidencia del host antes de remediar.                                                                                                  |
+| 101303   | Cambio a AdminSDHolder o GPO                           | Eventos 5136/5137/5141; requiere Directory Service Changes y SACLs.                                                                                           |
+| 101304   | Ticket Kerberos de servicio con RC4                    | Evento 4769; hunting nivel 5. RC4 legado no es por sí solo Kerberoasting.                                                                                     |
+| 101305   | TGT emitido sin preautenticación                       | Evento 4768; revisar cuentas legacy aprobadas y otros campos antes de escalar.                                                                                |
+| 101306   | Acceso de replicación de directorio candidato a DCSync | Evento 4662 y GUIDs de replicación; nivel moderado porque la replicación legítima genera la misma señal.                                                      |
+| 101307   | Fallo de preautenticación Kerberos                     | Evento 4771; requiere correlación por identidad/origen/ventana para clasificar spray.                                                                         |
 
 Además, se mantienen las reglas base Wazuh para cuentas creadas/habilitadas (4720,
 4722; 60109), cambios de cuenta y grupos (60110–60114), bloqueo (4740; 60115),
