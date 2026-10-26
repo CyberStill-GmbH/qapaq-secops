@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+readonly COMPOSE_FILE="/etc/ankay/compose.yaml"
+readonly COMPOSE_SHA_FILE="/etc/ankay/compose.sha256"
+readonly ACTIVE_COMPOSE="/mnt/ankay/compose.last-known-good.yaml"
+readonly ACTIVE_COMPOSE_SHA="/mnt/ankay/compose.last-known-good.sha256"
+readonly RUNTIME_ENV="/etc/ankay/runtime.env"
+readonly IDENTITY_CLIENT_ID="${identity_client_id}"
+readonly KEY_VAULT_URI="${key_vault_uri}"
+readonly SECRET_MAPPING='${secret_mapping_json}'
+readonly EXPECTED_COMPOSE_SHA256="${compose_sha256}"
+readonly HEALTH_TIMEOUT_SECONDS="${health_timeout_seconds}"
+
+log() { printf 'ankay-compose: %s\n' "$1" >&2; }
+compose() { docker compose --project-name ankay --env-file "$RUNTIME_ENV" --file "$COMPOSE_FILE" "$@"; }
+
+restore_last_known_good() {
+  local failure_code=$?
+  trap - ERR
+  set +e
+  if [[ -s "$ACTIVE_COMPOSE" ]]; then
+    log 'candidate failed; restoring the last healthy Compose manifest'
+    install -o root -g root -m 0600 "$ACTIVE_COMPOSE" "$COMPOSE_FILE"
+    install -o root -g root -m 0600 "$ACTIVE_COMPOSE_SHA" "$COMPOSE_SHA_FILE"
+    if [[ -s "$ACTIVE_COMPOSE_SHA" ]] && /usr/local/sbin/ankay-fetch-runtime-secrets \
+      --key-vault-uri "$KEY_VAULT_URI" \
+      --identity-client-id "$IDENTITY_CLIENT_ID" \
+      --mapping-json "$SECRET_MAPPING" \
+      --output "$RUNTIME_ENV" && /usr/local/sbin/ankay-registry-login; then
+      compose config --quiet && compose up --detach --wait --wait-timeout "$HEALTH_TIMEOUT_SECONDS" || true
+    fi
+  else
+    log 'first start failed; stopping partial containers while retaining all volumes and data'
+    docker compose --project-name ankay --file "$COMPOSE_FILE" down --timeout 30 >/dev/null 2>&1 || true
+  fi
+  exit "$failure_code"
+}
+trap restore_last_known_good ERR
+
+[[ -s "$COMPOSE_FILE" ]]
+printf '%s  %s\n' "$EXPECTED_COMPOSE_SHA256" "$COMPOSE_FILE" | sha256sum --check --status
+/usr/local/sbin/ankay-fetch-runtime-secrets \
+  --key-vault-uri "$KEY_VAULT_URI" \
+  --identity-client-id "$IDENTITY_CLIENT_ID" \
+  --mapping-json "$SECRET_MAPPING" \
+  --output "$RUNTIME_ENV"
+compose config --quiet
+/usr/local/sbin/ankay-registry-login
+compose pull
+compose up --detach --wait --wait-timeout "$HEALTH_TIMEOUT_SECONDS"
+
+install -o root -g root -m 0600 "$COMPOSE_FILE" "$ACTIVE_COMPOSE"
+printf '%s\n' "$EXPECTED_COMPOSE_SHA256" > "$${ACTIVE_COMPOSE_SHA}.tmp"
+chmod 0600 "$${ACTIVE_COMPOSE_SHA}.tmp"
+mv -f -- "$${ACTIVE_COMPOSE_SHA}.tmp" "$ACTIVE_COMPOSE_SHA"
+log 'all Compose services report healthy'

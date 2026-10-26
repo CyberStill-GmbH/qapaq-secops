@@ -146,6 +146,61 @@ variable "container_images" {
   }
 }
 
+variable "key_vault_id" {
+  description = "Resource ID del Key Vault existente; la identidad recibe lectura solo en secretos explícitamente nombrados."
+  type        = string
+}
+
+variable "key_vault_uri" {
+  description = "URI HTTPS del Key Vault con Private Endpoint/DNS alcanzable desde la subnet dedicada."
+  type        = string
+  validation {
+    condition     = can(regex("^https://[A-Za-z0-9-]+\\.vault\\.azure\\.net/?$", var.key_vault_uri))
+    error_message = "key_vault_uri debe ser el endpoint HTTPS oficial del Key Vault."
+  }
+}
+
+variable "key_vault_private_ip" {
+  description = "IP del Private Endpoint del Key Vault; autoriza solo HTTPS desde Ankay para cargar secretos runtime."
+  type        = string
+  validation {
+    condition     = can(cidrhost("${var.key_vault_private_ip}/32", 0))
+    error_message = "key_vault_private_ip debe ser la IPv4 privada del endpoint Key Vault."
+  }
+}
+
+variable "secret_names" {
+  description = "Mapa de variables de entorno a nombres preexistentes de Key Vault. Solo nombres; nunca valores."
+  type        = map(string)
+  validation {
+    condition = length(var.secret_names) >= 1 && alltrue([
+      for key, value in var.secret_names : can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) && can(regex("^[A-Za-z0-9-]{1,127}$", value))
+    ])
+    error_message = "Cada nombre de variable debe ser válido y mapear a un nombre simple de secreto Key Vault."
+  }
+}
+
+variable "docker_package_versions" {
+  description = "Versiones apt exactas para Docker Engine/Compose y Azure CLI."
+  type        = map(string)
+  validation {
+    condition = length(var.docker_package_versions) == 6 && alltrue([
+      for key in ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin", "azure-cli"] : contains(keys(var.docker_package_versions), key)
+    ]) && alltrue([for value in values(var.docker_package_versions) : can(regex("^[A-Za-z0-9:.+~_-]{1,80}$", value))])
+    error_message = "Fija exactamente las seis versiones apt de Docker y Azure CLI."
+  }
+}
+
+variable "compose_health_timeout_seconds" {
+  description = "Tiempo máximo para esperar healthy checks de todos los servicios del Compose."
+  type        = number
+  default     = 900
+  validation {
+    condition     = var.compose_health_timeout_seconds >= 60 && var.compose_health_timeout_seconds <= 3600
+    error_message = "El timeout de salud debe estar entre 60 y 3600 segundos."
+  }
+}
+
 variable "compose_yaml" {
   description = "Compose revisado y sin secretos con exactamente shuffle-security, frontend, backend, orborus y opensearch. El worker va en SHUFFLE_WORKER_IMAGE de Orborus, no como servicio. Se guarda en custom_data/state."
   type        = string

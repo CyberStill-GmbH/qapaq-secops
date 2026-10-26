@@ -10,12 +10,25 @@ dueño con Franco.
 
 **Arquitectura de la conexión con QAPAQ SecOps:** [14](14-ankay-conexion-qapaq.md).
 
-### Estado de Ankay para Azure (revisión 24-10-2026)
+### Estado de Ankay para Azure (revisión 26-10-2026)
 
-El único artefacto ejecutable que hoy se construye en CI es el **frontend** rebrandeado desde
-Shuffle v2.3.0 y su código fuente AGPL. Ese workflow no construye ni publica backend, Orborus,
-worker, OpenSearch ni `shuffle-security`; su build verde no demuestra que Ankay completo arranque.
-`ankay/upstream.lock` fija el commit de fuente, pero no fija los digests de las imágenes de runtime.
+El workflow `ankay-azure.yml` construye el **frontend** rebrandeado desde Shuffle v2.3.0, pero no el
+resto del runtime. La inspección del upstream identificó estos bloqueos para un build completo:
+
+- `backend/Dockerfile` descarga `app_sdk` desde `main`, sin fijarlo por commit.
+- Orborus tiene una revisión asociada a v2.3.0 (`adcc814cb355b7f4b6cb869e0d8d5eed3c6baa95`), pero
+  aún no se construyó ni probó junto al backend y worker fijados.
+- `shuffle.security` se revisó en un commit de `main` (`89070968ec93f1d4ad37953d72910ec63c5fb9df`),
+  pero su compatibilidad con Shuffle v2.3.0 no está demostrada ni es una versión aprobada.
+- Compose upstream usa tags mutables para Shuffle; el OpenSearch 3.2.0 de Compose aún no está fijado
+  por digest en un Compose QAPAQ revisado.
+
+No se añadió un build multiimagen: sin un Compose verificable, construir los seis contenedores por
+separado no demostraría que Ankay arranca ni reduciría el riesgo de integración. El gate Terraform
+actual requiere todas las imágenes con digest ACR, un Compose completo con SHA verificado y health
+checks para los cinco servicios persistentes. Mantener `ankay_host=null` hasta que CI construya los
+componentes desde pins aprobados y una prueba de Compose confirme salud y compatibilidad.
+
 El build [40057658958](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40057658958)
 terminó correctamente desde `main` (`c13d968`): validó branding, subpath protegido e imagen de
 frontend y subió un artefacto temporal del run. `publish_to_acr=false`; no publicó a ACR ni desplegó

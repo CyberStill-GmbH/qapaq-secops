@@ -171,16 +171,18 @@ variable "siem_host" {
 }
 
 variable "ankay_host" {
-  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR y Compose sin secretos revisado; comparte el firewall Azure del SIEM."
+  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR, Compose sin secretos y referencias a secretos precreados en Key Vault; comparte el firewall Azure del SIEM."
   type = object({
-    private_ip_address   = string
-    admin_ssh_public_key = string
-    vm_size              = string
-    ubuntu_image_version = string
-    data_disk_size_gb    = optional(number, 128)
-    container_images     = map(string)
-    compose_yaml         = string
-    compose_sha256       = string
+    private_ip_address      = string
+    admin_ssh_public_key    = string
+    vm_size                 = string
+    ubuntu_image_version    = string
+    data_disk_size_gb       = optional(number, 128)
+    container_images        = map(string)
+    compose_yaml            = string
+    compose_sha256          = string
+    secret_names            = map(string)
+    docker_package_versions = map(string)
   })
   default  = null
   nullable = true
@@ -188,6 +190,23 @@ variable "ankay_host" {
   validation {
     condition     = var.ankay_host == null || var.siem_host != null
     error_message = "Ankay Qapaq requiere que siem_host esté configurado para compartir el edge y callback protegido de QAPAQ."
+  }
+
+  validation {
+    condition = var.ankay_host == null || (
+      length(var.ankay_host.secret_names) >= 1 &&
+      alltrue([for key, value in var.ankay_host.secret_names : can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) && can(regex("^[A-Za-z0-9-]{1,127}$", value))])
+    )
+    error_message = "ankay_host.secret_names debe mapear variables de entorno a nombres existentes de Key Vault; nunca incluyas valores secretos."
+  }
+
+  validation {
+    condition = var.ankay_host == null || (
+      length(var.ankay_host.docker_package_versions) == 6 &&
+      alltrue([for key in ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin", "azure-cli"] : contains(keys(var.ankay_host.docker_package_versions), key)]) &&
+      alltrue([for value in values(var.ankay_host.docker_package_versions) : can(regex("^[A-Za-z0-9:.+~_-]{1,80}$", value))])
+    )
+    error_message = "ankay_host.docker_package_versions debe fijar las seis versiones apt de Docker y Azure CLI."
   }
 }
 

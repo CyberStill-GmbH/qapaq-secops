@@ -7,6 +7,7 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [ADR Azure: BullMQ sobre PostgreSQL](decisions/adr-azure-queue-postgres.md)
 - [Diagrama de despliegue](diagrams/qapaq-azure.mmd)
 - [Runbook de secretos, notificaciones y DNS](runbook-preparacion-y-corte.md)
+- [Bootstrap aislado EUS: identidad OIDC y Terraform state](bootstrap-eus.md)
 - [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
 - [Terraform Azure](../../../infra/azure/README.md)
 
