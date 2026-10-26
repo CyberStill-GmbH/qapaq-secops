@@ -549,10 +549,16 @@ Azure; su CI debe repetirse tras actualizar la rama.
   Cato o Teams requeridos por el bundle. El workflow existente de seed solo cubre el secreto Entra;
   no hay evidencia de un seed Azure para el resto.
 - Se revisaron los nombres de variables de los `.env.local` disponibles sin imprimir valores.
-  Están los secretos/token de Sophos, Cato, VirusTotal, Claude y Active Directory, pero no se
-  encontraron las credenciales identificadoras/configuración de Sophos (Client ID, Tenant ID,
-  región), Cato Account ID ni `TEAMS_WORKFLOW_URL`. Los secretos existentes en un archivo local
-  no se han copiado a Key Vault ni se consideran configuración Azure lista.
+  El dueño también compartió credenciales de Sophos, Cato, Claude, VirusTotal y Active Directory
+  en esta conversación. Se consideran expuestas: revocarlas/rotarlas antes de cualquier uso y
+  cargar únicamente valores nuevos por un canal de secretos. No se copiaron sus valores a Azure.
+  Siguen sin encontrarse las credenciales identificadoras/configuración de Sophos (Client ID,
+  Tenant ID, región), Cato Account ID ni `TEAMS_WORKFLOW_URL`.
+- La lista de nombres de GitHub Secrets no contiene `WAZUH_OFFICE365_CLIENT_SECRET`. El dueño
+  indicó que el secreto M365 existente es el mismo usado por AWS, pero la sesión AWS CLI estaba
+  vencida; no se recuperó ni transfirió ningún valor. El Key Vault tampoco tiene un secreto
+  `office365-client-secret` confirmado por la lectura de metadatos. El valor `qapaq-entra-client-secret`
+  es para la autenticación de QAPAQ y no se debe reutilizar para la integración Wazuh Office 365.
 - Resultado actual: builds y publicación privada de artefactos comprobados; runtime, instalación,
   datos M365, conectores Sophos/Cato, notificaciones Teams, agentes y playbooks Ankay pendientes
   de configuración, despliegue y aceptación real. DNS y Terraform no se modificaron durante esta
