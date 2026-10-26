@@ -1,0 +1,278 @@
+name: Terraform Azure demo East US plan and apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the exact reviewed plan produced in this run
+        type: boolean
+        required: true
+        default: false
+      deployment_scope:
+        description: Select foundation maintenance or the complete SOC runtime
+        type: choice
+        required: true
+        default: soc
+        options:
+          - foundation
+          - soc
+      cost_review_reference:
+        description: HTTPS link to the reviewed East US cost estimate (required for apply)
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-azure-demo-eus
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate East US target and apply evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Require main and reviewed costs before apply
+        env:
+          APPLY: ${{ inputs.apply }}
+          COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo '::error::East US Terraform can run only from main.'
+            exit 1
+          }
+          if [[ "$APPLY" == true ]]; then
+            [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
+              echo '::error::Apply requires an HTTPS reference to an East US cost review.'
+              exit 1
+            }
+          fi
+
+  plan:
+    name: Create and summarize isolated East US Terraform plan
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: azure-demo-eus
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      # All credentials and state settings must be configured on azure-demo-eus.
+      # Deliberately do not fall back to repo-level Chile demo settings.
+      ARM_CLIENT_ID: ${{ secrets.AZURE_EUS_TERRAFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_EUS_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_subscription_id: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_EUS_TENANT_ID }}
+      TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS_POSTGRES_ADMIN_PASSWORD }}
+      TF_VAR_environment: demo-eus
+      TF_VAR_location: eastus
+      AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_EUS_ACR_LOGIN_SERVER }}
+      TF_VAR_enable_runtime: ${{ vars.AZURE_EUS_ENABLE_RUNTIME || 'false' }}
+      TF_VAR_container_images: ${{ vars.AZURE_EUS_CONTAINER_IMAGES_JSON || '{}' }}
+      TF_VAR_siem_host: ${{ vars.AZURE_EUS_SIEM_HOST_JSON || 'null' }}
+      TF_VAR_ankay_host: ${{ vars.AZURE_EUS_ANKAY_HOST_JSON || 'null' }}
+      TF_VAR_key_vault_secret_ids: ${{ vars.AZURE_EUS_KEY_VAULT_SECRET_IDS_JSON || '{}' }}
+      TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_EUS_TF_STATE_RESOURCE_GROUP }}
+      TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS_TF_STATE_STORAGE_ACCOUNT }}
+      TF_STATE_CONTAINER: ${{ vars.AZURE_EUS_TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ vars.AZURE_EUS_TF_STATE_KEY }}
+      APPLY: ${{ inputs.apply }}
+      DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope }}
+      COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate EUS OIDC, backend isolation and required inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_VAR_postgres_admin_password \
+            TF_STATE_RESOURCE_GROUP TF_STATE_STORAGE_ACCOUNT TF_STATE_CONTAINER TF_STATE_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing azure-demo-eus AZURE_EUS secret or variable: $name"; exit 1; }
+          done
+          [[ "$TF_STATE_RESOURCE_GROUP" =~ ^rg-qapaqsecopsdemoeus-state-[a-z0-9]+$ ]] || {
+            echo '::error::Terraform state resource group is not the dedicated East US backend.'
+            exit 1
+          }
+          [[ "$TF_STATE_STORAGE_ACCOUNT" =~ ^qapaqsecopseus[a-z0-9]*$ ]] || {
+            echo '::error::Terraform state storage is not the dedicated East US backend.'
+            exit 1
+          }
+          [[ "$TF_STATE_CONTAINER" == tfstate && "$TF_STATE_KEY" == qapaq-secops/demo-eus/terraform.tfstate ]] || {
+            echo '::error::Terraform state container/key is not isolated from the Chile demo.'
+            exit 1
+          }
+          [[ "$TF_VAR_environment" == demo-eus && "$TF_VAR_location" == eastus ]] || {
+            echo '::error::Terraform target is not East US demo-eus.'
+            exit 1
+          }
+          if [[ "$DEPLOYMENT_SCOPE" == soc && "$APPLY" == true ]]; then
+            [[ "$AZURE_ACR_LOGIN_SERVER" =~ ^qapaqsecopsdemoeus[a-z0-9]*\.azurecr\.io$ ]] || {
+              echo '::error::Complete SOC apply requires an East US demo ACR, not a repository-level Chile registry.'
+              exit 1
+            }
+            node -e 'if (JSON.parse(process.env.TF_VAR_siem_host ?? "null") === null) process.exit(1)' || {
+              echo '::error::SOC apply refused: configure a complete AZURE_SIEM_HOST_JSON profile in azure-demo-eus.'
+              exit 1
+            }
+            node -e 'if (JSON.parse(process.env.TF_VAR_ankay_host ?? "null") === null) process.exit(1)' || {
+              echo '::error::Complete SOC apply refused: configure a complete AZURE_ANKAY_HOST_JSON profile in azure-demo-eus.'
+              exit 1
+            }
+          fi
+          if [[ "$APPLY" == true ]]; then
+            printf '%s\n' "Cost review: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Validate opt-in runtime configuration without printing inputs
+        working-directory: .
+        run: node scripts/ci/validate-azure-deployment-inputs.mjs
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Check format
+        run: terraform fmt -check -recursive
+
+      - name: Initialize the isolated East US state backend with OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Validate
+        run: terraform validate -no-color
+
+      - name: Create saved plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -no-color -out="$RUNNER_TEMP/azure-demo-eus.tfplan"
+          terraform show -json "$RUNNER_TEMP/azure-demo-eus.tfplan" > "$RUNNER_TEMP/azure-demo-eus-plan.json"
+
+      - name: Reject destructive actions and summarize resource changes
+        run: node scripts/ci/azure-tf-plan-summary.mjs "$RUNNER_TEMP/azure-demo-eus-plan.json"
+        working-directory: .
+
+      - name: Record commit and plan checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/plan.commit"
+          sha256sum "$RUNNER_TEMP/azure-demo-eus.tfplan" | awk '{print $1}' > "$RUNNER_TEMP/plan.sha256"
+
+      - name: Upload sensitive saved plan for same-run apply
+        if: ${{ inputs.apply }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-demo-eus-tfplan-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/azure-demo-eus.tfplan
+            ${{ runner.temp }}/plan.commit
+            ${{ runner.temp }}/plan.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  apply:
+    name: Apply exact reviewed East US plan
+    if: ${{ inputs.apply }}
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: azure-demo-eus
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_EUS_TERRAFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_EUS_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_subscription_id: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_EUS_TENANT_ID }}
+      TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS_POSTGRES_ADMIN_PASSWORD }}
+      TF_VAR_environment: demo-eus
+      TF_VAR_location: eastus
+      TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_EUS_TF_STATE_RESOURCE_GROUP }}
+      TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS_TF_STATE_STORAGE_ACCOUNT }}
+      TF_STATE_CONTAINER: ${{ vars.AZURE_EUS_TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ vars.AZURE_EUS_TF_STATE_KEY }}
+    steps:
+      - name: Checkout exact planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download this run's saved plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: azure-demo-eus-tfplan-${{ github.sha }}
+          path: ${{ runner.temp }}/azure-demo-eus-plan
+
+      - name: Verify commit and plan checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(cat "$RUNNER_TEMP/azure-demo-eus-plan/plan.commit")" == "$GITHUB_SHA" ]] || {
+            echo '::error::Saved plan commit does not match this workflow run.'
+            exit 1
+          }
+          expected="$(cat "$RUNNER_TEMP/azure-demo-eus-plan/plan.sha256")"
+          actual="$(sha256sum "$RUNNER_TEMP/azure-demo-eus-plan/azure-demo-eus.tfplan" | awk '{print $1}')"
+          [[ "$expected" == "$actual" ]] || { echo '::error::Saved plan checksum mismatch.'; exit 1; }
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Initialize the same isolated East US backend with OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Apply only the reviewed saved plan
+        run: terraform apply -input=false -auto-approve -no-color "$RUNNER_TEMP/azure-demo-eus-plan/azure-demo-eus.tfplan"
