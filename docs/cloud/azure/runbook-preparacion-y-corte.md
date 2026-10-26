@@ -503,6 +503,14 @@ usar una clave compartida como sustituto del control de acceso.
 La autorización general de despliegue no reemplaza las identidades y permisos
 técnicos de Azure, AWS, Microsoft 365 y Route 53. Sin ellos no se puede ejecutar
 el plan ni certificar una integración real.
+
+## Revalidación de Azure — 2026-10-26 16:55 UTC
+
+- En Cloud Shell, autenticado como `cguevara@qapaq.pe`, una consulta de solo lectura a `az resource list` para `rg-qapaqsecopsdemo-66f8c73b` devolvió VNet, DNS privado, PostgreSQL Flexible Server, Storage (evidencia y releases), Key Vault, ACR, Log Analytics, identidades administradas y private endpoints. No devolvió tipos `Microsoft.Compute/virtualMachines`, `Microsoft.Network/azureFirewalls` ni `Microsoft.App/containerApps`: no hay host Wazuh, host Ankay, Firewall ni runtime de Container Apps en ese grupo al momento de la consulta.
+- El workflow Terraform [#40349847512](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40349847512) completó validación y plan; el job `Apply the exact reviewed plan` quedó **skipped** (`apply=false`). El resumen fue “No changes” con `siem_host=null`, `ankay_host=null`, `enable_runtime=false`, `container_images={}` y `key_vault_secret_ids={}`. No desplegó el SOC.
+- El portal muestra el Key Vault con acceso público deshabilitado y la lista de secretos devuelve “You are unauthorized to view these contents”; esta sesión no llegó al private endpoint de datos. No se abrió ni copió ningún valor. El secreto `qapaq-entra-client-secret` tiene evidencia de creación por el workflow #40349532741, pero eso no proporciona el material de instalación de Wazuh/M365 ni habilita el runtime.
+- La región de Azure es Chile Central (`chilecentral`). La estimación documentada para Wazuh + PostgreSQL + Azure Firewall Standard es un piso de lista de **USD 1,155.01/mes**, antes de Ankay, almacenamiento adicional y otros consumos. No es el costo del plan vacío ni una cotización de la suscripción; revisar costo y efectos del plan completo antes de apply.
+- No se cambió Terraform, DNS, red, configuración de Key Vault ni recursos Azure durante esta verificación. Estado probado: **fundación Azure presente; Wazuh, M365, Sophos, Cato, Teams, Ankay y el panel administrativo todavía sin ejecución o verificación de extremo a extremo en Azure**.
 ## Administración de roles: gate de aprobación y SoD
 
 PR [#88](https://github.com/CyberStill-GmbH/qapaq-secops/pull/88) prepara solicitudes de rol
