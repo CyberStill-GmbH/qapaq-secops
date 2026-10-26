@@ -75,9 +75,9 @@ variable "postgres_admin_password" {
 }
 
 variable "postgres_sku_name" {
-  description = "SKU de PostgreSQL Flexible Server. Debe aprobarse con el presupuesto y pruebas de carga."
+  description = "SKU de PostgreSQL Flexible Server; el entorno puede sobrescribirlo tras verificar disponibilidad regional."
   type        = string
-  default     = "B_Standard_B2s"
+  default     = "B_Standard_B1ms"
 }
 
 variable "postgres_storage_mb" {
