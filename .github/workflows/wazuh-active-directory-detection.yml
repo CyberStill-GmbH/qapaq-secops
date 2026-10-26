@@ -30,12 +30,19 @@ jobs:
         with:
           persist-credentials: false
       - name: Start isolated Wazuh Manager 4.14.8
-        run: docker run --detach --rm --name qapaq-wazuh-ad-test wazuh/wazuh-manager:4.14.8
-      - name: Wait for Manager and run AD positive/negative fixtures
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-ad-test
+          --ulimit nofile=458752:458752
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml:/var/ossec/etc/rules/qapaq_active_directory_rules.xml:ro"
+          wazuh/wazuh-manager:4.14.8
+      - name: Start Manager daemons and run AD positive/negative fixtures
         run: |
+          if ! docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control start; then
+            echo 'Manager start returned a nonzero status; checking analysisd health.'
+          fi
           ready=false
           for attempt in $(seq 1 60); do
-            if docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-analysisd -t >/dev/null 2>&1; then
+            if docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
               ready=true
               break
             fi

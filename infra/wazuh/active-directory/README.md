@@ -74,7 +74,11 @@ Sysmon no es requisito para estas reglas; su perfil se gestiona separadamente.
 ## Pruebas
 
 ```bash
-docker run --detach --rm --name qapaq-wazuh-ad-test wazuh/wazuh-manager:4.14.8
+docker run --detach --rm --name qapaq-wazuh-ad-test \
+  --ulimit nofile=458752:458752 \
+  --volume "$PWD/infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml:/var/ossec/etc/rules/qapaq_active_directory_rules.xml:ro" \
+  wazuh/wazuh-manager:4.14.8
+docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control start
 bash infra/wazuh/active-directory/tests/run-logtest.sh qapaq-wazuh-ad-test
 docker rm -f qapaq-wazuh-ad-test
 ```
