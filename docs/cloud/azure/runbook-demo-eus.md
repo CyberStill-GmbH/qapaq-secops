@@ -21,14 +21,14 @@ Configurar secretos **en el environment**:
 | Nombre | Uso |
 | --- | --- |
 | `AZURE_EUS_TERRAFORM_CLIENT_ID` | Client ID de la UAMI EUS con OIDC y RBAC acotado |
-| `AZURE_EUS_TENANT_ID` | Tenant Entra del destino |
-| `AZURE_EUS_SUBSCRIPTION_ID` | Suscripción destino |
 | `AZURE_EUS_POSTGRES_ADMIN_PASSWORD` | Credencial inicial PostgreSQL; Terraform la conserva en state |
 
 Configurar variables **en el environment**:
 
 | Nombre | Uso |
 | --- | --- |
+| `AZURE_EUS_TENANT_ID` | Tenant Entra del destino |
+| `AZURE_EUS_SUBSCRIPTION_ID` | Suscripción destino |
 | `AZURE_EUS_TF_STATE_RESOURCE_GROUP` | Grupo que contiene el Storage de state dedicado EUS |
 | `AZURE_EUS_TF_STATE_STORAGE_ACCOUNT` | Storage de state dedicado EUS |
 | `AZURE_EUS_TF_STATE_CONTAINER` | Debe ser `tfstate` |

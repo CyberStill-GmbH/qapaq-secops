@@ -72,12 +72,12 @@ jobs:
       # All credentials and state settings must be configured on azure-demo-eus.
       # Deliberately do not fall back to repo-level Chile demo settings.
       ARM_CLIENT_ID: ${{ secrets.AZURE_EUS_TERRAFORM_CLIENT_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_EUS_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_EUS_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS_SUBSCRIPTION_ID }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_VAR_subscription_id: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
-      TF_VAR_tenant_id: ${{ secrets.AZURE_EUS_TENANT_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_EUS_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ vars.AZURE_EUS_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS_POSTGRES_ADMIN_PASSWORD }}
       TF_VAR_environment: demo-eus
       TF_VAR_location: eastus
@@ -218,12 +218,12 @@ jobs:
     env:
       ARM_USE_OIDC: "true"
       ARM_CLIENT_ID: ${{ secrets.AZURE_EUS_TERRAFORM_CLIENT_ID }}
-      ARM_TENANT_ID: ${{ secrets.AZURE_EUS_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_EUS_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS_SUBSCRIPTION_ID }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_VAR_subscription_id: ${{ secrets.AZURE_EUS_SUBSCRIPTION_ID }}
-      TF_VAR_tenant_id: ${{ secrets.AZURE_EUS_TENANT_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_EUS_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ vars.AZURE_EUS_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS_POSTGRES_ADMIN_PASSWORD }}
       TF_VAR_environment: demo-eus
       TF_VAR_location: eastus
