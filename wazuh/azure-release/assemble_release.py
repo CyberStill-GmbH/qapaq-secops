@@ -213,6 +213,8 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 pathlib.Path(args.repo_root) / "infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
             "wazuh/endpoint/rules/qapaq_endpoint_rules.xml":
                 pathlib.Path(args.repo_root) / "infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+            "wazuh/active-directory/rules/qapaq_active_directory_rules.xml":
+                pathlib.Path(args.repo_root) / "infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
             "wazuh/launch-detections/catalog.json":
                 pathlib.Path(args.repo_root) / "docs/security/launch-detection-catalog-2026-10-20.json",
             "wazuh/launch-detections/install_detection_rules.py":
@@ -242,6 +244,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 "rules": [
                     "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
                     "wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+                    "wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
                 ],
                 "activation": "rules-installed-provider-connectors-remain-opt-in",
             },

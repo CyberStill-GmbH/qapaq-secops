@@ -91,6 +91,8 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertIn("wazuh/teams/ossec-teams-workflow.xml", manifest["files"])
         self.assertIn("wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml", manifest["files"])
         self.assertIn("wazuh/endpoint/rules/qapaq_endpoint_rules.xml", manifest["files"])
+        self.assertIn("wazuh/active-directory/rules/qapaq_active_directory_rules.xml", manifest["files"])
+        self.assertIn("wazuh/active-directory/rules/qapaq_active_directory_rules.xml", manifest["detectionPack"]["rules"])
         self.assertIn("wazuh/launch-detections/catalog.json", manifest["files"])
         self.assertIn("wazuh/launch-detections/install_detection_rules.py", manifest["files"])
         self.assertEqual(manifest["detectionPack"]["activation"], "rules-installed-provider-connectors-remain-opt-in")

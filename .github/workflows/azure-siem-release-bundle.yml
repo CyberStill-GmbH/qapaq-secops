@@ -74,6 +74,7 @@ jobs:
             wazuh/core wazuh/dashboard wazuh/office365 \
             wazuh/provider-ingestion ':!wazuh/provider-ingestion/tests/**' \
             infra/wazuh/endpoint/rules infra/wazuh/launch-detections/rules \
+            infra/wazuh/active-directory/rules \
             infra/wazuh/teams \
             docs/security/launch-detection-catalog-2026-10-20.json \
             infra/azure/modules/siem_host/bootstrap-siem.py || {
@@ -259,6 +260,7 @@ jobs:
               assert set(manifest["detectionPack"]["rules"]) == {
                   "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
                   "wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+                  "wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
               }
               assert "wazuh/launch-detections/catalog.json" in manifest["files"]
               assert "wazuh/launch-detections/install_detection_rules.py" in manifest["files"]
@@ -285,7 +287,7 @@ jobs:
             echo "- QAPAQ source commit: `${{ inputs.release_sha }}` (all source artifacts are validated against this commit)."
             echo '- Produces the exact Blob bundle contract consumed by `siem_host`.'
             echo '- Installs pinned official Wazuh Manager, Indexer, Filebeat, QAPAQ Dashboard and QAPAQ core from offline artifacts.'
-            echo '- Installs the versioned QAPAQ endpoint/provider detection rules; Sophos/Cato connectors remain opt-in and require validated credentials and provider acceptance.'
+            echo '- Installs the versioned QAPAQ AD, endpoint and provider detection rules; applying DC agent collection profiles and Sophos/Cato connectors remains opt-in and requires owner approval/provider acceptance.'
             echo '- No Azure login, Key Vault read, Blob publication, Terraform apply, DNS change or deployment occurs in this workflow.'
             echo '- First boot still requires the one-line base64 `wazuh-install-files.tar.b64` Key Vault secret, all QAPAQ core secret refs, private network and firewall allowlist.'
             echo '- The bundle contains optional Sophos Central and Cato eventsFeed collectors in the Wazuh overlay. They remain inactive unless Key Vault references, tenant/account configuration and explicit egress are supplied; CI packaging is not tenant acceptance.'

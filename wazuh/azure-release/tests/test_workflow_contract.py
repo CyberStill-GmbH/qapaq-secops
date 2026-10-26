@@ -22,6 +22,7 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             "wazuh/azure-release/verify_wazuh_credentials_tar.py",
             "wazuh/azure-release/install_detection_rules.py",
             "infra/wazuh/endpoint/rules infra/wazuh/launch-detections/rules",
+            "infra/wazuh/active-directory/rules",
             "infra/wazuh/teams",
             "docs/security/launch-detection-catalog-2026-10-20.json",
             "wazuh/core wazuh/dashboard wazuh/office365",
