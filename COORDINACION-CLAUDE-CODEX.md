@@ -173,3 +173,15 @@ enlaza ahora las referencias vigentes.
 ### Corrección Codex · 2026-10-20 · contrato Terraform/runtime
 
 Se retiraron de `infra/azure/modules/runtime/main.tf` las cinco variables `QAPAQ_QUEUE_*` por servicio que no estaban soportadas por `KNOWN_QAPAQ_VARIABLES` ni por un backend ejecutable. Se añadió `scripts/check-azure-runtime-env.mjs` al workflow de validación Azure para impedir que vuelvan variables QAPAQ desconocidas o de cola sin implementación. La comprobación local pasa. Esto evita ese fallo temprano de configuración, pero no habilita runtime: siguen faltando migraciones Azure, usuario/secretos de aplicación PostgreSQL y un worker funcional; `qapaq_jobs` permanece sin consumer.
+
+### 2026-10-26 · Codex · Readiness gate de Ankay (documentación)
+
+Revisé el pipeline y los Dockerfiles fijados de Shuffle. No añadí un workflow que construya y archive
+seis imágenes por separado porque todavía no existe un Compose QAPAQ probado que demuestre que esos
+componentes son compatibles. `backend/Dockerfile` descarga `app_sdk` desde `main`; `shuffle.security`
+solo tiene un snapshot candidato de `main` sin revisión de compatibilidad; y los tags upstream no
+fijan todos los `FROM` ni los digests OpenSearch. El módulo Terraform permanece fail-closed: exige
+imágenes por digest y Compose con checks de salud.
+
+Actualicé `docs/13-ankay-qapaq.md` con el estado real y esos prerequisitos. No se tocaron Terraform,
+Azure, ACR, secretos, DNS, datos, ni el pipeline existente.
