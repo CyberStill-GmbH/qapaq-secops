@@ -14,14 +14,26 @@ destrucciones**. El plan definitivo será el artifact del workflow de GitHub
 Actions; no aplicar si sus recursos o conteos difieren sin revisión. El state de
 bootstrap vive en otra key y no se modifica.
 
-El costo fijo más claro de esta fase es PostgreSQL Flexible Server Burstable
-`B_Standard_B2s`: la página de precios de Microsoft muestra USD 49.64/mes para
-B2s. El servidor incluye 32 GiB iniciales y 14 días de backup configurado; el
-almacenamiento y backup adicional, dos Storage Accounts (ZRS para eventos y LRS
-para releases), Private Endpoints, Key Vault, Log Analytics, operaciones y
-transferencia pueden agregar cargos.
+El plan inicial intentó PostgreSQL Flexible Server Burstable
+`B_Standard_B2s`, pero Azure devolvió `SkuNotAvailable` al provisionarlo en
+East US 2. El siguiente plan usa `B_Standard_B1ms`, sujeto a que Azure confirme
+su disponibilidad efectiva al crear el servidor. No se debe tratar la tarifa
+anterior de B2s como costo aplicable al SKU alternativo. El servidor incluye
+32 GiB iniciales y 14 días de backup configurado; el almacenamiento y backup
+adicional, dos Storage Accounts (ZRS para eventos y LRS para releases), Private
+Endpoints, Key Vault, Log Analytics, operaciones y transferencia pueden agregar
+cargos.
 El total de la fundación no es una cotización y no se puede fijar con precisión
 sin consumo real y el contrato de esta suscripción.
+
+## Resultado del primer apply
+
+El run `40418606971` pasó la validación de plan y su control contra
+destrucciones. El apply creó parte de la base (Storage de evidencia/releases,
+contenedores, endpoints privados y permisos) y falló solo al crear PostgreSQL
+con B2s por `SkuNotAvailable`. Terraform registró el estado parcial en el
+backend remoto. El nuevo plan debe refrescar ese state antes de reintentar; no
+se debe volver a inicializar ni limpiar el backend.
 
 El presupuesto Terraform de USD 200/mes solo genera avisos; **no limita ni
 detiene el gasto y no ejecuta destroy**. El plan de fundación no aprovisiona

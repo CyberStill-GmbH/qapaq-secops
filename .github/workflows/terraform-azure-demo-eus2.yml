@@ -79,6 +79,7 @@ jobs:
       TF_VAR_subscription_id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ vars.AZURE_EUS2_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
+      TF_VAR_postgres_sku_name: ${{ vars.AZURE_EUS2_POSTGRES_SKU_NAME || 'B_Standard_B1ms' }}
       TF_VAR_environment: demo-eus2
       TF_VAR_location: eastus2
       TF_VAR_tags: '{"project":"qapaq-secops","environment":"demo-eus2","managed_by":"terraform","cloud":"azure","data_class":"security-sensitive"}'
@@ -241,6 +242,7 @@ jobs:
       TF_VAR_subscription_id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ vars.AZURE_EUS2_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
+      TF_VAR_postgres_sku_name: ${{ vars.AZURE_EUS2_POSTGRES_SKU_NAME || 'B_Standard_B1ms' }}
       TF_VAR_environment: demo-eus2
       TF_VAR_location: eastus2
       TF_VAR_tags: '{"project":"qapaq-secops","environment":"demo-eus2","managed_by":"terraform","cloud":"azure","data_class":"security-sensitive"}'
