@@ -34,6 +34,7 @@ for index, (block, wanted) in enumerate(zip(blocks, expected), start=1):
         failures.append(f"caso {index:02d}: esperado {wanted}, obtenido {actual}")
 
 if failures:
+    print(text)
     print("\n".join(failures))
     sys.exit(1)
 print(f"{len(expected)}/{len(expected)} casos correctos")
