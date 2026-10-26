@@ -331,6 +331,29 @@ artifact ni se publicó nada a ACR.
 
 ## Catálogo de secretos
 
+### Carga inicial del secreto Entra de QAPAQ
+
+El workflow manual [`seed-azure-qapaq-secret.yml`](../../../.github/workflows/seed-azure-qapaq-secret.yml)
+transfiere únicamente el secreto GitHub `ENTRA_CLIENT_SECRET` al nombre
+`qapaq-entra-client-secret` en el Key Vault demo. Se ejecuta desde `main` con
+GitHub OIDC y un parámetro ARM `secureString`; no expone el endpoint de datos,
+no agrega permisos de lectura/escritura de secretos y no escribe valores en
+Terraform state. El workflow se niega a crear otra versión si el nombre ya existe.
+La plantilla ARM no contiene credenciales. La conectividad y configuración del
+vault permanecen privadas.
+
+El despliegue ARM usa el plano de control permitido para recursos
+`Microsoft.KeyVault/vaults/secrets`; no equivale a una lectura del plano de datos
+desde GitHub. Microsoft documenta el tipo ARM para crear secretos y que el
+firewall de Key Vault se aplica al plano de datos. Esto evita abrir el vault o
+crear una infraestructura efímera de red para esta carga puntual.
+
+Este paso solo resuelve la credencial de la API QAPAQ. No crea ni sustituye el
+secreto del conector Office 365 de Wazuh, el paquete/certificados de instalación
+Wazuh, URL de Teams, credenciales Sophos/Cato ni otros materiales ausentes. El
+SOC no queda desplegable ni operativo hasta poblar y verificar cada referencia
+por su origen autorizado y completar los perfiles no secretos.
+
 Guardar cada valor en Azure Key Vault desde un operador o runner con acceso
 privado. Terraform recibe solo el URI versionado. El mapa `key_vault_secret_ids`
 define qué secreto se referencia por servicio; no es un mecanismo para importar
