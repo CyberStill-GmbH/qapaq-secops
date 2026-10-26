@@ -9,7 +9,7 @@
        depender del idioma/nombre localizado del grupo. -->
   <rule id="101300" level="12">
     <if_sid>60113</if_sid>
-    <field name="win.system.eventID">^(4728|4732|4756)$</field>
+    <field name="win.system.eventID">^4728$|^4732$|^4756$</field>
     <field name="win.eventdata.targetSid" type="pcre2">^S-1-5-(21-(?:[0-9]+-){2}[0-9]+-(512|516|518|519|520)|32-(544|548|549|550|551|552))$</field>
     <description>QAPAQ P0: miembro añadido a un grupo integrado privilegiado de AD; revisar actor, miembro y cambio aprobado.</description>
     <options>no_full_log</options>
@@ -40,7 +40,7 @@
   <!-- Cambios sobre contenedores de administración persistente. Requiere Directory Service Changes. -->
   <rule id="101303" level="10">
     <if_sid>60103</if_sid>
-    <field name="win.system.eventID">^(5136|5137|5141)$</field>
+    <field name="win.system.eventID">^5136$|^5137$|^5141$</field>
     <field name="win.eventdata.objectDN" type="pcre2">(?i)(CN=AdminSDHolder,CN=System,|CN=Policies,CN=System,)</field>
     <description>QAPAQ P1: cambio en AdminSDHolder o un objeto de Group Policy; validar autor y ticket de cambio.</description>
     <options>no_full_log</options>
