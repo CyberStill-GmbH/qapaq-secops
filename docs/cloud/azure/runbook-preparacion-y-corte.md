@@ -554,10 +554,13 @@ Azure; su CI debe repetirse tras actualizar la rama.
   cargar únicamente valores nuevos por un canal de secretos. No se copiaron sus valores a Azure.
   Siguen sin encontrarse las credenciales identificadoras/configuración de Sophos (Client ID,
   Tenant ID, región), Cato Account ID ni `TEAMS_WORKFLOW_URL`.
-- La lista de nombres de GitHub Secrets no contiene `WAZUH_OFFICE365_CLIENT_SECRET`. El dueño
-  indicó que el secreto M365 existente es el mismo usado por AWS, pero la sesión AWS CLI estaba
-  vencida; no se recuperó ni transfirió ningún valor. El Key Vault tampoco tiene un secreto
-  `office365-client-secret` confirmado por la lectura de metadatos. El valor `qapaq-entra-client-secret`
+- Los valores no secretos de tenant, client ID y grupo coinciden con `M365_TENANT_ID`,
+  `WAZUH_O365_CLIENT_ID` y `QAPAQ_DIRECTORY_GROUP_ID` del repo. La lista de GitHub Secrets no
+  contiene `WAZUH_OFFICE365_CLIENT_SECRET`. El dueño indicó que el secreto M365 existente es el
+  mismo usado por AWS, pero la sesión AWS CLI estaba vencida; no se recuperó ni transfirió ningún
+  valor. El nuevo valor de secreto que el dueño compartió en la conversación también se considera
+  expuesto y debe rotarse antes de usarlo. El Key Vault no tiene un secreto
+  `office365-client-secret` confirmado por la lectura de metadatos. `qapaq-entra-client-secret`
   es para la autenticación de QAPAQ y no se debe reutilizar para la integración Wazuh Office 365.
 - Resultado actual: builds y publicación privada de artefactos comprobados; runtime, instalación,
   datos M365, conectores Sophos/Cato, notificaciones Teams, agentes y playbooks Ankay pendientes
