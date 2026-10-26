@@ -60,6 +60,21 @@ variable "github_environment" {
   default     = "azure-demo"
 }
 
+variable "github_additional_environment" {
+  description = "Optional second GitHub environment allowed to use the existing federated identity."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.github_additional_environment == null || can(regex(
+      "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+      var.github_additional_environment,
+    ))
+    error_message = "The optional additional GitHub environment must be 1-80 letters, digits, underscores, or hyphens and start with a letter or digit."
+  }
+}
+
 variable "state_storage_account_name" {
   description = "Globally unique Azure Storage Account name for Terraform state. Lowercase letters and digits only, 3-24 chars."
   type        = string

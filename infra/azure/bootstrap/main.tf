@@ -13,6 +13,14 @@ locals {
     var.github_repository_id,
     var.github_environment,
   )
+  github_oidc_additional_subject = var.github_additional_environment == null ? null : format(
+    "repo:%s@%s/%s@%s:environment:%s",
+    local.github_repository_parts[0],
+    var.github_owner_id,
+    local.github_repository_parts[1],
+    var.github_repository_id,
+    var.github_additional_environment,
+  )
   delegated_role_definition_ids = [
     "7f951dda-4ed3-4680-a7ca-43fe172d538d", # AcrPull
     "8311e382-0749-4cb8-b61a-304f252e45ec", # AcrPush
@@ -119,6 +127,19 @@ resource "azurerm_federated_identity_credential" "github_terraform" {
   audience            = ["api://AzureADTokenExchange"]
   issuer              = "https://token.actions.githubusercontent.com"
   subject             = local.github_oidc_subject
+}
+
+# Keep the original resource address and subject stable. This separate optional
+# credential lets a second protected GitHub Environment use the same identity.
+resource "azurerm_federated_identity_credential" "github_terraform_additional" {
+  count = var.github_additional_environment == null ? 0 : 1
+
+  name                = "github-terraform-${var.github_additional_environment}"
+  resource_group_name = azurerm_resource_group.state.name
+  parent_id           = azurerm_user_assigned_identity.github_terraform.id
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  subject             = local.github_oidc_additional_subject
 }
 
 resource "azurerm_role_assignment" "demo_contributor" {
