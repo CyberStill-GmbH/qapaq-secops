@@ -21,6 +21,7 @@ text = open(output_path, encoding="utf-8", errors="replace").read()
 blocks = text.split("**Phase 1: Completed pre-decoding.")[1:]
 expected = [line.strip() for line in open(expected_path, encoding="utf-8") if line.strip()]
 if len(blocks) != len(expected):
+    print(text)
     sys.exit(f"logtest procesó {len(blocks)} eventos; se esperaban {len(expected)}")
 
 failures = []
