@@ -1,0 +1,61 @@
+name: QAPAQ Wazuh Active Directory detections
+
+on:
+  pull_request:
+    paths:
+      - 'infra/wazuh/active-directory/**'
+      - 'docs/security/active-directory-detection-profile.md'
+      - '.github/workflows/wazuh-active-directory-detection.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/wazuh/active-directory/**'
+      - 'docs/security/active-directory-detection-profile.md'
+      - '.github/workflows/wazuh-active-directory-detection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-ad-detection-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ad-logtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start isolated Wazuh Manager 4.14.8
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-ad-test
+          --ulimit nofile=458752:458752
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml:/var/ossec/etc/rules/qapaq_active_directory_rules.xml:ro"
+          wazuh/wazuh-manager:4.14.8
+      - name: Start Manager daemons and run AD positive/negative fixtures
+        run: |
+          # Logtest reads JSON fixtures with the generic json decoder. Adapt only the
+          # disposable test container's Windows parent rule; production rules stay unchanged.
+          docker exec qapaq-wazuh-ad-test sed -i \
+            -e '/<category>ossec<\/category>/d' \
+            -e 's|<decoded_as>windows_eventchannel</decoded_as>|<decoded_as>json</decoded_as>|' \
+            /var/ossec/ruleset/rules/0575-win-base_rules.xml
+          if ! docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control start; then
+            echo 'Manager start returned a nonzero status; checking analysisd health.'
+          fi
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          bash infra/wazuh/active-directory/tests/run-logtest.sh qapaq-wazuh-ad-test
+      - name: Stop test Manager
+        if: always()
+        run: docker rm -f qapaq-wazuh-ad-test || true

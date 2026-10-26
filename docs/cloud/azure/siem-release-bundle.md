@@ -36,13 +36,14 @@ repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
 
-The next candidate assembled after the detection-pack change also contains the 30-case catalog,
-the QAPAQ provider rules, the Outlook/Sysmon endpoint rule and an idempotent installer. The
+The next candidate assembled after the AD detection-pack change also contains the 30-case catalog,
+the QAPAQ Active Directory, provider and Outlook/Sysmon endpoint rules, and an idempotent installer. The
 installer registers `/var/ossec/etc/rules` with the Wazuh ruleset, validates `wazuh-analysisd`,
 and restarts the Manager with rollback if validation or restart fails. This does not enable
-Sophos/Cato collectors: those remain opt-in and need their Key Vault references, provider
-configuration, approved egress and real acceptance. The 2026-10-24 candidate includes the versioned
-provider and endpoint rule files, but does not prove those collectors are enabled or events are arriving.
+the AD domain-controller collection profile or Sophos/Cato collectors: those remain opt-in and
+need owner approval, Key Vault references, provider configuration, approved egress and real
+acceptance. The 2026-10-24 candidate predates the AD rule packaging change and contains only the
+versioned provider and endpoint rule files; it does not prove collectors are enabled or events are arriving.
 
 ### Latest published candidate evidence — 2026-10-24
 
