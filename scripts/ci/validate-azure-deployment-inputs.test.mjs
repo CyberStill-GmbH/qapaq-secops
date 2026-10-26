@@ -223,6 +223,15 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
     ]),
     compose_yaml: compose,
     compose_sha256: createHash('sha256').update(compose).digest('hex'),
+    secret_names: { SHUFFLE_OPENSEARCH_PASSWORD: 'ankay-opensearch-password' },
+    docker_package_versions: {
+      'docker-ce': '5:1.2.3-1',
+      'docker-ce-cli': '5:1.2.3-1',
+      'containerd.io': '1.2.3-1',
+      'docker-buildx-plugin': '1.2.3-1',
+      'docker-compose-plugin': '1.2.3-1',
+      'azure-cli': '1.2.3-1',
+    },
   };
   const env = baseEnv({
     TF_VAR_siem_host: JSON.stringify(siemHost()),
@@ -264,6 +273,15 @@ test('Ankay cannot be enabled without SIEM and literal Compose credentials are r
     ]),
     compose_yaml: compose,
     compose_sha256: createHash('sha256').update(compose).digest('hex'),
+    secret_names: { SHUFFLE_OPENSEARCH_PASSWORD: 'ankay-opensearch-password' },
+    docker_package_versions: {
+      'docker-ce': '5:1.2.3-1',
+      'docker-ce-cli': '5:1.2.3-1',
+      'containerd.io': '1.2.3-1',
+      'docker-buildx-plugin': '1.2.3-1',
+      'docker-compose-plugin': '1.2.3-1',
+      'azure-cli': '1.2.3-1',
+    },
   };
   assert.throws(
     () => validateDeploymentInputs(baseEnv({ TF_VAR_ankay_host: JSON.stringify(ankay) })),

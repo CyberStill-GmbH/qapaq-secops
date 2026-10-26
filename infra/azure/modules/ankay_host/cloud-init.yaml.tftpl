@@ -14,5 +14,80 @@ write_files:
     permissions: '0750'
     encoding: b64
     content: ${disk_bootstrap_b64}
+  - path: /usr/local/sbin/ankay-install-runtime
+    owner: root:root
+    permissions: '0750'
+    encoding: b64
+    content: ${install_script_b64}
+  - path: /usr/local/sbin/ankay-fetch-runtime-secrets
+    owner: root:root
+    permissions: '0750'
+    encoding: b64
+    content: ${secret_fetch_b64}
+  - path: /usr/local/sbin/ankay-start-compose
+    owner: root:root
+    permissions: '0750'
+    encoding: b64
+    content: ${start_script_b64}
+  - path: /usr/local/sbin/ankay-registry-login
+    owner: root:root
+    permissions: '0750'
+    encoding: b64
+    content: ${registry_script_b64}
+  - path: /etc/systemd/system/ankay-compose.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Ankay Qapaq Shuffle stack
+      Wants=network-online.target
+      After=network-online.target docker.service
+      Requires=docker.service
+      RequiresMountsFor=/mnt/ankay
+      StartLimitIntervalSec=0
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/sbin/ankay-start-compose
+      ExecStop=/usr/bin/docker compose --project-name ankay --env-file /etc/ankay/runtime.env --file /etc/ankay/compose.yaml stop --timeout 60
+      TimeoutStartSec=infinity
+      Restart=on-failure
+      RestartSec=60s
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/ankay-acr-login.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Refresh Ankay managed-identity ACR session
+      Wants=network-online.target
+      After=network-online.target docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/ankay-registry-login
+      TimeoutStartSec=120
+  - path: /etc/systemd/system/ankay-acr-login.timer
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Refresh Ankay ACR session before its Entra token expires
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=45min
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
 runcmd:
   - [python3, /usr/local/sbin/ankay-prepare-data-disk, "${data_disk_gb}"]
+  - [bash, -lc, /usr/local/sbin/ankay-install-runtime]
+  - [systemctl, daemon-reload]
+  - [systemctl, enable, --now, ankay-acr-login.timer]
+  - [systemctl, enable, --now, ankay-compose.service]

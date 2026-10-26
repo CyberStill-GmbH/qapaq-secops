@@ -6,18 +6,48 @@ locals {
   compose_service_images_match = length(keys(local.compose_services)) == length(local.expected_services) && alltrue([
     for service in local.expected_services : try(local.compose_services[service].image == var.container_images[service], false)
   ])
-  compose_has_expected_worker_image = contains(
-    try(local.compose_services.orborus.environment, []),
-    "SHUFFLE_WORKER_IMAGE=${var.container_images.worker}"
+  compose_has_expected_worker_image = try(
+    local.compose_services.orborus.environment.SHUFFLE_WORKER_IMAGE == var.container_images.worker,
+    false
+    ) || try(
+    contains(local.compose_services.orborus.environment, "SHUFFLE_WORKER_IMAGE=${var.container_images.worker}"),
+    false
   )
   compose_keeps_internal_services_unpublished = alltrue([
     for service in ["shuffle-security", "opensearch"] : length(try(local.compose_services[service].ports, [])) == 0
   ])
+  compose_has_healthchecks = alltrue([
+    for service in local.expected_services : try(length(local.compose_services[service].healthcheck.test) > 0, false)
+  ])
+  compose_has_restart_policies = alltrue([
+    for service in local.expected_services : try(contains(["always", "unless-stopped"], local.compose_services[service].restart), false)
+  ])
+  install_runtime = templatefile("${path.module}/install-runtime.sh.tftpl", {
+    docker_apt_versions = var.docker_package_versions
+  })
+  start_compose = templatefile("${path.module}/start-compose.sh.tftpl", {
+    registry_login_server  = var.container_registry_login_server
+    registry_name          = split(".", var.container_registry_login_server)[0]
+    identity_client_id     = azurerm_user_assigned_identity.ankay.client_id
+    key_vault_uri          = trimsuffix(var.key_vault_uri, "/")
+    secret_mapping_json    = jsonencode(var.secret_names)
+    compose_sha256         = var.compose_sha256
+    health_timeout_seconds = var.compose_health_timeout_seconds
+  })
+  registry_login = templatefile("${path.module}/registry-login.sh.tftpl", {
+    registry_login_server = var.container_registry_login_server
+    registry_name         = split(".", var.container_registry_login_server)[0]
+    identity_client_id    = azurerm_user_assigned_identity.ankay.client_id
+  })
   cloud_init = templatefile("${path.module}/cloud-init.yaml.tftpl", {
-    compose_b64        = base64encode(var.compose_yaml)
-    compose_sha        = var.compose_sha256
-    data_disk_gb       = var.data_disk_size_gb
-    disk_bootstrap_b64 = base64encode(file("${path.module}/prepare-data-disk.py"))
+    compose_b64         = base64encode(var.compose_yaml)
+    compose_sha         = var.compose_sha256
+    data_disk_gb        = var.data_disk_size_gb
+    disk_bootstrap_b64  = base64encode(file("${path.module}/prepare-data-disk.py"))
+    secret_fetch_b64    = base64encode(file("${path.module}/fetch-runtime-secrets.py"))
+    install_script_b64  = base64encode(local.install_runtime)
+    start_script_b64    = base64encode(local.start_compose)
+    registry_script_b64 = base64encode(local.registry_login)
   })
 }
 
@@ -85,6 +115,18 @@ resource "azurerm_network_security_group" "ankay" {
     destination_port_range     = tostring(var.api_port)
     source_address_prefix      = var.private_ip_address
     destination_address_prefix = "${var.qapaq_api_private_ip}/32"
+  }
+
+  security_rule {
+    name                       = "AllowKeyVaultPrivateEndpoint"
+    priority                   = 115
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = var.private_ip_address
+    destination_address_prefix = "${var.key_vault_private_ip}/32"
   }
 
   # HTTPS to public endpoints is force-routed through Azure Firewall; default-deny FQDN policy remains a deployment gate.
@@ -194,6 +236,15 @@ resource "azurerm_role_assignment" "acr_pull" {
   principal_type       = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "key_vault_secret_read" {
+  for_each = toset(values(var.secret_names))
+
+  scope                = "${trimsuffix(var.key_vault_id, "/")}/secrets/${each.value}"
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.ankay.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 resource "azurerm_managed_disk" "ankay_data" {
   name                          = "disk-${local.name}-data"
   location                      = var.location
@@ -279,6 +330,16 @@ resource "azurerm_linux_virtual_machine" "ankay" {
     precondition {
       condition     = local.compose_keeps_internal_services_unpublished
       error_message = "shuffle-security y OpenSearch no pueden publicar puertos del host; el edge usa frontend y OpenSearch queda en la red Compose."
+    }
+
+    precondition {
+      condition     = local.compose_has_healthchecks
+      error_message = "Cada servicio Compose debe declarar un healthcheck para que cloud-init pueda esperar estado saludable antes de habilitar el host."
+    }
+
+    precondition {
+      condition     = local.compose_has_restart_policies
+      error_message = "Cada servicio Compose debe declarar restart: always o unless-stopped para recuperarse de reinicios del daemon."
     }
   }
 }

@@ -2,10 +2,15 @@
 
 This module is wired into `infra/azure/main.tf` as an optional host, disabled while `ankay_host` is
 `null`. When enabled, it creates one private Ubuntu VM, an attached persistent data disk, a private
-IP, a narrowly scoped NSG, a managed identity with `AcrPull` on one registry, and a route table that
-forces internet-bound traffic from a dedicated subnet through an existing Azure Firewall. It writes
-the reviewed Compose document to the VM but does not install Docker, retrieve secrets, start
-containers, install Wazuh Agent, publish a DNS name, or change the QAPAQ login.
+IP, a narrowly scoped NSG, a managed identity with `AcrPull` on one registry, per-secret Key Vault
+read grants, and a route table that forces internet-bound traffic from a dedicated subnet through an
+existing Azure Firewall. On first boot cloud-init installs exact package versions, prepares the
+persistent disk without formatting anything except a positively verified blank disk, fetches named
+Key Vault secrets into a root-only env file, logs in to ACR with managed identity, pulls digest-pinned
+Compose images and starts them with health and restart policies. A systemd timer refreshes the short-lived ACR
+login for Orborus worker pulls. Terraform records that startup is configured; it cannot prove that
+the VM booted or passed runtime health checks. The module does not install Wazuh Agent, publish DNS,
+expose a public endpoint, or change the QAPAQ login.
 
 ## Required gates before enabling the module
 
@@ -18,7 +23,10 @@ containers, install Wazuh Agent, publish a DNS name, or change the QAPAQ login.
   Wazuh Manager TCP/1514 have separate rules. Firewall policy itself is outside this module.
 - An exact Ubuntu 24.04 Marketplace version, a cost-approved VM SKU, and the operator's SSH **public**
   key. No public IP or inbound SSH rule is created. Use Azure Run Command/serial console for bootstrap.
-- A non-secret Compose file and its SHA-256. The contract is exactly five services:
+- A non-secret Compose file and its SHA-256, a map of environment variable names to already-created
+  Key Vault secret names, and exact apt versions for Docker Engine/Compose and Azure CLI. Secret
+  values must never appear in Compose, Terraform inputs/state, or VM `custom_data`; the host identity
+  can read only the explicitly named Key Vault secrets. The contract is exactly five services:
   `shuffle-security`, `frontend`, `backend`, `orborus`, and `opensearch`. The separate worker image
   is launched dynamically by Orborus through `SHUFFLE_WORKER_IMAGE`; it is not a persistent service.
   Terraform validates the five service image references, the worker reference, and the Compose SHA.
@@ -29,6 +37,10 @@ containers, install Wazuh Agent, publish a DNS name, or change the QAPAQ login.
   frontend. Backend, Orborus, worker, `shuffle-security`, and OpenSearch digests have not been
   approved or verified. Upstream Compose uses floating `latest` for Shuffle services; do not use
   those mutable tags in an Azure deployment.
+- A reachable Key Vault Private Endpoint and private DNS, plus exact Docker/ACR FQDN policy entries.
+  The current ACR has no dedicated data endpoint, so image layers require `*.blob.core.windows.net`
+  through Azure Firewall and the exact ACR login hostname. This wildcard is a documented constraint;
+  prefer dedicated ACR data endpoints before production.
 
 ## Data and trust boundaries
 
@@ -52,6 +64,12 @@ webhook still needs application authentication/HMAC and replay defense. `/ankay/
 the existing QAPAQ `auth_request`; this module adds no public route and does not provide QAPAQ role
 authorization. `shuffle-security` and OpenSearch have no host port mappings or NSG ingress.
 
+At boot, systemd runs Compose only after Docker, network-online and `/mnt/ankay` are ready. Startup
+waits for health checks and restores the last-known-good manifest on a failed upgrade, without
+removing volumes. This does not roll back application data migrations. Missing image digests, secret
+names, firewall/DNS connectivity or service health leaves Ankay unhealthy and not ready for edge
+routing.
+
 **High-risk Docker boundary:** upstream Compose mounts `/var/run/docker.sock` into both backend and
 Orborus. A process with socket access can control the host Docker daemon, create privileged
 containers, mount host paths, and read host data; this is effectively root authority. Orborus needs
@@ -70,7 +88,7 @@ is unavailable, the service must remain offline rather than use direct internet 
 ## Validation
 
 `.github/workflows/ankay-azure-iac.yml` checks HCL formatting and provider schema without Azure
-credentials. It does not run a cloud plan. The root wiring is optional and disabled by default; no
-Ankay runtime or DNS change is evidenced by that wiring. After the upstream runtime images, Compose
-contract, secret references and application callback are verified, run the protected remote plan,
-inspect cost and every resource action, and only then consider deployment.
+credentials. It does not run a cloud plan. The root wiring is optional and disabled by default. The
+feature branch's boot automation is not deployment evidence; verify the protected remote plan, inspect
+cost and every resource action, and then verify VM systemd/Compose health and the protected edge route
+after deployment. Do not call Ankay operational from Terraform output alone.

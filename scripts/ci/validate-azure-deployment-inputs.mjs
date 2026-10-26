@@ -231,6 +231,8 @@ function validateAnkay(ankay, siem, registry) {
     'container_images',
     'compose_yaml',
     'compose_sha256',
+    'secret_names',
+    'docker_package_versions',
   ];
   exactKeys(ankay, required, ['data_disk_size_gb'], 'ankay_host');
   if (!isPrivateRfc1918(ankay.private_ip_address))
@@ -262,6 +264,25 @@ function validateAnkay(ankay, siem, registry) {
   nonEmptyString(ankay.compose_yaml, 'ankay_host.compose_yaml');
   if (typeof ankay.compose_sha256 !== 'string' || !SHA256.test(ankay.compose_sha256))
     fail('ankay_host.compose_sha256 must be lowercase SHA-256.');
+  stringMap(
+    ankay.secret_names,
+    'ankay_host.secret_names',
+    /^[A-Z][A-Z0-9_]{0,127}$/u,
+    /^[A-Za-z0-9-]{1,127}$/u,
+  );
+  if (Object.keys(ankay.secret_names).length === 0)
+    fail('ankay_host.secret_names must map runtime environment variables to pre-created Key Vault secret names.');
+  object(ankay.docker_package_versions, 'ankay_host.docker_package_versions');
+  exactKeys(
+    ankay.docker_package_versions,
+    ['docker-ce', 'docker-ce-cli', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin', 'azure-cli'],
+    [],
+    'ankay_host.docker_package_versions',
+  );
+  for (const [packageName, version] of Object.entries(ankay.docker_package_versions)) {
+    if (typeof version !== 'string' || !/^[A-Za-z0-9:.+~_-]{1,80}$/u.test(version))
+      fail(`ankay_host.docker_package_versions.${packageName} must be a fixed apt package version.`);
+  }
   const actual = nodeCreateHash('sha256').update(ankay.compose_yaml).digest('hex');
   if (actual !== ankay.compose_sha256)
     fail('ankay_host.compose_sha256 does not match compose_yaml.');

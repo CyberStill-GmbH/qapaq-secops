@@ -18,6 +18,6 @@ output "managed_disk_id" {
 }
 
 output "runtime_status" {
-  description = "El módulo solo prepara host y disco; no afirma que Ankay haya arrancado o esté operativo."
-  value       = "host_prepared_runtime_not_started"
+  description = "Cloud-init instala y arranca Compose en el primer inicio; este valor no afirma que el host desplegado haya pasado sus health checks."
+  value       = "cloud_init_start_configured_health_unverified"
 }

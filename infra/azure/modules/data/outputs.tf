@@ -13,3 +13,4 @@ output "legacy_siem_release_container_id" { value = azurerm_storage_container.si
 output "key_vault_id" { value = azurerm_key_vault.this.id }
 output "key_vault_name" { value = azurerm_key_vault.this.name }
 output "key_vault_uri" { value = azurerm_key_vault.this.vault_uri }
+output "key_vault_private_ip" { value = azurerm_private_endpoint.key_vault.private_service_connection[0].private_ip_address }

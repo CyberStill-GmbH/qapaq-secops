@@ -121,7 +121,12 @@ module "egress_firewall" {
     "security.ubuntu.com",
     format("%s.virustotal.com", "api"),
     "acme-v02.api.letsencrypt.org",
-  ]), local.provider_egress_fqdns)
+    ]), local.provider_egress_fqdns, var.ankay_host == null ? toset([]) : toset([
+    "download.docker.com",
+    module.identity_registry.container_registry_login_server,
+    "azurecr.io",
+    "*.blob.core.windows.net",
+  ]))
   ingress_http_enabled = var.siem_host != null
   tags                 = var.tags
 
@@ -216,6 +221,11 @@ module "ankay_host" {
   container_images                = try(var.ankay_host.container_images, {})
   compose_yaml                    = try(var.ankay_host.compose_yaml, "")
   compose_sha256                  = try(var.ankay_host.compose_sha256, "")
+  key_vault_id                    = module.data.key_vault_id
+  key_vault_uri                   = module.data.key_vault_uri
+  key_vault_private_ip            = module.data.key_vault_private_ip
+  secret_names                    = try(var.ankay_host.secret_names, {})
+  docker_package_versions         = try(var.ankay_host.docker_package_versions, {})
   tags                            = var.tags
 
   depends_on = [module.network, module.identity_registry, module.egress_firewall, module.siem_host]
