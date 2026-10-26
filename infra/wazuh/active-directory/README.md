@@ -78,6 +78,10 @@ docker run --detach --rm --name qapaq-wazuh-ad-test \
   --ulimit nofile=458752:458752 \
   --volume "$PWD/infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml:/var/ossec/etc/rules/qapaq_active_directory_rules.xml:ro" \
   wazuh/wazuh-manager:4.14.8
+docker exec qapaq-wazuh-ad-test sed -i \
+  -e '/<category>ossec<\/category>/d' \
+  -e 's|<decoded_as>windows_eventchannel</decoded_as>|<decoded_as>json</decoded_as>|' \
+  /var/ossec/ruleset/rules/0575-win-base_rules.xml
 docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control start
 bash infra/wazuh/active-directory/tests/run-logtest.sh qapaq-wazuh-ad-test
 docker rm -f qapaq-wazuh-ad-test
