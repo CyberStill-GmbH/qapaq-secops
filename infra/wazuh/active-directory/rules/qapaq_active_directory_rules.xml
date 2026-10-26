@@ -1,0 +1,95 @@
+<!--
+  Reglas locales para eventos de Active Directory/Windows en Wazuh 4.14.8.
+  Se apoyan en decoders y reglas base incluidos con Wazuh; no reemplazan el ruleset.
+  Monitor-only: no configura Active Response ni ejecuta acciones sobre el dominio.
+  Los IDs 101300-101307 están reservados para este paquete QAPAQ.
+-->
+<group name="windows,active_directory,qapaq_ad,">
+  <!-- Adición a grupos integrados de alto privilegio. Detecta por SID para evitar
+       depender del idioma/nombre localizado del grupo. -->
+  <rule id="101300" level="12">
+    <if_sid>60113</if_sid>
+    <field name="win.system.eventID">^(4728|4732|4756)$</field>
+    <field name="win.eventdata.targetSid" type="pcre2">^S-1-5-(21-(?:[0-9]+-){2}[0-9]+-(512|516|518|519|520)|32-(544|548|549|550|551|552))$</field>
+    <description>QAPAQ P0: miembro añadido a un grupo integrado privilegiado de AD; revisar actor, miembro y cambio aprobado.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098.007</id></mitre>
+    <group>qapaq_ad_privilege_change,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- Cambios de auditoría en Windows. El ruleset base clasifica 4719 como 60112. -->
+  <rule id="101301" level="12">
+    <if_sid>60112</if_sid>
+    <field name="win.system.eventID">^4719$</field>
+    <description>QAPAQ P0: se modificó la política de auditoría; validar el cambio y que la cobertura de registros permanezca activa.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.002</id></mitre>
+    <group>qapaq_ad_defense_evasion,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- Borrado del Security log. -->
+  <rule id="101302" level="13">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^1102$</field>
+    <description>QAPAQ P0: se limpió el registro Security de Windows; preservar evidencia y verificar el actor.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1070.001</id></mitre>
+    <group>qapaq_ad_log_tampering,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- Cambios sobre contenedores de administración persistente. Requiere Directory Service Changes. -->
+  <rule id="101303" level="10">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^(5136|5137|5141)$</field>
+    <field name="win.eventdata.objectDN" type="pcre2">(?i)(CN=AdminSDHolder,CN=System,|CN=Policies,CN=System,)</field>
+    <description>QAPAQ P1: cambio en AdminSDHolder o un objeto de Group Policy; validar autor y ticket de cambio.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1484.001</id></mitre>
+    <group>qapaq_ad_directory_change,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- RC4 es una señal de hunting, no prueba suficiente de Kerberoasting. -->
+  <rule id="101304" level="5">
+    <if_sid>60106</if_sid>
+    <field name="win.system.eventID">^4769$</field>
+    <field name="win.eventdata.ticketEncryptionType" type="pcre2">(?i)^0x17$</field>
+    <description>QAPAQ: ticket Kerberos de servicio emitido con RC4; verificar cuenta de servicio, origen y necesidad de compatibilidad.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1558.003</id></mitre>
+    <group>qapaq_ad_kerberos_hunt,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- Pre-authentication ausente es un candidato AS-REP roast; revisar excepciones aprobadas. -->
+  <rule id="101305" level="7">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4768$</field>
+    <field name="win.eventdata.preAuthType">^0$</field>
+    <field name="win.eventdata.status" type="pcre2">(?i)^(0x0|0)$</field>
+    <description>QAPAQ P1: TGT emitido sin preautenticación Kerberos; confirmar cuenta y excepción autorizada.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1558.004</id></mitre>
+    <group>qapaq_ad_kerberos_hunt,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- DCSync candidate. Level deliberately moderate: replication legítima también produce 4662. -->
+  <rule id="101306" level="6">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4662$</field>
+    <field name="win.eventdata.accessMask" type="pcre2">(?i)^(0x100|256)$</field>
+    <field name="win.eventdata.properties" type="pcre2">(?i)(1131f6aa-9c07-11d1-f79f-00c04fc2dcd2|1131f6ad-9c07-11d1-f79f-00c04fc2dcd2|89e95b76-444d-4c62-991a-0facbeda640c)</field>
+    <description>QAPAQ candidato DCSync: acceso de replicación de directorio; comprobar principal, host y permisos legítimos de replicación.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1003.006</id></mitre>
+    <group>qapaq_ad_replication_hunt,qapaq_ad_review,</group>
+  </rule>
+
+  <!-- Fallos Kerberos para hunting; no se escala sin correlación por identidad/origen. -->
+  <rule id="101307" level="6">
+    <if_sid>60104</if_sid>
+    <field name="win.system.eventID">^4771$</field>
+    <description>QAPAQ: fallo de preautenticación Kerberos; agrupar por cuenta, origen y ventana antes de clasificar password spraying.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110.003</id></mitre>
+    <group>qapaq_ad_auth_hunt,qapaq_ad_review,</group>
+  </rule>
+</group>
