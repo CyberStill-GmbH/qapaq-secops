@@ -123,9 +123,11 @@ module "key_vault_seed_identity" {
   github_repository    = var.github_repository
   github_owner_id      = var.github_owner_id
   github_repository_id = var.github_repository_id
-  github_environment   = var.github_environment
-  key_vault_id         = module.data.key_vault_id
-  tags                 = var.tags
+  # El seeder solo existe en EUS2 y su federación se ata a ese environment; el
+  # `github_environment` del root sigue siendo el del publicador (azure-demo).
+  github_environment = "azure-demo-eus2"
+  key_vault_id       = module.data.key_vault_id
+  tags               = var.tags
 
   depends_on = [module.data]
 }
