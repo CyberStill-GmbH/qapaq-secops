@@ -3,12 +3,38 @@ import {
   type EnvironmentInput,
   type SecretProvider,
 } from '@qapaq/configuration';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AzureKeyVaultSecretProvider,
   createAzureKeyVaultSecretProvider,
 } from '../src/runtime/azure-key-vault-secret-provider.js';
 import { resolveApiSecretEnvironment } from '../src/runtime/secret-environment.js';
+
+const syntheticManagedIdentity = '11111111-1111-4111-8111-111111111111';
+const syntheticVaultUri = 'https://kv-qapaq.vault.azure.net';
+
+function imdsTokenResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      access_token: 'synthetic-managed-identity-token',
+      expires_on: String(Math.floor(Date.now() / 1_000) + 3_600),
+      token_type: 'Bearer',
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  );
+}
+
+function azureKeyVaultProvider(timeoutMs = 5_000): AzureKeyVaultSecretProvider {
+  return createAzureKeyVaultSecretProvider({
+    vaultUri: syntheticVaultUri,
+    managedIdentityClientId: syntheticManagedIdentity,
+    timeoutMs,
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('AzureKeyVaultSecretProvider', () => {
   it('reads one named key-vault secret with an abort deadline', async () => {
@@ -120,6 +146,140 @@ describe('AzureKeyVaultSecretProvider', () => {
         timeoutMs: 5_000,
       }),
     ).toThrow();
+  });
+
+  it('requests a bounded Key Vault secret through fixed IMDS and caches the short-lived token', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.hostname === '169.254.169.254') return imdsTokenResponse();
+      return new Response(JSON.stringify({ value: 'synthetic-key-vault-secret' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = azureKeyVaultProvider();
+
+    await expect(
+      provider.resolve(parseSecretReference('secret://keyvault/entra-client-secret')),
+    ).resolves.toBe('synthetic-key-vault-secret');
+    await expect(
+      provider.resolve(parseSecretReference('secret://keyvault/postgres-password')),
+    ).resolves.toBe('synthetic-key-vault-secret');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const imdsUrl = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(imdsUrl.origin + imdsUrl.pathname).toBe(
+      'http://169.254.169.254/metadata/identity/oauth2/token',
+    );
+    expect(imdsUrl.searchParams.get('client_id')).toBe(syntheticManagedIdentity);
+    expect(imdsUrl.searchParams.get('resource')).toBe('https://vault.azure.net');
+    const imdsOptions = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(imdsOptions.headers).get('Metadata')).toBe('true');
+    expect(imdsOptions.redirect).toBe('error');
+    expect(imdsOptions.cache).toBe('no-store');
+    const vaultUrl = new URL(String(fetchMock.mock.calls[1]?.[0]));
+    expect(vaultUrl.origin).toBe(syntheticVaultUri);
+    expect(vaultUrl.pathname).toBe('/secrets/entra-client-secret');
+    const vaultOptions = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(new Headers(vaultOptions.headers).get('authorization')).toBe(
+      'Bearer synthetic-managed-identity-token',
+    );
+    expect(vaultOptions.redirect).toBe('error');
+    expect(vaultOptions.cache).toBe('no-store');
+  });
+
+  it.each([
+    [403, 'SECRET_ACCESS_DENIED'],
+    [404, 'SECRET_NOT_FOUND'],
+  ])(
+    'normalizes Key Vault HTTP %s without returning the response body',
+    async (statusCode, code) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(imdsTokenResponse())
+        .mockResolvedValueOnce(
+          new Response('synthetic-secret-response-body', { status: statusCode }),
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      await expect(
+        azureKeyVaultProvider().resolve(
+          parseSecretReference('secret://keyvault/entra-client-secret'),
+        ),
+      ).rejects.toMatchObject({
+        code,
+        message: expect.not.stringContaining('synthetic-secret-response-body'),
+      });
+    },
+  );
+
+  it('rejects malformed and oversized service responses without exposing their bodies', async () => {
+    const invalidJsonFetch = vi
+      .fn()
+      .mockResolvedValueOnce(imdsTokenResponse())
+      .mockResolvedValueOnce(new Response('synthetic-invalid-json-secret', { status: 200 }));
+    vi.stubGlobal('fetch', invalidJsonFetch);
+    await expect(
+      azureKeyVaultProvider().resolve(
+        parseSecretReference('secret://keyvault/entra-client-secret'),
+      ),
+    ).rejects.toMatchObject({
+      code: 'SECRET_RESOLUTION_FAILED',
+      message: expect.not.stringContaining('synthetic-invalid-json-secret'),
+    });
+
+    const oversizedFetch = vi
+      .fn()
+      .mockResolvedValueOnce(imdsTokenResponse())
+      .mockResolvedValueOnce(
+        new Response('too-large', {
+          status: 200,
+          headers: { 'content-length': String(64 * 1024 + 1) },
+        }),
+      );
+    vi.stubGlobal('fetch', oversizedFetch);
+    await expect(
+      azureKeyVaultProvider().resolve(
+        parseSecretReference('secret://keyvault/entra-client-secret'),
+      ),
+    ).rejects.toMatchObject({ code: 'SECRET_RESOLUTION_FAILED' });
+  });
+
+  it('rejects redirects and enforces one timeout across IMDS and Key Vault', async () => {
+    const redirectFetch = vi
+      .fn()
+      .mockResolvedValueOnce(imdsTokenResponse())
+      .mockRejectedValueOnce(new TypeError('synthetic redirect target'));
+    vi.stubGlobal('fetch', redirectFetch);
+    await expect(
+      azureKeyVaultProvider().resolve(
+        parseSecretReference('secret://keyvault/entra-client-secret'),
+      ),
+    ).rejects.toMatchObject({
+      code: 'SECRET_PROVIDER_UNAVAILABLE',
+      message: expect.not.stringContaining('synthetic redirect target'),
+    });
+
+    const timeoutFetch = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('timeout', 'AbortError')),
+            {
+              once: true,
+            },
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', timeoutFetch);
+    await expect(
+      azureKeyVaultProvider(100).resolve(
+        parseSecretReference('secret://keyvault/entra-client-secret'),
+      ),
+    ).rejects.toMatchObject({ code: 'SECRET_PROVIDER_UNAVAILABLE' });
+    expect(timeoutFetch.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 });
 

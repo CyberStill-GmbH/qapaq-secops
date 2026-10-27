@@ -91,7 +91,7 @@ export async function resolveApiSecretEnvironment(
         timeoutMs: parseTimeout(environment['QAPAQ_SECRET_PROVIDER_TIMEOUT']),
       });
   const resolved: Record<string, string | undefined> = { ...environment };
-  for (const { referenceName, valueName, reference } of references) {
+  for (const { valueName, reference } of references) {
     resolved[valueName] = await provider.resolve(reference);
   }
   return Object.freeze(resolved);

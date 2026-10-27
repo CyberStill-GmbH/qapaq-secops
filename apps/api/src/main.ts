@@ -1,7 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { ConfigurationError, SecretProviderError } from '@qapaq/configuration';
 import { buildApi } from './bootstrap.js';
-import { resolveApiSecretEnvironment } from './runtime/secret-environment.js';
 
 function log(
   event: string,
@@ -75,9 +74,8 @@ export async function main(): Promise<void> {
     const demoMfaExceptionUntil = demoMfaExceptionUntilRaw
       ? new Date(demoMfaExceptionUntilRaw)
       : undefined;
-    const environment = await resolveApiSecretEnvironment(process.env);
     runtime = await buildApi(
-      environment,
+      process.env,
       (state) => log(`application.${state}`),
       // Solo el tipo de error: el mensaje podría citar datos del destino o de la alerta.
       (error) =>

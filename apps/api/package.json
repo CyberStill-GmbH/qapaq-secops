@@ -9,8 +9,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@azure/identity": "4.14.0",
-    "@azure/keyvault-secrets": "4.11.2",
     "@nestjs/common": "12.0.4",
     "@nestjs/core": "12.0.4",
     "@nestjs/platform-fastify": "12.0.4",

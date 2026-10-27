@@ -1,5 +1,3 @@
-import { ManagedIdentityCredential } from '@azure/identity';
-import { SecretClient } from '@azure/keyvault-secrets';
 import {
   parseSecretReference,
   SecretProviderError,
@@ -9,6 +7,11 @@ import {
 
 const SECRET_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]{0,126}$/u;
 const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const IMDS_TOKEN_ENDPOINT = 'http://169.254.169.254/metadata/identity/oauth2/token';
+const KEY_VAULT_RESOURCE = 'https://vault.azure.net';
+const KEY_VAULT_API_VERSION = '7.4';
+const MAX_RESPONSE_BYTES = 64 * 1024;
+const TOKEN_REFRESH_SKEW_MS = 60_000;
 
 export interface KeyVaultSecretReader {
   getSecret(
@@ -17,7 +20,134 @@ export interface KeyVaultSecretReader {
   ): Promise<{ readonly value?: string }>;
 }
 
+type HttpStatusError = Error & { readonly statusCode: number };
+
+function httpStatusError(statusCode: number): HttpStatusError {
+  return Object.assign(new Error('Azure service request failed.'), { statusCode });
+}
+
+async function readJsonBounded(response: Response): Promise<unknown> {
+  const contentLength = response.headers.get('content-length');
+  if (
+    contentLength !== null &&
+    /^\d+$/u.test(contentLength) &&
+    Number(contentLength) > MAX_RESPONSE_BYTES
+  ) {
+    await response.body?.cancel();
+    throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+  }
+  if (!response.body) throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  } catch {
+    throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+  }
+}
+
+interface ManagedIdentityTokenResponse {
+  readonly access_token?: unknown;
+  readonly expires_on?: unknown;
+  readonly token_type?: unknown;
+}
+
+/** Uses the VM's link-local IMDS endpoint and keeps its short-lived token in memory only. */
+class ManagedIdentityKeyVaultSecretReader implements KeyVaultSecretReader {
+  readonly #vaultUri: URL;
+  readonly #clientId: string;
+  #cachedToken: { readonly value: string; readonly expiresAt: number } | undefined;
+
+  public constructor(vaultUri: URL, clientId: string) {
+    this.#vaultUri = vaultUri;
+    this.#clientId = clientId;
+  }
+
+  public async getSecret(
+    name: string,
+    options: { readonly abortSignal: AbortSignal },
+  ): Promise<{ readonly value?: string }> {
+    const token = await this.#getAccessToken(options.abortSignal);
+    const secretUrl = new URL(
+      `/secrets/${encodeURIComponent(name)}?api-version=${KEY_VAULT_API_VERSION}`,
+      this.#vaultUri,
+    );
+    const response = await fetch(secretUrl, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+      signal: options.abortSignal,
+      cache: 'no-store',
+      redirect: 'error',
+    });
+    if (!response.ok) throw httpStatusError(response.status);
+    const body = (await readJsonBounded(response)) as { readonly value?: unknown };
+    return { value: typeof body.value === 'string' ? body.value : undefined };
+  }
+
+  async #getAccessToken(signal: AbortSignal): Promise<string> {
+    const cached = this.#cachedToken;
+    if (cached && cached.expiresAt - TOKEN_REFRESH_SKEW_MS > Date.now()) return cached.value;
+
+    const tokenUrl = new URL(IMDS_TOKEN_ENDPOINT);
+    tokenUrl.searchParams.set('api-version', '2018-02-01');
+    tokenUrl.searchParams.set('resource', KEY_VAULT_RESOURCE);
+    tokenUrl.searchParams.set('client_id', this.#clientId);
+    const response = await fetch(tokenUrl, {
+      method: 'GET',
+      headers: { Metadata: 'true' },
+      signal,
+      cache: 'no-store',
+      redirect: 'error',
+    });
+    if (!response.ok) throw httpStatusError(response.status);
+
+    const tokenBody: unknown = await readJsonBounded(response);
+    if (typeof tokenBody !== 'object' || tokenBody === null || Array.isArray(tokenBody)) {
+      throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+    }
+    const body = tokenBody as ManagedIdentityTokenResponse;
+    if (
+      typeof body.access_token !== 'string' ||
+      body.access_token.length === 0 ||
+      (typeof body.expires_on !== 'string' && typeof body.expires_on !== 'number') ||
+      body.token_type !== 'Bearer'
+    ) {
+      throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+    }
+    const expiresAtSeconds = Number(body.expires_on);
+    if (!Number.isSafeInteger(expiresAtSeconds) || expiresAtSeconds * 1_000 <= Date.now()) {
+      throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
+    }
+    this.#cachedToken = { value: body.access_token, expiresAt: expiresAtSeconds * 1_000 };
+    return body.access_token;
+  }
+}
+
 function secretErrorCode(error: unknown): ConstructorParameters<typeof SecretProviderError>[0] {
+  if (error instanceof SecretProviderError) return error.code;
   if (typeof error !== 'object' || error === null) return 'SECRET_PROVIDER_UNAVAILABLE';
   const record = error as {
     readonly statusCode?: unknown;
@@ -113,9 +243,6 @@ export function createAzureKeyVaultSecretProvider(options: {
     throw new SecretProviderError('SECRET_RESOLUTION_FAILED');
   }
 
-  const credential = new ManagedIdentityCredential(options.managedIdentityClientId);
-  const client = new SecretClient(vaultUri.origin, credential, {
-    retryOptions: { maxRetries: 0 },
-  });
+  const client = new ManagedIdentityKeyVaultSecretReader(vaultUri, options.managedIdentityClientId);
   return new AzureKeyVaultSecretProvider(client, options.timeoutMs);
 }
