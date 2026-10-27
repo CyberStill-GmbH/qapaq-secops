@@ -121,6 +121,17 @@ variable "container_images" {
   }
 }
 
+variable "siem_firewall_sku_tier" {
+  description = "SKU del Azure Firewall de egress e ingreso del SIEM. Basic (~USD 0.395/h) filtra por FQDN y publica el DNAT; Standard (~USD 1.25/h) agrega Threat Intelligence en Deny y DNS proxy."
+  type        = string
+  default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard"], var.siem_firewall_sku_tier)
+    error_message = "siem_firewall_sku_tier debe ser Basic o Standard."
+  }
+}
+
 variable "enable_runtime" {
   description = "Crea Container Apps solo al contar con cinco digests verificados y compatibilidad de runtime aprobada."
   type        = bool

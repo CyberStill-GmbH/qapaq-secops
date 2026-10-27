@@ -2,6 +2,21 @@ variable "resource_group_name" { type = string }
 variable "location" { type = string }
 variable "name_base" { type = string }
 variable "firewall_subnet_id" { type = string }
+variable "sku_tier" {
+  description = "Basic basta para filtrar egress por FQDN y publicar el DNAT; Standard agrega Threat Intelligence en Deny y DNS proxy."
+  type        = string
+  default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard"], var.sku_tier)
+    error_message = "sku_tier debe ser Basic o Standard."
+  }
+}
+variable "management_subnet_id" {
+  description = "AzureFirewallManagementSubnet; obligatoria solo con sku_tier Basic."
+  type        = string
+  default     = null
+}
 variable "log_analytics_workspace_id" {
   description = "Workspace de Azure Monitor que recibe los logs NAT estructurados del Firewall."
   type        = string

@@ -85,6 +85,15 @@ resource "azurerm_subnet" "firewall" {
   address_prefixes     = [cidrsubnet(var.address_space, 10, 256)]
 }
 
+# Firewall Basic: tráfico de gestión de la plataforma, sin UDR ni cargas propias.
+resource "azurerm_subnet" "firewall_management" {
+  count                = var.enable_siem_firewall && var.firewall_sku_tier == "Basic" ? 1 : 0
+  name                 = "AzureFirewallManagementSubnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [cidrsubnet(var.address_space, 10, 257)]
+}
+
 
 resource "azurerm_private_dns_zone" "postgres" {
   name                = "${var.name_base}.postgres.database.azure.com"

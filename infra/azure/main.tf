@@ -50,6 +50,7 @@ module "network" {
   ankay_subnet_address_prefix   = var.ankay_host == null ? null : cidrsubnet(var.address_space, 11, 1)
   krakend_subnet_address_prefix = local.krakend_subnet_cidr
   enable_siem_firewall          = var.siem_host != null
+  firewall_sku_tier             = var.siem_firewall_sku_tier
   tags                          = var.tags
 }
 
@@ -156,6 +157,8 @@ module "egress_firewall" {
   location                   = data.azurerm_resource_group.this.location
   name_base                  = local.name_base
   firewall_subnet_id         = module.network.firewall_subnet_id
+  management_subnet_id       = module.network.firewall_management_subnet_id
+  sku_tier                   = var.siem_firewall_sku_tier
   log_analytics_workspace_id = module.observability.log_analytics_workspace_id
   source_cidrs = toset(concat(
     [var.siem_host.address_prefix],
