@@ -23,6 +23,8 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             "wazuh/azure-release/install_detection_rules.py",
             "infra/wazuh/endpoint/rules infra/wazuh/launch-detections/rules",
             "infra/wazuh/active-directory/rules",
+            "infra/wazuh/active-directory/agent-groups infra/wazuh/active-directory/profile-catalog.json infra/wazuh/active-directory/README.md",
+            "infra/wazuh/launch-detections/agent-groups",
             "infra/wazuh/teams",
             "docs/security/launch-detection-catalog-2026-10-20.json",
             "wazuh/core wazuh/dashboard wazuh/office365",
@@ -33,6 +35,9 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             'name: qapaq-core-azure-${{ inputs.release_sha }}',
             'QAPAQ_SHA: ${{ inputs.release_sha }}',
             'assert manifest["qapaqCommit"] == sys.argv[3]',
+            'assert manifest["agentProfilePack"]["status"] == "candidate-disabled"',
+            'assert manifest["agentProfilePack"]["installerAppliesAgentProfiles"] is False',
+            'assert "agent-profiles" not in installer',
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, workflow)

@@ -1,9 +1,8 @@
 # Perfil QAPAQ de detección para Active Directory
 
-Estado: **configuración candidata versionada, no instalada ni aplicada a un dominio**.
-El paquete separa las reglas locales QAPAQ de la configuración de recolección de DC.
-Se limita a observación; no configura Active Response, aislamiento, bloqueo o cambios
-de identidad.
+Estado: **candidate/disabled**. Reglas y perfiles están versionados para revisión; no
+se instalan en el bundle ni se aplican a agentes o dominios. Se limita a observación:
+no configura Active Response, aislamiento, bloqueo o cambios de identidad.
 
 ## Cobertura
 
@@ -26,12 +25,29 @@ Además, se mantienen las reglas base Wazuh para cuentas creadas/habilitadas (47
 fallos y éxitos de autenticación (60105/60106). Evitamos duplicarlas; el SOC debe
 correlacionar los eventos base con identidad, origen, criticidad del activo y ventana.
 
-El perfil `agent-groups/windows-domain-controller.agent.conf` complementa el grupo
-Windows piloto existente (que ya recoge Security y System) con Directory Service,
-DNS Server, Group Policy y PowerShell Operational. Aplicarlo solo al grupo central
-de Domain Controllers, como merge con la configuración central vigente. Evita
-asignar más de un grupo que colecte los mismos canales. La existencia/retención de
-cada canal y su volumen deben comprobarse primero en un DC piloto.
+El perfil `agent-groups/windows-domain-controller.agent.conf` añade solo la etiqueta
+`qapaq_profile=active-directory-pilot`, sin canales adicionales: el grupo Windows
+base ya recoge `Security` y `System`, y las reglas AD consumen `Security`. Se excluyen
+los canales `Directory Service`, DNS Server y Group Policy porque no tienen una regla QAPAQ consumidora
+vigente. La matriz exacta está en `profile-catalog.json`.
+
+| Fuente / canal | Event IDs mapeados | Dataset/campos Wazuh | Reglas existentes | Decisión de recolección |
+| --- | --- | --- | --- | --- |
+| Windows Security · `Security` | 4728, 4732, 4756; 4719; 1102; 5136, 5137, 5141; 4769; 4768; 4662; 4771 | `wazuh-alerts-*`; `win.system.channel=Security`, `win.system.eventID` | QAPAQ 101300–101307; el detalle evento→regla está en la tabla Cobertura | Ya lo recoge el Windows base para conservar el ruleset upstream; el perfil DC no crea un duplicado ni filtra otros eventos existentes. |
+| Windows System · `System` | 7045 | `wazuh-alerts-*`; `win.system.channel=System`, `win.system.eventID` | Wazuh upstream 61138 (Wazuh 4.14.8) | Heredado del Windows base; no duplicar. |
+| Directory Service | — | No se recoge en este candidato | Ninguna regla actual; los eventos 5136/5137/5141 llegan por `Security` | Excluido hasta que exista caso de uso, regla consumidora y validación de volumen. |
+| PowerShell Operational | — | No se recoge | Ninguna regla AD QAPAQ actual consume este canal | Excluido por minimización: eventos de scripts/módulos pueden incluir contenido y el evento 400 puede incluir argumentos de `HostApplication`. No habilitar 4103/4104 sin aprobación de privacidad y protección de eventos. |
+| Sysmon Operational | 1 (Process Create) | `wazuh-alerts-*`; `win.system.channel=Microsoft-Windows-Sysmon/Operational`, `win.system.eventID` | QAPAQ endpoint 101100 | Perfil separado y disabled; Event ID 1 puede incluir command line. Requiere aprobación de privacidad/retención y revisar la configuración Sysmon antes de asignarlo. |
+| DNS Server / Group Policy Operational | — | No se recoge en este candidato | Ninguna regla QAPAQ vigente | Excluidos hasta que una detección aprobada consuma señales específicas. |
+
+La configuración base `windows-pilot.agent.conf` conserva `Security` y `System`
+sin filtros para no perder detecciones upstream fuera de este paquete. Se quitó su
+recolección PowerShell sin filtro. El candidato de Sysmon queda separado y no se
+activa con la instalación de reglas. Asignar grupos que duplican una misma fuente
+podría duplicar eventos; el operador debe confirmar la composición efectiva antes
+de un piloto. `profile-catalog.json` enumera las reglas padre upstream (601xx) para
+cada evento que usa una regla QAPAQ y fija el único ID upstream adicional de este
+mapa (61138) a Wazuh v4.14.8.
 
 ## Política de auditoría del DC
 
@@ -67,7 +83,11 @@ Sysmon no es requisito para estas reglas; su perfil se gestiona separadamente.
 3. Revisar volúmenes/FP de 101304, 101305, 101306 y 101307 en modo observación antes
    de asignar severidad operativa o automatización. No importar las reglas a producción
    desde este repo hasta disponer de aprobación del dueño del dominio y evidencia.
-4. Para rollback, retirar solo la referencia local QAPAQ y el perfil de grupo piloto;
+4. Antes de asignar cualquier agent group, confirmar que `profile-catalog.json` siga
+   en `candidate-disabled`, que el DC no tenga grupos duplicados y que se aprobaron
+   privacidad, retención y volumen. El bundle solo adjunta los perfiles como archivos
+   de referencia; su instalador no los copia a `/var/ossec/etc/shared` ni los aplica.
+5. Para rollback, retirar solo la referencia local QAPAQ y el perfil de grupo piloto;
    validar `wazuh-analysisd -t`, recargar según el procedimiento controlado del Manager
    y comprobar que la colección upstream sigue activa.
 
@@ -84,6 +104,7 @@ docker exec qapaq-wazuh-ad-test sed -i \
   /var/ossec/ruleset/rules/0575-win-base_rules.xml
 docker exec qapaq-wazuh-ad-test /var/ossec/bin/wazuh-control start
 bash infra/wazuh/active-directory/tests/run-logtest.sh qapaq-wazuh-ad-test
+python -m unittest discover -s infra/wazuh/active-directory/tests -p 'test_profile_catalog.py' -v
 docker rm -f qapaq-wazuh-ad-test
 ```
 
@@ -95,9 +116,14 @@ operativos. Esta config no fue aplicada a Azure ni a ningún Manager.
 ## Fuentes primarias
 
 - [Wazuh 4.14.8 ruleset Windows Security](https://github.com/wazuh/wazuh/tree/v4.14.8/ruleset/rules)
+- [Wazuh 4.14.8 Windows System rule 61138](https://github.com/wazuh/wazuh/blob/v4.14.8/ruleset/rules/0590-win-system_rules.xml)
+- [Wazuh Windows event-channel filters](https://documentation.wazuh.com/current/user-manual/capabilities/log-data-collection/configuration.html#monitoring-specific-events-from-windows-event-channel)
+- [Wazuh centralized agent configuration](https://documentation.wazuh.com/current/user-manual/reference/centralized-configuration.html)
 - [Wazuh: reglas personalizadas](https://documentation.wazuh.com/current/user-manual/ruleset/rules/custom.html)
 - [Wazuh: probar decoders y reglas](https://documentation.wazuh.com/current/user-manual/ruleset/testing.html)
 - [Microsoft: auditoría de seguridad de Windows](https://learn.microsoft.com/windows/security/threat-protection/auditing/basic-audit-policy-recommendations)
 - [Microsoft: auditoría de cambios de servicio de directorio](https://learn.microsoft.com/windows/security/threat-protection/auditing/audit-directory-service-changes)
+- [Microsoft: PowerShell logging y contenido sensible de Script Block Logging](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_logging?view=powershell-5.1)
+- [CERT-EU: PowerShell security guidance, event 400/403](https://cert.europa.eu/publications/security-guidance/CERT-EU-SWP2019-001/pdf)
 - [MITRE ATT&CK: DCSync](https://attack.mitre.org/techniques/T1003/006/)
 - [MITRE ATT&CK: Kerberoasting](https://attack.mitre.org/techniques/T1558/003/)

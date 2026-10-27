@@ -96,6 +96,21 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertIn("wazuh/launch-detections/catalog.json", manifest["files"])
         self.assertIn("wazuh/launch-detections/install_detection_rules.py", manifest["files"])
         self.assertEqual(manifest["detectionPack"]["activation"], "rules-installed-provider-connectors-remain-opt-in")
+        profile_pack = manifest["agentProfilePack"]
+        self.assertEqual(profile_pack["status"], "candidate-disabled")
+        self.assertEqual(profile_pack["activation"], "owner-approval-and-domain-controller-pilot-required")
+        self.assertFalse(profile_pack["installerAppliesAgentProfiles"])
+        self.assertEqual(
+            set(profile_pack["profiles"]),
+            {
+                "wazuh/agent-profiles/windows-domain-controller.agent.conf",
+                "wazuh/agent-profiles/windows-pilot.agent.conf",
+                "wazuh/agent-profiles/windows-sysmon-pilot.agent.conf",
+            },
+        )
+        self.assertIn("wazuh/agent-profiles/active-directory/profile-catalog.json", manifest["files"])
+        self.assertIn("wazuh/agent-profiles/active-directory/README.md", manifest["files"])
+        self.assertNotIn("agent-profiles", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("install_detection_rules.py", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("qapaq-teams-workflow-url", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("wazuh/provider-ingestion/sophos/upstream/LICENSE-2.0.txt", manifest["files"])
