@@ -7,17 +7,20 @@ flowchart LR
     Edge[Nginx edge QAPAQ]
     Dashboard[Wazuh Dashboard 4.14.8 / OSD 2.19.6<br/>overlay QAPAQ · pendiente de instalación Azure]
     Core[qapaq-core API + worker<br/>Node 24 · loopback]
-    KrakenD[KrakenD<br/>ingesta según A8]
+    IndexerProxy[Nginx proxy Indexer :9200<br/>solo lectura · gate Azure]
     Manager[Wazuh Manager<br/>M365 pendiente de validar]
     Indexer[(Wazuh Indexer / OpenSearch<br/>privado)]
 
     Edge -->|UI| Dashboard
     Edge -->|API local| Core
-    Core -->|lectura para ingesta| KrakenD
-    KrakenD --> Indexer
+    IndexerProxy -->|TLS verificado| Indexer
     Manager --> Indexer
     Agents[Agentes autorizados] -->|TCP 1514<br/>1515 solo enrollment autorizado| Manager
   end
+
+  KrakenD[KrakenD privado en ACA<br/>2–4 réplicas · opt-in/no desplegado]
+  Core -->|HTTPS + Entra<br/>solo /wazuh/*| KrakenD
+  KrakenD -->|TLS + read-only<br/>solo desde subnet ACA| IndexerProxy
 
   Core -->|TLS, rol mínimo| PG[(Azure PostgreSQL privado<br/>estado durable)]
   Core -.->|sesión/cache/jobs · falta provisionar y probar| Valkey[(Servicio Redis/Valkey privado<br/>proveedor y SKU por decidir)]

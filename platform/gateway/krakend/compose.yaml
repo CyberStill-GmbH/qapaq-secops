@@ -24,9 +24,10 @@ services:
   gateway:
     image: krakend:3.0.0@sha256:e93eed25554145dc4f2727d203e96c655bd2e609459f05e13afcbf590582496f
     pull_policy: missing
-    command: ['run', '-c', '/etc/krakend/krakend.tmpl']
+    command: ['run', '-c', '/etc/krakend/${KRAKEND_CONFIG_FILE}']
     environment:
       FC_ENABLE: '1'
+      KRAKEND_CONFIG_FILE: ${KRAKEND_CONFIG_FILE:-krakend.tmpl}
       GATEWAY_ENDPOINT_TIMEOUT: ${GATEWAY_ENDPOINT_TIMEOUT:?required}
       GATEWAY_METRICS_PORT: ${GATEWAY_METRICS_PORT:?required}
       GATEWAY_RATE_PER_SECOND: ${GATEWAY_RATE_PER_SECOND:?required}
@@ -36,6 +37,7 @@ services:
       OIDC_DISABLE_JWK_SECURITY: ${OIDC_DISABLE_JWK_SECURITY:?required}
       OIDC_ISSUER: ${OIDC_ISSUER:?required}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:?required}
+      QAPAQ_CORE_CLIENT_ID: ${QAPAQ_CORE_CLIENT_ID:?required}
       WAZUH_INDEXER_URL: ${WAZUH_INDEXER_URL:?required}
       WAZUH_INDEXER_CA_FILE: ${WAZUH_INDEXER_CA_FILE:-}
       WAZUH_BASIC_AUTH_B64: ${WAZUH_BASIC_AUTH_B64:?required}
@@ -47,6 +49,7 @@ services:
       - 'host.docker.internal:host-gateway'
     volumes:
       - ./krakend.tmpl:/etc/krakend/krakend.tmpl:ro
+      - ./krakend-azure-ingestion.tmpl:/etc/krakend/krakend-azure-ingestion.tmpl:ro
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=16m
@@ -55,7 +58,16 @@ services:
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', '/usr/bin/krakend', 'check', '-t', '-n', '-c', '/etc/krakend/krakend.tmpl']
+      test:
+        [
+          'CMD',
+          '/usr/bin/krakend',
+          'check',
+          '-t',
+          '-n',
+          '-c',
+          '/etc/krakend/${KRAKEND_CONFIG_FILE}',
+        ]
       interval: 15s
       timeout: 5s
       retries: 3

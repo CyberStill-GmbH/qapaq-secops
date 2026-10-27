@@ -73,6 +73,29 @@ variable "address_prefix" {
   }
 }
 
+variable "private_ip_address" {
+  description = "IPv4 estática del host SIEM. null conserva asignación dinámica; KrakenD exige una IP estática para su upstream privado."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.private_ip_address == null || (can(cidrhost("${var.private_ip_address}/32", 0)) && var.private_ip_address == cidrhost(var.address_prefix, 4))
+    error_message = "private_ip_address debe ser null o el primer host utilizable reservado (.4) de address_prefix para que el upstream de KrakenD sea estable."
+  }
+}
+
+variable "krakend_source_cidrs" {
+  description = "Subnet privada exclusiva de ACA KrakenD autorizada a consultar el proxy read-only de Indexer por TCP/9200. Vacío mantiene el puerto cerrado."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for cidr in var.krakend_source_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
+    error_message = "krakend_source_cidrs solo admite redes privadas específicas; no se permite abrir Indexer a Internet."
+  }
+}
+
 variable "vm_size" {
   description = "SKU de VM validado con la carga Wazuh y la cuota de la suscripción."
   type        = string

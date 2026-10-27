@@ -26,6 +26,7 @@ COPY --chown=1000:1000 --chmod=0555 entrypoint.sh /usr/local/bin/qapaq-krakend-e
 USER 1000:1000
 WORKDIR /etc/krakend
 COPY --chown=1000:1000 krakend.tmpl /etc/krakend/krakend.tmpl
+COPY --chown=1000:1000 krakend-azure-ingestion.tmpl /etc/krakend/krakend-azure-ingestion.tmpl
 ENV FC_ENABLE=1
 # El entrypoint solo materializa la CA del Indexer cuando llega como secreto (Sprint 5).
 ENTRYPOINT ["/usr/local/bin/qapaq-krakend-entrypoint"]

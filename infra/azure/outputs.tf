@@ -48,6 +48,11 @@ output "siem_private_ip" {
   value       = try(module.siem_host[0].private_ip_address, null)
 }
 
+output "krakend_gateway_base_url" {
+  description = "URL privada HTTPS de KrakenD para QAPAQ Core cuando el módulo opcional está habilitado; null por defecto."
+  value       = try(module.krakend_gateway[0].gateway_base_url, null)
+}
+
 output "siem_firewall_public_ip" {
   description = "IP pública estable del Firewall Standard: egress y DNAT de entrada al Load Balancer privado del SIEM cuando su perfil esté habilitado. El DNS sigue manual."
   value       = try(module.egress_firewall[0].public_ip_address, null)
