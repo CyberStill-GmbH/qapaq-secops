@@ -53,6 +53,8 @@ class ActiveDirectoryProfileCatalogTests(unittest.TestCase):
 
         self.assertEqual(channels(base).count("Security"), 1)
         self.assertEqual(channels(base).count("System"), 1)
+        self.assertEqual(base.findtext(".//wodle[@name='syscollector']/disabled"), "no")
+        self.assertIsNone(base.find(".//syscollector"))
         self.assertNotIn("Microsoft-Windows-PowerShell/Operational", channels(base))
         self.assertEqual(channels(dc), [])
         self.assertEqual(dc.findtext(".//label[@key='qapaq_profile']"), "active-directory-pilot")
