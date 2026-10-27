@@ -147,6 +147,68 @@ test('Dashboard ingress accepts aligned IPv4 /24 or narrower and rejects broad o
   }
 });
 
+test('SIEM accepts the optional closed provider_ingestion map and valid connector flags', () => {
+  const providerIngestion = {
+    sophos_enabled: 'true',
+    sophos_tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+    sophos_data_region: 'eu-west-1',
+    cato_enabled: 'true',
+    cato_account_id: '123456789',
+  };
+  const valid = siemHost({
+    provider_ingestion: providerIngestion,
+    wazuh_secret_names: {
+      ...siemHost().wazuh_secret_names,
+      'sophos-client-id': 'sophos-client-id',
+      'sophos-client-secret': 'sophos-client-secret',
+      'cato-api-key': 'cato-api-key',
+    },
+  });
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(valid) })),
+  );
+});
+
+test('provider_ingestion rejects unsupported keys, invalid flags, and non-string values', () => {
+  const invalidCases = [
+    [{ sophos_enabled: 'false', unsupported: 'value' }, /unsupported fields/u],
+    [{ sophos_enabled: 'yes' }, /flags must be the strings true or false/u],
+    [{ cato_enabled: true }, /single-line strings/u],
+    [{ cato_account_id: '123\n456' }, /single-line strings/u],
+  ];
+
+  for (const [providerIngestion, expectedError] of invalidCases) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost({ provider_ingestion: providerIngestion })),
+          }),
+        ),
+      expectedError,
+    );
+  }
+});
+
+test('enabled Sophos and Cato require their non-secret identifiers and Key Vault name mappings', () => {
+  const cases = [
+    [{ sophos_enabled: 'true' }, /Sophos requires a tenant GUID/u],
+    [{ cato_enabled: 'true', cato_account_id: '12345' }, /Cato requires an account ID/u],
+  ];
+
+  for (const [providerIngestion, expectedError] of cases) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost({ provider_ingestion: providerIngestion })),
+          }),
+        ),
+      expectedError,
+    );
+  }
+});
+
 test('requires a Key Vault-backed Office 365 client secret and valid non-secret config', () => {
   const invalidSecretMap = siemHost();
   delete invalidSecretMap.wazuh_secret_names['office365-client-secret'];

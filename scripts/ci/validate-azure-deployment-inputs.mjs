@@ -121,6 +121,56 @@ function validateDashboardIngressCidrs(cidrs) {
   }
 }
 
+function validateProviderIngestion(value, wazuhSecretNames) {
+  if (value === undefined) return;
+  object(value, 'siem_host.provider_ingestion');
+  const providerKeys = [
+    'sophos_enabled',
+    'sophos_tenant_id',
+    'sophos_data_region',
+    'cato_enabled',
+    'cato_account_id',
+  ];
+  exactKeys(value, [], providerKeys, 'siem_host.provider_ingestion');
+
+  for (const item of Object.values(value)) {
+    if (typeof item !== 'string' || /[\r\n]/u.test(item)) {
+      fail('siem_host.provider_ingestion values must be single-line strings.');
+    }
+  }
+
+  const sophosEnabled = value.sophos_enabled ?? 'false';
+  const catoEnabled = value.cato_enabled ?? 'false';
+  if (!['true', 'false'].includes(sophosEnabled) || !['true', 'false'].includes(catoEnabled)) {
+    fail('siem_host.provider_ingestion flags must be the strings true or false.');
+  }
+
+  if (sophosEnabled === 'true') {
+    const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+    if (
+      !guidPattern.test(value.sophos_tenant_id ?? '') ||
+      !/^[a-z0-9-]{2,32}$/u.test(value.sophos_data_region ?? '') ||
+      !Object.hasOwn(wazuhSecretNames, 'sophos-client-id') ||
+      !Object.hasOwn(wazuhSecretNames, 'sophos-client-secret')
+    ) {
+      fail(
+        'siem_host.provider_ingestion Sophos requires a tenant GUID, data region, and Key Vault secret names.',
+      );
+    }
+  }
+
+  if (catoEnabled === 'true') {
+    if (
+      !/^[0-9]{1,20}$/u.test(value.cato_account_id ?? '') ||
+      !Object.hasOwn(wazuhSecretNames, 'cato-api-key')
+    ) {
+      fail(
+        'siem_host.provider_ingestion Cato requires an account ID and a Key Vault API key name.',
+      );
+    }
+  }
+}
+
 function isUsableAnkayHostAddress(address) {
   const host = ipv4ToInteger(address);
   const subnet = ipv4CidrRange(EUS2_ANKAY_SUBNET);
@@ -185,7 +235,7 @@ function validateSiem(siem) {
     'bootstrap_bundle_blob_url',
     'bootstrap_bundle_sha256',
   ];
-  exactKeys(siem, required, [], 'siem_host');
+  exactKeys(siem, required, ['provider_ingestion'], 'siem_host');
   if (!validCidr(siem.address_prefix) || !isPrivateRfc1918(siem.address_prefix.split('/')[0]))
     fail('siem_host.address_prefix must be a private IPv4 subnet with at least 32 addresses.');
   requireSiemSubnet(siem.address_prefix);
@@ -244,6 +294,7 @@ function validateSiem(siem) {
     typeof siem.office365.enable_dlp !== 'boolean'
   )
     fail('siem_host.office365 api_type or enable_dlp is invalid.');
+  validateProviderIngestion(siem.provider_ingestion, siem.wazuh_secret_names);
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET'))
     fail('siem_host.core_secret_names must reference the Entra client secret by Key Vault name.');
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_TEAMS_WORKFLOW_URL'))
