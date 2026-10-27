@@ -116,12 +116,16 @@ module "key_vault_seed_identity" {
   count  = var.environment == "demo-eus2" ? 1 : 0
   source = "./modules/key_vault_seed_identity"
 
-  resource_group_id   = data.azurerm_resource_group.this.id
-  resource_group_name = data.azurerm_resource_group.this.name
-  location            = data.azurerm_resource_group.this.location
-  name_base           = local.name_base
-  key_vault_id        = module.data.key_vault_id
-  tags                = var.tags
+  resource_group_id    = data.azurerm_resource_group.this.id
+  resource_group_name  = data.azurerm_resource_group.this.name
+  location             = data.azurerm_resource_group.this.location
+  name_base            = local.name_base
+  github_repository    = var.github_repository
+  github_owner_id      = var.github_owner_id
+  github_repository_id = var.github_repository_id
+  github_environment   = var.github_environment
+  key_vault_id         = module.data.key_vault_id
+  tags                 = var.tags
 
   depends_on = [module.data]
 }

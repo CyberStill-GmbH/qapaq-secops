@@ -33,6 +33,46 @@ variable "name_base" {
   type        = string
 }
 
+variable "github_repository" {
+  description = "Repository allowed to seed this EUS2 Key Vault through the protected GitHub Environment."
+  type        = string
+
+  validation {
+    condition     = var.github_repository == "CyberStill-GmbH/qapaq-secops"
+    error_message = "The seeder identity is restricted to CyberStill-GmbH/qapaq-secops."
+  }
+}
+
+variable "github_owner_id" {
+  description = "Immutable GitHub owner ID included in the OIDC subject."
+  type        = string
+
+  validation {
+    condition     = var.github_owner_id == "220633794"
+    error_message = "The seeder identity is restricted to the configured GitHub owner ID."
+  }
+}
+
+variable "github_repository_id" {
+  description = "Immutable GitHub repository ID included in the OIDC subject."
+  type        = string
+
+  validation {
+    condition     = var.github_repository_id == "1374673243"
+    error_message = "The seeder identity is restricted to the configured GitHub repository ID."
+  }
+}
+
+variable "github_environment" {
+  description = "Protected GitHub Environment allowed to request secret seeding."
+  type        = string
+
+  validation {
+    condition     = var.github_environment == "azure-demo-eus2"
+    error_message = "The seeder identity is restricted to the azure-demo-eus2 environment."
+  }
+}
+
 variable "key_vault_id" {
   description = "Exact Key Vault resource scope where ARM secret metadata/write actions are assigned."
   type        = string

@@ -1,5 +1,12 @@
 locals {
-  github_subject  = "repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo-eus2"
+  github_subject = format(
+    "repo:%s@%s/%s@%s:environment:%s",
+    split("/", var.github_repository)[0],
+    var.github_owner_id,
+    split("/", var.github_repository)[1],
+    var.github_repository_id,
+    var.github_environment,
+  )
   github_issuer   = "https://token.actions.githubusercontent.com"
   github_audience = "api://AzureADTokenExchange"
   deployment_role_id = uuidv5(
