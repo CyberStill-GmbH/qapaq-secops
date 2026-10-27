@@ -121,7 +121,9 @@ class AssembleReleaseTests(unittest.TestCase):
         )
         office365_script = (root / "wazuh" / "office365" / "apply-office365.sh").read_text().lower()
         self.assertIn("file:*", office365_script)
-        self.assertIn("aws-secretsmanager:*", office365_script)
+        # El bootstrap de Azure rechaza cualquier llamada AWS dentro del bundle.
+        self.assertNotIn("aws-secretsmanager", office365_script)
+        self.assertNotIn("aws secretsmanager", office365_script)
         azure_installer = (root / "install.sh").read_text().lower()
         self.assertIn('qapaq_o365_secret_source="file:$secrets/office365-client-secret"', azure_installer)
         self.assertNotIn("aws-secretsmanager:", azure_installer)
