@@ -246,7 +246,7 @@ variable "wazuh_secret_names" {
 }
 
 variable "core_environment" {
-  description = "Configuración no secreta de qapaq-core."
+  description = "Variables Core no secretas allowlisted y referencias Key Vault autorizadas; no admite valores secretos."
   type        = map(string)
   default     = {}
 
@@ -277,7 +277,79 @@ variable "core_environment" {
           key == "QAPAQ_SECRET_PROVIDER_TIMEOUT" ? value == "5s" :
           value == trimsuffix(var.key_vault_uri, "/")
         )
-        : !can(regex("(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key))
+        : contains([
+          "QAPAQ_PROFILE",
+          "QAPAQ_PROCESS_ROLE",
+          "QAPAQ_API_HOST",
+          "QAPAQ_API_PORT",
+          "QAPAQ_POSTGRES_HOST",
+          "QAPAQ_POSTGRES_PORT",
+          "QAPAQ_POSTGRES_DATABASE",
+          "QAPAQ_POSTGRES_USERNAME",
+          "QAPAQ_POSTGRES_TLS",
+          "QAPAQ_POSTGRES_CONNECTION_TIMEOUT",
+          "QAPAQ_POSTGRES_STATEMENT_TIMEOUT",
+          "QAPAQ_POSTGRES_POOL_MIN",
+          "QAPAQ_POSTGRES_POOL_MAX",
+          "QAPAQ_REDIS_HOST",
+          "QAPAQ_REDIS_PORT",
+          "QAPAQ_REDIS_USERNAME",
+          "QAPAQ_REDIS_DATABASE",
+          "QAPAQ_REDIS_TLS",
+          "QAPAQ_REDIS_CONNECTION_TIMEOUT",
+          "QAPAQ_REDIS_COMMAND_TIMEOUT",
+          "QAPAQ_REDIS_RETRY_LIMIT",
+          "QAPAQ_MINIO_ENDPOINT",
+          "QAPAQ_MINIO_PORT",
+          "QAPAQ_MINIO_REGION",
+          "QAPAQ_MINIO_RAW_BUCKET",
+          "QAPAQ_MINIO_TLS",
+          "QAPAQ_MINIO_CONNECTION_TIMEOUT",
+          "QAPAQ_MINIO_REQUEST_TIMEOUT",
+          "QAPAQ_MINIO_RETRY_LIMIT",
+          "QAPAQ_WAZUH_GATEWAY_BASE_URL",
+          "QAPAQ_WAZUH_REQUEST_TIMEOUT",
+          "QAPAQ_WAZUH_RETRY_LIMIT",
+          "QAPAQ_WAZUH_PAGE_SIZE",
+          "QAPAQ_WAZUH_MAX_PAGE_SIZE",
+          "QAPAQ_WAZUH_DATASET",
+          "QAPAQ_WAZUH_CURSOR_TTL",
+          "QAPAQ_WAZUH_MAX_RESPONSE_BYTES",
+          "QAPAQ_ACCESS_IDENTITY_MODE",
+          "QAPAQ_ACCESS_ALLOWED_CIDRS",
+          "QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS",
+          "QAPAQ_ENTRA_TENANT_ID",
+          "QAPAQ_ENTRA_CLIENT_ID",
+          "QAPAQ_ENTRA_AUTHORITY",
+          "QAPAQ_ENTRA_REDIRECT_URI",
+          "QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS",
+          "QAPAQ_ENTRA_SCOPES",
+          "QAPAQ_MVP_ROLE_BINDING_OID",
+          "QAPAQ_MVP_ROLE_BINDING_ROLE",
+          "QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT",
+          "QAPAQ_CONSOLE_BASE_URL",
+          "QAPAQ_DETECTION_PRIVILEGED_IDENTITIES",
+          "QAPAQ_DETECTION_BREAK_GLASS_IDENTITIES",
+          "QAPAQ_DETECTION_CRITICAL_ASSETS",
+          "QAPAQ_DETECTION_INTERNET_FACING_ASSETS",
+          "QAPAQ_DETECTION_KNOWN_BENIGN_RULES",
+          "QAPAQ_SOC_PERSISTENCE",
+          "QAPAQ_INGESTION_SOURCE",
+          "QAPAQ_INGESTION_SOURCE_ID",
+          "QAPAQ_INGESTION_GATEWAY_SCOPE",
+          "QAPAQ_INGESTION_INTERVAL",
+          "QAPAQ_INGESTION_INITIAL_LOOKBACK_MINUTES",
+          "QAPAQ_ROLE_BINDINGS",
+          "QAPAQ_GROUP_OWNER_OIDS",
+          "QAPAQ_ADMIN_GROUP_IDS",
+          "QAPAQ_ACCESS_APPROVER_OIDS",
+          "QAPAQ_SECURITY_APPROVER_OIDS",
+          "QAPAQ_DIRECTORY_SYNC",
+          "QAPAQ_DIRECTORY_GROUP_ID",
+          "QAPAQ_DIRECTORY_GROUP_NAME",
+          "QAPAQ_DIRECTORY_SYNC_INTERVAL_MINUTES",
+          "QAPAQ_ALERT_MAIL_SENDER",
+        ], key)
       )
     ])
     error_message = "core_environment admite solo referencias secret://keyvault/<nombre> que coincidan con core_secret_names y rechaza claves sensibles en claro o valores multilínea."

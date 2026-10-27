@@ -191,6 +191,38 @@ run "rejects_secret_value_in_environment" {
   expect_failures = [var.core_environment]
 }
 
+run "rejects_plaintext_entity_reference_key" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_ENTITY_REF_KEY = "synthetic-entity-key-must-not-enter-terraform"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_plaintext_teams_workflow_url" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_TEAMS_WORKFLOW_URL = "https://example.invalid/workflows/demo?sig=synthetic"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_TEAMS_WORKFLOW_URL  = "qapaq-teams-workflow-url"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
 run "rejects_secret_reference_in_secret_names" {
   command = plan
 

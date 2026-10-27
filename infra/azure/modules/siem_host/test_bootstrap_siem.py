@@ -147,6 +147,45 @@ class ProviderIngestionValidationTests(unittest.TestCase):
 
         self._assert_config_rejected(config, "la referencia Core no coincide")
 
+    def test_rejects_plaintext_entity_key_and_teams_url_in_bootstrap_config(self) -> None:
+        secret_values = (
+            ("QAPAQ_ENTITY_REF_KEY", "synthetic-entity-key-must-not-enter-bootstrap", "qapaq-entity-ref-key"),
+            (
+                "QAPAQ_TEAMS_WORKFLOW_URL",
+                "https://example.invalid/workflows/demo?sig=synthetic",
+                "qapaq-teams-workflow-url",
+            ),
+        )
+        for key, value, secret_name in secret_values:
+            with self.subTest(key=key):
+                config = self._base_config()
+                config["core_environment"] = {key: value}
+                config["core_secret_names"][key] = secret_name
+                self._assert_config_rejected(
+                    config,
+                    "core_environment solo admite variables no secretas allowlisted",
+                )
+
+    def test_rejects_plaintext_secret_before_bootstrap_key_vault_access(self) -> None:
+        secret_values = (
+            ("QAPAQ_ENTITY_REF_KEY", "synthetic-entity-key-must-not-enter-bootstrap", "qapaq-entity-ref-key"),
+            (
+                "QAPAQ_TEAMS_WORKFLOW_URL",
+                "https://example.invalid/workflows/demo?sig=synthetic",
+                "qapaq-teams-workflow-url",
+            ),
+        )
+        for key, value, secret_name in secret_values:
+            with self.subTest(key=key):
+                config = self._base_config()
+                config["core_environment"] = {key: value}
+                config["core_secret_names"][key] = secret_name
+                with patch.object(BOOTSTRAP, "get_token") as get_token:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        with self.assertRaises(SystemExit):
+                            BOOTSTRAP.materialize_secrets(config)
+                get_token.assert_not_called()
+
     def test_accepts_provider_references_without_secret_values(self) -> None:
         config = self._base_config()
         config["provider_ingestion"] = {

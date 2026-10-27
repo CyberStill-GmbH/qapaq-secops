@@ -43,6 +43,79 @@ CORE_SECRET_PROVIDER_KEYS = {
     "QAPAQ_SECRET_PROVIDER_TIMEOUT",
     "QAPAQ_SECRET_PROVIDER_ENDPOINT",
 }
+CORE_NON_SECRET_ENVIRONMENT_KEYS = {
+    "QAPAQ_PROFILE",
+    "QAPAQ_PROCESS_ROLE",
+    "QAPAQ_API_HOST",
+    "QAPAQ_API_PORT",
+    "QAPAQ_POSTGRES_HOST",
+    "QAPAQ_POSTGRES_PORT",
+    "QAPAQ_POSTGRES_DATABASE",
+    "QAPAQ_POSTGRES_USERNAME",
+    "QAPAQ_POSTGRES_TLS",
+    "QAPAQ_POSTGRES_CONNECTION_TIMEOUT",
+    "QAPAQ_POSTGRES_STATEMENT_TIMEOUT",
+    "QAPAQ_POSTGRES_POOL_MIN",
+    "QAPAQ_POSTGRES_POOL_MAX",
+    "QAPAQ_REDIS_HOST",
+    "QAPAQ_REDIS_PORT",
+    "QAPAQ_REDIS_USERNAME",
+    "QAPAQ_REDIS_DATABASE",
+    "QAPAQ_REDIS_TLS",
+    "QAPAQ_REDIS_CONNECTION_TIMEOUT",
+    "QAPAQ_REDIS_COMMAND_TIMEOUT",
+    "QAPAQ_REDIS_RETRY_LIMIT",
+    "QAPAQ_MINIO_ENDPOINT",
+    "QAPAQ_MINIO_PORT",
+    "QAPAQ_MINIO_REGION",
+    "QAPAQ_MINIO_RAW_BUCKET",
+    "QAPAQ_MINIO_TLS",
+    "QAPAQ_MINIO_CONNECTION_TIMEOUT",
+    "QAPAQ_MINIO_REQUEST_TIMEOUT",
+    "QAPAQ_MINIO_RETRY_LIMIT",
+    "QAPAQ_WAZUH_GATEWAY_BASE_URL",
+    "QAPAQ_WAZUH_REQUEST_TIMEOUT",
+    "QAPAQ_WAZUH_RETRY_LIMIT",
+    "QAPAQ_WAZUH_PAGE_SIZE",
+    "QAPAQ_WAZUH_MAX_PAGE_SIZE",
+    "QAPAQ_WAZUH_DATASET",
+    "QAPAQ_WAZUH_CURSOR_TTL",
+    "QAPAQ_WAZUH_MAX_RESPONSE_BYTES",
+    "QAPAQ_ACCESS_IDENTITY_MODE",
+    "QAPAQ_ACCESS_ALLOWED_CIDRS",
+    "QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS",
+    "QAPAQ_ENTRA_TENANT_ID",
+    "QAPAQ_ENTRA_CLIENT_ID",
+    "QAPAQ_ENTRA_AUTHORITY",
+    "QAPAQ_ENTRA_REDIRECT_URI",
+    "QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS",
+    "QAPAQ_ENTRA_SCOPES",
+    "QAPAQ_MVP_ROLE_BINDING_OID",
+    "QAPAQ_MVP_ROLE_BINDING_ROLE",
+    "QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT",
+    "QAPAQ_CONSOLE_BASE_URL",
+    "QAPAQ_DETECTION_PRIVILEGED_IDENTITIES",
+    "QAPAQ_DETECTION_BREAK_GLASS_IDENTITIES",
+    "QAPAQ_DETECTION_CRITICAL_ASSETS",
+    "QAPAQ_DETECTION_INTERNET_FACING_ASSETS",
+    "QAPAQ_DETECTION_KNOWN_BENIGN_RULES",
+    "QAPAQ_SOC_PERSISTENCE",
+    "QAPAQ_INGESTION_SOURCE",
+    "QAPAQ_INGESTION_SOURCE_ID",
+    "QAPAQ_INGESTION_GATEWAY_SCOPE",
+    "QAPAQ_INGESTION_INTERVAL",
+    "QAPAQ_INGESTION_INITIAL_LOOKBACK_MINUTES",
+    "QAPAQ_ROLE_BINDINGS",
+    "QAPAQ_GROUP_OWNER_OIDS",
+    "QAPAQ_ADMIN_GROUP_IDS",
+    "QAPAQ_ACCESS_APPROVER_OIDS",
+    "QAPAQ_SECURITY_APPROVER_OIDS",
+    "QAPAQ_DIRECTORY_SYNC",
+    "QAPAQ_DIRECTORY_GROUP_ID",
+    "QAPAQ_DIRECTORY_GROUP_NAME",
+    "QAPAQ_DIRECTORY_SYNC_INTERVAL_MINUTES",
+    "QAPAQ_ALERT_MAIL_SENDER",
+}
 EXPECTED = {
     "wazuh_version": "4.14.8",
     "osd_version": "2.19.6",
@@ -63,6 +136,44 @@ def log(message: str) -> None:
 def fail(message: str) -> None:
     log(f"ERROR: {message}")
     raise SystemExit(1)
+
+
+def validate_core_environment(
+    core_environment: object,
+    core_secret_names: dict,
+    key_vault_uri: str,
+) -> dict:
+    if not isinstance(core_environment, dict):
+        fail("core_environment debe ser un objeto")
+    if not isinstance(core_secret_names, dict) or not isinstance(key_vault_uri, str):
+        fail("la configuración del proveedor Key Vault no es válida")
+    allowed_keys = (
+        CORE_NON_SECRET_ENVIRONMENT_KEYS
+        | CORE_SECRET_PROVIDER_KEYS
+        | set(CORE_SECRET_REFERENCE_KEYS.values())
+    )
+    for key, value in core_environment.items():
+        if not isinstance(key, str) or key not in allowed_keys or not isinstance(value, str):
+            fail("core_environment solo admite variables no secretas allowlisted y referencias Key Vault")
+        if any(character in value for character in ("\n", "\r", "\x00")):
+            fail("configuración de entorno core inválida")
+        if key in CORE_SECRET_REFERENCE_KEYS.values():
+            secret_key = next(
+                name for name, reference_key in CORE_SECRET_REFERENCE_KEYS.items()
+                if reference_key == key
+            )
+            expected_name = core_secret_names.get(secret_key)
+            if expected_name is None or value != f"secret://keyvault/{expected_name}":
+                fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
+        elif key in CORE_SECRET_PROVIDER_KEYS:
+            expected_value = {
+                "QAPAQ_SECRET_PROVIDER_TYPE": "azure-key-vault",
+                "QAPAQ_SECRET_PROVIDER_TIMEOUT": "5s",
+                "QAPAQ_SECRET_PROVIDER_ENDPOINT": key_vault_uri.rstrip("/"),
+            }[key]
+            if value != expected_value:
+                fail("la configuración del proveedor Azure debe coincidir con la identidad y el vault del host")
+    return core_environment
 
 
 def run(*args: str, capture: bool = False) -> str:
@@ -121,19 +232,15 @@ def load_config() -> dict:
             or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name)
         ):
             fail("core_secret_names contiene una clave o un nombre Key Vault no admitido")
-    core_environment = config.get("core_environment", {})
-    if not isinstance(core_environment, dict):
-        fail("core_environment debe ser un objeto")
+    core_environment = validate_core_environment(
+        config.get("core_environment", {}),
+        core_secret_names,
+        config.get("key_vault_uri", ""),
+    )
     if core_environment.get("QAPAQ_SOC_PERSISTENCE") == "postgres":
         required_postgres_secrets = {"QAPAQ_POSTGRES_PASSWORD", "QAPAQ_ENTITY_REF_KEY"}
         if not required_postgres_secrets.issubset(core_secret_names):
             fail("persistencia PostgreSQL requiere referencias Key Vault para la contraseña de aplicación y la clave de referencias de entidad")
-    for secret_key, reference_key in CORE_SECRET_REFERENCE_KEYS.items():
-        reference = core_environment.get(reference_key)
-        if reference is not None:
-            secret_name = core_secret_names.get(secret_key)
-            if secret_name is None or reference != f"secret://keyvault/{secret_name}":
-                fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
     provider_config = config.get("provider_ingestion", {})
     provider_keys = {"sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"}
     if not isinstance(provider_config, dict) or set(provider_config) - provider_keys:
@@ -349,6 +456,13 @@ def systemd_quote(value: str) -> str:
 
 def materialize_secrets(config: dict) -> None:
     core_secret_names = config.get("core_secret_names", {})
+    if not isinstance(core_secret_names, dict):
+        fail("la configuración de secretos Core debe ser un mapa de nombres Key Vault")
+    environment = validate_core_environment(
+        config.get("core_environment", {}),
+        core_secret_names,
+        config.get("key_vault_uri", ""),
+    )
     wazuh_secret_names = config.get("wazuh_secret_names", {})
     for key, name in core_secret_names.items():
         if (
@@ -371,9 +485,6 @@ def materialize_secrets(config: dict) -> None:
         }
         del kv_token
 
-    environment = config.get("core_environment", {})
-    if not isinstance(environment, dict):
-        fail("core_environment debe ser un objeto")
     merged_env = dict(environment)
     for key, name in core_secret_names.items():
         reference_key = CORE_SECRET_REFERENCE_KEYS[key]

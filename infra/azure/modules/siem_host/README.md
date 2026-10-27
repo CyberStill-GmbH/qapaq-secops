@@ -123,6 +123,18 @@ release previo si su activación falla; una instalación inicial fallida del asi
 paquetes/datos parcialmente creados. Se deja la VM sin marcar como instalada y requiere diagnóstico
 operador antes de un nuevo intento para preservar el fail-closed.
 
+`core_environment` acepta solo variables no secretas de una allowlist y referencias `_REF` respaldadas
+por `core_secret_names`. Valores directos como `QAPAQ_ENTITY_REF_KEY` o
+`QAPAQ_TEAMS_WORKFLOW_URL` fallan en la validación de Terraform y en el preflight del bootstrap; no
+se codifican en `custom_data`, tfvars ni state. Para PostgreSQL, genera una clave de entidad nueva con
+un CSPRNG de 32 bytes (por ejemplo, `openssl rand -base64 32`) y guárdala directamente como secreto
+`qapaq-entity-ref-key` en Key Vault. En Terraform solo se configura el nombre, por ejemplo
+`core_secret_names.QAPAQ_ENTITY_REF_KEY = "qapaq-entity-ref-key"`; el bootstrap crea
+`QAPAQ_ENTITY_REF_KEY_REF` y nunca imprime ni materializa el valor en `core.env`. No reutilices
+claves ni pegues su valor en archivos `.tfvars`, variables de GitHub o documentación. La rotación
+invalida referencias de entidad persistidas, por lo que requiere un procedimiento de migración y no
+debe hacerse automáticamente.
+
 El candidato incluye conectores Wazuh opcionales para Sophos Central SIEM API y Cato `eventsFeed`.
 Solo se activan con configuración no secreta, referencias Key Vault explícitas y egress aprobado;
 un bundle/plan exitoso no demuestra permisos o ingestión del tenant. La notificación Wazuh a Teams
