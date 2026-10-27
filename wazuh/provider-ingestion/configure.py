@@ -21,6 +21,10 @@ except ImportError:  # Windows unit-test runner; deployment is Ubuntu 24.04.
 
 BEGIN = "<!-- QAPAQ:provider-ingestion:begin -->"
 END = "<!-- QAPAQ:provider-ingestion:end -->"
+# Las cuentas de Cato viven en regiones con host de API propio. El host llega como secreto
+# opcional `cato-api-endpoint` porque se carga junto con la API key, sin tocar Terraform.
+CATO_ENDPOINT_PATTERN = re.compile(r"https://api(?:\.[a-z]{2}[0-9])?\.catonetworks\.com/api/v1/graphql2")
+
 DEFAULTS = {
     "sophos_enabled": "false",
     "sophos_tenant_id": "",
@@ -123,6 +127,12 @@ def install_cato(config: dict[str, str], root: pathlib.Path, secrets: pathlib.Pa
         "state_file": str(state_dir / "marker.json"),
         "output_file": str(log_dir / "cato.jsonl"),
     }
+    endpoint_file = secrets / "cato-api-endpoint"
+    if endpoint_file.is_file() and not endpoint_file.is_symlink():
+        endpoint = endpoint_file.read_text(encoding="utf-8").strip()
+        if not CATO_ENDPOINT_PATTERN.fullmatch(endpoint):
+            raise ValueError("Cato API endpoint is not an official catonetworks.com GraphQL host")
+        cato_config["endpoint"] = endpoint
     (home / "config.json").write_text(json.dumps(cato_config, separators=(",", ":")) + "\n", encoding="utf-8")
     os.chmod(home / "config.json", 0o640)
     return True
