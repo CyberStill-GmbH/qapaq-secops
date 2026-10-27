@@ -515,7 +515,9 @@ function validateKrakendGateway(gateway, siem, registry) {
     typeof gateway.core_client_id !== 'string' ||
     !guidPattern.test(gateway.core_client_id) ||
     typeof gateway.client_scope !== 'string' ||
-    !/^api:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/\.default$/iu.test(gateway.client_scope)
+    !/^api:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/\.default$/iu.test(
+      gateway.client_scope,
+    )
   )
     fail('krakend_gateway tenant, core client and app scope must use valid Entra identifiers.');
   const secretNamePattern = /^[A-Za-z0-9-]{1,127}$/u;
@@ -548,7 +550,9 @@ function validateKrakendGateway(gateway, siem, registry) {
     existingNames.has(gateway.indexer_reader_secret_name) ||
     existingNames.has(gateway.indexer_proxy_ca_secret_name)
   )
-    fail('krakend_gateway must use dedicated Key Vault names for its reader and proxy certificate.');
+    fail(
+      'krakend_gateway must use dedicated Key Vault names for its reader and proxy certificate.',
+    );
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET'))
     fail('krakend_gateway requires QAPAQ_ENTRA_CLIENT_SECRET by Key Vault name in siem_host.');
   if (

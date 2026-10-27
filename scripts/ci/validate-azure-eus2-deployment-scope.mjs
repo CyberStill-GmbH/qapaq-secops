@@ -70,10 +70,8 @@ function validateSiemSubnet(siem, addressSpace, krakendEnabled) {
   }
   const privateIp = siem.private_ip_address;
   const hostFour = subnet.start + 4n;
-  const address = [24n, 16n, 8n, 0n]
-    .map((shift) => Number((hostFour >> shift) & 255n))
-    .join('.');
-  if (krakendEnabled || privateIp !== undefined && privateIp !== null) {
+  const address = [24n, 16n, 8n, 0n].map((shift) => Number((hostFour >> shift) & 255n)).join('.');
+  if (krakendEnabled || (privateIp !== undefined && privateIp !== null)) {
     requireThat(
       typeof privateIp === 'string' && isIP(privateIp) === 4 && privateIp === address,
       'siem_host.private_ip_address must be the reserved .4 host in address_prefix when KrakenD is enabled.',

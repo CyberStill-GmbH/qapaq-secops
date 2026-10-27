@@ -335,6 +335,54 @@ class IndexerReadProxyTests(unittest.TestCase):
             )
         self.assertEqual(indexer_request.call_count, 3)
 
+    @patch.object(proxy, "_admin_password", return_value="Synthetic-admin-password")
+    @patch.object(proxy, "_select_indexer_endpoint", return_value="https://127.0.0.1:9200")
+    @patch.object(proxy, "_upstream_tls_name", return_value="indexer.local")
+    @patch.object(proxy, "_prepare_proxy_certificate", return_value=(CERTIFICATE, False))
+    @patch.object(proxy, "_indexer_request")
+    def test_refuses_other_role_host_mappings_that_match_or_may_match_proxy(
+        self,
+        indexer_request: MagicMock,
+        _prepare_certificate: MagicMock,
+        _tls_name: MagicMock,
+        _select_endpoint: MagicMock,
+        _admin_password: MagicMock,
+    ) -> None:
+        credential = base64.b64encode(
+            b"qapaq_reader:Existing-R3ader!Credential"
+        ).decode("ascii")
+        for hosts in (
+            ["*"],
+            ["127.0.0.1"],
+            [PRIVATE_IP],
+            ["siem-indexer.internal"],
+            ["10.80.16.0/24"],
+        ):
+            with self.subTest(hosts=hosts):
+                indexer_request.reset_mock()
+                indexer_request.side_effect = [
+                    (404, {}),
+                    (404, {}),
+                    (200, {"all_access": {"users": [], "backend_roles": [], "hosts": hosts}}),
+                ]
+                with self.assertRaises(proxy.IndexerProxyError):
+                    proxy.configure(
+                        valid_config(),
+                        credential,
+                        CERTIFICATE,
+                        lambda _name, _value: self.fail("unexpected Key Vault write"),
+                        lambda _message: None,
+                    )
+                self.assertEqual(indexer_request.call_count, 3)
+
+    def test_nonmatching_literal_host_mapping_does_not_match_proxy_sources(self) -> None:
+        self.assertFalse(
+            proxy._host_mapping_may_apply(
+                ["198.51.100.19", "10.80.17.*"],
+                {"127.0.0.1", PRIVATE_IP},
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

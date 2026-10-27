@@ -191,6 +191,11 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   backup/restauración comprobados. La VM conserva `prevent_destroy`; si se reconstruye deliberadamente,
   hay que volver a conectar y montar el disco de datos antes de reinstalar. El disco de sistema no es
   la copia durable de evidencia ni de secretos (estos permanecen en Key Vault).
+- La clave privada TLS del proxy Indexer permanece en el disco de sistema y no se respalda en Key Vault.
+  Su pérdida bloquea la ruta: el bootstrap falla cerrado si queda solo el certificado público. Mantén
+  krakend_gateway en null hasta probar restauración cifrada del par o una rotación coordinada sin
+  exponer credenciales; el procedimiento y sus comprobaciones están en
+  el [runbook del gateway](../../../../docs/cloud/azure/krakend-private-gateway.md#recuperación-ante-pérdida-o-reemplazo-del-disco-de-sistema).
 
 ## Preflight de módulo
 

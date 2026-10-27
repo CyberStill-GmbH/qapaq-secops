@@ -287,6 +287,31 @@ def _select_indexer_endpoint(private_ip: str) -> str:
     raise AssertionError("unreachable")
 
 
+def _host_mapping_may_apply(host_patterns: object, source_addresses: set[str]) -> bool:
+    """Return true for matching or unprovable OpenSearch host mappings."""
+    if not isinstance(host_patterns, list):
+        _fail("Indexer devolvió una lista de hosts de mapeo incompatible")
+    for pattern in host_patterns:
+        if not isinstance(pattern, str) or not pattern:
+            _fail("Indexer devolvió un patrón de hosts de mapeo incompatible")
+        if any(fnmatch.fnmatchcase(address, pattern) for address in source_addresses):
+            return True
+        # Literal IPs that cannot be the local proxy's source are provably
+        # unrelated. Hostnames, CIDRs, regex-like forms, and unknown syntax may
+        # resolve or match the source at runtime, so fail closed.
+        if re.fullmatch(r"[0-9A-Fa-f:.]+", pattern):
+            try:
+                if str(ipaddress.ip_address(pattern)) in source_addresses:
+                    return True
+            except ValueError:
+                return True
+            continue
+        if re.fullmatch(r"[0-9A-Fa-f.:?*]+", pattern):
+            continue
+        return True
+    return False
+
+
 def _upstream_tls_name(indexer_url: str, private_ip: str, workdir: pathlib.Path) -> str:
     parsed = urllib.parse.urlparse(indexer_url)
     if parsed.scheme != "https" or parsed.hostname is None or parsed.port != INDEXER_PORT:
@@ -518,6 +543,10 @@ def configure(
     admin_password = _admin_password()
 
     indexer_url = _select_indexer_endpoint(private_ip)
+    indexer_host = urllib.parse.urlparse(indexer_url).hostname
+    if not indexer_host:
+        _fail("el endpoint local de Indexer no tiene un host válido")
+    indexer_source_addresses = {indexer_host, private_ip, "127.0.0.1"}
     with tempfile.TemporaryDirectory(prefix="qapaq-indexer-tls-") as tls_work:
         upstream_name = _upstream_tls_name(indexer_url, private_ip, pathlib.Path(tls_work))
     request_indexer = lambda method, path, payload=None: _indexer_request(  # noqa: E731
@@ -562,15 +591,18 @@ def configure(
             _fail("Indexer devolvió un mapeo de seguridad incompatible")
         mapped_users = mapped_config.get("users", [])
         mapped_backend_roles = mapped_config.get("backend_roles", [])
-        if not all(isinstance(entries, list) for entries in (mapped_users, mapped_backend_roles)):
+        mapped_hosts = mapped_config.get("hosts", [])
+        if not all(
+            isinstance(entries, list)
+            for entries in (mapped_users, mapped_backend_roles, mapped_hosts)
+        ):
             _fail("Indexer devolvió listas de mapeo de roles incompatibles")
         if mapped_role == READER_ROLE:
             continue
-        if any(
-            not isinstance(pattern, str) or fnmatch.fnmatchcase(READER_USER, pattern)
-            for pattern in mapped_users
-        ):
+        if any(not isinstance(pattern, str) or fnmatch.fnmatchcase(READER_USER, pattern) for pattern in mapped_users):
             _fail("el lector está asignado a otro rol Indexer; se detuvo para evitar privilegios heredados")
+        if _host_mapping_may_apply(mapped_hosts, indexer_source_addresses):
+            _fail("un mapeo de host de otro rol puede coincidir con el lector; se detuvo para evitar privilegios heredados")
 
     mapping_status, mapping_response = request_indexer("GET", f"/_plugins/_security/api/rolesmapping/{READER_ROLE}")
     if mapping_status not in (200, 404):
