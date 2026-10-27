@@ -139,20 +139,46 @@ como `Microsoft.KeyVault/vaults/secrets/getSecret/action`; no requiere acceso a
 valores existentes. La lectura anterior es metadata ARM para comprobar existencia
 y estado, separada del permiso de recuperar valores.
 
-**Bloqueo de autorización para aplicar Terraform:** el bootstrap EUS2 actual delega
-RBAC al identity de Terraform mediante una condición que permite asignar solo los
-IDs predefinidos de `AcrPull`, `AcrPush`, `Key Vault Secrets User` y
-`Storage Blob Data Contributor`. Además, el rol `Role Based Access Control
-Administrator` de ese identity no incluye `Microsoft.Authorization/roleDefinitions/write`.
-Por eso el workflow de Terraform existente no puede crear estas definiciones ni
-asignarlas. Para un apply futuro, la identidad autorizadora debe tener
-`Microsoft.Authorization/roleDefinitions/write` en el alcance asignable del grupo y
-`Microsoft.Authorization/roleAssignments/write` en el grupo y vault destino. Si se
-prefiere automatizarlo, debe revisarse por separado una delegación exacta de los dos
-custom role IDs; no ampliar la condición a roles genéricos ni conceder Owner,
-Contributor o Secrets Officer para sortear el bloqueo. El workflow de seed no
-puede crear ni autoasignarse RBAC.
+**Autorización RBAC observada antes del apply:** el identity de Terraform de GitHub tiene
+`Contributor` en el grupo EUS2 y `Role Based Access Control Administrator` con condición ABAC
+limitada a los IDs built-in `AcrPull`, `AcrPush`, `Key Vault Secrets User` y
+`Storage Blob Data Contributor`. Ese rol built-in no incluye
+`Microsoft.Authorization/roleDefinitions/write`, y la condición no autoriza estos custom role IDs.
+Por tanto, no se debe inferir de la aplicación completada que el workflow de Terraform pueda
+crear o modificar roles personalizados en el futuro. Cualquier cambio futuro de RBAC requiere
+una autorización revisada con alcance y permisos exactos; no ampliar la condición a roles
+arbitrarios ni conceder Owner/Contributor/Secrets Officer al workflow para sortearla.
 
+**Evidencia previa del 2026-10-27:** el apply del workflow EUS2
+[#40449785537](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40449785537)
+falló con HTTP 403 en `Microsoft.Authorization/roleDefinitions/write` al crear los dos custom
+roles. El apply parcial dejó creada la identidad dedicada de seed y su FIC, además de una FIC
+EUS2 para la identidad publicadora preexistente. La lectura de plan
+[#40451172490](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40451172490)
+mostró cuatro altas, pero ese run fue de plan-only y no se aplicó dentro de esa ejecución.
+
+**Resultado posterior del apply (2026-10-27):** el mismo alcance se aplicó después de reintentar
+en serie (`-parallelism=1`) tras un reset transitorio de conexión. La confirmación del state de
+Terraform y Azure es **4 recursos añadidos, 0 modificados y 0 destruidos**:
+
+- `group_deployment`: definición de rol personalizado `5bbb1179-a285-5301-8241-ccd400488e14`,
+  asignable dentro del grupo de recursos EUS2, y su asignación a la identidad de seed en
+  `rg-qapaqsecopsdemoeus-3a2405f3`.
+- `vault_secret_metadata`: definición de rol personalizado
+  `2dfc535e-6079-5a6c-9b4e-e67cc75470fe`, asignable dentro del grupo de recursos EUS2, y su
+  asignación a la identidad de seed en el Key Vault exacto `kv-qapaqsecopsd-3a2405f3`.
+
+PostgreSQL quedó sin cambios. No hubo destrucciones ni cambios de DNS, redes, configuración del
+recurso Key Vault ni valores de secretos.
+El rol del vault permite la comprobación de metadata y la escritura ARM acotada prevista; no
+incluye lectura de valores existentes ni `dataActions`. Este apply solo dejó habilitado el
+mecanismo de autorización mínimo del seeder: **no cargó secretos y no desplegó ni validó el
+runtime SOC, Wazuh, M365, Sophos, Cato, Teams o Ankay**. El nombre de variable de Environment
+`AZURE_EUS2_SECRET_SEEDER_CLIENT_ID` está configurado, pero la revisión de Actions no encontró
+una ejecución de `seed-eus2-key-vault-secret.yml`; por eso no se afirma que los valores estén en
+Key Vault. Antes de declarar el SOC operativo todavía hay que ejecutar y revisar la carga de
+secretos rotados, completar el perfil no secreto requerido, habilitar el runtime mediante su
+plan separado y validar cada conexión con actividad sintética.
 Referencias RBAC: [custom role scopes and permissions](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitions),
 [who can create custom roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles)
 y [Role Based Access Control Administrator permissions](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#role-based-access-control-administrator).
