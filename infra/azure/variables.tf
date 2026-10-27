@@ -61,6 +61,17 @@ variable "github_environment" {
   default     = "azure-demo"
 }
 
+variable "additional_github_environments" {
+  description = "GitHub Environments adicionales autorizados por OIDC para la identidad publicadora de este stack."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for name in var.additional_github_environments : can(regex("^[A-Za-z0-9][A-Za-z0-9-]{0,38}$", name))])
+    error_message = "Cada GitHub Environment adicional debe usar solo letras, números y guiones, y comenzar con letra o número."
+  }
+}
+
 variable "postgres_admin_login" {
   description = "Login de bootstrap PostgreSQL; no se usa desde API ni workers."
   type        = string

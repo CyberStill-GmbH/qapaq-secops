@@ -30,6 +30,22 @@ resource "azurerm_federated_identity_credential" "github" {
   )
 }
 
+resource "azurerm_federated_identity_credential" "github_additional" {
+  for_each            = var.additional_github_environments
+  name                = "github-${each.value}"
+  parent_id           = azurerm_user_assigned_identity.github_publisher.id
+  resource_group_name = var.resource_group_name
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  subject = format(
+    "repo:%s@%s/%s@%s:environment:%s",
+    split("/", var.github_repository)[0],
+    var.github_owner_id,
+    split("/", var.github_repository)[1],
+    var.github_repository_id,
+    each.value,
+  )
+}
 
 resource "azurerm_container_registry" "this" {
   name                          = var.acr_name
