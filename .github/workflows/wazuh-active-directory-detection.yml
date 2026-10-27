@@ -58,7 +58,7 @@ jobs:
             infra/wazuh/launch-detections/agent-groups/windows-sysmon-pilot.agent.conf; do
             destination="/tmp/$(basename "$profile")"
             docker cp "$profile" "qapaq-wazuh-ad-test:$destination"
-            docker exec qapaq-wazuh-ad-test /var/ossec/bin/verify-agent-conf -f "$destination"
+            docker exec --workdir /var/ossec qapaq-wazuh-ad-test /var/ossec/bin/verify-agent-conf -f "$destination"
           done
       - name: Start Manager daemons and run AD positive/negative fixtures
         run: |
