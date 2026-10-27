@@ -153,6 +153,21 @@ custom role IDs; no ampliar la condición a roles genéricos ni conceder Owner,
 Contributor o Secrets Officer para sortear el bloqueo. El workflow de seed no
 puede crear ni autoasignarse RBAC.
 
+**Evidencia del 2026-10-27:** el apply del workflow EUS2
+[#40449785537](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40449785537)
+falló con HTTP 403 en `Microsoft.Authorization/roleDefinitions/write` al intentar
+crear los dos custom roles. El apply parcial creó la identidad dedicada de seed y
+su FIC, y añadió una FIC EUS2 a la identidad publicadora preexistente; no completó
+los roles. La lectura de solo plan
+[#40451172490](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40451172490)
+terminó correctamente y conserva **4 altas, 0 cambios y 0 destrucciones**: dos
+custom roles asignables dentro del resource group EUS2 y dos asignaciones a la
+identidad de seed (una al resource group y otra al vault). Ese plan no se aplicó.
+No acredita que se hayan cargado secretos
+ni que el runtime SOC esté habilitado. El siguiente paso es una revisión y
+aprobación explícita del mecanismo de autorización; no reintentar el apply con un
+rol genérico para evitar el 403.
+
 Referencias RBAC: [custom role scopes and permissions](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitions),
 [who can create custom roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles)
 y [Role Based Access Control Administrator permissions](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#role-based-access-control-administrator).
