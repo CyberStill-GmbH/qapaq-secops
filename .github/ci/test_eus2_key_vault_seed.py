@@ -160,6 +160,13 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, workflow)
 
+    def test_workflow_checks_the_exact_private_endpoint_through_network_api(self):
+        workflow = (ROOT / ".github/workflows/seed-eus2-key-vault-secret.yml").read_text()
+        self.assertIn("az network private-endpoint-connection list", workflow)
+        self.assertIn("Microsoft.Network/privateEndpoints/pe-qapaqsecopsdemoeus-vault", workflow)
+        self.assertIn("properties.privateLinkServiceConnectionState.status", workflow)
+        self.assertNotIn("properties.privateEndpointConnections", workflow)
+
     def test_workflow_pins_external_actions_and_sets_job_timeouts(self):
         workflow = (ROOT / ".github/workflows/seed-eus2-key-vault-secret.yml").read_text()
         self.assertRegex(workflow, r"actions/checkout@[0-9a-f]{40}")
