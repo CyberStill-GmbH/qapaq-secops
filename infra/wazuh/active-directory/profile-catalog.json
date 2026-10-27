@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate-disabled",
+  "wazuhVersion": "4.14.8",
+  "indexPattern": "wazuh-alerts-*",
+  "activation": "owner-approval-and-domain-controller-pilot-required",
+  "bundleBehavior": "artifact-only-not-installed-or-shared-with-agents",
+  "profiles": [
+    {
+      "id": "windows-pilot-base",
+      "path": "infra/wazuh/launch-detections/agent-groups/windows-pilot.agent.conf",
+      "artifactPath": "wazuh/agent-profiles/windows-pilot.agent.conf",
+      "status": "candidate-disabled",
+      "scope": "Windows pilot baseline; retains the existing Security and System channels and standard Wazuh endpoint modules."
+    },
+    {
+      "id": "windows-domain-controller",
+      "path": "infra/wazuh/active-directory/agent-groups/windows-domain-controller.agent.conf",
+      "artifactPath": "wazuh/agent-profiles/windows-domain-controller.agent.conf",
+      "status": "candidate-disabled",
+      "scope": "Adds only the qapaq_profile=active-directory-pilot label; AD audit signals are inherited from the Windows base Security channel."
+    },
+    {
+      "id": "windows-sysmon-pilot",
+      "path": "infra/wazuh/launch-detections/agent-groups/windows-sysmon-pilot.agent.conf",
+      "artifactPath": "wazuh/agent-profiles/windows-sysmon-pilot.agent.conf",
+      "status": "candidate-disabled",
+      "scope": "Optional Sysmon Process Create event only; requires a privacy review because event data may contain command-line arguments."
+    }
+  ],
+  "sourceMappings": [
+    {
+      "source": "Windows Security",
+      "channel": "Security",
+      "eventIds": [
+        "4662",
+        "4719",
+        "4728",
+        "4732",
+        "4756",
+        "4768",
+        "4769",
+        "4771",
+        "5136",
+        "5137",
+        "5141",
+        "1102"
+      ],
+      "ruleRefs": ["101300", "101301", "101302", "101303", "101304", "101305", "101306", "101307"],
+      "collection": "inherited-from-windows-pilot-base",
+      "dataset": "win.system.channel=Security; win.system.eventID"
+    },
+    {
+      "source": "Windows System",
+      "channel": "System",
+      "eventIds": ["7045"],
+      "ruleRefs": ["61138"],
+      "ruleSource": "Wazuh upstream v4.14.8 ruleset/rules/0590-win-system_rules.xml",
+      "collection": "inherited-from-windows-pilot-base",
+      "dataset": "win.system.channel=System; win.system.eventID"
+    },
+    {
+      "source": "Active Directory service diagnostics",
+      "channel": "Directory Service",
+      "eventIds": [],
+      "ruleRefs": [],
+      "collection": "excluded-no-current-rule-consumer",
+      "dataset": "not-collected",
+      "note": "Events 5136, 5137, and 5141 used by QAPAQ rule 101303 are Windows Security audit events, not this channel."
+    },
+    {
+      "source": "PowerShell Operational",
+      "channel": "Microsoft-Windows-PowerShell/Operational",
+      "eventIds": [],
+      "ruleRefs": [],
+      "collection": "excluded-until-privacy-approved-use-case",
+      "dataset": "not-collected",
+      "excludedEventIds": ["400", "403", "4103", "4104"],
+      "note": "Script/module and script-block logging can carry command or script content. PowerShell event 400 can include HostApplication arguments; the current QAPAQ AD rules do not consume this channel."
+    },
+    {
+      "source": "Sysmon Process Create",
+      "channel": "Microsoft-Windows-Sysmon/Operational",
+      "eventIds": ["1"],
+      "ruleRefs": ["101100"],
+      "collection": "candidate-filtered-event-id-1-but-disabled",
+      "dataset": "win.system.channel=Microsoft-Windows-Sysmon/Operational; win.system.eventID",
+      "privacyGate": "Event ID 1 may contain command-line arguments; do not assign this profile until the Sysmon configuration, data handling, and retention are approved."
+    },
+    {
+      "source": "DNS Server Operational",
+      "channel": "DNS Server",
+      "eventIds": [],
+      "ruleRefs": [],
+      "collection": "excluded-no-current-rule-consumer",
+      "dataset": "not-collected"
+    },
+    {
+      "source": "Group Policy Operational",
+      "channel": "Microsoft-Windows-GroupPolicy/Operational",
+      "eventIds": [],
+      "ruleRefs": [],
+      "collection": "excluded-no-current-rule-consumer",
+      "dataset": "not-collected"
+    }
+  ],
+  "eventRuleMappings": [
+    {
+      "channel": "Security",
+      "eventIds": ["4728", "4732", "4756"],
+      "qapaqRuleRefs": ["101300"],
+      "upstreamParentRuleRefs": ["60113"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4719"],
+      "qapaqRuleRefs": ["101301"],
+      "upstreamParentRuleRefs": ["60112"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["1102"],
+      "qapaqRuleRefs": ["101302"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["5136", "5137", "5141"],
+      "qapaqRuleRefs": ["101303"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4769"],
+      "qapaqRuleRefs": ["101304"],
+      "upstreamParentRuleRefs": ["60106"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4768"],
+      "qapaqRuleRefs": ["101305"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4662"],
+      "qapaqRuleRefs": ["101306"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4771"],
+      "qapaqRuleRefs": ["101307"],
+      "upstreamParentRuleRefs": ["60104"]
+    },
+    {
+      "channel": "System",
+      "eventIds": ["7045"],
+      "qapaqRuleRefs": [],
+      "upstreamRuleRefs": ["61138"]
+    },
+    {
+      "channel": "Microsoft-Windows-Sysmon/Operational",
+      "eventIds": ["1"],
+      "qapaqRuleRefs": ["101100"],
+      "upstreamRuleRefs": []
+    }
+  ],
+  "ruleSources": {
+    "qapaq": "infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
+    "qapaqEndpoint": "infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+    "wazuhUpstream": "https://github.com/wazuh/wazuh/blob/v4.14.8/ruleset/rules/0590-win-system_rules.xml"
+  },
+  "safety": {
+    "activeResponse": false,
+    "rollout": false,
+    "installerAppliesAgentProfiles": false,
+    "requiresDomainOwnerApproval": true,
+    "requiresPilotVolumeAndFalsePositiveReview": true
+  }
+}

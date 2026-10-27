@@ -225,6 +225,57 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
             copy_regular(source, destination)
             artifact_paths[f"detection:{relative}"] = destination.relative_to(root).as_posix()
 
+        profile_catalog_source = pathlib.Path(args.repo_root) / "infra/wazuh/active-directory/profile-catalog.json"
+        profile_catalog = json.loads(profile_catalog_source.read_text(encoding="utf-8"))
+        profile_safety = profile_catalog.get("safety", {})
+        if (
+            profile_catalog.get("status") != "candidate-disabled"
+            or profile_catalog.get("activation") != "owner-approval-and-domain-controller-pilot-required"
+            or profile_safety.get("activeResponse") is not False
+            or profile_safety.get("rollout") is not False
+            or profile_safety.get("installerAppliesAgentProfiles") is not False
+            or profile_safety.get("requiresDomainOwnerApproval") is not True
+            or profile_safety.get("requiresPilotVolumeAndFalsePositiveReview") is not True
+        ):
+            raise ValueError("agent profile catalog must remain candidate-disabled")
+        profiles = profile_catalog.get("profiles")
+        if not isinstance(profiles, list) or not profiles:
+            raise ValueError("agent profile catalog must include disabled profile artifacts")
+        agent_profile_paths: list[str] = []
+        seen_profile_paths: set[str] = set()
+        for profile in profiles:
+            source_relative = pathlib.PurePosixPath(profile.get("path", ""))
+            artifact_relative = pathlib.PurePosixPath(profile.get("artifactPath", ""))
+            if (
+                not source_relative.parts
+                or source_relative.is_absolute()
+                or ".." in source_relative.parts
+                or not artifact_relative.parts
+                or artifact_relative.is_absolute()
+                or ".." in artifact_relative.parts
+                or artifact_relative.parts[:2] != ("wazuh", "agent-profiles")
+                or profile.get("status") != "candidate-disabled"
+            ):
+                raise ValueError("agent profile catalog contains an unsafe path or enabled profile")
+            artifact_path = artifact_relative.as_posix()
+            if artifact_path in seen_profile_paths:
+                raise ValueError("agent profile catalog contains duplicate artifact paths")
+            seen_profile_paths.add(artifact_path)
+            copy_regular(pathlib.Path(args.repo_root) / pathlib.Path(*source_relative.parts), root / artifact_path)
+            agent_profile_paths.append(artifact_path)
+
+        profile_catalog_destination = root / "wazuh" / "agent-profiles" / "active-directory" / "profile-catalog.json"
+        copy_regular(profile_catalog_source, profile_catalog_destination)
+        profile_documentation = pathlib.Path(args.repo_root) / "infra/wazuh/active-directory/README.md"
+        copy_regular(profile_documentation, root / "wazuh" / "agent-profiles" / "active-directory" / "README.md")
+        agent_profile_pack = {
+            "status": "candidate-disabled",
+            "catalog": profile_catalog_destination.relative_to(root).as_posix(),
+            "profiles": sorted(agent_profile_paths),
+            "activation": "owner-approval-and-domain-controller-pilot-required",
+            "installerAppliesAgentProfiles": False,
+        }
+
         files = sha256_map(root)
         manifest = {
             "schemaVersion": 1,
@@ -248,6 +299,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 ],
                 "activation": "rules-installed-provider-connectors-remain-opt-in",
             },
+            "agentProfilePack": agent_profile_pack,
             "qapaqDashboardPackage": dashboard_version,
             "qapaqCoreSourceCommit": qapaq_commit[:12],
             "debianPackages": debian_packages,
