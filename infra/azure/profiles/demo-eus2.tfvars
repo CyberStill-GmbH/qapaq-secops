@@ -14,6 +14,9 @@ cost_budget_start_date         = "2026-10-01T00:00:00Z"
 cost_budget_end_date           = "2030-10-01T00:00:00Z"
 cost_alert_emails              = ["cguevara@qapaq.pe"]
 
+# Decisión del dueño (2026-10-27): ver las capacidades completas sin dimensionar para producción.
+siem_firewall_sku_tier = "Basic"
+
 tags = {
   project     = "qapaq-secops"
   environment = "demo-eus2"

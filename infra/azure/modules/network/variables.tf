@@ -9,6 +9,12 @@ variable "enable_siem_firewall" {
   default     = false
 }
 
+variable "firewall_sku_tier" {
+  description = "Con Basic se reserva además AzureFirewallManagementSubnet /26."
+  type        = string
+  default     = "Basic"
+}
+
 variable "ankay_subnet_address_prefix" {
   description = "CIDR de la subnet exclusiva de Ankay; null mantiene el host Ankay deshabilitado. El root reserva el segundo /27 del address space."
   type        = string

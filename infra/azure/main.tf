@@ -50,6 +50,7 @@ module "network" {
   ankay_subnet_address_prefix   = var.ankay_host == null ? null : cidrsubnet(var.address_space, 11, 1)
   krakend_subnet_address_prefix = local.krakend_subnet_cidr
   enable_siem_firewall          = var.siem_host != null
+  firewall_sku_tier             = var.siem_firewall_sku_tier
   tags                          = var.tags
 }
 
@@ -156,6 +157,10 @@ module "egress_firewall" {
   location                   = data.azurerm_resource_group.this.location
   name_base                  = local.name_base
   firewall_subnet_id         = module.network.firewall_subnet_id
+  management_subnet_id       = module.network.firewall_management_subnet_id
+  sku_tier                   = var.siem_firewall_sku_tier
+  agent_public_cidrs         = try(var.siem_host.agent_public_cidrs, toset([]))
+  agent_target_ip            = try(var.siem_host.private_ip_address, null)
   log_analytics_workspace_id = module.observability.log_analytics_workspace_id
   source_cidrs = toset(concat(
     [var.siem_host.address_prefix],
@@ -251,12 +256,17 @@ module "siem_host" {
   data_disk_size_gb            = try(var.siem_host.data_disk_size_gb, 128)
   dashboard_ingress_cidrs      = try(var.siem_host.dashboard_ingress_cidrs, toset([]))
   ingress_http_enabled         = true
-  agent_ingress_cidrs          = try(var.siem_host.agent_ingress_cidrs, toset([]))
-  krakend_source_cidrs         = local.krakend_subnet_cidr == null ? toset([]) : toset([local.krakend_subnet_cidr])
-  key_vault_id                 = module.data.key_vault_id
-  key_vault_uri                = module.data.key_vault_uri
-  core_secret_names            = try(var.siem_host.core_secret_names, {})
-  wazuh_secret_names           = try(var.siem_host.wazuh_secret_names, {})
+  # El DNAT del Firewall llega con la IP privada del Firewall como origen: si se publican
+  # agentes por Internet, su subnet entra al NSG junto a las redes privadas aprobadas.
+  agent_ingress_cidrs = setunion(
+    try(var.siem_host.agent_ingress_cidrs, toset([])),
+    length(try(var.siem_host.agent_public_cidrs, [])) == 0 ? toset([]) : toset([cidrsubnet(var.address_space, 10, 256)]),
+  )
+  krakend_source_cidrs = local.krakend_subnet_cidr == null ? toset([]) : toset([local.krakend_subnet_cidr])
+  key_vault_id         = module.data.key_vault_id
+  key_vault_uri        = module.data.key_vault_uri
+  core_secret_names    = try(var.siem_host.core_secret_names, {})
+  wazuh_secret_names   = try(var.siem_host.wazuh_secret_names, {})
   indexer_proxy = var.krakend_gateway == null ? null : {
     reader_secret_name   = var.krakend_gateway.indexer_reader_secret_name
     proxy_ca_secret_name = var.krakend_gateway.indexer_proxy_ca_secret_name

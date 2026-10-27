@@ -1,6 +1,10 @@
 locals {
   firewall_name = "afw-${var.name_base}"
   policy_name   = "afwp-${var.name_base}"
+  # Basic no admite Threat Intelligence en modo Deny ni DNS proxy: solo alerta, y las reglas
+  # de aplicación por FQDN funcionan sin proxy. Standard conserva el bloqueo y el proxy.
+  is_basic          = var.sku_tier == "Basic"
+  threat_intel_mode = local.is_basic ? "Alert" : "Deny"
 }
 
 resource "azurerm_public_ip" "firewall" {
@@ -12,14 +16,29 @@ resource "azurerm_public_ip" "firewall" {
   tags                = merge(var.tags, { service = "siem-egress" })
 }
 
+# Basic separa el tráfico de gestión de la plataforma en su propia subnet e IP pública; no
+# recibe reglas ni DNAT y Azure la exige para crear el Firewall en ese SKU.
+resource "azurerm_public_ip" "management" {
+  count               = local.is_basic ? 1 : 0
+  name                = "pip-${var.name_base}-firewall-mgmt"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = merge(var.tags, { service = "siem-egress-management" })
+}
+
 resource "azurerm_firewall_policy" "this" {
   name                     = local.policy_name
   location                 = var.location
   resource_group_name      = var.resource_group_name
-  sku                      = "Standard"
-  threat_intelligence_mode = "Deny"
-  dns {
-    proxy_enabled = true
+  sku                      = var.sku_tier
+  threat_intelligence_mode = local.threat_intel_mode
+  dynamic "dns" {
+    for_each = local.is_basic ? [] : [true]
+    content {
+      proxy_enabled = true
+    }
   }
   tags = merge(var.tags, { service = "siem-egress-policy" })
 }
@@ -86,7 +105,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "egress" {
   }
 
   dynamic "nat_rule_collection" {
-    for_each = var.ingress_lb_private_ip == null || (!var.ingress_http_enabled && length(var.dashboard_ingress_cidrs) == 0) ? [] : [true]
+    for_each = var.ingress_lb_private_ip == null || (!var.ingress_http_enabled && length(var.dashboard_ingress_cidrs) == 0 && length(var.agent_public_cidrs) == 0) ? [] : [true]
     content {
       name     = "qapaq-siem-public-ingress"
       priority = 120
@@ -117,6 +136,22 @@ resource "azurerm_firewall_policy_rule_collection_group" "egress" {
           translated_port     = "443"
         }
       }
+
+      # Agentes Wazuh: registro (1515) y eventos (1514) directo a la VM, no al LB del edge.
+      # La autenticación es la clave de registro y la clave por agente; el DNAT solo acota
+      # quién puede intentarlo.
+      dynamic "rule" {
+        for_each = length(var.agent_public_cidrs) == 0 ? [] : ["1514", "1515"]
+        content {
+          name                = "qapaq-wazuh-agents-${rule.value}"
+          protocols           = ["TCP"]
+          source_addresses    = sort(tolist(var.agent_public_cidrs))
+          destination_address = azurerm_public_ip.firewall.ip_address
+          destination_ports   = [rule.value]
+          translated_address  = var.agent_target_ip
+          translated_port     = rule.value
+        }
+      }
     }
   }
 }
@@ -126,15 +161,35 @@ resource "azurerm_firewall" "this" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku_name            = "AZFW_VNet"
-  sku_tier            = "Standard"
+  sku_tier            = var.sku_tier
   firewall_policy_id  = azurerm_firewall_policy.this.id
-  threat_intel_mode   = "Deny"
+  threat_intel_mode   = local.threat_intel_mode
   tags                = merge(var.tags, { service = "siem-egress" })
 
   ip_configuration {
     name                 = "primary"
     subnet_id            = var.firewall_subnet_id
     public_ip_address_id = azurerm_public_ip.firewall.id
+  }
+
+  dynamic "management_ip_configuration" {
+    for_each = local.is_basic ? [true] : []
+    content {
+      name                 = "management"
+      subnet_id            = var.management_subnet_id
+      public_ip_address_id = azurerm_public_ip.management[0].id
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !local.is_basic || var.management_subnet_id != null
+      error_message = "Azure Firewall Basic requiere AzureFirewallManagementSubnet."
+    }
+    precondition {
+      condition     = length(var.agent_public_cidrs) == 0 || var.agent_target_ip != null
+      error_message = "Publicar puertos de agentes requiere la IP privada fija del SIEM."
+    }
   }
 }
 
