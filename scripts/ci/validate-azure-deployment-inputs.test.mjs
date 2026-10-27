@@ -21,7 +21,7 @@ function baseEnv(overrides = {}) {
 
 function siemHost(overrides = {}) {
   return {
-    address_prefix: '10.80.0.64/27',
+    address_prefix: '10.80.16.32/27',
     vm_size: 'Standard_F4s_v2',
     admin_ssh_public_key: publicKey,
     ubuntu_image_version: '24.04.202601010',
@@ -39,8 +39,8 @@ function siemHost(overrides = {}) {
     },
     core_environment: { QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret' },
     office365: {
-      tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
-      client_id: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+      tenant_id: '11111111-1111-4111-8111-111111111111',
+      client_id: '22222222-2222-4222-8222-222222222222',
       api_type: 'commercial',
       enable_dlp: false,
     },
@@ -73,6 +73,62 @@ test('accepts a complete SIEM configuration with Key Vault names and an immutabl
   );
 });
 
+test('rejects SIEM subnets that overlap any subnet reserved by the Azure network module', () => {
+  const reservedPrefixes = [
+    { cidr: '10.80.0.0/27', reason: /Container Apps/u },
+    { cidr: '10.80.0.32/27', reason: /Ankay/u },
+    { cidr: '10.80.0.64/27', reason: /KrakenD/u },
+    {
+      cidr: '10.80.16.0/27',
+      reason: /PostgreSQL, Private Endpoints/u,
+    },
+    { cidr: '10.80.64.0/26', reason: /Azure Firewall/u },
+  ];
+
+  for (const { cidr: address_prefix, reason } of reservedPrefixes) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_address_space: '10.80.0.0/16',
+            TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix })),
+          }),
+        ),
+      reason,
+      `${address_prefix} must not be accepted as a SIEM subnet`,
+    );
+  }
+});
+
+test('rejects a SIEM subnet outside the configured VNet or with host bits set', () => {
+  for (const address_prefix of ['10.81.0.0/27', '10.80.16.33/27']) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_address_space: '10.80.0.0/16',
+            TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix })),
+          }),
+        ),
+      /contained in the configured Azure VNet|network-aligned IPv4 CIDR/u,
+      `${address_prefix} must not be accepted as a SIEM subnet`,
+    );
+  }
+});
+
+test('computes reserved subnets from a non-default address_space supplied by the deployment', () => {
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_address_space: '10.90.0.0/16',
+          TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix: '10.90.16.0/27' })),
+        }),
+      ),
+    /overlaps reserved subnets: PostgreSQL/u,
+  );
+});
+
 test('rejects malformed JSON and missing required SIEM fields without echoing input values', () => {
   assert.throws(
     () => validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: '{invalid-secret-shaped-input}' })),
@@ -101,12 +157,13 @@ test('rejects public addresses for private SIEM and Ankay network endpoints', ()
 test('SIEM subnet must be aligned, inside the EUS2 VNet, and disjoint from reserved subnets', () => {
   const cases = [
     ['10.80.0.65/27', /network-aligned/u],
-    ['10.81.0.0/27', /contained in the EUS2 VNet/u],
-    ['10.80.0.0/27', /reserved Container Apps subnet/u],
-    ['10.80.0.32/27', /reserved Ankay subnet/u],
-    ['10.80.16.0/27', /reserved PostgreSQL subnet/u],
-    ['10.80.64.0/26', /reserved Azure Firewall subnet/u],
-    ['10.80.0.0/16', /reserved Container Apps subnet/u],
+    ['10.81.0.0/27', /contained in the configured Azure VNet/u],
+    ['10.80.0.0/27', /overlaps reserved subnets: Container Apps/u],
+    ['10.80.0.32/27', /overlaps reserved subnets: Ankay/u],
+    ['10.80.0.64/27', /overlaps reserved subnets: KrakenD/u],
+    ['10.80.16.0/27', /overlaps reserved subnets: PostgreSQL, Private Endpoints/u],
+    ['10.80.64.0/26', /overlaps reserved subnets: Azure Firewall/u],
+    ['10.80.0.0/16', /overlaps reserved subnets: Container Apps/u],
   ];
 
   for (const [addressPrefix, message] of cases) {
@@ -150,7 +207,7 @@ test('Dashboard ingress accepts aligned IPv4 /24 or narrower and rejects broad o
 test('SIEM accepts the optional closed provider_ingestion map and valid connector flags', () => {
   const providerIngestion = {
     sophos_enabled: 'true',
-    sophos_tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+    sophos_tenant_id: '33333333-3333-4333-8333-333333333333',
     sophos_data_region: 'eu-west-1',
     cato_enabled: 'true',
     cato_account_id: '123456789',
@@ -362,7 +419,7 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
             TF_VAR_ankay_host: JSON.stringify({ ...ankay, private_ip_address: privateIpAddress }),
           }),
         ),
-      /usable Azure host address in 10\.80\.0\.32\/27/u,
+      /usable Azure host address in the reserved Ankay subnet/u,
       `expected ${privateIpAddress} to be rejected`,
     );
   }

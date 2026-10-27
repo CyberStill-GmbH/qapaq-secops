@@ -172,6 +172,10 @@ debe verificar:
 1. El bundle existe en Blob privado y su digest coincide con el manifiesto de release de CI.
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
 3. CIDR de Dashboard y agentes son privados/aprobados y no incluyen `0.0.0.0/0`.
+   `address_prefix` debe pertenecer al address space de la VNet y no solaparse con las subnets
+   determinísticas de Container Apps, Ankay, KrakenD, PostgreSQL, Private Endpoints o Azure Firewall.
+   El validador previo al plan calcula estas reservas usando el `address_space` efectivo; no
+   reutilices un rango de las subnets ya desplegadas como atajo para habilitar el SIEM.
 4. SKU de VM, disco y disponibilidad de Secure Boot/encryption-at-host están confirmados en la región.
 5. El plan crea Firewall Standard con DNAT, IP pública de entrada/salida, Load Balancer interno,
    subnet dedicada y UDR; revisar costo, CIDR HTTPS, puerto HTTP ACME y destinos permitidos antes del apply.
