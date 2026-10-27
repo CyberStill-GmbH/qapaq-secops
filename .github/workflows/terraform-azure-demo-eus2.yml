@@ -82,6 +82,7 @@ jobs:
       TF_VAR_postgres_sku_name: ${{ vars.AZURE_EUS2_POSTGRES_SKU_NAME || 'GP_Standard_D2s_v3' }}
       TF_VAR_environment: demo-eus2
       TF_VAR_location: eastus2
+      TF_VAR_additional_github_environments: '["azure-demo-eus2"]'
       TF_VAR_tags: '{"project":"qapaq-secops","environment":"demo-eus2","managed_by":"terraform","cloud":"azure","data_class":"security-sensitive"}'
       AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_EUS2_ACR_LOGIN_SERVER }}
       TF_VAR_enable_runtime: ${{ vars.AZURE_EUS2_ENABLE_RUNTIME || 'false' }}
@@ -245,6 +246,7 @@ jobs:
       TF_VAR_postgres_sku_name: ${{ vars.AZURE_EUS2_POSTGRES_SKU_NAME || 'GP_Standard_D2s_v3' }}
       TF_VAR_environment: demo-eus2
       TF_VAR_location: eastus2
+      TF_VAR_additional_github_environments: '["azure-demo-eus2"]'
       TF_VAR_tags: '{"project":"qapaq-secops","environment":"demo-eus2","managed_by":"terraform","cloud":"azure","data_class":"security-sensitive"}'
       TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_EUS2_TF_STATE_RESOURCE_GROUP }}
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS2_TF_STATE_STORAGE_ACCOUNT }}

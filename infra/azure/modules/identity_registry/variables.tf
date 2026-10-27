@@ -8,6 +8,7 @@ variable "github_repository" { type = string }
 variable "github_owner_id" { type = string }
 variable "github_repository_id" { type = string }
 variable "github_environment" { type = string }
+variable "additional_github_environments" { type = set(string) }
 variable "key_vault_id" { type = string }
 variable "raw_container_id" { type = string }
 variable "siem_release_container_id" { type = string }

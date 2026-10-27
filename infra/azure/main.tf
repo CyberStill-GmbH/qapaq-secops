@@ -87,6 +87,7 @@ module "identity_registry" {
   github_owner_id                  = var.github_owner_id
   github_repository_id             = var.github_repository_id
   github_environment               = var.github_environment
+  additional_github_environments   = var.additional_github_environments
   environment                      = var.environment
   key_vault_id                     = module.data.key_vault_id
   raw_container_id                 = module.data.raw_container_id
