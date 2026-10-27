@@ -1,0 +1,228 @@
+name: Publish verified QAPAQ KrakenD image to Azure EUS2 ACR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-eus2-krakend-publish
+  cancel-in-progress: false
+
+jobs:
+  ci-gate:
+    name: Require CI on the exact main commit
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - name: Require manual dispatch from main and successful exact-commit CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_EVENT_NAME" == workflow_dispatch ]]
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          [[ "$main_sha" == "$COMMIT_SHA" ]] || {
+            echo "Refusing to publish stale commit $COMMIT_SHA; current main is $main_sha." >&2
+            exit 1
+          }
+          for attempt in $(seq 1 90); do
+            runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&per_page=100")"
+            result="$(jq -r --arg sha "$COMMIT_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .head_branch == "main")] | sort_by(.run_number // 0) | last | [.status // "", .conclusion // ""] | @tsv' <<<"$runs")"
+            status=${result%%$'\t'*}
+            conclusion=${result#*$'\t'}
+            if [[ "$status" == completed && "$conclusion" == success ]]; then
+              echo "The exact .github/workflows/ci.yml run passed for main commit $COMMIT_SHA."
+              exit 0
+            fi
+            if [[ "$status" == completed ]]; then
+              echo "The latest CI run concluded '$conclusion' for main commit $COMMIT_SHA." >&2
+              exit 1
+            fi
+            echo "Waiting for .github/workflows/ci.yml on main commit $COMMIT_SHA (attempt $attempt/90)."
+            sleep 10
+          done
+          echo "Timed out waiting for .github/workflows/ci.yml on $COMMIT_SHA." >&2
+          exit 1
+
+  build:
+    name: Rebuild and verify the exact CI KrakenD image without cloud credentials
+    needs: [ci-gate]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the exact CI-verified commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Run the repository's exact container build, runtime, and Trivy gates
+        run: bash .github/ci/verify-container-images.sh
+
+      - name: Export only the verified KrakenD image and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker image inspect qapaq-ci:krakend >/dev/null
+          docker save qapaq-ci:krakend | gzip -n > "$RUNNER_TEMP/krakend-image.tar.gz"
+          image_sha256="$(sha256sum "$RUNNER_TEMP/krakend-image.tar.gz" | awk '{print $1}')"
+          [[ "$image_sha256" =~ ^[0-9a-f]{64}$ ]]
+          printf 'commit=%s\nsource_image=qapaq-ci:krakend\nimage_sha256=%s\n' \
+            "$GITHUB_SHA" "$image_sha256" > "$RUNNER_TEMP/metadata.txt"
+          (cd "$RUNNER_TEMP" && sha256sum krakend-image.tar.gz > SHA256SUMS)
+
+      - name: Transfer the verified image to the protected publish job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: krakend-eus2-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/krakend-image.tar.gz
+            ${{ runner.temp }}/metadata.txt
+            ${{ runner.temp }}/SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    name: Publish only qapaq-secops-krakend to the protected EUS2 ACR
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: azure-demo-eus2
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      ACR_LOGIN_SERVER: ${{ vars.AZURE_EUS2_ACR_LOGIN_SERVER }}
+      EXPECTED_TENANT_ID: "45f2f938-dbe3-4a3e-8a54-930893f94ef8"
+      EXPECTED_SUBSCRIPTION_ID: "aaf787f8-5964-4470-9eb6-89d15eacda61"
+      EXPECTED_ACR_NAME: qapaqsecopsdemoeus3a2405f3
+      EXPECTED_ACR_ID: /subscriptions/aaf787f8-5964-4470-9eb6-89d15eacda61/resourceGroups/rg-qapaqsecopsdemoeus-3a2405f3/providers/Microsoft.ContainerRegistry/registries/qapaqsecopsdemoeus3a2405f3
+      REPOSITORY: qapaq-secops-krakend
+      COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - name: Download the image from this exact workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: krakend-eus2-${{ github.sha }}
+          path: ${{ runner.temp }}/krakend-publish
+
+      - name: Verify artifact provenance and bytes before Azure authentication
+        working-directory: ${{ runner.temp }}/krakend-publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          sha256sum --check --strict SHA256SUMS
+          grep -Fxq "commit=$COMMIT_SHA" metadata.txt
+          grep -Fxq 'source_image=qapaq-ci:krakend' metadata.txt
+          image_sha256="$(awk -F= '$1 == "image_sha256" { print $2 }' metadata.txt)"
+          [[ "$image_sha256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$(sha256sum krakend-image.tar.gz | awk '{print $1}')" == "$image_sha256" ]]
+          echo "IMAGE_SHA256=$image_sha256" >> "$GITHUB_ENV"
+          image_tag="git-${COMMIT_SHA}-sha256-${image_sha256}"
+          echo "IMAGE_TAG=$image_tag" >> "$GITHUB_ENV"
+          {
+            echo '## QAPAQ KrakenD EUS2 publication review'
+            echo
+            echo "- Source: commit \`$COMMIT_SHA\` on \`main\`, after \`CI / required\` passed."
+            echo "- Exact image: \`$ACR_LOGIN_SERVER/$REPOSITORY:$image_tag\`"
+            echo "- Transfer SHA-256: \`$image_sha256\`"
+            echo '- The next job is gated by the protected `azure-demo-eus2` environment.'
+            echo '- Scope: one KrakenD image repository and one new content-addressed tag; no Terraform, DNS, secrets, or Container Apps changes.'
+            echo '- The existing ACR has authenticated access with admin user disabled; its Azure metadata currently reports public network access enabled.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate configured EUS2 destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID ACR_LOGIN_SERVER; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing EUS2 environment value: $name"; exit 1; }
+          done
+          [[ "$AZURE_TENANT_ID" == "$EXPECTED_TENANT_ID" ]]
+          [[ "$AZURE_SUBSCRIPTION_ID" == "$EXPECTED_SUBSCRIPTION_ID" ]]
+          [[ "$ACR_LOGIN_SERVER" == "$EXPECTED_ACR_NAME.azurecr.io" ]]
+
+      - name: Revalidate current main and exact CI after protected approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          [[ "$main_sha" == "$COMMIT_SHA" ]] || {
+            echo "::error::main advanced to $main_sha while publication waited for approval; refusing stale publish."
+            exit 1
+          }
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&per_page=100")"
+          result="$(jq -r --arg sha "$COMMIT_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .head_branch == "main")] | sort_by(.run_number // 0) | last | [.status // "", .conclusion // ""] | @tsv' <<<"$runs")"
+          [[ "$result" == $'completed\tsuccess' ]] || {
+            echo "::error::The latest exact-commit CI run is not successful: $result"
+            exit 1
+          }
+
+      - name: Sign in with the EUS2 publisher identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Revalidate subscription and exact ACR resource after OIDC login
+        id: acr
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$(az account show --output json)"
+          [[ "$(jq -r .id <<<"$account")" == "$EXPECTED_SUBSCRIPTION_ID" ]]
+          [[ "$(jq -r .tenantId <<<"$account")" == "$EXPECTED_TENANT_ID" ]]
+          acr="$(az acr show --name "$EXPECTED_ACR_NAME" --output json)"
+          [[ "$(jq -r .id <<<"$acr" | tr '[:upper:]' '[:lower:]')" == "$(tr '[:upper:]' '[:lower:]' <<<"$EXPECTED_ACR_ID")" ]]
+          [[ "$(jq -r .loginServer <<<"$acr")" == "$ACR_LOGIN_SERVER" ]]
+          [[ "$(jq -r .location <<<"$acr" | tr '[:upper:]' '[:lower:]')" == eastus2 ]]
+          [[ "$(jq -r .adminUserEnabled <<<"$acr")" == false ]]
+          echo 'Azure identity and target ACR match the approved EUS2 destination.'
+
+      - name: Publish the verified image once and record its immutable digest reference
+        working-directory: ${{ runner.temp }}/krakend-publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${ACR_LOGIN_SERVER}/${REPOSITORY}:${IMAGE_TAG}"
+          if az acr repository show --name "$EXPECTED_ACR_NAME" --image "${REPOSITORY}:${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo '::error::Refusing to overwrite an existing content-addressed image tag.'
+            exit 1
+          fi
+          docker load --input krakend-image.tar.gz
+          docker image inspect qapaq-ci:krakend >/dev/null
+          az acr login --name "$EXPECTED_ACR_NAME"
+          docker tag qapaq-ci:krakend "$image"
+          docker push "$image"
+          digest="$(az acr repository show --name "$EXPECTED_ACR_NAME" --image "${REPOSITORY}:${IMAGE_TAG}" --query digest --output tsv)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "IMAGE_DIGEST_REF=${ACR_LOGIN_SERVER}/${REPOSITORY}@${digest}" >> "$GITHUB_OUTPUT"
+          {
+            echo '## Published QAPAQ KrakenD image'
+            echo
+            echo "- Source commit: \`$COMMIT_SHA\`"
+            echo "- Immutable OCI reference: \`${ACR_LOGIN_SERVER}/${REPOSITORY}@${digest}\`"
+            echo "- Content-addressed tag: \`${IMAGE_TAG}\`"
+            echo '- Deployment: not performed.'
+          } >> "$GITHUB_STEP_SUMMARY"
