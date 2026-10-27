@@ -168,8 +168,7 @@ Terraform y Azure es **4 recursos añadidos, 0 modificados y 0 destruidos**:
   `2dfc535e-6079-5a6c-9b4e-e67cc75470fe`, asignable dentro del grupo de recursos EUS2, y su
   asignación a la identidad de seed en el Key Vault exacto `kv-qapaqsecopsd-3a2405f3`.
 
-PostgreSQL quedó sin cambios. No hubo destrucciones ni cambios de DNS, redes, configuración del
-recurso Key Vault ni valores de secretos.
+PostgreSQL quedó sin cambios. No hubo destrucciones ni modificaciones de DNS, propiedades de red o del recurso Key Vault, ni de valores secretos. Sí cambió el control de acceso: se creó la asignación RBAC `vault_secret_metadata` con alcance en el Key Vault exacto descrito arriba.
 El rol del vault permite la comprobación de metadata y la escritura ARM acotada prevista; no
 incluye lectura de valores existentes ni `dataActions`. Este apply solo dejó habilitado el
 mecanismo de autorización mínimo del seeder: **no cargó secretos y no desplegó ni validó el
