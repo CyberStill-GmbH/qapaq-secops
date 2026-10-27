@@ -170,7 +170,11 @@ topología debe calcularse aparte.
   `seccomp:unconfined` para Orborus. No habilitar ese Compose sin aislamiento probado,
   fuentes/builds reproducibles y dictamen AGPL. El chart Kubernetes oficial reduce el
   uso del socket, pero requeriría un AKS nuevo con políticas de pod/red y costos que
-  no existen en este Terraform.
+  no existen en este Terraform. Tampoco se puede asumir Docker rootless como sustituto:
+  Orborus usa Docker Swarm y una red overlay, no soportada por Docker rootless según
+  [su guía de limitaciones](https://docs.docker.com/engine/security/rootless/troubleshoot/).
+  Cambiar a Kubernetes mode o rediseñar la ejecución requiere un release separado y
+  pruebas reales de worker, login, persistencia y restore.
 - **Datos y logs:** alertas y archivos de seguridad viven en Wazuh/OpenSearch; datos
   operativos de casos, auditoría y outbox en PostgreSQL; secretos en Key Vault; telemetría
   de recursos Azure en Log Analytics. El contenedor `security-event-raw` no sustituye
