@@ -111,28 +111,51 @@ no equivale a un borrado forense. Fuentes: [Key Vault network security](https://
 
 - Environment existente `azure-demo-eus2`, limitado a `main`, con aprobación
   obligatoria y self-review deshabilitado.
-- Una identidad federada exclusiva para seed, distinta de Terraform y del publicador.
-  FIC: issuer `https://token.actions.githubusercontent.com`, subject
-  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo-eus2`, audience
+- Terraform del root `infra/azure` crea una identidad administrada exclusiva para
+  seed, separada de Terraform, runtime y publicador. Su FIC queda limitada al
+  issuer `https://token.actions.githubusercontent.com`, subject exacto
+  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo-eus2` y audience
   `api://AzureADTokenExchange`.
-- Variables del environment: `AZURE_EUS2_SECRET_SEEDER_CLIENT_ID`,
-  `AZURE_EUS2_TENANT_ID` y `AZURE_EUS2_SUBSCRIPTION_ID`.
-- En el grupo de recursos destino: `Microsoft.Resources/deployments/validate/action`,
+- Tras una aplicación revisada del root, copiar únicamente el output
+  `eus2_secret_seeder_client_id` a la variable de Environment
+  `AZURE_EUS2_SECRET_SEEDER_CLIENT_ID`. `AZURE_EUS2_TENANT_ID` y
+  `AZURE_EUS2_SUBSCRIPTION_ID` siguen siendo variables del mismo Environment.
+- El módulo crea dos roles personalizados separados: en el grupo de recursos
+  destino, `Microsoft.Resources/deployments/validate/action`,
   `Microsoft.Resources/deployments/write`, `Microsoft.Resources/deployments/read`,
   `Microsoft.Resources/deployments/operations/read`,
   `Microsoft.Resources/deployments/operationStatuses/read` y
-  `Microsoft.Resources/subscriptions/resourceGroups/read`.
-- En el alcance del vault exacto: `Microsoft.KeyVault/vaults/read`,
+  `Microsoft.Resources/subscriptions/resourceGroups/read`. La identidad de seed
+  no recibe acciones de escritura sobre otros tipos de recursos.
+- En el alcance del Key Vault exacto, `Microsoft.KeyVault/vaults/read`,
   `Microsoft.KeyVault/vaults/secrets/read` y
-  `Microsoft.KeyVault/vaults/secrets/write`.
+  `Microsoft.KeyVault/vaults/secrets/write`. Ese rol no contiene `dataActions` y
+  no permite leer el valor de secretos existentes.
 
-No asignar permisos desde Actions. La identidad no necesita `Owner`, `Contributor`,
-`Key Vault Secrets Officer`, `Microsoft.Authorization/roleAssignments/write`, ni
-acciones de plano de datos como `Microsoft.KeyVault/vaults/secrets/getSecret/action`;
-no requiere acceso a valores existentes. La lectura anterior es metadata ARM para
-comprobar existencia y estado, separada del permiso de recuperar valores. Un
-administrador debe aprobar la asignación mínima en los alcances indicados antes de
-usar el workflow.
+No asignar permisos desde Actions. La identidad de seed no necesita `Owner`,
+`Contributor`, `Key Vault Secrets Officer`,
+`Microsoft.Authorization/roleAssignments/write`, ni acciones de plano de datos
+como `Microsoft.KeyVault/vaults/secrets/getSecret/action`; no requiere acceso a
+valores existentes. La lectura anterior es metadata ARM para comprobar existencia
+y estado, separada del permiso de recuperar valores.
+
+**Bloqueo de autorización para aplicar Terraform:** el bootstrap EUS2 actual delega
+RBAC al identity de Terraform mediante una condición que permite asignar solo los
+IDs predefinidos de `AcrPull`, `AcrPush`, `Key Vault Secrets User` y
+`Storage Blob Data Contributor`. Además, el rol `Role Based Access Control
+Administrator` de ese identity no incluye `Microsoft.Authorization/roleDefinitions/write`.
+Por eso el workflow de Terraform existente no puede crear estas definiciones ni
+asignarlas. Para un apply futuro, la identidad autorizadora debe tener
+`Microsoft.Authorization/roleDefinitions/write` en el alcance asignable del grupo y
+`Microsoft.Authorization/roleAssignments/write` en el grupo y vault destino. Si se
+prefiere automatizarlo, debe revisarse por separado una delegación exacta de los dos
+custom role IDs; no ampliar la condición a roles genéricos ni conceder Owner,
+Contributor o Secrets Officer para sortear el bloqueo. El workflow de seed no
+puede crear ni autoasignarse RBAC.
+
+Referencias RBAC: [custom role scopes and permissions](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-definitions),
+[who can create custom roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/custom-roles)
+y [Role Based Access Control Administrator permissions](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/privileged#role-based-access-control-administrator).
 
 ### Allowlist exacta de origen y Key Vault
 
