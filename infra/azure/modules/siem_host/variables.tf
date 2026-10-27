@@ -143,8 +143,10 @@ variable "vm_size" {
       "Standard_D4as_v6",
       "Standard_D4s_v6",
       "Standard_D4als_v6",
+      # 4 vCPU y 32 GiB: la suscripción EUS2 solo tiene cuota en FSv2 y EBDSv5.
+      "Standard_E4bds_v5",
     ], var.vm_size)
-    error_message = "El bundle Wazuh es amd64 y necesita 4 vCPU y al menos 8 GiB: usa F4s_v2, D4as_v5, D4s_v5, D4as_v6, D4s_v6 o D4als_v6."
+    error_message = "El bundle Wazuh es amd64 y necesita 4 vCPU y al menos 8 GiB: usa F4s_v2, D4as_v5, D4s_v5, D4as_v6, D4s_v6, D4als_v6 o E4bds_v5."
   }
 }
 
