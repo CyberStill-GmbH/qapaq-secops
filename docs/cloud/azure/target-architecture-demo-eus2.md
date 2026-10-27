@@ -23,8 +23,8 @@ flowchart LR
   Dash[Wazuh Dashboard QAPAQ<br/>4.14.8 / OSD 2.19.6]
   Core[qapaq-core<br/>API + worker en loopback]
   KrakenD[KrakenD interno<br/>ingesta/lectura Indexer]
-  Manager[Wazuh Manager<br/>M365 + reglas + agentes]
-  Indexer[(Wazuh Indexer<br/>alertas/archivos separados)]
+  Manager[Wazuh Manager<br/>single host en demo]
+  Indexer[(Wazuh Indexer<br/>single node en demo)]
   PG[(PostgreSQL privado<br/>casos/auditoría/outbox)]
   Queue[(Jobs backend<br/>decision pending)]
   Ankay[Ankay Qapaq<br/>Shuffle privado + OpenSearch propio]
@@ -66,6 +66,75 @@ identifican enlaces previstos o de telemetría; no son evidencia de conexiones a
 El budget de 200 en la moneda de facturación es una alerta mensual a nivel de
 suscripción; no es un tope, apagado automático ni orden de destrucción.
 
+Este dibujo representa el **primer despliegue demo**, no la arquitectura de alta
+disponibilidad. Terraform `siem_host` crea un solo host con Manager, Indexer,
+Dashboard y Core. El Load Balancer interno da una dirección estable y health probe,
+pero su backend es una sola VM; si esa VM cae, el SOC cae. Wazuh describe la instalación
+multi-nodo como la opción para escalabilidad/HA, y exige al menos tres nodos elegibles
+como cluster-manager para quorum del Indexer ([guía del cluster Indexer](https://documentation.wazuh.com/current/user-manual/wazuh-indexer-cluster/add-wazuh-indexer-nodes.html)).
+No se debe presentar la demo de una VM como resiliente ante falla de host o estrés.
+
+## Topología requerida para carga alta
+
+La evolución de producción requiere separar pools y estado; no se habilita con el
+`soc` scope actual. El siguiente dibujo muestra límites y balanceo que deben entrar
+en un módulo/stack posterior, después de implementar y medir cada servicio:
+
+```mermaid
+flowchart LR
+  Internet[Internet / operadores]
+  Agents[Agentes autorizados]
+  FW[Azure Firewall<br/>DNAT + egress allowlist]
+  EdgeLB[Internal Load Balancer]
+  Edge[Pool Nginx QAPAQ<br/>2+ réplicas]
+  Dash[Wazuh Dashboard QAPAQ<br/>pool versionado]
+  Core[QAPAQ Core<br/>API y workers escalables]
+  Managers[Wazuh Manager cluster<br/>master + workers]
+  Indexers[Wazuh Indexer cluster<br/>roles/datos por diseño y quorum]
+  GatewayEnv[Container Apps environment<br/>internal + private ILB]
+  KrakenD[KrakenD privado<br/>2+ réplicas, solo rutas Indexer]
+  PG[(PostgreSQL<br/>HA + backups/restores probados)]
+  Queue[(Backend de cola<br/>decisión Azure pendiente)]
+  KV[Key Vault private endpoint]
+  Ankay[Ankay separado<br/>privado, activación posterior]
+
+  Internet --> FW --> EdgeLB --> Edge
+  Edge --> Dash
+  Edge --> Core
+  Agents --> Managers --> Indexers
+  Core --> PG
+  Core -. cola aprobada .-> Queue
+  Core --> GatewayEnv --> KrakenD --> Indexers
+  Core --> KV
+  Managers --> KV
+  Edge --> Ankay
+```
+
+KrakenD debe operar como gateway privado y sin estado, con varias réplicas y
+balanceo interno. Su primer alcance en Azure debe ser Core → `/wazuh/*` → Indexer;
+el gateway actual también contiene `/api/*` hacia el Core, pero ese Core escucha
+solo en loopback en el release Azure. Activar el compose actual sin adaptar ese
+contrato rompe la ruta o fuerza a abrir el Core. El entorno Container Apps actual,
+además, es externo y pertenece al runtime genérico apagado; hace falta un environment
+privado dedicado o un servicio equivalente, no reutilizarlo tal cual. Microsoft explica
+que un environment internal usa un Internal Load Balancer en la VNet y que las apps
+pueden escalar dentro de ese límite
+([ingress de Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/ingress),
+[networking](https://learn.microsoft.com/en-us/azure/container-apps/networking)).
+
+| Dominio | Demo EUS2 posible tras cerrar inputs | Resiliencia de producción requerida |
+| --- | --- | --- |
+| Entrada | DNAT + Load Balancer + un host SIEM | Pool de edge con ≥2 instancias y prueba de failover |
+| Wazuh | Manager e Indexer single-node; dashboard versionado | Manager cluster e Indexer multi-node con quorum y balanceo de lecturas |
+| Core y gateway | Core local; KrakenD todavía no instalado | API/workers escalables y KrakenD interno con ≥2 réplicas; solo ruta Indexer por contrato |
+| Persistencia/jobs | PostgreSQL actual; la cola no está elegida | PostgreSQL con HA/restore medidos y cola elegida con idempotencia/reintentos/ACK/DLQ |
+| SOAR | Host Ankay opcional, todavía no seguro/reproducible | Aislamiento de ejecución, persistencia y recuperación validados antes de abrir acceso |
+
+No se habilita DNS ni se llama “resiliente” a producción hasta probar caída de nodo,
+recuperación de datos, backpressure, ingestión bajo carga y degradación de la cola. El
+Terraform de la demo no implementa este pool de alta disponibilidad; el costo de esa
+topología debe calcularse aparte.
+
 ## Límites del diseño
 
 - **Frontend único:** el navegador llega al Wazuh Dashboard QAPAQ. No se publica Vercel
@@ -97,9 +166,11 @@ suscripción; no es un tope, apagado automático ni orden de destrucción.
   contrato de jobs, idempotencia, reintentos, ACK/DLQ, degradación y pruebas del cliente.
 - **Ankay:** VM privada separada, sin IP pública ni SSH entrante; UI solo por `/ankay/*`
   del edge QAPAQ. Backend, workers, Orborus y OpenSearch no se exponen públicamente.
-  El upstream actual monta el socket Docker en servicios con privilegio y aún carece de
-  fuentes/builds reproducibles revisados para todo el runtime; no se habilita hasta
-  cerrar el hardening y dictamen AGPL.
+  El upstream actual monta el socket Docker, publica puertos del host y configura
+  `seccomp:unconfined` para Orborus. No habilitar ese Compose sin aislamiento probado,
+  fuentes/builds reproducibles y dictamen AGPL. El chart Kubernetes oficial reduce el
+  uso del socket, pero requeriría un AKS nuevo con políticas de pod/red y costos que
+  no existen en este Terraform.
 - **Datos y logs:** alertas y archivos de seguridad viven en Wazuh/OpenSearch; datos
   operativos de casos, auditoría y outbox en PostgreSQL; secretos en Key Vault; telemetría
   de recursos Azure en Log Analytics. El contenedor `security-event-raw` no sustituye
@@ -204,18 +275,21 @@ Key Vault estaban vacíos. Por tanto, el workflow `soc` se detiene antes del pla
 esos perfiles no se cargan.
 
 1. Consumir el Blob y SHA publicados, después probar el instalador en VM limpia antes
-   de habilitar el host. El bundle cubre Wazuh, Dashboard QAPAQ, Core y políticas;
-   KrakenD no lo administra el módulo `siem_host` y necesita un paquete/servicio
-   versionado aparte antes de declarar completo el flujo A8. Validar también configuración
-   M365 y salida de eventos, en vez de inferirlo por la presencia del bundle.
+   de habilitar el host. El bundle cubre Wazuh, Dashboard QAPAQ, Core y políticas,
+   pero no instala el overlay QAPAQ de acceso/roles ni el edge listo para publicar.
+   KrakenD tampoco lo administra el módulo `siem_host`; necesita un paquete/servicio
+   privado versionado aparte antes de declarar completo el flujo A8. Mantener la
+   autenticación sin cambios; probar el control actual antes de habilitar acceso externo.
+   Validar también configuración M365 y salida de eventos, no inferirlo del bundle.
 2. Resolver la delegación mínima del rol `Storage Blob Data Reader` al seeder/identidad
    adecuada para el contenedor `siem-release`, sin ampliar a Owner/Contributor.
 3. Definir host sizes y cotizar el perfil completo EUS2: PostgreSQL + VM SIEM + discos +
    Azure Firewall + Ankay + tráfico + Log Analytics. El documento de fundación no es una
    cotización del SOC y el budget de 200 solo genera alertas, no limita el gasto.
 4. Cerrar el consumidor BullMQ y su contrato durable antes de aprovisionar una cola Azure.
-5. Completar el build seguro de backend, worker, Orborus y OpenSearch de Ankay; resolver
-   acceso al socket Docker y la revisión de licencia AGPL.
+5. Completar el build seguro de backend, worker, Orborus y OpenSearch de Ankay; eliminar
+   o acotar socket Docker, retirar `seccomp:unconfined`, cerrar puertos de host y revisar
+   licencia AGPL. Mantener `/ankay/*` cerrado hasta superar esos checks.
 6. Preparar referencias secretas rotadas, SSH pública, CIDR reales de operadores/agentes,
    imagen Linux fijada, blob URL/SHA del release y asignaciones de proveedor.
 7. Ejecutar plan remoto, verificar cero destroys/replacements y revisar costo exacto.
