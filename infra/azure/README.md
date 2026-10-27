@@ -27,7 +27,9 @@ El runtime opcional existente es genérico: `edge`, `web`, `gateway`, `api` y
 se debe activar como sustituto del SIEM. En particular, este root no crea ni
 instala Manager/Indexer/Dashboard Wazuh, `qapaq-core` ni KrakenD dentro del host SIEM,
 ni Valkey. KrakenD tiene un módulo ACA privado opcional fuera del host, apagado por
-defecto y pendiente de aprovisionar el proxy Indexer y sus secretos Azure. Ankay tiene ahora un cableado root opcional, pero su host sigue apagado
+defecto. El bootstrap versionado crea el proxy read-only del Indexer en 9443 y la CI
+exige metadata de dos referencias KV precreadas antes de plan/apply; esa ruta no se ha
+desplegado ni validado en Azure. Ankay tiene ahora un cableado root opcional, pero su host sigue apagado
 por defecto y el módulo solo prepara VM/disco y Compose; todavía no instala
 Docker ni inicia Shuffle. Tampoco cambia DNS.
 
@@ -61,7 +63,7 @@ reales antes de declarar cobertura.
 | `modules/runtime`                 | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                                                                                                                                  |
 | `modules/siem_host`               | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Al habilitarlo, el root crea Azure Firewall Standard con policy de egress; requiere bundle inmutable y referencias Key Vault.                                                                                                                           |
 | `modules/egress_firewall`         | Azure Firewall Standard, policy threat-intelligence deny, proxy DNS, IP de salida y allowlist HTTPS. Se crea solo con `siem_host`; genera cargos por hora y procesamiento.                                                                                                                                                          |
-| `modules/krakend_gateway`         | KrakenD stateless en ACA internal ILB, 2–4 réplicas, digest ACR, dos referencias Key Vault read-only, UDR/allowlist a Firewall y solo `GET /wazuh/_cluster/health` + `POST /wazuh/_search`; exige app role `Qapaq.Wazuh.Read` y allowlist `appid`/`azp` de Core. `null` por defecto; faltan proxy TLS y secrets Key Vault Azure.    |
+| `modules/krakend_gateway`         | KrakenD stateless en ACA internal ILB, 2–4 réplicas, digest ACR, dos referencias Key Vault read-only, UDR/allowlist a Firewall y solo `GET /wazuh/_cluster/health` + `POST /wazuh/_search`; exige app role `Qapaq.Wazuh.Read` y allowlist `appid`/`azp` de Core. `null` por defecto; proxy TLS/seed de secretos versionados pero aún no desplegados. |
 | `modules/ankay_host`              | Host Shuffle separado y opcional, con subnet dedicada, UDR al firewall, NSG, identidad ACR y discos con `prevent_destroy`. Solo prepara VM/Compose; no instala Docker ni arranca servicios. Requiere `siem_host`, seis imágenes ACR fijadas por digest, Compose revisado, clave aprobada y una configuración `ankay_host` completa. |
 
 El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob Data
@@ -112,7 +114,7 @@ Key Vault, no los valores de secretos.
 - Acordar el diseño de host SIEM, edge/TLS, discos, backup/restore, firewall y
   allowlist de agentes. No publicar Manager API 55000, Indexer 9200 ni Dashboard
   interno.
-- Instalar y validar bootstrap Azure para Wazuh, `qapaq-core` y Ankay; fijar el proxy TLS read-only de Indexer, integrar su creación con Managed Identity/Key Vault sin escritura para la identidad runtime, y publicar KrakenD por digest. El módulo KrakenD ya existe pero permanece apagado hasta cerrar ese gate y demostrar el Core-to-Indexer test.
+- Instalar y validar bootstrap Azure para Wazuh, `qapaq-core` y Ankay; preparar los dos marcadores Key Vault del proxy con el workflow seed, habilitar solo las referencias exactas y el digest ACR revisados, y publicar KrakenD por digest. El módulo permanece apagado hasta cerrar gates Entra, subnet/CIDR, permisos y demostrar el Core-to-Indexer test.
 - Validar el backend de jobs aprobado: A9 indica Valkey/BullMQ; el worker debe
   consumir realmente la cola y pasar pruebas de caída/reintento/idempotencia antes
   de habilitarlo. No presentar PostgreSQL como backend BullMQ por configuración.

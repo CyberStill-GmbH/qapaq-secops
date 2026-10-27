@@ -53,6 +53,21 @@ function validCidr(value) {
   return version !== 0 && Number(prefix) <= (version === 4 ? 32 : 128);
 }
 
+function ipv4CidrHost(cidr, hostOffset) {
+  const [address, prefix, ...extra] = String(cidr).split('/');
+  if (extra.length || !prefix || isIP(address) !== 4 || !/^\d+$/u.test(prefix)) return null;
+  const prefixLength = Number(prefix);
+  if (prefixLength < 0 || prefixLength > 32 || !Number.isInteger(hostOffset)) return null;
+  const octets = address.split('.').map(Number);
+  const ip = octets.reduce((value, octet) => (value << 8n) | BigInt(octet), 0n);
+  const blockSize = 1n << BigInt(32 - prefixLength);
+  const mask = prefixLength === 0 ? 0n : (1n << 32n) - blockSize;
+  const network = ip & mask;
+  const host = network + BigInt(hostOffset);
+  if (host < network || host >= network + blockSize) return null;
+  return [24n, 16n, 8n, 0n].map((shift) => Number((host >> shift) & 255n)).join('.');
+}
+
 function isPrivateRfc1918(value) {
   if (isIP(value) !== 4) return false;
   const octets = value.split('.').map(Number);
@@ -109,7 +124,7 @@ function validateSiem(siem) {
     'bootstrap_bundle_blob_url',
     'bootstrap_bundle_sha256',
   ];
-  exactKeys(siem, required, [], 'siem_host');
+  exactKeys(siem, required, ['private_ip_address'], 'siem_host');
   if (
     !validCidr(siem.address_prefix) ||
     !isPrivateRfc1918(siem.address_prefix.split('/')[0]) ||
@@ -307,6 +322,83 @@ function validateAnkay(ankay, siem, registry) {
     );
 }
 
+function validateKrakendGateway(gateway, siem, registry) {
+  if (gateway === null) return;
+  object(gateway, 'krakend_gateway');
+  if (siem === null)
+    fail('krakend_gateway requires a configured siem_host for its private Indexer proxy.');
+  exactKeys(
+    gateway,
+    [
+      'image',
+      'tenant_id',
+      'client_scope',
+      'core_client_id',
+      'indexer_reader_secret_name',
+      'indexer_proxy_ca_secret_name',
+    ],
+    [],
+    'krakend_gateway',
+  );
+  digestImage(gateway.image, registry, 'krakend_gateway.image');
+  const imageName = gateway.image.split('@sha256:')[0].split('/').at(-1);
+  if (imageName !== 'qapaq-secops-krakend')
+    fail('krakend_gateway.image must use the qapaq-secops-krakend ACR repository.');
+  const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+  if (
+    typeof gateway.tenant_id !== 'string' ||
+    !guidPattern.test(gateway.tenant_id) ||
+    typeof gateway.core_client_id !== 'string' ||
+    !guidPattern.test(gateway.core_client_id) ||
+    typeof gateway.client_scope !== 'string' ||
+    !/^api:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/\.default$/iu.test(gateway.client_scope)
+  )
+    fail('krakend_gateway tenant, core client and app scope must use valid Entra identifiers.');
+  const secretNamePattern = /^[A-Za-z0-9-]{1,127}$/u;
+  for (const key of ['indexer_reader_secret_name', 'indexer_proxy_ca_secret_name']) {
+    if (typeof gateway[key] !== 'string' || !secretNamePattern.test(gateway[key]))
+      fail(`krakend_gateway.${key} must be a Key Vault secret name, never a value.`);
+  }
+  if (gateway.indexer_reader_secret_name === gateway.indexer_proxy_ca_secret_name)
+    fail('krakend_gateway requires two distinct Key Vault secret names.');
+  if (
+    gateway.indexer_reader_secret_name !== 'wazuh-reader-b64' ||
+    gateway.indexer_proxy_ca_secret_name !== 'wazuh-proxy-ca'
+  )
+    fail(
+      'krakend_gateway must use the two exact EUS2 bootstrap secret references allowed by the protected seeder.',
+    );
+  const privateIp = siem.private_ip_address;
+  if (
+    typeof privateIp !== 'string' ||
+    isIP(privateIp) !== 4 ||
+    !isPrivateRfc1918(privateIp) ||
+    privateIp !== ipv4CidrHost(siem.address_prefix, 4)
+  )
+    fail('krakend_gateway requires the stable SIEM private IP reserved as host .4 in its subnet.');
+  const existingNames = new Set([
+    ...Object.values(siem.core_secret_names),
+    ...Object.values(siem.wazuh_secret_names),
+  ]);
+  if (
+    existingNames.has(gateway.indexer_reader_secret_name) ||
+    existingNames.has(gateway.indexer_proxy_ca_secret_name)
+  )
+    fail('krakend_gateway must use dedicated Key Vault names for its reader and proxy certificate.');
+  if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET'))
+    fail('krakend_gateway requires QAPAQ_ENTRA_CLIENT_SECRET by Key Vault name in siem_host.');
+  if (
+    siem.core_environment.QAPAQ_ENTRA_TENANT_ID !== gateway.tenant_id ||
+    siem.core_environment.QAPAQ_ENTRA_CLIENT_ID !== gateway.core_client_id
+  )
+    fail('krakend_gateway Entra tenant/client IDs must match the QAPAQ Core configuration.');
+  if (
+    siem.core_environment.QAPAQ_INGESTION_SOURCE !== undefined &&
+    siem.core_environment.QAPAQ_INGESTION_SOURCE !== 'wazuh'
+  )
+    fail('krakend_gateway requires QAPAQ_INGESTION_SOURCE=wazuh.');
+}
+
 function validateKeyVaultIds(ids) {
   object(ids, 'key_vault_secret_ids');
   for (const [service, refs] of Object.entries(ids)) {
@@ -335,6 +427,7 @@ export function validateDeploymentInputs(env = process.env) {
   const images = jsonEnv(env, 'TF_VAR_container_images', '{}');
   const siem = jsonEnv(env, 'TF_VAR_siem_host', 'null');
   const ankay = jsonEnv(env, 'TF_VAR_ankay_host', 'null');
+  const krakendGateway = jsonEnv(env, 'TF_VAR_krakend_gateway', 'null');
   const keyVaultIds = jsonEnv(env, 'TF_VAR_key_vault_secret_ids', '{}');
   if (Object.keys(object(images, 'container_images')).length)
     validateImages(
@@ -357,11 +450,13 @@ export function validateDeploymentInputs(env = process.env) {
   }
   validateSiem(siem);
   validateAnkay(ankay, siem, registry);
+  validateKrakendGateway(krakendGateway, siem, registry);
   validateKeyVaultIds(keyVaultIds);
   return {
     enableRuntime: enableRuntime === 'true',
     hasSiem: siem !== null,
     hasAnkay: ankay !== null,
+    hasKrakendGateway: krakendGateway !== null,
   };
 }
 
@@ -369,7 +464,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   try {
     const result = validateDeploymentInputs();
     console.log(
-      `Azure deployment inputs valid: runtime=${result.enableRuntime}, siem_host=${result.hasSiem}, ankay_host=${result.hasAnkay}.`,
+      `Azure deployment inputs valid: runtime=${result.enableRuntime}, siem_host=${result.hasSiem}, ankay_host=${result.hasAnkay}, krakend_gateway=${result.hasKrakendGateway}.`,
     );
   } catch (error) {
     console.error(`Azure deployment inputs rejected: ${error.message}`);

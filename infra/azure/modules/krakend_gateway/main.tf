@@ -56,6 +56,13 @@ resource "azurerm_role_assignment" "key_vault_secret_read" {
   principal_type       = "ServicePrincipal"
 }
 
+# The app must start only after SIEM bootstrap has created the read-only Indexer user,
+# bound the private proxy, passed its 200/403 probes, and written the two Key Vault values.
+# This Terraform-only dependency has no Azure resource or secret value.
+resource "terraform_data" "siem_proxy_ready" {
+  input = var.siem_bootstrap_extension_id
+}
+
 resource "azurerm_container_app_environment" "this" {
   name                           = local.environment
   location                       = var.location
@@ -174,7 +181,7 @@ resource "azurerm_container_app" "this" {
       }
       env {
         name  = "WAZUH_INDEXER_URL"
-        value = "https://${var.siem_indexer_proxy_ip}:9200"
+        value = "https://${var.siem_indexer_proxy_ip}:9443"
       }
       env {
         name  = "WAZUH_INDEXER_CA_FILE"
@@ -239,5 +246,6 @@ resource "azurerm_container_app" "this" {
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.key_vault_secret_read,
     azurerm_private_dns_a_record.wildcard,
+    terraform_data.siem_proxy_ready,
   ]
 }

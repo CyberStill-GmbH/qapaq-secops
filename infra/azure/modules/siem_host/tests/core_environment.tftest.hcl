@@ -52,6 +52,14 @@ run "accepts_matching_key_vault_reference" {
     condition     = one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-dashboard-https-approved-sources"]).source_address_prefix == var.firewall_private_ip
     error_message = "The SIEM NSG must allow HTTPS only from the Azure Firewall private IP; the Firewall DNAT rule filters the original client CIDR."
   }
+
+  assert {
+    condition = (
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).destination_port_range == "9443" &&
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).access == "Deny"
+    )
+    error_message = "TCP/9443 must be explicitly denied to the VNet even when the optional KrakenD proxy is disabled."
+  }
 }
 
 run "accepts_postgres_with_matching_key_vault_references" {
@@ -269,4 +277,79 @@ run "rejects_missing_wazuh_install_archive_reference" {
   }
 
   expect_failures = [var.wazuh_secret_names]
+}
+
+run "grants_proxy_secret_write_only_at_the_two_named_secret_scopes" {
+  command = plan
+
+  variables {
+    indexer_proxy = {
+      reader_secret_name   = "wazuh-reader-b64"
+      proxy_ca_secret_name = "wazuh-proxy-ca"
+    }
+    indexer_proxy_secret_role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-4000-8000-000000000099"
+    krakend_source_cidrs                    = ["10.20.4.0/27"]
+  }
+
+  assert {
+    condition = length(azurerm_role_assignment.indexer_proxy_secret_seed) == 2 && alltrue([
+      for assignment in values(azurerm_role_assignment.indexer_proxy_secret_seed) :
+      startswith(assignment.scope, "${trimsuffix(var.key_vault_id, "/")}/secrets/") &&
+      assignment.role_definition_id == var.indexer_proxy_secret_role_definition_id
+    ])
+    error_message = "Indexer bootstrap must get/set only its two pre-existing secret scopes with the dedicated custom role."
+  }
+
+  assert {
+    condition = (
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-indexer-read-proxy-from-krakend"]).destination_port_range == "9443" &&
+      length(one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-indexer-read-proxy-from-krakend"]).source_address_prefixes) == 1 &&
+      contains(one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-indexer-read-proxy-from-krakend"]).source_address_prefixes, "10.20.4.0/27")
+    )
+    error_message = "Only KrakenD may connect to the private read-only proxy on port 9443."
+  }
+
+  assert {
+    condition     = one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-direct-indexer-vnet-access"]).destination_port_range == "9200"
+    error_message = "No VNet workload may access the Indexer directly on port 9200."
+  }
+
+  assert {
+    condition = (
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).priority == 122 &&
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).access == "Deny" &&
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).source_address_prefix == "VirtualNetwork"
+    )
+    error_message = "Other VNet workloads must be denied after the exact KrakenD subnet allow rule."
+  }
+}
+
+run "rejects_proxy_when_krakend_source_allowlist_is_empty" {
+  command = plan
+
+  variables {
+    indexer_proxy = {
+      reader_secret_name   = "wazuh-reader-b64"
+      proxy_ca_secret_name = "wazuh-proxy-ca"
+    }
+    indexer_proxy_secret_role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-4000-8000-000000000099"
+    krakend_source_cidrs                    = []
+  }
+
+  expect_failures = [var.krakend_source_cidrs]
+}
+
+run "rejects_non_private_krakend_source_cidr" {
+  command = plan
+
+  variables {
+    indexer_proxy = {
+      reader_secret_name   = "wazuh-reader-b64"
+      proxy_ca_secret_name = "wazuh-proxy-ca"
+    }
+    indexer_proxy_secret_role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-4000-8000-000000000099"
+    krakend_source_cidrs                    = ["192.0.2.0/24"]
+  }
+
+  expect_failures = [var.krakend_source_cidrs]
 }

@@ -57,6 +57,12 @@ jobs:
       - name: Verify SIEM bootstrap suppresses installer output
         run: python3 infra/azure/modules/siem_host/test_bootstrap_siem.py
 
+      - name: Verify private Indexer read proxy and secret metadata preflight
+        run: |
+          python3 infra/azure/modules/siem_host/test_indexer_read_proxy.py
+          python3 .github/ci/test_verify_eus2_indexer_secret_metadata.py
+          python3 .github/ci/test_eus2_key_vault_seed.py
+
       - name: Verify SIEM and Ankay disk formatting fails closed
         run: python3 infra/azure/modules/ankay_host/test_prepare_data_disk.py
 

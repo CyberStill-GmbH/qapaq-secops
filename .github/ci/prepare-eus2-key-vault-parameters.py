@@ -24,6 +24,11 @@ SOURCE_TO_SECRET = {
     "QAPAQ_EUS2_TEAMS_WORKFLOW_URL": "qapaq-teams-workflow-url",
     "QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64": "wazuh-install-files.tar.b64",
 }
+BOOTSTRAP_SOURCE_TO_SECRET = {
+    "QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP": "wazuh-reader-b64",
+    "QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP": "wazuh-proxy-ca",
+}
+BOOTSTRAP_PLACEHOLDER = "bootstrap-pending"
 
 MAX_TEXT_BYTES = 24_000
 MAX_ARCHIVE_BYTES = 18_000
@@ -38,7 +43,7 @@ class SeedInputError(ValueError):
 
 def resolve_secret_name(source_name: str) -> str:
     try:
-        return SOURCE_TO_SECRET[source_name]
+        return {**SOURCE_TO_SECRET, **BOOTSTRAP_SOURCE_TO_SECRET}[source_name]
     except KeyError as exc:
         raise SeedInputError("Source secret name is not allowlisted.") from exc
 
@@ -96,6 +101,8 @@ def _validate_wazuh_archive(encoded: str) -> None:
 
 
 def _validate_secret(source_name: str, value: str) -> None:
+    if source_name in BOOTSTRAP_SOURCE_TO_SECRET:
+        raise SeedInputError("Bootstrap placeholders must use the fixed create-only path.")
     resolve_secret_name(source_name)
     if not value or "\r" in value or "\n" in value or "\x00" in value:
         raise SeedInputError("Selected secret is empty or not a single-line value.")
@@ -113,9 +120,7 @@ def _validate_secret(source_name: str, value: str) -> None:
         _validate_wazuh_archive(value)
 
 
-def write_parameters(destination: Path, source_name: str, value: str) -> None:
-    _validate_secret(source_name, value)
-    secret_name = resolve_secret_name(source_name)
+def _write_parameters(destination: Path, secret_name: str, value: str) -> None:
     payload = {
         "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
         "contentVersion": "1.0.0.0",
@@ -140,15 +145,34 @@ def write_parameters(destination: Path, source_name: str, value: str) -> None:
             raise
 
 
+def write_parameters(destination: Path, source_name: str, value: str) -> None:
+    _validate_secret(source_name, value)
+    _write_parameters(destination, resolve_secret_name(source_name), value)
+
+
+def write_bootstrap_placeholder(destination: Path, source_name: str) -> None:
+    try:
+        secret_name = BOOTSTRAP_SOURCE_TO_SECRET[source_name]
+    except KeyError as exc:
+        raise SeedInputError("Bootstrap target is not allowlisted.") from exc
+    _write_parameters(destination, secret_name, BOOTSTRAP_PLACEHOLDER)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--resolve-name", metavar="SOURCE_SECRET_NAME")
     group.add_argument("--write", metavar="PARAMETER_FILE")
+    group.add_argument("--write-bootstrap-placeholder", metavar="PARAMETER_FILE")
     args = parser.parse_args()
     try:
         if args.resolve_name is not None:
             print(resolve_secret_name(args.resolve_name))
+            return 0
+        if args.write_bootstrap_placeholder is not None:
+            source_name = os.environ.get("SOURCE_SECRET_NAME", "")
+            write_bootstrap_placeholder(Path(args.write_bootstrap_placeholder), source_name)
+            print("Fixed Key Vault bootstrap placeholder prepared; no environment secret was resolved.")
             return 0
         source_name = os.environ.get("SOURCE_SECRET_NAME", "")
         value = os.environ.get("SELECTED_SECRET_VALUE", "")

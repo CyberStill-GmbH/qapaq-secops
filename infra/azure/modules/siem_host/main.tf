@@ -13,6 +13,11 @@ locals {
       owner       = "root:root"
       permissions = "0700"
       content     = file("${path.module}/bootstrap-siem.py")
+      }, {
+      path        = "/usr/local/sbin/indexer_read_proxy.py"
+      owner       = "root:root"
+      permissions = "0600"
+      content     = file("${path.module}/indexer_read_proxy.py")
     }]
   })}"
 
@@ -26,7 +31,12 @@ locals {
     provider_ingestion = var.provider_ingestion
     core_environment   = var.core_environment
     office365          = var.office365
-    data_disk_size_gb  = var.data_disk_size_gb
+    indexer_read_proxy = var.indexer_proxy == null ? null : {
+      private_ip_address   = var.private_ip_address
+      reader_secret_name   = var.indexer_proxy.reader_secret_name
+      proxy_ca_secret_name = var.indexer_proxy.proxy_ca_secret_name
+    }
+    data_disk_size_gb = var.data_disk_size_gb
     expected = {
       wazuh_version = "4.14.8"
       osd_version   = "2.19.6"
@@ -146,11 +156,37 @@ resource "azurerm_network_security_group" "siem" {
       access                     = "Allow"
       protocol                   = "Tcp"
       source_port_range          = "*"
-      destination_port_range     = "9200"
+      destination_port_range     = "9443"
       source_address_prefixes    = tolist(security_rule.value)
       destination_address_prefix = "*"
-      description                = "Solo KrakenD privado puede alcanzar el proxy TLS del Indexer, limitado a búsquedas Wazuh read-only."
+      description                = "Solo KrakenD privado puede alcanzar el proxy TLS read-only del Indexer en 9443."
     }
+  }
+
+  security_rule {
+    name                       = "deny-direct-indexer-vnet-access"
+    priority                   = 121
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9200"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+    description                = "El Indexer permanece interno; ninguna subred VNet accede directamente al puerto de administración/búsqueda."
+  }
+
+  security_rule {
+    name                       = "deny-indexer-proxy-from-other-vnet"
+    priority                   = 122
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+    description                = "Tras la allowlist ACA anterior, y aunque KrakenD esté apagado, evita que otros workloads VNet consulten el proxy."
   }
 
   # The subnet has no default outbound access. Only private dependencies and HTTP/S routed
@@ -342,6 +378,21 @@ resource "azurerm_role_assignment" "key_vault_secret_read" {
   principal_type       = "ServicePrincipal"
 }
 
+# The host may get/set only the two pre-created values used by the opt-in
+# KrakenD proxy. The custom role contains no list, delete, or vault-management
+# actions and is assigned at each exact Key Vault secret scope.
+resource "azurerm_role_assignment" "indexer_proxy_secret_seed" {
+  for_each = var.indexer_proxy == null ? {} : {
+    reader = var.indexer_proxy.reader_secret_name
+    ca     = var.indexer_proxy.proxy_ca_secret_name
+  }
+
+  scope              = "${trimsuffix(var.key_vault_id, "/")}/secrets/${each.value}"
+  role_definition_id = var.indexer_proxy_secret_role_definition_id
+  principal_id       = local.identity.principal_id
+  principal_type     = "ServicePrincipal"
+}
+
 resource "azurerm_network_interface" "siem" {
   name                = local.nic_name
   location            = var.location
@@ -508,6 +559,7 @@ resource "azurerm_linux_virtual_machine" "siem" {
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.artifact_read,
     azurerm_role_assignment.key_vault_secret_read,
+    azurerm_role_assignment.indexer_proxy_secret_seed,
     azurerm_role_assignment.evidence_write,
   ]
 }
@@ -538,6 +590,7 @@ resource "azurerm_virtual_machine_extension" "siem_bootstrap" {
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.artifact_read,
     azurerm_role_assignment.key_vault_secret_read,
+    azurerm_role_assignment.indexer_proxy_secret_seed,
     azurerm_role_assignment.evidence_write,
   ]
 }

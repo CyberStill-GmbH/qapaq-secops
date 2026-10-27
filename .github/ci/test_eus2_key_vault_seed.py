@@ -30,9 +30,34 @@ class KeyVaultSeedHelperTests(unittest.TestCase):
                 "QAPAQ_EUS2_CATO_API_KEY": "cato-api-key",
                 "QAPAQ_EUS2_TEAMS_WORKFLOW_URL": "qapaq-teams-workflow-url",
                 "QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64": "wazuh-install-files.tar.b64",
+                "QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP": "wazuh-reader-b64",
+                "QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP": "wazuh-proxy-ca",
             },
-            HELPER.SOURCE_TO_SECRET,
+            {**HELPER.SOURCE_TO_SECRET, **HELPER.BOOTSTRAP_SOURCE_TO_SECRET},
         )
+
+    def test_bootstrap_placeholder_is_fixed_and_only_allows_two_indexer_refs(self):
+        for source, expected_name in HELPER.BOOTSTRAP_SOURCE_TO_SECRET.items():
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                destination = pathlib.Path(directory) / "parameters.json"
+                HELPER.write_bootstrap_placeholder(destination, source)
+                payload = json.loads(destination.read_text(encoding="utf-8"))
+                self.assertEqual(payload["parameters"]["secretName"]["value"], expected_name)
+                self.assertEqual(
+                    payload["parameters"]["secretValue"]["value"],
+                    HELPER.BOOTSTRAP_PLACEHOLDER,
+                )
+                if os.name != "nt":
+                    self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+        with self.assertRaises(HELPER.SeedInputError):
+            HELPER.write_bootstrap_placeholder(
+                pathlib.Path("unused"), "QAPAQ_EUS2_ENTRA_CLIENT_SECRET"
+            )
+        with self.assertRaises(HELPER.SeedInputError):
+            HELPER._validate_secret(
+                "QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP",
+                "caller-controlled-value",
+            )
 
     def test_unknown_source_is_rejected(self):
         with self.assertRaises(HELPER.SeedInputError):
@@ -106,6 +131,10 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("id-token: write", workflow)
         self.assertIn("refs/heads/main", workflow)
         self.assertIn("SEED-EUS2-SECRET", workflow)
+        self.assertIn("QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP", workflow)
+        self.assertIn("QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP", workflow)
+        self.assertIn("--write-bootstrap-placeholder", workflow)
+        self.assertIn("SELECTED_SECRET_VALUE:", workflow)
 
     def test_workflow_uses_arm_and_never_changes_network_or_rbac(self):
         workflow = (ROOT / ".github/workflows/seed-eus2-key-vault-secret.yml").read_text()
@@ -113,6 +142,14 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("az deployment group create", workflow)
         self.assertIn("--output none", workflow)
         self.assertIn('"type": "secureString"', template)
+        self.assertIn('"wazuh-reader-b64"', template)
+        self.assertIn('"wazuh-proxy-ca"', template)
+        placeholder_step = workflow.split("Create fixed bootstrap placeholder parameter file", 1)[1].split(
+            "\n      - name:", 1
+        )[0]
+        self.assertIn("--write-bootstrap-placeholder", placeholder_step)
+        self.assertNotIn("SELECTED_SECRET_VALUE", placeholder_step)
+        self.assertNotIn("secrets[inputs.source_secret]", placeholder_step)
         for forbidden in (
             "az keyvault secret set",
             "az role assignment create",

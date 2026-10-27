@@ -22,6 +22,15 @@ variable "siem_indexer_proxy_ip" {
     error_message = "siem_indexer_proxy_ip debe ser una IPv4 válida. El root debe mantenerla fuera de la subnet ACA."
   }
 }
+variable "siem_bootstrap_extension_id" {
+  description = "ID de la extensión de bootstrap SIEM; KrakenD no arranca antes de que el proxy Indexer valide y siembre las dos referencias existentes."
+  type        = string
+
+  validation {
+    condition     = can(regex("^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[^/]+/providers/Microsoft.Compute/virtualMachines/[^/]+/extensions/[^/]+$", var.siem_bootstrap_extension_id))
+    error_message = "siem_bootstrap_extension_id debe referenciar la extensión de bootstrap de la VM SIEM."
+  }
+}
 variable "firewall_private_ip" {
   description = "IP privada de Azure Firewall para la UDR de salida del entorno ACA."
   type        = string

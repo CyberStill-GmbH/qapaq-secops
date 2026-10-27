@@ -12,6 +12,7 @@ run "private_wazuh_ingestion_gateway_contract" {
     subnet_id                       = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-qapaq-test/providers/Microsoft.Network/virtualNetworks/vnet-qapaqtest/subnets/snet-krakend-private"
     subnet_cidr                     = "10.80.0.64/27"
     siem_indexer_proxy_ip           = "10.80.4.4"
+    siem_bootstrap_extension_id     = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-qapaq-test/providers/Microsoft.Compute/virtualMachines/vm-qapaqtest-siem/extensions/qapaq-siem-bootstrap"
     firewall_private_ip             = "10.80.64.4"
     log_analytics_workspace_id      = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-qapaq-test/providers/Microsoft.OperationalInsights/workspaces/law-qapaqtest"
     container_registry_id           = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-qapaq-test/providers/Microsoft.ContainerRegistry/registries/acrqapaqtest"
@@ -39,6 +40,16 @@ run "private_wazuh_ingestion_gateway_contract" {
   assert {
     condition     = azurerm_container_app.this.template[0].container[0].image == var.image && azurerm_container_app.this.template[0].container[0].cpu == 0.5 && azurerm_container_app.this.template[0].container[0].memory == "1Gi"
     error_message = "The app must use the pinned digest and bounded per-replica resources."
+  }
+
+  assert {
+    condition     = one([for item in azurerm_container_app.this.template[0].container[0].env : item if item.name == "WAZUH_INDEXER_URL"]).value == "https://${var.siem_indexer_proxy_ip}:9443"
+    error_message = "KrakenD must reach the private Nginx proxy on 9443, leaving the Indexer port 9200 private to the host."
+  }
+
+  assert {
+    condition     = terraform_data.siem_proxy_ready.input == var.siem_bootstrap_extension_id
+    error_message = "KrakenD startup must wait for the SIEM extension that configures and validates its proxy."
   }
 
   assert {

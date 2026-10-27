@@ -97,7 +97,8 @@ probar esos proveedores por separado antes del apply del perfil SOC.
 
 El workflow `.github/workflows/seed-eus2-key-vault-secret.yml` crea **un** secreto
 ausente desde un GitHub Environment secret usando `Microsoft.KeyVault/vaults/secrets`
-con parámetro ARM `secureString`. Es `workflow_dispatch` únicamente, acepta solo
+con parámetro ARM `secureString`; las dos opciones de proxy usan el marcador fijo y
+no resuelven un GitHub secret. Es `workflow_dispatch` únicamente, acepta solo
 `main`, valida una frase de confirmación, requiere la protección del environment
 `azure-demo-eus2` y rehúsa sobrescribir un secreto existente. Esta ruta no ejecuta
 Terraform ni cambia DNS, red, Key Vault, RBAC, perfiles runtime o servicios.
@@ -201,6 +202,24 @@ izquierda. No usar GitHub repository secrets compartidos con otros entornos.
 | `QAPAQ_EUS2_CATO_API_KEY` | `cato-api-key` |
 | `QAPAQ_EUS2_TEAMS_WORKFLOW_URL` | `qapaq-teams-workflow-url` |
 | `QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64` | `wazuh-install-files.tar.b64` |
+| `QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP` | `wazuh-reader-b64` (solo marcador fijo) |
+| `QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP` | `wazuh-proxy-ca` (solo marcador fijo) |
+
+El mismo workflow incluye dos opciones separadas para iniciar el proxy privado del
+Indexer: `QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP` crea
+`wazuh-reader-b64` y
+`QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP` crea
+`wazuh-proxy-ca`. No son secretos de GitHub ni leen una variable de
+Environment: una rutina fija genera únicamente el valor constante
+`bootstrap-pending`, con destino y nombres allowlisted en el template ARM.
+Esta ruta es de alta inicial, valida ausencia antes de escribir y no acepta valores
+proporcionados por el usuario. No usarla para rotación ni para cualquier otro nombre.
+
+El preflight del plan/apply del profile EUS2 consulta por ARM solo ID/enabled de
+las dos referencias cuando KrakenD está configurado; no pide el valor. El despliegue
+se detiene si falta o está deshabilitada alguna. El bootstrap posterior, ejecutado
+por la Managed Identity SIEM, reemplaza el marcador por Basic auth read-only y
+certificado PEM solo después de validar el proxy en 9443.
 
 El bundle Wazuh debe ser base64 de una sola línea del tar validado por el importador
 local (máximo 18.000 bytes decodificados, sin links, traversal ni miembros

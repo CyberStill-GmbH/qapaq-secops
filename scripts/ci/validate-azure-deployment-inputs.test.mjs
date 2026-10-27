@@ -14,6 +14,7 @@ function baseEnv(overrides = {}) {
     TF_VAR_container_images: '{}',
     TF_VAR_siem_host: 'null',
     TF_VAR_ankay_host: 'null',
+    TF_VAR_krakend_gateway: 'null',
     TF_VAR_key_vault_secret_ids: '{}',
     ...overrides,
   };
@@ -22,6 +23,7 @@ function baseEnv(overrides = {}) {
 function siemHost(overrides = {}) {
   return {
     address_prefix: '10.80.16.0/27',
+    private_ip_address: '10.80.16.4',
     vm_size: 'Standard_F4s_v2',
     admin_ssh_public_key: publicKey,
     ubuntu_image_version: '24.04.202601010',
@@ -37,7 +39,12 @@ function siemHost(overrides = {}) {
       'office365-client-secret': 'office365-client-secret',
       'wazuh-install-files.tar.b64': 'wazuh-install-files-tar-b64',
     },
-    core_environment: { QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret' },
+    core_environment: {
+      QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret',
+      QAPAQ_ENTRA_TENANT_ID: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+      QAPAQ_ENTRA_CLIENT_ID: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+      QAPAQ_INGESTION_SOURCE: 'wazuh',
+    },
     office365: {
       tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
       client_id: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
@@ -54,11 +61,24 @@ function digestMap(names) {
   return Object.fromEntries(names.map((name) => [name, `${registry}/${name}@sha256:${sha}`]));
 }
 
+function krakendGateway(overrides = {}) {
+  return {
+    image: `${registry}/qapaq-secops-krakend@sha256:${sha}`,
+    tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+    client_scope: 'api://00000000-0000-4000-8000-000000000002/.default',
+    core_client_id: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+    indexer_reader_secret_name: 'wazuh-reader-b64',
+    indexer_proxy_ca_secret_name: 'wazuh-proxy-ca',
+    ...overrides,
+  };
+}
+
 test('defaults keep generic runtime, SIEM and Ankay disabled', () => {
   assert.deepEqual(validateDeploymentInputs({}), {
     enableRuntime: false,
     hasSiem: false,
     hasAnkay: false,
+    hasKrakendGateway: false,
   });
 });
 
@@ -69,6 +89,7 @@ test('accepts a complete SIEM configuration with Key Vault names and an immutabl
       enableRuntime: false,
       hasSiem: true,
       hasAnkay: false,
+      hasKrakendGateway: false,
     },
   );
 });
@@ -125,6 +146,47 @@ test('requires the Wazuh certificate/password archive before enabling host creat
       ),
     /must map wazuh-install-files\.tar\.b64/u,
   );
+});
+
+test('accepts an opt-in private KrakenD profile with matching SIEM, Entra, and dedicated Key Vault names', () => {
+  assert.deepEqual(
+    validateDeploymentInputs(
+      baseEnv({
+        TF_VAR_siem_host: JSON.stringify(siemHost()),
+        TF_VAR_krakend_gateway: JSON.stringify(krakendGateway()),
+      }),
+    ),
+    {
+      enableRuntime: false,
+      hasSiem: true,
+      hasAnkay: false,
+      hasKrakendGateway: true,
+    },
+  );
+});
+
+test('rejects KrakenD without SIEM, a mismatched caller, an unpinned image, or secret values', () => {
+  assert.throws(
+    () => validateDeploymentInputs(baseEnv({ TF_VAR_krakend_gateway: JSON.stringify(krakendGateway()) })),
+    /requires a configured siem_host/u,
+  );
+  for (const invalid of [
+    krakendGateway({ core_client_id: '00000000-0000-4000-8000-000000000999' }),
+    krakendGateway({ image: `${registry}/qapaq-secops-krakend:latest` }),
+    krakendGateway({ indexer_proxy_ca_secret_name: 'wazuh-reader-b64' }),
+    krakendGateway({ indexer_reader_secret_name: 'other-reader' }),
+    { ...krakendGateway(), indexer_proxy_ca_secret_name: 'bearer-secret-value!' },
+  ]) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost()),
+            TF_VAR_krakend_gateway: JSON.stringify(invalid),
+          }),
+        ),
+    );
+  }
 });
 
 test('requires the signed Teams Workflow URL from Key Vault and rejects it in plain environment config', () => {
@@ -241,6 +303,7 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
     enableRuntime: false,
     hasSiem: true,
     hasAnkay: true,
+    hasKrakendGateway: false,
   });
   ankay.compose_sha256 = sha;
   assert.throws(

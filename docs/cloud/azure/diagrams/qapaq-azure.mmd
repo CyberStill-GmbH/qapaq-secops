@@ -7,7 +7,7 @@ flowchart LR
     Edge[Nginx edge QAPAQ]
     Dashboard[Wazuh Dashboard 4.14.8 / OSD 2.19.6<br/>overlay QAPAQ · pendiente de instalación Azure]
     Core[qapaq-core API + worker<br/>Node 24 · loopback]
-    IndexerProxy[Nginx proxy Indexer :9200<br/>solo lectura · gate Azure]
+    IndexerProxy[Nginx proxy Indexer :9443<br/>solo KrakenD · gate Azure]
     Manager[Wazuh Manager<br/>M365 pendiente de validar]
     Indexer[(Wazuh Indexer / OpenSearch<br/>privado)]
 
