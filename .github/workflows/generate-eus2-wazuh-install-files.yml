@@ -41,23 +41,18 @@ jobs:
             echo '::error::Confirmation phrase is incorrect.'; exit 1;
           }
 
-  seed:
+  build:
     needs: validate_request
     if: needs.validate_request.result == 'success'
-    name: Generate pinned bundle and create the Key Vault secret
+    name: Build and encrypt the official Wazuh bundle
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment: azure-demo-eus2
     permissions:
       contents: read
-      id-token: write
+    outputs:
+      ciphertext_sha256: ${{ steps.encrypt_bundle.outputs.ciphertext_sha256 }}
     env:
-      AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_SECRET_SEEDER_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
-      VAULT_NAME: kv-qapaqsecopsd-3a2405f3
-      RESOURCE_GROUP: rg-qapaqsecopsdemoeus-3a2405f3
-      SECRET_NAME: wazuh-install-files.tar.b64
+      QAPAQ_EUS2_WAZUH_BUNDLE_AGE_RECIPIENT: ${{ vars.QAPAQ_EUS2_WAZUH_BUNDLE_AGE_RECIPIENT }}
     steps:
       - name: Check out protected QAPAQ main revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,18 +60,9 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Validate Azure target identifiers
+      - name: Install age v1.3.2 from its SHA-256 pinned release
         shell: bash
-        run: |
-          set -euo pipefail
-          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
-            [[ -n "${!name}" ]] || {
-              echo "::error::Missing required azure-demo-eus2 variable: $name"; exit 1;
-            }
-          done
-          [[ "$AZURE_SUBSCRIPTION_ID" == 'aaf787f8-5964-4470-9eb6-89d15eacda61' ]] || {
-            echo '::error::Refusing an unexpected subscription.'; exit 1;
-          }
+        run: bash .github/ci/install-pinned-age.sh "$RUNNER_TEMP/qapaq-age"
 
       - name: Check out the official Wazuh assistant at its immutable commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,12 +73,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify official source identity and build the installer
+      - name: Verify official source identity
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_CONFIG_DIR: ${{ runner.temp }}/qapaq-gh-empty
         working-directory: upstream/wazuh-installation-assistant
         run: |
           set -euo pipefail
+          install -d -m 700 "$GH_CONFIG_DIR"
+          unset GH_TOKEN GITHUB_TOKEN || true
           [[ "$(git rev-parse HEAD)" == "$WAZUH_ASSISTANT_SHA" ]]
           git cat-file -e "$WAZUH_ASSISTANT_SHA^{commit}"
           git describe --tags --exact-match | grep -Fxq "v${WAZUH_VERSION}"
@@ -103,6 +91,10 @@ jobs:
             | jq -e --arg sha "$WAZUH_DIST_DETECT_SHA" \
               '.sha == $sha and .commit.verification.verified == true' >/dev/null
 
+      - name: Pin Wazuh builder dependency without executing upstream code
+        working-directory: upstream/wazuh-installation-assistant
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -120,9 +112,13 @@ jobs:
               raise SystemExit("Pinned Wazuh builder inputs did not match the reviewed source.")
           path.write_text(source.replace(old_version, new_version).replace(old_urls, new_urls), encoding="utf-8")
           PY
-          bash builder.sh -i
 
-      - name: Generate and validate the pinned archive before Azure authentication
+      - name: Build the official installer without Azure or identity secrets
+        working-directory: upstream/wazuh-installation-assistant
+        run: bash builder.sh -i
+
+      - name: Generate, validate, and encrypt the Wazuh archive
+        id: encrypt_bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -134,8 +130,8 @@ jobs:
           umask 077
 
           generated="$work/wazuh-install-files.tar"
+          encrypted="$work/wazuh-install-files.tar.age"
           installer="$work/wazuh-install.sh"
-          parameters="$work/arm-parameters.json"
           install -m 700 upstream/wazuh-installation-assistant/wazuh-install.sh "$installer"
           install -m 600 upstream/wazuh-installation-assistant/config/certificate/config_aio.yml "$work/config.yml"
           if ! (cd "$work" && sudo -n bash ./wazuh-install.sh --generate-config-files) >/dev/null 2>&1; then
@@ -146,7 +142,109 @@ jobs:
           }
           sudo -n chown "$(id -u):$(id -g)" "$generated"
           chmod 600 "$generated"
+          python3 .github/ci/prepare-eus2-key-vault-parameters.py \
+            --validate-wazuh-archive-file "$generated" >/dev/null
+          python3 .github/ci/prepare-eus2-key-vault-parameters.py \
+            --encrypt-wazuh-archive "$generated" "$encrypted" >/dev/null
+          [[ -f "$encrypted" && ! -L "$encrypted" ]] || {
+            echo '::error::Encrypted artifact was not created as a regular file.'; exit 1;
+          }
+          encrypted_sha256="$(sha256sum "$encrypted" | awk '{print $1}')"
+          [[ "$encrypted_sha256" =~ ^[a-f0-9]{64}$ ]] || {
+            echo '::error::Encrypted artifact digest could not be validated.'; exit 1;
+          }
+          printf 'ciphertext_sha256=%s\n' "$encrypted_sha256" >> "$GITHUB_OUTPUT"
 
+      - name: Upload only the encrypted handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qapaq-eus2-wazuh-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/qapaq-eus2-wazuh-${{ github.run_id }}-${{ github.run_attempt }}/wazuh-install-files.tar.age
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Remove temporary plaintext and encrypted files
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/qapaq-eus2-wazuh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          case "$work" in
+            "$RUNNER_TEMP"/qapaq-eus2-wazuh-*) sudo -n rm -rf -- "$work" >/dev/null 2>&1 || true ;;
+            *) echo '::warning::Temporary bundle cleanup path did not match the expected runner directory.' ;;
+          esac
+
+  seed:
+    needs: [validate_request, build]
+    if: needs.validate_request.result == 'success' && needs.build.result == 'success'
+    name: Decrypt the handoff and create the Key Vault secret
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: azure-demo-eus2
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_SECRET_SEEDER_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      EXPECTED_CIPHERTEXT_SHA256: ${{ needs.build.outputs.ciphertext_sha256 }}
+      QAPAQ_EUS2_WAZUH_BUNDLE_AGE_RECIPIENT: ${{ vars.QAPAQ_EUS2_WAZUH_BUNDLE_AGE_RECIPIENT }}
+      VAULT_NAME: kv-qapaqsecopsd-3a2405f3
+      RESOURCE_GROUP: rg-qapaqsecopsdemoeus-3a2405f3
+      SECRET_NAME: wazuh-install-files.tar.b64
+    steps:
+      - name: Check out protected QAPAQ main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install age v1.3.2 from its SHA-256 pinned release
+        shell: bash
+        run: bash .github/ci/install-pinned-age.sh "$RUNNER_TEMP/qapaq-age"
+
+      - name: Prepare private temporary handoff directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/qapaq-eus2-wazuh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          [[ ! -e "$work" && ! -L "$work" ]] || {
+            echo '::error::Temporary bundle path already exists; refusing to reuse it.'; exit 1;
+          }
+          install -d -m 700 "$work/handoff"
+
+      - name: Download ciphertext from this workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qapaq-eus2-wazuh-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/qapaq-eus2-wazuh-${{ github.run_id }}-${{ github.run_attempt }}/handoff
+
+      - name: Decrypt and revalidate the bundle before Azure authentication
+        shell: bash
+        env:
+          QAPAQ_EUS2_WAZUH_BUNDLE_AGE_IDENTITY: ${{ secrets.QAPAQ_EUS2_WAZUH_BUNDLE_AGE_IDENTITY }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/qapaq-eus2-wazuh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          handoff="$work/handoff"
+          ciphertext="$handoff/wazuh-install-files.tar.age"
+          generated="$work/wazuh-install-files.tar"
+          parameters="$work/arm-parameters.json"
+          [[ "$EXPECTED_CIPHERTEXT_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
+            echo '::error::Encrypted handoff digest is missing or invalid; refusing to decrypt.'; exit 1;
+          }
+          mapfile -d '' files < <(find "$handoff" -mindepth 1 -maxdepth 1 -print0)
+          [[ "${#files[@]}" -eq 1 && "${files[0]}" == "$ciphertext" && -f "$ciphertext" && ! -L "$ciphertext" ]] || {
+            echo '::error::Expected exactly one encrypted handoff file; refusing to decrypt.'; exit 1;
+          }
+          actual_sha256="$(sha256sum "$ciphertext" | awk '{print $1}')"
+          [[ "$actual_sha256" == "$EXPECTED_CIPHERTEXT_SHA256" ]] || {
+            echo '::error::Encrypted handoff digest does not match the build job; refusing to decrypt.'; exit 1;
+          }
+          python3 .github/ci/prepare-eus2-key-vault-parameters.py \
+            --decrypt-wazuh-archive "$ciphertext" "$generated" >/dev/null
           python3 .github/ci/prepare-eus2-key-vault-parameters.py \
             --write-wazuh-archive "$parameters" "$generated" >/dev/null
 
@@ -234,10 +332,11 @@ jobs:
             echo '- Secret: `wazuh-install-files.tar.b64` (create-only).'
             echo '- Source: official Wazuh installation assistant v4.14.8 at the pinned verified commit.'
             echo '- ARM metadata verification passed; the generated value was not displayed.'
+            echo '- The inter-job artifact contained only age-encrypted bytes and expires after one day.'
             echo '- Key Vault networking and DNS were not changed.'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Remove temporary archive and secure ARM parameters
+      - name: Remove ciphertext, decrypted archive, and secure ARM parameters
         if: always()
         shell: bash
         run: |
