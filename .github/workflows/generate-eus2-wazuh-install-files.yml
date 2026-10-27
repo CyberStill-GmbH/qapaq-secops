@@ -1,0 +1,233 @@
+name: Generate and seed EUS2 Wazuh install files
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_generate:
+        description: Type GENERATE-EUS2-WAZUH-INSTALL-FILES to create the initial bundle
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seed-eus2-key-vault-secret
+  cancel-in-progress: false
+
+env:
+  WAZUH_VERSION: 4.14.8
+  WAZUH_ASSISTANT_SHA: 33d2069715e8500b676d13cefe7ddaea8eb79019
+  WAZUH_DIST_DETECT_SHA: f470ad7db717b18db7feeed568949643698f0f34
+
+jobs:
+  validate_request:
+    name: Validate request before Azure authentication
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Validate branch and confirmation phrase
+        env:
+          TARGET_REF: ${{ github.ref }}
+          CONFIRM_GENERATE: ${{ inputs.confirm_generate }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_REF" == 'refs/heads/main' ]] || {
+            echo '::error::This workflow is restricted to main.'; exit 1;
+          }
+          [[ "$CONFIRM_GENERATE" == 'GENERATE-EUS2-WAZUH-INSTALL-FILES' ]] || {
+            echo '::error::Confirmation phrase is incorrect.'; exit 1;
+          }
+
+  seed:
+    needs: validate_request
+    if: needs.validate_request.result == 'success'
+    name: Generate pinned bundle and create the Key Vault secret
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: azure-demo-eus2
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_SECRET_SEEDER_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      VAULT_NAME: kv-qapaqsecopsd-3a2405f3
+      RESOURCE_GROUP: rg-qapaqsecopsdemoeus-3a2405f3
+      SECRET_NAME: wazuh-install-files.tar.b64
+    steps:
+      - name: Check out protected QAPAQ main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate Azure target identifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            [[ -n "${!name}" ]] || {
+              echo "::error::Missing required azure-demo-eus2 variable: $name"; exit 1;
+            }
+          done
+          [[ "$AZURE_SUBSCRIPTION_ID" == 'aaf787f8-5964-4470-9eb6-89d15eacda61' ]] || {
+            echo '::error::Refusing an unexpected subscription.'; exit 1;
+          }
+
+      - name: Sign in with the EUS2 seeder OIDC identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_EUS2_SECRET_SEEDER_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Check out the official Wazuh assistant at its immutable commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: wazuh/wazuh-installation-assistant
+          ref: ${{ env.WAZUH_ASSISTANT_SHA }}
+          path: upstream/wazuh-installation-assistant
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify official source identity and build the installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: upstream/wazuh-installation-assistant
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$WAZUH_ASSISTANT_SHA" ]]
+          git cat-file -e "$WAZUH_ASSISTANT_SHA^{commit}"
+          git describe --tags --exact-match | grep -Fxq "v${WAZUH_VERSION}"
+          gh api "repos/wazuh/wazuh-installation-assistant/commits/$WAZUH_ASSISTANT_SHA" \
+            | jq -e --arg sha "$WAZUH_ASSISTANT_SHA" \
+              '.sha == $sha and .commit.verification.verified == true' >/dev/null
+          gh api "repos/wazuh/wazuh/commits/$WAZUH_DIST_DETECT_SHA" \
+            | jq -e --arg sha "$WAZUH_DIST_DETECT_SHA" \
+              '.sha == $sha and .commit.verification.verified == true' >/dev/null
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path("builder.sh")
+          source = path.read_text(encoding="utf-8")
+          old_version = 'source_branch="v4.14.8"'
+          new_version = f'source_branch="{os.environ["WAZUH_DIST_DETECT_SHA"]}"'
+          old_urls = (
+              'urls=("https://raw.githubusercontent.com/wazuh/wazuh/${source_branch}/src/init/dist-detect.sh"\n'
+              '          "https://raw.githubusercontent.com/wazuh/wazuh/master/src/init/dist-detect.sh")'
+          )
+          new_urls = 'urls=("https://raw.githubusercontent.com/wazuh/wazuh/${source_branch}/src/init/dist-detect.sh")'
+          if source.count(old_version) != 1 or source.count(old_urls) != 1:
+              raise SystemExit("Pinned Wazuh builder inputs did not match the reviewed source.")
+          path.write_text(source.replace(old_version, new_version).replace(old_urls, new_urls), encoding="utf-8")
+          PY
+          bash builder.sh -i
+
+      - name: Generate, validate, and send the create-only secret through ARM
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          vault_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${VAULT_NAME}"
+          secret_id="${vault_id}/secrets/${SECRET_NAME}"
+          work="$(mktemp -d "$RUNNER_TEMP/qapaq-eus2-wazuh.XXXXXX")"
+          cleanup() {
+            case "$work" in
+              "$RUNNER_TEMP"/qapaq-eus2-wazuh.*) sudo -n rm -rf -- "$work" >/dev/null 2>&1 || true ;;
+              *) true ;;
+            esac
+          }
+          trap cleanup EXIT
+          umask 077
+          chmod 700 "$work"
+
+          account="$work/account.json"
+          vault="$work/vault.json"
+          existing="$work/existing.txt"
+          lookup_error="$work/lookup.err"
+          deploy_error="$work/deploy.err"
+          metadata="$work/metadata.json"
+          parameters="$work/arm-parameters.json"
+
+          az account show --query '{id:id,tenantId:tenantId}' -o json > "$account"
+          jq -e --arg s "$AZURE_SUBSCRIPTION_ID" --arg t "$AZURE_TENANT_ID" \
+            '.id == $s and .tenantId == $t' "$account" >/dev/null || {
+              echo '::error::Unexpected OIDC tenant or subscription.'; exit 1;
+            }
+
+          az keyvault show --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" \
+            --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --query '{id:id,location:location,pna:properties.publicNetworkAccess,action:properties.networkAcls.defaultAction,bypass:properties.networkAcls.bypass,privateEndpoints:properties.privateEndpointConnections[].properties.privateLinkServiceConnectionState.status}' \
+            -o json > "$vault"
+          jq -e --arg id "$vault_id" \
+            '.id == $id and .location == "eastus2" and .pna == "Disabled" and .action == "Deny" and .bypass == "None" and (.privateEndpoints | type == "array" and length > 0 and all(.[]; . == "Approved"))' \
+            "$vault" >/dev/null || {
+              echo '::error::Vault target, private endpoint or network policy differs; refusing to write.'; exit 1;
+            }
+
+          set +e
+          az resource show --ids "$secret_id" --api-version 2025-05-01 \
+            --query id -o tsv --only-show-errors > "$existing" 2> "$lookup_error"
+          lookup_status=$?
+          set -e
+          if [[ $lookup_status -eq 0 && -s "$existing" ]]; then
+            echo '::error::Secret already exists; this flow is create-only and will not rotate it.'; exit 1;
+          fi
+          grep -q 'ResourceNotFound' "$lookup_error" || {
+            echo '::error::Could not confirm the secret is absent; refusing to write.'; exit 1;
+          }
+
+          generated="$work/wazuh-install-files.tar"
+          installer="$work/wazuh-install.sh"
+          install -m 700 upstream/wazuh-installation-assistant/wazuh-install.sh "$installer"
+          install -m 600 upstream/wazuh-installation-assistant/config/certificate/config_aio.yml "$work/config.yml"
+          if ! (cd "$work" && sudo -n bash ./wazuh-install.sh --generate-config-files) >/dev/null 2>&1; then
+            echo '::error::Pinned Wazuh assistant failed to generate the installation bundle; output withheld.'; exit 1;
+          fi
+          [[ -f "$generated" && ! -L "$generated" ]] || {
+            echo '::error::Wazuh assistant did not create the expected regular archive.'; exit 1;
+          }
+          sudo -n chown "$(id -u):$(id -g)" "$generated"
+          chmod 600 "$generated"
+
+          python3 .github/ci/prepare-eus2-key-vault-parameters.py \
+            --write-wazuh-archive "$parameters" "$generated" >/dev/null
+
+          if ! az deployment group create \
+            --name "qapaq-eus2-wazuh-secret-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "$RESOURCE_GROUP" --mode Incremental \
+            --template-file infra/azure/secrets/eus2-key-vault-secret.json \
+            --parameters "@${parameters}" --output none --only-show-errors \
+            2>"$deploy_error"; then
+            echo '::error::ARM deployment failed; response body withheld.'; exit 1;
+          fi
+
+          verified=false
+          for attempt in {1..8}; do
+            if az resource show --ids "$secret_id" --api-version 2025-05-01 \
+              --query '{id:id,enabled:properties.attributes.enabled,expires:properties.attributes.exp}' \
+              -o json --only-show-errors > "$metadata" 2>/dev/null &&
+              jq -e --arg id "$secret_id" '.id == $id and .enabled == true' "$metadata" >/dev/null; then
+              verified=true
+              break
+            fi
+            sleep 5
+          done
+          [[ "$verified" == true ]] || {
+            echo '::error::Secret metadata does not match the selected target.'; exit 1;
+          }
+
+          {
+            echo '## EUS2 Wazuh install bundle'
+            echo
+            echo '- Secret: `wazuh-install-files.tar.b64` (create-only).'
+            echo '- Source: official Wazuh installation assistant v4.14.8 at the pinned verified commit.'
+            echo '- ARM metadata verification passed; the generated value was not displayed.'
+            echo '- Key Vault networking and DNS were not changed.'
+          } >> "$GITHUB_STEP_SUMMARY"

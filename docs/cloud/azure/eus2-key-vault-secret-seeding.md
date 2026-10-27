@@ -246,3 +246,43 @@ Mientras falte cualquiera de los datos obligatorios, mantener
 `AZURE_EUS2_SIEM_HOST_JSON`/`AZURE_EUS2_ANKAY_HOST_JSON` en `null` y runtime
 apagado. Poner un secreto en Key Vault por sí solo no arranca Wazuh ni demuestra
 que M365, Sophos, Cato, Teams o Ankay estén operativos.
+
+## Generación protegida del archivo Wazuh en GitHub Actions
+
+El workflow manual `.github/workflows/generate-eus2-wazuh-install-files.yml`
+genera el material inicial con el asistente oficial Wazuh `v4.14.8`, fijado al
+commit verificado `33d2069715e8500b676d13cefe7ddaea8eb79019`, el detector de
+distribución de Wazuh fijado al commit verificado
+`f470ad7db717b18db7feeed568949643698f0f34`, y el perfil oficial all-in-one
+`config/certificate/config_aio.yml`. Las claves y contraseñas se
+generan nuevas en cada intento; el procedimiento es reproducible por fuente y
+configuración, pero los bytes son deliberadamente aleatorios y no se pueden
+regenerar idénticos.
+
+El archivo contiene contraseñas y claves privadas de los componentes Wazuh; el
+formato del asistente puede incluir `root-ca.key`. Tratarlo como material de alta
+sensibilidad. El workflow comprueba primero que el secreto
+`wazuh-install-files.tar.b64` no exista y solo permite crearlo una vez. No es un
+flujo de rotación. Si el secreto ya existe, se detiene sin leerlo ni cambiarlo.
+
+El asistente y la conversión validan el tar sin extraer miembros: base64 de hasta
+24.000 bytes de texto, archivo binario de hasta 18.000 bytes, no más de 32
+miembros, máximo 2 MiB por miembro y 4 MiB expandidos; no admite rutas absolutas,
+traversal, enlaces, tipos especiales ni rutas duplicadas. Un tamaño que exceda
+el límite falla antes de escribir en Key Vault. El cap de 18.000 bytes conserva
+margen bajo el límite de [25 KB por secreto de Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/secrets/about-secrets)
+y coincide con el validador de bootstrap.
+
+El valor pasa desde el archivo generado a un parámetro ARM `secureString` en un
+archivo temporal del runner con permisos `0600`; no se pone en argv, variables de
+entorno, GitHub outputs, resumen, logs ni artifacts. ARM devuelve solo metadata;
+el workflow comprueba el nombre y que el secreto esté habilitado. Los archivos
+temporales se eliminan al terminar; el borrado local es best-effort, no forense.
+No se ejecuta Terraform ni se cambia DNS, RBAC o red.
+
+El job requiere aprobación del environment `azure-demo-eus2`, el client ID OIDC
+de la identidad seeder y los permisos ya provisionados en los alcances exactos:
+crear/leer despliegues ARM en el grupo EUS2 y leer/escribir metadata del secreto
+en el Key Vault objetivo. No requiere `dataActions` ni capacidad para recuperar
+valores de secretos. La creación y aprobación de esos roles es una operación
+separada del workflow.

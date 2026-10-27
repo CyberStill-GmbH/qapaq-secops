@@ -96,6 +96,60 @@ class KeyVaultSeedHelperTests(unittest.TestCase):
         with self.assertRaises(HELPER.SeedInputError):
             HELPER._validate_secret("QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64", encoded)
 
+    def test_generated_wazuh_archive_is_encoded_into_private_arm_parameters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            archive_path = root / "wazuh-install-files.tar"
+            parameters_path = root / "arm-parameters.json"
+            encoded = self.valid_wazuh_archive_b64()
+            archive_path.write_bytes(base64.b64decode(encoded))
+
+            HELPER.write_wazuh_archive_parameters(parameters_path, archive_path)
+
+            payload = json.loads(parameters_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["parameters"]["secretName"]["value"],
+                "wazuh-install-files.tar.b64",
+            )
+            self.assertEqual(payload["parameters"]["secretValue"]["value"], encoded)
+            if os.name != "nt":
+                self.assertEqual(parameters_path.stat().st_mode & 0o777, 0o600)
+            with self.assertRaises(FileExistsError):
+                HELPER.write_wazuh_archive_parameters(parameters_path, archive_path)
+
+    def test_generated_wazuh_archive_rejects_symlinks_and_oversized_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            archive_path = root / "archive.tar"
+            parameters_path = root / "parameters.json"
+            archive_path.write_bytes(base64.b64decode(self.valid_wazuh_archive_b64()))
+            symlink_path = root / "archive-link.tar"
+            try:
+                symlink_path.symlink_to(archive_path)
+            except (OSError, NotImplementedError):
+                pass
+            else:
+                with self.assertRaises(HELPER.SeedInputError):
+                    HELPER.write_wazuh_archive_parameters(parameters_path, symlink_path)
+
+            archive_path.write_bytes(b"x" * (HELPER.MAX_ARCHIVE_BYTES + 1))
+            with self.assertRaises(HELPER.SeedInputError):
+                HELPER.write_wazuh_archive_parameters(parameters_path, archive_path)
+
+    def test_official_wazuh_archive_root_ca_key_is_accepted_for_protected_storage(self):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:") as archive:
+            for name, content in (
+                ("wazuh-install-files/wazuh-passwords.txt", b"synthetic"),
+                ("wazuh-install-files/wazuh-certificates/indexer.pem", b"synthetic"),
+                ("wazuh-install-files/root-ca.key", b"synthetic-private-key-material"),
+            ):
+                info = tarfile.TarInfo(name)
+                info.size = len(content)
+                archive.addfile(info, io.BytesIO(content))
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+        HELPER._validate_secret("QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64", encoded)
+
 
 class WorkflowContractTests(unittest.TestCase):
     def test_workflow_is_manual_and_has_separate_validated_secret_job(self):
@@ -128,6 +182,41 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertRegex(workflow, r"actions/checkout@[0-9a-f]{40}")
         self.assertRegex(workflow, r"azure/login@[0-9a-f]{40}")
         self.assertRegex(workflow, r"timeout-minutes:\s*\d+")
+
+    def test_wazuh_archive_workflow_is_manual_gated_and_never_publishes_secret_values(self):
+        workflow = (ROOT / ".github/workflows/generate-eus2-wazuh-install-files.yml").read_text()
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("refs/heads/main", workflow)
+        self.assertIn("environment: azure-demo-eus2", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("GENERATE-EUS2-WAZUH-INSTALL-FILES", workflow)
+        self.assertIn("group: seed-eus2-key-vault-secret", workflow)
+        self.assertIn("WAZUH_VERSION: 4.14.8", workflow)
+        self.assertIn("33d2069715e8500b676d13cefe7ddaea8eb79019", workflow)
+        self.assertIn("f470ad7db717b18db7feeed568949643698f0f34", workflow)
+        self.assertIn("config/certificate/config_aio.yml", workflow)
+        self.assertIn("--generate-config-files", workflow)
+        self.assertIn("--write-wazuh-archive", workflow)
+        self.assertIn("az deployment group create", workflow)
+        self.assertIn("--output none", workflow)
+        self.assertIn("--only-show-errors", workflow)
+        self.assertIn("trap cleanup EXIT", workflow)
+        self.assertIn("sudo -n rm -rf -- \"$work\"", workflow)
+        self.assertIn(
+            "new_urls = 'urls=(\"https://raw.githubusercontent.com/wazuh/wazuh/${source_branch}/src/init/dist-detect.sh\")'",
+            workflow,
+        )
+        self.assertIn("source.replace(old_version, new_version).replace(old_urls, new_urls)", workflow)
+        for forbidden in (
+            "actions/upload-artifact",
+            "GITHUB_OUTPUT",
+            "GITHUB_ENV",
+            "az keyvault secret set",
+            "az role assignment create",
+            "echo \"$archive",
+            "cat \"$archive",
+        ):
+            self.assertNotIn(forbidden, workflow)
 
 
 if __name__ == "__main__":

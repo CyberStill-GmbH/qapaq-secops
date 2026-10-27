@@ -9,6 +9,7 @@ import io
 import json
 import os
 import re
+import stat
 import sys
 import tarfile
 from pathlib import Path, PurePosixPath
@@ -140,15 +141,69 @@ def write_parameters(destination: Path, source_name: str, value: str) -> None:
             raise
 
 
+def write_wazuh_archive_parameters(destination: Path, archive_path: Path) -> None:
+    """Build the ARM secureString parameter file from a bounded local tar.
+
+    The generated archive value is never passed through argv, the environment,
+    GitHub outputs, logs, summaries, or artifacts. The caller owns cleanup of
+    both ephemeral files after the ARM request finishes.
+    """
+    try:
+        path_info = archive_path.lstat()
+    except OSError as exc:
+        raise SeedInputError("Generated Wazuh archive cannot be inspected safely.") from exc
+    if (
+        not stat.S_ISREG(path_info.st_mode)
+        or path_info.st_size <= 0
+        or path_info.st_size > MAX_ARCHIVE_BYTES
+    ):
+        raise SeedInputError("Generated Wazuh archive exceeds the bounded regular-file contract.")
+
+    try:
+        descriptor = os.open(archive_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise SeedInputError("Generated Wazuh archive cannot be opened safely.") from exc
+    encoded = ""
+    try:
+        file_info = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(file_info.st_mode)
+            or file_info.st_size <= 0
+            or file_info.st_size > MAX_ARCHIVE_BYTES
+            or (file_info.st_dev, file_info.st_ino) != (path_info.st_dev, path_info.st_ino)
+        ):
+            raise SeedInputError("Generated Wazuh archive exceeds the bounded regular-file contract.")
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            raw = stream.read(MAX_ARCHIVE_BYTES + 1)
+        if len(raw) > MAX_ARCHIVE_BYTES or len(raw) != file_info.st_size:
+            raise SeedInputError("Generated Wazuh archive changed or exceeds its size limit.")
+        encoded = base64.b64encode(raw).decode("ascii")
+        del raw
+        write_parameters(destination, "QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64", encoded)
+    finally:
+        encoded = ""
+        os.close(descriptor)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--resolve-name", metavar="SOURCE_SECRET_NAME")
     group.add_argument("--write", metavar="PARAMETER_FILE")
+    group.add_argument(
+        "--write-wazuh-archive",
+        nargs=2,
+        metavar=("PARAMETER_FILE", "GENERATED_TAR_FILE"),
+    )
     args = parser.parse_args()
     try:
         if args.resolve_name is not None:
             print(resolve_secret_name(args.resolve_name))
+            return 0
+        if args.write_wazuh_archive is not None:
+            parameter_path, archive_path = args.write_wazuh_archive
+            write_wazuh_archive_parameters(Path(parameter_path), Path(archive_path))
+            print("Protected ARM parameters prepared from the generated Wazuh archive; value was not logged.")
             return 0
         source_name = os.environ.get("SOURCE_SECRET_NAME", "")
         value = os.environ.get("SELECTED_SECRET_VALUE", "")
