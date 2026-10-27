@@ -51,6 +51,58 @@ NAT/firewall y egreso autorizado agregan cargos mensuales; cotizar la SKU y el v
 integrar o aplicar. El workflow `ankay-azure-iac.yml` solo valida formato/esquema Terraform y no tiene
 credenciales cloud ni despliega recursos.
 
+### Auditoría de reproducibilidad y aislamiento (27-10-2026) · **NO LISTO**
+
+Se inspeccionó en modo lectura el repositorio oficial Shuffle/Shuffle en el commit exacto
+473cc335e5fcc663006d8e5ca16af5ee71fefa68 (tag v2.3.0). La revisión confirma que el artefacto
+actual del workflow demuestra únicamente que se pudo construir una imagen frontend en un run; el
+SHA-256 del tar conserva la integridad de ese artefacto, pero no demuestra que otra compilación dé
+los mismos bytes.
+
+- ankay/upstream.lock fija solo el monorepo Shuffle. El Compose upstream usa latest para
+  shuffle-security, frontend, backend, Orborus y worker. El OpenSearch se fija en el tag 3.2.0,
+  no por digest.
+- El Compose upstream declara shuffle-security.build: ., pero el commit inspeccionado no contiene
+  un Dockerfile en la raíz. Tampoco contiene fuente de Orborus ni de shuffle-security; sus
+  imágenes no se pueden reconstruir desde el único repositorio/SHA fijado actualmente.
+- backend/Dockerfile usa bases golang:1.25 y alpine:3.22.2 sin digest, descarga
+  app_sdk/shuffle_sdk.py desde refs/heads/main y ejecuta go mod tidy durante el build. El tag
+  del monorepo no fija esa dependencia ni las imágenes base.
+- functions/onprem/worker/Dockerfile también usa bases sin digest y ejecuta go mod tidy.
+  frontend/Dockerfile usa tags de Node/Nginx y ejecuta apt-get install sin fijar el paquete
+  curl; docker build --pull puede traer bases distintas en ejecuciones posteriores.
+- Compose upstream monta /var/run/docker.sock en backend y Orborus y entrega el socket al
+  mecanismo que crea workers. Acceder a ese socket da control del daemon y equivale a autoridad
+  root sobre el host. Orborus además configura seccomp:unconfined. Un montaje marcado como
+  read_only no limita los métodos del API Docker; un proxy filtrado tampoco es seguro hasta
+  validar la lista exacta de métodos que requiere la ejecución dinámica de workers.
+
+Por eso no se incorpora un Compose QAPAQ ni un workflow que publique las seis imágenes como si ya
+fueran compatibles y reproducibles. El Compose upstream tampoco cumple el contrato del host Azure:
+expone puertos de backend/OpenSearch/seguridad que deben permanecer privados, y carece de health
+checks y fijación por digest exigidos por ankay_host. Se mantiene el gate actual: **no habilitar
+ankay_host ni enrutar /ankay/* a un runtime hasta completar estas pruebas**.
+
+Criterios para levantar el gate, sin saltarse la verificación:
+
+1. Fijar la fuente y el commit de cada componente (incluidos los repos separados de Orborus y
+   shuffle-security), el app_sdk, cada base OCI por digest y los paquetes del sistema; construir
+   en CI sin ramas main, tags mutables ni resolución de dependencias durante el build.
+2. Crear un Compose QAPAQ revisado con los cinco servicios persistentes, worker dinámico,
+   referencias a imágenes ACR @sha256:…, SHA-256 del Compose, health checks, persistencia y sin
+   puertos de administración expuestos. Publicar desde el mismo candidato verificado, junto con
+   SBOM por imagen, inventario de licencias, avisos AGPL y fuentes correspondientes.
+3. Resolver el límite Docker en una VM dedicada y aislada: probar primero si backend puede carecer
+   de socket; restringir lo que quede mediante una interfaz de Docker con política mínima; retirar
+   seccomp:unconfined si la ejecución funciona con el perfil seccomp normal. Si los workers
+   requieren autoridad Docker irrestricta, mantenerlos aislados en una VM dedicada y bloquear
+   cualquier ruta hacia Wazuh/Core; no presentar esa separación como aislamiento del host.
+4. Ejecutar una prueba de integración aislada con persistencia, login, workflow sintético,
+   recuperación y control de red. Recién sus logs y digests revisados pueden alimentar el proceso
+   protegido de publicación; publicar no equivale a desplegar ni a acreditar operación.
+
+La revisión no cambió código de Shuffle, Compose, Terraform, secretos, Azure, DNS ni imágenes.
+
 **Reparto:** Claude hace este plan y el rebrand del frontend. Codex despliega el SIEM y continúa la
 integración. El dueño verifica el DevSecOps de Terraform.
 
