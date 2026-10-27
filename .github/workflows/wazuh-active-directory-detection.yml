@@ -52,6 +52,19 @@ jobs:
       - name: Validate candidate agent profiles with Wazuh 4.14.8
         run: |
           set -euo pipefail
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec --workdir /var/ossec qapaq-wazuh-ad-test sh -c \
+              'test -s etc/internal_options.conf && grep -q "^agent.remote_conf=" etc/internal_options.conf'; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            echo 'Wazuh Manager did not finish initializing its internal options.'
+            exit 1
+          fi
           for profile in \
             infra/wazuh/launch-detections/agent-groups/windows-pilot.agent.conf \
             infra/wazuh/active-directory/agent-groups/windows-domain-controller.agent.conf \
