@@ -80,11 +80,7 @@ jobs:
       TF_VAR_subscription_id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ vars.AZURE_EUS2_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
-      TF_VAR_postgres_sku_name: ${{ vars.AZURE_EUS2_POSTGRES_SKU_NAME || 'GP_Standard_D2s_v3' }}
-      TF_VAR_environment: demo-eus2
-      TF_VAR_location: eastus2
       TF_VAR_additional_github_environments: '["azure-demo-eus2"]'
-      TF_VAR_tags: '{"project":"qapaq-secops","environment":"demo-eus2","managed_by":"terraform","cloud":"azure","data_class":"security-sensitive"}'
       AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_EUS2_ACR_LOGIN_SERVER }}
       TF_VAR_enable_runtime: ${{ vars.AZURE_EUS2_ENABLE_RUNTIME || 'false' }}
       TF_VAR_container_images: ${{ vars.AZURE_EUS2_CONTAINER_IMAGES_JSON || '{}' }}
@@ -130,8 +126,12 @@ jobs:
             echo '::error::Terraform state container/key is not isolated from the Chile demo.'
             exit 1
           }
-          [[ "$TF_VAR_environment" == demo-eus2 && "$TF_VAR_location" == eastus2 ]] || {
-            echo '::error::Terraform target is not East US 2 demo-eus2.'
+          grep -Eq '^environment[[:space:]]*=[[:space:]]*"demo-eus2"$' infra/azure/profiles/demo-eus2.tfvars || {
+            echo '::error::The committed Terraform profile does not target demo-eus2.'
+            exit 1
+          }
+          grep -Eq '^location[[:space:]]*=[[:space:]]*"eastus2"$' infra/azure/profiles/demo-eus2.tfvars || {
+            echo '::error::The committed Terraform profile does not target East US 2.'
             exit 1
           }
           node scripts/ci/validate-azure-eus2-deployment-scope.mjs
@@ -175,7 +175,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          terraform plan -input=false -no-color -out="$RUNNER_TEMP/azure-demo-eus2.tfplan"
+          terraform plan -input=false -no-color \
+            -var-file=profiles/demo-eus2.tfvars \
+            -out="$RUNNER_TEMP/azure-demo-eus2.tfplan"
           terraform show -json "$RUNNER_TEMP/azure-demo-eus2.tfplan" > "$RUNNER_TEMP/azure-demo-eus2-plan.json"
 
       - name: Reject destructive actions and summarize resource changes
@@ -226,11 +228,7 @@ jobs:
       TF_VAR_subscription_id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
       TF_VAR_tenant_id: ${{ vars.AZURE_EUS2_TENANT_ID }}
       TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
-      TF_VAR_postgres_sku_name: ${{ vars.AZURE_EUS2_POSTGRES_SKU_NAME || 'GP_Standard_D2s_v3' }}
-      TF_VAR_environment: demo-eus2
-      TF_VAR_location: eastus2
       TF_VAR_additional_github_environments: '["azure-demo-eus2"]'
-      TF_VAR_tags: '{"project":"qapaq-secops","environment":"demo-eus2","managed_by":"terraform","cloud":"azure","data_class":"security-sensitive"}'
       TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_EUS2_TF_STATE_RESOURCE_GROUP }}
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS2_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_EUS2_TF_STATE_CONTAINER }}

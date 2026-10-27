@@ -2,6 +2,17 @@
 
 Status: **the current-main candidate was built and published to private Azure Blob; no SIEM VM has been provisioned or installed yet**.
 
+### Latest EUS2 publication — 2026-10-27
+
+- Bundle run: [40445959714](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40445959714)
+- Publisher run: [40453658942](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40453658942)
+- Source SHA: `c96e35fc4618ad10db575e110b26625315fece20`
+- Private Blob URI (no SAS): `https://qapaqdemoeus2rel3a2405f3.blob.core.windows.net/siem-release/releases/c96e35fc4618ad10db575e110b26625315fece20/qapaq-siem-c96e35fc4618.tar.gz`
+- SHA-256: `89040cb69535da6b7b6b763b77fa0bdb3e15c2089481d139fa9cd2f23c7e5472`
+- Size: `6960684738` bytes. Publisher verified Blob content length and SHA metadata after upload.
+- This is a private install candidate addressed by source SHA; the publisher refuses to overwrite a blob with different bytes. It has **not** been installed on an Azure VM and does not verify health, DNS, Graph/provider ingestion, Teams delivery or Ankay.
+- The source commit packages the QAPAQ Active Directory detection profile added by PR #159. The profile and rules are present in the artifact; agent enrollment and collection on actual domain controllers remain opt-in and unverified.
+
 ## What the workflow produces
 
 `.github/workflows/azure-siem-release-bundle.yml` combines four successful CI outputs for
@@ -45,7 +56,7 @@ need owner approval, Key Vault references, provider configuration, approved egre
 acceptance. The 2026-10-24 candidate predates the AD rule packaging change and contains only the
 versioned provider and endpoint rule files; it does not prove collectors are enabled or events are arriving.
 
-### Latest published candidate evidence — 2026-10-24
+### Previous published candidate evidence — 2026-10-24
 
 - Prerequisite build: [40080125109](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125109)
 - Dashboard build: [40080125315](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125315)
