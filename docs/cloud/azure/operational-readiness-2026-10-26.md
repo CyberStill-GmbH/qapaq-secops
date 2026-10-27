@@ -10,6 +10,10 @@ apagados. No certifica el SOC como operativo.
 | Terraform EUS2 | PR [#165](https://github.com/CyberStill-GmbH/qapaq-secops/pull/165), commit `46fc5bd`, workflow [40421595800](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40421595800) | Apply `foundation` exitoso; plan guardado: 3 altas, 0 destrucciones, 0 reemplazos. |
 | PostgreSQL | Azure CLI: `psql-qapaqsecopsdemoeus-3a2405f3`, East US 2, PostgreSQL 16, `Standard_D2s_v3`, estado `Ready` | Las bases `qapaq_secops` y `qapaq_jobs` existen. La segunda es una base PostgreSQL; no acredita un consumidor BullMQ. |
 | Key Vault | ARM confirma `kv-qapaqsecopsd-3a2405f3`, `Succeeded`, `PublicNetworkAccess=Disabled` | Se preservó el acceso privado. La lista de nombres no se pudo leer desde esta máquina porque no estaba dentro del private endpoint; no se consultaron valores. |
+| Storage de datos | `qapaqsecdemoeus23a2405f3`: `PublicNetworkAccess=Disabled`, `defaultAction=Deny`, acceso anónimo Blob deshabilitado | Red privada; los endpoints privados permanecen. |
+| State Terraform | `qapaqsecopseus23a2405f3`: `PublicNetworkAccess=Enabled`, `defaultAction=Allow`, `allowBlobPublicAccess=false`, TLS 1.2 | Acceso de red público autenticado, no anónimo; configuración requerida por el runner GitHub hospedado y expresamente habilitada para esta demo. Es una decisión de exposición que debe revisarse antes de producción. |
+| Storage de releases | `qapaqdemoeus2rel3a2405f3`: `PublicNetworkAccess=Enabled`, `defaultAction=Allow`, `allowBlobPublicAccess=false`, TLS 1.2; contenedor `siem-release` listado | Los blobs no permiten acceso anónimo a nivel de cuenta. El endpoint acepta tráfico autenticado desde redes públicas; no se leyó contenido ni una clave de cuenta. |
+| Azure Container Registry | `qapaqsecopsdemoeus3a2405f3`: `PublicNetworkAccess=Enabled`, `adminUserEnabled=false`, sin repositorios | Endpoint público que requiere autenticación; no hay artefactos runtime publicados. |
 | Detecciones AD | PR [#159](https://github.com/CyberStill-GmbH/qapaq-secops/pull/159), commit `c96e35f`; Wazuh Manager 4.14.8 `logtest` y CI pasaron | Reglas locales 101300–101307, en modo observación. No se aplicaron al Manager ni a un dominio y no se instaló/configuró ningún agente o GPO. |
 | DNS | No hubo cambios en Route 53, Azure DNS ni `app.jappi.net.pe` | Sin cutover. |
 
@@ -21,6 +25,9 @@ apagados. No certifica el SOC como operativo.
   2026-10-26; no hay imágenes runtime para instalar.
 - `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}`. No se cargaron ni leyeron secretos;
   tampoco se verificó desde el private endpoint qué nombres ya existen en el vault.
+- La red pública autenticada está habilitada en state Storage, release Storage y ACR;
+  el acceso anónimo a blobs está deshabilitado. El Storage de datos y Key Vault
+  permanecen privados. No ampliar estos permisos para producción sin otro diseño.
 - Sin Manager, Indexer, Dashboard QAPAQ, QAPAQ Core, KrakenD, Valkey, host Ankay,
   OpenSearch de Ankay, agentes, Sophos, Cato, Graph/M365 o webhook real de Teams
   desplegados en EUS2.
