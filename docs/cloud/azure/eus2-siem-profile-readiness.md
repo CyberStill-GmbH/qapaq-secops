@@ -208,6 +208,17 @@ state, do not import them again.
   bootstrap can read Key Vault secrets with VM Managed Identity and write a root-owned
   environment file, but that is not the same as a working Core secret-provider adapter
   for references at runtime.
+- The SIEM subnet contract currently checks CIDR syntax and minimum size, but does not
+  reject overlap with the fixed EUS2 subnets or prove membership in `10.80.0.0/16`.
+  The profile must remain disabled until a preflight validates the selected subnet
+  against the VNet and every reserved subnet; do not rely on Terraform apply to discover
+  this after costs or partial infrastructure have been created.
+- The SIEM VM module configures boot diagnostics but does not configure Azure Monitor
+  Agent, guest-level health alerts, or an Azure Backup/restore policy for the Wazuh data
+  disk. `prevent_destroy` protects against a Terraform destroy; it is not a backup.
+  Before production, approve a backup/retention design consistent with A11 (currently
+  S3 snapshots, with Azure Blob explicitly not approved as a replacement) and demonstrate
+  restoration. Until then, document the data-loss window and do not claim recovery or HA.
 - Keep the existing QAPAQ/Entra auth contract unchanged. Configure redirect URI,
   allowed redirects, proxy trust, role bindings and user authorization only after the
   service configuration above is deployable; this document proposes no auth change.
@@ -256,13 +267,16 @@ Do not label the SOC operational until evidence shows:
 1. VM, Firewall DNAT, internal Load Balancer, private route, and TLS are healthy.
 2. Wazuh Manager, Indexer, Filebeat, Dashboard, and QAPAQ Core services report ready;
    host bootstrap logs were reviewed without exposing values.
-3. A synthetic M365 audit event is pulled through Microsoft Graph, parsed, indexed in
+3. Azure platform/VM diagnostics have a defined owner, retention, alert route, and tested
+   recovery procedure. The durable data disk and PostgreSQL are backed up and restored in
+   a rehearsal; `prevent_destroy` alone does not satisfy this criterion.
+4. A synthetic M365 audit event is pulled through Microsoft Graph, parsed, indexed in
    the expected Wazuh index, and visible in the branded Dashboard.
-4. A synthetic Wazuh alert produces a successful QAPAQ/Teams path, and an authorized
+5. A synthetic Wazuh alert produces a successful QAPAQ/Teams path, and an authorized
    agent can enroll over only the approved private source range.
-5. Database/object-store/secret-provider/queue checks pass their defined contracts;
+6. Database/object-store/secret-provider/queue checks pass their defined contracts;
    no source is marked green from static config or a successful Terraform apply alone.
-6. Rollback and data-preservation steps are exercised; public DNS is changed only after
+7. Rollback and data-preservation steps are exercised; public DNS is changed only after
    these checks and approval.
 
 Ankay playbooks, Sophos/Cato ingestion, DNS cutover, and production resilience are not
