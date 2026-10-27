@@ -8,6 +8,10 @@ const applicationRoutes = JSON.parse(
   await readFile(new URL('application-routes.json', root), 'utf8'),
 );
 const template = await readFile(new URL('krakend.tmpl', root), 'utf8');
+const azureIngestionTemplate = await readFile(
+  new URL('krakend-azure-ingestion.tmpl', root),
+  'utf8',
+);
 const socController = await readFile(
   new URL('../../../../apps/api/src/soc/soc.controller.ts', import.meta.url),
   'utf8',
@@ -49,6 +53,25 @@ test('C-28 Wazuh route inventory and KrakenD endpoint set remain identical', () 
     declaredEndpoints.filter((path) => path.startsWith('/wazuh/')).sort(),
     [...inventoryPaths].sort(),
   );
+});
+
+test('Azure SIEM gateway exposes only authenticated Wazuh ingestion routes', () => {
+  const endpoints = [
+    ...azureIngestionTemplate.matchAll(/"endpoint"\s*:\s*"([^"]+)"/g),
+  ].map(([, path]) => path);
+  assert.deepEqual(endpoints, ['/wazuh/_cluster/health', '/wazuh/_search']);
+  assert.equal((azureIngestionTemplate.match(/"auth\/validator"/g) ?? []).length, 2);
+  assert.equal((azureIngestionTemplate.match(/"jwk_url"/g) ?? []).length, 2);
+  assert.equal((azureIngestionTemplate.match(/"issuer"/g) ?? []).length, 2);
+  assert.equal((azureIngestionTemplate.match(/"audience"/g) ?? []).length, 2);
+  assert.match(azureIngestionTemplate, /"disable_jwk_security": false/);
+  assert.match(azureIngestionTemplate, /WAZUH_INDEXER_CA_FILE/);
+  assert.match(azureIngestionTemplate, /WAZUH_BASIC_AUTH_B64/);
+  assert.match(azureIngestionTemplate, /WAZUH_INDEX_PATTERN/);
+  assert.doesNotMatch(azureIngestionTemplate, /\/api\//);
+  assert.doesNotMatch(azureIngestionTemplate, /QAPAQ_API_UPSTREAM/);
+  assert.doesNotMatch(azureIngestionTemplate, /127\.0\.0\.1|localhost/);
+  assert.doesNotMatch(azureIngestionTemplate, /"endpoint"\s*:\s*"\/wazuh\/\*"/);
 });
 
 test('each C-28 route has explicit method, auth, rate, timeout, backend, classification and owner', () => {

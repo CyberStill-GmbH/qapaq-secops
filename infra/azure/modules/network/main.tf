@@ -58,6 +58,25 @@ resource "azurerm_subnet" "ankay" {
   address_prefixes     = [var.ankay_subnet_address_prefix]
 }
 
+resource "azurerm_subnet" "krakend" {
+  count                           = var.krakend_subnet_address_prefix == null ? 0 : 1
+  name                            = "snet-krakend-private"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.this.name
+  address_prefixes                = [var.krakend_subnet_address_prefix]
+  default_outbound_access_enabled = false
+
+  delegation {
+    name = "container-apps-krakend"
+    service_delegation {
+      name = "Microsoft.App/environments"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+      ]
+    }
+  }
+}
+
 resource "azurerm_subnet" "firewall" {
   count                = var.enable_siem_firewall ? 1 : 0
   name                 = "AzureFirewallSubnet"

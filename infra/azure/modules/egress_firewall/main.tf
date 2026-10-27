@@ -47,6 +47,44 @@ resource "azurerm_firewall_policy_rule_collection_group" "egress" {
     }
   }
 
+  dynamic "application_rule_collection" {
+    for_each = length(var.container_apps_source_cidrs) == 0 || length(var.container_apps_allowed_fqdns) == 0 ? [] : [true]
+    content {
+      name     = "private-container-apps-platform-egress"
+      priority = 110
+      action   = "Allow"
+
+      rule {
+        name             = "container-apps-artifact-identity-and-registry"
+        source_addresses = sort(tolist(var.container_apps_source_cidrs))
+
+        protocols {
+          type = "Https"
+          port = 443
+        }
+
+        destination_fqdns = sort(tolist(var.container_apps_allowed_fqdns))
+      }
+    }
+  }
+
+  dynamic "network_rule_collection" {
+    for_each = length(var.container_apps_source_cidrs) == 0 || length(var.container_apps_allowed_service_tags) == 0 ? [] : [true]
+    content {
+      name     = "private-container-apps-required-service-tags"
+      priority = 120
+      action   = "Allow"
+
+      rule {
+        name                  = "container-apps-platform-services"
+        protocols             = ["TCP"]
+        source_addresses      = sort(tolist(var.container_apps_source_cidrs))
+        destination_addresses = sort(tolist(var.container_apps_allowed_service_tags))
+        destination_ports     = ["443"]
+      }
+    }
+  }
+
   dynamic "nat_rule_collection" {
     for_each = var.ingress_lb_private_ip == null || (!var.ingress_http_enabled && length(var.dashboard_ingress_cidrs) == 0) ? [] : [true]
     content {

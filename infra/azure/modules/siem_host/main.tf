@@ -137,6 +137,22 @@ resource "azurerm_network_security_group" "siem" {
     }
   }
 
+  dynamic "security_rule" {
+    for_each = length(var.krakend_source_cidrs) == 0 ? {} : { krakend = var.krakend_source_cidrs }
+    content {
+      name                       = "allow-indexer-read-proxy-from-krakend"
+      priority                   = 120
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "9200"
+      source_address_prefixes    = tolist(security_rule.value)
+      destination_address_prefix = "*"
+      description                = "Solo KrakenD privado puede alcanzar el proxy TLS del Indexer, limitado a búsquedas Wazuh read-only."
+    }
+  }
+
   # The subnet has no default outbound access. Only private dependencies and HTTP/S routed
   # through the explicitly required Azure Firewall are allowed; explicit denies precede Azure's
   # built-in AllowVnetOutBound/AllowInternetOutBound rules.
@@ -335,7 +351,8 @@ resource "azurerm_network_interface" "siem" {
   ip_configuration {
     name                          = "private"
     subnet_id                     = azurerm_subnet.siem.id
-    private_ip_address_allocation = "Dynamic"
+    private_ip_address_allocation = var.private_ip_address == null ? "Dynamic" : "Static"
+    private_ip_address            = var.private_ip_address
     primary                       = true
   }
 }

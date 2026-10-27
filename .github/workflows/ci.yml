@@ -288,6 +288,25 @@ jobs:
           pnpm install --frozen-lockfile --ignore-scripts
       - name: Route allowlist and security contract
         run: node --test platform/gateway/krakend/test/contract.test.mjs
+      - name: Build and check the private Azure ingestion template
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --file platform/gateway/krakend/Dockerfile \
+            --tag qapaq-ci:krakend platform/gateway/krakend
+          docker run --rm --entrypoint /usr/bin/krakend \
+            --env GATEWAY_ENDPOINT_TIMEOUT=4s \
+            --env GATEWAY_METRICS_PORT=9091 \
+            --env GATEWAY_RATE_PER_SECOND=20 \
+            --env GATEWAY_RATE_BURST=40 \
+            --env OIDC_JWKS_URL=https://login.microsoftonline.com/00000000-0000-0000-0000-000000000001/discovery/v2.0/keys \
+            --env OIDC_ISSUER=https://login.microsoftonline.com/00000000-0000-0000-0000-000000000001/v2.0 \
+            --env OIDC_AUDIENCE=api://00000000-0000-0000-0000-000000000002 \
+            --env WAZUH_INDEXER_URL=https://10.80.0.4:9200 \
+            --env WAZUH_INDEXER_CA_FILE=/etc/ssl/certs/ca-certificates.crt \
+            --env WAZUH_BASIC_AUTH_B64=dGVzdDp0ZXN0 \
+            --env WAZUH_INDEX_PATTERN=wazuh-alerts-* \
+            qapaq-ci:krakend check -t -n -c /etc/krakend/krakend-azure-ingestion.tmpl
       - name: Validate Compose input
         run: docker compose --env-file platform/gateway/krakend/.env.example -f platform/gateway/krakend/compose.yaml config --quiet
       - name: Runtime integration with controlled JWKS and Wazuh backend
