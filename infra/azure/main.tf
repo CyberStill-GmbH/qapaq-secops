@@ -16,6 +16,7 @@ locals {
   key_vault_name          = "kv-${substr(local.name_base, 0, 12)}-${local.suffix}"
   acr_name                = substr("${substr(local.name_base, 0, 44)}${local.suffix}", 0, 50)
   siem_ingress_private_ip = var.siem_host == null ? null : cidrhost(var.siem_host.address_prefix, 10)
+  krakend_subnet_cidr     = var.krakend_gateway == null ? null : cidrsubnet(var.address_space, 11, 2)
   provider_egress_fqdns = var.siem_host == null ? toset([]) : toset(concat(
     try(var.siem_host.provider_ingestion["sophos_enabled"], "false") == "true" ? [
       "id.sophos.com",
@@ -31,14 +32,15 @@ data "azurerm_resource_group" "this" {
 }
 
 module "network" {
-  source                      = "./modules/network"
-  resource_group_name         = data.azurerm_resource_group.this.name
-  location                    = data.azurerm_resource_group.this.location
-  name_base                   = local.name_base
-  address_space               = var.address_space
-  ankay_subnet_address_prefix = var.ankay_host == null ? null : cidrsubnet(var.address_space, 11, 1)
-  enable_siem_firewall        = var.siem_host != null
-  tags                        = var.tags
+  source                        = "./modules/network"
+  resource_group_name           = data.azurerm_resource_group.this.name
+  location                      = data.azurerm_resource_group.this.location
+  name_base                     = local.name_base
+  address_space                 = var.address_space
+  ankay_subnet_address_prefix   = var.ankay_host == null ? null : cidrsubnet(var.address_space, 11, 1)
+  krakend_subnet_address_prefix = local.krakend_subnet_cidr
+  enable_siem_firewall          = var.siem_host != null
+  tags                          = var.tags
 }
 
 module "observability" {
@@ -128,6 +130,27 @@ module "egress_firewall" {
     [var.siem_host.address_prefix],
     var.ankay_host == null ? [] : [cidrsubnet(var.address_space, 11, 1)],
   ))
+  container_apps_source_cidrs = local.krakend_subnet_cidr == null ? toset([]) : toset([local.krakend_subnet_cidr])
+  container_apps_allowed_fqdns = var.krakend_gateway == null ? toset([]) : toset([
+    "mcr.microsoft.com",
+    "*.data.mcr.microsoft.com",
+    "packages.aks.azure.com",
+    "acs-mirror.azureedge.net",
+    module.identity_registry.container_registry_login_server,
+    "*.blob.core.windows.net",
+    "login.microsoft.com",
+    "login.microsoftonline.com",
+    "*.login.microsoftonline.com",
+    "*.login.microsoft.com",
+    "*.identity.azure.net",
+  ])
+  container_apps_allowed_service_tags = var.krakend_gateway == null ? toset([]) : toset([
+    "MicrosoftContainerRegistry",
+    "AzureFrontDoorFirstParty",
+    "AzureContainerRegistry",
+    "AzureActiveDirectory",
+    "AzureKeyVault",
+  ])
   ingress_lb_private_ip   = local.siem_ingress_private_ip
   dashboard_ingress_cidrs = var.siem_host == null ? toset([]) : var.siem_host.dashboard_ingress_cidrs
   allowed_fqdns = setunion(toset([
@@ -189,6 +212,7 @@ module "siem_host" {
   private_endpoint_subnet_cidr = cidrsubnet(var.address_space, 12, 257)
   postgres_subnet_cidr         = cidrsubnet(var.address_space, 12, 256)
   address_prefix               = try(var.siem_host.address_prefix, "")
+  private_ip_address           = try(var.siem_host.private_ip_address, null)
   ingress_lb_private_ip        = try(local.siem_ingress_private_ip, "")
   vm_size                      = try(var.siem_host.vm_size, "")
   admin_ssh_public_key         = try(var.siem_host.admin_ssh_public_key, "")
@@ -197,21 +221,60 @@ module "siem_host" {
   dashboard_ingress_cidrs      = try(var.siem_host.dashboard_ingress_cidrs, toset([]))
   ingress_http_enabled         = true
   agent_ingress_cidrs          = try(var.siem_host.agent_ingress_cidrs, toset([]))
+  krakend_source_cidrs         = local.krakend_subnet_cidr == null ? toset([]) : toset([local.krakend_subnet_cidr])
   key_vault_id                 = module.data.key_vault_id
   key_vault_uri                = module.data.key_vault_uri
   core_secret_names            = try(var.siem_host.core_secret_names, {})
   wazuh_secret_names           = try(var.siem_host.wazuh_secret_names, {})
-  core_environment             = try(var.siem_host.core_environment, {})
-  office365                    = try(var.siem_host.office365, null)
-  provider_ingestion           = try(var.siem_host.provider_ingestion, {})
-  container_registry_id        = module.identity_registry.container_registry_id
-  artifact_container_scope_id  = module.data.siem_release_container_id
-  evidence_container_scope_id  = module.data.raw_container_id
-  bootstrap_bundle_blob_url    = try(var.siem_host.bootstrap_bundle_blob_url, "")
-  bootstrap_bundle_sha256      = try(var.siem_host.bootstrap_bundle_sha256, "")
-  tags                         = var.tags
+  core_environment = merge(
+    try(var.siem_host.core_environment, {}),
+    var.krakend_gateway == null ? {} : {
+      QAPAQ_INGESTION_SOURCE        = "wazuh"
+      QAPAQ_WAZUH_GATEWAY_BASE_URL  = module.krakend_gateway[0].gateway_base_url
+      QAPAQ_INGESTION_GATEWAY_SCOPE = var.krakend_gateway.client_scope
+    },
+  )
+  office365                   = try(var.siem_host.office365, null)
+  provider_ingestion          = try(var.siem_host.provider_ingestion, {})
+  container_registry_id       = module.identity_registry.container_registry_id
+  artifact_container_scope_id = module.data.siem_release_container_id
+  evidence_container_scope_id = module.data.raw_container_id
+  bootstrap_bundle_blob_url   = try(var.siem_host.bootstrap_bundle_blob_url, "")
+  bootstrap_bundle_sha256     = try(var.siem_host.bootstrap_bundle_sha256, "")
+  tags                        = var.tags
 
   depends_on = [module.network, module.data, module.identity_registry]
+}
+
+# Optional private ingestion gateway. It publishes exactly the two Wazuh read routes
+# consumed by Core and is absent unless the operator supplies a pinned ACR digest and
+# existing Key Vault references in var.krakend_gateway.
+module "krakend_gateway" {
+  count  = var.krakend_gateway == null ? 0 : 1
+  source = "./modules/krakend_gateway"
+
+  resource_group_name             = data.azurerm_resource_group.this.name
+  location                        = data.azurerm_resource_group.this.location
+  name_base                       = local.name_base
+  tags                            = var.tags
+  virtual_network_id              = module.network.virtual_network_id
+  subnet_id                       = module.network.krakend_subnet_id
+  subnet_cidr                     = local.krakend_subnet_cidr
+  siem_indexer_proxy_ip           = try(var.siem_host.private_ip_address, "")
+  firewall_private_ip             = try(module.egress_firewall[0].private_ip_address, "")
+  log_analytics_workspace_id      = module.observability.log_analytics_workspace_id
+  container_registry_id           = module.identity_registry.container_registry_id
+  container_registry_login_server = module.identity_registry.container_registry_login_server
+  key_vault_id                    = module.data.key_vault_id
+  key_vault_uri                   = module.data.key_vault_uri
+  image                           = var.krakend_gateway.image
+  tenant_id                       = var.krakend_gateway.tenant_id
+  client_scope                    = var.krakend_gateway.client_scope
+  core_client_id                  = var.krakend_gateway.core_client_id
+  indexer_reader_secret_name      = var.krakend_gateway.indexer_reader_secret_name
+  indexer_proxy_ca_secret_name    = var.krakend_gateway.indexer_proxy_ca_secret_name
+
+  depends_on = [module.egress_firewall, module.identity_registry, module.data]
 }
 
 # Ankay es un host privado de Shuffle separado del SIEM. Su subnet solo existe cuando

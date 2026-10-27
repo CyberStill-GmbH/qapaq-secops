@@ -1,8 +1,11 @@
 # 09 · Plan de lanzamiento
 
-El objetivo es lanzar en semanas, no en sprints de documentación. Cada fase deja algo usable y
-termina en un **criterio de aceptación verificable en la demo AWS**, no en mocks. La evidencia es
-el SHA, el comando, la versión del proveedor y la salida redactada, registrada en el PR.
+Este plan conserva los criterios de aceptación del despliegue AWS original; no demuestra que Azure
+esté desplegado ni autoriza a copiar su state, credenciales o recursos. Para el demo Azure EUS2, la
+arquitectura, inputs, gates y criterios operativos están separados en [`cloud/azure/README.md`](cloud/azure/README.md),
+[`eus2-siem-profile-readiness.md`](cloud/azure/eus2-siem-profile-readiness.md) y
+[`runbook-demo-eus2.md`](cloud/azure/runbook-demo-eus2.md). La evidencia debe registrar SHA,
+comando, versiones y resultados redactados en el PR del entorno correspondiente.
 
 ## Fase 0 · Estabilizar (1–2 días)
 

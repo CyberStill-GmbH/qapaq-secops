@@ -61,10 +61,10 @@ classDef src fill:#eee,stroke:#999
 
 ## Qué salió del diseño y por qué
 
-| Retirado | Motivo | Reemplazo |
+| Retirado o sustituido | Motivo | Reemplazo / estado actual |
 | --- | --- | --- |
 | **Frontend propio** (`apps/web` en Vercel) | Duplicaba Discover, dashboards y agentes de Wazuh, y el dueño lo descartó | La UI de Wazuh rebrandeada como QAPAQ SecOps más el plugin `qapaq_ops` ([08](08-frontend-unificado.md)). `apps/web` eliminado (`4eab88f`) |
-| **KrakenD** en el runtime | Su función era ser egress hacia APIs de proveedores, pero las fuentes nuevas entran por módulos de Wazuh. Hoy causa el bug de ingesta (`PROVIDER_RESPONSE_INVALID`) y corta el long-poll a 4 s. Además son 2 tareas Fargate | La API lee el Indexer por el proxy nginx allowlist que ya existe (`wazuh/access`), con usuario `qapaq_reader`. Se recupera de git si aparece una API de proveedor directa |
+| **KrakenD** como salida genérica de proveedores | El diseño de ingesta ya no lo usa para salir a Sophos/Cato/M365; esos eventos entran por los módulos Wazuh. La decisión A8 vigente sí conserva KrakenD temporalmente para la lectura API → Indexer hasta que una ruta equivalente esté instalada y validada. | Mantener solo las rutas Wazuh de lectura aprobadas; retirarlo cuando el proxy TLS de Indexer y la paridad de lectura estén probados. En Azure, la ruta privada Core → KrakenD → proxy de solo lectura del Indexer sigue siendo un prerequisito del perfil EUS2; permanece apagada hasta provisionar ambos extremos. |
 | **Grafana, Loki, Prometheus y `platform/observability`** | Ninguna app importaba la librería y solo existían en compose local. Su fin regulatorio (N1) lo cumple Wazuh | CloudWatch para métricas de infraestructura AWS. Los logs de API y ALB entran a Wazuh por el módulo AWS: un solo plano, autogestionado ([06](06-operacion.md)) |
 | **Python analytics (ADR-007)** | Dormante y sin código | OpenSearch Anomaly Detection (RCF), que ya está en el Indexer ([07](07-deteccion-ml-y-soar.md)) |
 | **Pipeline de admisión C-04 y raw en S3 propio** | Testeado pero no conectado a la API. Duplicaba la custodia que ya hace el Indexer | Wazuh conserva el raw (`archives`) y la retención se hace con ISM más snapshots |

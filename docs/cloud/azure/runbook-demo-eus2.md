@@ -34,6 +34,13 @@ credenciales de integración.
   `AZURE_EUS2_APPLY_READY=true`. `AZURE_EUS2_ENABLE_RUNTIME=false`, los perfiles
   `siem_host`/`ankay_host` son nulos, `AZURE_EUS2_CONTAINER_IMAGES_JSON={}` y
   `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}`. El ACR está vacío.
+- La lectura de solo metadatos del environment GitHub del 2026-10-27 confirma que
+  los únicos nombres de secretos presentes son los del password administrador de
+  PostgreSQL y el client ID de Terraform; no aparecen secretos de aplicación,
+  M365, Teams, Sophos, Cato ni el tar de instalación de Wazuh. Tampoco están
+  configuradas las variables de perfil `AZURE_EUS2_SIEM_HOST_JSON` ni
+  `AZURE_EUS2_KRAKEND_GATEWAY_JSON`. Esto describe GitHub Environment, no el
+  contenido del Key Vault; no se consultaron valores de secretos.
 - Key Vault `kv-qapaqsecopsd-3a2405f3` mantiene `PublicNetworkAccess=Disabled`.
   La consulta de nombres fue bloqueada desde esta máquina por la regla de red;
   no se leyeron ni modificaron valores secretos.
@@ -119,17 +126,19 @@ operativas.
   requiere la aprobación protegida de `azure-demo-eus2`. Solo crea un Blob privado
   bajo `releases/<commit>/`; si ya existe, exige coincidencia de hash/tamaño y
   nunca lo sobrescribe.
-- El candidato Wazuh `c96e35fc…` pasó validación de artefacto en el run
-  `40453658942`, intento 2. Su publicación de Blob sigue esperando la revisión
-  protegida de `CesarGuevaraQapaq`; no debe tratarse como publicado ni instalado.
+- El candidato Wazuh `c96e35fc…` pasó validación de artefacto y se publicó en el
+  Blob privado EUS2 en el run `40453658942`, que terminó correctamente. La escritura
+  verificó la URI inmutable y su digest. Esto acredita publicación, no instalación:
+  todavía no existe una VM SIEM EUS2 que haya consumido el bundle ni evidencia de
+  salud de Wazuh, Core o ingestión.
 - `ankay-azure-eus2-publish.yml` sigue el mismo gate para publicar el frontend
   QAPAQ y su fuente AGPL al ACR/Blob EUS2. Solo publica el frontend; no demuestra
   ni despliega backend, Orborus, worker, `shuffle-security` u OpenSearch.
 - Ambos flujos usan `id-qapaqsecopsdemoeus-github-publisher`, no el principal
   más amplio de Terraform. La FIC EUS2 y las variables
   `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` y `AZURE_EUS2_ACR_LOGIN_SERVER` están
-  configuradas. El reviewer del environment sigue siendo necesario para cada
-  escritura cloud; el run `40453658942` aún espera esa aprobación.
+  configuradas. Cada publicación nueva sigue requiriendo el gate protegido del
+  environment; el run `40453658942` ya completó su aprobación y publicación.
 
 No cambiar `location` dentro del state `demo-eus`: su grupo/infraestructura vive
 en East US. East US 2 tiene nuevo grupo, nombres y state para evitar que Terraform

@@ -4,6 +4,13 @@ Este es el "backend Wazuh" de QAPAQ. No es un fork del código: versiona todo lo
 de Wazuh y lo aplica sobre la versión oficial fijada en [`VERSION`](VERSION). Decisión y motivos
 en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes.md).
 
+> **Alcance:** esta matriz describe el código y procedimientos del overlay, no el estado
+> instalado de los recursos cloud. Sus estados históricos se refieren al flujo AWS; no
+> certifican recursos activos en AWS ni en Azure. Para EUS2, usar el
+> [runbook vigente](../docs/cloud/azure/runbook-demo-eus2.md) y el
+> [perfil SIEM y sus compuertas](../docs/cloud/azure/eus2-siem-profile-readiness.md).
+> La secuencia de abajo es específica de `infra/aws` y no se usa para desplegar Azure.
+
 | Carpeta                      | Qué cambia de Wazuh                                                                                                         | Se aplica con                                                             | Estado                                        |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
 | `access/`                    | Usuario `qapaq_reader`, proxy TLS allowlist del Indexer, usuarios internos                                                  | `access/apply-access.sh` (workflow `initialize-wazuh.yml`)                | En uso en la demo                             |
@@ -31,7 +38,7 @@ en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes
 - **Versión:** al subir `VERSION`, recompilar el plugin del dashboard contra el
   `pluginPlatform.version` exacto de esa versión de Wazuh.
 
-## Orden de aplicación para dejar la plataforma unificada operativa
+## Secuencia AWS histórica (no usar como runbook de Azure)
 
 Cada paso se detiene sin cambiar nada si falla su compuerta, y restaura lo que tocó si el cambio falla.
 
