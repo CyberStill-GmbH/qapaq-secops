@@ -43,9 +43,17 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - Identidad asignada a la VM: `AcrPull` en el ACR indicado, lectura del blob de release limitada al
   contenedor, lectura Key Vault limitada a los secretos nombrados y escritura opcional limitada al
   contenedor de evidencia indicado.
-- Terraform no acepta valores de secretos. La extensión obtiene los secretos en tiempo de ejecución
-  por Managed Identity; no se imprimen ni se envían en argumentos de proceso. Las claves privadas SSH
-  no se admiten como input.
+- Terraform no acepta valores de secretos. El bootstrap escribe en `core.env` las referencias
+  `secret://keyvault/<nombre>` del API, no sus valores. `qapaq-core` selecciona explícitamente
+  `azure-key-vault` y resuelve antes de iniciar el servidor únicamente los secretos que consume hoy:
+  Entra, contraseña PostgreSQL, clave HMAC de entidad, Workflow de Teams y clave VAPID. Usa la UAMI
+  de la VM por HTTPS, con tiempo límite y errores redactados; los valores quedan solo en memoria del
+  proceso y no se registran. Terraform limita `Key Vault Secrets User` al scope de cada secreto
+  nombrado. Las referencias de Redis, MinIO, KrakenD/gateway y firma de cursor aún no tienen un
+  consumidor Azure integrado en `qapaq-core`; no se consideran resueltas ni listas para producción.
+  Los secretos que necesitan los adaptadores Wazuh siguen usando sus archivos root-only existentes,
+  incluyendo el archivo de instalación; este flujo no los copia al entorno Core. Las claves privadas
+  SSH no se admiten como input.
 - El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
   oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
   código de salida y un mensaje genérico, sin volcar la salida del instalador.

@@ -202,21 +202,27 @@ variable "key_vault_uri" {
 }
 
 variable "core_secret_names" {
-  description = "Mapa variable de entorno → nombre de secreto preexistente en Key Vault. Solo nombres; nunca valores."
+  description = "Mapa de variable Core consumida → nombre de secreto preexistente en Key Vault. El bootstrap escribe solo referencias secret://keyvault/; nunca materializa valores Core en core.env."
   type        = map(string)
   default     = {}
 
   validation {
     condition = alltrue([
       for key, name in var.core_secret_names :
-      can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) && can(regex("^[A-Za-z0-9-]{1,127}$", name))
+      contains([
+        "QAPAQ_ENTRA_CLIENT_SECRET",
+        "QAPAQ_POSTGRES_PASSWORD",
+        "QAPAQ_ENTITY_REF_KEY",
+        "QAPAQ_TEAMS_WORKFLOW_URL",
+        "QAPAQ_VAPID_PRIVATE_KEY",
+      ], key) && can(regex("^[A-Za-z0-9-]{1,127}$", name))
     ])
-    error_message = "Los nombres de variables y secretos deben usar caracteres permitidos y no pueden contener valores."
+    error_message = "core_secret_names admite solo secretos que el API actual resuelve: Entra, PostgreSQL, entity key, Teams y VAPID; usa nombres Key Vault, nunca valores."
   }
 
   validation {
-    condition     = !contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET_REF")
-    error_message = "QAPAQ_ENTRA_CLIENT_SECRET_REF es una referencia no secreta y pertenece en core_environment; el valor real QAPAQ_ENTRA_CLIENT_SECRET pertenece en core_secret_names."
+    condition     = contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET")
+    error_message = "El API QAPAQ en modo Entra requiere core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET para generar la referencia Key Vault al iniciar."
   }
 }
 
@@ -250,15 +256,47 @@ variable "core_environment" {
       can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) &&
       !can(regex("[\\r\\n]", value)) &&
       (
-        key == "QAPAQ_ENTRA_CLIENT_SECRET_REF"
+        contains([
+          "QAPAQ_ENTRA_CLIENT_SECRET_REF",
+          "QAPAQ_POSTGRES_PASSWORD_REF",
+          "QAPAQ_ENTITY_REF_KEY_REF",
+          "QAPAQ_TEAMS_WORKFLOW_URL_REF",
+          "QAPAQ_VAPID_PRIVATE_KEY_REF",
+        ], key)
         ? (
           can(regex("^secret://keyvault/[A-Za-z0-9][A-Za-z0-9-]{0,126}$", value)) &&
-          lookup(var.core_secret_names, "QAPAQ_ENTRA_CLIENT_SECRET", "") == trimprefix(value, "secret://keyvault/")
+          lookup(var.core_secret_names, trimsuffix(key, "_REF"), "") == trimprefix(value, "secret://keyvault/")
+        )
+        : contains([
+          "QAPAQ_SECRET_PROVIDER_TYPE",
+          "QAPAQ_SECRET_PROVIDER_TIMEOUT",
+          "QAPAQ_SECRET_PROVIDER_ENDPOINT",
+        ], key)
+        ? (
+          key == "QAPAQ_SECRET_PROVIDER_TYPE" ? value == "azure-key-vault" :
+          key == "QAPAQ_SECRET_PROVIDER_TIMEOUT" ? value == "5s" :
+          value == trimsuffix(var.key_vault_uri, "/")
         )
         : !can(regex("(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key))
       )
     ])
-    error_message = "core_environment admite QAPAQ_ENTRA_CLIENT_SECRET_REF solo como secret://keyvault/<nombre> y debe coincidir con core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET; las claves sensibles restantes y los valores multilínea están prohibidos."
+    error_message = "core_environment admite solo referencias secret://keyvault/<nombre> que coincidan con core_secret_names y rechaza claves sensibles en claro o valores multilínea."
+  }
+
+  validation {
+    condition = (
+      !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_TYPE") ||
+      var.core_environment["QAPAQ_SECRET_PROVIDER_TYPE"] == "azure-key-vault"
+    )
+    error_message = "QAPAQ_SECRET_PROVIDER_TYPE debe ser azure-key-vault para el host SIEM; el bootstrap lo completa si falta."
+  }
+
+  validation {
+    condition = (
+      !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_ENDPOINT") ||
+      var.core_environment["QAPAQ_SECRET_PROVIDER_ENDPOINT"] == trimsuffix(var.key_vault_uri, "/")
+    )
+    error_message = "QAPAQ_SECRET_PROVIDER_ENDPOINT debe coincidir con el URI del Key Vault del host."
   }
 }
 

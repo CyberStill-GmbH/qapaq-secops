@@ -1,6 +1,7 @@
 import { pathToFileURL } from 'node:url';
-import { ConfigurationError } from '@qapaq/configuration';
+import { ConfigurationError, SecretProviderError } from '@qapaq/configuration';
 import { buildApi } from './bootstrap.js';
+import { resolveApiSecretEnvironment } from './runtime/secret-environment.js';
 
 function log(
   event: string,
@@ -26,7 +27,12 @@ export async function main(): Promise<void> {
     runtime?.lifecycle.fail();
     if (!failureReported) {
       failureReported = true;
-      log('application.failed', error instanceof ConfigurationError ? error.code : fallback);
+      log(
+        'application.failed',
+        error instanceof ConfigurationError || error instanceof SecretProviderError
+          ? error.code
+          : fallback,
+      );
     }
   };
   let closing: Promise<void> | undefined;
@@ -69,8 +75,9 @@ export async function main(): Promise<void> {
     const demoMfaExceptionUntil = demoMfaExceptionUntilRaw
       ? new Date(demoMfaExceptionUntilRaw)
       : undefined;
+    const environment = await resolveApiSecretEnvironment(process.env);
     runtime = await buildApi(
-      process.env,
+      environment,
       (state) => log(`application.${state}`),
       // Solo el tipo de error: el mensaje podría citar datos del destino o de la alerta.
       (error) =>

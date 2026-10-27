@@ -72,6 +72,7 @@ class ProviderIngestionValidationTests(unittest.TestCase):
             "artifact_sha256": "a" * 64,
             "artifact_url": "https://releases.blob.core.windows.net/private/bundle.tar.gz",
             "identity_client_id": "managed-identity-client-id",
+            "key_vault_uri": "https://kv-qapaq-test.vault.azure.net/",
             "office365": {
                 "tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
                 "client_id": "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998",
@@ -81,6 +82,9 @@ class ProviderIngestionValidationTests(unittest.TestCase):
             "wazuh_secret_names": {
                 "office365-client-secret": "office365-secret",
                 "wazuh-install-files.tar.b64": "wazuh-install-files-tar-b64",
+            },
+            "core_secret_names": {
+                "QAPAQ_ENTRA_CLIENT_SECRET": "entra-client-secret",
             },
             "data_disk_size_gb": 128,
         }
@@ -134,13 +138,14 @@ class ProviderIngestionValidationTests(unittest.TestCase):
     def test_materializes_optional_teams_reference_only_as_root_only_file(self) -> None:
         config = self._base_config()
         config["wazuh_secret_names"]["qapaq-teams-workflow-url"] = "teams-workflow"
+        config["core_secret_names"]["QAPAQ_TEAMS_WORKFLOW_URL"] = "core-teams-workflow"
         expected_url = "https://prod-01.westus.logic.azure.com/workflows/synthetic?sig=not-real"
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)
             with patch.object(BOOTSTRAP, "WAZUH_SECRET_DIR", root / "secrets"):
                 with patch.object(BOOTSTRAP, "CORE_ENV_PATH", root / "core" / "core.env"):
                     with patch.object(BOOTSTRAP, "get_token", return_value="synthetic-token"):
-                        with patch.object(BOOTSTRAP, "key_vault_get", return_value=expected_url):
+                        with patch.object(BOOTSTRAP, "key_vault_get", return_value=expected_url) as get_secret:
                             with patch.object(BOOTSTRAP.pwd, "getpwnam", return_value=SimpleNamespace(pw_gid=1000), create=True):
                                 with patch.object(BOOTSTRAP.os, "chown", create=True):
                                     with patch.object(BOOTSTRAP.os, "O_NOFOLLOW", 0, create=True):
@@ -148,6 +153,18 @@ class ProviderIngestionValidationTests(unittest.TestCase):
 
             secret_file = root / "secrets" / "qapaq-teams-workflow-url"
             self.assertEqual(secret_file.read_text(encoding="utf-8"), expected_url)
+            core_environment = (root / "core" / "core.env").read_text(encoding="utf-8")
+            self.assertIn('QAPAQ_ENTRA_CLIENT_SECRET_REF="secret://keyvault/entra-client-secret"', core_environment)
+            self.assertIn('QAPAQ_TEAMS_WORKFLOW_URL_REF="secret://keyvault/core-teams-workflow"', core_environment)
+            self.assertIn('QAPAQ_SECRET_PROVIDER_TYPE="azure-key-vault"', core_environment)
+            self.assertIn('QAPAQ_SECRET_PROVIDER_ENDPOINT="https://kv-qapaq-test.vault.azure.net"', core_environment)
+            self.assertIn('AZURE_CLIENT_ID="managed-identity-client-id"', core_environment)
+            self.assertNotIn("QAPAQ_ENTRA_CLIENT_SECRET=", core_environment)
+            self.assertNotIn(expected_url, core_environment)
+            fetched_names = {call.args[2] for call in get_secret.call_args_list}
+            self.assertNotIn("entra-client-secret", fetched_names)
+            self.assertNotIn("core-teams-workflow", fetched_names)
+            self.assertEqual(fetched_names, {"office365-secret", "wazuh-install-files-tar-b64", "teams-workflow"})
             if BOOTSTRAP.os.name != "nt":
                 self.assertEqual(secret_file.stat().st_mode & 0o777, 0o600)
 

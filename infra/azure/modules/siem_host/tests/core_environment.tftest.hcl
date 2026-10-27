@@ -15,6 +15,7 @@ variables {
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
   dashboard_ingress_cidrs      = ["198.51.100.25/32"]
+  core_secret_names            = { QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret" }
   wazuh_secret_names           = { "wazuh-install-files.tar.b64" = "wazuh-install-files-tar-b64" }
   key_vault_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.KeyVault/vaults/kv-qapaq-test"
   key_vault_uri                = "https://kv-qapaq-test.vault.azure.net/"
@@ -77,6 +78,30 @@ run "rejects_reference_not_backed_by_secret_mapping" {
     }
     core_secret_names = {
       QAPAQ_ENTRA_CLIENT_SECRET = "a-different-secret"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_provider_endpoint_outside_configured_vault" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SECRET_PROVIDER_ENDPOINT = "https://other-vault.vault.azure.net"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_non_azure_secret_provider_type" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SECRET_PROVIDER_TYPE = "environment"
     }
   }
 

@@ -31,6 +31,18 @@ DATA_ROOT = pathlib.Path("/srv/qapaq-siem")
 CORE_ENV_PATH = pathlib.Path("/etc/qapaq-core/core.env")
 WAZUH_SECRET_DIR = pathlib.Path("/etc/qapaq-secrets")
 RELEASE_ROOT = pathlib.Path("/opt/qapaq-siem/releases")
+CORE_SECRET_REFERENCE_KEYS = {
+    "QAPAQ_ENTRA_CLIENT_SECRET": "QAPAQ_ENTRA_CLIENT_SECRET_REF",
+    "QAPAQ_POSTGRES_PASSWORD": "QAPAQ_POSTGRES_PASSWORD_REF",
+    "QAPAQ_ENTITY_REF_KEY": "QAPAQ_ENTITY_REF_KEY_REF",
+    "QAPAQ_TEAMS_WORKFLOW_URL": "QAPAQ_TEAMS_WORKFLOW_URL_REF",
+    "QAPAQ_VAPID_PRIVATE_KEY": "QAPAQ_VAPID_PRIVATE_KEY_REF",
+}
+CORE_SECRET_PROVIDER_KEYS = {
+    "QAPAQ_SECRET_PROVIDER_TYPE",
+    "QAPAQ_SECRET_PROVIDER_TIMEOUT",
+    "QAPAQ_SECRET_PROVIDER_ENDPOINT",
+}
 EXPECTED = {
     "wazuh_version": "4.14.8",
     "osd_version": "2.19.6",
@@ -96,6 +108,19 @@ def load_config() -> dict:
     for required_secret in ("office365-client-secret", "wazuh-install-files.tar.b64"):
         if required_secret not in secret_names:
             fail(f"falta la referencia Key Vault {required_secret}")
+    core_secret_names = config.get("core_secret_names", {})
+    if not isinstance(core_secret_names, dict):
+        fail("la configuración de secretos Core debe ser un mapa de nombres Key Vault")
+    if "QAPAQ_ENTRA_CLIENT_SECRET" not in core_secret_names:
+        fail("falta la referencia Key Vault del client secret Entra de QAPAQ")
+    for key, name in core_secret_names.items():
+        if (
+            not isinstance(key, str)
+            or not isinstance(name, str)
+            or key not in CORE_SECRET_REFERENCE_KEYS
+            or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name)
+        ):
+            fail("core_secret_names contiene una clave o un nombre Key Vault no admitido")
     provider_config = config.get("provider_ingestion", {})
     provider_keys = {"sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"}
     if not isinstance(provider_config, dict) or set(provider_config) - provider_keys:
@@ -313,27 +338,72 @@ def materialize_secrets(config: dict) -> None:
     core_secret_names = config.get("core_secret_names", {})
     wazuh_secret_names = config.get("wazuh_secret_names", {})
     for key, name in core_secret_names.items():
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", key):
-            fail("nombre de variable de entorno de core inválido")
+        if (
+            not isinstance(key, str)
+            or not isinstance(name, str)
+            or key not in CORE_SECRET_REFERENCE_KEYS
+            or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name)
+        ):
+            fail("core_secret_names contiene una clave o un nombre Key Vault no admitido")
     for filename, name in wazuh_secret_names.items():
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", filename):
             fail("nombre de archivo de secreto Wazuh inválido")
 
-    all_names = set(core_secret_names.values()) | set(wazuh_secret_names.values())
-    secret_values: dict[str, str] = {}
-    if all_names:
+    wazuh_secret_values: dict[str, str] = {}
+    if wazuh_secret_names:
         kv_token = get_token(config["identity_client_id"], "https://vault.azure.net")
-        secret_values = {name: key_vault_get(config, kv_token, name) for name in sorted(all_names)}
+        wazuh_secret_values = {
+            name: key_vault_get(config, kv_token, name)
+            for name in sorted(set(wazuh_secret_names.values()))
+        }
         del kv_token
 
     environment = config.get("core_environment", {})
     if not isinstance(environment, dict):
         fail("core_environment debe ser un objeto")
     merged_env = dict(environment)
-    merged_env.update({key: secret_values[name] for key, name in core_secret_names.items()})
+    for key, name in core_secret_names.items():
+        reference_key = CORE_SECRET_REFERENCE_KEYS[key]
+        reference_value = f"secret://keyvault/{name}"
+        if reference_key in merged_env and merged_env[reference_key] != reference_value:
+            fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
+        merged_env[reference_key] = reference_value
+    if core_secret_names:
+        provider_defaults = {
+            "QAPAQ_SECRET_PROVIDER_TYPE": "azure-key-vault",
+            "QAPAQ_SECRET_PROVIDER_TIMEOUT": "5s",
+            "QAPAQ_SECRET_PROVIDER_ENDPOINT": config["key_vault_uri"].rstrip("/"),
+        }
+        for key, value in provider_defaults.items():
+            if key in merged_env and merged_env[key] != value:
+                fail("la configuración del proveedor Azure debe coincidir con la identidad y el vault del host")
+            merged_env[key] = value
+        if "AZURE_CLIENT_ID" in merged_env and merged_env["AZURE_CLIENT_ID"] != config["identity_client_id"]:
+            fail("AZURE_CLIENT_ID debe corresponder a la identidad administrada del SIEM")
+        merged_env["AZURE_CLIENT_ID"] = config["identity_client_id"]
     for key, value in merged_env.items():
         if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", key) or not isinstance(value, str):
             fail("configuración de entorno core inválida")
+        if "\n" in value or "\r" in value or "\x00" in value:
+            fail("configuración de entorno core inválida")
+        if key in CORE_SECRET_REFERENCE_KEYS.values():
+            secret_key = next(
+                name for name, reference_key in CORE_SECRET_REFERENCE_KEYS.items()
+                if reference_key == key
+            )
+            expected_name = core_secret_names.get(secret_key)
+            if expected_name is None or value != f"secret://keyvault/{expected_name}":
+                fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
+        elif key in CORE_SECRET_PROVIDER_KEYS:
+            expected_value = {
+                "QAPAQ_SECRET_PROVIDER_TYPE": "azure-key-vault",
+                "QAPAQ_SECRET_PROVIDER_TIMEOUT": "5s",
+                "QAPAQ_SECRET_PROVIDER_ENDPOINT": config["key_vault_uri"].rstrip("/"),
+            }[key]
+            if value != expected_value:
+                fail("la configuración del proveedor Azure debe coincidir con la identidad y el vault del host")
+        elif re.search(r"(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key):
+            fail("core_environment no admite valores secretos ni credenciales")
     CORE_ENV_PATH.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
     with CORE_ENV_PATH.open("w", encoding="utf-8") as stream:
         for key in sorted(merged_env):
@@ -353,10 +423,10 @@ def materialize_secrets(config: dict) -> None:
         target = WAZUH_SECRET_DIR / filename
         fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(secret_values[secret_name])
+            stream.write(wazuh_secret_values[secret_name])
         os.chmod(target, 0o600)
-    del secret_values
-    log(f"referencias Key Vault resueltas sin imprimir valores: {len(all_names)}")
+    del wazuh_secret_values
+    log(f"referencias Core configuradas y secretos Wazuh instalados sin imprimir valores: {len(core_secret_names) + len(wazuh_secret_names)}")
 
 
 def fetch_bundle(config: dict, destination: pathlib.Path) -> None:
