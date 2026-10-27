@@ -7,9 +7,10 @@ locals {
   }
   # Core requests tokens with the v2 token endpoint, but QAPAQ's existing app
   # registration issues v1 access-token issuer claims (same contract as AWS).
-  issuer   = "https://sts.windows.net/${var.tenant_id}/"
-  jwks_url = "https://login.microsoftonline.com/${var.tenant_id}/discovery/v2.0/keys"
-  audience = trimsuffix(var.client_scope, "/.default")
+  issuer         = "https://sts.windows.net/${var.tenant_id}/"
+  jwks_url       = "https://login.microsoftonline.com/${var.tenant_id}/discovery/v2.0/keys"
+  audience       = trimsuffix(var.client_scope, "/.default")
+  core_client_id = var.core_client_id
 }
 
 resource "azurerm_route_table" "this" {
@@ -166,6 +167,10 @@ resource "azurerm_container_app" "this" {
       env {
         name  = "OIDC_AUDIENCE"
         value = local.audience
+      }
+      env {
+        name  = "QAPAQ_CORE_CLIENT_ID"
+        value = local.core_client_id
       }
       env {
         name  = "WAZUH_INDEXER_URL"

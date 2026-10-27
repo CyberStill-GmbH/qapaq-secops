@@ -300,8 +300,10 @@ jobs:
             --env GATEWAY_RATE_PER_SECOND=20 \
             --env GATEWAY_RATE_BURST=40 \
             --env OIDC_JWKS_URL=https://login.microsoftonline.com/00000000-0000-0000-0000-000000000001/discovery/v2.0/keys \
+            --env OIDC_DISABLE_JWK_SECURITY=false \
             --env OIDC_ISSUER=https://login.microsoftonline.com/00000000-0000-0000-0000-000000000001/v2.0 \
             --env OIDC_AUDIENCE=api://00000000-0000-0000-0000-000000000002 \
+            --env QAPAQ_CORE_CLIENT_ID=00000000-0000-0000-0000-000000000003 \
             --env WAZUH_INDEXER_URL=https://10.80.0.4:9200 \
             --env WAZUH_INDEXER_CA_FILE=/etc/ssl/certs/ca-certificates.crt \
             --env WAZUH_BASIC_AUTH_B64=dGVzdDp0ZXN0 \

@@ -58,12 +58,22 @@ variable "tenant_id" {
 }
 
 variable "client_scope" {
-  description = "Scope OAuth client-credentials de la app Core, p. ej. api://<client-id>/.default."
+  description = "Scope OAuth client-credentials de la API recurso, p. ej. api://<api-client-id>/.default."
   type        = string
 
   validation {
     condition     = can(regex("^api://[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/\\.default$", var.client_scope))
     error_message = "client_scope debe ser api://<client-id>/.default para la aplicación de QAPAQ Core."
+  }
+}
+
+variable "core_client_id" {
+  description = "Client ID de la única aplicación QAPAQ Core autorizada a consumir el gateway."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.core_client_id))
+    error_message = "core_client_id debe ser el GUID de la aplicación Entra QAPAQ Core."
   }
 }
 

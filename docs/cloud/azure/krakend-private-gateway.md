@@ -24,9 +24,11 @@ El ambiente ACA usa internal load balancer y `public_network_access=Disabled`. L
 | GET | `/wazuh/_cluster/health` | `/_cluster/health` |
 | POST | `/wazuh/_search` | `/wazuh-alerts-*/_search` |
 
-Ambas rutas requieren JWT RS256 con issuer, JWKS y audience Entra; límite de tasa por `sub`, timeout de 4 s, TLS verificado a la CA del proxy y Basic auth de un usuario Wazuh read-only. No hay `/api/*`, wildcard de endpoints, escritura, operaciones administrativas de Indexer ni loopback en el upstream. Core usa su implementación actual (`QAPAQ_INGESTION_SOURCE=wazuh`, `QAPAQ_WAZUH_GATEWAY_BASE_URL`, `QAPAQ_INGESTION_GATEWAY_SCOPE`, `EntraClientCredentialsTokenSource`).
+Ambas rutas requieren JWT RS256 con issuer, JWKS y audience Entra, el app role exclusivo de aplicación `Qapaq.Wazuh.Read` y un `appid` (token v1) o `azp` (token v2) que coincida con `core_client_id`. `client_scope` señala la app recurso; `core_client_id` señala al service principal QAPAQ Core permitido. Terraform verifica que este ID sea el `QAPAQ_ENTRA_CLIENT_ID` de Core. El rol debe definirse en el registro de la app recurso con `allowedMemberTypes: ["Application"]` y asignarse solo al service principal Core. Límite de tasa por `sub`, timeout de 4 s, TLS verificado a la CA del proxy y Basic auth de un usuario Wazuh read-only. No hay `/api/*`, wildcard de endpoints, escritura, operaciones administrativas de Indexer ni loopback en el upstream. Core usa su implementación actual (`QAPAQ_INGESTION_SOURCE=wazuh`, `QAPAQ_WAZUH_GATEWAY_BASE_URL`, `QAPAQ_INGESTION_GATEWAY_SCOPE`, `EntraClientCredentialsTokenSource`).
 
 El issuer parte del valor v1 ya fijado por el entorno QAPAQ (`https://sts.windows.net/<tenant>/`); la búsqueda de claves usa el JWKS v2 de Microsoft. Antes de activar, comparar ambos con un token sintético de la aplicación porque `accessTokenAcceptedVersion` determina el claim `iss`.
+
+El access log queda desactivado: KrakenD CE no permite cambiar el formato y su logger predeterminado incluye la query en la ruta. Los logs de aplicación INFO y las métricas siguen activos; no registran tokens, headers, cuerpos ni query. No activar el logger hasta que exista un sanitizador allowlist probado.
 
 ## Bloqueo de aprovisionamiento de Indexer
 
@@ -51,9 +53,9 @@ CI ejecuta el contrato Node, `krakend check` sobre la plantilla Azure y `terrafo
 
 1. FQDN no resuelve a una IP pública y no hay ingreso desde Internet.
 2. FQDN resuelve a la IP estática privada del internal load balancer; certificado HTTPS válido.
-3. Core obtiene token client-credentials con el scope configurado; issuer/audience/JWKS pasan validación.
-4. Las dos rutas exactas devuelven 200 al workload autorizado; token ausente/incorrecto se rechaza.
-5. Rutas adicionales, escritura y acceso a Security API devuelven 403; KrakenD no puede leer/escribir fuera de `wazuh-alerts-*`.
+3. Core obtiene token client-credentials con el scope configurado; issuer/audience/JWKS pasan validación y el token incluye `roles: ["Qapaq.Wazuh.Read"]` junto a `appid`/`azp` igual al ID autorizado.
+4. Las dos rutas exactas devuelven 200 al workload autorizado; token ausente/malformado recibe 401; token sin el app role o con cliente distinto recibe 403.
+5. Rutas adicionales, escritura y acceso a Security API se rechazan; KrakenD no puede leer/escribir fuera de `wazuh-alerts-*`.
 6. QAPAQ informa lecturas correctas y eventos sintéticos indexados; métricas/logs no incluyen token, Basic auth o secreto PEM.
 
 ## Referencias

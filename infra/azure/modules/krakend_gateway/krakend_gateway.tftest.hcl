@@ -21,6 +21,7 @@ run "private_wazuh_ingestion_gateway_contract" {
     image                           = "acrqapaqtest.azurecr.io/qapaq-secops-krakend@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     tenant_id                       = "00000000-0000-0000-0000-000000000001"
     client_scope                    = "api://00000000-0000-0000-0000-000000000002/.default"
+    core_client_id                  = "00000000-0000-0000-0000-000000000003"
     indexer_reader_secret_name      = "wazuh-reader-b64"
     indexer_proxy_ca_secret_name    = "wazuh-proxy-ca"
   }
@@ -43,6 +44,16 @@ run "private_wazuh_ingestion_gateway_contract" {
   assert {
     condition     = length(local.secret_names) == 2 && local.secret_names.wazuh-basic-auth-b64 == var.indexer_reader_secret_name && local.secret_names.wazuh-indexer-ca-pem == var.indexer_proxy_ca_secret_name
     error_message = "Only the two exact reader/CA Key Vault references may be injected."
+  }
+
+  assert {
+    condition     = anytrue([for env in azurerm_container_app.this.template[0].container[0].env : env.name == "QAPAQ_CORE_CLIENT_ID" && env.value == var.core_client_id])
+    error_message = "The caller allowlist must be pinned to the configured Core client ID."
+  }
+
+  assert {
+    condition     = anytrue([for env in azurerm_container_app.this.template[0].container[0].env : env.name == "OIDC_DISABLE_JWK_SECURITY" && env.value == "false"])
+    error_message = "Production runtime must require secure HTTPS JWKS retrieval."
   }
 
   assert {

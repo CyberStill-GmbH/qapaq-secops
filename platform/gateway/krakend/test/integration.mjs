@@ -46,6 +46,7 @@ function runCompose(args, rateOverrides = {}) {
       encoding: 'utf8',
       env: {
         ...process.env,
+        KRAKEND_CONFIG_FILE: 'krakend-azure-ingestion.tmpl',
         GATEWAY_ENDPOINT_TIMEOUT: '4s',
         GATEWAY_RATE_PER_SECOND: rateOverrides.perSecond ?? '20000',
         GATEWAY_RATE_BURST: rateOverrides.burst ?? '40000',
@@ -54,6 +55,7 @@ function runCompose(args, rateOverrides = {}) {
         OIDC_DISABLE_JWK_SECURITY: 'true',
         OIDC_ISSUER: issuer,
         OIDC_AUDIENCE: 'qapaq-provider-gateway',
+        QAPAQ_CORE_CLIENT_ID: '00000000-0000-0000-0000-000000000003',
         WAZUH_INDEXER_URL: 'http://mock-indexer:9200',
         WAZUH_INDEXER_CA_FILE: '',
         WAZUH_BASIC_AUTH_B64: 'dGVzdDp0ZXN0',
@@ -69,12 +71,16 @@ function runCompose(args, rateOverrides = {}) {
     0,
     `docker compose ${args[0]} failed (exit ${result.status}): ${result.stderr || result.stdout}`,
   );
+  return `${result.stdout}\n${result.stderr}`;
 }
 
 function makeToken({
   audience = 'qapaq-provider-gateway',
   tokenIssuer = issuer,
   subject = 'test-qapaq-worker',
+  clientId = '00000000-0000-0000-0000-000000000003',
+  clientClaim = 'appid',
+  roles = ['Qapaq.Wazuh.Read'],
 } = {}) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
   const head = encode({ alg: 'RS256', typ: 'JWT', kid });
@@ -83,6 +89,8 @@ function makeToken({
     aud: audience,
     sub: subject,
     exp: Math.floor(Date.now() / 1000) + 300,
+    [clientClaim]: clientId,
+    roles,
   });
   const signingInput = `${head}.${payload}`;
   const signature = sign('RSA-SHA256', Buffer.from(signingInput), privateKey).toString('base64url');
@@ -124,7 +132,16 @@ async function waitForGateway() {
 }
 
 try {
-  runCompose(['run', '--rm', 'gateway', 'check', '-t', '-n', '-c', '/etc/krakend/krakend.tmpl']);
+  runCompose([
+    'run',
+    '--rm',
+    'gateway',
+    'check',
+    '-t',
+    '-n',
+    '-c',
+    '/etc/krakend/krakend-azure-ingestion.tmpl',
+  ]);
   runCompose(['up', '-d', '--wait', 'mock-indexer', 'gateway']);
   await waitForGateway();
 
@@ -137,6 +154,38 @@ try {
     body: {},
   });
   assert.equal(wrongAudience.status, 401, 'wrong audience must be unauthorized');
+  const missingRole = await request('/wazuh/_search', {
+    token: makeToken({ roles: [] }),
+    body: {},
+  });
+  assert.equal(missingRole.status, 403, 'missing app-only Wazuh role must be forbidden');
+  const wrongClient = await request('/wazuh/_search', {
+    token: makeToken({ clientId: '00000000-0000-0000-0000-000000000004' }),
+    body: {},
+  });
+  assert.equal(wrongClient.status, 403, 'wrong appid must be forbidden');
+  const wrongAuthorizedParty = await request('/wazuh/_search', {
+    token: makeToken({
+      clientClaim: 'azp',
+      clientId: '00000000-0000-0000-0000-000000000004',
+    }),
+    body: {},
+  });
+  assert.equal(wrongAuthorizedParty.status, 403, 'wrong azp must be forbidden');
+  const missingClientClaim = await request('/wazuh/_search', {
+    token: makeToken({ clientClaim: 'client_id' }),
+    body: {},
+  });
+  assert.equal(
+    missingClientClaim.status,
+    403,
+    'a token without an appid or azp claim must be forbidden',
+  );
+  const allowedV2Client = await request('/wazuh/_search', {
+    token: makeToken({ clientClaim: 'azp' }),
+    body: {},
+  });
+  assert.equal(allowedV2Client.status, 200, 'the configured Core azp must be accepted');
 
   const allowed = await request('/wazuh/_search', { body: {} });
   assert.equal(allowed.status, 200, 'valid identity should reach the read-only backend');
@@ -145,6 +194,20 @@ try {
     null,
     'backend topology header must be filtered',
   );
+
+  const auditQueryMarker = 'qapaq-audit-query-must-not-be-logged';
+  const auditBodyMarker = 'qapaq-audit-body-must-not-be-logged';
+  const auditToken = makeToken({ subject: 'audit-log-test-core' });
+  const auditResponse = await request(`/wazuh/_search?marker=${auditQueryMarker}`, {
+    token: auditToken,
+    body: { auditMarker: auditBodyMarker },
+  });
+  assert.equal(auditResponse.status, 200, 'audit logging probe should reach the mock indexer');
+  const gatewayLogs = runCompose(['logs', '--no-color', 'gateway']);
+  assert.doesNotMatch(gatewayLogs, new RegExp(auditQueryMarker));
+  assert.doesNotMatch(gatewayLogs, new RegExp(auditBodyMarker));
+  assert.doesNotMatch(gatewayLogs, /Bearer\s+[A-Za-z0-9._-]{16,}/i);
+  assert.doesNotMatch(gatewayLogs, new RegExp(auditToken));
 
   const adapterProbe = spawnSync(process.execPath, [tsxCli, c10Probe], {
     cwd: repositoryRoot,
@@ -263,7 +326,7 @@ try {
   assert.equal(recovered.status, 200, 'gateway must recover after backend returns');
 
   console.log(
-    'C-28 runtime integration: PASS (401, 403, 429, 5xx, timeout, reset, 404, method, filtering, recovery)',
+    'C-28 runtime integration: PASS (app-role/client authorization, 401, 403, 429, 5xx, timeout, reset, 404, method, filtering, recovery; no token/query/body in logs)',
   );
 } finally {
   try {

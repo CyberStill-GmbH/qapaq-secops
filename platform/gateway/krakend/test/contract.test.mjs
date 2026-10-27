@@ -64,7 +64,12 @@ test('Azure SIEM gateway exposes only authenticated Wazuh ingestion routes', () 
   assert.equal((azureIngestionTemplate.match(/"jwk_url"/g) ?? []).length, 2);
   assert.equal((azureIngestionTemplate.match(/"issuer"/g) ?? []).length, 2);
   assert.equal((azureIngestionTemplate.match(/"audience"/g) ?? []).length, 2);
-  assert.match(azureIngestionTemplate, /"disable_jwk_security": false/);
+  assert.match(
+    azureIngestionTemplate,
+    /"disable_jwk_security": \{\{ env "OIDC_DISABLE_JWK_SECURITY" \}\}/,
+  );
+  assert.match(compose, /OIDC_DISABLE_JWK_SECURITY/);
+  assert.match(envExample, /^OIDC_DISABLE_JWK_SECURITY=false$/m);
   assert.match(azureIngestionTemplate, /WAZUH_INDEXER_CA_FILE/);
   assert.match(azureIngestionTemplate, /WAZUH_BASIC_AUTH_B64/);
   assert.match(azureIngestionTemplate, /WAZUH_INDEX_PATTERN/);
@@ -72,6 +77,22 @@ test('Azure SIEM gateway exposes only authenticated Wazuh ingestion routes', () 
   assert.doesNotMatch(azureIngestionTemplate, /QAPAQ_API_UPSTREAM/);
   assert.doesNotMatch(azureIngestionTemplate, /127\.0\.0\.1|localhost/);
   assert.doesNotMatch(azureIngestionTemplate, /"endpoint"\s*:\s*"\/wazuh\/\*"/);
+});
+
+test('Azure Wazuh routes require the dedicated app role and Core app identity', () => {
+  assert.equal((azureIngestionTemplate.match(/"roles_key":\s*"roles"/g) ?? []).length, 2);
+  assert.equal(
+    (azureIngestionTemplate.match(/"roles":\s*\["Qapaq\.Wazuh\.Read"\]/g) ?? []).length,
+    2,
+  );
+  assert.equal(
+    (azureIngestionTemplate.match(/"check_expr":\s*"\(has\(JWT\.appid\)/g) ?? []).length,
+    2,
+  );
+  assert.equal((azureIngestionTemplate.match(/JWT\.azp/g) ?? []).length, 4);
+  assert.match(azureIngestionTemplate, /QAPAQ_CORE_CLIENT_ID/);
+  assert.match(compose, /QAPAQ_CORE_CLIENT_ID/);
+  assert.match(envExample, /^QAPAQ_CORE_CLIENT_ID=/m);
 });
 
 test('each C-28 route has explicit method, auth, rate, timeout, backend, classification and owner', () => {
@@ -282,6 +303,8 @@ test('configuration denies broad CORS, accepts no arbitrary upstream and keeps s
   assert.match(template, /"jwk_url": "\{\{ env "OIDC_JWKS_URL" \}\}"/);
   assert.match(template, /"disable_jwk_security": \{\{ env "OIDC_DISABLE_JWK_SECURITY" \}\}/);
   assert.match(envExample, /^OIDC_DISABLE_JWK_SECURITY=false$/m);
+  assert.match(azureIngestionTemplate, /"disable_access_log": true/);
+  assert.doesNotMatch(azureIngestionTemplate, /access_log_format|access_log_custom_format/);
   assert.match(compose, /read_only:\s*true/);
   assert.match(compose, /cap_drop:\s*\[ALL\]/);
   assert.doesNotMatch(template, /Bearer\s+[A-Za-z0-9._-]{16,}|password\s*:/i);

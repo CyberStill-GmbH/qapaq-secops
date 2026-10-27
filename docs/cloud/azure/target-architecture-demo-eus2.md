@@ -119,6 +119,11 @@ El módulo sigue apagado por defecto y no demuestra despliegue. Antes de activar
 se requiere cerrar el aprovisionamiento Azure del proxy TLS del Indexer y sembrar
 en Key Vault la credencial Base64 read-only y su CA; el script actual aún publica
 esas salidas en AWS Secrets Manager. Ver el [contrato y gate de KrakenD](krakend-private-gateway.md).
+Además, la app recurso Entra debe declarar el app role `Qapaq.Wazuh.Read` solo para
+`Application` y asignarlo únicamente al service principal identificado por
+`core_client_id`; el API valida ese rol y `appid`/`azp` antes de consultar alertas.
+El access log de KrakenD CE queda deshabilitado porque su formato predeterminado
+escribe query strings; usar un sanitizador allowlist antes de habilitarlo.
 Microsoft explica la integración de internal ACA con VNet/UDR y el wildcard privado
 que resuelve al static IP del environment
 ([firewall/UDR](https://learn.microsoft.com/en-us/azure/container-apps/use-azure-firewall),

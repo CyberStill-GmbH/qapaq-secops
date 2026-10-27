@@ -270,6 +270,7 @@ module "krakend_gateway" {
   image                           = var.krakend_gateway.image
   tenant_id                       = var.krakend_gateway.tenant_id
   client_scope                    = var.krakend_gateway.client_scope
+  core_client_id                  = var.krakend_gateway.core_client_id
   indexer_reader_secret_name      = var.krakend_gateway.indexer_reader_secret_name
   indexer_proxy_ca_secret_name    = var.krakend_gateway.indexer_proxy_ca_secret_name
 

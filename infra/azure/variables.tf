@@ -184,11 +184,12 @@ variable "siem_host" {
 }
 
 variable "krakend_gateway" {
-  description = "KrakenD privado de ingesta Wazuh en ACA. null mantiene gateway y rutas apagados; requiere SIEM, digest ACR, scope Entra y nombres de dos secretos Key Vault existentes."
+  description = "KrakenD privado de ingesta Wazuh en ACA. null mantiene gateway y rutas apagados; requiere SIEM, digest ACR, audience/scope Entra, client ID explícito de Core y nombres de dos secretos Key Vault existentes."
   type = object({
     image                        = string
     tenant_id                    = string
     client_scope                 = string
+    core_client_id               = string
     indexer_reader_secret_name   = string
     indexer_proxy_ca_secret_name = string
   })
@@ -200,11 +201,12 @@ variable "krakend_gateway" {
       can(regex("^[a-z0-9]+\\.azurecr\\.io/qapaq-secops-krakend@sha256:[0-9a-f]{64}$", var.krakend_gateway.image)) &&
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.krakend_gateway.tenant_id)) &&
       can(regex("^api://[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/\\.default$", var.krakend_gateway.client_scope)) &&
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.krakend_gateway.core_client_id)) &&
       can(regex("^[A-Za-z0-9-]{1,127}$", var.krakend_gateway.indexer_reader_secret_name)) &&
       can(regex("^[A-Za-z0-9-]{1,127}$", var.krakend_gateway.indexer_proxy_ca_secret_name)) &&
       var.krakend_gateway.indexer_reader_secret_name != var.krakend_gateway.indexer_proxy_ca_secret_name
     )
-    error_message = "krakend_gateway requiere digest ACR fijado, tenant/scope Entra válidos y nombres distintos de secretos Key Vault existentes; no acepta valores secretos."
+    error_message = "krakend_gateway requiere digest ACR, tenant/scope, client ID Core y nombres válidos de secretos Key Vault; no acepta valores secretos."
   }
 
   validation {
@@ -215,10 +217,10 @@ variable "krakend_gateway" {
       var.siem_host.private_ip_address == cidrhost(var.siem_host.address_prefix, 4) &&
       contains(keys(var.siem_host.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET") &&
       lookup(var.siem_host.core_environment, "QAPAQ_ENTRA_TENANT_ID", "") == var.krakend_gateway.tenant_id &&
-      lookup(var.siem_host.core_environment, "QAPAQ_ENTRA_CLIENT_ID", "") == trimprefix(trimsuffix(var.krakend_gateway.client_scope, "/.default"), "api://") &&
+      lookup(var.siem_host.core_environment, "QAPAQ_ENTRA_CLIENT_ID", "") == var.krakend_gateway.core_client_id &&
       lookup(var.siem_host.core_environment, "QAPAQ_INGESTION_SOURCE", "wazuh") == "wazuh"
     )
-    error_message = "KrakenD requiere siem_host, el secreto QAPAQ_ENTRA_CLIENT_SECRET en Key Vault y los mismos tenant/client IDs en core_environment; la ingesta debe usar la fuente wazuh."
+    error_message = "KrakenD requiere siem_host, QAPAQ_ENTRA_CLIENT_SECRET en Key Vault y core_client_id coincidente con QAPAQ_ENTRA_CLIENT_ID; la ingesta debe usar la fuente wazuh."
   }
 }
 

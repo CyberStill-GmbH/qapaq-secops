@@ -51,12 +51,19 @@
         "auth/validator": {
           "alg": "RS256",
           "jwk_url": "{{ env "OIDC_JWKS_URL" }}",
-          "disable_jwk_security": false,
+          "disable_jwk_security": {{ env "OIDC_DISABLE_JWK_SECURITY" }},
           "issuer": "{{ env "OIDC_ISSUER" }}",
           "audience": ["{{ env "OIDC_AUDIENCE" }}"],
+          "roles_key": "roles",
+          "roles": ["Qapaq.Wazuh.Read"],
           "cache": true,
           "propagate_claims": [["sub", "X-Qapaq-Workload"]]
         },
+        "validation/cel": [
+          {
+            "check_expr": "(has(JWT.appid) && JWT.appid == '{{ env "QAPAQ_CORE_CLIENT_ID" }}') || (has(JWT.azp) && JWT.azp == '{{ env "QAPAQ_CORE_CLIENT_ID" }}')"
+          }
+        ],
         "qos/ratelimit/router": {
           "client_max_rate": {{ env "GATEWAY_RATE_PER_SECOND" }},
           "client_capacity": {{ env "GATEWAY_RATE_BURST" }},
@@ -114,12 +121,19 @@
         "auth/validator": {
           "alg": "RS256",
           "jwk_url": "{{ env "OIDC_JWKS_URL" }}",
-          "disable_jwk_security": false,
+          "disable_jwk_security": {{ env "OIDC_DISABLE_JWK_SECURITY" }},
           "issuer": "{{ env "OIDC_ISSUER" }}",
           "audience": ["{{ env "OIDC_AUDIENCE" }}"],
+          "roles_key": "roles",
+          "roles": ["Qapaq.Wazuh.Read"],
           "cache": true,
           "propagate_claims": [["sub", "X-Qapaq-Workload"]]
         },
+        "validation/cel": [
+          {
+            "check_expr": "(has(JWT.appid) && JWT.appid == '{{ env "QAPAQ_CORE_CLIENT_ID" }}') || (has(JWT.azp) && JWT.azp == '{{ env "QAPAQ_CORE_CLIENT_ID" }}')"
+          }
+        ],
         "qos/ratelimit/router": {
           "client_max_rate": {{ env "GATEWAY_RATE_PER_SECOND" }},
           "client_capacity": {{ env "GATEWAY_RATE_BURST" }},
