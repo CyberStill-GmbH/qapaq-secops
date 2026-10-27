@@ -107,6 +107,13 @@ imprimen, no se guardan en state ni se adjuntan como artefacto, y el runner lo
 elimina al terminar. El borrado de archivos y referencias en memoria es best-effort;
 no equivale a un borrado forense. Fuentes: [Key Vault network security](https://learn.microsoft.com/en-us/azure/key-vault/general/how-to-azure-key-vault-network-security), [ARM data types](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/data-types), [Key Vault secret ARM resource](https://learn.microsoft.com/en-us/azure/templates/microsoft.keyvault/vaults/secrets).
 
+Para el bundle Wazuh, primero se verifica la fuente oficial fijada, se genera el tar
+y se valida su contenido y tamaño en el directorio temporal privado del runner. Solo
+después se ejecuta `azure/login`; ese paso precede inmediatamente a la revisión del
+Key Vault y al alta ARM `secureString`. El bundle y los parámetros no se publican
+como artefacto ni como output, y una etapa final elimina los temporales incluso si
+falla la escritura.
+
 ### Identidad y permisos requeridos (configuración externa, no los crea el workflow)
 
 - Environment existente `azure-demo-eus2`, limitado a `main`, con aprobación

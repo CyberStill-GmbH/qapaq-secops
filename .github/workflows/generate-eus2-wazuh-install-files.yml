@@ -78,13 +78,6 @@ jobs:
             echo '::error::Refusing an unexpected subscription.'; exit 1;
           }
 
-      - name: Sign in with the EUS2 seeder OIDC identity
-        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
-        with:
-          client-id: ${{ vars.AZURE_EUS2_SECRET_SEEDER_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
-
       - name: Check out the official Wazuh assistant at its immutable commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -129,31 +122,59 @@ jobs:
           PY
           bash builder.sh -i
 
-      - name: Generate, validate, and send the create-only secret through ARM
+      - name: Generate and validate the pinned archive before Azure authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/qapaq-eus2-wazuh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          [[ ! -e "$work" && ! -L "$work" ]] || {
+            echo '::error::Temporary bundle path already exists; refusing to reuse it.'; exit 1;
+          }
+          install -d -m 700 "$work"
+          umask 077
+
+          generated="$work/wazuh-install-files.tar"
+          installer="$work/wazuh-install.sh"
+          parameters="$work/arm-parameters.json"
+          install -m 700 upstream/wazuh-installation-assistant/wazuh-install.sh "$installer"
+          install -m 600 upstream/wazuh-installation-assistant/config/certificate/config_aio.yml "$work/config.yml"
+          if ! (cd "$work" && sudo -n bash ./wazuh-install.sh --generate-config-files) >/dev/null 2>&1; then
+            echo '::error::Pinned Wazuh assistant failed to generate the installation bundle; output withheld.'; exit 1;
+          fi
+          [[ -f "$generated" && ! -L "$generated" ]] || {
+            echo '::error::Wazuh assistant did not create the expected regular archive.'; exit 1;
+          }
+          sudo -n chown "$(id -u):$(id -g)" "$generated"
+          chmod 600 "$generated"
+
+          python3 .github/ci/prepare-eus2-key-vault-parameters.py \
+            --write-wazuh-archive "$parameters" "$generated" >/dev/null
+
+      - name: Sign in with the EUS2 seeder OIDC identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_EUS2_SECRET_SEEDER_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Review Key Vault target and create the secret through ARM
         shell: bash
         run: |
           set -euo pipefail
 
           vault_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${VAULT_NAME}"
           secret_id="${vault_id}/secrets/${SECRET_NAME}"
-          work="$(mktemp -d "$RUNNER_TEMP/qapaq-eus2-wazuh.XXXXXX")"
-          cleanup() {
-            case "$work" in
-              "$RUNNER_TEMP"/qapaq-eus2-wazuh.*) sudo -n rm -rf -- "$work" >/dev/null 2>&1 || true ;;
-              *) true ;;
-            esac
+          work="$RUNNER_TEMP/qapaq-eus2-wazuh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          parameters="$work/arm-parameters.json"
+          [[ -d "$work" && ! -L "$work" && -f "$parameters" && ! -L "$parameters" ]] || {
+            echo '::error::Validated temporary bundle parameters are missing; refusing to write.'; exit 1;
           }
-          trap cleanup EXIT
-          umask 077
-          chmod 700 "$work"
-
           account="$work/account.json"
           vault="$work/vault.json"
           existing="$work/existing.txt"
           lookup_error="$work/lookup.err"
           deploy_error="$work/deploy.err"
           metadata="$work/metadata.json"
-          parameters="$work/arm-parameters.json"
 
           az account show --query '{id:id,tenantId:tenantId}' -o json > "$account"
           jq -e --arg s "$AZURE_SUBSCRIPTION_ID" --arg t "$AZURE_TENANT_ID" \
@@ -182,22 +203,6 @@ jobs:
           grep -q 'ResourceNotFound' "$lookup_error" || {
             echo '::error::Could not confirm the secret is absent; refusing to write.'; exit 1;
           }
-
-          generated="$work/wazuh-install-files.tar"
-          installer="$work/wazuh-install.sh"
-          install -m 700 upstream/wazuh-installation-assistant/wazuh-install.sh "$installer"
-          install -m 600 upstream/wazuh-installation-assistant/config/certificate/config_aio.yml "$work/config.yml"
-          if ! (cd "$work" && sudo -n bash ./wazuh-install.sh --generate-config-files) >/dev/null 2>&1; then
-            echo '::error::Pinned Wazuh assistant failed to generate the installation bundle; output withheld.'; exit 1;
-          fi
-          [[ -f "$generated" && ! -L "$generated" ]] || {
-            echo '::error::Wazuh assistant did not create the expected regular archive.'; exit 1;
-          }
-          sudo -n chown "$(id -u):$(id -g)" "$generated"
-          chmod 600 "$generated"
-
-          python3 .github/ci/prepare-eus2-key-vault-parameters.py \
-            --write-wazuh-archive "$parameters" "$generated" >/dev/null
 
           if ! az deployment group create \
             --name "qapaq-eus2-wazuh-secret-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
@@ -231,3 +236,14 @@ jobs:
             echo '- ARM metadata verification passed; the generated value was not displayed.'
             echo '- Key Vault networking and DNS were not changed.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove temporary archive and secure ARM parameters
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/qapaq-eus2-wazuh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          case "$work" in
+            "$RUNNER_TEMP"/qapaq-eus2-wazuh-*) sudo -n rm -rf -- "$work" >/dev/null 2>&1 || true ;;
+            *) echo '::warning::Temporary bundle cleanup path did not match the expected runner directory.' ;;
+          esac

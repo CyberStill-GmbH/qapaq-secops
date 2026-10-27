@@ -183,7 +183,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertRegex(workflow, r"azure/login@[0-9a-f]{40}")
         self.assertRegex(workflow, r"timeout-minutes:\s*\d+")
 
-    def test_wazuh_archive_workflow_is_manual_gated_and_never_publishes_secret_values(self):
+    def test_wazuh_archive_workflow_generates_before_azure_login_and_never_publishes_values(self):
         workflow = (ROOT / ".github/workflows/generate-eus2-wazuh-install-files.yml").read_text()
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("refs/heads/main", workflow)
@@ -200,8 +200,24 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("az deployment group create", workflow)
         self.assertIn("--output none", workflow)
         self.assertIn("--only-show-errors", workflow)
-        self.assertIn("trap cleanup EXIT", workflow)
+        self.assertIn("if: always()", workflow)
         self.assertIn("sudo -n rm -rf -- \"$work\"", workflow)
+        generate_at = workflow.index("- name: Generate and validate the pinned archive before Azure authentication")
+        login_at = workflow.index("- name: Sign in with the EUS2 seeder OIDC identity")
+        review_at = workflow.index("- name: Review Key Vault target and create the secret through ARM")
+        cleanup_at = workflow.index("- name: Remove temporary archive and secure ARM parameters")
+        self.assertLess(generate_at, login_at)
+        self.assertLess(login_at, review_at)
+        self.assertLess(review_at, cleanup_at)
+        self.assertEqual(
+            workflow[login_at:review_at].count("- name: "),
+            1,
+            "Azure login must immediately precede Key Vault review/write.",
+        )
+        pre_auth = workflow[:login_at]
+        self.assertNotIn("az account ", pre_auth)
+        self.assertNotIn("az keyvault ", pre_auth)
+        self.assertNotIn("az deployment ", pre_auth)
         self.assertIn(
             "new_urls = 'urls=(\"https://raw.githubusercontent.com/wazuh/wazuh/${source_branch}/src/init/dist-detect.sh\")'",
             workflow,
@@ -211,6 +227,7 @@ class WorkflowContractTests(unittest.TestCase):
             "actions/upload-artifact",
             "GITHUB_OUTPUT",
             "GITHUB_ENV",
+            "actions/download-artifact",
             "az keyvault secret set",
             "az role assignment create",
             "echo \"$archive",
