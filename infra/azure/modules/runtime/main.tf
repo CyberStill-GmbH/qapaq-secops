@@ -1,4 +1,7 @@
 locals {
+  # El ingress interno de ACA escucha en 443 y reenvía al target_port; con
+  # allow_insecure_connections = false, HTTP recibe una redirección que los proxies no siguen.
+  # Por eso los upstreams usan HTTPS y no incluyen el puerto del contenedor.
   required_images = toset(["edge", "web", "gateway", "api", "worker"])
   runtime_apps = {
     edge = {
@@ -10,8 +13,8 @@ locals {
       cpu          = 0.5
       memory       = "1Gi"
       env = {
-        QAPAQ_WEB_UPSTREAM     = "http://${var.name_base}-web.internal.${var.container_app_environment_default_domain}"
-        QAPAQ_GATEWAY_UPSTREAM = "http://${var.name_base}-gateway.internal.${var.container_app_environment_default_domain}"
+        QAPAQ_WEB_UPSTREAM     = "https://${var.name_base}-web.internal.${var.container_app_environment_default_domain}"
+        QAPAQ_GATEWAY_UPSTREAM = "https://${var.name_base}-gateway.internal.${var.container_app_environment_default_domain}"
       }
     }
     web = {
@@ -32,7 +35,7 @@ locals {
       max_replicas = 2
       cpu          = 0.5
       memory       = "1Gi"
-      env          = { QAPAQ_API_UPSTREAM = "http://${var.name_base}-api.internal.${var.container_app_environment_default_domain}:3000" }
+      env          = { QAPAQ_API_UPSTREAM = "https://${var.name_base}-api.internal.${var.container_app_environment_default_domain}" }
     }
     api = {
       image        = lookup(var.container_images, "api", "")
@@ -76,6 +79,7 @@ resource "azurerm_container_app" "runtime" {
   name                         = "${var.name_base}-${each.key}"
   resource_group_name          = var.resource_group_name
   container_app_environment_id = var.container_app_environment_id
+  workload_profile_name        = "Consumption"
   revision_mode                = "Single"
   tags                         = merge(var.tags, { service = each.key })
 

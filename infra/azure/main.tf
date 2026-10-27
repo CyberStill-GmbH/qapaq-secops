@@ -54,27 +54,31 @@ module "observability" {
 }
 
 module "data" {
-  source                         = "./modules/data"
-  resource_group_name            = data.azurerm_resource_group.this.name
-  location                       = data.azurerm_resource_group.this.location
-  name_base                      = local.name_base
-  suffix                         = local.suffix
-  storage_name                   = local.storage_name
-  release_storage_name           = local.release_storage_name
-  key_vault_name                 = local.key_vault_name
-  tenant_id                      = var.tenant_id
-  postgres_admin_login           = var.postgres_admin_login
-  postgres_admin_password        = var.postgres_admin_password
-  postgres_sku_name              = var.postgres_sku_name
-  postgres_storage_mb            = var.postgres_storage_mb
-  postgres_backup_retention_days = var.postgres_backup_retention_days
-  postgres_subnet_id             = module.network.postgres_subnet_id
-  postgres_private_dns_zone_id   = module.network.postgres_private_dns_zone_id
-  private_endpoints_subnet_id    = module.network.private_endpoints_subnet_id
-  key_vault_private_dns_zone_id  = module.network.key_vault_private_dns_zone_id
-  blob_private_dns_zone_id       = module.network.blob_private_dns_zone_id
-  tags                           = var.tags
+  source                          = "./modules/data"
+  resource_group_name             = data.azurerm_resource_group.this.name
+  location                        = data.azurerm_resource_group.this.location
+  name_base                       = local.name_base
+  suffix                          = local.suffix
+  storage_name                    = local.storage_name
+  release_storage_name            = local.release_storage_name
+  key_vault_name                  = local.key_vault_name
+  tenant_id                       = var.tenant_id
+  postgres_admin_login            = var.postgres_admin_login
+  postgres_admin_password         = var.postgres_admin_password
+  postgres_admin_password_version = var.postgres_admin_password_version
+  postgres_sku_name               = var.postgres_sku_name
+  postgres_storage_mb             = var.postgres_storage_mb
+  postgres_backup_retention_days  = var.postgres_backup_retention_days
+  postgres_subnet_id              = module.network.postgres_subnet_id
+  postgres_private_dns_zone_id    = module.network.postgres_private_dns_zone_id
+  private_endpoints_subnet_id     = module.network.private_endpoints_subnet_id
+  key_vault_private_dns_zone_id   = module.network.key_vault_private_dns_zone_id
+  blob_private_dns_zone_id        = module.network.blob_private_dns_zone_id
+  log_analytics_workspace_id      = module.observability.log_analytics_workspace_id
+  tags                            = var.tags
 
+  # PostgreSQL con integración VNet exige que la zona DNS privada ya esté enlazada a la
+  # VNet; las salidas solo referencian la zona, no el vínculo, así que el orden es explícito.
   depends_on = [module.network]
 }
 
@@ -95,6 +99,7 @@ module "identity_registry" {
   raw_container_id                 = module.data.raw_container_id
   siem_release_container_id        = module.data.siem_release_container_id
   legacy_siem_release_container_id = module.data.legacy_siem_release_container_id
+  log_analytics_workspace_id       = module.observability.log_analytics_workspace_id
   tags                             = var.tags
 }
 

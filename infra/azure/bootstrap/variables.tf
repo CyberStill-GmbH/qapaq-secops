@@ -1,11 +1,21 @@
 variable "subscription_id" {
   description = "Azure subscription for the isolated QAPAQ demo."
   type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.subscription_id))
+    error_message = "subscription_id must be an Azure subscription GUID."
+  }
 }
 
 variable "tenant_id" {
   description = "Microsoft Entra tenant that owns the GitHub federated identity."
   type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.tenant_id))
+    error_message = "tenant_id must be a Microsoft Entra tenant GUID."
+  }
 }
 
 variable "location" {

@@ -130,3 +130,72 @@ artifacts de plan se considera acceso privilegiado.
 Migrar bootstrap state al Storage antes de borrar la sesión. No versionar
 `bootstrap.tfplan`, `terraform.tfstate*` ni `.terraform/`; verificar `git status`
 antes de cerrar la sesión. Los grupos y state storage tienen `prevent_destroy`.
+
+<!-- BEGIN_TF_DOCS -->
+
+## Requirements
+
+| Name      | Version           |
+| --------- | ----------------- |
+| terraform | >= 1.8.0, < 2.0.0 |
+| azurerm   | ~> 4.62           |
+
+## Providers
+
+| Name    | Source            |
+| ------- | ----------------- |
+| azurerm | hashicorp/azurerm |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name                                                                                                                                                                               | Type     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [azurerm_federated_identity_credential.github_terraform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/federated_identity_credential)            | resource |
+| [azurerm_federated_identity_credential.github_terraform_additional](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/federated_identity_credential) | resource |
+| [azurerm_resource_group.demo](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group)                                                      | resource |
+| [azurerm_resource_group.state](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group)                                                     | resource |
+| [azurerm_role_assignment.demo_contributor](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                        | resource |
+| [azurerm_role_assignment.demo_rbac_admin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                         | resource |
+| [azurerm_role_assignment.operator_state_access](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                   | resource |
+| [azurerm_role_assignment.state_blob_writer](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                       | resource |
+| [azurerm_role_assignment.subscription_budget_writer](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                              | resource |
+| [azurerm_storage_account.state](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_account)                                                   | resource |
+| [azurerm_storage_container.state](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_container)                                               | resource |
+| [azurerm_user_assigned_identity.github_terraform](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity)                          | resource |
+
+## Inputs
+
+| Name                          | Description                                                                                                    | Type          | Default                                                                                                                                                                          | Required |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: |
+| state_storage_account_name    | Globally unique Azure Storage Account name for Terraform state. Lowercase letters and digits only, 3-24 chars. | `string`      | n/a                                                                                                                                                                              |   yes    |
+| subscription_id               | Azure subscription for the isolated QAPAQ demo.                                                                | `string`      | n/a                                                                                                                                                                              |   yes    |
+| tenant_id                     | Microsoft Entra tenant that owns the GitHub federated identity.                                                | `string`      | n/a                                                                                                                                                                              |   yes    |
+| environment                   | Must match infra/azure.                                                                                        | `string`      | `"demo"`                                                                                                                                                                         |    no    |
+| github_additional_environment | Optional second GitHub environment allowed to use the existing federated identity.                             | `string`      | `null`                                                                                                                                                                           |    no    |
+| github_environment            | GitHub environment in the OIDC subject. Must remain approval-protected and main-only.                          | `string`      | `"azure-demo"`                                                                                                                                                                   |    no    |
+| github_owner_id               | Immutable GitHub owner ID included in the repository OIDC subject.                                             | `string`      | `"220633794"`                                                                                                                                                                    |    no    |
+| github_repository             | GitHub repository allowed to request the Azure OIDC token.                                                     | `string`      | `"CyberStill-GmbH/qapaq-secops"`                                                                                                                                                 |    no    |
+| github_repository_id          | Immutable GitHub repository ID included in the OIDC subject.                                                   | `string`      | `"1374673243"`                                                                                                                                                                   |    no    |
+| location                      | Bootstrap and demo resource region.                                                                            | `string`      | `"chilecentral"`                                                                                                                                                                 |    no    |
+| project                       | Must match infra/azure so the same target resource-group name is derived.                                      | `string`      | `"qapaq-secops"`                                                                                                                                                                 |    no    |
+| state_container_name          | Private blob container for Terraform state.                                                                    | `string`      | `"tfstate"`                                                                                                                                                                      |    no    |
+| state_key                     | Blob path for the Azure demo root state.                                                                       | `string`      | `"qapaq-secops/demo/terraform.tfstate"`                                                                                                                                          |    no    |
+| tags                          | Governance labels for bootstrap resources.                                                                     | `map(string)` | <pre>{<br/> project = "qapaq-secops"<br/> environment = "demo"<br/> managed_by = "terraform-bootstrap"<br/> cloud = "azure"<br/> data_class = "infrastructure-state"<br/>}</pre> |    no    |
+
+## Outputs
+
+| Name                          | Description                                                    |
+| ----------------------------- | -------------------------------------------------------------- |
+| demo_resource_group_name      | Pre-created resource group consumed by the Azure demo root.    |
+| github_terraform_client_id    | Client ID for AZURE_TERRAFORM_CLIENT_ID; not a client secret.  |
+| github_terraform_principal_id | Principal ID of the federated Terraform identity.              |
+| state_container_name          | Private state container.                                       |
+| state_key                     | State blob key for infra/azure.                                |
+| state_resource_group_name     | Dedicated group that owns only Terraform state infrastructure. |
+| state_storage_account_name    | Storage account name for GitHub Terraform backend variables.   |
+
+<!-- END_TF_DOCS -->

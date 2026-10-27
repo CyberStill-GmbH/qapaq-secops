@@ -1,8 +1,33 @@
-variable "resource_group_name" { type = string }
-variable "location" { type = string }
-variable "name_base" { type = string }
-variable "address_space" { type = string }
-variable "tags" { type = map(string) }
+variable "resource_group_name" {
+  description = "Resource group precreado por bootstrap."
+  type        = string
+}
+
+variable "location" {
+  description = "Región de la VNet."
+  type        = string
+}
+
+variable "name_base" {
+  description = "Base compacta de nombres derivada de project y environment."
+  type        = string
+}
+
+variable "address_space" {
+  description = "CIDR IPv4 /16 de la VNet; los índices de subnet asumen ese tamaño."
+  type        = string
+
+  validation {
+    condition     = can(cidrnetmask(var.address_space)) && endswith(var.address_space, "/16")
+    error_message = "address_space debe ser un CIDR IPv4 /16."
+  }
+}
+
+variable "tags" {
+  description = "Etiquetas comunes de gobierno y costo."
+  type        = map(string)
+}
+
 variable "enable_siem_firewall" {
   description = "Reserva la subnet AzureFirewallSubnet /26 cuando se habilita el host SIEM."
   type        = bool

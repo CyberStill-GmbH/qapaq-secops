@@ -22,6 +22,13 @@ resource "azurerm_container_app_environment" "this" {
   internal_load_balancer_enabled = false
   tags                           = var.tags
 
+  # La subnet delegada es /27. Un entorno Consumption-only exige /23 y falla al crearse;
+  # Workload Profiles admite /27 y conserva el modelo de pago por consumo.
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
+
   lifecycle {
     prevent_destroy = true
   }

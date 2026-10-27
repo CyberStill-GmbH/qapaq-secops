@@ -15,11 +15,10 @@ resource "azurerm_user_assigned_identity" "github_publisher" {
 
 
 resource "azurerm_federated_identity_credential" "github" {
-  name                = "github-${var.environment}"
-  resource_group_name = var.resource_group_name
-  parent_id           = azurerm_user_assigned_identity.github_publisher.id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
+  name      = "github-${var.environment}"
+  parent_id = azurerm_user_assigned_identity.github_publisher.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = "https://token.actions.githubusercontent.com"
   subject = format(
     "repo:%s@%s/%s@%s:environment:%s",
     split("/", var.github_repository)[0],
@@ -31,12 +30,11 @@ resource "azurerm_federated_identity_credential" "github" {
 }
 
 resource "azurerm_federated_identity_credential" "github_additional" {
-  for_each            = var.additional_github_environments
-  name                = "github-${each.value}"
-  parent_id           = azurerm_user_assigned_identity.github_publisher.id
-  resource_group_name = var.resource_group_name
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
+  for_each  = var.additional_github_environments
+  name      = "github-${each.value}"
+  parent_id = azurerm_user_assigned_identity.github_publisher.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = "https://token.actions.githubusercontent.com"
   subject = format(
     "repo:%s@%s/%s@%s:environment:%s",
     split("/", var.github_repository)[0],
@@ -103,4 +101,20 @@ resource "azurerm_role_assignment" "siem_release_legacy_publisher" {
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.github_publisher.principal_id
   principal_type       = "ServicePrincipal"
+}
+
+# Login y push/pull/delete de imágenes quedan auditados en Log Analytics; ACR Basic no
+# admite Private Link, así que estos eventos son el control compensatorio del endpoint público.
+resource "azurerm_monitor_diagnostic_setting" "acr_audit" {
+  name                       = "diag-${var.name_base}-acr"
+  target_resource_id         = azurerm_container_registry.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log {
+    category = "ContainerRegistryLoginEvents"
+  }
+
+  enabled_log {
+    category = "ContainerRegistryRepositoryEvents"
+  }
 }

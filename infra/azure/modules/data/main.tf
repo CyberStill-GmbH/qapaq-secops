@@ -5,7 +5,6 @@ resource "azurerm_postgresql_flexible_server" "this" {
   version                       = "16"
   zone                          = "1"
   administrator_login           = var.postgres_admin_login
-  administrator_password        = var.postgres_admin_password
   sku_name                      = var.postgres_sku_name
   storage_mb                    = var.postgres_storage_mb
   backup_retention_days         = var.postgres_backup_retention_days
@@ -14,6 +13,11 @@ resource "azurerm_postgresql_flexible_server" "this" {
   delegated_subnet_id           = var.postgres_subnet_id
   private_dns_zone_id           = var.postgres_private_dns_zone_id
   tags                          = var.tags
+
+  # Write-only: la contraseña no queda en el plan guardado ni en el state. Azure solo la
+  # recibe cuando cambia la versión, lo que permite rotarla de forma explícita.
+  administrator_password_wo         = var.postgres_admin_password
+  administrator_password_wo_version = var.postgres_admin_password_version
 
   authentication {
     active_directory_auth_enabled = false
@@ -24,6 +28,23 @@ resource "azurerm_postgresql_flexible_server" "this" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Valores que Azure ya aplica por defecto, declarados para que un cambio manual aparezca
+# como drift en el plan. Ambos parámetros son dinámicos y no reinician el servidor.
+resource "azurerm_postgresql_flexible_server_configuration" "require_secure_transport" {
+  name      = "require_secure_transport"
+  server_id = azurerm_postgresql_flexible_server.this.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "ssl_min_protocol_version" {
+  name      = "ssl_min_protocol_version"
+  server_id = azurerm_postgresql_flexible_server.this.id
+  value     = "TLSv1.2"
+
+  # Azure rechaza actualizaciones concurrentes de parámetros del mismo servidor.
+  depends_on = [azurerm_postgresql_flexible_server_configuration.require_secure_transport]
 }
 
 
@@ -237,5 +258,43 @@ resource "azurerm_key_vault" "this" {
 
   lifecycle {
     prevent_destroy = true
+  }
+}
+
+# Auditoría del plano de datos. Va a Log Analytics para que lecturas de secretos, accesos
+# a evidencia y conexiones a PostgreSQL queden trazables fuera del recurso auditado.
+locals {
+  diagnostic_settings = {
+    key_vault = {
+      target_resource_id = azurerm_key_vault.this.id
+      categories         = ["AuditEvent"]
+    }
+    evidence_blob = {
+      target_resource_id = "${azurerm_storage_account.evidence.id}/blobServices/default"
+      categories         = ["StorageRead", "StorageWrite", "StorageDelete"]
+    }
+    release_blob = {
+      target_resource_id = "${azurerm_storage_account.siem_release.id}/blobServices/default"
+      categories         = ["StorageWrite", "StorageDelete"]
+    }
+    postgres = {
+      target_resource_id = azurerm_postgresql_flexible_server.this.id
+      categories         = ["PostgreSQLLogs"]
+    }
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "audit" {
+  for_each = local.diagnostic_settings
+
+  name                       = "diag-${var.name_base}-${replace(each.key, "_", "-")}"
+  target_resource_id         = each.value.target_resource_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  dynamic "enabled_log" {
+    for_each = toset(each.value.categories)
+    content {
+      category = enabled_log.value
+    }
   }
 }

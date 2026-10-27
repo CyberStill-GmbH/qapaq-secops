@@ -440,7 +440,10 @@ resource "azurerm_managed_disk" "siem_data" {
   storage_account_type = var.data_disk_storage_account_type
   create_option        = "Empty"
   disk_size_gb         = var.data_disk_size_gb
-  tags                 = merge(var.tags, { service = "siem-data", data_class = "security-sensitive" })
+  # Sin export/import SAS: los índices Wazuh solo salen por el host.
+  network_access_policy         = "DenyAll"
+  public_network_access_enabled = false
+  tags                          = merge(var.tags, { service = "siem-data", data_class = "security-sensitive" })
 
   lifecycle {
     prevent_destroy = true

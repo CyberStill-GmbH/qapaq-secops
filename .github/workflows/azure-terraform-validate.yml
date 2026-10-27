@@ -75,6 +75,9 @@ jobs:
       - name: Validate configuration
         run: terraform -chdir=infra/azure validate -no-color
 
+      - name: Test root input contract with a mocked provider
+        run: terraform -chdir=infra/azure test -no-color
+
       - name: Initialize the isolated EUS2 Key Vault seeder identity module
         run: terraform -chdir=infra/azure/modules/key_vault_seed_identity init -backend=false -input=false -no-color
 

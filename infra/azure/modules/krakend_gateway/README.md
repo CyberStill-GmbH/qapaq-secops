@@ -37,3 +37,62 @@ El access log permanece desactivado. KrakenD Community Edition usa el logger Gin
 ## Verificación previa a uso
 
 CI valida el contrato de rutas, la configuración de KrakenD y el módulo Terraform sin credenciales cloud. Eso no prueba la red efectiva, la existencia de los secretos, la validez del token, ni el estado del Indexer. Después de un apply autorizado, comprobar desde Core: resolución DNS privada; TLS válido; `GET /wazuh/_cluster/health` 200; `POST /wazuh/_search` 200; rutas no permitidas 403; sin acceso público; y polling con eventos sintéticos en QAPAQ. Revisar redacción de logs, métricas y costo antes de declarar la fuente operativa.
+
+<!-- BEGIN_TF_DOCS -->
+
+## Requirements
+
+| Name      | Version           |
+| --------- | ----------------- |
+| terraform | >= 1.8.0, < 2.0.0 |
+| azurerm   | ~> 4.62           |
+
+## Providers
+
+| Name    | Source            |
+| ------- | ----------------- |
+| azurerm | hashicorp/azurerm |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name                                                                                                                                                                        | Type     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [azurerm_container_app.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app)                                                 | resource |
+| [azurerm_container_app_environment.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_environment)                         | resource |
+| [azurerm_private_dns_a_record.wildcard](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_a_record)                               | resource |
+| [azurerm_private_dns_zone.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone)                                           | resource |
+| [azurerm_private_dns_zone_virtual_network_link.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_dns_zone_virtual_network_link) | resource |
+| [azurerm_role_assignment.acr_pull](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                         | resource |
+| [azurerm_role_assignment.key_vault_secret_read](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                            | resource |
+| [azurerm_route_table.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/route_table)                                                     | resource |
+| [azurerm_subnet_route_table_association.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_route_table_association)               | resource |
+| [azurerm_user_assigned_identity.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity)                               | resource |
+
+## Inputs
+
+| Name                         | Description                                                                                        | Type     | Default | Required |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | -------- | ------- | :------: |
+| client_scope                 | Scope OAuth client-credentials de la API recurso, p. ej. api://<api-client-id>/.default.           | `string` | n/a     |   yes    |
+| core_client_id               | Client ID de la única aplicación QAPAQ Core autorizada a consumir el gateway.                      | `string` | n/a     |   yes    |
+| firewall_private_ip          | IP privada de Azure Firewall para la UDR de salida del entorno ACA.                                | `string` | n/a     |   yes    |
+| image                        | Imagen QAPAQ KrakenD en el ACR del entorno, fijada a digest inmutable.                             | `string` | n/a     |   yes    |
+| indexer_proxy_ca_secret_name | Nombre en Key Vault de la CA del proxy TLS privado del Indexer.                                    | `string` | n/a     |   yes    |
+| indexer_reader_secret_name   | Nombre en Key Vault del JSON de identidad read-only de Wazuh; KrakenD consume solo basic_auth_b64. | `string` | n/a     |   yes    |
+| siem_indexer_proxy_ip        | IP privada estable del proxy TLS read-only en SIEM, fuera de la subnet ACA.                        | `string` | n/a     |   yes    |
+| subnet_cidr                  | CIDR de la subnet ACA exclusiva; debe ser /27 o mayor y no compartir dirección con SIEM.           | `string` | n/a     |   yes    |
+| tenant_id                    | Tenant Entra que emite los tokens de workload del QAPAQ Core.                                      | `string` | n/a     |   yes    |
+
+## Outputs
+
+| Name                          | Description                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| environment_static_ip         | IP privada del Internal Load Balancer administrado por ACA.                                      |
+| gateway_base_url              | URL HTTPS que consume qapaq-core desde la VM SIEM; no apunta a loopback.                         |
+| gateway_fqdn                  | FQDN HTTPS privado de KrakenD dentro de la VNet.                                                 |
+| managed_identity_principal_id | Identidad del runtime con AcrPull y acceso read-only a los dos secretos Key Vault referenciados. |
+
+<!-- END_TF_DOCS -->
