@@ -119,17 +119,19 @@ operativas.
   requiere la aprobación protegida de `azure-demo-eus2`. Solo crea un Blob privado
   bajo `releases/<commit>/`; si ya existe, exige coincidencia de hash/tamaño y
   nunca lo sobrescribe.
-- El candidato Wazuh `c96e35fc…` pasó validación de artefacto en el run
-  `40453658942`, intento 2. Su publicación de Blob sigue esperando la revisión
-  protegida de `CesarGuevaraQapaq`; no debe tratarse como publicado ni instalado.
+- El candidato Wazuh `c96e35fc…` pasó validación de artefacto y se publicó en el
+  Blob privado EUS2 en el run `40453658942`, que terminó correctamente. La escritura
+  verificó la URI inmutable y su digest. Esto acredita publicación, no instalación:
+  todavía no existe una VM SIEM EUS2 que haya consumido el bundle ni evidencia de
+  salud de Wazuh, Core o ingestión.
 - `ankay-azure-eus2-publish.yml` sigue el mismo gate para publicar el frontend
   QAPAQ y su fuente AGPL al ACR/Blob EUS2. Solo publica el frontend; no demuestra
   ni despliega backend, Orborus, worker, `shuffle-security` u OpenSearch.
 - Ambos flujos usan `id-qapaqsecopsdemoeus-github-publisher`, no el principal
   más amplio de Terraform. La FIC EUS2 y las variables
   `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` y `AZURE_EUS2_ACR_LOGIN_SERVER` están
-  configuradas. El reviewer del environment sigue siendo necesario para cada
-  escritura cloud; el run `40453658942` aún espera esa aprobación.
+  configuradas. Cada publicación nueva sigue requiriendo el gate protegido del
+  environment; el run `40453658942` ya completó su aprobación y publicación.
 
 No cambiar `location` dentro del state `demo-eus`: su grupo/infraestructura vive
 en East US. East US 2 tiene nuevo grupo, nombres y state para evitar que Terraform

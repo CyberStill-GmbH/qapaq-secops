@@ -188,10 +188,16 @@ state, do not import them again.
   existing object-storage port; it should use Managed Identity/Blob Data RBAC and
   preserve retention, idempotency, and AWS's current adapter. Do not repoint MinIO
   variables to a Blob hostname.
-- Core requires a Wazuh gateway URL and a workload token. The EUS2 SIEM module does
-  not provision KrakenD/API Gateway. The gateway must be implemented/deployed on an
-  approved private path and its token/scope validated before enabling Core's Wazuh
-  ingestion.
+- Core requires a Wazuh gateway URL and a workload token. Terraform has an optional
+  `krakend_gateway` module, but the EUS2 profile leaves it disabled (`null`). The
+  module can deploy private KrakenD ACA routes; it does not provision the read-only
+  Indexer proxy on the SIEM VM. Before enabling it, publish a digest-pinned ACR image,
+  configure the Entra resource app role and assign it only to the Core service
+  principal, create the two named Key Vault secrets (Base64 `qapaq_reader` credential
+  and the proxy CA), and install/test the TLS-verifying proxy on the SIEM host. The
+  current `wazuh/access/apply-access.sh` writes credentials to AWS Secrets Manager;
+  no Azure proxy/secret seeding path exists yet. Keep the module disabled until those
+  prerequisites and route-level tests pass.
 - No Redis-compatible cache/queue is provisioned by EUS2 Terraform. The current app
   has no verified BullMQ producer/worker E2E for this Azure path; the Azure parity
   review says the worker is lifecycle-only and ADR-AZ-001 remains proposed. A managed
@@ -205,6 +211,12 @@ state, do not import them again.
 - Keep the existing QAPAQ/Entra auth contract unchanged. Configure redirect URI,
   allowed redirects, proxy trust, role bindings and user authorization only after the
   service configuration above is deployable; this document proposes no auth change.
+- Wazuh rules and provider connectors are detection/ingestion controls, not a malware
+  sandbox. The EUS2 profile does not deploy an isolated detonation service or claim
+  automated malware analysis. Wazuh can correlate Sophos/Cato events after ingestion;
+  Sophos remains the XDR source of truth for its own endpoint detections. Terraform
+  also does not install agents on servers or domain controllers: enrollment requires
+  approved private CIDRs, a pilot host, and a separately authorized GPO/MDM rollout.
 - Ankay/Shuffle remains a later deployment gate: six image digests, Compose/runtime
   hardening, private routes/auth, and E2E playbook tests are separate from this SIEM
   profile. DNS stays at Punto.pe until the whole path is accepted.
