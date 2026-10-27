@@ -88,6 +88,100 @@ debe usarse para una rotación revisada y confirma cada escritura. El script no
 comprueba validez del permiso Graph, Sophos/Cato, ni el webhook de Teams; se deben
 probar esos proveedores por separado antes del apply del perfil SOC.
 
+## Alternativa manual por GitHub Actions (ARM, solo alta inicial)
+
+El workflow `.github/workflows/seed-eus2-key-vault-secret.yml` crea **un** secreto
+ausente desde un GitHub Environment secret usando `Microsoft.KeyVault/vaults/secrets`
+con parámetro ARM `secureString`. Es `workflow_dispatch` únicamente, acepta solo
+`main`, valida una frase de confirmación, requiere la protección del environment
+`azure-demo-eus2` y rehúsa sobrescribir un secreto existente. Esta ruta no ejecuta
+Terraform ni cambia DNS, red, Key Vault, RBAC, perfiles runtime o servicios.
+
+ARM usa el plano de administración de Azure. Las reglas de red del Key Vault
+controlan el plano de datos y siguen sin abrirse; por eso la ruta funciona desde un
+runner hospedado aunque no tenga conexión al VNet. El workflow comprueba por ARM
+que el destino sea el vault EUS2 correcto, con `publicNetworkAccess=Disabled`, ACL
+`Deny`/`None` y un Private Endpoint aprobado. Los valores van en un archivo de
+parámetros temporal con modo `0600`, se pasan a ARM como `secureString`, no se
+imprimen, no se guardan en state ni se adjuntan como artefacto, y el runner lo
+elimina al terminar. El borrado de archivos y referencias en memoria es best-effort;
+no equivale a un borrado forense. Fuentes: [Key Vault network security](https://learn.microsoft.com/en-us/azure/key-vault/general/how-to-azure-key-vault-network-security), [ARM data types](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/data-types), [Key Vault secret ARM resource](https://learn.microsoft.com/en-us/azure/templates/microsoft.keyvault/vaults/secrets).
+
+### Identidad y permisos requeridos (configuración externa, no los crea el workflow)
+
+- Environment existente `azure-demo-eus2`, limitado a `main`, con aprobación
+  obligatoria y self-review deshabilitado.
+- Una identidad federada exclusiva para seed, distinta de Terraform y del publicador.
+  FIC: issuer `https://token.actions.githubusercontent.com`, subject
+  `repo:CyberStill-GmbH/qapaq-secops:environment:azure-demo-eus2`, audience
+  `api://AzureADTokenExchange`.
+- Variables del environment: `AZURE_EUS2_SECRET_SEEDER_CLIENT_ID`,
+  `AZURE_EUS2_TENANT_ID` y `AZURE_EUS2_SUBSCRIPTION_ID`.
+- En el grupo de recursos destino: `Microsoft.Resources/deployments/validate/action`,
+  `Microsoft.Resources/deployments/write`, `Microsoft.Resources/deployments/read`,
+  `Microsoft.Resources/deployments/operations/read`,
+  `Microsoft.Resources/deployments/operationStatuses/read` y
+  `Microsoft.Resources/subscriptions/resourceGroups/read`.
+- En el alcance del vault exacto: `Microsoft.KeyVault/vaults/read`,
+  `Microsoft.KeyVault/vaults/secrets/read` y
+  `Microsoft.KeyVault/vaults/secrets/write`.
+
+No asignar permisos desde Actions. La identidad no necesita `Owner`, `Contributor`,
+`Key Vault Secrets Officer`, `Microsoft.Authorization/roleAssignments/write`, ni
+acciones de plano de datos como `Microsoft.KeyVault/vaults/secrets/getSecret/action`;
+no requiere acceso a valores existentes. La lectura anterior es metadata ARM para
+comprobar existencia y estado, separada del permiso de recuperar valores. Un
+administrador debe aprobar la asignación mínima en los alcances indicados antes de
+usar el workflow.
+
+### Allowlist exacta de origen y Key Vault
+
+Configurar solo en `azure-demo-eus2` los GitHub Environment secrets de la columna
+izquierda. No usar GitHub repository secrets compartidos con otros entornos.
+
+| GitHub Environment secret | Nombre exacto en Key Vault |
+| --- | --- |
+| `QAPAQ_EUS2_ENTRA_CLIENT_SECRET` | `qapaq-entra-client-secret` |
+| `QAPAQ_EUS2_OFFICE365_CLIENT_SECRET` | `office365-client-secret` |
+| `QAPAQ_EUS2_SOPHOS_CLIENT_ID` | `sophos-client-id` |
+| `QAPAQ_EUS2_SOPHOS_CLIENT_SECRET` | `sophos-client-secret` |
+| `QAPAQ_EUS2_CATO_API_KEY` | `cato-api-key` |
+| `QAPAQ_EUS2_TEAMS_WORKFLOW_URL` | `qapaq-teams-workflow-url` |
+| `QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64` | `wazuh-install-files.tar.b64` |
+
+El bundle Wazuh debe ser base64 de una sola línea del tar validado por el importador
+local (máximo 18.000 bytes decodificados, sin links, traversal ni miembros
+especiales). No cargar credenciales expuestas previamente en conversación o
+terminal: rotar y validar cada credencial primero. El workflow es de alta inicial;
+para rotación hace falta un procedimiento separado, revisado y con versionado
+intencional.
+
+### Ejecución y límites
+
+1. Un administrador configura identidad federada, permisos mínimos y secretos
+   recién rotados como se indica arriba; no pegar valores en el chat ni en CLI.
+2. Abrir **Actions → Seed one EUS2 Key Vault secret through ARM → Run workflow**,
+   elegir un único nombre de la allowlist y escribir `SEED-EUS2-SECRET`.
+3. El job de validación no recibe credenciales. El job de escritura espera la
+   aprobación del environment, comprueba target/red y ausencia del nombre, hace
+   una sola alta y verifica solo nombre/`enabled`/caducidad.
+4. Revisar el resumen de Actions. Un `resource not found` no prueba que el secreto
+   haya sido creado: cualquier error de autorización, red o consulta aborta.
+
+La ejecución no habilita `siem_host`, agentes, Ankay ni conectores, y no demuestra
+que un proveedor acepte esas credenciales. No almacenar aquí `CLAUDE_API_SECRET`,
+`VIRUS_TOTAL_API_KEY` ni `ACTIVE_DIRECTORY_SECRET`: esos valores no tienen un
+consumidor EUS2 conectado en Terraform/runtime.
+
+### Datos no secretos aún necesarios
+
+Antes de activar el runtime deben incorporarse a su perfil revisado, sin secretos
+ni placeholders: IDs de tenant y aplicación/permisos Graph de M365, Sophos tenant
+GUID y región, Cato account ID y nueva URL de Workflow de Teams protegida en Key
+Vault. El secret de cliente por sí solo no suple esos metadatos. Validar además el
+bundle Wazuh, las referencias exactas de Key Vault y pruebas sintéticas de cada
+proveedor antes del apply del perfil SIEM.
+
 ## Datos no secretos aún necesarios para el perfil SIEM
 
 - Office 365: `tenant_id`, `client_id`, `api_type` y permiso Graph mínimo; el
