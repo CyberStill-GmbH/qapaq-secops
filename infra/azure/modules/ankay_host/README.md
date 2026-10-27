@@ -92,3 +92,83 @@ credentials. It does not run a cloud plan. The root wiring is optional and disab
 feature branch's boot automation is not deployment evidence; verify the protected remote plan, inspect
 cost and every resource action, and then verify VM systemd/Compose health and the protected edge route
 after deployment. Do not call Ankay operational from Terraform output alone.
+
+<!-- BEGIN_TF_DOCS -->
+
+## Requirements
+
+| Name      | Version           |
+| --------- | ----------------- |
+| terraform | >= 1.8.0, < 2.0.0 |
+| azurerm   | ~> 4.62           |
+
+## Providers
+
+| Name    | Source            |
+| ------- | ----------------- |
+| azurerm | hashicorp/azurerm |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name                                                                                                                                                                                       | Type     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| [azurerm_linux_virtual_machine.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine)                                               | resource |
+| [azurerm_managed_disk.ankay_data](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/managed_disk)                                                            | resource |
+| [azurerm_network_interface.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_interface)                                                       | resource |
+| [azurerm_network_interface_security_group_association.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_interface_security_group_association) | resource |
+| [azurerm_network_security_group.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group)                                             | resource |
+| [azurerm_role_assignment.acr_pull](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                                        | resource |
+| [azurerm_role_assignment.key_vault_secret_read](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                           | resource |
+| [azurerm_route_table.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/route_table)                                                                   | resource |
+| [azurerm_subnet_route_table_association.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_route_table_association)                             | resource |
+| [azurerm_user_assigned_identity.ankay](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity)                                             | resource |
+| [azurerm_virtual_machine_data_disk_attachment.ankay_data](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_machine_data_disk_attachment)            | resource |
+
+## Inputs
+
+| Name                            | Description                                                                                                                                                                                                   | Type          | Default      | Required |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------ | :------: |
+| admin_ssh_public_key            | Clave pública del operador para recuperación fuera de banda. No se abre SSH en el NSG.                                                                                                                        | `string`      | n/a          |   yes    |
+| compose_sha256                  | SHA-256 revisado del archivo compose_yaml, para evitar que el host arranque un manifiesto mutable.                                                                                                            | `string`      | n/a          |   yes    |
+| compose_yaml                    | Compose revisado y sin secretos con exactamente shuffle-security, frontend, backend, orborus y opensearch. El worker va en SHUFFLE_WORKER_IMAGE de Orborus, no como servicio. Se guarda en custom_data/state. | `string`      | n/a          |   yes    |
+| confirm_dedicated_subnet        | Debe ser true solo si subnet_id se creó para Ankay y esta asociación de UDR no afecta otros workloads.                                                                                                        | `bool`        | n/a          |   yes    |
+| container_images                | Digests OCI previamente verificados en ACR: cinco servicios Compose y la imagen de worker que Orborus ejecuta dinámicamente.                                                                                  | `map(string)` | n/a          |   yes    |
+| container_registry_id           | Resource ID del ACR privado que contiene todas las imágenes fijadas.                                                                                                                                          | `string`      | n/a          |   yes    |
+| container_registry_login_server | FQDN del ACR usado para validar los digests de los servicios.                                                                                                                                                 | `string`      | n/a          |   yes    |
+| docker_package_versions         | Versiones apt exactas para Docker Engine/Compose y Azure CLI.                                                                                                                                                 | `map(string)` | n/a          |   yes    |
+| edge_subnet_cidr                | Origen privado del edge QAPAQ (en el root actual, la IP del host SIEM como /32) permitido hacia el frontend Ankay.                                                                                            | `string`      | n/a          |   yes    |
+| firewall_policy_reference       | Referencia revisada de la policy Azure Firewall con allowlist de destinos. Texto de control; no configura el firewall.                                                                                        | `string`      | n/a          |   yes    |
+| firewall_private_ip             | IP privada del Azure Firewall de salida. La subnet debe enrutar 0/0 por ese firewall y su policy debe denegar por defecto.                                                                                    | `string`      | n/a          |   yes    |
+| key_vault_id                    | Resource ID del Key Vault existente; la identidad recibe lectura solo en secretos explícitamente nombrados.                                                                                                   | `string`      | n/a          |   yes    |
+| key_vault_private_ip            | IP del Private Endpoint del Key Vault; autoriza solo HTTPS desde Ankay para cargar secretos runtime.                                                                                                          | `string`      | n/a          |   yes    |
+| key_vault_uri                   | URI HTTPS del Key Vault con Private Endpoint/DNS alcanzable desde la subnet dedicada.                                                                                                                         | `string`      | n/a          |   yes    |
+| private_ip_address              | IPv4 privada estática del host dentro de subnet_id.                                                                                                                                                           | `string`      | n/a          |   yes    |
+| qapaq_api_private_ip            | IP privada del endpoint API para el callback Ankay→QAPAQ; usar una IP estable o proxy interno.                                                                                                                | `string`      | n/a          |   yes    |
+| qapaq_api_subnet_cidr           | Origen privado del QAPAQ Core (en el root actual, la IP del host SIEM como /32) permitido hacia el webhook Ankay.                                                                                             | `string`      | n/a          |   yes    |
+| secret_names                    | Mapa de variables de entorno a nombres preexistentes de Key Vault. Solo nombres; nunca valores.                                                                                                               | `map(string)` | n/a          |   yes    |
+| subnet_id                       | Subnet privada dedicada de Ankay; debe tener una UDR 0/0 hacia Azure Firewall. No compartirla con PostgreSQL.                                                                                                 | `string`      | n/a          |   yes    |
+| ubuntu_image_version            | Versión exacta de Canonical Ubuntu 24.04 LTS disponible en la región; no se permite latest.                                                                                                                   | `string`      | n/a          |   yes    |
+| vm_size                         | SKU aprobada tras revisar costo/uso de memoria de OpenSearch; sin default para evitar un SKU costoso implícito.                                                                                               | `string`      | n/a          |   yes    |
+| admin_username                  | n/a                                                                                                                                                                                                           | `string`      | `"qapaqops"` |    no    |
+| api_port                        | n/a                                                                                                                                                                                                           | `number`      | `443`        |    no    |
+| backend_port                    | n/a                                                                                                                                                                                                           | `number`      | `5001`       |    no    |
+| compose_health_timeout_seconds  | Tiempo máximo para esperar healthy checks de todos los servicios del Compose.                                                                                                                                 | `number`      | `900`        |    no    |
+| data_disk_size_gb               | Disco persistente para OpenSearch y archivos de Shuffle.                                                                                                                                                      | `number`      | `128`        |    no    |
+| frontend_port                   | n/a                                                                                                                                                                                                           | `number`      | `3001`       |    no    |
+| wazuh_manager_private_ip        | IP privada del manager Wazuh para salida del agente por TCP/1514. Vacía hasta que exista manager Azure.                                                                                                       | `string`      | `""`         |    no    |
+
+## Outputs
+
+| Name                      | Description                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| managed_disk_id           | Disco independiente con prevent_destroy para las definiciones/datos de Ankay.                                                        |
+| network_security_group_id | n/a                                                                                                                                  |
+| private_ip_address        | IP privada del host para que el edge protegido publique /ankay/ después de la prueba de sesión.                                      |
+| route_table_id            | UDR propia de la subnet dedicada, con 0/0 forzado al firewall.                                                                       |
+| runtime_status            | Cloud-init instala y arranca Compose en el primer inicio; este valor no afirma que el host desplegado haya pasado sus health checks. |
+
+<!-- END_TF_DOCS -->

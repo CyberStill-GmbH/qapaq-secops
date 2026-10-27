@@ -179,3 +179,106 @@ debe verificar:
    privada desde la subnet SIEM.
 7. La reserva de IP/rutas y el modo de acceso privado están definidos fuera de este módulo; no hay DNS.
 8. Plan y costo completo revisados antes de cualquier apply, incluyendo costo fijo/variable del Firewall.
+
+<!-- BEGIN_TF_DOCS -->
+
+## Requirements
+
+| Name      | Version           |
+| --------- | ----------------- |
+| terraform | >= 1.9.0, < 2.0.0 |
+| azurerm   | >= 4.0, < 5.0     |
+
+## Providers
+
+| Name    | Source            |
+| ------- | ----------------- |
+| azurerm | hashicorp/azurerm |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name                                                                                                                                                                                                          | Type     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| [azurerm_lb.siem_ingress](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/lb)                                                                                                 | resource |
+| [azurerm_lb_backend_address_pool.siem_ingress](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/lb_backend_address_pool)                                                       | resource |
+| [azurerm_lb_probe.siem_http](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/lb_probe)                                                                                        | resource |
+| [azurerm_lb_probe.siem_https](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/lb_probe)                                                                                       | resource |
+| [azurerm_lb_rule.siem_http](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/lb_rule)                                                                                          | resource |
+| [azurerm_lb_rule.siem_https](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/lb_rule)                                                                                         | resource |
+| [azurerm_linux_virtual_machine.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine)                                                                   | resource |
+| [azurerm_managed_disk.siem_data](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/managed_disk)                                                                                | resource |
+| [azurerm_network_interface.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_interface)                                                                           | resource |
+| [azurerm_network_interface_backend_address_pool_association.siem_ingress](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_interface_backend_address_pool_association) | resource |
+| [azurerm_network_security_group.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_security_group)                                                                 | resource |
+| [azurerm_role_assignment.acr_pull](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                                                           | resource |
+| [azurerm_role_assignment.artifact_read](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                                                      | resource |
+| [azurerm_role_assignment.evidence_write](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                                                     | resource |
+| [azurerm_role_assignment.key_vault_secret_read](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment)                                                              | resource |
+| [azurerm_route_table.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/route_table)                                                                                       | resource |
+| [azurerm_subnet.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet)                                                                                                 | resource |
+| [azurerm_subnet_network_security_group_association.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association)                           | resource |
+| [azurerm_subnet_route_table_association.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_route_table_association)                                                 | resource |
+| [azurerm_user_assigned_identity.siem](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity)                                                                 | resource |
+| [azurerm_virtual_machine_data_disk_attachment.siem_data](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_machine_data_disk_attachment)                                | resource |
+| [azurerm_virtual_machine_extension.siem_bootstrap](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_machine_extension)                                                 | resource |
+
+## Inputs
+
+| Name                           | Description                                                                                                                                                         | Type                                                                                                                     | Default         | Required |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------- | :------: |
+| address_prefix                 | CIDR libre y no solapado para la subnet privada del SIEM.                                                                                                           | `string`                                                                                                                 | n/a             |   yes    |
+| admin_ssh_public_key           | Clave pública SSH para acceso por un canal privado aprobado (por ejemplo, Azure Bastion). No se crea acceso SSH público.                                            | `string`                                                                                                                 | n/a             |   yes    |
+| artifact_container_scope_id    | Scope de contenedor Blob privado que contiene el bundle, limitado a Storage Blob Data Reader.                                                                       | `string`                                                                                                                 | n/a             |   yes    |
+| bootstrap_bundle_blob_url      | URL HTTPS sin SAS a un blob privado con el bundle inmutable Wazuh + QAPAQ.                                                                                          | `string`                                                                                                                 | n/a             |   yes    |
+| bootstrap_bundle_sha256        | SHA-256 del bundle completo, calculado y publicado por CI.                                                                                                          | `string`                                                                                                                 | n/a             |   yes    |
+| container_registry_id          | ID del ACR existente, limitado a AcrPull para la identidad de la VM.                                                                                                | `string`                                                                                                                 | n/a             |   yes    |
+| data_disk_size_gb              | Disco durable para estado de Wazuh. Debe presupuestarse según retención y volumen.                                                                                  | `number`                                                                                                                 | n/a             |   yes    |
+| firewall_policy_reference      | ID de la Azure Firewall Policy Standard creada por el root y asociada al host SIEM.                                                                                 | `string`                                                                                                                 | n/a             |   yes    |
+| firewall_private_ip            | IP privada IPv4 del Azure Firewall Standard administrado por el root, que recibe la ruta 0/0 de la subnet SIEM.                                                     | `string`                                                                                                                 | n/a             |   yes    |
+| key_vault_id                   | ID del Key Vault ya protegido por red privada.                                                                                                                      | `string`                                                                                                                 | n/a             |   yes    |
+| key_vault_uri                  | URI HTTPS del Key Vault privado, por ejemplo https://<vault>.vault.azure.net.                                                                                       | `string`                                                                                                                 | n/a             |   yes    |
+| location                       | Región de la VM; debe coincidir con la VNet y los discos.                                                                                                           | `string`                                                                                                                 | n/a             |   yes    |
+| name_base                      | Prefijo corto y estable para los recursos del host SIEM.                                                                                                            | `string`                                                                                                                 | n/a             |   yes    |
+| office365                      | Configuración no secreta de Microsoft 365; client secret se lee desde el archivo que la Managed Identity materializa desde Key Vault.                               | <pre>object({<br/> tenant_id = string<br/> client_id = string<br/> api_type = string<br/> enable_dlp = bool<br/>})</pre> | n/a             |   yes    |
+| postgres_subnet_cidr           | CIDR exacto de la subnet PostgreSQL privada; solo se autoriza TCP/5432 a este rango.                                                                                | `string`                                                                                                                 | n/a             |   yes    |
+| private_endpoint_subnet_cidr   | CIDR exacto de la subnet privada que aloja Private Endpoints de Blob y Key Vault requeridos durante bootstrap/runtime.                                              | `string`                                                                                                                 | n/a             |   yes    |
+| resource_group_name            | Resource group existente del entorno Azure.                                                                                                                         | `string`                                                                                                                 | n/a             |   yes    |
+| ubuntu_image_version           | Versión exacta de la imagen Canonical Ubuntu 24.04 LTS. No usar latest.                                                                                             | `string`                                                                                                                 | n/a             |   yes    |
+| virtual_network_name           | VNet existente; el módulo crea una subnet privada dedicada al SIEM.                                                                                                 | `string`                                                                                                                 | n/a             |   yes    |
+| vm_size                        | SKU de VM validado con la carga Wazuh y la cuota de la suscripción.                                                                                                 | `string`                                                                                                                 | n/a             |   yes    |
+| admin_username                 | Usuario Linux de administración local; SSH no se abre en el NSG.                                                                                                    | `string`                                                                                                                 | `"qapaqadmin"`  |    no    |
+| agent_ingress_cidrs            | CIDR de redes de agentes aprobadas; vacío mantiene cerrados 1514/TCP y 1515/TCP.                                                                                    | `set(string)`                                                                                                            | `[]`            |    no    |
+| core_environment               | Configuración no secreta de qapaq-core.                                                                                                                             | `map(string)`                                                                                                            | `{}`            |    no    |
+| core_secret_names              | Mapa variable de entorno → nombre de secreto preexistente en Key Vault. Solo nombres; nunca valores.                                                                | `map(string)`                                                                                                            | `{}`            |    no    |
+| dashboard_ingress_cidrs        | CIDR de origen aprobado para HTTPS público. El Firewall DNAT filtra el origen antes del Load Balancer interno.                                                      | `set(string)`                                                                                                            | `[]`            |    no    |
+| data_disk_storage_account_type | Tipo de almacenamiento administrado para datos Wazuh.                                                                                                               | `string`                                                                                                                 | `"Premium_LRS"` |    no    |
+| evidence_container_scope_id    | Scope de contenedor Blob privado de evidencia, limitado a Storage Blob Data Contributor.                                                                            | `string`                                                                                                                 | `null`          |    no    |
+| ingress_http_enabled           | Publica HTTP en el edge solo para el challenge ACME HTTP-01 y redirección HTTPS.                                                                                    | `bool`                                                                                                                   | `true`          |    no    |
+| ingress_lb_private_ip          | IPv4 fija opcional del frontend privado del Load Balancer SIEM; por defecto usa el host 10 de la subnet dedicada.                                                   | `string`                                                                                                                 | `null`          |    no    |
+| krakend_source_cidrs           | Subnet privada exclusiva de ACA KrakenD autorizada a consultar el proxy read-only de Indexer por TCP/9200. Vacío mantiene el puerto cerrado.                        | `set(string)`                                                                                                            | `[]`            |    no    |
+| os_disk_size_gb                | Tamaño del disco de sistema.                                                                                                                                        | `number`                                                                                                                 | `64`            |    no    |
+| private_ip_address             | IPv4 estática del host SIEM. null conserva asignación dinámica; KrakenD exige una IP estática para su upstream privado.                                             | `string`                                                                                                                 | `null`          |    no    |
+| provider_ingestion             | Configuración no secreta para los conectores Wazuh de Sophos Central y Cato eventsFeed. Los valores de credenciales solo se referencian por nombre desde Key Vault. | `map(string)`                                                                                                            | `{}`            |    no    |
+| tags                           | Etiquetas comunes.                                                                                                                                                  | `map(string)`                                                                                                            | `{}`            |    no    |
+| wazuh_secret_names             | Mapa nombre de archivo seguro → secreto preexistente para la instalación Wazuh. Solo referencias, nunca valores.                                                    | `map(string)`                                                                                                            | `{}`            |    no    |
+
+## Outputs
+
+| Name                             | Description                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| bootstrap_extension_id           | ID de la extensión bootstrap; su estado debe revisarse antes de declarar el SIEM operativo. |
+| data_disk_id                     | Disco persistente con prevent_destroy; debe conservarse incluso al retirar la VM.           |
+| ingress_load_balancer_private_ip | Frontend privado de Azure Standard Load Balancer, destino de DNAT del Firewall.             |
+| managed_identity_client_id       | Client ID de la identidad administrada asignada a la VM.                                    |
+| managed_identity_principal_id    | Principal ID de la identidad administrada.                                                  |
+| network_security_group_id        | NSG del SIEM; 443 y agentes quedan cerrados cuando no hay CIDR aprobado.                    |
+| private_ip_address               | IP privada dinámica de la VM; DNS queda fuera del módulo.                                   |
+| route_table_id                   | UDR dedicada que fuerza 0/0 por el Azure Firewall existente.                                |
+| subnet_id                        | Subnet privada dedicada al host SIEM.                                                       |
+| vm_id                            | ID de la VM privada QAPAQ SIEM.                                                             |
+
+<!-- END_TF_DOCS -->

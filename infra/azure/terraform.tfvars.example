@@ -4,8 +4,10 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 tenant_id       = "00000000-0000-0000-0000-000000000000"
 location        = "chilecentral" # Santiago: región cercana a Perú; confirmar residencia y SKU/cuotas.
 
-# Inyectar como variable de entorno segura TF_VAR_postgres_admin_password.
-# El valor no debe escribirse en este archivo ni en comandos/logs.
+# postgres_admin_password es efímera y write-only: no queda en el plan ni en el state.
+# Inyectarla solo como TF_VAR_postgres_admin_password, tanto en plan como en apply.
+# Para rotarla: cambiar el secreto del GitHub Environment e incrementar esta versión.
+postgres_admin_password_version = 1
 
 # El frontend SOC es el Dashboard Wazuh QAPAQ del host SIEM, no una web Container App.
 # Mantener desactivado el runtime genérico hasta completar la integración del host.

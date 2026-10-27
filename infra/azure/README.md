@@ -1,158 +1,180 @@
-# QAPAQ SecOps en Azure
+# QAPAQ SecOps — Terraform Azure
 
-Este root es independiente de `infra/aws`: usa una suscripción, state, identidad,
-red y secretos propios. No importa ni cambia recursos AWS o DNS. La arquitectura
-documentada para el destino Azure se rige por [`docs/cloud/azure/architecture.md`](../../docs/cloud/azure/architecture.md),
-con [`arquitectura objetivo EUS2`](../../docs/cloud/azure/target-architecture-demo-eus2.md),
-`docs/10-decisiones.md` y `docs/12-backend-en-el-siem.md` como fuentes de producto. El
-perfil no secreto `profiles/demo-eus2.tfvars` es el que consume el workflow aislado EUS2;
-por sí solo mantiene los hosts SIEM y Ankay deshabilitados.
+Root Terraform de la plataforma QAPAQ SecOps en Azure. Es independiente de `infra/aws`:
+tiene suscripción, state, identidades, red y secretos propios, y no gestiona DNS.
+El mapa de módulos, el orden de creación, las convenciones de nombres y la estructura
+de carpetas están en [`ARCHITECTURE.md`](ARCHITECTURE.md). La arquitectura de producto
+está en [`docs/cloud/azure/architecture.md`](../../docs/cloud/azure/architecture.md).
 
-## Estado real del root
+## Estado
 
-**Fundación IaC; no equivale a un SOC operativo.** El root puede crear red,
-PostgreSQL Flexible Server y sus bases, Key Vault, Blob privado, Log Analytics,
-Container Apps Environment, ACR e identidad/federación OIDC, sujeto a bootstrap,
-state, permisos, cuotas y revisión de plan. `enable_runtime` está apagado por
-defecto.
+| Entorno     | Región         | State key                                  | Estado verificado (plan de solo lectura, 2026-10-27)                                             |
+| ----------- | -------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `demo`      | `chilecentral` | `qapaq-secops/demo/terraform.tfstate`      | Foundation aplicada; sin drift.                                                                  |
+| `demo-eus2` | `eastus2`      | `qapaq-secops/demo-eus2/terraform.tfstate` | Foundation e identidad de carga de secretos aplicadas; sin drift.                                |
+| `demo-eus`  | `eastus`       | `qapaq-secops/demo-eus/terraform.tfstate`  | Foundation parcial: PostgreSQL y sus bases nunca se crearon. Entorno sustituido por `demo-eus2`. |
 
-El único frontend previsto para QAPAQ SecOps es el Wazuh Dashboard modificado de
-`wazuh/dashboard/`, servido por el host SIEM detrás del edge QAPAQ. No se despliega
-Vercel ni una aplicación web separada para el SOC. El runtime genérico de Container
-Apps no es el frontend oficial y debe permanecer desactivado mientras se completa
-la integración del host SIEM y `qapaq-core`.
+En los tres entornos están apagados `enable_runtime`, `siem_host`, `ankay_host` y
+`krakend_gateway`. Por eso Wazuh, KrakenD, Ankay y el runtime genérico existen como
+código pero no como recursos. Habilitarlos exige artefactos fijados por digest,
+secretos precreados en Key Vault y un plan revisado. Ver los README de cada módulo.
 
-El runtime opcional existente es genérico: `edge`, `web`, `gateway`, `api` y
-`worker` en Container Apps. No representa el destino de A6/A8/A9/A13/A22 y no
-se debe activar como sustituto del SIEM. En particular, este root no crea ni
-instala Manager/Indexer/Dashboard Wazuh, `qapaq-core` ni KrakenD dentro del host SIEM,
-ni Valkey. KrakenD tiene un módulo ACA privado opcional fuera del host, apagado por
-defecto y pendiente de aprovisionar el proxy Indexer y sus secretos Azure. Ankay tiene ahora un cableado root opcional, pero su host sigue apagado
-por defecto y el módulo solo prepara VM/disco y Compose; todavía no instala
-Docker ni inicia Shuffle. Tampoco cambia DNS.
+## Uso
 
-El diseño objetivo se traduce a Azure así:
+Toda operación remota pasa por los workflows protegidos `terraform-azure*.yml`: OIDC,
+GitHub Environment con aprobación, plan guardado y rechazo automático de cualquier
+`delete`/`forget`. Para trabajo local solo se admiten `fmt`, `validate`, `test` y `plan`.
 
-- VM SIEM con Manager, Indexer y Dashboard 4.14.8 / OSD 2.19.6 y overlay QAPAQ.
-- Nginx edge QAPAQ en el host SIEM; `qapaq-core` API+worker Node 24 como servicios
-  locales y KrakenD para la ingesta mientras lo requiera A8.
-- Azure PostgreSQL privado como persistencia durable; Valkey compatible pendiente
-  de SKU/compatibilidad y de un consumidor BullMQ funcional.
-- VM Linux privada separada para Ankay, con Shuffle completo, Orborus, workers,
-  OpenSearch y persistencia. `/ankay/*` atraviesa el edge QAPAQ con la sesión y
-  autorización existentes.
+```bash
+terraform -chdir=infra/azure fmt -check -recursive
+terraform -chdir=infra/azure init -backend=false
+terraform -chdir=infra/azure validate
+terraform -chdir=infra/azure test
+```
 
-Estos son objetivos de diseño, no componentes desplegados por este root. El bootstrap Azure del SIEM
-ya puede materializar el secreto de Office 365 desde Key Vault y aplicar sus reglas; aún no acredita
-lectura real ni indexación de eventos en el tenant. `qapaq-core` conserva dependencias AWS que deben
-resolverse por separado; el worker actual es lifecycle-only y no consume BullMQ. No hay evidencia de
-conectores Sophos o Cato operativos; Teams y M365 deben probarse en los servicios
-reales antes de declarar cobertura.
+Plan contra un state real (solo lectura, sin lock), con sesión `az login` y rol de lectura
+sobre el storage del state:
 
-## Módulos que sí están en Terraform
+```bash
+terraform -chdir=infra/azure init -reconfigure \
+  -backend-config="resource_group_name=<rg-state>" \
+  -backend-config="storage_account_name=<state-account>" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=qapaq-secops/<env>/terraform.tfstate"
+TF_VAR_postgres_admin_password=... terraform -chdir=infra/azure plan -lock=false
+```
 
-| Módulo                            | Alcance actual                                                                                                                                                                                                                                                                                                                      |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/network`                 | VNet, subnets delegadas y DNS privado para servicios con endpoint privado.                                                                                                                                                                                                                                                          |
-| `modules/observability`           | Log Analytics y Container Apps Environment.                                                                                                                                                                                                                                                                                         |
-| `modules/data`                    | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, cuenta evidence privada para `security-event-raw`, cuenta dedicada de releases con `siem-release` privado y acceso de red autenticado, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa.                                                          |
-| `modules/identity_registry`       | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub escribe en el contenedor privado de releases; ninguna identidad obtiene ambos alcances de evidencia y artefactos.                                                                                               |
-| `modules/key_vault_seed_identity` | Solo `demo-eus2`: identidad GitHub OIDC exclusiva para la carga create-only de secretos ARM; roles personalizados limitados al grupo demo y al Key Vault EUS2 exacto, sin acceso de plano de datos. Requiere que la identidad que aplique Terraform pueda crear esas definiciones y asignaciones RBAC.                              |
-| `modules/runtime`                 | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                                                                                                                                  |
-| `modules/siem_host`               | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Al habilitarlo, el root crea Azure Firewall Standard con policy de egress; requiere bundle inmutable y referencias Key Vault.                                                                                                                           |
-| `modules/egress_firewall`         | Azure Firewall Standard, policy threat-intelligence deny, proxy DNS, IP de salida y allowlist HTTPS. Se crea solo con `siem_host`; genera cargos por hora y procesamiento.                                                                                                                                                          |
-| `modules/krakend_gateway`         | KrakenD stateless en ACA internal ILB, 2–4 réplicas, digest ACR, dos referencias Key Vault read-only, UDR/allowlist a Firewall y solo `GET /wazuh/_cluster/health` + `POST /wazuh/_search`; exige app role `Qapaq.Wazuh.Read` y allowlist `appid`/`azp` de Core. `null` por defecto; faltan proxy TLS y secrets Key Vault Azure.    |
-| `modules/ankay_host`              | Host Shuffle separado y opcional, con subnet dedicada, UDR al firewall, NSG, identidad ACR y discos con `prevent_destroy`. Solo prepara VM/Compose; no instala Docker ni arranca servicios. Requiere `siem_host`, seis imágenes ACR fijadas por digest, Compose revisado, clave aprobada y una configuración `ankay_host` completa. |
+Secuencia para un entorno nuevo:
 
-El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob Data
-Contributor` queda limitado al contenedor privado `siem-release` de una cuenta dedicada
-de artefactos. Esa cuenta acepta tráfico por endpoint público autenticado para que los
-runners GitHub-hosted puedan publicar, pero bloquea claves compartidas y acceso anónimo;
-la VM SIEM llega por su private endpoint. La excepción Trivy `AZU-0012` vence el
-2026-11-20; antes se debe migrar la publicación a un runner con egress privado. El account
-de artefactos no guarda evidencia SOC.
-La cuenta `evidence` permanece privada y su contenedor `security-event-raw` no cambia. El
-contenedor `siem-release` previo en esa cuenta y su grant publisher se conservan mediante
-una migración de dirección Terraform; no se destruyen ni se reutilizan para el canal nuevo.
-La identidad de runtime conserva el permiso separado de escritura solo a `security-event-raw`.
+1. `bootstrap/`: crea el resource group del entorno, el storage del state y la identidad
+   OIDC de Terraform. Se aplica una vez con state local y luego se migra. Ver
+   [`bootstrap/README.md`](bootstrap/README.md).
+2. Configurar las variables y secretos del GitHub Environment (`AZURE_*_TF_STATE_*`,
+   `AZURE_*_SUBSCRIPTION_ID`, `AZURE_*_TENANT_ID`, `AZURE_*_POSTGRES_ADMIN_PASSWORD`).
+3. Ejecutar el workflow en modo plan, revisar cada recurso y su costo, y aprobar el apply.
+4. Publicar imágenes y bundles por los workflows OIDC; crear los secretos en Key Vault con
+   el workflow create-only. Solo después se habilitan los objetos opcionales.
 
-`moved.tf` preserva direcciones anteriores durante migraciones de state. Los
-bloqueos `prevent_destroy` protegen recursos definidos, pero no sustituyen un
-state remoto seguro, backups verificados ni una revisión del plan.
+`terraform.tfvars` está ignorado por Git. Usar [`terraform.tfvars.example`](terraform.tfvars.example)
+como plantilla local, o el perfil versionado sin secretos [`profiles/demo-eus2.tfvars`](profiles/demo-eus2.tfvars).
 
-## Presupuesto y datos
+## Seguridad
 
-USD 200/mes es un umbral de alertas, **no** un tope de facturación ni una regla de
-apagado o `destroy`. La estimación vigente de cómputo Wazuh + PostgreSQL supera
-ese umbral y no incluye todos los discos, backup, Valkey, red, observabilidad,
-ACR ni la VM/almacenamiento de Ankay. Revisar
-[viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-20.md)
-y cotizar la arquitectura completa antes del plan.
+| Control                     | Implementación                                                                                                                                                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Secretos fuera de Terraform | La contraseña de PostgreSQL es `ephemeral` y se envía como `administrator_password_wo`: no queda en el plan guardado ni en el state. El resto de secretos son referencias a Key Vault.                                               |
+| Identidad sin credenciales  | GitHub Actions usa OIDC federado. Las cargas de trabajo usan Managed Identities con RBAC acotado al contenedor o secreto exacto. ACR con `admin_enabled = false`.                                                                    |
+| Red privada                 | PostgreSQL con integración VNet; Key Vault y Blob de evidencia solo por Private Endpoint (`public_network_access_enabled = false`). VMs sin IP pública y egress forzado por Azure Firewall.                                          |
+| Cifrado                     | TLS 1.2 mínimo en Storage; PostgreSQL con `require_secure_transport = on` y `ssl_min_protocol_version = TLSv1.2` declarados; cifrado de infraestructura en Storage; `encryption_at_host` en VMs.                                     |
+| Auditoría                   | Diagnostic settings hacia Log Analytics: `AuditEvent` de Key Vault, lecturas, escrituras y borrados de Blob de evidencia, escrituras y borrados de Blob de releases, `PostgreSQLLogs`, login y repositorio de ACR, NAT del Firewall. |
+| Protección de datos         | `prevent_destroy` en PostgreSQL, bases, Storage, contenedores, Key Vault, Log Analytics, CAE y discos de VM. Key Vault con purge protection; Blob con versionado y soft delete de 30 días.                                           |
+| State                       | Backend `azurerm` con Entra ID (`use_azuread_auth`) y bloqueo nativo por lease del blob. El storage del state tiene versionado, soft delete y claves compartidas deshabilitadas.                                                     |
 
-La decisión A11 fija snapshots y evidencia en S3 y excluye Azure. No usar Blob
-como archivo SOC hasta aprobar una decisión nueva sobre residencia, Object Lock
-y retención. Separar eventos de
-seguridad en Wazuh/OpenSearch, logs operativos en el destino de observabilidad
-aprobado y referencias/estado de jobs en la cola. No guardar secretos ni payloads
-crudos en la cola.
+Excepciones vigentes, con fecha de revisión:
 
-`postgres_admin_password` es sensible y Terraform lo conserva en state. Usar
-backend remoto cifrado, versionado y acceso mínimo antes de operar el root; nunca
-cargar el valor a Git o a un archivo versionado. El rol runtime de PostgreSQL y
-las migraciones Azure aún necesitan implementarse y validarse. Terraform crea el
-Key Vault, no los valores de secretos.
+- Storage del state y Storage de releases aceptan tráfico público autenticado por Entra
+  para runners GitHub-hosted (`trivy:ignore:AZU-0012`, vence 2026-11-20).
+- ACR Basic no admite Private Link: el endpoint es público, sin acceso anónimo ni usuario
+  admin, y queda auditado en Log Analytics.
 
-## Requisitos antes de un plan remoto
+> **Rotación pendiente.** Hasta aplicar este cambio, el state de `demo` y `demo-eus2`
+> contiene la contraseña admin de PostgreSQL en claro, y los planes guardados que suben
+> los workflows también la contenían. Después del primer apply: rotar el secreto del
+> GitHub Environment, incrementar `postgres_admin_password_version` y aplicar de nuevo.
 
-- Confirmar suscripción, tenant, región y residencia autorizada para eventos y
-  evidencia; validar cuota y disponibilidad de SKU.
-- Bootstrap de grupo, state Azure Storage remoto, versionado/soft delete, locking,
-  OIDC de GitHub y RBAC mínimo. Usar runner con conectividad privada si se requieren
-  endpoints privados.
-- Acordar el diseño de host SIEM, edge/TLS, discos, backup/restore, firewall y
-  allowlist de agentes. No publicar Manager API 55000, Indexer 9200 ni Dashboard
-  interno.
-- Instalar y validar bootstrap Azure para Wazuh, `qapaq-core` y Ankay; fijar el proxy TLS read-only de Indexer, integrar su creación con Managed Identity/Key Vault sin escritura para la identidad runtime, y publicar KrakenD por digest. El módulo KrakenD ya existe pero permanece apagado hasta cerrar ese gate y demostrar el Core-to-Indexer test.
-- Validar el backend de jobs aprobado: A9 indica Valkey/BullMQ; el worker debe
-  consumir realmente la cola y pasar pruebas de caída/reintento/idempotencia antes
-  de habilitarlo. No presentar PostgreSQL como backend BullMQ por configuración.
-- Fijar artefactos e imágenes por digest, escaneos, SBOM/procedencia y permisos de
-  publicación/lectura ACR. Las pipelines de publicación no instalan el runtime ni
-  aplican Terraform.
-- Validar M365 en Wazuh con eventos sintéticos y alertas; establecer contrato
-  Sophos/Cato y verificar Teams con endpoint de prueba. Los nombres de secretos o
-  reglas no acreditan conexión.
-- Aprobar costo completo y conservar USD 200 como alerta solamente; revisar el
-  plan exacto, reemplazos/destrucciones, `prevent_destroy`, red, rollback y backups.
+## Costos
 
-## Secuencia propuesta
+`azurerm_consumption_budget_subscription` crea un presupuesto mensual de alertas al
+50/75/90/100 % real y al 100 % proyectado. Es un aviso, no un límite: no apaga ni
+destruye recursos. Ver [viabilidad de costo](../../docs/cloud/azure/cost-feasibility-2026-10-20.md).
 
-1. Revisar [`arquitectura Azure`](../../docs/cloud/azure/architecture.md),
-   [`paridad IaC`](../../docs/cloud/azure/terraform-parity-review-2026-10-19.md)
-   y [`costo`](../../docs/cloud/azure/cost-feasibility-2026-10-20.md).
-2. Preparar el bootstrap y state backend; confirmar identidad OIDC, acceso al
-   state y permisos acotados. Generar plan remoto nuevo y revisar cada cambio.
-3. Completar instalación del host SIEM, `qapaq-core`, el proxy Indexer y el módulo privado KrakenD, Valkey y
-   Ankay con almacenamiento y recuperación; adaptar Key Vault/Managed Identity.
-4. Publicar/instalar artefactos fijados, ejecutar migraciones y configurar fuentes
-   solo tras verificar contratos y secretos por canales seguros.
-5. Probar paridad descrita en `docs/12-backend-en-el-siem.md`, agentes de prueba,
-   ingestión, reglas, sesiones, recuperación, playbooks read-only y notificaciones.
-6. Revisar costos, residencia, TLS, exposición y rollback. El cutover de
-   `app.jappi.net.pe` se trata por separado; este root no gestiona DNS.
+<!-- BEGIN_TF_DOCS -->
 
-## Protecciones y límites
+## Requirements
 
-PostgreSQL, Key Vault, Log Analytics y Storage usan `prevent_destroy` donde lo
-define el código. Key Vault tiene soft delete/purge protection; Blob cuenta con
-versionado/recuperación según el módulo. Confirmar política y restore efectivo
-antes de almacenar datos reales. Un retiro intencional requiere un cambio revisado
-de esas protecciones y aprobación separada.
+| Name      | Version            |
+| --------- | ------------------ |
+| terraform | >= 1.11.0, < 2.0.0 |
+| azurerm   | ~> 4.81            |
 
-Los logs operativos de plataforma se separan de eventos y evidencia SOC. El diseño
-Azure todavía debe decidir destino/retención conforme a residencia. No afirmar que
-Log Analytics recibe logs de aplicación ni que Wazuh procesa conectores hasta ver
-una prueba real.
+## Providers
 
-Ver el [diagrama de destino Azure](../../docs/cloud/azure/diagrams/qapaq-azure.mmd)
-y el [runbook Azure](../../docs/cloud/azure/runbook-preparacion-y-corte.md).
+| Name    | Source            |
+| ------- | ----------------- |
+| azurerm | hashicorp/azurerm |
+
+## Modules
+
+| Name                    | Source                            | Version |
+| ----------------------- | --------------------------------- | ------- |
+| ankay_host              | ./modules/ankay_host              | n/a     |
+| data                    | ./modules/data                    | n/a     |
+| egress_firewall         | ./modules/egress_firewall         | n/a     |
+| identity_registry       | ./modules/identity_registry       | n/a     |
+| key_vault_seed_identity | ./modules/key_vault_seed_identity | n/a     |
+| krakend_gateway         | ./modules/krakend_gateway         | n/a     |
+| network                 | ./modules/network                 | n/a     |
+| observability           | ./modules/observability           | n/a     |
+| runtime                 | ./modules/runtime                 | n/a     |
+| siem_host               | ./modules/siem_host               | n/a     |
+
+## Resources
+
+| Name                                                                                                                                                               | Type        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| [azurerm_consumption_budget_subscription.monthly](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/consumption_budget_subscription) | resource    |
+| [data.azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/resource_group)                              | data source |
+
+## Inputs
+
+| Name                            | Description                                                                                                                                                                                                                              | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Default                                                                                                                                                              | Required |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------: |
+| postgres_admin_password         | Contraseña de bootstrap PostgreSQL. Es efímera: Terraform la envía como argumento write-only y no la guarda en el plan ni en el state. Inyectarla con TF_VAR_postgres_admin_password en plan y apply. (efímera)                          | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | n/a                                                                                                                                                                  |   yes    |
+| subscription_id                 | ID de la suscripción Azure destino; no se fija una suscripción por defecto.                                                                                                                                                              | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | n/a                                                                                                                                                                  |   yes    |
+| tenant_id                       | Tenant Entra que autentica las identidades administradas y GitHub OIDC.                                                                                                                                                                  | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | n/a                                                                                                                                                                  |   yes    |
+| additional_github_environments  | GitHub Environments adicionales autorizados por OIDC para la identidad publicadora de este stack.                                                                                                                                        | `set(string)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `[]`                                                                                                                                                                 |    no    |
+| address_space                   | Address space VNet.                                                                                                                                                                                                                      | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"10.80.0.0/16"`                                                                                                                                                     |    no    |
+| ankay_host                      | Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR, Compose sin secretos y referencias a secretos precreados en Key Vault; comparte el firewall Azure del SIEM. | <pre>object({<br/> private_ip_address = string<br/> admin_ssh_public_key = string<br/> vm_size = string<br/> ubuntu_image_version = string<br/> data_disk_size_gb = optional(number, 128)<br/> container_images = map(string)<br/> compose_yaml = string<br/> compose_sha256 = string<br/> secret_names = map(string)<br/> docker_package_versions = map(string)<br/>})</pre>                                                                                                                                                                                                                                                                                                                     | `null`                                                                                                                                                               |    no    |
+| container_images                | Digests OCI verificados desde ACR para edge, web, gateway, api y worker. Deben fijarse antes de habilitar el runtime.                                                                                                                    | `map(string)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `{}`                                                                                                                                                                 |    no    |
+| cost_alert_emails               | Destinatarios autorizados para avisos de presupuesto Azure.                                                                                                                                                                              | `list(string)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `["cguevara@qapaq.pe"]`                                                                                                                                              |    no    |
+| cost_budget_amount              | Presupuesto mensual de alerta a nivel suscripción, en la moneda de facturación de Azure. No apaga recursos.                                                                                                                              | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `200`                                                                                                                                                                |    no    |
+| cost_budget_end_date            | Fin UTC del presupuesto; renovar antes de esta fecha si el entorno continúa.                                                                                                                                                             | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"2030-10-01T00:00:00Z"`                                                                                                                                             |    no    |
+| cost_budget_start_date          | Inicio UTC del período de evaluación del presupuesto mensual.                                                                                                                                                                            | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"2026-10-01T00:00:00Z"`                                                                                                                                             |    no    |
+| enable_runtime                  | Crea Container Apps solo al contar con cinco digests verificados y compatibilidad de runtime aprobada.                                                                                                                                   | `bool`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `false`                                                                                                                                                              |    no    |
+| environment                     | Nombre aislado del entorno Azure. Forma parte del sufijo determinista y del nombre del resource group precreado por bootstrap.                                                                                                           | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"demo"`                                                                                                                                                             |    no    |
+| github_environment              | GitHub Environment que restringe el subject OIDC del publicador Azure.                                                                                                                                                                   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"azure-demo"`                                                                                                                                                       |    no    |
+| github_owner_id                 | ID inmutable del owner GitHub incluido en el subject OIDC.                                                                                                                                                                               | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"220633794"`                                                                                                                                                        |    no    |
+| github_repository               | Repositorio autorizado para publicar imágenes por federación OIDC.                                                                                                                                                                       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"CyberStill-GmbH/qapaq-secops"`                                                                                                                                     |    no    |
+| github_repository_id            | ID inmutable del repositorio GitHub incluido en el subject OIDC.                                                                                                                                                                         | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"1374673243"`                                                                                                                                                       |    no    |
+| key_vault_secret_ids            | Secretos precreados en Key Vault, por servicio y nombre lógico. Nunca se aceptan valores secretos en tfvars.                                                                                                                             | `map(map(string))`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `{}`                                                                                                                                                                 |    no    |
+| krakend_gateway                 | KrakenD privado de ingesta Wazuh en ACA. null mantiene gateway y rutas apagados; requiere SIEM, digest ACR, audience/scope Entra, client ID explícito de Core y nombres de dos secretos Key Vault existentes.                            | <pre>object({<br/> image = string<br/> tenant_id = string<br/> client_scope = string<br/> core_client_id = string<br/> indexer_reader_secret_name = string<br/> indexer_proxy_ca_secret_name = string<br/>})</pre>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `null`                                                                                                                                                               |    no    |
+| location                        | Región Azure con menor latencia geográfica estimada desde Perú; verificar SKU/cuotas y residencia antes del apply.                                                                                                                       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"chilecentral"`                                                                                                                                                     |    no    |
+| postgres_admin_login            | Login de bootstrap PostgreSQL; no se usa desde API ni workers.                                                                                                                                                                           | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"qapaqbootstrap"`                                                                                                                                                   |    no    |
+| postgres_admin_password_version | Versión de la contraseña de bootstrap. Incrementarla junto con el secreto del GitHub Environment para rotarla; mientras no cambie, Terraform no reenvía la contraseña.                                                                   | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `1`                                                                                                                                                                  |    no    |
+| postgres_backup_retention_days  | Retención de backups automáticos de PostgreSQL.                                                                                                                                                                                          | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `14`                                                                                                                                                                 |    no    |
+| postgres_sku_name               | SKU por defecto de PostgreSQL Flexible Server. Los entornos pueden sobrescribirlo tras verificar disponibilidad regional.                                                                                                                | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"B_Standard_B2s"`                                                                                                                                                   |    no    |
+| postgres_storage_mb             | Almacenamiento inicial PostgreSQL. Azure solo admite crecer; reducirlo fuerza un reemplazo que `prevent_destroy` bloquea.                                                                                                                | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `32768`                                                                                                                                                              |    no    |
+| project                         | Prefijo lógico de recursos Azure. Forma parte del sufijo determinista: cambiarlo en un entorno existente recrea todos los nombres.                                                                                                       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `"qapaq-secops"`                                                                                                                                                     |    no    |
+| siem_host                       | Configuración completa para habilitar el host Wazuh QAPAQ. null mantiene el módulo apagado; al habilitarlo Terraform crea el firewall Azure con policy, bundle inmutable, clave pública y CIDR aprobados.                                | <pre>object({<br/> address_prefix = string<br/> private_ip_address = optional(string)<br/> vm_size = string<br/> admin_ssh_public_key = string<br/> ubuntu_image_version = string<br/> data_disk_size_gb = number<br/> dashboard_ingress_cidrs = set(string)<br/> agent_ingress_cidrs = set(string)<br/> core_secret_names = map(string)<br/> wazuh_secret_names = map(string)<br/> core_environment = map(string)<br/> provider_ingestion = optional(map(string), {})<br/> office365 = object({<br/> tenant_id = string<br/> client_id = string<br/> api_type = string<br/> enable_dlp = bool<br/> })<br/> bootstrap_bundle_blob_url = string<br/> bootstrap_bundle_sha256 = string<br/>})</pre> | `null`                                                                                                                                                               |    no    |
+| tags                            | Etiquetas comunes de gobierno y costo.                                                                                                                                                                                                   | `map(string)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | <pre>{<br/> project = "qapaq-secops"<br/> environment = "demo"<br/> managed_by = "terraform"<br/> cloud = "azure"<br/> data_class = "security-sensitive"<br/>}</pre> |    no    |
+
+## Outputs
+
+| Name                                     | Description                                                                                                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ankay_private_ip                         | IP privada del host Ankay preparado cuando se habilita `ankay_host`; null por defecto.                                                                      |
+| ankay_runtime_status                     | Estado informativo del host Ankay; el módulo prepara VM/disco pero no instala ni inicia Shuffle.                                                            |
+| container_app_environment_default_domain | Sufijo interno de service discovery de Container Apps.                                                                                                      |
+| container_registry_login_server          | ACR para imágenes OCI verificadas.                                                                                                                          |
+| edge_default_fqdn                        | FQDN temporal administrado por Azure para el edge, si enable_runtime=true. DNS custom queda fuera de este stack.                                            |
+| eus2_secret_seeder_client_id             | Client ID que debe configurarse como AZURE_EUS2_SECRET_SEEDER_CLIENT_ID en el GitHub Environment protegido azure-demo-eus2. Null fuera de demo-eus2.        |
+| github_publisher_client_id               | Client ID de la identidad federada que GitHub Actions usará para AcrPush.                                                                                   |
+| krakend_gateway_base_url                 | URL privada HTTPS de KrakenD para QAPAQ Core cuando el módulo opcional está habilitado; null por defecto.                                                   |
+| postgres_fqdn                            | FQDN privado de PostgreSQL Flexible Server.                                                                                                                 |
+| raw_storage_account_name                 | Storage Account privado destinado a objetos raw/evidencia.                                                                                                  |
+| resource_group_name                      | Resource group Azure de este stack independiente.                                                                                                           |
+| runtime_identity_client_id               | Client ID de la identidad administrada del runtime.                                                                                                         |
+| siem_firewall_public_ip                  | IP pública estable del Firewall Standard: egress y DNAT de entrada al Load Balancer privado del SIEM cuando su perfil esté habilitado. El DNS sigue manual. |
+| siem_private_ip                          | IP privada del SIEM QAPAQ cuando se habilita el host. null mientras falten las gates de release y red.                                                      |
+
+<!-- END_TF_DOCS -->

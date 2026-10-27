@@ -342,6 +342,13 @@ resource "azurerm_linux_virtual_machine" "ankay" {
       error_message = "Cada servicio Compose debe declarar restart: always o unless-stopped para recuperarse de reinicios del daemon."
     }
   }
+
+  # cloud-init hace login en ACR y lee Key Vault en el primer arranque; sin este orden la
+  # VM puede arrancar antes de que existan sus asignaciones RBAC.
+  depends_on = [
+    azurerm_role_assignment.acr_pull,
+    azurerm_role_assignment.key_vault_secret_read,
+  ]
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "ankay_data" {
