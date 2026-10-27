@@ -7,17 +7,21 @@ locals {
   identity              = azurerm_user_assigned_identity.siem
   ingress_lb_private_ip = var.ingress_lb_private_ip == null ? cidrhost(var.address_prefix, 10) : var.ingress_lb_private_ip
 
+  # Azure limita custom_data a 87 380 caracteres en base64 y los dos scripts sin comprimir ya
+  # lo superan; cloud-init descomprime `gz+b64` de forma nativa al escribir cada archivo.
   cloud_init = "#cloud-config\n${yamlencode({
     write_files = [{
       path        = "/usr/local/sbin/qapaq-siem-bootstrap.py"
       owner       = "root:root"
       permissions = "0700"
-      content     = file("${path.module}/bootstrap-siem.py")
+      encoding    = "gz+b64"
+      content     = base64gzip(file("${path.module}/bootstrap-siem.py"))
       }, {
       path        = "/usr/local/sbin/indexer_read_proxy.py"
       owner       = "root:root"
       permissions = "0600"
-      content     = file("${path.module}/indexer_read_proxy.py")
+      encoding    = "gz+b64"
+      content     = base64gzip(file("${path.module}/indexer_read_proxy.py"))
     }]
   })}"
 
@@ -510,6 +514,11 @@ resource "azurerm_linux_virtual_machine" "siem" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = length(base64encode(local.cloud_init)) <= 87380
+      error_message = "custom_data supera el máximo de Azure (87 380 caracteres en base64)."
+    }
 
     precondition {
       condition     = !contains(var.dashboard_ingress_cidrs, "0.0.0.0/0")
