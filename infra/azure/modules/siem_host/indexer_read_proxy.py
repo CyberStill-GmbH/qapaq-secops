@@ -326,6 +326,40 @@ def _host_mapping_may_apply(host_patterns: object, source_addresses: set[str]) -
     return False
 
 
+def _allowlisted_reader_mapping_users(mapping: object) -> list[str]:
+    """Validate an existing QAPAQ mapping before reusing or replacing it."""
+    if mapping is None:
+        return []
+    if not isinstance(mapping, dict):
+        _fail("Indexer devolvió un mapeo del lector incompatible")
+
+    allowed_fields = {
+        "users",
+        "backend_roles",
+        "hosts",
+        "and_backend_roles",
+        "reserved",
+        "hidden",
+    }
+    if set(mapping) - allowed_fields:
+        _fail("el mapeo existente del lector contiene campos no aprobados")
+
+    criteria: dict[str, list[str]] = {}
+    for field in ("users", "backend_roles", "hosts", "and_backend_roles"):
+        entries = mapping.get(field, [])
+        if not isinstance(entries, list) or any(not isinstance(entry, str) for entry in entries):
+            _fail("Indexer devolvió listas de mapeo de roles incompatibles")
+        criteria[field] = entries
+
+    if criteria["users"] not in ([], [READER_USER]):
+        _fail("el mapeo existente del lector incluye identidades fuera de la allowlist")
+    if any(criteria[field] for field in ("backend_roles", "hosts", "and_backend_roles")):
+        _fail("el mapeo existente del lector contiene roles o hosts fuera de la allowlist")
+    if any(mapping.get(field, False) is not False for field in ("reserved", "hidden")):
+        _fail("el mapeo existente del lector tiene metadatos no aprobados")
+    return criteria["users"]
+
+
 def _upstream_tls_name(indexer_url: str, private_ip: str, workdir: pathlib.Path) -> str:
     parsed = urllib.parse.urlparse(indexer_url)
     if parsed.scheme != "https" or parsed.hostname is None or parsed.port != INDEXER_PORT:
@@ -621,9 +655,16 @@ def configure(
     mapping_status, mapping_response = request_indexer("GET", f"/_plugins/_security/api/rolesmapping/{READER_ROLE}")
     if mapping_status not in (200, 404):
         _fail(f"Indexer rechazó la lectura del mapeo de roles (HTTP {mapping_status})")
-    previous_mapping = mapping_response.get(READER_ROLE) if mapping_status == 200 else None
-    if previous_mapping is not None and not isinstance(previous_mapping, dict):
-        _fail("Indexer devolvió un mapeo de roles incompatible")
+    if mapping_status == 200 and (
+        not isinstance(mapping_response, dict) or READER_ROLE not in mapping_response
+    ):
+        _fail("Indexer devolvió una respuesta incompleta para el mapeo del lector")
+    previous_mapping = None
+    if mapping_status == 200:
+        previous_mapping = mapping_response[READER_ROLE]
+        if not isinstance(previous_mapping, dict):
+            _fail("Indexer devolvió un mapeo de roles incompatible")
+    previous_reader_users = _allowlisted_reader_mapping_users(previous_mapping)
 
     role_changed = False
     user_created = False
@@ -651,14 +692,11 @@ def configure(
                 _fail(f"Indexer rechazó el usuario read-only (HTTP {code})")
             user_created = True
 
-        current = previous_mapping or {}
-        users = current.get("users", [])
-        if not isinstance(users, list) or any(not isinstance(user, str) for user in users):
-            _fail("Indexer devolvió listas de mapeo de roles incompatibles")
-        mapping_payload = dict(current)
-        mapping_payload["users"] = sorted(set(users) | {READER_USER})
-        mapping_payload.setdefault("backend_roles", [])
-        mapping_payload.setdefault("hosts", [])
+        mapping_payload = {
+            "users": sorted(set(previous_reader_users) | {READER_USER}),
+            "backend_roles": [],
+            "hosts": [],
+        }
         code, _ = request_indexer(
             "PUT", f"/_plugins/_security/api/rolesmapping/{READER_ROLE}", mapping_payload
         )

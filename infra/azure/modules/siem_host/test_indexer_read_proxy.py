@@ -377,6 +377,57 @@ class IndexerReadProxyTests(unittest.TestCase):
                     )
                 self.assertEqual(indexer_request.call_count, 3)
 
+    @patch.object(proxy, "_admin_password", return_value="Synthetic-admin-password")
+    @patch.object(proxy, "_select_indexer_endpoint", return_value="https://127.0.0.1:9200")
+    @patch.object(proxy, "_upstream_tls_name", return_value="indexer.local")
+    @patch.object(proxy, "_prepare_proxy_certificate", return_value=(CERTIFICATE, False))
+    @patch.object(proxy, "_indexer_request")
+    def test_refuses_existing_reader_mapping_with_unallowlisted_identities_or_matchers(
+        self,
+        indexer_request: MagicMock,
+        _prepare_certificate: MagicMock,
+        _tls_name: MagicMock,
+        _select_endpoint: MagicMock,
+        _admin_password: MagicMock,
+    ) -> None:
+        credential = base64.b64encode(
+            b"qapaq_reader:Existing-R3ader!Credential"
+        ).decode("ascii")
+        existing_mappings = (
+            {
+                "users": [proxy.READER_USER, "legacy_soc_reader"],
+                "backend_roles": [],
+                "hosts": [],
+            },
+            {"users": [proxy.READER_USER], "backend_roles": ["soc-admin"], "hosts": []},
+            {"users": [proxy.READER_USER], "backend_roles": [], "hosts": ["*"]},
+            {
+                "users": [proxy.READER_USER],
+                "backend_roles": [],
+                "hosts": [],
+                "and_backend_roles": ["soc-operators"],
+            },
+        )
+
+        for mapping in existing_mappings:
+            with self.subTest(mapping=mapping):
+                indexer_request.reset_mock()
+                indexer_request.side_effect = [
+                    (404, {}),
+                    (200, {proxy.READER_USER: {"backend_roles": []}}),
+                    (200, {proxy.READER_ROLE: mapping}),
+                    (200, {proxy.READER_ROLE: mapping}),
+                ]
+                with self.assertRaises(proxy.IndexerProxyError):
+                    proxy.configure(
+                        valid_config(),
+                        credential,
+                        CERTIFICATE,
+                        lambda _name, _value: self.fail("unexpected Key Vault write"),
+                        lambda _message: None,
+                    )
+                self.assertEqual(indexer_request.call_count, 4)
+
     def test_nonmatching_literal_or_ipv4_wildcard_mapping_does_not_match_proxy_sources(self) -> None:
         self.assertFalse(
             proxy._host_mapping_may_apply(
@@ -392,6 +443,20 @@ class IndexerReadProxyTests(unittest.TestCase):
                 {"127.0.0.1", PRIVATE_IP},
             )
         )
+
+    def test_existing_reader_mapping_accepts_only_the_qapaq_user_and_empty_matchers(self) -> None:
+        for mapping in (
+            {"users": [], "backend_roles": [], "hosts": []},
+            {
+                "users": [proxy.READER_USER],
+                "backend_roles": [],
+                "hosts": [],
+                "reserved": False,
+                "hidden": False,
+            },
+        ):
+            with self.subTest(mapping=mapping):
+                self.assertEqual(proxy._allowlisted_reader_mapping_users(mapping), mapping["users"])
 
 
 if __name__ == "__main__":
