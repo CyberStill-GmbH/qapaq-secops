@@ -32,7 +32,20 @@
     {
       "source": "Windows Security",
       "channel": "Security",
-      "eventIds": ["4662", "4719", "4728", "4732", "4756", "4768", "4769", "4771", "5136", "5137", "5141", "1102"],
+      "eventIds": [
+        "4662",
+        "4719",
+        "4728",
+        "4732",
+        "4756",
+        "4768",
+        "4769",
+        "4771",
+        "5136",
+        "5137",
+        "5141",
+        "1102"
+      ],
       "ruleRefs": ["101300", "101301", "101302", "101303", "101304", "101305", "101306", "101307"],
       "collection": "inherited-from-windows-pilot-base",
       "dataset": "win.system.channel=Security; win.system.eventID"
@@ -92,16 +105,66 @@
     }
   ],
   "eventRuleMappings": [
-    {"channel": "Security", "eventIds": ["4728", "4732", "4756"], "qapaqRuleRefs": ["101300"], "upstreamParentRuleRefs": ["60113"]},
-    {"channel": "Security", "eventIds": ["4719"], "qapaqRuleRefs": ["101301"], "upstreamParentRuleRefs": ["60112"]},
-    {"channel": "Security", "eventIds": ["1102"], "qapaqRuleRefs": ["101302"], "upstreamParentRuleRefs": ["60103"]},
-    {"channel": "Security", "eventIds": ["5136", "5137", "5141"], "qapaqRuleRefs": ["101303"], "upstreamParentRuleRefs": ["60103"]},
-    {"channel": "Security", "eventIds": ["4769"], "qapaqRuleRefs": ["101304"], "upstreamParentRuleRefs": ["60106"]},
-    {"channel": "Security", "eventIds": ["4768"], "qapaqRuleRefs": ["101305"], "upstreamParentRuleRefs": ["60103"]},
-    {"channel": "Security", "eventIds": ["4662"], "qapaqRuleRefs": ["101306"], "upstreamParentRuleRefs": ["60103"]},
-    {"channel": "Security", "eventIds": ["4771"], "qapaqRuleRefs": ["101307"], "upstreamParentRuleRefs": ["60104"]},
-    {"channel": "System", "eventIds": ["7045"], "qapaqRuleRefs": [], "upstreamRuleRefs": ["61138"]},
-    {"channel": "Microsoft-Windows-Sysmon/Operational", "eventIds": ["1"], "qapaqRuleRefs": ["101100"], "upstreamRuleRefs": []}
+    {
+      "channel": "Security",
+      "eventIds": ["4728", "4732", "4756"],
+      "qapaqRuleRefs": ["101300"],
+      "upstreamParentRuleRefs": ["60113"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4719"],
+      "qapaqRuleRefs": ["101301"],
+      "upstreamParentRuleRefs": ["60112"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["1102"],
+      "qapaqRuleRefs": ["101302"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["5136", "5137", "5141"],
+      "qapaqRuleRefs": ["101303"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4769"],
+      "qapaqRuleRefs": ["101304"],
+      "upstreamParentRuleRefs": ["60106"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4768"],
+      "qapaqRuleRefs": ["101305"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4662"],
+      "qapaqRuleRefs": ["101306"],
+      "upstreamParentRuleRefs": ["60103"]
+    },
+    {
+      "channel": "Security",
+      "eventIds": ["4771"],
+      "qapaqRuleRefs": ["101307"],
+      "upstreamParentRuleRefs": ["60104"]
+    },
+    {
+      "channel": "System",
+      "eventIds": ["7045"],
+      "qapaqRuleRefs": [],
+      "upstreamRuleRefs": ["61138"]
+    },
+    {
+      "channel": "Microsoft-Windows-Sysmon/Operational",
+      "eventIds": ["1"],
+      "qapaqRuleRefs": ["101100"],
+      "upstreamRuleRefs": []
+    }
   ],
   "ruleSources": {
     "qapaq": "infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
