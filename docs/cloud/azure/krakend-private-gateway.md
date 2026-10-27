@@ -54,7 +54,7 @@ CI ejecuta el contrato Node, `krakend check` sobre la plantilla Azure y `terrafo
 1. FQDN no resuelve a una IP pública y no hay ingreso desde Internet.
 2. FQDN resuelve a la IP estática privada del internal load balancer; certificado HTTPS válido.
 3. Core obtiene token client-credentials con el scope configurado; issuer/audience/JWKS pasan validación y el token incluye `roles: ["Qapaq.Wazuh.Read"]` junto a `appid`/`azp` igual al ID autorizado.
-4. Las dos rutas exactas devuelven 200 al workload autorizado; token ausente/malformado recibe 401; token sin el app role o con cliente distinto recibe 403.
+4. Las dos rutas exactas devuelven 200 al workload autorizado. Token ausente/malformado o emitido para un cliente no permitido (`appid`/`azp`) recibe 401 del validador JWT; token válido del cliente permitido pero sin el app role dedicado recibe 403.
 5. Rutas adicionales, escritura y acceso a Security API se rechazan; KrakenD no puede leer/escribir fuera de `wazuh-alerts-*`.
 6. QAPAQ informa lecturas correctas y eventos sintéticos indexados; métricas/logs no incluyen token, Basic auth o secreto PEM.
 

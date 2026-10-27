@@ -163,7 +163,7 @@ try {
     token: makeToken({ clientId: '00000000-0000-0000-0000-000000000004' }),
     body: {},
   });
-  assert.equal(wrongClient.status, 403, 'wrong appid must be forbidden');
+  assert.equal(wrongClient.status, 401, 'wrong appid must be rejected by the JWT claim validator');
   const wrongAuthorizedParty = await request('/wazuh/_search', {
     token: makeToken({
       clientClaim: 'azp',
@@ -171,15 +171,19 @@ try {
     }),
     body: {},
   });
-  assert.equal(wrongAuthorizedParty.status, 403, 'wrong azp must be forbidden');
+  assert.equal(
+    wrongAuthorizedParty.status,
+    401,
+    'wrong azp must be rejected by the JWT claim validator',
+  );
   const missingClientClaim = await request('/wazuh/_search', {
     token: makeToken({ clientClaim: 'client_id' }),
     body: {},
   });
   assert.equal(
     missingClientClaim.status,
-    403,
-    'a token without an appid or azp claim must be forbidden',
+    401,
+    'a token without an appid or azp claim must be rejected by the JWT claim validator',
   );
   const allowedV2Client = await request('/wazuh/_search', {
     token: makeToken({ clientClaim: 'azp' }),
