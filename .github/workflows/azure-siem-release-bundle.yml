@@ -281,10 +281,12 @@ jobs:
           retention-days: 7
 
       - name: Summarize runtime gates
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           {
             echo '## Azure QAPAQ SIEM release candidate'
-            echo "- QAPAQ source commit: `${{ inputs.release_sha }}` (all source artifacts are validated against this commit)."
+            printf '%s\n' "- QAPAQ source commit: \`$RELEASE_SHA\` (all source artifacts are validated against this commit)."
             echo '- Produces the exact Blob bundle contract consumed by `siem_host`.'
             echo '- Installs pinned official Wazuh Manager, Indexer, Filebeat, QAPAQ Dashboard and QAPAQ core from offline artifacts.'
             echo '- Installs the versioned QAPAQ AD, endpoint and provider detection rules; applying DC agent collection profiles and Sophos/Cato connectors remains opt-in and requires owner approval/provider acceptance.'
