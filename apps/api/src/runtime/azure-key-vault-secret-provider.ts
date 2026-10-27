@@ -104,7 +104,7 @@ class ManagedIdentityKeyVaultSecretReader implements KeyVaultSecretReader {
     });
     if (!response.ok) throw httpStatusError(response.status);
     const body = (await readJsonBounded(response)) as { readonly value?: unknown };
-    return { value: typeof body.value === 'string' ? body.value : undefined };
+    return typeof body.value === 'string' ? { value: body.value } : {};
   }
 
   async #getAccessToken(signal: AbortSignal): Promise<string> {
