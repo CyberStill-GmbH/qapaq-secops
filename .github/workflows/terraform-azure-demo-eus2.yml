@@ -9,7 +9,7 @@ on:
         required: true
         default: false
       deployment_scope:
-        description: Select foundation maintenance, SIEM-first rollout, or complete SOC runtime
+        description: Select foundation maintenance, Wazuh-first rollout, or Wazuh plus Ankay
         type: choice
         required: true
         default: soc
@@ -107,6 +107,7 @@ jobs:
 
       - name: Validate EUS OIDC, backend isolation and required inputs
         shell: bash
+        working-directory: .
         run: |
           set -euo pipefail
           for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_VAR_postgres_admin_password \
@@ -133,44 +134,7 @@ jobs:
             echo '::error::Terraform target is not East US 2 demo-eus2.'
             exit 1
           }
-          if [[ "$DEPLOYMENT_SCOPE" == foundation ]]; then
-            [[ "$TF_VAR_enable_runtime" == false ]] || {
-              echo '::error::Foundation scope requires AZURE_EUS2_ENABLE_RUNTIME=false.'
-              exit 1
-            }
-            node -e 'if (JSON.parse(process.env.TF_VAR_siem_host ?? "null") !== null || JSON.parse(process.env.TF_VAR_ankay_host ?? "null") !== null) process.exit(1)' || {
-              echo '::error::Foundation scope refuses SIEM/Ankay host profiles; use a separately reviewed SOC apply.'
-              exit 1
-            }
-          fi
-          if [[ "$DEPLOYMENT_SCOPE" == siem ]]; then
-            [[ "$TF_VAR_enable_runtime" == false ]] || {
-              echo '::error::SIEM-first scope requires AZURE_EUS2_ENABLE_RUNTIME=false; deploy application runtime only after SIEM verification.'
-              exit 1
-            }
-            node -e 'const siem = JSON.parse(process.env.TF_VAR_siem_host ?? "null"); const ankay = JSON.parse(process.env.TF_VAR_ankay_host ?? "null"); if (siem === null || ankay !== null) process.exit(1)' || {
-              echo '::error::SIEM-first scope requires a complete SIEM profile and refuses an Ankay host; deploy Ankay in the later complete SOC scope.'
-              exit 1
-            }
-          fi
-          if [[ "$DEPLOYMENT_SCOPE" == soc ]]; then
-            [[ "$AZURE_ACR_LOGIN_SERVER" == qapaqsecopsdemoeus3a2405f3.azurecr.io ]] || {
-              echo '::error::Complete SOC scope requires an East US 2 demo ACR, not a repository-level Chile registry.'
-              exit 1
-            }
-            [[ "$TF_VAR_enable_runtime" == true ]] || {
-              echo '::error::Complete SOC scope requires AZURE_EUS2_ENABLE_RUNTIME=true and verified container image digests.'
-              exit 1
-            }
-            node -e 'if (JSON.parse(process.env.TF_VAR_siem_host ?? "null") === null) process.exit(1)' || {
-              echo '::error::SOC apply refused: configure a complete AZURE_SIEM_HOST_JSON profile in azure-demo-eus2.'
-              exit 1
-            }
-            node -e 'if (JSON.parse(process.env.TF_VAR_ankay_host ?? "null") === null) process.exit(1)' || {
-              echo '::error::Complete SOC apply refused: configure a complete AZURE_ANKAY_HOST_JSON profile in azure-demo-eus2.'
-              exit 1
-            }
-          fi
+          node scripts/ci/validate-azure-eus2-deployment-scope.mjs
           if [[ "$APPLY" == true ]]; then
             printf '%s\n' "Cost review: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -178,6 +142,10 @@ jobs:
       - name: Validate opt-in runtime configuration without printing inputs
         working-directory: .
         run: node scripts/ci/validate-azure-deployment-inputs.mjs
+
+      - name: Test East US 2 deployment scope gates
+        working-directory: .
+        run: node --test scripts/ci/validate-azure-eus2-deployment-scope.test.mjs
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
