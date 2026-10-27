@@ -184,7 +184,7 @@ variable "siem_host" {
 }
 
 variable "krakend_gateway" {
-  description = "KrakenD privado de ingesta Wazuh en ACA. null mantiene gateway y rutas apagados; requiere SIEM, digest ACR, audience/scope Entra, client ID explícito de Core y nombres de dos secretos Key Vault existentes."
+  description = "KrakenD privado de ingesta Wazuh en ACA. null mantiene gateway y rutas apagados; requiere SIEM, digest ACR, audience/scope Entra, client ID explícito de Core y las dos referencias Key Vault exactas permitidas por el seeder EUS2."
   type = object({
     image                        = string
     tenant_id                    = string
@@ -204,9 +204,10 @@ variable "krakend_gateway" {
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.krakend_gateway.core_client_id)) &&
       can(regex("^[A-Za-z0-9-]{1,127}$", var.krakend_gateway.indexer_reader_secret_name)) &&
       can(regex("^[A-Za-z0-9-]{1,127}$", var.krakend_gateway.indexer_proxy_ca_secret_name)) &&
-      var.krakend_gateway.indexer_reader_secret_name != var.krakend_gateway.indexer_proxy_ca_secret_name
+      var.krakend_gateway.indexer_reader_secret_name == "wazuh-reader-b64" &&
+      var.krakend_gateway.indexer_proxy_ca_secret_name == "wazuh-proxy-ca"
     )
-    error_message = "krakend_gateway requiere digest ACR, tenant/scope, client ID Core y nombres válidos de secretos Key Vault; no acepta valores secretos."
+    error_message = "krakend_gateway requiere digest ACR, tenant/scope, client ID Core y las referencias Key Vault exactas permitidas por el seeder; no acepta valores secretos."
   }
 
   validation {

@@ -85,14 +85,47 @@ variable "private_ip_address" {
   }
 }
 
+variable "indexer_proxy" {
+  description = "Contrato del proxy read-only; null lo mantiene fuera del bootstrap. Solo acepta dos nombres Key Vault preexistentes, nunca valores."
+  type = object({
+    reader_secret_name   = string
+    proxy_ca_secret_name = string
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.indexer_proxy == null || (
+      can(regex("^[A-Za-z0-9-]{1,127}$", var.indexer_proxy.reader_secret_name)) &&
+      can(regex("^[A-Za-z0-9-]{1,127}$", var.indexer_proxy.proxy_ca_secret_name)) &&
+      var.indexer_proxy.reader_secret_name != var.indexer_proxy.proxy_ca_secret_name
+    )
+    error_message = "indexer_proxy solo admite dos nombres distintos de secretos Key Vault; nunca valores secretos."
+  }
+}
+
+variable "indexer_proxy_secret_role_definition_id" {
+  description = "ID del rol personalizado get/set limitado a cada nombre de secreto Indexer. null cuando el módulo KrakenD está apagado."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
 variable "krakend_source_cidrs" {
-  description = "Subnet privada exclusiva de ACA KrakenD autorizada a consultar el proxy read-only de Indexer por TCP/9200. Vacío mantiene el puerto cerrado."
+  description = "Subnet privada exclusiva de ACA KrakenD autorizada a consultar el proxy read-only de Indexer por TCP/9443."
   type        = set(string)
   default     = []
 
   validation {
-    condition     = alltrue([for cidr in var.krakend_source_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
-    error_message = "krakend_source_cidrs solo admite redes privadas específicas; no se permite abrir Indexer a Internet."
+    condition = (
+      alltrue([
+        for cidr in var.krakend_source_cidrs :
+        can(cidrhost(cidr, 0)) &&
+        can(regex("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)", cidr))
+      ]) &&
+      (var.indexer_proxy == null ? length(var.krakend_source_cidrs) == 0 : length(var.krakend_source_cidrs) > 0)
+    )
+    error_message = "El proxy Indexer exige una CIDR privada específica para KrakenD y no puede habilitarse sin allowlist; sin proxy, la lista debe estar vacía."
   }
 }
 

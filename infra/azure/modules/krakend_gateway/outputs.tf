@@ -1,11 +1,11 @@
 output "gateway_fqdn" {
   description = "FQDN HTTPS privado de KrakenD dentro de la VNet."
-  value       = azurerm_container_app.this.ingress[0].fqdn
+  value       = "${local.name}.${azurerm_container_app_environment.this.default_domain}"
 }
 
 output "gateway_base_url" {
   description = "URL HTTPS que consume qapaq-core desde la VM SIEM; no apunta a loopback."
-  value       = "https://${azurerm_container_app.this.ingress[0].fqdn}"
+  value       = "https://${local.name}.${azurerm_container_app_environment.this.default_domain}"
 }
 
 output "environment_static_ip" {

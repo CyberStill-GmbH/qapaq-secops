@@ -9,6 +9,7 @@ in argv. The pinned release bundle owns package installation and service setup.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import pathlib
@@ -23,6 +24,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from indexer_read_proxy import IndexerProxyError, configure as configure_indexer_read_proxy
 
 
 CONFIG_PATH = pathlib.Path("/etc/qapaq-siem/bootstrap.json")
@@ -259,6 +261,23 @@ def load_config() -> dict:
             fail("Cato requiere account ID y referencia Key Vault de API key")
     if type(config.get("data_disk_size_gb")) is not int or config["data_disk_size_gb"] < 128:
         fail("el tamaño del disco de datos no coincide con el contrato mínimo del SIEM")
+    indexer_proxy = config.get("indexer_read_proxy")
+    if indexer_proxy is not None:
+        if not isinstance(indexer_proxy, dict) or set(indexer_proxy) != {
+            "private_ip_address", "reader_secret_name", "proxy_ca_secret_name"
+        }:
+            fail("la configuración del proxy read-only de Indexer no es válida")
+        private_ip = indexer_proxy.get("private_ip_address", "")
+        try:
+            if str(ipaddress.IPv4Address(private_ip)) != private_ip or not ipaddress.IPv4Address(private_ip).is_private:
+                fail("el proxy Indexer requiere la IP privada estática del SIEM")
+        except ipaddress.AddressValueError:
+            fail("el proxy Indexer requiere una IP privada IPv4 válida")
+        for name in (indexer_proxy.get("reader_secret_name"), indexer_proxy.get("proxy_ca_secret_name")):
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name):
+                fail("el proxy Indexer requiere nombres de secretos Key Vault válidos")
+        if indexer_proxy["reader_secret_name"] == indexer_proxy["proxy_ca_secret_name"]:
+            fail("las credenciales y la CA del proxy Indexer requieren secretos Key Vault distintos")
     return config
 
 
@@ -446,6 +465,87 @@ def key_vault_get(config: dict, token: str, secret_name: str) -> str:
         time.sleep(min(5 + attempt, 30))
     fail(f"no se pudo leer el secreto {secret_name} desde Key Vault")
     raise AssertionError("unreachable")
+
+
+def key_vault_get_optional(config: dict, token: str, secret_name: str) -> str | None:
+    """Read an already-created secret without echoing its value; 404 is a safe absence."""
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,127}", secret_name):
+        fail("referencia de secreto Key Vault con nombre inválido")
+    url = f"{config['key_vault_uri']}/secrets/{urllib.parse.quote(secret_name)}?api-version=7.4"
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    for attempt in range(30):
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                value = json.load(response).get("value")
+            if not isinstance(value, str) or "\x00" in value:
+                fail(f"el secreto {secret_name} no es texto válido")
+            return value
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return None
+            if error.code not in (403, 429, 500, 502, 503, 504) or attempt == 29:
+                fail(f"Key Vault rechazó la lectura del secreto {secret_name} (HTTP {error.code})")
+        except (OSError, KeyError, json.JSONDecodeError, urllib.error.URLError):
+            if attempt == 29:
+                fail(f"no se pudo leer el secreto {secret_name} desde Key Vault")
+        time.sleep(min(5 + attempt, 30))
+    fail(f"no se pudo leer el secreto {secret_name} desde Key Vault")
+    raise AssertionError("unreachable")
+
+
+def key_vault_set(config: dict, token: str, secret_name: str, value: str) -> None:
+    """Create a new Key Vault secret version without putting the value in argv/logs."""
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,127}", secret_name):
+        fail("referencia de secreto Key Vault con nombre inválido")
+    if not isinstance(value, str) or "\x00" in value:
+        fail("el valor generado para Key Vault no es texto válido")
+    url = f"{config['key_vault_uri']}/secrets/{urllib.parse.quote(secret_name)}?api-version=7.4"
+    body = json.dumps({"value": value, "contentType": "text/plain"}, separators=(",", ":")).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        method="PUT",
+    )
+    for attempt in range(30):
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                if response.status not in (200, 201):
+                    fail(f"Key Vault no guardó la referencia del proxy (HTTP {response.status})")
+                response.read(4096)
+            return
+        except urllib.error.HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504) or attempt == 29:
+                fail(f"Key Vault rechazó la escritura de la referencia del proxy (HTTP {error.code})")
+        except (OSError, urllib.error.URLError):
+            if attempt == 29:
+                fail("no se pudo guardar la referencia generada en Key Vault")
+        time.sleep(min(5 + attempt, 30))
+
+
+def configure_indexer_proxy(config: dict) -> None:
+    proxy = config.get("indexer_read_proxy")
+    if proxy is None:
+        return
+    token = get_token(config["identity_client_id"], "https://vault.azure.net")
+    try:
+        reader_secret = key_vault_get_optional(config, token, proxy["reader_secret_name"])
+        proxy_ca_secret = key_vault_get_optional(config, token, proxy["proxy_ca_secret_name"])
+        configure_indexer_read_proxy(
+            proxy,
+            reader_secret,
+            proxy_ca_secret,
+            lambda name, value: key_vault_set(config, token, name, value),
+            log,
+        )
+    except IndexerProxyError as error:
+        fail(str(error))
+    except Exception:
+        # The VM extension log is durable; never dump a traceback from a routine
+        # bootstrap failure that could include request/configuration details.
+        fail("falló la configuración del proxy Indexer; se omitieron detalles internos")
+    finally:
+        del token
 
 
 def systemd_quote(value: str) -> str:
@@ -864,6 +964,7 @@ def main() -> None:
         release = extract_and_verify(bundle, config)
         materialize_secrets(config)
         install_release(release, config)
+        configure_indexer_proxy(config)
     log("bootstrap completo; sin cambios DNS ni aperturas adicionales de red")
 
 

@@ -54,6 +54,16 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   Los secretos que necesitan los adaptadores Wazuh siguen usando sus archivos root-only existentes,
   incluyendo el archivo de instalación; este flujo no los copia al entorno Core. Las claves privadas
   SSH no se admiten como input.
+- KrakenD habilita un proxy opcional en TCP/9443, con listener separado del Indexer 9200. El NSG
+  permite 9443 solo desde la subnet privada ACA declarada y deniega explícitamente otras fuentes
+  VNet; 9200 siempre queda denegado al VNet. Si indexer_proxy no es null, la variable exige una
+  CIDR privada no vacía; sin proxy la allowlist debe estar vacía.
+- El bootstrap Indexer usa solo los secretos precreados wazuh-reader-b64 y wazuh-proxy-ca. Su
+  Managed Identity recibe get/set limitado a esos dos IDs de secreto, sin listar, eliminar o
+  administrar el vault. La CI valida metadata antes del plan y el apply. El proxy configura un rol
+  Wazuh con cluster:monitor/health y lectura de wazuh-alerts-*; pruebas sintéticas verifican
+  búsqueda/salud 200 y escritura/administración 403. El código está preparado, pero no se ha
+  desplegado ni validado en Azure.
 - El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
   oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
   código de salida y un mensaje genérico, sin volcar la salida del instalador.
@@ -181,6 +191,11 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   backup/restauración comprobados. La VM conserva `prevent_destroy`; si se reconstruye deliberadamente,
   hay que volver a conectar y montar el disco de datos antes de reinstalar. El disco de sistema no es
   la copia durable de evidencia ni de secretos (estos permanecen en Key Vault).
+- La clave privada TLS del proxy Indexer permanece en el disco de sistema y no se respalda en Key Vault.
+  Su pérdida bloquea la ruta: el bootstrap falla cerrado si queda solo el certificado público. Mantén
+  krakend_gateway en null hasta probar restauración cifrada del par o una rotación coordinada sin
+  exponer credenciales; el procedimiento y sus comprobaciones están en
+  el [runbook del gateway](../../../../docs/cloud/azure/krakend-private-gateway.md#recuperación-ante-pérdida-o-reemplazo-del-disco-de-sistema).
 
 ## Preflight de módulo
 

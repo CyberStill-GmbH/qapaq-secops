@@ -14,6 +14,7 @@ function baseEnv(overrides = {}) {
     TF_VAR_container_images: '{}',
     TF_VAR_siem_host: 'null',
     TF_VAR_ankay_host: 'null',
+    TF_VAR_krakend_gateway: 'null',
     TF_VAR_key_vault_secret_ids: '{}',
     ...overrides,
   };
@@ -22,6 +23,7 @@ function baseEnv(overrides = {}) {
 function siemHost(overrides = {}) {
   return {
     address_prefix: '10.80.16.32/27',
+    private_ip_address: '10.80.16.36',
     vm_size: 'Standard_F4s_v2',
     admin_ssh_public_key: publicKey,
     ubuntu_image_version: '24.04.202601010',
@@ -37,7 +39,12 @@ function siemHost(overrides = {}) {
       'office365-client-secret': 'office365-client-secret',
       'wazuh-install-files.tar.b64': 'wazuh-install-files-tar-b64',
     },
-    core_environment: { QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret' },
+    core_environment: {
+      QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret',
+      QAPAQ_ENTRA_TENANT_ID: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+      QAPAQ_ENTRA_CLIENT_ID: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+      QAPAQ_INGESTION_SOURCE: 'wazuh',
+    },
     office365: {
       tenant_id: '11111111-1111-4111-8111-111111111111',
       client_id: '22222222-2222-4222-8222-222222222222',
@@ -46,6 +53,18 @@ function siemHost(overrides = {}) {
     },
     bootstrap_bundle_blob_url: 'https://qapaqdata.blob.core.windows.net/releases/siem.tar.gz',
     bootstrap_bundle_sha256: sha,
+    ...overrides,
+  };
+}
+
+function krakendGateway(overrides = {}) {
+  return {
+    image: registry + '/qapaq-secops-krakend@sha256:' + sha,
+    tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+    client_scope: 'api://00000000-0000-4000-8000-000000000002/.default',
+    core_client_id: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+    indexer_reader_secret_name: 'wazuh-reader-b64',
+    indexer_proxy_ca_secret_name: 'wazuh-proxy-ca',
     ...overrides,
   };
 }
@@ -59,6 +78,7 @@ test('defaults keep generic runtime, SIEM and Ankay disabled', () => {
     enableRuntime: false,
     hasSiem: false,
     hasAnkay: false,
+    hasKrakendGateway: false,
   });
 });
 
@@ -69,7 +89,62 @@ test('accepts a complete SIEM configuration with Key Vault names and an immutabl
       enableRuntime: false,
       hasSiem: true,
       hasAnkay: false,
+      hasKrakendGateway: false,
     },
+  );
+});
+
+test('accepts an opt-in private KrakenD profile with SIEM, matching Entra config, and exact Key Vault names', () => {
+  assert.deepEqual(
+    validateDeploymentInputs(
+      baseEnv({
+        TF_VAR_siem_host: JSON.stringify(siemHost()),
+        TF_VAR_krakend_gateway: JSON.stringify(krakendGateway()),
+      }),
+    ),
+    {
+      enableRuntime: false,
+      hasSiem: true,
+      hasAnkay: false,
+      hasKrakendGateway: true,
+    },
+  );
+});
+
+test('rejects KrakenD without SIEM, mismatched Core identity, wrong secret names, or unstable SIEM IP', () => {
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({ TF_VAR_krakend_gateway: JSON.stringify(krakendGateway()) }),
+      ),
+    /requires a configured siem_host/u,
+  );
+
+  const invalidGateways = [
+    krakendGateway({ core_client_id: '00000000-0000-4000-8000-000000000999' }),
+    krakendGateway({ indexer_reader_secret_name: 'arbitrary-secret' }),
+    krakendGateway({ image: 'qapaqdemo.azurecr.io/krakend:latest' }),
+    krakendGateway({ client_scope: 'not-an-app-scope' }),
+  ];
+  for (const gateway of invalidGateways) {
+    assert.throws(() =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_siem_host: JSON.stringify(siemHost()),
+          TF_VAR_krakend_gateway: JSON.stringify(gateway),
+        }),
+      ),
+    );
+  }
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_siem_host: JSON.stringify(siemHost({ private_ip_address: '10.80.16.37' })),
+          TF_VAR_krakend_gateway: JSON.stringify(krakendGateway()),
+        }),
+      ),
+    /stable SIEM private IP/u,
   );
 });
 
@@ -409,6 +484,7 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
     enableRuntime: false,
     hasSiem: true,
     hasAnkay: true,
+    hasKrakendGateway: false,
   });
   for (const privateIpAddress of ['10.80.0.35', '10.80.0.63', '10.80.0.64']) {
     assert.throws(

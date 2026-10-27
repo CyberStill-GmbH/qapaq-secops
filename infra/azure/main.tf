@@ -27,6 +27,16 @@ locals {
   ))
 }
 
+# KrakenD's private Indexer reader is bootstrapped by the SIEM VM. The role is
+# opt-in, scoped to this resource group for definition/assignability, and later
+# assigned only to the two pre-existing Key Vault secret resource IDs.
+locals {
+  indexer_proxy_secret_role_id = uuidv5(
+    "url",
+    "${data.azurerm_resource_group.this.id}:qapaq:indexer-proxy-secret-seed",
+  )
+}
+
 data "azurerm_resource_group" "this" {
   name = "rg-${local.name_base}-${local.suffix}"
 }
@@ -113,6 +123,27 @@ module "key_vault_seed_identity" {
   tags                = var.tags
 
   depends_on = [module.data]
+}
+
+resource "azurerm_role_definition" "indexer_proxy_secret_seed" {
+  count = var.krakend_gateway == null ? 0 : 1
+
+  role_definition_id = local.indexer_proxy_secret_role_id
+  name               = "QAPAQ ${var.environment} Indexer Proxy Secret Seed"
+  scope              = data.azurerm_resource_group.this.id
+  description        = "QAPAQ SIEM bootstrap may get/set exactly two pre-created Key Vault secrets for the opt-in read-only Indexer proxy."
+
+  permissions {
+    actions = []
+    data_actions = [
+      "Microsoft.KeyVault/vaults/secrets/getSecret/action",
+      "Microsoft.KeyVault/vaults/secrets/setSecret/action",
+    ]
+    not_actions      = []
+    not_data_actions = []
+  }
+
+  assignable_scopes = [data.azurerm_resource_group.this.id]
 }
 
 # Azure networking is provisioned with its own egress firewall. The SIEM VM no longer
@@ -226,6 +257,11 @@ module "siem_host" {
   key_vault_uri                = module.data.key_vault_uri
   core_secret_names            = try(var.siem_host.core_secret_names, {})
   wazuh_secret_names           = try(var.siem_host.wazuh_secret_names, {})
+  indexer_proxy = var.krakend_gateway == null ? null : {
+    reader_secret_name   = var.krakend_gateway.indexer_reader_secret_name
+    proxy_ca_secret_name = var.krakend_gateway.indexer_proxy_ca_secret_name
+  }
+  indexer_proxy_secret_role_definition_id = var.krakend_gateway == null ? null : azurerm_role_definition.indexer_proxy_secret_seed[0].role_definition_resource_id
   core_environment = merge(
     try(var.siem_host.core_environment, {}),
     var.krakend_gateway == null ? {} : {
@@ -273,6 +309,7 @@ module "krakend_gateway" {
   core_client_id                  = var.krakend_gateway.core_client_id
   indexer_reader_secret_name      = var.krakend_gateway.indexer_reader_secret_name
   indexer_proxy_ca_secret_name    = var.krakend_gateway.indexer_proxy_ca_secret_name
+  siem_bootstrap_extension_id     = module.siem_host[0].bootstrap_extension_id
 
   depends_on = [module.egress_firewall, module.identity_registry, module.data]
 }
