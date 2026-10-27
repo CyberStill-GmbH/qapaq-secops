@@ -23,7 +23,8 @@ locals {
       "api.central.sophos.com",
       "api-${var.siem_host.provider_ingestion["sophos_data_region"]}.central.sophos.com",
     ] : [],
-    try(var.siem_host.provider_ingestion["cato_enabled"], "false") == "true" ? ["api.catonetworks.com"] : [],
+    # El host regional (api.<región>.catonetworks.com) llega por Key Vault; el comodín lo cubre.
+    try(var.siem_host.provider_ingestion["cato_enabled"], "false") == "true" ? ["api.catonetworks.com", "*.catonetworks.com"] : [],
   ))
 }
 
