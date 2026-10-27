@@ -21,7 +21,7 @@ function baseEnv(overrides = {}) {
 
 function siemHost(overrides = {}) {
   return {
-    address_prefix: '10.80.16.0/27',
+    address_prefix: '10.80.0.64/27',
     vm_size: 'Standard_F4s_v2',
     admin_ssh_public_key: publicKey,
     ubuntu_image_version: '24.04.202601010',
@@ -96,6 +96,55 @@ test('rejects public addresses for private SIEM and Ankay network endpoints', ()
       ),
     /private IPv4 subnet/u,
   );
+});
+
+test('SIEM subnet must be aligned, inside the EUS2 VNet, and disjoint from reserved subnets', () => {
+  const cases = [
+    ['10.80.0.65/27', /network-aligned/u],
+    ['10.81.0.0/27', /contained in the EUS2 VNet/u],
+    ['10.80.0.0/27', /reserved Container Apps subnet/u],
+    ['10.80.0.32/27', /reserved Ankay subnet/u],
+    ['10.80.16.0/27', /reserved PostgreSQL subnet/u],
+    ['10.80.64.0/26', /reserved Azure Firewall subnet/u],
+    ['10.80.0.0/16', /reserved Container Apps subnet/u],
+  ];
+
+  for (const [addressPrefix, message] of cases) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix: addressPrefix })),
+          }),
+        ),
+      message,
+      `expected ${addressPrefix} to be rejected`,
+    );
+  }
+
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()) })),
+  );
+});
+
+test('Dashboard ingress accepts aligned IPv4 /24 or narrower and rejects broad or unaligned ranges', () => {
+  const allowed = siemHost({ dashboard_ingress_cidrs: ['198.51.100.0/24', '203.0.113.25/32'] });
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(allowed) })),
+  );
+
+  for (const cidr of ['198.51.0.0/16', '198.51.100.0/23', '198.51.100.25/24', '2001:db8::/64']) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost({ dashboard_ingress_cidrs: [cidr] })),
+          }),
+        ),
+      /aligned IPv4 CIDRs no broader than \/24/u,
+      `expected ${cidr} to be rejected`,
+    );
+  }
 });
 
 test('requires a Key Vault-backed Office 365 client secret and valid non-secret config', () => {
@@ -209,7 +258,7 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
   const compose =
     'services:\n  frontend:\n    image: qapaqdemo.azurecr.io/frontend@sha256:' + sha + '\n';
   const ankay = {
-    private_ip_address: '10.80.17.10',
+    private_ip_address: '10.80.0.36',
     admin_ssh_public_key: publicKey,
     vm_size: 'Standard_D4s_v5',
     ubuntu_image_version: '20260101.0',
@@ -242,6 +291,19 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
     hasSiem: true,
     hasAnkay: true,
   });
+  for (const privateIpAddress of ['10.80.0.35', '10.80.0.63', '10.80.0.64']) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost()),
+            TF_VAR_ankay_host: JSON.stringify({ ...ankay, private_ip_address: privateIpAddress }),
+          }),
+        ),
+      /usable Azure host address in 10\.80\.0\.32\/27/u,
+      `expected ${privateIpAddress} to be rejected`,
+    );
+  }
   ankay.compose_sha256 = sha;
   assert.throws(
     () =>
@@ -259,7 +321,7 @@ test('Ankay cannot be enabled without SIEM and literal Compose credentials are r
   const compose =
     'services:\n  backend:\n    environment:\n      AWS_ACCESS_KEY_ID: literal-access-key\n';
   const ankay = {
-    private_ip_address: '10.80.17.10',
+    private_ip_address: '10.80.0.36',
     admin_ssh_public_key: publicKey,
     vm_size: 'Standard_D4s_v5',
     ubuntu_image_version: '20260101.0',

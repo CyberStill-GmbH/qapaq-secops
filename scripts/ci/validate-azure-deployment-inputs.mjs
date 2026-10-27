@@ -8,6 +8,16 @@ const SECRET_URI =
   /^https:\/\/[a-z0-9-]+\.vault\.azure\.net\/secrets\/[A-Za-z0-9-]+\/[A-Za-z0-9-]+$/u;
 const SENSITIVE_ENV_NAME =
   /(PASSWORD|SECRET|TOKEN|API_KEY|ACCESS_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTHORIZATION)/u;
+const EUS2_ADDRESS_SPACE = '10.80.0.0/16';
+const EUS2_ANKAY_SUBNET = '10.80.0.32/27';
+const EUS2_SIEM_RESERVED_SUBNETS = [
+  { cidr: '10.80.0.0/27', name: 'Container Apps' },
+  { cidr: EUS2_ANKAY_SUBNET, name: 'Ankay' },
+  { cidr: '10.80.16.0/28', name: 'PostgreSQL' },
+  { cidr: '10.80.16.16/28', name: 'Private Endpoints' },
+  { cidr: '10.80.64.0/26', name: 'Azure Firewall' },
+];
+const MIN_DASHBOARD_INGRESS_PREFIX = 24;
 
 function fail(message) {
   throw new Error(message);
@@ -51,6 +61,72 @@ function validCidr(value) {
   if (extra.length || !prefix || !/^\d+$/u.test(prefix)) return false;
   const version = isIP(address);
   return version !== 0 && Number(prefix) <= (version === 4 ? 32 : 128);
+}
+
+function ipv4ToInteger(address) {
+  if (isIP(address) !== 4) return null;
+  return address.split('.').reduce((value, octet) => value * 256 + Number(octet), 0);
+}
+
+function ipv4CidrRange(value) {
+  if (!validCidr(value)) return null;
+  const [address, prefix] = value.split('/');
+  if (isIP(address) !== 4) return null;
+
+  const addressInteger = ipv4ToInteger(address);
+  const prefixLength = Number(prefix);
+  const size = 2 ** (32 - prefixLength);
+  const start = Math.floor(addressInteger / size) * size;
+  return {
+    start,
+    end: start + size - 1,
+    prefixLength,
+    isAligned: addressInteger === start,
+  };
+}
+
+function cidrRangesOverlap(left, right) {
+  return left.start <= right.end && right.start <= left.end;
+}
+
+function requireSiemSubnet(addressPrefix) {
+  const subnet = ipv4CidrRange(addressPrefix);
+  const addressSpace = ipv4CidrRange(EUS2_ADDRESS_SPACE);
+  if (!subnet || !subnet.isAligned) {
+    fail('siem_host.address_prefix must be a network-aligned IPv4 CIDR.');
+  }
+  if (subnet.prefixLength > 27) {
+    fail('siem_host.address_prefix must provide at least 32 IPv4 addresses (/27 or larger).');
+  }
+  if (subnet.start < addressSpace.start || subnet.end > addressSpace.end) {
+    fail(`siem_host.address_prefix must be contained in the EUS2 VNet ${EUS2_ADDRESS_SPACE}.`);
+  }
+
+  for (const reserved of EUS2_SIEM_RESERVED_SUBNETS) {
+    const reservedRange = ipv4CidrRange(reserved.cidr);
+    if (cidrRangesOverlap(subnet, reservedRange)) {
+      fail(`siem_host.address_prefix overlaps the reserved ${reserved.name} subnet.`);
+    }
+  }
+}
+
+function validateDashboardIngressCidrs(cidrs) {
+  for (const cidr of cidrs) {
+    const range = ipv4CidrRange(cidr);
+    if (!range || !range.isAligned || range.prefixLength < MIN_DASHBOARD_INGRESS_PREFIX) {
+      fail(
+        `siem_host.dashboard_ingress_cidrs entries must be aligned IPv4 CIDRs no broader than /${MIN_DASHBOARD_INGRESS_PREFIX}.`,
+      );
+    }
+  }
+}
+
+function isUsableAnkayHostAddress(address) {
+  const host = ipv4ToInteger(address);
+  const subnet = ipv4CidrRange(EUS2_ANKAY_SUBNET);
+  if (host === null || !subnet) return false;
+  // Azure reserves the first four addresses and the final address in every subnet.
+  return host >= subnet.start + 4 && host < subnet.end;
 }
 
 function isPrivateRfc1918(value) {
@@ -110,12 +186,9 @@ function validateSiem(siem) {
     'bootstrap_bundle_sha256',
   ];
   exactKeys(siem, required, [], 'siem_host');
-  if (
-    !validCidr(siem.address_prefix) ||
-    !isPrivateRfc1918(siem.address_prefix.split('/')[0]) ||
-    Number(siem.address_prefix.split('/')[1]) > 27
-  )
+  if (!validCidr(siem.address_prefix) || !isPrivateRfc1918(siem.address_prefix.split('/')[0]))
     fail('siem_host.address_prefix must be a private IPv4 subnet with at least 32 addresses.');
+  requireSiemSubnet(siem.address_prefix);
   nonEmptyString(siem.vm_size, 'siem_host.vm_size');
   if (
     typeof siem.admin_ssh_public_key !== 'string' ||
@@ -129,10 +202,11 @@ function validateSiem(siem) {
     fail('siem_host.ubuntu_image_version must pin Ubuntu 24.04 to a numeric version.');
   if (!Number.isInteger(siem.data_disk_size_gb) || siem.data_disk_size_gb < 32)
     fail('siem_host.data_disk_size_gb must be an integer of at least 32.');
-  for (const field of ['dashboard_ingress_cidrs', 'agent_ingress_cidrs']) {
-    if (!Array.isArray(siem[field]) || !siem[field].every(validCidr))
-      fail(`siem_host.${field} must be an array of valid CIDRs.`);
-  }
+  if (!Array.isArray(siem.dashboard_ingress_cidrs))
+    fail('siem_host.dashboard_ingress_cidrs must be an array of CIDRs.');
+  validateDashboardIngressCidrs(siem.dashboard_ingress_cidrs);
+  if (!Array.isArray(siem.agent_ingress_cidrs) || !siem.agent_ingress_cidrs.every(validCidr))
+    fail('siem_host.agent_ingress_cidrs must be an array of valid CIDRs.');
   stringMap(
     siem.core_secret_names,
     'siem_host.core_secret_names',
@@ -237,6 +311,10 @@ function validateAnkay(ankay, siem, registry) {
   exactKeys(ankay, required, ['data_disk_size_gb'], 'ankay_host');
   if (!isPrivateRfc1918(ankay.private_ip_address))
     fail('ankay_host.private_ip_address must be an RFC1918 private IPv4 address.');
+  if (!isUsableAnkayHostAddress(ankay.private_ip_address))
+    fail(
+      `ankay_host.private_ip_address must be a usable Azure host address in ${EUS2_ANKAY_SUBNET}.`,
+    );
   if (
     typeof ankay.admin_ssh_public_key !== 'string' ||
     !/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/=]+(?: .*)?$/u.test(
