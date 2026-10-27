@@ -103,9 +103,61 @@ runner hospedado aunque no tenga conexión al VNet. El workflow comprueba por AR
 que el destino sea el vault EUS2 correcto, con `publicNetworkAccess=Disabled`, ACL
 `Deny`/`None` y un Private Endpoint aprobado. Los valores van en un archivo de
 parámetros temporal con modo `0600`, se pasan a ARM como `secureString`, no se
-imprimen, no se guardan en state ni se adjuntan como artefacto, y el runner lo
-elimina al terminar. El borrado de archivos y referencias en memoria es best-effort;
-no equivale a un borrado forense. Fuentes: [Key Vault network security](https://learn.microsoft.com/en-us/azure/key-vault/general/how-to-azure-key-vault-network-security), [ARM data types](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/data-types), [Key Vault secret ARM resource](https://learn.microsoft.com/en-us/azure/templates/microsoft.keyvault/vaults/secrets).
+imprimen ni se guardan en state; el runner los elimina al terminar. El borrado de
+archivos y referencias en memoria es best-effort; no equivale a un borrado forense.
+Fuentes: [Key Vault network security](https://learn.microsoft.com/en-us/azure/key-vault/general/how-to-azure-key-vault-network-security), [ARM data types](https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/data-types), [Key Vault secret ARM resource](https://learn.microsoft.com/en-us/azure/templates/microsoft.keyvault/vaults/secrets).
+
+El bundle de instalación Wazuh usa el workflow separado
+`.github/workflows/generate-eus2-wazuh-install-files.yml` para que el código
+upstream nunca se ejecute en un job con identidad federada:
+
+1. `build` no usa el environment Azure, no tiene `id-token: write` y no recibe
+   secretos. Verifica los commits oficiales fijados, genera el tar y comprueba su
+   estructura/tamaño. Cifra el archivo con age y publica **solo** el `.tar.age` como
+   artifact del mismo workflow, con expiración de un día. La identidad del seeder
+   no está disponible en este job. El único output entre jobs es el SHA-256 público
+   del ciphertext, usado para rechazar sustituciones; no incluye la clave ni el tar.
+2. `seed` requiere `azure-demo-eus2`, aprobación del environment y OIDC. Descarga
+   solo el artifact de esa misma ejecución, lo descifra con la clave privada
+   protegida, verifica que su recipient coincida con la variable pública, vuelve a
+   validar el tar sin extraerlo y prepara el parámetro ARM `secureString` en un
+   archivo temporal privado. El paso `azure/login` viene inmediatamente antes de
+   revisar el vault y crear el secreto.
+3. Los pasos finales eliminan la copia cifrada, el tar descifrado, la clave privada
+   temporal y el archivo de parámetros. El artifact no contiene el tar en claro ni
+   la identidad age. Los errores de cifrado/descifrado se redactan para no mostrar
+   datos sensibles.
+
+#### Material de cifrado para el handoff
+
+Configurar antes de usar el workflow:
+
+- GitHub **repository variable** pública
+  `QAPAQ_EUS2_WAZUH_BUNDLE_AGE_RECIPIENT`: recipient `age1...` producido por
+  `age-keygen`. Se lee solo en `build`; no es una credencial.
+- GitHub **Environment secret** `QAPAQ_EUS2_WAZUH_BUNDLE_AGE_IDENTITY` dentro de
+  `azure-demo-eus2`: una sola línea `AGE-SECRET-KEY-1...` del mismo par. Solo el
+  paso que descifra recibe esta variable. No usar una clave compartida, pegarla en
+  el chat ni guardarla en `.env`, logs, outputs o artifacts.
+
+El instalador obtiene [age v1.3.2](https://github.com/FiloSottile/age/releases/tag/v1.3.2)
+del release oficial y verifica SHA-256
+`cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10` antes de
+ejecutarlo. La prueba unitaria genera un par sintético, valida un round-trip cifrado
+y comprueba que modificar el ciphertext impide producir el tar. La clave real no se
+crea ni se rota desde el workflow. Para rotar el recipient/identity se actualizan
+la variable pública y el Environment secret coordinadamente, en un cambio revisado.
+
+Generar el par fuera de CI en un equipo controlado:
+
+```sh
+age-keygen -o qapaq-wazuh-bundle-identity.txt
+```
+
+La línea `# public key: age1...` alimenta la repository variable; solo la línea
+`AGE-SECRET-KEY-1...` se guarda como Environment secret. El archivo completo contiene
+la identidad privada: conservarlo protegido y no imprimirlo, adjuntarlo al repo o
+enviarlo por chat.
 
 ### Identidad y permisos requeridos (configuración externa, no los crea el workflow)
 
@@ -246,3 +298,43 @@ Mientras falte cualquiera de los datos obligatorios, mantener
 `AZURE_EUS2_SIEM_HOST_JSON`/`AZURE_EUS2_ANKAY_HOST_JSON` en `null` y runtime
 apagado. Poner un secreto en Key Vault por sí solo no arranca Wazuh ni demuestra
 que M365, Sophos, Cato, Teams o Ankay estén operativos.
+
+## Generación protegida del archivo Wazuh en GitHub Actions
+
+El workflow manual `.github/workflows/generate-eus2-wazuh-install-files.yml`
+genera el material inicial con el asistente oficial Wazuh `v4.14.8`, fijado al
+commit verificado `33d2069715e8500b676d13cefe7ddaea8eb79019`, el detector de
+distribución de Wazuh fijado al commit verificado
+`f470ad7db717b18db7feeed568949643698f0f34`, y el perfil oficial all-in-one
+`config/certificate/config_aio.yml`. Las claves y contraseñas se
+generan nuevas en cada intento; el procedimiento es reproducible por fuente y
+configuración, pero los bytes son deliberadamente aleatorios y no se pueden
+regenerar idénticos.
+
+El archivo contiene contraseñas y claves privadas de los componentes Wazuh; el
+formato del asistente puede incluir `root-ca.key`. Tratarlo como material de alta
+sensibilidad. El workflow comprueba primero que el secreto
+`wazuh-install-files.tar.b64` no exista y solo permite crearlo una vez. No es un
+flujo de rotación. Si el secreto ya existe, se detiene sin leerlo ni cambiarlo.
+
+El asistente y la conversión validan el tar sin extraer miembros: base64 de hasta
+24.000 bytes de texto, archivo binario de hasta 18.000 bytes, no más de 32
+miembros, máximo 2 MiB por miembro y 4 MiB expandidos; no admite rutas absolutas,
+traversal, enlaces, tipos especiales ni rutas duplicadas. Un tamaño que exceda
+el límite falla antes de escribir en Key Vault. El cap de 18.000 bytes conserva
+margen bajo el límite de [25 KB por secreto de Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/secrets/about-secrets)
+y coincide con el validador de bootstrap.
+
+El valor pasa desde el archivo generado a un parámetro ARM `secureString` en un
+archivo temporal del runner con permisos `0600`; no se pone en argv, variables de
+entorno, GitHub outputs, resumen, logs ni artifacts. ARM devuelve solo metadata;
+el workflow comprueba el nombre y que el secreto esté habilitado. Los archivos
+temporales se eliminan al terminar; el borrado local es best-effort, no forense.
+No se ejecuta Terraform ni se cambia DNS, RBAC o red.
+
+El job requiere aprobación del environment `azure-demo-eus2`, el client ID OIDC
+de la identidad seeder y los permisos ya provisionados en los alcances exactos:
+crear/leer despliegues ARM en el grupo EUS2 y leer/escribir metadata del secreto
+en el Key Vault objetivo. No requiere `dataActions` ni capacidad para recuperar
+valores de secretos. La creación y aprobación de esos roles es una operación
+separada del workflow.
