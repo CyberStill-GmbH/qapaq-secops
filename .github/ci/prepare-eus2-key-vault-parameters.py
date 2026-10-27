@@ -21,6 +21,7 @@ SOURCE_TO_SECRET = {
     "QAPAQ_EUS2_SOPHOS_CLIENT_ID": "sophos-client-id",
     "QAPAQ_EUS2_SOPHOS_CLIENT_SECRET": "sophos-client-secret",
     "QAPAQ_EUS2_CATO_API_KEY": "cato-api-key",
+    "QAPAQ_EUS2_CATO_API_ENDPOINT": "cato-api-endpoint",
     "QAPAQ_EUS2_TEAMS_WORKFLOW_URL": "qapaq-teams-workflow-url",
     "QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64": "wazuh-install-files.tar.b64",
 }
