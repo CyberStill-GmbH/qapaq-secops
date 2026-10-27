@@ -18,6 +18,9 @@ scope and must not be implied by a successful `siem` deployment.
 Use this sequence:
 
 1. Reconcile the EUS2 Terraform-managed seeder RBAC before another foundation apply.
+   If the selected deployment also enables `module.krakend_gateway`, stop until its
+   custom-role permission gate below is independently verified for the GitHub OIDC
+   Terraform principal.
 2. Confirm the foundation resources and private endpoints through the approved read-only
    operational checks; do not infer that state is correct from the resources existing.
 3. Seed only rotated, required Key Vault secrets through the protected create-only
@@ -43,6 +46,28 @@ Use this sequence:
    stays unchanged until endpoint, TLS, auth, ingestion, rollback, and owner acceptance
    are evidenced. The Terraform root does not manage public DNS.
 
+## GitHub Environment inventory (metadata only, 2026-10-27)
+
+The read-only inventory found that the current EUS2 GitHub environment is not yet
+configured to plan the SIEM deployment:
+
+- `AZURE_EUS2_SIEM_HOST_JSON` and `AZURE_EUS2_KRAKEND_GATEWAY_JSON` are absent.
+- `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}` and
+  `AZURE_EUS2_CONTAINER_IMAGES_JSON={}`; `AZURE_EUS2_ENABLE_RUNTIME=false`.
+- The only environment secret names are `AZURE_EUS2_POSTGRES_ADMIN_PASSWORD` and
+  `AZURE_EUS2_TERRAFORM_CLIENT_ID`. Their values were not read.
+- The inventory did not inspect Key Vault secret names or values. It therefore does
+  not establish that the runtime secrets below exist; seed only rotated values with the
+  protected workflow and confirm the required names before filling the SIEM profile.
+
+The immediate missing inputs are the approved subnet and operator/agent source CIDRs,
+recoverable SSH public key plus a private management path, exact available Ubuntu image,
+Core environment/secret reference map, Wazuh installer credential/certificate archive,
+M365 Graph tenant/app and consented permissions, plus any Sophos/Cato references and
+IDs only if those optional connectors are enabled. KrakenD profile and proxy credentials
+must be completed only after its route and role tests pass. Do not fill the JSON with
+sample values to make the workflow proceed.
+
 ## `AZURE_EUS2_SIEM_HOST_JSON` field matrix
 
 Values marked **known** come from the committed EUS2 architecture/profile and module
@@ -51,7 +76,7 @@ substitute an example CIDR, user key, credential, or identifier.
 
 | JSON field | Known value / contract | Operator input or gate |
 | --- | --- | --- |
-| `address_prefix` | Must be a subnet inside VNet `10.80.0.0/16`; subnet length `/27` or larger (numerically, prefix length ≤27); SIEM IP is derived as host 10. | Select an unused subnet and prove no overlap with Container Apps `10.80.0.0/27`, PostgreSQL `10.80.16.0/28`, Private Endpoints `10.80.16.16/28`, Firewall `10.80.64.0/26`, or future Ankay `10.80.0.32/27`. Confirm it also leaves Azure-required addresses available. **No exact SIEM subnet is approved in the design.** |
+| `address_prefix` | Must be a subnet inside VNet `10.80.0.0/16`; subnet length `/27` or larger (numerically, prefix length ≤27); SIEM IP is derived as host 10. | Select an unused subnet and prove no overlap with Container Apps `10.80.0.0/27`, future Ankay `10.80.0.32/27`, KrakenD `10.80.0.64/27`, PostgreSQL `10.80.16.0/28`, Private Endpoints `10.80.16.16/28`, or Firewall `10.80.64.0/26`. Confirm it also leaves Azure-required addresses available. **No exact SIEM subnet is approved in the design.** |
 | `vm_size` | `Standard_F4s_v2` only; module validates exact SKU. | Confirm quota and availability for the target subscription/region immediately before plan. |
 | `admin_ssh_public_key` | OpenSSH **public** key only; no public SSH NSG rule. Terraform does not currently provision Bastion or another private SSH management path, and the NSG keeps SSH closed. | Provide the public half and separately approve/provision a management path (for example, VPN or Bastion) before relying on SSH for recovery. Retain the private half outside GitHub/Terraform. The key alone does not make the VM reachable. |
 | `ubuntu_image_version` | Canonical Ubuntu 24.04 LTS; `latest` is rejected. | Select and verify an exact currently available `24.04.x` Marketplace version in East US 2. |
@@ -155,6 +180,26 @@ already has. Role-assignment ARM IDs must be obtained from metadata because thei
 cannot be inferred from the Terraform configuration. If definitions are already in
 state, do not import them again.
 
+### KrakenD custom Key Vault role gate
+
+The KrakenD module's Key Vault integration defines a custom role limited to the
+required `get`/`set` operations on the exact named secret resources. Its creation
+requires `Microsoft.Authorization/roleDefinitions/write` at the custom role's approved
+assignable scope. The GitHub OIDC Terraform identity currently has `Contributor` plus
+`Role Based Access Control Administrator` whose ABAC condition is restricted to a
+fixed set of built-in role-definition IDs; that condition does not authorize creating
+this custom role. Do not infer that permission from the existing gateway or seeder
+assignments.
+
+Before a plan that enables KrakenD or creates/changes this role, an operator must verify
+the exact role definition, assignable scope, target principal, secret-level assignment
+scopes, and the Terraform identity's effective authorization. Keep the deployment
+blocked until that evidence exists. Do not broaden the ABAC condition to arbitrary
+roles or substitute Owner, unconditioned User Access Administrator, or Key Vault
+Secrets Officer. Do not add a role assignment that grants vault-wide access when the
+design calls for exact named secrets. The seeder's separate custom-role authorization
+and state reconciliation remain an independent gate.
+
 ## Core and end-to-end blockers (separate from Wazuh host readiness)
 
 ### Wazuh-only host gates
@@ -196,8 +241,13 @@ state, do not import them again.
   principal, create the two named Key Vault secrets (Base64 `qapaq_reader` credential
   and the proxy CA), and install/test the TLS-verifying proxy on the SIEM host. The
   current `wazuh/access/apply-access.sh` writes credentials to AWS Secrets Manager;
-  no Azure proxy/secret seeding path exists yet. Keep the module disabled until those
-  prerequisites and route-level tests pass.
+  no Azure proxy/secret seeding path exists yet. Its custom Key Vault role also needs
+  `Microsoft.Authorization/roleDefinitions/write`, which the current condition on the
+  GitHub Terraform identity does not grant. Keep the module disabled and the plan
+  blocked until that role-creation permission is verified at the approved scope, the
+  exact-secret assignments are reviewed, those runtime prerequisites are satisfied,
+  and route-level tests pass. Do not replace the missing permission with a broader
+  built-in role.
 - No Redis-compatible cache/queue is provisioned by EUS2 Terraform. The current app
   has no verified BullMQ producer/worker E2E for this Azure path; the Azure parity
   review says the worker is lifecycle-only and ADR-AZ-001 remains proposed. A managed
@@ -208,11 +258,13 @@ state, do not import them again.
   bootstrap can read Key Vault secrets with VM Managed Identity and write a root-owned
   environment file, but that is not the same as a working Core secret-provider adapter
   for references at runtime.
-- The SIEM subnet contract currently checks CIDR syntax and minimum size, but does not
-  reject overlap with the fixed EUS2 subnets or prove membership in `10.80.0.0/16`.
-  The profile must remain disabled until a preflight validates the selected subnet
-  against the VNet and every reserved subnet; do not rely on Terraform apply to discover
-  this after costs or partial infrastructure have been created.
+- The deployment-input preflight rejects a SIEM subnet outside the configured VNet and
+  computes overlap against the network/gateway modules' reserved Container Apps, Ankay,
+  KrakenD, PostgreSQL, Private Endpoints, and Azure Firewall subnets. The preflight tests cover
+  the accepted free example `10.80.16.32/27` and rejection of overlapping/out-of-VNet
+  inputs. This does not approve that example for the real deployment: the operator must
+  still confirm that the selected range is unused in Azure and preserves Azure-required
+  addresses before plan/apply.
 - The SIEM VM module configures boot diagnostics but does not configure Azure Monitor
   Agent, guest-level health alerts, or an Azure Backup/restore policy for the Wazuh data
   disk. `prevent_destroy` protects against a Terraform destroy; it is not a backup.
