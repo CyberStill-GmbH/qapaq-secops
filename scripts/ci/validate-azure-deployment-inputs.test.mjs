@@ -77,6 +77,7 @@ test('rejects SIEM subnets that overlap any subnet reserved by the Azure network
   const reservedPrefixes = [
     { cidr: '10.80.0.0/27', reason: /Container Apps/u },
     { cidr: '10.80.0.32/27', reason: /Ankay/u },
+    { cidr: '10.80.0.64/27', reason: /KrakenD/u },
     {
       cidr: '10.80.16.0/27',
       reason: /PostgreSQL, Private Endpoints/u,

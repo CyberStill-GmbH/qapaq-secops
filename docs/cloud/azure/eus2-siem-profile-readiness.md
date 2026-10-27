@@ -43,6 +43,28 @@ Use this sequence:
    stays unchanged until endpoint, TLS, auth, ingestion, rollback, and owner acceptance
    are evidenced. The Terraform root does not manage public DNS.
 
+## GitHub Environment inventory (metadata only, 2026-10-27)
+
+The read-only inventory found that the current EUS2 GitHub environment is not yet
+configured to plan the SIEM deployment:
+
+- `AZURE_EUS2_SIEM_HOST_JSON` and `AZURE_EUS2_KRAKEND_GATEWAY_JSON` are absent.
+- `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}` and
+  `AZURE_EUS2_CONTAINER_IMAGES_JSON={}`; `AZURE_EUS2_ENABLE_RUNTIME=false`.
+- The only environment secret names are `AZURE_EUS2_POSTGRES_ADMIN_PASSWORD` and
+  `AZURE_EUS2_TERRAFORM_CLIENT_ID`. Their values were not read.
+- The inventory did not inspect Key Vault secret names or values. It therefore does
+  not establish that the runtime secrets below exist; seed only rotated values with the
+  protected workflow and confirm the required names before filling the SIEM profile.
+
+The immediate missing inputs are the approved subnet and operator/agent source CIDRs,
+recoverable SSH public key plus a private management path, exact available Ubuntu image,
+Core environment/secret reference map, Wazuh installer credential/certificate archive,
+M365 Graph tenant/app and consented permissions, plus any Sophos/Cato references and
+IDs only if those optional connectors are enabled. KrakenD profile and proxy credentials
+must be completed only after its route and role tests pass. Do not fill the JSON with
+sample values to make the workflow proceed.
+
 ## `AZURE_EUS2_SIEM_HOST_JSON` field matrix
 
 Values marked **known** come from the committed EUS2 architecture/profile and module
@@ -51,7 +73,7 @@ substitute an example CIDR, user key, credential, or identifier.
 
 | JSON field | Known value / contract | Operator input or gate |
 | --- | --- | --- |
-| `address_prefix` | Must be a subnet inside VNet `10.80.0.0/16`; subnet length `/27` or larger (numerically, prefix length ≤27); SIEM IP is derived as host 10. | Select an unused subnet and prove no overlap with Container Apps `10.80.0.0/27`, PostgreSQL `10.80.16.0/28`, Private Endpoints `10.80.16.16/28`, Firewall `10.80.64.0/26`, or future Ankay `10.80.0.32/27`. Confirm it also leaves Azure-required addresses available. **No exact SIEM subnet is approved in the design.** |
+| `address_prefix` | Must be a subnet inside VNet `10.80.0.0/16`; subnet length `/27` or larger (numerically, prefix length ≤27); SIEM IP is derived as host 10. | Select an unused subnet and prove no overlap with Container Apps `10.80.0.0/27`, future Ankay `10.80.0.32/27`, KrakenD `10.80.0.64/27`, PostgreSQL `10.80.16.0/28`, Private Endpoints `10.80.16.16/28`, or Firewall `10.80.64.0/26`. Confirm it also leaves Azure-required addresses available. **No exact SIEM subnet is approved in the design.** |
 | `vm_size` | `Standard_F4s_v2` only; module validates exact SKU. | Confirm quota and availability for the target subscription/region immediately before plan. |
 | `admin_ssh_public_key` | OpenSSH **public** key only; no public SSH NSG rule. Terraform does not currently provision Bastion or another private SSH management path, and the NSG keeps SSH closed. | Provide the public half and separately approve/provision a management path (for example, VPN or Bastion) before relying on SSH for recovery. Retain the private half outside GitHub/Terraform. The key alone does not make the VM reachable. |
 | `ubuntu_image_version` | Canonical Ubuntu 24.04 LTS; `latest` is rejected. | Select and verify an exact currently available `24.04.x` Marketplace version in East US 2. |
@@ -209,8 +231,8 @@ state, do not import them again.
   environment file, but that is not the same as a working Core secret-provider adapter
   for references at runtime.
 - The deployment-input preflight rejects a SIEM subnet outside the configured VNet and
-  computes overlap against the network module's reserved Container Apps, Ankay,
-  PostgreSQL, Private Endpoints, and Azure Firewall subnets. The preflight tests cover
+  computes overlap against the network/gateway modules' reserved Container Apps, Ankay,
+  KrakenD, PostgreSQL, Private Endpoints, and Azure Firewall subnets. The preflight tests cover
   the accepted free example `10.80.16.32/27` and rejection of overlapping/out-of-VNet
   inputs. This does not approve that example for the real deployment: the operator must
   still confirm that the selected range is unused in Azure and preserves Azure-required

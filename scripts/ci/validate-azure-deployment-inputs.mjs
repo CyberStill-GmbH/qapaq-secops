@@ -137,6 +137,7 @@ function validateSiemSubnet(siem, env) {
   const reserved = [
     ['Container Apps', subnetCidr(vnetCidr, 11, 0)],
     ['Ankay', subnetCidr(vnetCidr, 11, 1)],
+    ['KrakenD', subnetCidr(vnetCidr, 11, 2)],
     ['PostgreSQL', subnetCidr(vnetCidr, 12, 256)],
     ['Private Endpoints', subnetCidr(vnetCidr, 12, 257)],
     ['Azure Firewall', subnetCidr(vnetCidr, 10, 256)],
