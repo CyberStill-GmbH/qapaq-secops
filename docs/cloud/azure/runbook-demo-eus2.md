@@ -34,6 +34,13 @@ credenciales de integración.
   `AZURE_EUS2_APPLY_READY=true`. `AZURE_EUS2_ENABLE_RUNTIME=false`, los perfiles
   `siem_host`/`ankay_host` son nulos, `AZURE_EUS2_CONTAINER_IMAGES_JSON={}` y
   `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}`. El ACR está vacío.
+- La lectura de solo metadatos del environment GitHub del 2026-10-27 confirma que
+  los únicos nombres de secretos presentes son los del password administrador de
+  PostgreSQL y el client ID de Terraform; no aparecen secretos de aplicación,
+  M365, Teams, Sophos, Cato ni el tar de instalación de Wazuh. Tampoco están
+  configuradas las variables de perfil `AZURE_EUS2_SIEM_HOST_JSON` ni
+  `AZURE_EUS2_KRAKEND_GATEWAY_JSON`. Esto describe GitHub Environment, no el
+  contenido del Key Vault; no se consultaron valores de secretos.
 - Key Vault `kv-qapaqsecopsd-3a2405f3` mantiene `PublicNetworkAccess=Disabled`.
   La consulta de nombres fue bloqueada desde esta máquina por la regla de red;
   no se leyeron ni modificaron valores secretos.
