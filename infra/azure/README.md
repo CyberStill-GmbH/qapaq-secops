@@ -3,7 +3,10 @@
 Este root es independiente de `infra/aws`: usa una suscripción, state, identidad,
 red y secretos propios. No importa ni cambia recursos AWS o DNS. La arquitectura
 documentada para el destino Azure se rige por [`docs/cloud/azure/architecture.md`](../../docs/cloud/azure/architecture.md),
-con `docs/10-decisiones.md` y `docs/12-backend-en-el-siem.md` como fuentes de producto.
+con [`arquitectura objetivo EUS2`](../../docs/cloud/azure/target-architecture-demo-eus2.md),
+`docs/10-decisiones.md` y `docs/12-backend-en-el-siem.md` como fuentes de producto. El
+perfil no secreto `profiles/demo-eus2.tfvars` es el que consume el workflow aislado EUS2;
+por sí solo mantiene los hosts SIEM y Ankay deshabilitados.
 
 ## Estado real del root
 

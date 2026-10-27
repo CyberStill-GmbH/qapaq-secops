@@ -4,6 +4,7 @@ Esta documentación describe solo el destino Azure. No es una traducción litera
 de la arquitectura AWS y no modifica la documentación/demo AWS.
 
 - [Arquitectura y límites](architecture.md)
+- [Arquitectura objetivo EUS2 y perfil de despliegue](target-architecture-demo-eus2.md)
 - [ADR Azure: BullMQ sobre PostgreSQL](decisions/adr-azure-queue-postgres.md)
 - [Diagrama de despliegue](diagrams/qapaq-azure.mmd)
 - [Runbook de secretos, notificaciones y DNS](runbook-preparacion-y-corte.md)
@@ -14,11 +15,18 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
 - [Terraform Azure](../../../infra/azure/README.md)
 
-Estado al **2026-10-26**: la fundación aislada de East US 2 está aplicada; el runtime SOC
+Estado al **2026-10-27**: la fundación aislada de East US 2 está aplicada; el runtime SOC
 continúa sin desplegar. El run [40421595800](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40421595800)
 completó PostgreSQL Flexible Server 16 y las bases `qapaq_secops`/`qapaq_jobs` con
 `Standard_D2s_v3`, sin destrucciones. La región de este demo es East US 2; la residencia
 productiva sigue pendiente de aprobación.
+
+El run [40453658942](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40453658942)
+publicó y verificó el bundle QAPAQ SIEM fijado por SHA en el Blob privado de EUS2. El
+workflow impide sobrescribir un blob existente con bytes distintos. Esto
+deja listo un artefacto versionado para el bootstrap; no instaló el SIEM ni habilitó el
+host, firewall, Ankay o DNS. El perfil común no secreto y el workflow que lo consume
+están descritos en la [arquitectura objetivo EUS2](target-architecture-demo-eus2.md).
 
 El estado de infraestructura confirmado por Actions es:
 
