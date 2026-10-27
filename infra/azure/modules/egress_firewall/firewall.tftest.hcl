@@ -67,6 +67,8 @@ run "basic_egress_keeps_fqdn_allowlist_and_management_plane" {
     source_cidrs               = ["10.80.16.32/27"]
     ingress_lb_private_ip      = "10.80.16.42"
     dashboard_ingress_cidrs    = ["198.51.100.25/32"]
+    agent_public_cidrs         = ["198.51.100.0/28"]
+    agent_target_ip            = "10.80.16.36"
     sku_tier                   = "Basic"
     tags                       = { project = "qapaq-secops", environment = "test" }
   }
@@ -89,5 +91,13 @@ run "basic_egress_keeps_fqdn_allowlist_and_management_plane" {
   assert {
     condition     = contains(azurerm_firewall_policy_rule_collection_group.egress.application_rule_collection[0].rule[0].destination_fqdns, "graph.microsoft.com")
     error_message = "El allowlist por FQDN se mantiene igual en Basic."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule) == 4 &&
+      contains(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule[*].translated_address, "10.80.16.36")
+    )
+    error_message = "Los agentes deben publicar solo 1514 y 1515 hacia la IP fija del SIEM."
   }
 }

@@ -105,7 +105,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "egress" {
   }
 
   dynamic "nat_rule_collection" {
-    for_each = var.ingress_lb_private_ip == null || (!var.ingress_http_enabled && length(var.dashboard_ingress_cidrs) == 0) ? [] : [true]
+    for_each = var.ingress_lb_private_ip == null || (!var.ingress_http_enabled && length(var.dashboard_ingress_cidrs) == 0 && length(var.agent_public_cidrs) == 0) ? [] : [true]
     content {
       name     = "qapaq-siem-public-ingress"
       priority = 120
@@ -134,6 +134,22 @@ resource "azurerm_firewall_policy_rule_collection_group" "egress" {
           destination_ports   = ["443"]
           translated_address  = var.ingress_lb_private_ip
           translated_port     = "443"
+        }
+      }
+
+      # Agentes Wazuh: registro (1515) y eventos (1514) directo a la VM, no al LB del edge.
+      # La autenticación es la clave de registro y la clave por agente; el DNAT solo acota
+      # quién puede intentarlo.
+      dynamic "rule" {
+        for_each = length(var.agent_public_cidrs) == 0 ? [] : ["1514", "1515"]
+        content {
+          name                = "qapaq-wazuh-agents-${rule.value}"
+          protocols           = ["TCP"]
+          source_addresses    = sort(tolist(var.agent_public_cidrs))
+          destination_address = azurerm_public_ip.firewall.ip_address
+          destination_ports   = [rule.value]
+          translated_address  = var.agent_target_ip
+          translated_port     = rule.value
         }
       }
     }
@@ -169,6 +185,10 @@ resource "azurerm_firewall" "this" {
     precondition {
       condition     = !local.is_basic || var.management_subnet_id != null
       error_message = "Azure Firewall Basic requiere AzureFirewallManagementSubnet."
+    }
+    precondition {
+      condition     = length(var.agent_public_cidrs) == 0 || var.agent_target_ip != null
+      error_message = "Publicar puertos de agentes requiere la IP privada fija del SIEM."
     }
   }
 }

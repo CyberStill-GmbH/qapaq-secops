@@ -149,6 +149,7 @@ variable "siem_host" {
     data_disk_size_gb       = number
     dashboard_ingress_cidrs = set(string)
     agent_ingress_cidrs     = set(string)
+    agent_public_cidrs      = optional(set(string), [])
     core_secret_names       = map(string)
     wazuh_secret_names      = map(string)
     core_environment        = map(string)

@@ -95,3 +95,19 @@ variable "container_apps_allowed_service_tags" {
   default     = []
 }
 variable "tags" { type = map(string) }
+
+variable "agent_public_cidrs" {
+  description = "IPs públicas de las redes con agentes Wazuh (oficinas, egress de Cato). Vacío no publica 1514/1515."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for cidr in var.agent_public_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
+    error_message = "Cada origen de agentes debe ser un CIDR válido y no puede abarcar todo Internet."
+  }
+}
+variable "agent_target_ip" {
+  description = "IP privada fija de la VM SIEM que recibe registro (1515) y eventos (1514) de agentes."
+  type        = string
+  default     = null
+}
