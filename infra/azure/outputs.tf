@@ -13,6 +13,11 @@ output "github_publisher_client_id" {
   value       = module.identity_registry.github_publisher_client_id
 }
 
+output "eus2_secret_seeder_client_id" {
+  description = "Client ID que debe configurarse como AZURE_EUS2_SECRET_SEEDER_CLIENT_ID en el GitHub Environment protegido azure-demo-eus2. Null fuera de demo-eus2."
+  value       = try(module.key_vault_seed_identity[0].client_id, null)
+}
+
 output "runtime_identity_client_id" {
   description = "Client ID de la identidad administrada del runtime."
   value       = module.identity_registry.runtime_identity_client_id

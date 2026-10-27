@@ -96,6 +96,23 @@ module "identity_registry" {
   tags                             = var.tags
 }
 
+# The approved EUS2 seed workflow uses a dedicated identity. It is intentionally
+# separate from the Terraform and artifact-publisher identities, and only receives
+# the control-plane permissions needed by the create-only secret workflow.
+module "key_vault_seed_identity" {
+  count  = var.environment == "demo-eus2" ? 1 : 0
+  source = "./modules/key_vault_seed_identity"
+
+  resource_group_id   = data.azurerm_resource_group.this.id
+  resource_group_name = data.azurerm_resource_group.this.name
+  location            = data.azurerm_resource_group.this.location
+  name_base           = local.name_base
+  key_vault_id        = module.data.key_vault_id
+  tags                = var.tags
+
+  depends_on = [module.data]
+}
+
 # Azure networking is provisioned with its own egress firewall. The SIEM VM no longer
 # depends on an AWS-era or manually pre-existing firewall/policy reference.
 module "egress_firewall" {
