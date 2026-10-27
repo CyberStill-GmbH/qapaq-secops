@@ -54,6 +54,74 @@ run "accepts_matching_key_vault_reference" {
   }
 }
 
+run "accepts_postgres_with_matching_key_vault_references" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE       = "postgres"
+      QAPAQ_POSTGRES_PASSWORD_REF = "secret://keyvault/qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY_REF    = "secret://keyvault/qapaq-entity-ref-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+}
+
+run "rejects_postgres_without_password_secret_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE = "postgres"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_postgres_without_entity_reference_key_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE = "postgres"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_postgres_reference_that_does_not_match_key_vault_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE       = "postgres"
+      QAPAQ_POSTGRES_PASSWORD_REF = "secret://keyvault/qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY_REF    = "secret://keyvault/unmapped-entity-ref-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
 run "rejects_plaintext_client_secret_reference" {
   command = plan
 

@@ -121,6 +121,19 @@ def load_config() -> dict:
             or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name)
         ):
             fail("core_secret_names contiene una clave o un nombre Key Vault no admitido")
+    core_environment = config.get("core_environment", {})
+    if not isinstance(core_environment, dict):
+        fail("core_environment debe ser un objeto")
+    if core_environment.get("QAPAQ_SOC_PERSISTENCE") == "postgres":
+        required_postgres_secrets = {"QAPAQ_POSTGRES_PASSWORD", "QAPAQ_ENTITY_REF_KEY"}
+        if not required_postgres_secrets.issubset(core_secret_names):
+            fail("persistencia PostgreSQL requiere referencias Key Vault para la contraseña de aplicación y la clave de referencias de entidad")
+    for secret_key, reference_key in CORE_SECRET_REFERENCE_KEYS.items():
+        reference = core_environment.get(reference_key)
+        if reference is not None:
+            secret_name = core_secret_names.get(secret_key)
+            if secret_name is None or reference != f"secret://keyvault/{secret_name}":
+                fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
     provider_config = config.get("provider_ingestion", {})
     provider_keys = {"sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"}
     if not isinstance(provider_config, dict) or set(provider_config) - provider_keys:

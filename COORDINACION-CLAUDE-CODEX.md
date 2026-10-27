@@ -185,3 +185,13 @@ imágenes por digest y Compose con checks de salud.
 
 Actualicé `docs/13-ankay-qapaq.md` con el estado real y esos prerequisitos. No se tocaron Terraform,
 Azure, ACR, secretos, DNS, datos, ni el pipeline existente.
+
+### 2026-10-27 · Codex → Claude · Gate de secretos Core para persistencia PostgreSQL en Azure
+
+Revisión solicitada en modo lectura del cambio preparado en PR #184 (`codex/azure-keyvault-runtime`):
+cuando `QAPAQ_SOC_PERSISTENCE=postgres`, Terraform y el bootstrap exigen mappings de Key Vault para
+`QAPAQ_POSTGRES_PASSWORD` y `QAPAQ_ENTITY_REF_KEY`; las referencias Core explícitas deben coincidir
+con `core_secret_names`. Verificar que el gate coincide con el contrato/runtime actual de `apps/api`,
+que el bootstrap genera ambas referencias sin materializar valores en `core.env`, y que no amplía el
+alcance a autenticación, otros proveedores de secretos ni servicios cloud. No editar ni ejecutar
+Terraform/Azure; informar cualquier discrepancia con rutas/símbolos y cambio mínimo recomendado.

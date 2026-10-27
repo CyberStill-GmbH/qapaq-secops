@@ -89,6 +89,64 @@ class ProviderIngestionValidationTests(unittest.TestCase):
             "data_disk_size_gb": 128,
         }
 
+    def _load_config(self, config: dict) -> dict:
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                return BOOTSTRAP.load_config()
+
+    def _assert_config_rejected(self, config: dict, expected_message: str) -> None:
+        captured_output = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                with contextlib.redirect_stdout(captured_output):
+                    with self.assertRaises(SystemExit):
+                        BOOTSTRAP.load_config()
+        self.assertIn(expected_message, captured_output.getvalue())
+
+    def test_accepts_postgres_with_matching_secret_names_and_references(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {
+            "QAPAQ_SOC_PERSISTENCE": "postgres",
+            "QAPAQ_POSTGRES_PASSWORD_REF": "secret://keyvault/qapaq-postgres-password",
+            "QAPAQ_ENTITY_REF_KEY_REF": "secret://keyvault/qapaq-entity-ref-key",
+        }
+        config["core_secret_names"].update({
+            "QAPAQ_POSTGRES_PASSWORD": "qapaq-postgres-password",
+            "QAPAQ_ENTITY_REF_KEY": "qapaq-entity-ref-key",
+        })
+
+        loaded = self._load_config(config)
+
+        self.assertEqual(loaded["core_environment"]["QAPAQ_SOC_PERSISTENCE"], "postgres")
+
+    def test_rejects_postgres_without_password_secret_mapping(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {"QAPAQ_SOC_PERSISTENCE": "postgres"}
+        config["core_secret_names"]["QAPAQ_ENTITY_REF_KEY"] = "qapaq-entity-ref-key"
+
+        self._assert_config_rejected(config, "persistencia PostgreSQL requiere referencias Key Vault")
+
+    def test_rejects_postgres_without_entity_reference_key_mapping(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {"QAPAQ_SOC_PERSISTENCE": "postgres"}
+        config["core_secret_names"]["QAPAQ_POSTGRES_PASSWORD"] = "qapaq-postgres-password"
+
+        self._assert_config_rejected(config, "persistencia PostgreSQL requiere referencias Key Vault")
+
+    def test_rejects_core_reference_that_does_not_match_secret_mapping(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {
+            "QAPAQ_POSTGRES_PASSWORD_REF": "secret://keyvault/unmapped-password",
+        }
+        config["core_secret_names"]["QAPAQ_POSTGRES_PASSWORD"] = "qapaq-postgres-password"
+        config["core_secret_names"]["QAPAQ_ENTITY_REF_KEY"] = "qapaq-entity-ref-key"
+
+        self._assert_config_rejected(config, "la referencia Core no coincide")
+
     def test_accepts_provider_references_without_secret_values(self) -> None:
         config = self._base_config()
         config["provider_ingestion"] = {

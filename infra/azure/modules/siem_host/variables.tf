@@ -285,6 +285,17 @@ variable "core_environment" {
 
   validation {
     condition = (
+      lookup(var.core_environment, "QAPAQ_SOC_PERSISTENCE", "") != "postgres" ||
+      (
+        contains(keys(var.core_secret_names), "QAPAQ_POSTGRES_PASSWORD") &&
+        contains(keys(var.core_secret_names), "QAPAQ_ENTITY_REF_KEY")
+      )
+    )
+    error_message = "QAPAQ_SOC_PERSISTENCE=postgres requiere referencias Key Vault para QAPAQ_POSTGRES_PASSWORD y QAPAQ_ENTITY_REF_KEY en core_secret_names; el bootstrap generará las referencias correspondientes."
+  }
+
+  validation {
+    condition = (
       !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_TYPE") ||
       var.core_environment["QAPAQ_SECRET_PROVIDER_TYPE"] == "azure-key-vault"
     )
