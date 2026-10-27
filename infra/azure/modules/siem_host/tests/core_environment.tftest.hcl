@@ -15,6 +15,7 @@ variables {
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
   dashboard_ingress_cidrs      = ["198.51.100.25/32"]
+  core_secret_names            = { QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret" }
   wazuh_secret_names           = { "wazuh-install-files.tar.b64" = "wazuh-install-files-tar-b64" }
   key_vault_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.KeyVault/vaults/kv-qapaq-test"
   key_vault_uri                = "https://kv-qapaq-test.vault.azure.net/"
@@ -53,6 +54,74 @@ run "accepts_matching_key_vault_reference" {
   }
 }
 
+run "accepts_postgres_with_matching_key_vault_references" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE       = "postgres"
+      QAPAQ_POSTGRES_PASSWORD_REF = "secret://keyvault/qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY_REF    = "secret://keyvault/qapaq-entity-ref-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+}
+
+run "rejects_postgres_without_password_secret_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE = "postgres"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_postgres_without_entity_reference_key_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE = "postgres"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_postgres_reference_that_does_not_match_key_vault_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE       = "postgres"
+      QAPAQ_POSTGRES_PASSWORD_REF = "secret://keyvault/qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY_REF    = "secret://keyvault/unmapped-entity-ref-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
 run "rejects_plaintext_client_secret_reference" {
   command = plan
 
@@ -83,6 +152,30 @@ run "rejects_reference_not_backed_by_secret_mapping" {
   expect_failures = [var.core_environment]
 }
 
+run "rejects_provider_endpoint_outside_configured_vault" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SECRET_PROVIDER_ENDPOINT = "https://other-vault.vault.azure.net"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_non_azure_secret_provider_type" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SECRET_PROVIDER_TYPE = "environment"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
 run "rejects_secret_value_in_environment" {
   command = plan
 
@@ -92,6 +185,38 @@ run "rejects_secret_value_in_environment" {
     }
     core_secret_names = {
       QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_plaintext_entity_reference_key" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_ENTITY_REF_KEY = "synthetic-entity-key-must-not-enter-terraform"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_plaintext_teams_workflow_url" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_TEAMS_WORKFLOW_URL = "https://example.invalid/workflows/demo?sig=synthetic"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_TEAMS_WORKFLOW_URL  = "qapaq-teams-workflow-url"
     }
   }
 

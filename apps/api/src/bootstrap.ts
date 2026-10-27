@@ -20,6 +20,7 @@ import type { AttemptStore } from '@qapaq/soar';
 import type { SocPersistence } from '@qapaq/soc';
 import { composeApi } from './composition-root.js';
 import { ApiLifecycle, type ApiEvent } from './lifecycle.js';
+import { resolveApiSecretEnvironment } from './runtime/secret-environment.js';
 import { entityRefFactory } from './runtime/entity-refs.js';
 import { deriveCsrfKey } from './http/csrf.js';
 import type { ProcessInfo } from './soc/operations-health.js';
@@ -178,7 +179,7 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
 }
 
 export async function buildApi(
-  environment: EnvironmentInput,
+  unresolvedEnvironment: EnvironmentInput,
   emit: ApiEvent,
   /** Fallos del bucle de despacho; el entrypoint los registra sin datos del mensaje. */
   onDispatchError?: (error: unknown) => void,
@@ -193,6 +194,7 @@ export async function buildApi(
   /** Inicios de sesión rechazados: etapa y código técnico, sin datos de la cuenta. */
   onSignInDenied?: (diagnostic: SignInDiagnostic) => void,
 ) {
+  const environment = await resolveApiSecretEnvironment(unresolvedEnvironment);
   const config = loadApiConfig(environment);
   const access = loadAccessConfig(environment);
   const detection = loadDetectionContextConfig(environment);

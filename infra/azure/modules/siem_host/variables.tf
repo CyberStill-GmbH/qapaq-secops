@@ -225,21 +225,27 @@ variable "key_vault_uri" {
 }
 
 variable "core_secret_names" {
-  description = "Mapa variable de entorno → nombre de secreto preexistente en Key Vault. Solo nombres; nunca valores."
+  description = "Mapa de variable Core consumida → nombre de secreto preexistente en Key Vault. El bootstrap escribe solo referencias secret://keyvault/; nunca materializa valores Core en core.env."
   type        = map(string)
   default     = {}
 
   validation {
     condition = alltrue([
       for key, name in var.core_secret_names :
-      can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) && can(regex("^[A-Za-z0-9-]{1,127}$", name))
+      contains([
+        "QAPAQ_ENTRA_CLIENT_SECRET",
+        "QAPAQ_POSTGRES_PASSWORD",
+        "QAPAQ_ENTITY_REF_KEY",
+        "QAPAQ_TEAMS_WORKFLOW_URL",
+        "QAPAQ_VAPID_PRIVATE_KEY",
+      ], key) && can(regex("^[A-Za-z0-9-]{1,127}$", name))
     ])
-    error_message = "Los nombres de variables y secretos deben usar caracteres permitidos y no pueden contener valores."
+    error_message = "core_secret_names admite solo secretos que el API actual resuelve: Entra, PostgreSQL, entity key, Teams y VAPID; usa nombres Key Vault, nunca valores."
   }
 
   validation {
-    condition     = !contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET_REF")
-    error_message = "QAPAQ_ENTRA_CLIENT_SECRET_REF es una referencia no secreta y pertenece en core_environment; el valor real QAPAQ_ENTRA_CLIENT_SECRET pertenece en core_secret_names."
+    condition     = contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET")
+    error_message = "El API QAPAQ en modo Entra requiere core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET para generar la referencia Key Vault al iniciar."
   }
 }
 
@@ -263,7 +269,7 @@ variable "wazuh_secret_names" {
 }
 
 variable "core_environment" {
-  description = "Configuración no secreta de qapaq-core."
+  description = "Variables Core no secretas allowlisted y referencias Key Vault autorizadas; no admite valores secretos."
   type        = map(string)
   default     = {}
 
@@ -273,15 +279,130 @@ variable "core_environment" {
       can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) &&
       !can(regex("[\\r\\n]", value)) &&
       (
-        key == "QAPAQ_ENTRA_CLIENT_SECRET_REF"
+        contains([
+          "QAPAQ_ENTRA_CLIENT_SECRET_REF",
+          "QAPAQ_POSTGRES_PASSWORD_REF",
+          "QAPAQ_ENTITY_REF_KEY_REF",
+          "QAPAQ_TEAMS_WORKFLOW_URL_REF",
+          "QAPAQ_VAPID_PRIVATE_KEY_REF",
+        ], key)
         ? (
           can(regex("^secret://keyvault/[A-Za-z0-9][A-Za-z0-9-]{0,126}$", value)) &&
-          lookup(var.core_secret_names, "QAPAQ_ENTRA_CLIENT_SECRET", "") == trimprefix(value, "secret://keyvault/")
+          lookup(var.core_secret_names, trimsuffix(key, "_REF"), "") == trimprefix(value, "secret://keyvault/")
         )
-        : !can(regex("(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key))
+        : contains([
+          "QAPAQ_SECRET_PROVIDER_TYPE",
+          "QAPAQ_SECRET_PROVIDER_TIMEOUT",
+          "QAPAQ_SECRET_PROVIDER_ENDPOINT",
+        ], key)
+        ? (
+          key == "QAPAQ_SECRET_PROVIDER_TYPE" ? value == "azure-key-vault" :
+          key == "QAPAQ_SECRET_PROVIDER_TIMEOUT" ? value == "5s" :
+          value == trimsuffix(var.key_vault_uri, "/")
+        )
+        : contains([
+          "QAPAQ_PROFILE",
+          "QAPAQ_PROCESS_ROLE",
+          "QAPAQ_API_HOST",
+          "QAPAQ_API_PORT",
+          "QAPAQ_POSTGRES_HOST",
+          "QAPAQ_POSTGRES_PORT",
+          "QAPAQ_POSTGRES_DATABASE",
+          "QAPAQ_POSTGRES_USERNAME",
+          "QAPAQ_POSTGRES_TLS",
+          "QAPAQ_POSTGRES_CONNECTION_TIMEOUT",
+          "QAPAQ_POSTGRES_STATEMENT_TIMEOUT",
+          "QAPAQ_POSTGRES_POOL_MIN",
+          "QAPAQ_POSTGRES_POOL_MAX",
+          "QAPAQ_REDIS_HOST",
+          "QAPAQ_REDIS_PORT",
+          "QAPAQ_REDIS_USERNAME",
+          "QAPAQ_REDIS_DATABASE",
+          "QAPAQ_REDIS_TLS",
+          "QAPAQ_REDIS_CONNECTION_TIMEOUT",
+          "QAPAQ_REDIS_COMMAND_TIMEOUT",
+          "QAPAQ_REDIS_RETRY_LIMIT",
+          "QAPAQ_MINIO_ENDPOINT",
+          "QAPAQ_MINIO_PORT",
+          "QAPAQ_MINIO_REGION",
+          "QAPAQ_MINIO_RAW_BUCKET",
+          "QAPAQ_MINIO_TLS",
+          "QAPAQ_MINIO_CONNECTION_TIMEOUT",
+          "QAPAQ_MINIO_REQUEST_TIMEOUT",
+          "QAPAQ_MINIO_RETRY_LIMIT",
+          "QAPAQ_WAZUH_GATEWAY_BASE_URL",
+          "QAPAQ_WAZUH_REQUEST_TIMEOUT",
+          "QAPAQ_WAZUH_RETRY_LIMIT",
+          "QAPAQ_WAZUH_PAGE_SIZE",
+          "QAPAQ_WAZUH_MAX_PAGE_SIZE",
+          "QAPAQ_WAZUH_DATASET",
+          "QAPAQ_WAZUH_CURSOR_TTL",
+          "QAPAQ_WAZUH_MAX_RESPONSE_BYTES",
+          "QAPAQ_ACCESS_IDENTITY_MODE",
+          "QAPAQ_ACCESS_ALLOWED_CIDRS",
+          "QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS",
+          "QAPAQ_ENTRA_TENANT_ID",
+          "QAPAQ_ENTRA_CLIENT_ID",
+          "QAPAQ_ENTRA_AUTHORITY",
+          "QAPAQ_ENTRA_REDIRECT_URI",
+          "QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS",
+          "QAPAQ_ENTRA_SCOPES",
+          "QAPAQ_MVP_ROLE_BINDING_OID",
+          "QAPAQ_MVP_ROLE_BINDING_ROLE",
+          "QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT",
+          "QAPAQ_CONSOLE_BASE_URL",
+          "QAPAQ_DETECTION_PRIVILEGED_IDENTITIES",
+          "QAPAQ_DETECTION_BREAK_GLASS_IDENTITIES",
+          "QAPAQ_DETECTION_CRITICAL_ASSETS",
+          "QAPAQ_DETECTION_INTERNET_FACING_ASSETS",
+          "QAPAQ_DETECTION_KNOWN_BENIGN_RULES",
+          "QAPAQ_SOC_PERSISTENCE",
+          "QAPAQ_INGESTION_SOURCE",
+          "QAPAQ_INGESTION_SOURCE_ID",
+          "QAPAQ_INGESTION_GATEWAY_SCOPE",
+          "QAPAQ_INGESTION_INTERVAL",
+          "QAPAQ_INGESTION_INITIAL_LOOKBACK_MINUTES",
+          "QAPAQ_ROLE_BINDINGS",
+          "QAPAQ_GROUP_OWNER_OIDS",
+          "QAPAQ_ADMIN_GROUP_IDS",
+          "QAPAQ_ACCESS_APPROVER_OIDS",
+          "QAPAQ_SECURITY_APPROVER_OIDS",
+          "QAPAQ_DIRECTORY_SYNC",
+          "QAPAQ_DIRECTORY_GROUP_ID",
+          "QAPAQ_DIRECTORY_GROUP_NAME",
+          "QAPAQ_DIRECTORY_SYNC_INTERVAL_MINUTES",
+          "QAPAQ_ALERT_MAIL_SENDER",
+        ], key)
       )
     ])
-    error_message = "core_environment admite QAPAQ_ENTRA_CLIENT_SECRET_REF solo como secret://keyvault/<nombre> y debe coincidir con core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET; las claves sensibles restantes y los valores multilínea están prohibidos."
+    error_message = "core_environment admite solo referencias secret://keyvault/<nombre> que coincidan con core_secret_names y rechaza claves sensibles en claro o valores multilínea."
+  }
+
+  validation {
+    condition = (
+      lookup(var.core_environment, "QAPAQ_SOC_PERSISTENCE", "") != "postgres" ||
+      (
+        contains(keys(var.core_secret_names), "QAPAQ_POSTGRES_PASSWORD") &&
+        contains(keys(var.core_secret_names), "QAPAQ_ENTITY_REF_KEY")
+      )
+    )
+    error_message = "QAPAQ_SOC_PERSISTENCE=postgres requiere referencias Key Vault para QAPAQ_POSTGRES_PASSWORD y QAPAQ_ENTITY_REF_KEY en core_secret_names; el bootstrap generará las referencias correspondientes."
+  }
+
+  validation {
+    condition = (
+      !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_TYPE") ||
+      var.core_environment["QAPAQ_SECRET_PROVIDER_TYPE"] == "azure-key-vault"
+    )
+    error_message = "QAPAQ_SECRET_PROVIDER_TYPE debe ser azure-key-vault para el host SIEM; el bootstrap lo completa si falta."
+  }
+
+  validation {
+    condition = (
+      !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_ENDPOINT") ||
+      var.core_environment["QAPAQ_SECRET_PROVIDER_ENDPOINT"] == trimsuffix(var.key_vault_uri, "/")
+    )
+    error_message = "QAPAQ_SECRET_PROVIDER_ENDPOINT debe coincidir con el URI del Key Vault del host."
   }
 }
 

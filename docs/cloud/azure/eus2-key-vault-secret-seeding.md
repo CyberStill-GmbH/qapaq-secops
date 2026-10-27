@@ -37,6 +37,7 @@ garantiza borrado forense de strings inmutables de memoria.
 | `sophos-client-secret` | `SOPHOS_SECRET`; secret de Sophos Central | `wazuh_secret_names["sophos-client-secret"]` | La clave está presente; usar únicamente después de rotar. |
 | `cato-api-key` | `CATO_SECRET`; API key de Cato, una línea | `wazuh_secret_names["cato-api-key"]` | La clave está presente; usar únicamente después de rotar. |
 | `qapaq-teams-workflow-url` | `TEAMS_WORKFLOW_URL`; URL firmada del Workflow de Teams, una línea HTTPS | `core_secret_names.QAPAQ_TEAMS_WORKFLOW_URL` o referencia de integración Wazuh según el perfil | No está presente en `.env.local`. Tratar la URL como credencial; no ponerla en variables, Terraform, correo o documentación pública. |
+| `qapaq-entity-ref-key` | Clave nueva generada por un CSPRNG con 32 bytes, codificada en base64 (p. ej., `openssl rand -base64 32`) | `core_secret_names.QAPAQ_ENTITY_REF_KEY`; el bootstrap genera la referencia `_REF` | Debe crearse directamente en Key Vault antes de habilitar `QAPAQ_SOC_PERSISTENCE=postgres`; no se versiona ni se pone su valor en `core_environment`, tfvars, `custom_data`, variables GitHub o logs. Rotarla requiere migrar referencias de entidad persistidas. |
 
 Los nombres GitHub `AZURE_EUS2_TERRAFORM_CLIENT_ID` y la contraseña de
 administrador PostgreSQL son para autenticación/state y bootstrap de base,
@@ -55,6 +56,10 @@ referencia Key Vault con mínimo privilegio, allowlist de egress y prueba real.
 Los GUID de tenant/client, región Sophos, account ID Cato, CIDR, llave SSH pública,
 digest del bundle y nombres de secretos son configuración no secreta. Deben ir en
 el perfil aprobado `AZURE_EUS2_SIEM_HOST_JSON`; nunca se rellenan con placeholders.
+Para `qapaq-entity-ref-key`, el perfil contiene únicamente el nombre en
+`core_secret_names.QAPAQ_ENTITY_REF_KEY`, nunca el valor generado. `core_environment`
+admite una allowlist de variables no secretas y referencias `_REF`; los valores directos
+`QAPAQ_ENTITY_REF_KEY` y `QAPAQ_TEAMS_WORKFLOW_URL` se rechazan en plan y bootstrap.
 
 ## Uso desde una red autorizada
 
