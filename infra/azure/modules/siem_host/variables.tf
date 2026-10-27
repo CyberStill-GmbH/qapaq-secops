@@ -530,3 +530,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "manage_artifact_read_assignment" {
+  description = "Terraform asigna Storage Blob Data Reader sobre el contenedor de releases. En EUS2 la identidad de Terraform no puede delegar ese rol (ABAC) y un Owner lo asigna fuera de banda."
+  type        = bool
+  default     = true
+}

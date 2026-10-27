@@ -192,44 +192,9 @@ resource "azurerm_network_security_group" "siem" {
   # The subnet has no default outbound access. Only private dependencies and HTTP/S routed
   # through the explicitly required Azure Firewall are allowed; explicit denies precede Azure's
   # built-in AllowVnetOutBound/AllowInternetOutBound rules.
-  security_rule {
-    name                       = "allow-azure-platform-dns"
-    priority                   = 100
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "53"
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzurePlatformDNS"
-    description                = "DNS al resolver virtual de Azure; el resto de egress queda bloqueado."
-  }
-
-  security_rule {
-    name                       = "allow-azure-managed-identity-imds"
-    priority                   = 106
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzurePlatformIMDS"
-    description                = "Permite obtener tokens de Managed Identity desde IMDS, sin abrir egress general."
-  }
-
-  security_rule {
-    name                       = "allow-azure-platform-wireserver"
-    priority                   = 107
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_ranges    = ["80", "32526"]
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzurePlatformLKM"
-    description                = "Canal Azure WireServer/VM Agent requerido para estado Ready y extensiones; no permite el puerto 1688."
-  }
+  # DNS (168.63.129.16), IMDS (169.254.169.254) y WireServer no pasan por el NSG mientras no
+  # se los nombre con sus service tags, y Azure solo admite esos tags en reglas Deny. Por eso
+  # no hay reglas Allow para ellos: el deny de egress general no los alcanza.
 
   security_rule {
     name                         = "allow-private-endpoints-https"
@@ -354,6 +319,8 @@ resource "azurerm_role_assignment" "acr_pull" {
 }
 
 resource "azurerm_role_assignment" "artifact_read" {
+  count = var.manage_artifact_read_assignment ? 1 : 0
+
   scope                = var.artifact_container_scope_id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = local.identity.principal_id

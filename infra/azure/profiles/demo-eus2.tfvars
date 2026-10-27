@@ -24,3 +24,7 @@ tags = {
   cloud       = "azure"
   data_class  = "security-sensitive"
 }
+
+# La identidad de Terraform no puede asignar Storage Blob Data Reader (condición ABAC); un Owner
+# lo asigna a la identidad del SIEM sobre el contenedor siem-release.
+siem_artifact_read_assignment_managed = false
