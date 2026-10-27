@@ -21,7 +21,7 @@ function baseEnv(overrides = {}) {
 
 function siemHost(overrides = {}) {
   return {
-    address_prefix: '10.80.16.0/27',
+    address_prefix: '10.80.16.32/27',
     vm_size: 'Standard_F4s_v2',
     admin_ssh_public_key: publicKey,
     ubuntu_image_version: '24.04.202601010',
@@ -70,6 +70,61 @@ test('accepts a complete SIEM configuration with Key Vault names and an immutabl
       hasSiem: true,
       hasAnkay: false,
     },
+  );
+});
+
+test('rejects SIEM subnets that overlap any subnet reserved by the Azure network module', () => {
+  const reservedPrefixes = [
+    { cidr: '10.80.0.0/27', reason: /Container Apps/u },
+    { cidr: '10.80.0.32/27', reason: /Ankay/u },
+    {
+      cidr: '10.80.16.0/27',
+      reason: /PostgreSQL, Private Endpoints/u,
+    },
+    { cidr: '10.80.64.0/26', reason: /Azure Firewall/u },
+  ];
+
+  for (const { cidr: address_prefix, reason } of reservedPrefixes) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_address_space: '10.80.0.0/16',
+            TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix })),
+          }),
+        ),
+      reason,
+      `${address_prefix} must not be accepted as a SIEM subnet`,
+    );
+  }
+});
+
+test('rejects a SIEM subnet outside the configured VNet or with host bits set', () => {
+  for (const address_prefix of ['10.81.0.0/27', '10.80.16.33/27']) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_address_space: '10.80.0.0/16',
+            TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix })),
+          }),
+        ),
+      /contained in the configured Azure VNet|valid IPv4 CIDRs/u,
+      `${address_prefix} must not be accepted as a SIEM subnet`,
+    );
+  }
+});
+
+test('computes reserved subnets from a non-default address_space supplied by the deployment', () => {
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_address_space: '10.90.0.0/16',
+          TF_VAR_siem_host: JSON.stringify(siemHost({ address_prefix: '10.90.16.0/27' })),
+        }),
+      ),
+    /overlaps reserved subnets: PostgreSQL/u,
   );
 });
 

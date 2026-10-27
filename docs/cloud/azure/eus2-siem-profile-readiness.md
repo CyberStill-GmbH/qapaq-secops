@@ -208,11 +208,13 @@ state, do not import them again.
   bootstrap can read Key Vault secrets with VM Managed Identity and write a root-owned
   environment file, but that is not the same as a working Core secret-provider adapter
   for references at runtime.
-- The SIEM subnet contract currently checks CIDR syntax and minimum size, but does not
-  reject overlap with the fixed EUS2 subnets or prove membership in `10.80.0.0/16`.
-  The profile must remain disabled until a preflight validates the selected subnet
-  against the VNet and every reserved subnet; do not rely on Terraform apply to discover
-  this after costs or partial infrastructure have been created.
+- The deployment-input preflight rejects a SIEM subnet outside the configured VNet and
+  computes overlap against the network module's reserved Container Apps, Ankay,
+  PostgreSQL, Private Endpoints, and Azure Firewall subnets. The preflight tests cover
+  the accepted free example `10.80.16.32/27` and rejection of overlapping/out-of-VNet
+  inputs. This does not approve that example for the real deployment: the operator must
+  still confirm that the selected range is unused in Azure and preserves Azure-required
+  addresses before plan/apply.
 - The SIEM VM module configures boot diagnostics but does not configure Azure Monitor
   Agent, guest-level health alerts, or an Azure Backup/restore policy for the Wazuh data
   disk. `prevent_destroy` protects against a Terraform destroy; it is not a backup.
