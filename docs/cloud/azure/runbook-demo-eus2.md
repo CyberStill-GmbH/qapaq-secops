@@ -22,10 +22,14 @@ credenciales de integración.
   limitada a `azure-demo-eus2`; se usa para plan/apply y acceso al state.
 - La identidad publicadora `id-qapaqsecopsdemoeus-github-publisher` tiene
   `AcrPush` en el ACR EUS2 y `Storage Blob Data Contributor` en los contenedores
-  de releases EUS2 y legacy. Su FIC actual solo acepta el environment
-  `azure-demo`. El cambio Terraform de esta rama añade una FIC separada para
-  `azure-demo-eus2` y conserva la FIC existente; no utilizar el publicador EUS2
-  hasta que un plan revisado confirme esa única alta.
+  de releases EUS2 y legacy. Terraform state confirma FIC independientes para
+  `azure-demo` y `azure-demo-eus2`; la segunda no reemplaza la existente.
+- La identidad de seeding `id-qapaqsecopsdemoeus-kv-seeder` ya tiene dos roles
+  personalizados limitados al grupo de runtime y al Key Vault exactos; sus dos
+  asignaciones están verificadas en Azure y Terraform state. La variable pública
+  `AZURE_EUS2_SECRET_SEEDER_CLIENT_ID` está configurada. Esto no significa que se
+  hayan cargado secretos: no se leyeron valores del vault ni hay evidencia de que
+  el workflow de seed haya corrido.
 - GitHub ya tiene el environment `azure-demo-eus2`, OIDC, los valores de state y
   `AZURE_EUS2_APPLY_READY=true`. `AZURE_EUS2_ENABLE_RUNTIME=false`, los perfiles
   `siem_host`/`ankay_host` son nulos, `AZURE_EUS2_CONTAINER_IMAGES_JSON={}` y
@@ -40,11 +44,11 @@ credenciales de integración.
 
 ## Configuración del environment GitHub
 
-Crear `azure-demo-eus2` en **Settings → Environments**. Restringir deployments a
-`main`, exigir aprobación de un revisor autorizado y deshabilitar self-review.
-La existencia de la FIC no crea estas reglas. El workflow incluye además el gate
-`AZURE_EUS2_APPLY_READY=true`; configurarlo solo después de comprobar las reglas
-de protección y aprobar el costo. Sin ese valor, `apply=true` se rechaza.
+El environment `azure-demo-eus2` ya existe y restringe deployments a `main`,
+requiere aprobación de `CesarGuevaraQapaq` y bloquea self-review. Tiene habilitado
+el bypass administrativo; este runbook no lo usa para sustituir la revisión
+requerida. El workflow también exige `AZURE_EUS2_APPLY_READY=true` y una referencia
+HTTPS de revisión de costo antes de `apply=true`.
 
 ### Secretos del environment
 
@@ -67,16 +71,27 @@ fundación.
 | `AZURE_EUS2_TF_STATE_STORAGE_ACCOUNT` | `qapaqsecopseus23a2405f3` |
 | `AZURE_EUS2_TF_STATE_CONTAINER` | `tfstate` |
 | `AZURE_EUS2_TF_STATE_KEY` | `qapaq-secops/demo-eus2/terraform.tfstate` |
-| `AZURE_EUS2_APPLY_READY` | Mantener ausente hasta aprobar protecciones/costos; usar `true` para habilitar apply explícito |
+| `AZURE_EUS2_APPLY_READY` | `true`; el workflow aún exige un scope y plan exactos, costo HTTPS y aprobación del environment |
 | `AZURE_EUS2_ACR_LOGIN_SERVER` | `qapaqsecopsdemoeus3a2405f3.azurecr.io`; requerido para un apply `soc` |
-| `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` | Client ID de la UAMI publicadora EUS2; configurar después de crear/revisar la FIC adicional |
+| `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` | Client ID no secreto de la UAMI publicadora EUS2; ya configurado para la FIC EUS2 |
+| `AZURE_EUS2_SECRET_SEEDER_CLIENT_ID` | Client ID no secreto de la identidad de seed; ya configurado tras aplicar sus roles limitados |
 
 Las variables opcionales de runtime son `AZURE_EUS2_ENABLE_RUNTIME`,
 `AZURE_EUS2_CONTAINER_IMAGES_JSON`, `AZURE_EUS2_SIEM_HOST_JSON`,
 `AZURE_EUS2_ANKAY_HOST_JSON` y `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON`. Sin ellas,
-el runtime permanece apagado. El scope `soc` de un apply exige perfiles SIEM y
-Ankay completos y revisados, además de artefactos por digest y referencias a
-secretos ya existentes. No usar placeholders para aparentar disponibilidad.
+el runtime permanece apagado. Los scopes son secuenciales:
+
+- `foundation`: mantenimiento de base sin perfiles SIEM/Ankay y con runtime
+  apagado.
+- `siem`: despliega primero Wazuh con un perfil SIEM completo, runtime de
+  aplicaciones apagado y sin perfil Ankay. Permite verificar la telemetría y
+  el dashboard antes de levantar los demás servicios.
+- `soc`: despliegue completo posterior. Exige runtime habilitado, perfiles SIEM
+  y Ankay completos, artefactos por digest y referencias a secretos ya
+  existentes.
+
+No usar placeholders para aparentar disponibilidad. El scope `siem` no cambia
+DNS y no implica que Ankay ni las integraciones externas estén operativas.
 
 ## Ejecución controlada
 
@@ -102,14 +117,17 @@ secretos ya existentes. No usar placeholders para aparentar disponibilidad.
   requiere la aprobación protegida de `azure-demo-eus2`. Solo crea un Blob privado
   bajo `releases/<commit>/`; si ya existe, exige coincidencia de hash/tamaño y
   nunca lo sobrescribe.
+- El candidato Wazuh `c96e35fc…` pasó validación de artefacto en el run
+  `40453658942`, intento 2. Su publicación de Blob sigue esperando la revisión
+  protegida de `CesarGuevaraQapaq`; no debe tratarse como publicado ni instalado.
 - `ankay-azure-eus2-publish.yml` sigue el mismo gate para publicar el frontend
   QAPAQ y su fuente AGPL al ACR/Blob EUS2. Solo publica el frontend; no demuestra
   ni despliega backend, Orborus, worker, `shuffle-security` u OpenSearch.
 - Ambos flujos usan `id-qapaqsecopsdemoeus-github-publisher`, no el principal
-  más amplio de Terraform. Requieren que su FIC adicional esté aplicada y que
-  estén configuradas las variables `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` y
-  `AZURE_EUS2_ACR_LOGIN_SERVER`. La aprobación del environment revisa los bytes,
-  destino y efecto antes de cualquier escritura cloud.
+  más amplio de Terraform. La FIC EUS2 y las variables
+  `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` y `AZURE_EUS2_ACR_LOGIN_SERVER` están
+  configuradas. El reviewer del environment sigue siendo necesario para cada
+  escritura cloud; el run `40453658942` aún espera esa aprobación.
 
 No cambiar `location` dentro del state `demo-eus`: su grupo/infraestructura vive
 en East US. East US 2 tiene nuevo grupo, nombres y state para evitar que Terraform

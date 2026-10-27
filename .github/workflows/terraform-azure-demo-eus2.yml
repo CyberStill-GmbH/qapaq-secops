@@ -9,12 +9,13 @@ on:
         required: true
         default: false
       deployment_scope:
-        description: Select foundation maintenance or the complete SOC runtime
+        description: Select foundation maintenance, SIEM-first rollout, or complete SOC runtime
         type: choice
         required: true
         default: soc
         options:
           - foundation
+          - siem
           - soc
       cost_review_reference:
         description: HTTPS link to the reviewed East US 2 cost estimate (required for apply)
@@ -142,9 +143,23 @@ jobs:
               exit 1
             }
           fi
-          if [[ "$DEPLOYMENT_SCOPE" == soc && "$APPLY" == true ]]; then
+          if [[ "$DEPLOYMENT_SCOPE" == siem ]]; then
+            [[ "$TF_VAR_enable_runtime" == false ]] || {
+              echo '::error::SIEM-first scope requires AZURE_EUS2_ENABLE_RUNTIME=false; deploy application runtime only after SIEM verification.'
+              exit 1
+            }
+            node -e 'const siem = JSON.parse(process.env.TF_VAR_siem_host ?? "null"); const ankay = JSON.parse(process.env.TF_VAR_ankay_host ?? "null"); if (siem === null || ankay !== null) process.exit(1)' || {
+              echo '::error::SIEM-first scope requires a complete SIEM profile and refuses an Ankay host; deploy Ankay in the later complete SOC scope.'
+              exit 1
+            }
+          fi
+          if [[ "$DEPLOYMENT_SCOPE" == soc ]]; then
             [[ "$AZURE_ACR_LOGIN_SERVER" == qapaqsecopsdemoeus3a2405f3.azurecr.io ]] || {
-              echo '::error::Complete SOC apply requires an East US 2 demo ACR, not a repository-level Chile registry.'
+              echo '::error::Complete SOC scope requires an East US 2 demo ACR, not a repository-level Chile registry.'
+              exit 1
+            }
+            [[ "$TF_VAR_enable_runtime" == true ]] || {
+              echo '::error::Complete SOC scope requires AZURE_EUS2_ENABLE_RUNTIME=true and verified container image digests.'
               exit 1
             }
             node -e 'if (JSON.parse(process.env.TF_VAR_siem_host ?? "null") === null) process.exit(1)' || {
