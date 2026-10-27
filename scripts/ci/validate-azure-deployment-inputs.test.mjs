@@ -30,6 +30,7 @@ function siemHost(overrides = {}) {
     data_disk_size_gb: 128,
     dashboard_ingress_cidrs: [],
     agent_ingress_cidrs: ['10.80.0.0/16'],
+    agent_public_cidrs: ['203.0.113.25/32'],
     core_secret_names: {
       QAPAQ_ENTRA_CLIENT_SECRET: 'entra-client-secret',
       QAPAQ_TEAMS_WORKFLOW_URL: 'teams-workflow-url',
@@ -274,6 +275,25 @@ test('Dashboard ingress accepts aligned IPv4 /24 or narrower and rejects broad o
           }),
         ),
       /aligned IPv4 CIDRs no broader than \/24/u,
+      `expected ${cidr} to be rejected`,
+    );
+  }
+});
+
+test('public agent DNAT sources are restricted to aligned IPv4 allowlists no broader than /24', () => {
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost()) })),
+  );
+
+  for (const cidr of ['0.0.0.0/0', '198.51.100.0/23', '198.51.100.25/24', '2001:db8::/64']) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost({ agent_public_cidrs: [cidr] })),
+          }),
+        ),
+      /agent_public_cidrs entries must be aligned IPv4 CIDRs no broader than \/24/u,
       `expected ${cidr} to be rejected`,
     );
   }

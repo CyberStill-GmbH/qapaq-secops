@@ -70,15 +70,20 @@ function ipv4CidrHost(cidr, hostOffset) {
   return [24n, 16n, 8n, 0n].map((shift) => Number((host >> shift) & 255n)).join('.');
 }
 
-function validateDashboardIngressCidrs(cidrs) {
+function validateRestrictedIngressCidrs(cidrs, label) {
+  if (!Array.isArray(cidrs)) fail(`${label} must be an array of CIDRs.`);
   for (const cidr of cidrs) {
     const range = ipv4Range(cidr);
     if (!range || range.prefix < MIN_DASHBOARD_INGRESS_PREFIX) {
       fail(
-        `siem_host.dashboard_ingress_cidrs entries must be aligned IPv4 CIDRs no broader than /${MIN_DASHBOARD_INGRESS_PREFIX}.`,
+        `${label} entries must be aligned IPv4 CIDRs no broader than /${MIN_DASHBOARD_INGRESS_PREFIX}.`,
       );
     }
   }
+}
+
+function validateDashboardIngressCidrs(cidrs) {
+  validateRestrictedIngressCidrs(cidrs, 'siem_host.dashboard_ingress_cidrs');
 }
 
 function validateProviderIngestion(value, wazuhSecretNames) {
@@ -281,7 +286,12 @@ function validateSiem(siem, env = process.env) {
     'bootstrap_bundle_blob_url',
     'bootstrap_bundle_sha256',
   ];
-  exactKeys(siem, required, ['provider_ingestion', 'private_ip_address'], 'siem_host');
+  exactKeys(
+    siem,
+    required,
+    ['provider_ingestion', 'private_ip_address', 'agent_public_cidrs'],
+    'siem_host',
+  );
   if (
     !validCidr(siem.address_prefix) ||
     !isPrivateRfc1918(siem.address_prefix.split('/')[0]) ||
@@ -305,6 +315,9 @@ function validateSiem(siem, env = process.env) {
   if (!Array.isArray(siem.dashboard_ingress_cidrs))
     fail('siem_host.dashboard_ingress_cidrs must be an array of CIDRs.');
   validateDashboardIngressCidrs(siem.dashboard_ingress_cidrs);
+  if (siem.agent_public_cidrs !== undefined) {
+    validateRestrictedIngressCidrs(siem.agent_public_cidrs, 'siem_host.agent_public_cidrs');
+  }
   if (!Array.isArray(siem.agent_ingress_cidrs) || !siem.agent_ingress_cidrs.every(validCidr))
     fail('siem_host.agent_ingress_cidrs must be an array of valid CIDRs.');
   stringMap(
