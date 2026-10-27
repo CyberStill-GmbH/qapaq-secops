@@ -86,12 +86,14 @@ el runtime permanece apagado. Los scopes son secuenciales:
 - `siem`: despliega primero Wazuh con un perfil SIEM completo, runtime de
   aplicaciones apagado y sin perfil Ankay. Permite verificar la telemetría y
   el dashboard antes de levantar los demás servicios.
-- `soc`: despliegue completo posterior. Exige runtime habilitado, perfiles SIEM
-  y Ankay completos, artefactos por digest y referencias a secretos ya
-  existentes.
+- `soc`: despliegue posterior de Wazuh más Ankay. Exige el runtime genérico
+  apagado, perfiles SIEM y Ankay completos, artefactos por digest y referencias a
+  secretos ya existentes. No habilita el Edge público genérico de Container Apps;
+  ese runtime requiere un scope y una revisión de exposición/auth separados.
 
-No usar placeholders para aparentar disponibilidad. El scope `siem` no cambia
-DNS y no implica que Ankay ni las integraciones externas estén operativas.
+No usar placeholders para aparentar disponibilidad. Los scopes `siem` y `soc` no
+cambian DNS; el primero no implica que Ankay ni las integraciones externas estén
+operativas.
 
 ## Ejecución controlada
 
