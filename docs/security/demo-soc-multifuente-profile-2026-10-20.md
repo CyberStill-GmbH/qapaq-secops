@@ -1,38 +1,73 @@
 # Perfil multifuente para la demo SOC QAPAQ
 
-**Estado:** propuesta implementable; no desplegada ni aprobada como política de
-tenant. **Fecha:** 2026-10-20. **Versión objetivo del overlay Wazuh:** 4.14.8 / OSD
-2.19.6, sujeta a confirmar el artefacto que se publique a Azure. **Ámbito:** demo
-aislada de la financiera, con telemetría autorizada y datos reales solo después de
+**Estado del diseño original:** propuesta fechada 2026-10-20; no aprobada como política
+del tenant. **Revisión del inventario:** 2026-10-27, con última evidencia cloud fechada
+2026-10-26. **Versión objetivo:** Wazuh 4.14.8 / OpenSearch Dashboards 2.19.6; el
+artefacto candidato está publicado en Azure, pero todavía no está instalado. **Ámbito:**
+demo aislada de la financiera, con telemetría autorizada y datos reales solo después de
 validar acceso, región, retención y permisos.
 
-Este documento interpreta la instrucción de incorporar Sophos XDR y Cato a la demo
-que ya usa Wazuh para M365. Propone una enmienda limitada a ADR-024: mantener Wazuh
-como colector y motor de reglas para M365, y permitir incorporar Sophos y Cato como
-fuentes read-only posteriores al MVP, sin cambiar el contrato `qapaq.security-event`
-ni convertir Wazuh en dueño de la respuesta externa. La decisión final del ADR queda
-pendiente de revisión de Arquitectura/Seguridad.
+Este documento interpreta la instrucción de incorporar Sophos XDR y Cato a la
+arquitectura QAPAQ/Wazuh que existía al redactarse. Propone mantener Wazuh como
+colector y motor de reglas para M365, y permitir incorporar Sophos y Cato como fuentes
+read-only posteriores al MVP, sin cambiar el contrato `qapaq.security-event` ni
+convertir Wazuh en dueño de la respuesta externa. Es una propuesta: no modifica ni
+aprueba las decisiones vigentes de [`docs/10-decisiones.md`](../10-decisiones.md).
 
 ## Estado comprobado y límites
 
-- Azure no tiene recursos aplicados en la suscripción revisada. No existe Manager,
-  Indexer, Dashboard, Ankay ni endpoint de agentes Azure donde instalar el perfil.
-- `infra/wazuh/office365/` tiene módulo, reglas y runner versionados. Su ejecución
-  real corresponde a un Manager AWS previo; no demuestra que esté instalado en
-  Azure ni que lea ahora el tenant.
-- `infra/wazuh/endpoint/` contiene la regla `101100` como **candidata**; requiere
-  eventos Sysmon reales y no forma parte de la instalación del Manager.
-- `infra/wazuh/shuffle/` reenvía metadatos permitidos para triage. La URL/workflow
-  de Ankay no está provisionada; ese adaptador no aprueba ni ejecuta acciones.
-- El inventario marca los productos, planes, regiones, permisos y credenciales de
-  Sophos/Cato como pendientes. No hay conectores backend implementados para esos
-  proveedores ni prueba contra sus tenants.
-- La extensión de Ankay es Shuffle fijado con overlay de frontend; no importa
-  playbooks directamente ni suple el dispatcher/outbox QAPAQ.
+Esta sección reemplaza el inventario inicial del 2026-10-20; conserva el diseño
+propuesto debajo y no equivale a una aceptación de despliegue.
 
-Fuentes de estado: [runbook Azure](../cloud/azure/runbook-preparacion-y-corte.md),
-[inventario de fuentes](../integrations/source-inventory.yaml),
-[ADR-024](../adr/024-microsoft-365-wazuh-mvp-vertical.md), [paquete endpoint](../../infra/wazuh/endpoint/README.md) y
+### Revisión de implementación — 2026-10-27
+
+- **Fundación Azure:** el apply `foundation` de EUS2 creó PostgreSQL Flexible Server
+  16 (`Standard_D2s_v3`) y las bases `qapaq_secops`/`qapaq_jobs` (run
+  [40421595800](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40421595800)).
+  La base `qapaq_jobs` no demuestra que exista un worker ni una cola en funcionamiento.
+- **SIEM y runtime:** `siem_host` y `ankay_host` siguen ausentes del perfil aplicado;
+  `enable_runtime=false`. No hay Manager, Indexer, Dashboard QAPAQ, Core ni edge
+  instalados en Azure. No se ha hecho el corte DNS de `app.jappi.net.pe`.
+- **Artefacto Wazuh:** el candidato de Wazuh/QAPAQ para EUS2 se publicó en Blob privado
+  el 2026-10-27 (bundle [40445959714](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40445959714),
+  publicación [40453658942](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40453658942),
+  SHA-256 `89040cb69535da6b7b6b763b77fa0bdb3e15c2089481d139fa9cd2f23c7e5472`).
+  La publicación verifica el archivo; no prueba instalación, salud, login ni ingesta.
+- **M365 / Graph:** el adaptador, la plantilla y las reglas de Office 365 están
+  versionados en [`wazuh/office365`](../../wazuh/office365/README.md) y empaquetados
+  en el candidato. No hay instalación Azure ni prueba aceptada de permisos Graph,
+  lectura de eventos o indexación en el tenant.
+- **Sophos y Cato:** los conectores aparecen como capacidades opcionales y permanecen
+  desactivados por defecto. No se ha demostrado configuración de tenant, permisos,
+  referencias Key Vault, egress ni llegada de eventos reales/sintéticos.
+- **AD y agentes:** el perfil de detección AD y sus reglas 101300–101307 están en
+  código y en el candidato; la validación de `logtest`/CI no significa que se hayan
+  instalado en un Manager. No hay agentes de DC/AD desplegados ni GPO de recolección
+  aplicada. La incorporación permanece opt-in y requiere un piloto aprobado.
+- **Ankay Qapaq:** sigue como fase posterior al SIEM. Está disponible el overlay de
+  frontend, pero el runtime completo no está endurecido ni desplegado: imágenes,
+  Compose, persistencia, egress, ruta protegida y pruebas de playbooks/SoD continúan
+  como gates separados.
+- **Cola y resiliencia:** la traducción Azure de Valkey/BullMQ no está decidida ni
+  provisionada. `qapaq_jobs` es PostgreSQL, no evidencia de Valkey ni de consumo de
+  jobs. El perfil SIEM de una sola VM, si se habilita, será una demo con punto único
+  de falla; no representa HA.
+- **Retención, residencia y costo:** A11 conserva snapshots/evidencia en S3; no hay
+  reemplazo Azure aprobado ni prueba de backup/restore. La residencia de los datos y
+  el costo total de EUS2 siguen pendientes de revisión; USD 200 es umbral de aviso,
+  no límite automático de gasto.
+- **Secretos y cambios externos:** no se leyeron valores de Key Vault. La evidencia
+  publicada no certifica que estén cargadas o enlazadas todas las referencias del
+  perfil. Esta revisión no cambia credenciales, autenticación ni DNS.
+
+Fuentes y criterios: [readiness operativa de Azure — 2026-10-26](../cloud/azure/operational-readiness-2026-10-26.md),
+[preparación y acceptance de EUS2](../cloud/azure/eus2-siem-profile-readiness.md#acceptance-evidence-required-after-deployment),
+[runbook EUS2](../cloud/azure/runbook-demo-eus2.md),
+[bundle publicado](../cloud/azure/siem-release-bundle.md),
+[inventario de fuentes](../reference/source-inventory.yaml),
+[decisiones vigentes](../10-decisiones.md),
+[perfil de detección AD](active-directory-detection-profile.md),
+[paquete de reglas endpoint](../../infra/wazuh/endpoint/README.md) y
 [catálogo Ankay](ankay-playbooks/catalog.yaml).
 
 ## Arquitectura propuesta
@@ -242,4 +277,4 @@ con fixtures como evidencia de integración real.
 - Sophos, [SIEM API](https://developer.sophos.com/siem/) y [eventos/cursor](https://developer.sophos.com/reference/siem-v1/events/get-events/); repositorio de referencia: [Sophos-Central-SIEM-Integration](https://github.com/sophos/Sophos-Central-SIEM-Integration). Confirmar licencia/plan Central y host de región antes de consumir.
 - Cato, [referencia GraphQL/eventsFeed](https://api.catonetworks.com/documentation/): usar marker opaco y confirmar elegibilidad/API scope con el owner del tenant.
 - Shuffle, [documentación de workflows](https://github.com/Shuffle/shuffle-docs/blob/master/docs/workflows.md) y [workflows upstream](https://github.com/Shuffle/shuffle-workflows); importar/exportar desde la versión fijada y revisar licencia de cada artefacto/connector antes de redistribuir.
-- QAPAQ: [ADR-011 SecurityEvent](../adr/011-security-event-normalization.md), [ADR-019 piloto autorizado](../adr/019-source-boundaries-and-authorized-pilots.md), [ADR-021 observabilidad/auditoría](../adr/021-observability-and-audit-separation.md), [baseline de proveedores](qapaq-sophos-cato-wazuh-baseline.md), [catálogo Ankay](ankay-playbooks/catalog.yaml).
+- QAPAQ: [decisiones vigentes](../10-decisiones.md) (N2–N4, A2, A4, A15), [baseline de proveedores](qapaq-sophos-cato-wazuh-baseline.md), [perfil AD](active-directory-detection-profile.md), [catálogo Ankay](ankay-playbooks/catalog.yaml).
