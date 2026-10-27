@@ -23,7 +23,8 @@
     "@qapaq/soar": "workspace:*",
     "@qapaq/soc": "workspace:*",
     "@qapaq/connectors": "workspace:*",
-    "@qapaq/telemetry": "workspace:*"
+    "@qapaq/telemetry": "workspace:*",
+    "@qapaq/queue": "workspace:*"
   },
   "devDependencies": {
     "tsx": "4.23.15",
