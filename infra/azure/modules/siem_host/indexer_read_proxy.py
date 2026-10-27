@@ -297,8 +297,8 @@ def _host_mapping_may_apply(host_patterns: object, source_addresses: set[str]) -
         if any(fnmatch.fnmatchcase(address, pattern) for address in source_addresses):
             return True
         # Literal IPs that cannot be the local proxy's source are provably
-        # unrelated. Hostnames, CIDRs, regex-like forms, and unknown syntax may
-        # resolve or match the source at runtime, so fail closed.
+        # unrelated. Hostnames, CIDRs, and unknown syntax may resolve or match
+        # the source at runtime, so fail closed.
         if re.fullmatch(r"[0-9A-Fa-f:.]+", pattern):
             try:
                 if str(ipaddress.ip_address(pattern)) in source_addresses:
@@ -306,7 +306,21 @@ def _host_mapping_may_apply(host_patterns: object, source_addresses: set[str]) -
             except ValueError:
                 return True
             continue
-        if re.fullmatch(r"[0-9A-Fa-f.:?*]+", pattern):
+        octets = pattern.split(".")
+        is_ipv4_wildcard = (
+            len(octets) == 4
+            and all(
+                octet == "*" or re.fullmatch(r"(?:0|[1-9][0-9]{0,2})", octet)
+                for octet in octets
+            )
+            and all(octet == "*" or int(octet) <= 255 for octet in octets)
+        )
+        if is_ipv4_wildcard:
+            if any(
+                address.count(".") == 3 and fnmatch.fnmatchcase(address, pattern)
+                for address in source_addresses
+            ):
+                return True
             continue
         return True
     return False

@@ -357,6 +357,8 @@ class IndexerReadProxyTests(unittest.TestCase):
             [PRIVATE_IP],
             ["siem-indexer.internal"],
             ["10.80.16.0/24"],
+            ["*.a"],
+            ["10.80.256.*"],
         ):
             with self.subTest(hosts=hosts):
                 indexer_request.reset_mock()
@@ -375,10 +377,18 @@ class IndexerReadProxyTests(unittest.TestCase):
                     )
                 self.assertEqual(indexer_request.call_count, 3)
 
-    def test_nonmatching_literal_host_mapping_does_not_match_proxy_sources(self) -> None:
+    def test_nonmatching_literal_or_ipv4_wildcard_mapping_does_not_match_proxy_sources(self) -> None:
         self.assertFalse(
             proxy._host_mapping_may_apply(
                 ["198.51.100.19", "10.80.17.*"],
+                {"127.0.0.1", PRIVATE_IP},
+            )
+        )
+
+    def test_dns_glob_host_mapping_fails_closed(self) -> None:
+        self.assertTrue(
+            proxy._host_mapping_may_apply(
+                ["*.a"],
                 {"127.0.0.1", PRIVATE_IP},
             )
         )
