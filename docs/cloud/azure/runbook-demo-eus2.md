@@ -6,37 +6,37 @@ East US (`demo-eus`) y de Chile Central. El workflow es
 remoto EUS2 y el plan guardado en la misma ejecución. No administra DNS ni carga
 credenciales de integración.
 
-## Auditoría previa — 2026-10-26
+## Estado verificado — 2026-10-27
 
-- Azure ya tiene el grupo destino vacío
-  `rg-qapaqsecopsdemoeus-3a2405f3` y el grupo state
-  `rg-qapaqsecopsdemoeus-state-3a2405f3`, ambos en `eastus2`.
-- La UAMI Terraform `id-qapaqsecopsdemoeus-github-tf-3a2405f3` tiene la FIC
-  `github-terraform-demo-eus2`: issuer `https://token.actions.githubusercontent.com`,
-  audience `api://AzureADTokenExchange`, subject
-  `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo-eus2`.
-  Tiene Contributor y Role Based Access Control Administrator en el grupo destino,
-  Storage Blob Data Contributor en el Storage de state y Cost Management
-  Contributor en la suscripción.
-- El Storage remoto es `qapaqsecopseus23a2405f3`; el container `tfstate` es
-  privado, las shared keys están deshabilitadas y el endpoint de red es público.
-  El container está vacío en esta cuenta. El state de runtime EUS2 usará la key
-  nueva `qapaq-secops/demo-eus2/terraform.tfstate`.
-- El state de bootstrap EUS2 sí existe en el Storage EUS anterior
-  `qapaqsecopseus261026`, container `tfstate`, key
-  `qapaq-secops/demo-eus2/bootstrap.tfstate`; `terraform state list` confirmó
-  ese state remoto. Es distinto del container EUS2 nuevo y administra recursos
-  bootstrap existentes. No reconfigurar ni volver a inicializar ese root como
-  state vacío, ni migrarlo al backend de runtime.
-- El environment GitHub `azure-demo-eus2` aún no existe. Tampoco tiene variables
-  ni secretos; no copiar valores del entorno `azure-demo` o `azure-demo-eus`.
-  Hasta configurar el environment, este workflow no puede autenticarse ni aplicar.
-- El state y recursos existentes de `demo-eus` en East US no se comparten ni se
-  migran. PostgreSQL no existe en el grupo EUS2; la API actual de capacidades
-  confirma PostgreSQL 16 y `Standard_B2s` en East US 2.
-
-Esta inspección no consultó ni exportó valores secretos. Revalidar todos los
-recursos, el container y el estado remoto antes de usar el runbook.
+- El grupo de runtime es `rg-qapaqsecopsdemoeus-3a2405f3`. El apply de
+  `foundation` creó PostgreSQL Flexible Server 16 `psql-qapaqsecopsdemoeus-3a2405f3`
+  con `Standard_D2s_v3` y las bases `qapaq_secops`/`qapaq_jobs`. Azure CLI
+  confirma estado `Ready`.
+- El state EUS2 está aislado en `qapaqsecopseus23a2405f3`, container `tfstate`,
+  key `qapaq-secops/demo-eus2/terraform.tfstate`. El container no admite acceso
+  anónimo ni shared keys; su endpoint de red es público y requiere Entra/RBAC.
+- El state de bootstrap EUS2 continúa separado en `qapaqsecopseus261026`,
+  container `tfstate`, key `qapaq-secops/demo-eus2/bootstrap.tfstate`. No
+  reconfigurar ese root como state vacío, migrarlo ni limpiarlo.
+- La UAMI de Terraform `id-qapaqsecopsdemoeus-github-tf-3a2405f3` tiene una FIC
+  limitada a `azure-demo-eus2`; se usa para plan/apply y acceso al state.
+- La identidad publicadora `id-qapaqsecopsdemoeus-github-publisher` tiene
+  `AcrPush` en el ACR EUS2 y `Storage Blob Data Contributor` en los contenedores
+  de releases EUS2 y legacy. Su FIC actual solo acepta el environment
+  `azure-demo`. El cambio Terraform de esta rama añade una FIC separada para
+  `azure-demo-eus2` y conserva la FIC existente; no utilizar el publicador EUS2
+  hasta que un plan revisado confirme esa única alta.
+- GitHub ya tiene el environment `azure-demo-eus2`, OIDC, los valores de state y
+  `AZURE_EUS2_APPLY_READY=true`. `AZURE_EUS2_ENABLE_RUNTIME=false`, los perfiles
+  `siem_host`/`ankay_host` son nulos, `AZURE_EUS2_CONTAINER_IMAGES_JSON={}` y
+  `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}`. El ACR está vacío.
+- Key Vault `kv-qapaqsecopsd-3a2405f3` mantiene `PublicNetworkAccess=Disabled`.
+  La consulta de nombres fue bloqueada desde esta máquina por la regla de red;
+  no se leyeron ni modificaron valores secretos.
+- La Storage de datos `qapaqsecdemoeus23a2405f3` permanece privada. El Storage
+  de releases `qapaqdemoeus2rel3a2405f3` admite tráfico de red público autenticado,
+  con blobs anónimos deshabilitados. No se tocó DNS ni recursos legacy.
+- El State `demo-eus` en East US y Chile no se compartió ni se migró.
 
 ## Configuración del environment GitHub
 
@@ -69,6 +69,7 @@ fundación.
 | `AZURE_EUS2_TF_STATE_KEY` | `qapaq-secops/demo-eus2/terraform.tfstate` |
 | `AZURE_EUS2_APPLY_READY` | Mantener ausente hasta aprobar protecciones/costos; usar `true` para habilitar apply explícito |
 | `AZURE_EUS2_ACR_LOGIN_SERVER` | `qapaqsecopsdemoeus3a2405f3.azurecr.io`; requerido para un apply `soc` |
+| `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` | Client ID de la UAMI publicadora EUS2; configurar después de crear/revisar la FIC adicional |
 
 Las variables opcionales de runtime son `AZURE_EUS2_ENABLE_RUNTIME`,
 `AZURE_EUS2_CONTAINER_IMAGES_JSON`, `AZURE_EUS2_SIEM_HOST_JSON`,
@@ -93,6 +94,22 @@ secretos ya existentes. No usar placeholders para aparentar disponibilidad.
    ese run; el resumen rechaza acciones destructivas.
 4. Verificar recursos/health en Azure antes de preparar una migración de datos o
    un cambio DNS. Esta preparación no configura ni cambia DNS.
+
+## Publicación de artefactos EUS2
+
+- `azure-siem-release-publish-eus2.yml` valida un candidate release exitoso,
+  presenta en un job sin credenciales el SHA-256, bytes y URI exacta, y después
+  requiere la aprobación protegida de `azure-demo-eus2`. Solo crea un Blob privado
+  bajo `releases/<commit>/`; si ya existe, exige coincidencia de hash/tamaño y
+  nunca lo sobrescribe.
+- `ankay-azure-eus2-publish.yml` sigue el mismo gate para publicar el frontend
+  QAPAQ y su fuente AGPL al ACR/Blob EUS2. Solo publica el frontend; no demuestra
+  ni despliega backend, Orborus, worker, `shuffle-security` u OpenSearch.
+- Ambos flujos usan `id-qapaqsecopsdemoeus-github-publisher`, no el principal
+  más amplio de Terraform. Requieren que su FIC adicional esté aplicada y que
+  estén configuradas las variables `AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID` y
+  `AZURE_EUS2_ACR_LOGIN_SERVER`. La aprobación del environment revisa los bytes,
+  destino y efecto antes de cualquier escritura cloud.
 
 No cambiar `location` dentro del state `demo-eus`: su grupo/infraestructura vive
 en East US. East US 2 tiene nuevo grupo, nombres y state para evitar que Terraform

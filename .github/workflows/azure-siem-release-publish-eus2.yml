@@ -1,0 +1,215 @@
+name: Publish QAPAQ SIEM release to private Azure Blob (EUS2)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Azure SIEM release-bundle run on main
+        type: string
+        required: true
+      source_sha:
+        description: Exact 40-character QAPAQ source commit recorded in the candidate bundle
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: azure-siem-release-publish-eus2
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Verify candidate and summarize exact EUS2 Blob write
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      blob_name: ${{ steps.inspect.outputs.blob_name }}
+      bundle_sha256: ${{ steps.inspect.outputs.bundle_sha256 }}
+      bundle_size: ${{ steps.inspect.outputs.bundle_size }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+    steps:
+      - name: Validate exact successful source run and retained artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          jq -e \
+            '.head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == ".github/workflows/azure-siem-release-bundle.yml"' \
+            <<<"$run_json" >/dev/null || {
+              echo '::error::Source must be a successful Azure SIEM bundle run on main.'
+              exit 1
+            }
+          bundle_run_sha="$(jq -er '.head_sha' <<<"$run_json")"
+          compare_json="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$bundle_run_sha")"
+          jq -e --arg sha "$SOURCE_SHA" \
+            '(.status == "ahead" or .status == "identical") and .merge_base_commit.sha == $sha' \
+            <<<"$compare_json" >/dev/null || {
+              echo '::error::Bundle source SHA must be an ancestor of the successful main bundle run.'
+              exit 1
+            }
+          artifact_name="qapaq-siem-installable-candidate-$SOURCE_SHA"
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts")"
+          jq -e --arg name "$artifact_name" \
+            '.artifacts[] | select(.name == $name and .expired == false and .size_in_bytes > 0)' \
+            <<<"$artifacts" >/dev/null || {
+              echo '::error::Expected unexpired candidate artifact is missing.'
+              exit 1
+            }
+          echo "ARTIFACT_NAME=$artifact_name" >> "$GITHUB_ENV"
+
+      - name: Download and verify candidate without Azure credentials
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qapaq-siem-installable-candidate-${{ inputs.source_sha }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/qapaq-siem-release
+
+      - name: Summarize exact immutable Blob destination and bytes
+        id: inspect
+        working-directory: ${{ runner.temp }}/qapaq-siem-release
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          bundle="qapaq-siem-${SOURCE_SHA:0:12}.tar.gz"
+          [[ -f "$bundle" && -f SHA256SUMS ]]
+          [[ "$(find . -maxdepth 1 -type f | wc -l | tr -d ' ')" == 2 ]]
+          sha256sum --check --strict SHA256SUMS
+          manifest_name="$(tar -tzf "$bundle" | awk -F/ '$NF == "manifest.json" && !found { print; found=1 }')"
+          [[ -n "$manifest_name" ]]
+          tar -xOf "$bundle" "$manifest_name" \
+            | jq -e --arg sha "$SOURCE_SHA" '.status == "installable-candidate" and .qapaqCommit == $sha' >/dev/null
+          digest="$(sha256sum "$bundle" | awk '{print $1}')"
+          size="$(stat -c '%s' "$bundle")"
+          (( size > 0 ))
+          blob_name="releases/$SOURCE_SHA/$bundle"
+          printf 'blob_name=%s\nbundle_sha256=%s\nbundle_size=%s\n' \
+            "$blob_name" "$digest" "$size" >> "$GITHUB_OUTPUT"
+          {
+            echo '## Revisión de publicación SIEM EUS2'
+            echo
+            echo "- Fuente: [run ${{ inputs.source_run_id }}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${{ inputs.source_run_id }})"
+            echo "- Commit: \`$SOURCE_SHA\`"
+            echo "- Destino exacto: \`https://qapaqdemoeus2rel3a2405f3.blob.core.windows.net/siem-release/$blob_name\`"
+            echo "- SHA-256: \`$digest\`"
+            echo "- Tamaño del blob: $size bytes"
+            echo '- Efecto máximo: crear un blob privado con nombre versionado e inmutable; si existe, comprobar digest/tamaño y no sobrescribir.'
+            echo '- No crea ni cambia cuentas, permisos, red, Key Vault, Terraform, DNS o recursos de cómputo.'
+            echo '- Costo: almacenamiento y una operación de escritura según la redundancia/tier ya configurados; consultar el costo de almacenamiento vigente antes de aprobar la etapa protegida.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish reviewed immutable blob to EUS2
+    if: github.ref == 'refs/heads/main'
+    needs: [review]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: azure-demo-eus2
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      STORAGE_ACCOUNT: qapaqdemoeus2rel3a2405f3
+      CONTAINER: siem-release
+    steps:
+      - name: Re-validate target and reviewed candidate identity
+        shell: bash
+        env:
+          REVIEWED_BLOB_NAME: ${{ needs.review.outputs.blob_name }}
+          REVIEWED_SHA256: ${{ needs.review.outputs.bundle_sha256 }}
+          REVIEWED_SIZE: ${{ needs.review.outputs.bundle_size }}
+        run: |
+          set -euo pipefail
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID STORAGE_ACCOUNT CONTAINER REVIEWED_BLOB_NAME REVIEWED_SHA256 REVIEWED_SIZE; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing reviewed EUS2 publication value: $name"; exit 1; }
+          done
+          [[ "$STORAGE_ACCOUNT" == qapaqdemoeus2rel3a2405f3 && "$CONTAINER" == siem-release ]]
+          [[ "$REVIEWED_BLOB_NAME" == "releases/$SOURCE_SHA/qapaq-siem-${SOURCE_SHA:0:12}.tar.gz" ]]
+          [[ "$REVIEWED_SHA256" =~ ^[0-9a-f]{64}$ && "$REVIEWED_SIZE" =~ ^[0-9]+$ ]]
+
+      - name: Download the exact reviewed candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qapaq-siem-installable-candidate-${{ inputs.source_sha }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/qapaq-siem-release
+
+      - name: Re-check the approved bytes
+        working-directory: ${{ runner.temp }}/qapaq-siem-release
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          REVIEWED_SHA256: ${{ needs.review.outputs.bundle_sha256 }}
+          REVIEWED_SIZE: ${{ needs.review.outputs.bundle_size }}
+        run: |
+          set -euo pipefail
+          bundle="qapaq-siem-${SOURCE_SHA:0:12}.tar.gz"
+          [[ "$(sha256sum "$bundle" | awk '{print $1}')" == "$REVIEWED_SHA256" ]]
+          [[ "$(stat -c '%s' "$bundle")" == "$REVIEWED_SIZE" ]]
+
+      - name: Sign in with the EUS2 publisher identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Upload through Entra RBAC and verify the immutable Blob
+        working-directory: ${{ runner.temp }}/qapaq-siem-release
+        env:
+          BLOB_NAME: ${{ needs.review.outputs.blob_name }}
+          BUNDLE_SHA256: ${{ needs.review.outputs.bundle_sha256 }}
+          BUNDLE_SIZE: ${{ needs.review.outputs.bundle_size }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          exists="$(az storage blob exists --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+            --container-name "$CONTAINER" --name "$BLOB_NAME" --query exists --output tsv)"
+          if [[ "$exists" == true ]]; then
+            actual_sha="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$BLOB_NAME" --query metadata.sha256 --output tsv)"
+            actual_size="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$BLOB_NAME" --query properties.contentLength --output tsv)"
+            [[ "$actual_sha" == "$BUNDLE_SHA256" && "$actual_size" == "$BUNDLE_SIZE" ]] || {
+              echo '::error::Immutable EUS2 destination already exists with different content.'
+              exit 1
+            }
+          else
+            az storage blob upload --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$BLOB_NAME" \
+              --file "qapaq-siem-${SOURCE_SHA:0:12}.tar.gz" --overwrite false \
+              --max-connections 4 --no-progress --metadata "sha256=$BUNDLE_SHA256" "source_sha=$SOURCE_SHA" \
+              --content-type application/gzip --output none
+          fi
+          actual_sha="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+            --container-name "$CONTAINER" --name "$BLOB_NAME" --query metadata.sha256 --output tsv)"
+          actual_size="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+            --container-name "$CONTAINER" --name "$BLOB_NAME" --query properties.contentLength --output tsv)"
+          [[ "$actual_sha" == "$BUNDLE_SHA256" && "$actual_size" == "$BUNDLE_SIZE" ]]
+          printf '### QAPAQ SIEM bundle published to EUS2 private Blob\n\n- Source run: [%s](https://github.com/%s/actions/runs/%s)\n- Source commit: `%s`\n- URI: `https://%s.blob.core.windows.net/%s/%s`\n- SHA-256: `%s`\n- Size: %s bytes\n- Access: private container and Entra RBAC; no shared key or anonymous access.\n' \
+            "$SOURCE_RUN_ID" "$GITHUB_REPOSITORY" "$SOURCE_RUN_ID" "$SOURCE_SHA" \
+            "$STORAGE_ACCOUNT" "$CONTAINER" "$BLOB_NAME" "$BUNDLE_SHA256" "$BUNDLE_SIZE" \
+            >> "$GITHUB_STEP_SUMMARY"
