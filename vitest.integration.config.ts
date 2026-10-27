@@ -10,6 +10,7 @@ export default defineConfig({
       'modules/soc/test/**/*.integration.spec.ts',
       'modules/soar/test/**/*.integration.spec.ts',
       'modules/access/test/**/*.integration.spec.ts',
+      'modules/queue/test/**/*.integration.spec.ts',
     ],
     testTimeout: 120_000,
     hookTimeout: 300_000,

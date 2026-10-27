@@ -17,6 +17,19 @@ documento fija **dónde** es fundamental, **qué técnica** usa cada punto y **q
 5. **Sin Valkey, el sistema funciona** con el comportamiento actual (una réplica, loops en proceso). Se
    activa solo si `QAPAQ_REDIS_HOST` está definido.
 
+## Estado de implementación — 2026-10-26
+
+El paquete `modules/queue` aporta el transporte BullMQ 5 para jobs de notificación con referencia al
+outbox, reintentos, DLQ, métricas de profundidad y cierre gradual. Los tests de CI contra Redis cubren
+enqueue, deduplicación, consumo, retry y drenaje. El contrato no pone el body de notificación en Redis.
+
+Esta pieza aún **no está cableada al runtime de la API ni al proceso principal del worker**. El
+despacho continúa reclamando el outbox desde la API; falta que el owner del runtime conecte el enqueue
+después del commit y componga un handler del worker que reclame el outbox por ID con lease/fencing,
+use la idempotencia antes del efecto externo y cierre el resultado durable. Por tanto estos tests no
+demuestran entrega de Teams/push ni recuperación end-to-end. El runtime de cola sigue apagado, y
+ningún despliegue debe tratar esta librería o la infraestructura Valkey por sí solos como A9 operativo.
+
 ## Dónde es fundamental
 
 | # | Punto | Por qué Valkey | Técnica | TTL e invalidación | Si Valkey cae |
@@ -143,4 +156,4 @@ volver.
    devuelve la misma respuesta. Con otro cuerpo responde 409.
 7. Pedir dos veces la restauración del mismo día produce un solo índice `restored-*`.
 8. Dos personas con capacidades distintas que consultan lo mismo nunca comparten una entrada de la
-   caché del SIEM.
+    caché del SIEM.

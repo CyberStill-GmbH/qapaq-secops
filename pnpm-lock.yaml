@@ -223,6 +223,9 @@ importers:
       '@qapaq/detection':
         specifier: workspace:*
         version: link:../../modules/detection
+      '@qapaq/queue':
+        specifier: workspace:*
+        version: link:../../modules/queue
       '@qapaq/soar':
         specifier: workspace:*
         version: link:../../modules/soar
@@ -254,12 +257,9 @@ importers:
       '@qapaq/configuration':
         specifier: workspace:*
         version: link:../../platform/configuration
-      bullmq:
-        specifier: 5.81.5
-        version: 5.81.5(redis@6.2.1)(supports-color@7.2.0)
-      ioredis:
-        specifier: 6.0.0
-        version: 6.0.0(supports-color@7.2.0)
+      '@qapaq/queue':
+        specifier: workspace:*
+        version: link:../../modules/queue
     devDependencies:
       tsx:
         specifier: 4.23.15
@@ -320,6 +320,22 @@ importers:
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@types/node@24.13.6)(vite@8.3.4(@types/node@24.13.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  modules/queue:
+    dependencies:
+      bullmq:
+        specifier: 5.81.5
+        version: 5.81.5(redis@6.2.1)(supports-color@7.2.0)
+      ioredis:
+        specifier: 6.0.0
+        version: 6.0.0(supports-color@7.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
 
   modules/soar:
     dependencies:
