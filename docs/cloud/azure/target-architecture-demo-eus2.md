@@ -134,6 +134,23 @@ referencia HTTPS a la revisión de costo. El workflow aplica el plan guardado de
 mismo run y rechaza `delete`/`replace`. Los pasos disponibles son `foundation`, `siem`
 y `soc`; seleccionar `soc` no elimina los gates de publicación segura de Ankay.
 
+### Inputs que faltan para el primer plan `siem`
+
+Se cargan como configuración no secreta del environment GitHub `azure-demo-eus2`;
+el JSON completo se valida antes de `terraform plan`:
+
+| Variable | Valores requeridos | Fuente o condición |
+| --- | --- | --- |
+| `AZURE_EUS2_SIEM_HOST_JSON` | `address_prefix`, `vm_size`, `admin_ssh_public_key`, `ubuntu_image_version`, `data_disk_size_gb`, `dashboard_ingress_cidrs`, `agent_ingress_cidrs`, `core_secret_names`, `wazuh_secret_names`, `core_environment`, `office365`, `provider_ingestion`, `bootstrap_bundle_blob_url`, `bootstrap_bundle_sha256` | `infra/azure/variables.tf`; los CIDR deben ser redes aprobadas reales. `vm_size` del módulo queda fijado a `Standard_F4s_v2`. |
+| `core_secret_names` dentro del JSON | nombres Key Vault de Entra client secret y Teams Workflow URL, además de cada secreto Core requerido | Los valores deben existir previamente en el Key Vault EUS2; rotar credenciales que se expusieron en el chat. |
+| `wazuh_secret_names` dentro del JSON | nombres de secretos para paquete/certificados Wazuh, M365 y cualquier conector habilitado | La cuenta de Key Vault almacena los valores; los nombres solos van en el JSON. No activar Sophos/Cato sin tenant/región/account IDs, API permissions y egress revisados. |
+| `AZURE_EUS2_ANKAY_HOST_JSON` | `private_ip_address`, `admin_ssh_public_key`, `vm_size`, `ubuntu_image_version`, `container_images` (seis digests), `compose_yaml`, `compose_sha256`, `secret_names`, `docker_package_versions` | No definir aún: el runtime upstream no ha pasado los gates de fuentes reproducibles, socket Docker, licencia y endurecimiento descritos en esta arquitectura. |
+
+El workflow ya tiene tenant/subscription OIDC y credencial de PostgreSQL del entorno;
+eso solo autoriza y conecta Terraform. No sustituye las variables de hosts anteriores,
+los secretos de proveedores ni el acceso de red. El scope `foundation` mantiene el SOC
+apagado; no debe presentarse como el producto listo para iniciar sesión.
+
 La forma de `AZURE_EUS2_SIEM_HOST_JSON` debe ser la del objeto `siem_host` en
 `infra/azure/variables.tf`; la de `AZURE_EUS2_ANKAY_HOST_JSON` debe ser la del objeto
 `ankay_host`. Son configuración no secreta y referencias a nombres de Key Vault. Las
