@@ -9,10 +9,10 @@ const baseEnv = {
 };
 
 test('foundation requires no SIEM or Ankay host and keeps generic runtime disabled', () => {
-  assert.deepEqual(
-    validateEus2DeploymentScope({ ...baseEnv, DEPLOYMENT_SCOPE: 'foundation' }),
-    { scope: 'foundation', runtimeEnabled: false },
-  );
+  assert.deepEqual(validateEus2DeploymentScope({ ...baseEnv, DEPLOYMENT_SCOPE: 'foundation' }), {
+    scope: 'foundation',
+    runtimeEnabled: false,
+  });
 });
 
 test('siem scope allows Wazuh first and keeps Ankay absent', () => {

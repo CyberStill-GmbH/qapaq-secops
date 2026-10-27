@@ -61,9 +61,7 @@ export function validateEus2DeploymentScope(env = process.env) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try {
     const result = validateEus2DeploymentScope();
-    console.log(
-      `East US 2 deployment scope valid: ${result.scope}; generic runtime disabled.`,
-    );
+    console.log(`East US 2 deployment scope valid: ${result.scope}; generic runtime disabled.`);
   } catch (error) {
     console.error(`East US 2 deployment scope rejected: ${error.message}`);
     process.exitCode = 1;
