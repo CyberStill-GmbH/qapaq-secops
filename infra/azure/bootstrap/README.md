@@ -34,9 +34,9 @@ Secrets User` y `Storage Blob Data Contributor` para service principals, y
   `roleAssignments/write`; permitir el rol desde el grupo dejaría asignarlo en
   cualquier recurso descendiente. Después de crear la fundación, se puede
   habilitar una delegación independiente de `Role Based Access Control
-  Administrator` cuyo propio scope es exclusivamente el contenedor EUS2
+Administrator` cuyo propio scope es exclusivamente el contenedor EUS2
   `siem-release`. Su condición solo permite asignar o quitar `Storage Blob Data
-  Reader` a service principals y prohíbe la autoasignación a Terraform.
+Reader` a service principals y prohíbe la autoasignación a Terraform.
 - `Storage Blob Data Contributor` solo en el Storage Account de state y
   `Cost Management Contributor` a nivel de suscripción para que el root existente
   pueda gestionar el presupuesto mensual.
