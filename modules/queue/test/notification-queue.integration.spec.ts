@@ -96,7 +96,7 @@ describe('BullMQ notification runtime against Redis', () => {
       await waitFor(closing);
 
       const depth = await publisher.depth();
-      expect(depth[`${NOTIFICATION_QUEUE}.completed`]).toBe(1);
+      expect(depth.completed).toBe(1);
       expect(metrics).toContain('enqueued');
       expect(metrics).toContain('completed');
       expect(metrics).toContain('depth');
