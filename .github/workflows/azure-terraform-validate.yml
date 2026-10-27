@@ -110,3 +110,12 @@ jobs:
 
       - name: Validate the Ankay host module
         run: terraform -chdir=infra/azure/modules/ankay_host validate -no-color
+
+      - name: Initialize private KrakenD gateway module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/krakend_gateway init -backend=false -input=false -no-color
+
+      - name: Validate the private KrakenD gateway module
+        run: terraform -chdir=infra/azure/modules/krakend_gateway validate -no-color
+
+      - name: Test private KrakenD network, ingress and secret-reference contract
+        run: terraform -chdir=infra/azure/modules/krakend_gateway test -no-color

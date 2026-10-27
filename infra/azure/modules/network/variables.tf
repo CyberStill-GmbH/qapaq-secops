@@ -20,3 +20,15 @@ variable "ankay_subnet_address_prefix" {
     error_message = "ankay_subnet_address_prefix debe ser null o un CIDR válido."
   }
 }
+
+variable "krakend_subnet_address_prefix" {
+  description = "CIDR dedicado al ACA Environment privado de KrakenD; null lo mantiene apagado. Workload Profiles requiere al menos /27."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.krakend_subnet_address_prefix == null || (can(cidrhost(var.krakend_subnet_address_prefix, 0)) && tonumber(split("/", var.krakend_subnet_address_prefix)[1]) <= 27)
+    error_message = "krakend_subnet_address_prefix debe ser null o un CIDR /27 o mayor."
+  }
+}

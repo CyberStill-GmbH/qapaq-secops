@@ -111,22 +111,29 @@ flowchart LR
 ```
 
 KrakenD debe operar como gateway privado y sin estado, con varias réplicas y
-balanceo interno. Su primer alcance en Azure debe ser Core → `/wazuh/*` → Indexer;
-el gateway actual también contiene `/api/*` hacia el Core, pero ese Core escucha
-solo en loopback en el release Azure. Activar el compose actual sin adaptar ese
-contrato rompe la ruta o fuerza a abrir el Core. El entorno Container Apps actual,
-además, es externo y pertenece al runtime genérico apagado; hace falta un environment
-privado dedicado o un servicio equivalente, no reutilizarlo tal cual. Microsoft explica
-que un environment internal usa un Internal Load Balancer en la VNet y que las apps
-pueden escalar dentro de ese límite
-([ingress de Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/ingress),
-[networking](https://learn.microsoft.com/en-us/azure/container-apps/networking)).
+balanceo interno. El módulo opt-in `infra/azure/modules/krakend_gateway` materializa
+un ACA environment separado, internal load balancer, DNS privado, UDR al firewall,
+imagen fijada por digest y rutas cerradas Core → `/wazuh/*` → Indexer. No reutiliza
+el environment genérico ni publica `/api/*` al Core, que permanece en loopback.
+El módulo sigue apagado por defecto y no demuestra despliegue. Antes de activarlo,
+se requiere cerrar el aprovisionamiento Azure del proxy TLS del Indexer y sembrar
+en Key Vault la credencial Base64 read-only y su CA; el script actual aún publica
+esas salidas en AWS Secrets Manager. Ver el [contrato y gate de KrakenD](krakend-private-gateway.md).
+Además, la app recurso Entra debe declarar el app role `Qapaq.Wazuh.Read` solo para
+`Application` y asignarlo únicamente al service principal identificado por
+`core_client_id`; el API valida ese rol y `appid`/`azp` antes de consultar alertas.
+El access log de KrakenD CE queda deshabilitado porque su formato predeterminado
+escribe query strings; usar un sanitizador allowlist antes de habilitarlo.
+Microsoft explica la integración de internal ACA con VNet/UDR y el wildcard privado
+que resuelve al static IP del environment
+([firewall/UDR](https://learn.microsoft.com/en-us/azure/container-apps/use-azure-firewall),
+[DNS](https://learn.microsoft.com/en-us/azure/container-apps/private-endpoints-with-dns)).
 
 | Dominio | Demo EUS2 posible tras cerrar inputs | Resiliencia de producción requerida |
 | --- | --- | --- |
 | Entrada | DNAT + Load Balancer + un host SIEM | Pool de edge con ≥2 instancias y prueba de failover |
 | Wazuh | Manager e Indexer single-node; dashboard versionado | Manager cluster e Indexer multi-node con quorum y balanceo de lecturas |
-| Core y gateway | Core local; KrakenD todavía no instalado | API/workers escalables y KrakenD interno con ≥2 réplicas; solo ruta Indexer por contrato |
+| Core y gateway | Core local; módulo KrakenD privado opt-in en IaC, aún no desplegado | API/workers escalables y KrakenD interno con ≥2 réplicas; solo ruta Indexer por contrato |
 | Persistencia/jobs | PostgreSQL actual; la cola no está elegida | PostgreSQL con HA/restore medidos y cola elegida con idempotencia/reintentos/ACK/DLQ |
 | SOAR | Host Ankay opcional, todavía no seguro/reproducible | Aislamiento de ejecución, persistencia y recuperación validados antes de abrir acceso |
 

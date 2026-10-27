@@ -61,4 +61,22 @@ variable "allowed_fqdns" {
     error_message = "allowed_fqdns must contain valid explicit FQDNs or a subdomain wildcard."
   }
 }
+
+variable "container_apps_source_cidrs" {
+  description = "Subnets of private ACA environments routed through this firewall; empty means no ACA-specific rules."
+  type        = set(string)
+  default     = []
+}
+
+variable "container_apps_allowed_fqdns" {
+  description = "Exact ACA platform/registry/Entra FQDNs allowed through the firewall, scoped to ACA source CIDRs."
+  type        = set(string)
+  default     = []
+}
+
+variable "container_apps_allowed_service_tags" {
+  description = "Azure service tags required by private ACA with UDR, scoped to ACA source CIDRs."
+  type        = set(string)
+  default     = []
+}
 variable "tags" { type = map(string) }

@@ -1,0 +1,185 @@
+{
+  "version": 4,
+  "name": "qapaq-azure-wazuh-ingestion-gateway",
+  "port": 8080,
+  "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+  "client_tls": {
+    "ca_certs": ["{{ env "WAZUH_INDEXER_CA_FILE" }}"]
+  },
+  "output_encoding": "no-op",
+  "extra_config": {
+    "router": {
+      "disable_access_log": true
+    },
+    "telemetry/logging": {
+      "level": "INFO",
+      "prefix": "[QAPAGateway]",
+      "syslog": false,
+      "stdout": true
+    },
+    "telemetry/opentelemetry": {
+      "service_name": "qapaq-azure-wazuh-ingestion-gateway",
+      "metric_reporting_period": 10,
+      "exporters": {
+        "prometheus": [
+          {
+            "name": "qapaq_prometheus",
+            "port": {{ env "GATEWAY_METRICS_PORT" }},
+            "listen_ip": "0.0.0.0",
+            "process_metrics": true
+          }
+        ]
+      },
+      "layers": {
+        "global": {
+          "disable_traces": true
+        },
+        "proxy": {
+          "disable_traces": true
+        }
+      }
+    }
+  },
+  "endpoints": [
+    {
+      "endpoint": "/wazuh/_cluster/health",
+      "method": "GET",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["X-Request-Id", "traceparent", "tracestate"],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "{{ env "OIDC_JWKS_URL" }}",
+          "disable_jwk_security": {{ env "OIDC_DISABLE_JWK_SECURITY" }},
+          "issuer": "{{ env "OIDC_ISSUER" }}",
+          "audience": ["{{ env "OIDC_AUDIENCE" }}"],
+          "roles_key": "roles",
+          "roles": ["Qapaq.Wazuh.Read"],
+          "cache": true,
+          "propagate_claims": [["sub", "X-Qapaq-Workload"]]
+        },
+        "validation/cel": [
+          {
+            "check_expr": "(has(JWT.appid) && JWT.appid == '{{ env "QAPAQ_CORE_CLIENT_ID" }}') || (has(JWT.azp) && JWT.azp == '{{ env "QAPAQ_CORE_CLIENT_ID" }}')"
+          }
+        ],
+        "qos/ratelimit/router": {
+          "client_max_rate": {{ env "GATEWAY_RATE_PER_SECOND" }},
+          "client_capacity": {{ env "GATEWAY_RATE_BURST" }},
+          "strategy": "header",
+          "key": "X-Qapaq-Workload"
+        }
+      },
+      "backend": [
+        {
+          "host": ["{{ env "WAZUH_INDEXER_URL" }}"],
+          "url_pattern": "/_cluster/health",
+          "encoding": "no-op",
+          "method": "GET",
+          "extra_config": {
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": ["request", "response"],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Blacklist": {
+                      "scope": ["response"],
+                      "names": ["X-Internal-Topology", "Server", "X-Powered-By"]
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": ["request"],
+                      "name": "Authorization",
+                      "value": "Basic {{ env "WAZUH_BASIC_AUTH_B64" }}"
+                    }
+                  }
+                ]
+              }
+            },
+            "backend/http": {
+              "return_error_code": true
+            },
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/wazuh/_search",
+      "method": "POST",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
+      "output_encoding": "no-op",
+      "input_headers": ["Content-Type", "X-Request-Id", "traceparent", "tracestate"],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "{{ env "OIDC_JWKS_URL" }}",
+          "disable_jwk_security": {{ env "OIDC_DISABLE_JWK_SECURITY" }},
+          "issuer": "{{ env "OIDC_ISSUER" }}",
+          "audience": ["{{ env "OIDC_AUDIENCE" }}"],
+          "roles_key": "roles",
+          "roles": ["Qapaq.Wazuh.Read"],
+          "cache": true,
+          "propagate_claims": [["sub", "X-Qapaq-Workload"]]
+        },
+        "validation/cel": [
+          {
+            "check_expr": "(has(JWT.appid) && JWT.appid == '{{ env "QAPAQ_CORE_CLIENT_ID" }}') || (has(JWT.azp) && JWT.azp == '{{ env "QAPAQ_CORE_CLIENT_ID" }}')"
+          }
+        ],
+        "qos/ratelimit/router": {
+          "client_max_rate": {{ env "GATEWAY_RATE_PER_SECOND" }},
+          "client_capacity": {{ env "GATEWAY_RATE_BURST" }},
+          "strategy": "header",
+          "key": "X-Qapaq-Workload"
+        }
+      },
+      "backend": [
+        {
+          "host": ["{{ env "WAZUH_INDEXER_URL" }}"],
+          "url_pattern": "/{{ env "WAZUH_INDEX_PATTERN" }}/_search",
+          "encoding": "no-op",
+          "method": "POST",
+          "extra_config": {
+            "modifier/martian": {
+              "fifo.Group": {
+                "scope": ["request", "response"],
+                "aggregateErrors": true,
+                "modifiers": [
+                  {
+                    "header.Blacklist": {
+                      "scope": ["response"],
+                      "names": ["X-Internal-Topology", "Server", "X-Powered-By"]
+                    }
+                  },
+                  {
+                    "header.Modifier": {
+                      "scope": ["request"],
+                      "name": "Authorization",
+                      "value": "Basic {{ env "WAZUH_BASIC_AUTH_B64" }}"
+                    }
+                  }
+                ]
+              }
+            },
+            "backend/http": {
+              "return_error_code": true
+            },
+            "qos/circuit-breaker": {
+              "interval": 10,
+              "timeout": 5,
+              "max_errors": 3
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
