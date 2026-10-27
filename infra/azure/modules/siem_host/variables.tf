@@ -133,9 +133,18 @@ variable "vm_size" {
   description = "SKU de VM validado con la carga Wazuh y la cuota de la suscripción."
   type        = string
 
+  # Todos son x86-64 con 4 vCPU y al menos 8 GiB (el bundle es amd64). Varios porque Azure
+  # restringe capacidad por región y SKU sin aviso: en EUS2 F4s_v2 dio SkuNotAvailable.
   validation {
-    condition     = var.vm_size == "Standard_F4s_v2"
-    error_message = "El bundle Wazuh se publica para amd64 y el perfil demo requiere Standard_F4s_v2; cualquier otro SKU requiere un bundle y una aceptación de arquitectura probados."
+    condition = contains([
+      "Standard_F4s_v2",
+      "Standard_D4as_v5",
+      "Standard_D4s_v5",
+      "Standard_D4as_v6",
+      "Standard_D4s_v6",
+      "Standard_D4als_v6",
+    ], var.vm_size)
+    error_message = "El bundle Wazuh es amd64 y necesita 4 vCPU y al menos 8 GiB: usa F4s_v2, D4as_v5, D4s_v5, D4as_v6, D4s_v6 o D4als_v6."
   }
 }
 
