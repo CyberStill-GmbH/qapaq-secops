@@ -132,6 +132,12 @@ variable "siem_firewall_sku_tier" {
   }
 }
 
+variable "siem_artifact_read_assignment_managed" {
+  description = "false cuando un Owner asigna Storage Blob Data Reader del bundle a la identidad del SIEM fuera de Terraform."
+  type        = bool
+  default     = true
+}
+
 variable "enable_runtime" {
   description = "Crea Container Apps solo al contar con cinco digests verificados y compatibilidad de runtime aprobada."
   type        = bool
