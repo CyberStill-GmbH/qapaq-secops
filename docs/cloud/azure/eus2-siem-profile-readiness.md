@@ -18,6 +18,9 @@ scope and must not be implied by a successful `siem` deployment.
 Use this sequence:
 
 1. Reconcile the EUS2 Terraform-managed seeder RBAC before another foundation apply.
+   If the selected deployment also enables `module.krakend_gateway`, stop until its
+   custom-role permission gate below is independently verified for the GitHub OIDC
+   Terraform principal.
 2. Confirm the foundation resources and private endpoints through the approved read-only
    operational checks; do not infer that state is correct from the resources existing.
 3. Seed only rotated, required Key Vault secrets through the protected create-only
@@ -177,6 +180,26 @@ already has. Role-assignment ARM IDs must be obtained from metadata because thei
 cannot be inferred from the Terraform configuration. If definitions are already in
 state, do not import them again.
 
+### KrakenD custom Key Vault role gate
+
+The KrakenD module's Key Vault integration defines a custom role limited to the
+required `get`/`set` operations on the exact named secret resources. Its creation
+requires `Microsoft.Authorization/roleDefinitions/write` at the custom role's approved
+assignable scope. The GitHub OIDC Terraform identity currently has `Contributor` plus
+`Role Based Access Control Administrator` whose ABAC condition is restricted to a
+fixed set of built-in role-definition IDs; that condition does not authorize creating
+this custom role. Do not infer that permission from the existing gateway or seeder
+assignments.
+
+Before a plan that enables KrakenD or creates/changes this role, an operator must verify
+the exact role definition, assignable scope, target principal, secret-level assignment
+scopes, and the Terraform identity's effective authorization. Keep the deployment
+blocked until that evidence exists. Do not broaden the ABAC condition to arbitrary
+roles or substitute Owner, unconditioned User Access Administrator, or Key Vault
+Secrets Officer. Do not add a role assignment that grants vault-wide access when the
+design calls for exact named secrets. The seeder's separate custom-role authorization
+and state reconciliation remain an independent gate.
+
 ## Core and end-to-end blockers (separate from Wazuh host readiness)
 
 ### Wazuh-only host gates
@@ -218,8 +241,13 @@ state, do not import them again.
   principal, create the two named Key Vault secrets (Base64 `qapaq_reader` credential
   and the proxy CA), and install/test the TLS-verifying proxy on the SIEM host. The
   current `wazuh/access/apply-access.sh` writes credentials to AWS Secrets Manager;
-  no Azure proxy/secret seeding path exists yet. Keep the module disabled until those
-  prerequisites and route-level tests pass.
+  no Azure proxy/secret seeding path exists yet. Its custom Key Vault role also needs
+  `Microsoft.Authorization/roleDefinitions/write`, which the current condition on the
+  GitHub Terraform identity does not grant. Keep the module disabled and the plan
+  blocked until that role-creation permission is verified at the approved scope, the
+  exact-secret assignments are reviewed, those runtime prerequisites are satisfied,
+  and route-level tests pass. Do not replace the missing permission with a broader
+  built-in role.
 - No Redis-compatible cache/queue is provisioned by EUS2 Terraform. The current app
   has no verified BullMQ producer/worker E2E for this Azure path; the Azure parity
   review says the worker is lifecycle-only and ADR-AZ-001 remains proposed. A managed

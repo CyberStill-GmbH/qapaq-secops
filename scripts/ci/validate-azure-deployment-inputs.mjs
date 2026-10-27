@@ -9,6 +9,7 @@ const SECRET_URI =
   /^https:\/\/[a-z0-9-]+\.vault\.azure\.net\/secrets\/[A-Za-z0-9-]+\/[A-Za-z0-9-]+$/u;
 const SENSITIVE_ENV_NAME =
   /(PASSWORD|SECRET|TOKEN|API_KEY|ACCESS_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTHORIZATION)/u;
+const MIN_DASHBOARD_INGRESS_PREFIX = 24;
 
 function fail(message) {
   throw new Error(message);
@@ -52,6 +53,75 @@ function validCidr(value) {
   if (extra.length || !prefix || !/^\d+$/u.test(prefix)) return false;
   const version = isIP(address);
   return version !== 0 && Number(prefix) <= (version === 4 ? 32 : 128);
+}
+
+function validateDashboardIngressCidrs(cidrs) {
+  for (const cidr of cidrs) {
+    const range = ipv4Range(cidr);
+    if (!range || range.prefix < MIN_DASHBOARD_INGRESS_PREFIX) {
+      fail(
+        `siem_host.dashboard_ingress_cidrs entries must be aligned IPv4 CIDRs no broader than /${MIN_DASHBOARD_INGRESS_PREFIX}.`,
+      );
+    }
+  }
+}
+
+function validateProviderIngestion(value, wazuhSecretNames) {
+  if (value === undefined) return;
+  object(value, 'siem_host.provider_ingestion');
+  const providerKeys = [
+    'sophos_enabled',
+    'sophos_tenant_id',
+    'sophos_data_region',
+    'cato_enabled',
+    'cato_account_id',
+  ];
+  exactKeys(value, [], providerKeys, 'siem_host.provider_ingestion');
+
+  for (const item of Object.values(value)) {
+    if (typeof item !== 'string' || /[\r\n]/u.test(item)) {
+      fail('siem_host.provider_ingestion values must be single-line strings.');
+    }
+  }
+
+  const sophosEnabled = value.sophos_enabled ?? 'false';
+  const catoEnabled = value.cato_enabled ?? 'false';
+  if (!['true', 'false'].includes(sophosEnabled) || !['true', 'false'].includes(catoEnabled)) {
+    fail('siem_host.provider_ingestion flags must be the strings true or false.');
+  }
+
+  if (sophosEnabled === 'true') {
+    const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+    if (
+      !guidPattern.test(value.sophos_tenant_id ?? '') ||
+      !/^[a-z0-9-]{2,32}$/u.test(value.sophos_data_region ?? '') ||
+      !Object.hasOwn(wazuhSecretNames, 'sophos-client-id') ||
+      !Object.hasOwn(wazuhSecretNames, 'sophos-client-secret')
+    ) {
+      fail(
+        'siem_host.provider_ingestion Sophos requires a tenant GUID, data region, and Key Vault secret names.',
+      );
+    }
+  }
+
+  if (catoEnabled === 'true') {
+    if (
+      !/^[0-9]{1,20}$/u.test(value.cato_account_id ?? '') ||
+      !Object.hasOwn(wazuhSecretNames, 'cato-api-key')
+    ) {
+      fail(
+        'siem_host.provider_ingestion Cato requires an account ID and a Key Vault API key name.',
+      );
+    }
+  }
+}
+
+function isUsableAnkayHostAddress(address, env) {
+  const host = ipv4Number(address);
+  const subnet = ipv4Range(subnetCidr(effectiveAddressSpace(env), 11, 1));
+  if (host === null || !subnet) return false;
+  // Azure reserves the first four addresses and the final address in every subnet.
+  return host >= subnet.start + 4n && host < subnet.end;
 }
 
 function isPrivateRfc1918(value) {
@@ -127,9 +197,9 @@ function validateSiemSubnet(siem, env) {
   const vnetCidr = effectiveAddressSpace(env);
   const vnet = ipv4Range(vnetCidr);
   const subnet = ipv4Range(siem.address_prefix);
-  if (!vnet || vnet.prefix !== 16 || !subnet) {
-    fail('siem_host.address_prefix and the Azure VNet address_space must be valid IPv4 CIDRs.');
-  }
+  if (!subnet) fail('siem_host.address_prefix must be a network-aligned IPv4 CIDR.');
+  if (!vnet || vnet.prefix !== 16)
+    fail('The configured Azure VNet address_space must be a valid IPv4 /16 CIDR.');
   if (subnet.start < vnet.start || subnet.end > vnet.end) {
     fail('siem_host.address_prefix must be wholly contained in the configured Azure VNet.');
   }
@@ -196,12 +266,8 @@ function validateSiem(siem, env = process.env) {
     'bootstrap_bundle_blob_url',
     'bootstrap_bundle_sha256',
   ];
-  exactKeys(siem, required, [], 'siem_host');
-  if (
-    !validCidr(siem.address_prefix) ||
-    !isPrivateRfc1918(siem.address_prefix.split('/')[0]) ||
-    Number(siem.address_prefix.split('/')[1]) > 27
-  )
+  exactKeys(siem, required, ['provider_ingestion'], 'siem_host');
+  if (!validCidr(siem.address_prefix) || !isPrivateRfc1918(siem.address_prefix.split('/')[0]))
     fail('siem_host.address_prefix must be a private IPv4 subnet with at least 32 addresses.');
   validateSiemSubnet(siem, env);
   nonEmptyString(siem.vm_size, 'siem_host.vm_size');
@@ -217,10 +283,11 @@ function validateSiem(siem, env = process.env) {
     fail('siem_host.ubuntu_image_version must pin Ubuntu 24.04 to a numeric version.');
   if (!Number.isInteger(siem.data_disk_size_gb) || siem.data_disk_size_gb < 32)
     fail('siem_host.data_disk_size_gb must be an integer of at least 32.');
-  for (const field of ['dashboard_ingress_cidrs', 'agent_ingress_cidrs']) {
-    if (!Array.isArray(siem[field]) || !siem[field].every(validCidr))
-      fail(`siem_host.${field} must be an array of valid CIDRs.`);
-  }
+  if (!Array.isArray(siem.dashboard_ingress_cidrs))
+    fail('siem_host.dashboard_ingress_cidrs must be an array of CIDRs.');
+  validateDashboardIngressCidrs(siem.dashboard_ingress_cidrs);
+  if (!Array.isArray(siem.agent_ingress_cidrs) || !siem.agent_ingress_cidrs.every(validCidr))
+    fail('siem_host.agent_ingress_cidrs must be an array of valid CIDRs.');
   stringMap(
     siem.core_secret_names,
     'siem_host.core_secret_names',
@@ -258,6 +325,7 @@ function validateSiem(siem, env = process.env) {
     typeof siem.office365.enable_dlp !== 'boolean'
   )
     fail('siem_host.office365 api_type or enable_dlp is invalid.');
+  validateProviderIngestion(siem.provider_ingestion, siem.wazuh_secret_names);
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_ENTRA_CLIENT_SECRET'))
     fail('siem_host.core_secret_names must reference the Entra client secret by Key Vault name.');
   if (!Object.hasOwn(siem.core_secret_names, 'QAPAQ_TEAMS_WORKFLOW_URL'))
@@ -306,7 +374,7 @@ function validateSiem(siem, env = process.env) {
     fail('siem_host.bootstrap_bundle_sha256 must be lowercase SHA-256.');
 }
 
-function validateAnkay(ankay, siem, registry) {
+function validateAnkay(ankay, siem, registry, env = process.env) {
   if (ankay === null) return;
   object(ankay, 'ankay_host');
   if (siem === null)
@@ -325,6 +393,10 @@ function validateAnkay(ankay, siem, registry) {
   exactKeys(ankay, required, ['data_disk_size_gb'], 'ankay_host');
   if (!isPrivateRfc1918(ankay.private_ip_address))
     fail('ankay_host.private_ip_address must be an RFC1918 private IPv4 address.');
+  if (!isUsableAnkayHostAddress(ankay.private_ip_address, env))
+    fail(
+      'ankay_host.private_ip_address must be a usable Azure host address in the reserved Ankay subnet.',
+    );
   if (
     typeof ankay.admin_ssh_public_key !== 'string' ||
     !/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)) [A-Za-z0-9+/=]+(?: .*)?$/u.test(
@@ -444,7 +516,7 @@ export function validateDeploymentInputs(env = process.env) {
     );
   }
   validateSiem(siem, env);
-  validateAnkay(ankay, siem, registry);
+  validateAnkay(ankay, siem, registry, env);
   validateKeyVaultIds(keyVaultIds);
   return {
     enableRuntime: enableRuntime === 'true',
