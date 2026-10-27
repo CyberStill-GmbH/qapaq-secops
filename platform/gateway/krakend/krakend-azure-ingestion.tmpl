@@ -2,9 +2,9 @@
   "version": 4,
   "name": "qapaq-azure-wazuh-ingestion-gateway",
   "port": 8080,
-  "timeout": "{{ env \"GATEWAY_ENDPOINT_TIMEOUT\" }}",
+  "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
   "client_tls": {
-    "ca_certs": ["{{ env \"WAZUH_INDEXER_CA_FILE\" }}"]
+    "ca_certs": ["{{ env "WAZUH_INDEXER_CA_FILE" }}"]
   },
   "output_encoding": "no-op",
   "extra_config": {
@@ -44,16 +44,16 @@
     {
       "endpoint": "/wazuh/_cluster/health",
       "method": "GET",
-      "timeout": "{{ env \"GATEWAY_ENDPOINT_TIMEOUT\" }}",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
       "output_encoding": "no-op",
       "input_headers": ["X-Request-Id", "traceparent", "tracestate"],
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "{{ env \"OIDC_JWKS_URL\" }}",
+          "jwk_url": "{{ env "OIDC_JWKS_URL" }}",
           "disable_jwk_security": false,
-          "issuer": "{{ env \"OIDC_ISSUER\" }}",
-          "audience": ["{{ env \"OIDC_AUDIENCE\" }}"],
+          "issuer": "{{ env "OIDC_ISSUER" }}",
+          "audience": ["{{ env "OIDC_AUDIENCE" }}"],
           "cache": true,
           "propagate_claims": [["sub", "X-Qapaq-Workload"]]
         },
@@ -66,7 +66,7 @@
       },
       "backend": [
         {
-          "host": ["{{ env \"WAZUH_INDEXER_URL\" }}"],
+          "host": ["{{ env "WAZUH_INDEXER_URL" }}"],
           "url_pattern": "/_cluster/health",
           "encoding": "no-op",
           "method": "GET",
@@ -86,7 +86,7 @@
                     "header.Modifier": {
                       "scope": ["request"],
                       "name": "Authorization",
-                      "value": "Basic {{ env \"WAZUH_BASIC_AUTH_B64\" }}"
+                      "value": "Basic {{ env "WAZUH_BASIC_AUTH_B64" }}"
                     }
                   }
                 ]
@@ -107,16 +107,16 @@
     {
       "endpoint": "/wazuh/_search",
       "method": "POST",
-      "timeout": "{{ env \"GATEWAY_ENDPOINT_TIMEOUT\" }}",
+      "timeout": "{{ env "GATEWAY_ENDPOINT_TIMEOUT" }}",
       "output_encoding": "no-op",
       "input_headers": ["Content-Type", "X-Request-Id", "traceparent", "tracestate"],
       "extra_config": {
         "auth/validator": {
           "alg": "RS256",
-          "jwk_url": "{{ env \"OIDC_JWKS_URL\" }}",
+          "jwk_url": "{{ env "OIDC_JWKS_URL" }}",
           "disable_jwk_security": false,
-          "issuer": "{{ env \"OIDC_ISSUER\" }}",
-          "audience": ["{{ env \"OIDC_AUDIENCE\" }}"],
+          "issuer": "{{ env "OIDC_ISSUER" }}",
+          "audience": ["{{ env "OIDC_AUDIENCE" }}"],
           "cache": true,
           "propagate_claims": [["sub", "X-Qapaq-Workload"]]
         },
@@ -129,8 +129,8 @@
       },
       "backend": [
         {
-          "host": ["{{ env \"WAZUH_INDEXER_URL\" }}"],
-          "url_pattern": "/{{ env \"WAZUH_INDEX_PATTERN\" }}/_search",
+          "host": ["{{ env "WAZUH_INDEXER_URL" }}"],
+          "url_pattern": "/{{ env "WAZUH_INDEX_PATTERN" }}/_search",
           "encoding": "no-op",
           "method": "POST",
           "extra_config": {
@@ -149,7 +149,7 @@
                     "header.Modifier": {
                       "scope": ["request"],
                       "name": "Authorization",
-                      "value": "Basic {{ env \"WAZUH_BASIC_AUTH_B64\" }}"
+                      "value": "Basic {{ env "WAZUH_BASIC_AUTH_B64" }}"
                     }
                   }
                 ]
