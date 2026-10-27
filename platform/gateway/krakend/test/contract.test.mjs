@@ -56,9 +56,9 @@ test('C-28 Wazuh route inventory and KrakenD endpoint set remain identical', () 
 });
 
 test('Azure SIEM gateway exposes only authenticated Wazuh ingestion routes', () => {
-  const endpoints = [
-    ...azureIngestionTemplate.matchAll(/"endpoint"\s*:\s*"([^"]+)"/g),
-  ].map(([, path]) => path);
+  const endpoints = [...azureIngestionTemplate.matchAll(/"endpoint"\s*:\s*"([^"]+)"/g)].map(
+    ([, path]) => path,
+  );
   assert.deepEqual(endpoints, ['/wazuh/_cluster/health', '/wazuh/_search']);
   assert.equal((azureIngestionTemplate.match(/"auth\/validator"/g) ?? []).length, 2);
   assert.equal((azureIngestionTemplate.match(/"jwk_url"/g) ?? []).length, 2);
