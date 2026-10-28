@@ -128,5 +128,21 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("retention-days: 14", workflow)
 
 
+    def test_release_bundle_summary_quotes_revision_safely(self):
+        workflow = (WORKFLOWS / "azure-siem-release-bundle.yml").read_text(
+            encoding="utf-8"
+        )
+        summary_step = workflow.split(
+            "      - name: Summarize runtime gates\n", 1
+        )[1].split("\n      - name:", 1)[0]
+
+        self.assertIn("RELEASE_SHA: ${{ inputs.release_sha }}", summary_step)
+        self.assertIn("printf '%s\\n'", summary_step)
+        self.assertIn(r"\`$RELEASE_SHA\`", summary_step)
+        self.assertNotIn(
+            'echo "- QAPAQ source commit: `${{ inputs.release_sha }}`', summary_step
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

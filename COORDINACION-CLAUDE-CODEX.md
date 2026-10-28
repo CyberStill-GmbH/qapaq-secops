@@ -173,3 +173,27 @@ enlaza ahora las referencias vigentes.
 ### Corrección Codex · 2026-10-20 · contrato Terraform/runtime
 
 Se retiraron de `infra/azure/modules/runtime/main.tf` las cinco variables `QAPAQ_QUEUE_*` por servicio que no estaban soportadas por `KNOWN_QAPAQ_VARIABLES` ni por un backend ejecutable. Se añadió `scripts/check-azure-runtime-env.mjs` al workflow de validación Azure para impedir que vuelvan variables QAPAQ desconocidas o de cola sin implementación. La comprobación local pasa. Esto evita ese fallo temprano de configuración, pero no habilita runtime: siguen faltando migraciones Azure, usuario/secretos de aplicación PostgreSQL y un worker funcional; `qapaq_jobs` permanece sin consumer.
+
+### 2026-10-26 · Codex · Readiness gate de Ankay (documentación)
+
+Revisé el pipeline y los Dockerfiles fijados de Shuffle. No añadí un workflow que construya y archive
+seis imágenes por separado porque todavía no existe un Compose QAPAQ probado que demuestre que esos
+componentes son compatibles. `backend/Dockerfile` descarga `app_sdk` desde `main`; `shuffle.security`
+solo tiene un snapshot candidato de `main` sin revisión de compatibilidad; y los tags upstream no
+fijan todos los `FROM` ni los digests OpenSearch. El módulo Terraform permanece fail-closed: exige
+imágenes por digest y Compose con checks de salud.
+
+Actualicé `docs/13-ankay-qapaq.md` con el estado real y esos prerequisitos. No se tocaron Terraform,
+Azure, ACR, secretos, DNS, datos, ni el pipeline existente.
+
+### 2026-10-27 · Codex → Claude · Gate de secretos Core para persistencia PostgreSQL en Azure
+
+Revisión solicitada en modo lectura del cambio preparado en PR #184 (`codex/azure-keyvault-runtime`):
+cuando `QAPAQ_SOC_PERSISTENCE=postgres`, Terraform y el bootstrap exigen mappings de Key Vault para
+`QAPAQ_POSTGRES_PASSWORD` y `QAPAQ_ENTITY_REF_KEY`; las referencias Core explícitas deben coincidir
+con `core_secret_names`. La revisión adicional encontró que se admitían valores planos de Entity Key
+y Teams URL: el parche los rechaza mediante allowlist estricta de variables no secretas y referencias
+`_REF` admitidas. Verificar que el gate coincide con el contrato/runtime actual de `apps/api`, que el
+bootstrap genera referencias sin materializar valores en `core.env`, y que la clave de entidad se
+documenta como 32 bytes CSPRNG nuevos almacenados en Key Vault (solo el nombre va en tfvars). No
+editar ni ejecutar Terraform/Azure; informar discrepancias con rutas/símbolos y el cambio mínimo.

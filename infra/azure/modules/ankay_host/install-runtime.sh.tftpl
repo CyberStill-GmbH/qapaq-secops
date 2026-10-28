@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+# Install only exact package versions approved with the Ankay deployment profile.
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+
+curl --fail --silent --show-error --location https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+arch="$(dpkg --print-architecture)"
+codename="$(. /etc/os-release && printf '%s' "$${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
+printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
+  "$arch" "$codename" > /etc/apt/sources.list.d/docker.list
+
+curl --fail --silent --show-error --location https://packages.microsoft.com/keys/microsoft.asc \
+  | gpg --dearmor --yes -o /etc/apt/keyrings/microsoft.gpg
+chmod a+r /etc/apt/keyrings/microsoft.gpg
+printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ %s main\n' \
+  "$arch" "$codename" > /etc/apt/sources.list.d/azure-cli.list
+
+apt-get update
+apt-get install -y --no-install-recommends \
+  docker-ce=${docker_apt_versions["docker-ce"]} \
+  docker-ce-cli=${docker_apt_versions["docker-ce-cli"]} \
+  containerd.io=${docker_apt_versions["containerd.io"]} \
+  docker-buildx-plugin=${docker_apt_versions["docker-buildx-plugin"]} \
+  docker-compose-plugin=${docker_apt_versions["docker-compose-plugin"]} \
+  azure-cli=${docker_apt_versions["azure-cli"]}
+
+systemctl enable --now docker.service
+docker compose version
+az version --output none

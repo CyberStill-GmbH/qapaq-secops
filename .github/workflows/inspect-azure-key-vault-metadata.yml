@@ -94,3 +94,12 @@ jobs:
             echo
             echo 'This workflow queried only Azure Resource Manager metadata. It did not call the Key Vault data plane or retrieve secret values.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # GitHub Actions CLI exposes job logs but not the step-summary body.
+          # Emit the same metadata-only rows so the operator can verify references
+          # without adding a data-plane read or exposing secret values.
+          if [[ -s "$rows_file" ]]; then
+            sort -u "$rows_file" | awk -F '\t' '{ printf "KEY_VAULT_SECRET_METADATA|%s|%s|%s\n", $1, $2, ($3 == "" ? "not-set" : $3) }'
+          else
+            echo 'KEY_VAULT_SECRET_METADATA|none-returned|—|—'
+          fi

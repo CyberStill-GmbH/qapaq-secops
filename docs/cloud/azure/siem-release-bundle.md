@@ -2,6 +2,17 @@
 
 Status: **the current-main candidate was built and published to private Azure Blob; no SIEM VM has been provisioned or installed yet**.
 
+### Latest EUS2 publication — 2026-10-27
+
+- Bundle run: [40445959714](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40445959714)
+- Publisher run: [40453658942](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40453658942)
+- Source SHA: `c96e35fc4618ad10db575e110b26625315fece20`
+- Private Blob URI (no SAS): `https://qapaqdemoeus2rel3a2405f3.blob.core.windows.net/siem-release/releases/c96e35fc4618ad10db575e110b26625315fece20/qapaq-siem-c96e35fc4618.tar.gz`
+- SHA-256: `89040cb69535da6b7b6b763b77fa0bdb3e15c2089481d139fa9cd2f23c7e5472`
+- Size: `6960684738` bytes. Publisher verified Blob content length and SHA metadata after upload.
+- This is a private install candidate addressed by source SHA; the publisher refuses to overwrite a blob with different bytes. It has **not** been installed on an Azure VM and does not verify health, DNS, Graph/provider ingestion, Teams delivery or Ankay.
+- The source commit packages the QAPAQ Active Directory detection profile added by PR #159. The profile and rules are present in the artifact; agent enrollment and collection on actual domain controllers remain opt-in and unverified.
+
 ## What the workflow produces
 
 `.github/workflows/azure-siem-release-bundle.yml` combines four successful CI outputs for
@@ -36,15 +47,16 @@ repository variable `AZURE_SIEM_RELEASE_STORAGE_ACCOUNT`; it prints the Blob URI
 a SAS URL or secret value. Publishing does not apply Terraform, configure runtime inputs, or change
 DNS.
 
-The next candidate assembled after the detection-pack change also contains the 30-case catalog,
-the QAPAQ provider rules, the Outlook/Sysmon endpoint rule and an idempotent installer. The
+The next candidate assembled after the AD detection-pack change also contains the 30-case catalog,
+the QAPAQ Active Directory, provider and Outlook/Sysmon endpoint rules, and an idempotent installer. The
 installer registers `/var/ossec/etc/rules` with the Wazuh ruleset, validates `wazuh-analysisd`,
 and restarts the Manager with rollback if validation or restart fails. This does not enable
-Sophos/Cato collectors: those remain opt-in and need their Key Vault references, provider
-configuration, approved egress and real acceptance. The 2026-10-24 candidate includes the versioned
-provider and endpoint rule files, but does not prove those collectors are enabled or events are arriving.
+the AD domain-controller collection profile or Sophos/Cato collectors: those remain opt-in and
+need owner approval, Key Vault references, provider configuration, approved egress and real
+acceptance. The 2026-10-24 candidate predates the AD rule packaging change and contains only the
+versioned provider and endpoint rule files; it does not prove collectors are enabled or events are arriving.
 
-### Latest published candidate evidence — 2026-10-24
+### Previous published candidate evidence — 2026-10-24
 
 - Prerequisite build: [40080125109](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125109)
 - Dashboard build: [40080125315](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40080125315)
@@ -118,8 +130,9 @@ credentials, redis references or policy values.
 The installer runs the official assistant in all-in-one offline mode, verifies the exact package
 versions, validates the Office 365 configuration and client secret file materialized from Key Vault,
 installs the QAPAQ core through its atomic release installer, applies the M365 rules/configuration,
-then waits for active
-Manager, Indexer, Filebeat, Dashboard and QAPAQ core services, Indexer TLS health and `/health/ready`.
+then installs the optional Microsoft Teams Workflows adapter when its Key Vault name is present
+in `wazuh_secret_names`, and waits for active Manager, Indexer, Filebeat, Dashboard and QAPAQ core
+services, Indexer TLS health and `/health/ready`.
 Before the first package operation it also requires the official assistant's Ubuntu prerequisites
 (`curl`, `tar`, `gnupg`, `openssl`, `lsof`, `apt-transport-https`, `libcap2-bin`, `debconf`,
 `adduser`, `procps`) to already be installed. If any are missing it stops before installing Wazuh;
@@ -132,7 +145,11 @@ installer intentionally stops without purging packages or deleting state. Operat
 required before retry.
 
 This bundle does **not** install/validate the QAPAQ access and role overlay, `qapaq_ops`
-edge route, TLS/DNS, Ankay/Shuffle or Teams webhook. It installs M365 plus the versioned
+edge route, TLS/DNS or Ankay/Shuffle. Teams support is packaged, but actual activation requires
+`wazuh_secret_names.qapaq-teams-workflow-url` to reference the current Workflows URL in Key Vault;
+the bootstrap validates the URL, protects it as a file, updates Wazuh idempotently and rolls back
+`ossec.conf` if analysis validation or restart fails. This does not prove delivery to a real Teams
+channel. The bundle installs M365 plus the versioned
 QAPAQ detection rules, but does not prove Graph permissions or event ingestion/indexing. Sophos/Cato
 rules are present while their collectors remain disabled unless explicitly configured. The Azure installer
 passes a Key Vault-materialized `file:` secret source; the shared M365 script retains an AWS

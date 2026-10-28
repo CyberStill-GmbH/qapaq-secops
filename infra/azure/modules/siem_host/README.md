@@ -43,9 +43,27 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 - Identidad asignada a la VM: `AcrPull` en el ACR indicado, lectura del blob de release limitada al
   contenedor, lectura Key Vault limitada a los secretos nombrados y escritura opcional limitada al
   contenedor de evidencia indicado.
-- Terraform no acepta valores de secretos. La extensión obtiene los secretos en tiempo de ejecución
-  por Managed Identity; no se imprimen ni se envían en argumentos de proceso. Las claves privadas SSH
-  no se admiten como input.
+- Terraform no acepta valores de secretos. El bootstrap escribe en `core.env` las referencias
+  `secret://keyvault/<nombre>` del API, no sus valores. `qapaq-core` selecciona explícitamente
+  `azure-key-vault` y resuelve antes de iniciar el servidor únicamente los secretos que consume hoy:
+  Entra, contraseña PostgreSQL, clave HMAC de entidad, Workflow de Teams y clave VAPID. Usa la UAMI
+  de la VM por HTTPS, con tiempo límite y errores redactados; los valores quedan solo en memoria del
+  proceso y no se registran. Terraform limita `Key Vault Secrets User` al scope de cada secreto
+  nombrado. Las referencias de Redis, MinIO, KrakenD/gateway y firma de cursor aún no tienen un
+  consumidor Azure integrado en `qapaq-core`; no se consideran resueltas ni listas para producción.
+  Los secretos que necesitan los adaptadores Wazuh siguen usando sus archivos root-only existentes,
+  incluyendo el archivo de instalación; este flujo no los copia al entorno Core. Las claves privadas
+  SSH no se admiten como input.
+- KrakenD habilita un proxy opcional en TCP/9443, con listener separado del Indexer 9200. El NSG
+  permite 9443 solo desde la subnet privada ACA declarada y deniega explícitamente otras fuentes
+  VNet; 9200 siempre queda denegado al VNet. Si indexer_proxy no es null, la variable exige una
+  CIDR privada no vacía; sin proxy la allowlist debe estar vacía.
+- El bootstrap Indexer usa solo los secretos precreados wazuh-reader-b64 y wazuh-proxy-ca. Su
+  Managed Identity recibe get/set limitado a esos dos IDs de secreto, sin listar, eliminar o
+  administrar el vault. La CI valida metadata antes del plan y el apply. El proxy configura un rol
+  Wazuh con cluster:monitor/health y lectura de wazuh-alerts-*; pruebas sintéticas verifican
+  búsqueda/salud 200 y escritura/administración 403. El código está preparado, pero no se ha
+  desplegado ni validado en Azure.
 - El log del bootstrap queda con modo `0600`; la salida del instalador se descarta porque el asistente
   oficial de Wazuh puede mostrar credenciales generadas. Ante un fallo, el bootstrap registra solo el
   código de salida y un mensaje genérico, sin volcar la salida del instalador.
@@ -115,12 +133,27 @@ release previo si su activación falla; una instalación inicial fallida del asi
 paquetes/datos parcialmente creados. Se deja la VM sin marcar como instalada y requiere diagnóstico
 operador antes de un nuevo intento para preservar el fail-closed.
 
+`core_environment` acepta solo variables no secretas de una allowlist y referencias `_REF` respaldadas
+por `core_secret_names`. Valores directos como `QAPAQ_ENTITY_REF_KEY` o
+`QAPAQ_TEAMS_WORKFLOW_URL` fallan en la validación de Terraform y en el preflight del bootstrap; no
+se codifican en `custom_data`, tfvars ni state. Para PostgreSQL, genera una clave de entidad nueva con
+un CSPRNG de 32 bytes (por ejemplo, `openssl rand -base64 32`) y guárdala directamente como secreto
+`qapaq-entity-ref-key` en Key Vault. En Terraform solo se configura el nombre, por ejemplo
+`core_secret_names.QAPAQ_ENTITY_REF_KEY = "qapaq-entity-ref-key"`; el bootstrap crea
+`QAPAQ_ENTITY_REF_KEY_REF` y nunca imprime ni materializa el valor en `core.env`. No reutilices
+claves ni pegues su valor en archivos `.tfvars`, variables de GitHub o documentación. La rotación
+invalida referencias de entidad persistidas, por lo que requiere un procedimiento de migración y no
+debe hacerse automáticamente.
+
 El candidato incluye conectores Wazuh opcionales para Sophos Central SIEM API y Cato `eventsFeed`.
 Solo se activan con configuración no secreta, referencias Key Vault explícitas y egress aprobado;
-un bundle/plan exitoso no demuestra permisos o ingestión del tenant. Tampoco declara listo el overlay
-de acceso QAPAQ/roles, el edge TLS y rutas DNS, Ankay/Shuffle o Teams. M365 instala reglas/configuración
-durante bootstrap, pero eso no demuestra permisos Graph, ingestión ni indexación real. Esos contratos
-requieren pruebas de extremo a extremo antes de abrir ingreso o marcar el SOC operativo.
+un bundle/plan exitoso no demuestra permisos o ingestión del tenant. La notificación Wazuh a Teams
+Workflows se incluye si `wazuh_secret_names` referencia `qapaq-teams-workflow-url`; el bootstrap
+valida el endpoint, instala el adaptador y su configuración con rollback ante fallas locales. No
+declara listo el overlay de acceso QAPAQ/roles, edge TLS y DNS, Ankay/Shuffle ni demuestra que Teams
+aceptó una alerta real. M365 instala reglas/configuración durante bootstrap, pero eso no demuestra
+permisos Graph, ingestión ni indexación real. Esos contratos requieren pruebas de extremo a extremo
+antes de abrir ingreso o marcar el SOC operativo.
 
 La ejecución Azure entrega exclusivamente `file:` al adaptador M365; no ejecuta la ruta AWS ni llama
 AWS CLI/SSM/Secrets Manager. El script compartido conserva `aws-secretsmanager:` para despliegues AWS.
@@ -133,9 +166,12 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
 ## Límites de este módulo
 
 - El root crea Azure Firewall Standard y una policy con threat-intelligence deny, proxy DNS y
-  allowlist HTTPS explícita para Ubuntu, Entra, Graph y VirusTotal; Sophos/Cato agregan solo sus
-  destinos regionales al habilitar sus módulos. El firewall tiene costo fijo por hora y procesamiento;
+  allowlist HTTPS explícita para Ubuntu, Entra, Graph, Teams Workflows y VirusTotal; Sophos/Cato
+  agregan solo sus destinos regionales al habilitar sus módulos. El firewall tiene costo fijo por hora y procesamiento;
   revisar el costo del plan antes del apply.
+  Teams usa `*.logic.azure.com` y `*.api.powerplatform.com` porque los hosts los asigna el proveedor;
+  son reglas de aplicación solo HTTPS/443 y abarcan cualquier subdominio de esos sufijos. La app valida
+  el endpoint y rechaza otros hosts/puertos. Véase [Azure Firewall FQDN filtering](https://learn.microsoft.com/azure/firewall/firewall-faq#how-do-wildcards-work-in-target-urls-and-target-fqdns-in-application-rules).
 - Los dos CIDR de egress privado deben corresponder a las subnets dedicadas reales de Private
   Endpoints (Blob/Key Vault) y PostgreSQL. No uses el CIDR completo de la VNet como sustituto. No hay
   fallback a Internet directo cuando faltan o no responden esos servicios.
@@ -149,12 +185,17 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   enrolamiento a Internet.
 - No configura snapshots del Indexer en Azure Blob. El diseño vigente describe snapshots S3 y debe
   resolver compatibilidad/retención Azure antes de considerar cubierta la evidencia duradera.
-- No administra API Gateway/KrakenD, Ankay/Shuffle, Sophos, Cato, Teams, reglas M365 ni roles de
+- No administra API Gateway/KrakenD, Ankay/Shuffle, conectores Sophos/Cato, validación de entrega Teams, reglas M365 ni roles de
   usuarios QAPAQ. El bundle de instalación tampoco sustituye las pruebas de esos contratos.
 - El disco persistente de datos está protegido contra `terraform destroy`, pero no reemplaza
   backup/restauración comprobados. La VM conserva `prevent_destroy`; si se reconstruye deliberadamente,
   hay que volver a conectar y montar el disco de datos antes de reinstalar. El disco de sistema no es
   la copia durable de evidencia ni de secretos (estos permanecen en Key Vault).
+- La clave privada TLS del proxy Indexer permanece en el disco de sistema y no se respalda en Key Vault.
+  Su pérdida bloquea la ruta: el bootstrap falla cerrado si queda solo el certificado público. Mantén
+  krakend_gateway en null hasta probar restauración cifrada del par o una rotación coordinada sin
+  exponer credenciales; el procedimiento y sus comprobaciones están en
+  el [runbook del gateway](../../../../docs/cloud/azure/krakend-private-gateway.md#recuperación-ante-pérdida-o-reemplazo-del-disco-de-sistema).
 
 ## Preflight de módulo
 
@@ -166,6 +207,10 @@ debe verificar:
 1. El bundle existe en Blob privado y su digest coincide con el manifiesto de release de CI.
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
 3. CIDR de Dashboard y agentes son privados/aprobados y no incluyen `0.0.0.0/0`.
+   `address_prefix` debe pertenecer al address space de la VNet y no solaparse con las subnets
+   determinísticas de Container Apps, Ankay, KrakenD, PostgreSQL, Private Endpoints o Azure Firewall.
+   El validador previo al plan calcula estas reservas usando el `address_space` efectivo; no
+   reutilices un rango de las subnets ya desplegadas como atajo para habilitar el SIEM.
 4. SKU de VM, disco y disponibilidad de Secure Boot/encryption-at-host están confirmados en la región.
 5. El plan crea Firewall Standard con DNAT, IP pública de entrada/salida, Load Balancer interno,
    subnet dedicada y UDR; revisar costo, CIDR HTTPS, puerto HTTP ACME y destinos permitidos antes del apply.

@@ -3,7 +3,10 @@
 Este root es independiente de `infra/aws`: usa una suscripción, state, identidad,
 red y secretos propios. No importa ni cambia recursos AWS o DNS. La arquitectura
 documentada para el destino Azure se rige por [`docs/cloud/azure/architecture.md`](../../docs/cloud/azure/architecture.md),
-con `docs/10-decisiones.md` y `docs/12-backend-en-el-siem.md` como fuentes de producto.
+con [`arquitectura objetivo EUS2`](../../docs/cloud/azure/target-architecture-demo-eus2.md),
+`docs/10-decisiones.md` y `docs/12-backend-en-el-siem.md` como fuentes de producto. El
+perfil no secreto `profiles/demo-eus2.tfvars` es el que consume el workflow aislado EUS2;
+por sí solo mantiene los hosts SIEM y Ankay deshabilitados.
 
 ## Estado real del root
 
@@ -22,8 +25,11 @@ la integración del host SIEM y `qapaq-core`.
 El runtime opcional existente es genérico: `edge`, `web`, `gateway`, `api` y
 `worker` en Container Apps. No representa el destino de A6/A8/A9/A13/A22 y no
 se debe activar como sustituto del SIEM. En particular, este root no crea ni
-instala Manager/Indexer/Dashboard Wazuh, `qapaq-core`, KrakenD en el host SIEM ni
-Valkey. Ankay tiene ahora un cableado root opcional, pero su host sigue apagado
+instala Manager/Indexer/Dashboard Wazuh, `qapaq-core` ni KrakenD dentro del host SIEM,
+ni Valkey. KrakenD tiene un módulo ACA privado opcional fuera del host, apagado por
+defecto. El bootstrap versionado crea el proxy read-only del Indexer en 9443 y la CI
+exige metadata de dos referencias KV precreadas antes de plan/apply; esa ruta no se ha
+desplegado ni validado en Azure. Ankay tiene ahora un cableado root opcional, pero su host sigue apagado
 por defecto y el módulo solo prepara VM/disco y Compose; todavía no instala
 Docker ni inicia Shuffle. Tampoco cambia DNS.
 
@@ -47,16 +53,18 @@ reales antes de declarar cobertura.
 
 ## Módulos que sí están en Terraform
 
-| Módulo                      | Alcance actual                                                                                                                                                                                                                                                                                                                      |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/network`           | VNet, subnets delegadas y DNS privado para servicios con endpoint privado.                                                                                                                                                                                                                                                          |
-| `modules/observability`     | Log Analytics y Container Apps Environment.                                                                                                                                                                                                                                                                                         |
-| `modules/data`              | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, cuenta evidence privada para `security-event-raw`, cuenta dedicada de releases con `siem-release` privado y acceso de red autenticado, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa.                                                          |
-| `modules/identity_registry` | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub escribe en el contenedor privado de releases; ninguna identidad obtiene ambos alcances de evidencia y artefactos.                                                                                               |
-| `modules/runtime`           | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                                                                                                                                  |
-| `modules/siem_host`         | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Al habilitarlo, el root crea Azure Firewall Standard con policy de egress; requiere bundle inmutable y referencias Key Vault.                                                                                                                           |
-| `modules/egress_firewall`   | Azure Firewall Standard, policy threat-intelligence deny, proxy DNS, IP de salida y allowlist HTTPS. Se crea solo con `siem_host`; genera cargos por hora y procesamiento.                                                                                                                                                          |
-| `modules/ankay_host`        | Host Shuffle separado y opcional, con subnet dedicada, UDR al firewall, NSG, identidad ACR y discos con `prevent_destroy`. Solo prepara VM/Compose; no instala Docker ni arranca servicios. Requiere `siem_host`, seis imágenes ACR fijadas por digest, Compose revisado, clave aprobada y una configuración `ankay_host` completa. |
+| Módulo                            | Alcance actual                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/network`                 | VNet, subnets delegadas y DNS privado para servicios con endpoint privado.                                                                                                                                                                                                                                                                           |
+| `modules/observability`           | Log Analytics y Container Apps Environment.                                                                                                                                                                                                                                                                                                          |
+| `modules/data`                    | PostgreSQL, bases `qapaq_secops` y `qapaq_jobs`, cuenta evidence privada para `security-event-raw`, cuenta dedicada de releases con `siem-release` privado y acceso de red autenticado, Key Vault y endpoints privados. La base `qapaq_jobs` no demuestra una cola activa.                                                                           |
+| `modules/identity_registry`       | Identidades, federación GitHub OIDC, ACR y RBAC. Runtime escribe solo en `security-event-raw`; el publicador GitHub escribe en el contenedor privado de releases; ninguna identidad obtiene ambos alcances de evidencia y artefactos.                                                                                                                |
+| `modules/key_vault_seed_identity` | Solo `demo-eus2`: identidad GitHub OIDC exclusiva para la carga create-only de secretos ARM; roles personalizados limitados al grupo demo y al Key Vault EUS2 exacto, sin acceso de plano de datos. Requiere que la identidad que aplique Terraform pueda crear esas definiciones y asignaciones RBAC.                                               |
+| `modules/runtime`                 | Cinco Container Apps genéricas opcionales; no son la topología objetivo ni despliegan Wazuh, `qapaq-core` o Ankay.                                                                                                                                                                                                                                   |
+| `modules/siem_host`               | Host Wazuh QAPAQ opcional, habilitado solo con objeto `siem_host` completo. Al habilitarlo, el root crea Azure Firewall Standard con policy de egress; requiere bundle inmutable y referencias Key Vault.                                                                                                                                            |
+| `modules/egress_firewall`         | Azure Firewall Standard, policy threat-intelligence deny, proxy DNS, IP de salida y allowlist HTTPS. Se crea solo con `siem_host`; genera cargos por hora y procesamiento.                                                                                                                                                                           |
+| `modules/krakend_gateway`         | KrakenD stateless en ACA internal ILB, 2–4 réplicas, digest ACR, dos referencias Key Vault read-only, UDR/allowlist a Firewall y solo `GET /wazuh/_cluster/health` + `POST /wazuh/_search`; exige app role `Qapaq.Wazuh.Read` y allowlist `appid`/`azp` de Core. `null` por defecto; proxy TLS/seed de secretos versionados pero aún no desplegados. |
+| `modules/ankay_host`              | Host Shuffle separado y opcional, con subnet dedicada, UDR al firewall, NSG, identidad ACR y discos con `prevent_destroy`. Solo prepara VM/Compose; no instala Docker ni arranca servicios. Requiere `siem_host`, seis imágenes ACR fijadas por digest, Compose revisado, clave aprobada y una configuración `ankay_host` completa.                  |
 
 El publicador GitHub usa OIDC con el environment `azure-demo`. Su `Storage Blob Data
 Contributor` queda limitado al contenedor privado `siem-release` de una cuenta dedicada
@@ -106,8 +114,7 @@ Key Vault, no los valores de secretos.
 - Acordar el diseño de host SIEM, edge/TLS, discos, backup/restore, firewall y
   allowlist de agentes. No publicar Manager API 55000, Indexer 9200 ni Dashboard
   interno.
-- Integrar y revisar los módulos de host SIEM y Ankay que están en elaboración; añadir/validar bootstrap Azure para Wazuh, `qapaq-core`, KrakenD y Ankay, más
-  adaptación de secretos AWS→Key Vault y creación del rol PostgreSQL mínimo.
+- Instalar y validar bootstrap Azure para Wazuh, `qapaq-core` y Ankay; preparar los dos marcadores Key Vault del proxy con el workflow seed, habilitar solo las referencias exactas y el digest ACR revisados, y publicar KrakenD por digest. El módulo permanece apagado hasta cerrar gates Entra, subnet/CIDR, permisos y demostrar el Core-to-Indexer test.
 - Validar el backend de jobs aprobado: A9 indica Valkey/BullMQ; el worker debe
   consumir realmente la cola y pasar pruebas de caída/reintento/idempotencia antes
   de habilitarlo. No presentar PostgreSQL como backend BullMQ por configuración.
@@ -127,7 +134,7 @@ Key Vault, no los valores de secretos.
    y [`costo`](../../docs/cloud/azure/cost-feasibility-2026-10-20.md).
 2. Preparar el bootstrap y state backend; confirmar identidad OIDC, acceso al
    state y permisos acotados. Generar plan remoto nuevo y revisar cada cambio.
-3. Completar módulos/instalación del host SIEM, `qapaq-core`, KrakenD, Valkey y
+3. Completar instalación del host SIEM, `qapaq-core`, el proxy Indexer y el módulo privado KrakenD, Valkey y
    Ankay con almacenamiento y recuperación; adaptar Key Vault/Managed Identity.
 4. Publicar/instalar artefactos fijados, ejecutar migraciones y configurar fuentes
    solo tras verificar contratos y secretos por canales seguros.

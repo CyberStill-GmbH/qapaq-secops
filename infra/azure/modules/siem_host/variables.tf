@@ -73,13 +73,80 @@ variable "address_prefix" {
   }
 }
 
+variable "private_ip_address" {
+  description = "IPv4 estática del host SIEM. null conserva asignación dinámica; KrakenD exige una IP estática para su upstream privado."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.private_ip_address == null || (can(cidrhost("${var.private_ip_address}/32", 0)) && var.private_ip_address == cidrhost(var.address_prefix, 4))
+    error_message = "private_ip_address debe ser null o el primer host utilizable reservado (.4) de address_prefix para que el upstream de KrakenD sea estable."
+  }
+}
+
+variable "indexer_proxy" {
+  description = "Contrato del proxy read-only; null lo mantiene fuera del bootstrap. Solo acepta dos nombres Key Vault preexistentes, nunca valores."
+  type = object({
+    reader_secret_name   = string
+    proxy_ca_secret_name = string
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.indexer_proxy == null || (
+      can(regex("^[A-Za-z0-9-]{1,127}$", var.indexer_proxy.reader_secret_name)) &&
+      can(regex("^[A-Za-z0-9-]{1,127}$", var.indexer_proxy.proxy_ca_secret_name)) &&
+      var.indexer_proxy.reader_secret_name != var.indexer_proxy.proxy_ca_secret_name
+    )
+    error_message = "indexer_proxy solo admite dos nombres distintos de secretos Key Vault; nunca valores secretos."
+  }
+}
+
+variable "indexer_proxy_secret_role_definition_id" {
+  description = "ID del rol personalizado get/set limitado a cada nombre de secreto Indexer. null cuando el módulo KrakenD está apagado."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "krakend_source_cidrs" {
+  description = "Subnet privada exclusiva de ACA KrakenD autorizada a consultar el proxy read-only de Indexer por TCP/9443."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = (
+      alltrue([
+        for cidr in var.krakend_source_cidrs :
+        can(cidrhost(cidr, 0)) &&
+        can(regex("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)", cidr))
+      ]) &&
+      (var.indexer_proxy == null ? length(var.krakend_source_cidrs) == 0 : length(var.krakend_source_cidrs) > 0)
+    )
+    error_message = "El proxy Indexer exige una CIDR privada específica para KrakenD y no puede habilitarse sin allowlist; sin proxy, la lista debe estar vacía."
+  }
+}
+
 variable "vm_size" {
   description = "SKU de VM validado con la carga Wazuh y la cuota de la suscripción."
   type        = string
 
+  # Todos son x86-64 con 4 vCPU y al menos 8 GiB (el bundle es amd64). Varios porque Azure
+  # restringe capacidad por región y SKU sin aviso: en EUS2 F4s_v2 dio SkuNotAvailable.
   validation {
-    condition     = var.vm_size == "Standard_F4s_v2"
-    error_message = "El bundle Wazuh se publica para amd64 y el perfil demo requiere Standard_F4s_v2; cualquier otro SKU requiere un bundle y una aceptación de arquitectura probados."
+    condition = contains([
+      "Standard_F4s_v2",
+      "Standard_D4as_v5",
+      "Standard_D4s_v5",
+      "Standard_D4as_v6",
+      "Standard_D4s_v6",
+      "Standard_D4als_v6",
+      # 4 vCPU y 32 GiB: la suscripción EUS2 solo tiene cuota en FSv2 y EBDSv5.
+      "Standard_E4bds_v5",
+    ], var.vm_size)
+    error_message = "El bundle Wazuh es amd64 y necesita 4 vCPU y al menos 8 GiB: usa F4s_v2, D4as_v5, D4s_v5, D4as_v6, D4s_v6, D4als_v6 o E4bds_v5."
   }
 }
 
@@ -202,21 +269,27 @@ variable "key_vault_uri" {
 }
 
 variable "core_secret_names" {
-  description = "Mapa variable de entorno → nombre de secreto preexistente en Key Vault. Solo nombres; nunca valores."
+  description = "Mapa de variable Core consumida → nombre de secreto preexistente en Key Vault. El bootstrap escribe solo referencias secret://keyvault/; nunca materializa valores Core en core.env."
   type        = map(string)
   default     = {}
 
   validation {
     condition = alltrue([
       for key, name in var.core_secret_names :
-      can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) && can(regex("^[A-Za-z0-9-]{1,127}$", name))
+      contains([
+        "QAPAQ_ENTRA_CLIENT_SECRET",
+        "QAPAQ_POSTGRES_PASSWORD",
+        "QAPAQ_ENTITY_REF_KEY",
+        "QAPAQ_TEAMS_WORKFLOW_URL",
+        "QAPAQ_VAPID_PRIVATE_KEY",
+      ], key) && can(regex("^[A-Za-z0-9-]{1,127}$", name))
     ])
-    error_message = "Los nombres de variables y secretos deben usar caracteres permitidos y no pueden contener valores."
+    error_message = "core_secret_names admite solo secretos que el API actual resuelve: Entra, PostgreSQL, entity key, Teams y VAPID; usa nombres Key Vault, nunca valores."
   }
 
   validation {
-    condition     = !contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET_REF")
-    error_message = "QAPAQ_ENTRA_CLIENT_SECRET_REF es una referencia no secreta y pertenece en core_environment; el valor real QAPAQ_ENTRA_CLIENT_SECRET pertenece en core_secret_names."
+    condition     = contains(keys(var.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET")
+    error_message = "El API QAPAQ en modo Entra requiere core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET para generar la referencia Key Vault al iniciar."
   }
 }
 
@@ -240,7 +313,7 @@ variable "wazuh_secret_names" {
 }
 
 variable "core_environment" {
-  description = "Configuración no secreta de qapaq-core."
+  description = "Variables Core no secretas allowlisted y referencias Key Vault autorizadas; no admite valores secretos."
   type        = map(string)
   default     = {}
 
@@ -250,15 +323,130 @@ variable "core_environment" {
       can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) &&
       !can(regex("[\\r\\n]", value)) &&
       (
-        key == "QAPAQ_ENTRA_CLIENT_SECRET_REF"
+        contains([
+          "QAPAQ_ENTRA_CLIENT_SECRET_REF",
+          "QAPAQ_POSTGRES_PASSWORD_REF",
+          "QAPAQ_ENTITY_REF_KEY_REF",
+          "QAPAQ_TEAMS_WORKFLOW_URL_REF",
+          "QAPAQ_VAPID_PRIVATE_KEY_REF",
+        ], key)
         ? (
           can(regex("^secret://keyvault/[A-Za-z0-9][A-Za-z0-9-]{0,126}$", value)) &&
-          lookup(var.core_secret_names, "QAPAQ_ENTRA_CLIENT_SECRET", "") == trimprefix(value, "secret://keyvault/")
+          lookup(var.core_secret_names, trimsuffix(key, "_REF"), "") == trimprefix(value, "secret://keyvault/")
         )
-        : !can(regex("(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key))
+        : contains([
+          "QAPAQ_SECRET_PROVIDER_TYPE",
+          "QAPAQ_SECRET_PROVIDER_TIMEOUT",
+          "QAPAQ_SECRET_PROVIDER_ENDPOINT",
+        ], key)
+        ? (
+          key == "QAPAQ_SECRET_PROVIDER_TYPE" ? value == "azure-key-vault" :
+          key == "QAPAQ_SECRET_PROVIDER_TIMEOUT" ? value == "5s" :
+          value == trimsuffix(var.key_vault_uri, "/")
+        )
+        : contains([
+          "QAPAQ_PROFILE",
+          "QAPAQ_PROCESS_ROLE",
+          "QAPAQ_API_HOST",
+          "QAPAQ_API_PORT",
+          "QAPAQ_POSTGRES_HOST",
+          "QAPAQ_POSTGRES_PORT",
+          "QAPAQ_POSTGRES_DATABASE",
+          "QAPAQ_POSTGRES_USERNAME",
+          "QAPAQ_POSTGRES_TLS",
+          "QAPAQ_POSTGRES_CONNECTION_TIMEOUT",
+          "QAPAQ_POSTGRES_STATEMENT_TIMEOUT",
+          "QAPAQ_POSTGRES_POOL_MIN",
+          "QAPAQ_POSTGRES_POOL_MAX",
+          "QAPAQ_REDIS_HOST",
+          "QAPAQ_REDIS_PORT",
+          "QAPAQ_REDIS_USERNAME",
+          "QAPAQ_REDIS_DATABASE",
+          "QAPAQ_REDIS_TLS",
+          "QAPAQ_REDIS_CONNECTION_TIMEOUT",
+          "QAPAQ_REDIS_COMMAND_TIMEOUT",
+          "QAPAQ_REDIS_RETRY_LIMIT",
+          "QAPAQ_MINIO_ENDPOINT",
+          "QAPAQ_MINIO_PORT",
+          "QAPAQ_MINIO_REGION",
+          "QAPAQ_MINIO_RAW_BUCKET",
+          "QAPAQ_MINIO_TLS",
+          "QAPAQ_MINIO_CONNECTION_TIMEOUT",
+          "QAPAQ_MINIO_REQUEST_TIMEOUT",
+          "QAPAQ_MINIO_RETRY_LIMIT",
+          "QAPAQ_WAZUH_GATEWAY_BASE_URL",
+          "QAPAQ_WAZUH_REQUEST_TIMEOUT",
+          "QAPAQ_WAZUH_RETRY_LIMIT",
+          "QAPAQ_WAZUH_PAGE_SIZE",
+          "QAPAQ_WAZUH_MAX_PAGE_SIZE",
+          "QAPAQ_WAZUH_DATASET",
+          "QAPAQ_WAZUH_CURSOR_TTL",
+          "QAPAQ_WAZUH_MAX_RESPONSE_BYTES",
+          "QAPAQ_ACCESS_IDENTITY_MODE",
+          "QAPAQ_ACCESS_ALLOWED_CIDRS",
+          "QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS",
+          "QAPAQ_ENTRA_TENANT_ID",
+          "QAPAQ_ENTRA_CLIENT_ID",
+          "QAPAQ_ENTRA_AUTHORITY",
+          "QAPAQ_ENTRA_REDIRECT_URI",
+          "QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS",
+          "QAPAQ_ENTRA_SCOPES",
+          "QAPAQ_MVP_ROLE_BINDING_OID",
+          "QAPAQ_MVP_ROLE_BINDING_ROLE",
+          "QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT",
+          "QAPAQ_CONSOLE_BASE_URL",
+          "QAPAQ_DETECTION_PRIVILEGED_IDENTITIES",
+          "QAPAQ_DETECTION_BREAK_GLASS_IDENTITIES",
+          "QAPAQ_DETECTION_CRITICAL_ASSETS",
+          "QAPAQ_DETECTION_INTERNET_FACING_ASSETS",
+          "QAPAQ_DETECTION_KNOWN_BENIGN_RULES",
+          "QAPAQ_SOC_PERSISTENCE",
+          "QAPAQ_INGESTION_SOURCE",
+          "QAPAQ_INGESTION_SOURCE_ID",
+          "QAPAQ_INGESTION_GATEWAY_SCOPE",
+          "QAPAQ_INGESTION_INTERVAL",
+          "QAPAQ_INGESTION_INITIAL_LOOKBACK_MINUTES",
+          "QAPAQ_ROLE_BINDINGS",
+          "QAPAQ_GROUP_OWNER_OIDS",
+          "QAPAQ_ADMIN_GROUP_IDS",
+          "QAPAQ_ACCESS_APPROVER_OIDS",
+          "QAPAQ_SECURITY_APPROVER_OIDS",
+          "QAPAQ_DIRECTORY_SYNC",
+          "QAPAQ_DIRECTORY_GROUP_ID",
+          "QAPAQ_DIRECTORY_GROUP_NAME",
+          "QAPAQ_DIRECTORY_SYNC_INTERVAL_MINUTES",
+          "QAPAQ_ALERT_MAIL_SENDER",
+        ], key)
       )
     ])
-    error_message = "core_environment admite QAPAQ_ENTRA_CLIENT_SECRET_REF solo como secret://keyvault/<nombre> y debe coincidir con core_secret_names.QAPAQ_ENTRA_CLIENT_SECRET; las claves sensibles restantes y los valores multilínea están prohibidos."
+    error_message = "core_environment admite solo referencias secret://keyvault/<nombre> que coincidan con core_secret_names y rechaza claves sensibles en claro o valores multilínea."
+  }
+
+  validation {
+    condition = (
+      lookup(var.core_environment, "QAPAQ_SOC_PERSISTENCE", "") != "postgres" ||
+      (
+        contains(keys(var.core_secret_names), "QAPAQ_POSTGRES_PASSWORD") &&
+        contains(keys(var.core_secret_names), "QAPAQ_ENTITY_REF_KEY")
+      )
+    )
+    error_message = "QAPAQ_SOC_PERSISTENCE=postgres requiere referencias Key Vault para QAPAQ_POSTGRES_PASSWORD y QAPAQ_ENTITY_REF_KEY en core_secret_names; el bootstrap generará las referencias correspondientes."
+  }
+
+  validation {
+    condition = (
+      !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_TYPE") ||
+      var.core_environment["QAPAQ_SECRET_PROVIDER_TYPE"] == "azure-key-vault"
+    )
+    error_message = "QAPAQ_SECRET_PROVIDER_TYPE debe ser azure-key-vault para el host SIEM; el bootstrap lo completa si falta."
+  }
+
+  validation {
+    condition = (
+      !contains(keys(var.core_environment), "QAPAQ_SECRET_PROVIDER_ENDPOINT") ||
+      var.core_environment["QAPAQ_SECRET_PROVIDER_ENDPOINT"] == trimsuffix(var.key_vault_uri, "/")
+    )
+    error_message = "QAPAQ_SECRET_PROVIDER_ENDPOINT debe coincidir con el URI del Key Vault del host."
   }
 }
 
@@ -352,4 +540,10 @@ variable "tags" {
   description = "Etiquetas comunes."
   type        = map(string)
   default     = {}
+}
+
+variable "manage_artifact_read_assignment" {
+  description = "Terraform asigna Storage Blob Data Reader sobre el contenedor de releases. En EUS2 la identidad de Terraform no puede delegar ese rol (ABAC) y un Owner lo asigna fuera de banda."
+  type        = bool
+  default     = true
 }

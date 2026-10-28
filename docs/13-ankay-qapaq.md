@@ -10,12 +10,25 @@ dueño con Franco.
 
 **Arquitectura de la conexión con QAPAQ SecOps:** [14](14-ankay-conexion-qapaq.md).
 
-### Estado de Ankay para Azure (revisión 24-10-2026)
+### Estado de Ankay para Azure (revisión 26-10-2026)
 
-El único artefacto ejecutable que hoy se construye en CI es el **frontend** rebrandeado desde
-Shuffle v2.3.0 y su código fuente AGPL. Ese workflow no construye ni publica backend, Orborus,
-worker, OpenSearch ni `shuffle-security`; su build verde no demuestra que Ankay completo arranque.
-`ankay/upstream.lock` fija el commit de fuente, pero no fija los digests de las imágenes de runtime.
+El workflow `ankay-azure.yml` construye el **frontend** rebrandeado desde Shuffle v2.3.0, pero no el
+resto del runtime. La inspección del upstream identificó estos bloqueos para un build completo:
+
+- `backend/Dockerfile` descarga `app_sdk` desde `main`, sin fijarlo por commit.
+- Orborus tiene una revisión asociada a v2.3.0 (`adcc814cb355b7f4b6cb869e0d8d5eed3c6baa95`), pero
+  aún no se construyó ni probó junto al backend y worker fijados.
+- `shuffle.security` se revisó en un commit de `main` (`89070968ec93f1d4ad37953d72910ec63c5fb9df`),
+  pero su compatibilidad con Shuffle v2.3.0 no está demostrada ni es una versión aprobada.
+- Compose upstream usa tags mutables para Shuffle; el OpenSearch 3.2.0 de Compose aún no está fijado
+  por digest en un Compose QAPAQ revisado.
+
+No se añadió un build multiimagen: sin un Compose verificable, construir los seis contenedores por
+separado no demostraría que Ankay arranca ni reduciría el riesgo de integración. El gate Terraform
+actual requiere todas las imágenes con digest ACR, un Compose completo con SHA verificado y health
+checks para los cinco servicios persistentes. Mantener `ankay_host=null` hasta que CI construya los
+componentes desde pins aprobados y una prueba de Compose confirme salud y compatibilidad.
+
 El build [40057658958](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40057658958)
 terminó correctamente desde `main` (`c13d968`): validó branding, subpath protegido e imagen de
 frontend y subió un artefacto temporal del run. `publish_to_acr=false`; no publicó a ACR ni desplegó
@@ -105,7 +118,7 @@ Principios de ADR-028 que se mantienen:
 | Fase | Contenido | Owner | Acepta cuando |
 | --- | --- | --- | --- |
 | **F0 · Rebrand del frontend** | Overlay `ankay/` | Claude | **Hecho en esta rama.** Los parches aplican sobre v2.3.0, el codemod pasa 8/8 tests, modifica 101 archivos sin romper sintaxis ni comparaciones y el build local llega hasta la imagen |
-| F1 · Infraestructura | Host Linux privado con Compose completo, imágenes por digest, almacenamiento persistente, ruta protegida por sesión QAPAQ y egress por allowlist | Codex, con verificación del dueño | Todas las imágenes y servicios fijados, plan sin ingress público, policy/UDR revisadas, secretos por referencias seguras, y prueba de arranque/restauración. En Azure el módulo host está preparado pero no conectado al root ni desplegado |
+| F1 · Infraestructura | Host Linux privado con Compose completo, imágenes por digest, almacenamiento persistente, ruta protegida por sesión QAPAQ y egress por allowlist | Codex, con verificación del dueño | Todas las imágenes y servicios fijados, plan sin ingress público, policy/UDR revisadas, secretos por referencias seguras, y prueba de arranque/restauración. En Azure, `ankay_host` está conectado opcionalmente al root, pero permanece deshabilitado mientras `ankay_host=null`; habilitarlo requiere el perfil completo y las seis imágenes fijadas por digest. Aún no está desplegado |
 | F2 · Conector SIEM ↔ Ankay | Cola `ankay` (docs/11), webhook firmado con HMAC, `executionKey` y callback autenticado hacia el núcleo | Backend | Una acción aprobada llega una sola vez aunque se reintente. Un timeout queda `UNKNOWN` y se reconcilia |
 | F3 · Primeros playbooks | `enrich.ip-reputation` (sin efectos) → `endpoint.block-ip` (Wazuh AR) → `m365.revoke-sessions` (Graph), cada uno con aprobación | Backend y SOC | Ciclo completo en un sandbox con auditoría y SoD |
 | F4 · Ankay dentro del SIEM | Catálogo, estado de ejecuciones y aprobaciones en `qapaq_ops`, más deep link al editor | Frontend | El analista no necesita entrar a Ankay para pedir ni seguir una acción |

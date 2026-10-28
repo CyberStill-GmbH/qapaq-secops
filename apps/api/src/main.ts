@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { ConfigurationError } from '@qapaq/configuration';
+import { ConfigurationError, SecretProviderError } from '@qapaq/configuration';
 import { buildApi } from './bootstrap.js';
 
 function log(
@@ -26,7 +26,12 @@ export async function main(): Promise<void> {
     runtime?.lifecycle.fail();
     if (!failureReported) {
       failureReported = true;
-      log('application.failed', error instanceof ConfigurationError ? error.code : fallback);
+      log(
+        'application.failed',
+        error instanceof ConfigurationError || error instanceof SecretProviderError
+          ? error.code
+          : fallback,
+      );
     }
   };
   let closing: Promise<void> | undefined;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atomically install the QAPAQ endpoint/provider rules into Wazuh's local ruleset."""
+"""Atomically install QAPAQ AD, endpoint and provider rules into Wazuh's local ruleset."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ except ImportError:  # Windows test runner; deployment runs on Ubuntu.
 RULE_FILES = (
     pathlib.Path("launch-detections/rules/qapaq_launch_provider_rules.xml"),
     pathlib.Path("endpoint/rules/qapaq_endpoint_rules.xml"),
+    pathlib.Path("active-directory/rules/qapaq_active_directory_rules.xml"),
 )
 RULESET = re.compile(r"<ruleset(?:\s[^>]*)?>(.*?)</ruleset>", re.DOTALL)
 LOCAL_RULE_DIR = re.compile(r"<rule_dir(?:\s[^>]*)?>\s*etc/rules\s*</rule_dir>")
@@ -158,7 +159,7 @@ def main() -> int:
     except (OSError, InstallError, KeyError, UnicodeError) as error:
         print(f"qapaq-detection-rules: {error}", file=os.sys.stderr)
         return 1
-    print("qapaq-detection-rules: endpoint and provider rules installed and manager restarted")
+    print("qapaq-detection-rules: AD, endpoint and provider rules installed and manager restarted")
     return 0
 
 

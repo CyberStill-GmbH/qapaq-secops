@@ -215,10 +215,34 @@ class ProviderConfigurationTests(unittest.TestCase):
             parser = CONFIGURE.configparser.ConfigParser()
             parser.read(secrets / "sophos-client.ini")
             self.assertEqual(parser["login"]["client_secret"], "client-secret%canary")
-            self.assertEqual(json.loads((root / "etc/qapaq-providers/cato/config.json").read_text())["account_id"], "12345")
+            cato_config = json.loads((root / "etc/qapaq-providers/cato/config.json").read_text())
+            self.assertEqual(cato_config["account_id"], "12345")
+            self.assertNotIn("endpoint", cato_config)
             self.assertTrue((units / "qapaq-sophos-ingest.timer").is_file())
             self.assertTrue((units / "qapaq-cato-ingest.timer").is_file())
             self.assertGreaterEqual(systemctl.call_count, 6)
+
+    def test_cato_regional_endpoint_comes_from_secret_and_rejects_foreign_hosts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            base = pathlib.Path(temp)
+            root, secrets = base / "ossec", base / "secrets"
+            secrets.mkdir()
+            (secrets / "cato-api-key").write_text("cato-key-canary", encoding="utf-8")
+            config = dict(CONFIGURE.DEFAULTS, cato_enabled="true", cato_account_id="12345")
+            ownership = patch.object(CONFIGURE.os, "chown") if hasattr(CONFIGURE.os, "chown") else nullcontext()
+            group = (
+                patch.object(CONFIGURE.grp, "getgrnam", return_value=SimpleNamespace(gr_gid=0))
+                if CONFIGURE.grp is not None
+                else nullcontext()
+            )
+            with ownership, group:
+                (secrets / "cato-api-endpoint").write_text("https://api.us1.catonetworks.com/api/v1/graphql2\n", encoding="utf-8")
+                self.assertTrue(CONFIGURE.install_cato(config, root, secrets))
+                written = json.loads((root / "etc/qapaq-providers/cato/config.json").read_text())
+                self.assertEqual(written["endpoint"], "https://api.us1.catonetworks.com/api/v1/graphql2")
+                (secrets / "cato-api-endpoint").write_text("https://api.catonetworks.com.attacker.example/api/v1/graphql2", encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    CONFIGURE.install_cato(config, root, secrets)
 
     def test_unknown_or_incomplete_config_fails_without_changing_wazuh(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

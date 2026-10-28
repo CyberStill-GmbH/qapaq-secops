@@ -35,7 +35,9 @@ class AssembleReleaseTests(unittest.TestCase):
         self.inputs["installer"].write_text(
             'QAPAQ_O365_SECRET_SOURCE="file:$SECRETS/office365-client-secret"\n'
             'QAPAQ_PROVIDER_INGESTION_JSON=optional\n'
-            'python3 "$HERE/wazuh/launch-detections/install_detection_rules.py"\n', encoding="utf-8"
+            'python3 "$HERE/wazuh/launch-detections/install_detection_rules.py"\n'
+            'qapaq-teams-workflow-url optional\n'
+            'python3 "$HERE/wazuh/teams/apply_teams_workflow.py"\n', encoding="utf-8"
         )
         (self.root / "output").mkdir()
         self.args = Namespace(
@@ -84,12 +86,33 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertIn("wazuh/office365/ossec-office365.xml.tmpl", manifest["files"])
         self.assertIn("wazuh/office365/rules/qapaq_office365_rules.xml", manifest["files"])
         self.assertIn("wazuh/provider-ingestion/cato/events_feed.py", manifest["files"])
+        self.assertIn("wazuh/teams/custom-qapaq-teams", manifest["files"])
+        self.assertIn("wazuh/teams/apply_teams_workflow.py", manifest["files"])
+        self.assertIn("wazuh/teams/ossec-teams-workflow.xml", manifest["files"])
         self.assertIn("wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml", manifest["files"])
         self.assertIn("wazuh/endpoint/rules/qapaq_endpoint_rules.xml", manifest["files"])
+        self.assertIn("wazuh/active-directory/rules/qapaq_active_directory_rules.xml", manifest["files"])
+        self.assertIn("wazuh/active-directory/rules/qapaq_active_directory_rules.xml", manifest["detectionPack"]["rules"])
         self.assertIn("wazuh/launch-detections/catalog.json", manifest["files"])
         self.assertIn("wazuh/launch-detections/install_detection_rules.py", manifest["files"])
         self.assertEqual(manifest["detectionPack"]["activation"], "rules-installed-provider-connectors-remain-opt-in")
+        profile_pack = manifest["agentProfilePack"]
+        self.assertEqual(profile_pack["status"], "candidate-disabled")
+        self.assertEqual(profile_pack["activation"], "owner-approval-and-domain-controller-pilot-required")
+        self.assertFalse(profile_pack["installerAppliesAgentProfiles"])
+        self.assertEqual(
+            set(profile_pack["profiles"]),
+            {
+                "wazuh/agent-profiles/windows-domain-controller.agent.conf",
+                "wazuh/agent-profiles/windows-pilot.agent.conf",
+                "wazuh/agent-profiles/windows-sysmon-pilot.agent.conf",
+            },
+        )
+        self.assertIn("wazuh/agent-profiles/active-directory/profile-catalog.json", manifest["files"])
+        self.assertIn("wazuh/agent-profiles/active-directory/README.md", manifest["files"])
+        self.assertNotIn("agent-profiles", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("install_detection_rules.py", (root / "install.sh").read_text(encoding="utf-8"))
+        self.assertIn("qapaq-teams-workflow-url", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("wazuh/provider-ingestion/sophos/upstream/LICENSE-2.0.txt", manifest["files"])
         self.assertIn("wazuh/provider-ingestion/sophos/UPSTREAM-SOURCE.json", manifest["files"])
         self.assertEqual(
@@ -98,12 +121,15 @@ class AssembleReleaseTests(unittest.TestCase):
         )
         office365_script = (root / "wazuh" / "office365" / "apply-office365.sh").read_text().lower()
         self.assertIn("file:*", office365_script)
-        self.assertIn("aws-secretsmanager:*", office365_script)
+        # El bootstrap de Azure rechaza cualquier llamada AWS dentro del bundle.
+        self.assertNotIn("aws-secretsmanager", office365_script)
+        self.assertNotIn("aws secretsmanager", office365_script)
         azure_installer = (root / "install.sh").read_text().lower()
         self.assertIn('qapaq_o365_secret_source="file:$secrets/office365-client-secret"', azure_installer)
         self.assertNotIn("aws-secretsmanager:", azure_installer)
         self.assertIn("qapaq_provider_ingestion_json", azure_installer)
-        self.assertEqual(manifest["optionalIntegrations"], ["sophos-central-siem-api", "cato-events-feed"])
+        self.assertIn("wazuh/teams/apply_teams_workflow.py", azure_installer)
+        self.assertEqual(manifest["optionalIntegrations"], ["sophos-central-siem-api", "cato-events-feed", "microsoft-teams-workflows"])
         self.assertEqual(set(("managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive")) - set(manifest["artifacts"]), set())
         for filename, digest in manifest["files"].items():
             self.assertEqual(assemble_release.sha256(root / filename), digest)

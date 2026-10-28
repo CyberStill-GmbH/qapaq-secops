@@ -9,6 +9,7 @@ in argv. The pinned release bundle owns package installation and service setup.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import os
 import pathlib
@@ -23,6 +24,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from indexer_read_proxy import IndexerProxyError, configure as configure_indexer_read_proxy
 
 
 CONFIG_PATH = pathlib.Path("/etc/qapaq-siem/bootstrap.json")
@@ -31,6 +33,91 @@ DATA_ROOT = pathlib.Path("/srv/qapaq-siem")
 CORE_ENV_PATH = pathlib.Path("/etc/qapaq-core/core.env")
 WAZUH_SECRET_DIR = pathlib.Path("/etc/qapaq-secrets")
 RELEASE_ROOT = pathlib.Path("/opt/qapaq-siem/releases")
+CORE_SECRET_REFERENCE_KEYS = {
+    "QAPAQ_ENTRA_CLIENT_SECRET": "QAPAQ_ENTRA_CLIENT_SECRET_REF",
+    "QAPAQ_POSTGRES_PASSWORD": "QAPAQ_POSTGRES_PASSWORD_REF",
+    "QAPAQ_ENTITY_REF_KEY": "QAPAQ_ENTITY_REF_KEY_REF",
+    "QAPAQ_TEAMS_WORKFLOW_URL": "QAPAQ_TEAMS_WORKFLOW_URL_REF",
+    "QAPAQ_VAPID_PRIVATE_KEY": "QAPAQ_VAPID_PRIVATE_KEY_REF",
+}
+CORE_SECRET_PROVIDER_KEYS = {
+    "QAPAQ_SECRET_PROVIDER_TYPE",
+    "QAPAQ_SECRET_PROVIDER_TIMEOUT",
+    "QAPAQ_SECRET_PROVIDER_ENDPOINT",
+}
+CORE_NON_SECRET_ENVIRONMENT_KEYS = {
+    "QAPAQ_PROFILE",
+    "QAPAQ_PROCESS_ROLE",
+    "QAPAQ_API_HOST",
+    "QAPAQ_API_PORT",
+    "QAPAQ_POSTGRES_HOST",
+    "QAPAQ_POSTGRES_PORT",
+    "QAPAQ_POSTGRES_DATABASE",
+    "QAPAQ_POSTGRES_USERNAME",
+    "QAPAQ_POSTGRES_TLS",
+    "QAPAQ_POSTGRES_CONNECTION_TIMEOUT",
+    "QAPAQ_POSTGRES_STATEMENT_TIMEOUT",
+    "QAPAQ_POSTGRES_POOL_MIN",
+    "QAPAQ_POSTGRES_POOL_MAX",
+    "QAPAQ_REDIS_HOST",
+    "QAPAQ_REDIS_PORT",
+    "QAPAQ_REDIS_USERNAME",
+    "QAPAQ_REDIS_DATABASE",
+    "QAPAQ_REDIS_TLS",
+    "QAPAQ_REDIS_CONNECTION_TIMEOUT",
+    "QAPAQ_REDIS_COMMAND_TIMEOUT",
+    "QAPAQ_REDIS_RETRY_LIMIT",
+    "QAPAQ_MINIO_ENDPOINT",
+    "QAPAQ_MINIO_PORT",
+    "QAPAQ_MINIO_REGION",
+    "QAPAQ_MINIO_RAW_BUCKET",
+    "QAPAQ_MINIO_TLS",
+    "QAPAQ_MINIO_CONNECTION_TIMEOUT",
+    "QAPAQ_MINIO_REQUEST_TIMEOUT",
+    "QAPAQ_MINIO_RETRY_LIMIT",
+    "QAPAQ_WAZUH_GATEWAY_BASE_URL",
+    "QAPAQ_WAZUH_REQUEST_TIMEOUT",
+    "QAPAQ_WAZUH_RETRY_LIMIT",
+    "QAPAQ_WAZUH_PAGE_SIZE",
+    "QAPAQ_WAZUH_MAX_PAGE_SIZE",
+    "QAPAQ_WAZUH_DATASET",
+    "QAPAQ_WAZUH_CURSOR_TTL",
+    "QAPAQ_WAZUH_MAX_RESPONSE_BYTES",
+    "QAPAQ_ACCESS_IDENTITY_MODE",
+    "QAPAQ_ACCESS_ALLOWED_CIDRS",
+    "QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS",
+    "QAPAQ_ENTRA_TENANT_ID",
+    "QAPAQ_ENTRA_CLIENT_ID",
+    "QAPAQ_ENTRA_AUTHORITY",
+    "QAPAQ_ENTRA_REDIRECT_URI",
+    "QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS",
+    "QAPAQ_ENTRA_SCOPES",
+    "QAPAQ_MVP_ROLE_BINDING_OID",
+    "QAPAQ_MVP_ROLE_BINDING_ROLE",
+    "QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT",
+    "QAPAQ_CONSOLE_BASE_URL",
+    "QAPAQ_DETECTION_PRIVILEGED_IDENTITIES",
+    "QAPAQ_DETECTION_BREAK_GLASS_IDENTITIES",
+    "QAPAQ_DETECTION_CRITICAL_ASSETS",
+    "QAPAQ_DETECTION_INTERNET_FACING_ASSETS",
+    "QAPAQ_DETECTION_KNOWN_BENIGN_RULES",
+    "QAPAQ_SOC_PERSISTENCE",
+    "QAPAQ_INGESTION_SOURCE",
+    "QAPAQ_INGESTION_SOURCE_ID",
+    "QAPAQ_INGESTION_GATEWAY_SCOPE",
+    "QAPAQ_INGESTION_INTERVAL",
+    "QAPAQ_INGESTION_INITIAL_LOOKBACK_MINUTES",
+    "QAPAQ_ROLE_BINDINGS",
+    "QAPAQ_GROUP_OWNER_OIDS",
+    "QAPAQ_ADMIN_GROUP_IDS",
+    "QAPAQ_ACCESS_APPROVER_OIDS",
+    "QAPAQ_SECURITY_APPROVER_OIDS",
+    "QAPAQ_DIRECTORY_SYNC",
+    "QAPAQ_DIRECTORY_GROUP_ID",
+    "QAPAQ_DIRECTORY_GROUP_NAME",
+    "QAPAQ_DIRECTORY_SYNC_INTERVAL_MINUTES",
+    "QAPAQ_ALERT_MAIL_SENDER",
+}
 EXPECTED = {
     "wazuh_version": "4.14.8",
     "osd_version": "2.19.6",
@@ -51,6 +138,44 @@ def log(message: str) -> None:
 def fail(message: str) -> None:
     log(f"ERROR: {message}")
     raise SystemExit(1)
+
+
+def validate_core_environment(
+    core_environment: object,
+    core_secret_names: dict,
+    key_vault_uri: str,
+) -> dict:
+    if not isinstance(core_environment, dict):
+        fail("core_environment debe ser un objeto")
+    if not isinstance(core_secret_names, dict) or not isinstance(key_vault_uri, str):
+        fail("la configuración del proveedor Key Vault no es válida")
+    allowed_keys = (
+        CORE_NON_SECRET_ENVIRONMENT_KEYS
+        | CORE_SECRET_PROVIDER_KEYS
+        | set(CORE_SECRET_REFERENCE_KEYS.values())
+    )
+    for key, value in core_environment.items():
+        if not isinstance(key, str) or key not in allowed_keys or not isinstance(value, str):
+            fail("core_environment solo admite variables no secretas allowlisted y referencias Key Vault")
+        if any(character in value for character in ("\n", "\r", "\x00")):
+            fail("configuración de entorno core inválida")
+        if key in CORE_SECRET_REFERENCE_KEYS.values():
+            secret_key = next(
+                name for name, reference_key in CORE_SECRET_REFERENCE_KEYS.items()
+                if reference_key == key
+            )
+            expected_name = core_secret_names.get(secret_key)
+            if expected_name is None or value != f"secret://keyvault/{expected_name}":
+                fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
+        elif key in CORE_SECRET_PROVIDER_KEYS:
+            expected_value = {
+                "QAPAQ_SECRET_PROVIDER_TYPE": "azure-key-vault",
+                "QAPAQ_SECRET_PROVIDER_TIMEOUT": "5s",
+                "QAPAQ_SECRET_PROVIDER_ENDPOINT": key_vault_uri.rstrip("/"),
+            }[key]
+            if value != expected_value:
+                fail("la configuración del proveedor Azure debe coincidir con la identidad y el vault del host")
+    return core_environment
 
 
 def run(*args: str, capture: bool = False) -> str:
@@ -96,6 +221,28 @@ def load_config() -> dict:
     for required_secret in ("office365-client-secret", "wazuh-install-files.tar.b64"):
         if required_secret not in secret_names:
             fail(f"falta la referencia Key Vault {required_secret}")
+    core_secret_names = config.get("core_secret_names", {})
+    if not isinstance(core_secret_names, dict):
+        fail("la configuración de secretos Core debe ser un mapa de nombres Key Vault")
+    if "QAPAQ_ENTRA_CLIENT_SECRET" not in core_secret_names:
+        fail("falta la referencia Key Vault del client secret Entra de QAPAQ")
+    for key, name in core_secret_names.items():
+        if (
+            not isinstance(key, str)
+            or not isinstance(name, str)
+            or key not in CORE_SECRET_REFERENCE_KEYS
+            or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name)
+        ):
+            fail("core_secret_names contiene una clave o un nombre Key Vault no admitido")
+    core_environment = validate_core_environment(
+        config.get("core_environment", {}),
+        core_secret_names,
+        config.get("key_vault_uri", ""),
+    )
+    if core_environment.get("QAPAQ_SOC_PERSISTENCE") == "postgres":
+        required_postgres_secrets = {"QAPAQ_POSTGRES_PASSWORD", "QAPAQ_ENTITY_REF_KEY"}
+        if not required_postgres_secrets.issubset(core_secret_names):
+            fail("persistencia PostgreSQL requiere referencias Key Vault para la contraseña de aplicación y la clave de referencias de entidad")
     provider_config = config.get("provider_ingestion", {})
     provider_keys = {"sophos_enabled", "sophos_tenant_id", "sophos_data_region", "cato_enabled", "cato_account_id"}
     if not isinstance(provider_config, dict) or set(provider_config) - provider_keys:
@@ -114,6 +261,23 @@ def load_config() -> dict:
             fail("Cato requiere account ID y referencia Key Vault de API key")
     if type(config.get("data_disk_size_gb")) is not int or config["data_disk_size_gb"] < 128:
         fail("el tamaño del disco de datos no coincide con el contrato mínimo del SIEM")
+    indexer_proxy = config.get("indexer_read_proxy")
+    if indexer_proxy is not None:
+        if not isinstance(indexer_proxy, dict) or set(indexer_proxy) != {
+            "private_ip_address", "reader_secret_name", "proxy_ca_secret_name"
+        }:
+            fail("la configuración del proxy read-only de Indexer no es válida")
+        private_ip = indexer_proxy.get("private_ip_address", "")
+        try:
+            if str(ipaddress.IPv4Address(private_ip)) != private_ip or not ipaddress.IPv4Address(private_ip).is_private:
+                fail("el proxy Indexer requiere la IP privada estática del SIEM")
+        except ipaddress.AddressValueError:
+            fail("el proxy Indexer requiere una IP privada IPv4 válida")
+        for name in (indexer_proxy.get("reader_secret_name"), indexer_proxy.get("proxy_ca_secret_name")):
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name):
+                fail("el proxy Indexer requiere nombres de secretos Key Vault válidos")
+        if indexer_proxy["reader_secret_name"] == indexer_proxy["proxy_ca_secret_name"]:
+            fail("las credenciales y la CA del proxy Indexer requieren secretos Key Vault distintos")
     return config
 
 
@@ -303,6 +467,87 @@ def key_vault_get(config: dict, token: str, secret_name: str) -> str:
     raise AssertionError("unreachable")
 
 
+def key_vault_get_optional(config: dict, token: str, secret_name: str) -> str | None:
+    """Read an already-created secret without echoing its value; 404 is a safe absence."""
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,127}", secret_name):
+        fail("referencia de secreto Key Vault con nombre inválido")
+    url = f"{config['key_vault_uri']}/secrets/{urllib.parse.quote(secret_name)}?api-version=7.4"
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    for attempt in range(30):
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                value = json.load(response).get("value")
+            if not isinstance(value, str) or "\x00" in value:
+                fail(f"el secreto {secret_name} no es texto válido")
+            return value
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return None
+            if error.code not in (403, 429, 500, 502, 503, 504) or attempt == 29:
+                fail(f"Key Vault rechazó la lectura del secreto {secret_name} (HTTP {error.code})")
+        except (OSError, KeyError, json.JSONDecodeError, urllib.error.URLError):
+            if attempt == 29:
+                fail(f"no se pudo leer el secreto {secret_name} desde Key Vault")
+        time.sleep(min(5 + attempt, 30))
+    fail(f"no se pudo leer el secreto {secret_name} desde Key Vault")
+    raise AssertionError("unreachable")
+
+
+def key_vault_set(config: dict, token: str, secret_name: str, value: str) -> None:
+    """Create a new Key Vault secret version without putting the value in argv/logs."""
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,127}", secret_name):
+        fail("referencia de secreto Key Vault con nombre inválido")
+    if not isinstance(value, str) or "\x00" in value:
+        fail("el valor generado para Key Vault no es texto válido")
+    url = f"{config['key_vault_uri']}/secrets/{urllib.parse.quote(secret_name)}?api-version=7.4"
+    body = json.dumps({"value": value, "contentType": "text/plain"}, separators=(",", ":")).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        method="PUT",
+    )
+    for attempt in range(30):
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                if response.status not in (200, 201):
+                    fail(f"Key Vault no guardó la referencia del proxy (HTTP {response.status})")
+                response.read(4096)
+            return
+        except urllib.error.HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504) or attempt == 29:
+                fail(f"Key Vault rechazó la escritura de la referencia del proxy (HTTP {error.code})")
+        except (OSError, urllib.error.URLError):
+            if attempt == 29:
+                fail("no se pudo guardar la referencia generada en Key Vault")
+        time.sleep(min(5 + attempt, 30))
+
+
+def configure_indexer_proxy(config: dict) -> None:
+    proxy = config.get("indexer_read_proxy")
+    if proxy is None:
+        return
+    token = get_token(config["identity_client_id"], "https://vault.azure.net")
+    try:
+        reader_secret = key_vault_get_optional(config, token, proxy["reader_secret_name"])
+        proxy_ca_secret = key_vault_get_optional(config, token, proxy["proxy_ca_secret_name"])
+        configure_indexer_read_proxy(
+            proxy,
+            reader_secret,
+            proxy_ca_secret,
+            lambda name, value: key_vault_set(config, token, name, value),
+            log,
+        )
+    except IndexerProxyError as error:
+        fail(str(error))
+    except Exception:
+        # The VM extension log is durable; never dump a traceback from a routine
+        # bootstrap failure that could include request/configuration details.
+        fail("falló la configuración del proxy Indexer; se omitieron detalles internos")
+    finally:
+        del token
+
+
 def systemd_quote(value: str) -> str:
     if "\n" in value or "\r" in value or "\x00" in value:
         fail("una variable de entorno contiene saltos de línea")
@@ -311,29 +556,78 @@ def systemd_quote(value: str) -> str:
 
 def materialize_secrets(config: dict) -> None:
     core_secret_names = config.get("core_secret_names", {})
+    if not isinstance(core_secret_names, dict):
+        fail("la configuración de secretos Core debe ser un mapa de nombres Key Vault")
+    environment = validate_core_environment(
+        config.get("core_environment", {}),
+        core_secret_names,
+        config.get("key_vault_uri", ""),
+    )
     wazuh_secret_names = config.get("wazuh_secret_names", {})
     for key, name in core_secret_names.items():
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", key):
-            fail("nombre de variable de entorno de core inválido")
+        if (
+            not isinstance(key, str)
+            or not isinstance(name, str)
+            or key not in CORE_SECRET_REFERENCE_KEYS
+            or not re.fullmatch(r"[A-Za-z0-9-]{1,127}", name)
+        ):
+            fail("core_secret_names contiene una clave o un nombre Key Vault no admitido")
     for filename, name in wazuh_secret_names.items():
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", filename):
             fail("nombre de archivo de secreto Wazuh inválido")
 
-    all_names = set(core_secret_names.values()) | set(wazuh_secret_names.values())
-    secret_values: dict[str, str] = {}
-    if all_names:
+    wazuh_secret_values: dict[str, str] = {}
+    if wazuh_secret_names:
         kv_token = get_token(config["identity_client_id"], "https://vault.azure.net")
-        secret_values = {name: key_vault_get(config, kv_token, name) for name in sorted(all_names)}
+        wazuh_secret_values = {
+            name: key_vault_get(config, kv_token, name)
+            for name in sorted(set(wazuh_secret_names.values()))
+        }
         del kv_token
 
-    environment = config.get("core_environment", {})
-    if not isinstance(environment, dict):
-        fail("core_environment debe ser un objeto")
     merged_env = dict(environment)
-    merged_env.update({key: secret_values[name] for key, name in core_secret_names.items()})
+    for key, name in core_secret_names.items():
+        reference_key = CORE_SECRET_REFERENCE_KEYS[key]
+        reference_value = f"secret://keyvault/{name}"
+        if reference_key in merged_env and merged_env[reference_key] != reference_value:
+            fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
+        merged_env[reference_key] = reference_value
+    if core_secret_names:
+        provider_defaults = {
+            "QAPAQ_SECRET_PROVIDER_TYPE": "azure-key-vault",
+            "QAPAQ_SECRET_PROVIDER_TIMEOUT": "5s",
+            "QAPAQ_SECRET_PROVIDER_ENDPOINT": config["key_vault_uri"].rstrip("/"),
+        }
+        for key, value in provider_defaults.items():
+            if key in merged_env and merged_env[key] != value:
+                fail("la configuración del proveedor Azure debe coincidir con la identidad y el vault del host")
+            merged_env[key] = value
+        if "AZURE_CLIENT_ID" in merged_env and merged_env["AZURE_CLIENT_ID"] != config["identity_client_id"]:
+            fail("AZURE_CLIENT_ID debe corresponder a la identidad administrada del SIEM")
+        merged_env["AZURE_CLIENT_ID"] = config["identity_client_id"]
     for key, value in merged_env.items():
         if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", key) or not isinstance(value, str):
             fail("configuración de entorno core inválida")
+        if "\n" in value or "\r" in value or "\x00" in value:
+            fail("configuración de entorno core inválida")
+        if key in CORE_SECRET_REFERENCE_KEYS.values():
+            secret_key = next(
+                name for name, reference_key in CORE_SECRET_REFERENCE_KEYS.items()
+                if reference_key == key
+            )
+            expected_name = core_secret_names.get(secret_key)
+            if expected_name is None or value != f"secret://keyvault/{expected_name}":
+                fail("la referencia Core no coincide con el nombre autorizado de Key Vault")
+        elif key in CORE_SECRET_PROVIDER_KEYS:
+            expected_value = {
+                "QAPAQ_SECRET_PROVIDER_TYPE": "azure-key-vault",
+                "QAPAQ_SECRET_PROVIDER_TIMEOUT": "5s",
+                "QAPAQ_SECRET_PROVIDER_ENDPOINT": config["key_vault_uri"].rstrip("/"),
+            }[key]
+            if value != expected_value:
+                fail("la configuración del proveedor Azure debe coincidir con la identidad y el vault del host")
+        elif re.search(r"(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIAL|DATABASE_URL|CONNECTION_STRING)", key):
+            fail("core_environment no admite valores secretos ni credenciales")
     CORE_ENV_PATH.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
     with CORE_ENV_PATH.open("w", encoding="utf-8") as stream:
         for key in sorted(merged_env):
@@ -353,10 +647,10 @@ def materialize_secrets(config: dict) -> None:
         target = WAZUH_SECRET_DIR / filename
         fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(secret_values[secret_name])
+            stream.write(wazuh_secret_values[secret_name])
         os.chmod(target, 0o600)
-    del secret_values
-    log(f"referencias Key Vault resueltas sin imprimir valores: {len(all_names)}")
+    del wazuh_secret_values
+    log(f"referencias Core configuradas y secretos Wazuh instalados sin imprimir valores: {len(core_secret_names) + len(wazuh_secret_names)}")
 
 
 def fetch_bundle(config: dict, destination: pathlib.Path) -> None:
@@ -670,6 +964,7 @@ def main() -> None:
         release = extract_and_verify(bundle, config)
         materialize_secrets(config)
         install_release(release, config)
+        configure_indexer_proxy(config)
     log("bootstrap completo; sin cambios DNS ni aperturas adicionales de red")
 
 

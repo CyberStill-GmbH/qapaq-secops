@@ -5,8 +5,10 @@ casos; `apply-office365.sh` idempotente sobre el manager). Azure ahora incluye e
 plantilla y reglas en el bundle de primer arranque; la validación de producción todavía
 requiere ejecutar `wazuh-logtest` con 4.14.8 y confirmar lectura real del tenant autorizado
 (ADR-024). En Azure, el secreto se entrega como archivo materializado desde Key Vault por
-Managed Identity y no invoca AWS Secrets Manager. Los flujos AWS existentes conservan su
-adaptador `aws-secretsmanager:`.
+Managed Identity. Desde el corte a Azure el script solo acepta fuentes `file:`: el bundle no
+lleva rutas hacia AWS y el bootstrap del SIEM rechaza cualquier llamada a ese proveedor. Los
+workflows heredados de AWS (`initialize-wazuh.yml`, `configure-wazuh-office365.yml`) ya no
+aplican M365 con este script.
 
 Este directorio versiona lo que antes se configuraba a mano en el manager: el módulo
 `office365`, las reglas locales que convierten actividad de Microsoft 365 en alertas con

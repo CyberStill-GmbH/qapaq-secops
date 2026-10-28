@@ -1,0 +1,315 @@
+name: Terraform Azure demo East US 2 plan and apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the exact reviewed plan produced in this run
+        type: boolean
+        required: true
+        default: false
+      deployment_scope:
+        description: Select foundation maintenance, Wazuh-first rollout, or Wazuh plus Ankay
+        type: choice
+        required: true
+        default: soc
+        options:
+          - foundation
+          - siem
+          - soc
+      cost_review_reference:
+        description: HTTPS link to the reviewed East US 2 cost estimate (required for apply)
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-azure-demo-eus2
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate East US 2 target and apply evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Require main and reviewed costs before apply
+        env:
+          APPLY: ${{ inputs.apply }}
+          COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || {
+            echo '::error::East US 2 Terraform can run only from main.'
+            exit 1
+          }
+          if [[ "$APPLY" == true ]]; then
+            [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
+              echo '::error::Apply requires an HTTPS reference to an East US 2 cost review.'
+              exit 1
+            }
+          fi
+
+  plan:
+    name: Create and summarize isolated East US 2 Terraform plan
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: azure-demo-eus2
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      # All credentials and state settings must be configured on azure-demo-eus2.
+      # Deliberately do not fall back to repo-level Chile demo settings.
+      ARM_CLIENT_ID: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_subscription_id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
+      TF_VAR_additional_github_environments: '["azure-demo-eus2"]'
+      AZURE_ACR_LOGIN_SERVER: ${{ vars.AZURE_EUS2_ACR_LOGIN_SERVER }}
+      TF_VAR_enable_runtime: ${{ vars.AZURE_EUS2_ENABLE_RUNTIME || 'false' }}
+      TF_VAR_container_images: ${{ vars.AZURE_EUS2_CONTAINER_IMAGES_JSON || '{}' }}
+      TF_VAR_siem_host: ${{ vars.AZURE_EUS2_SIEM_HOST_JSON || 'null' }}
+      TF_VAR_ankay_host: ${{ vars.AZURE_EUS2_ANKAY_HOST_JSON || 'null' }}
+      TF_VAR_krakend_gateway: ${{ vars.AZURE_EUS2_KRAKEND_GATEWAY_JSON || 'null' }}
+      TF_VAR_address_space: "10.80.0.0/16"
+      TF_VAR_key_vault_secret_ids: ${{ vars.AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON || '{}' }}
+      TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_EUS2_TF_STATE_RESOURCE_GROUP }}
+      TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS2_TF_STATE_STORAGE_ACCOUNT }}
+      TF_STATE_CONTAINER: ${{ vars.AZURE_EUS2_TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ vars.AZURE_EUS2_TF_STATE_KEY }}
+      APPLY: ${{ inputs.apply }}
+      EUS2_APPLY_READY: ${{ vars.AZURE_EUS2_APPLY_READY }}
+      DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope }}
+      COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate EUS OIDC, backend isolation and required inputs
+        shell: bash
+        working-directory: .
+        run: |
+          set -euo pipefail
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_VAR_postgres_admin_password \
+            TF_STATE_RESOURCE_GROUP TF_STATE_STORAGE_ACCOUNT TF_STATE_CONTAINER TF_STATE_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing azure-demo-eus2 AZURE_EUS secret or variable: $name"; exit 1; }
+          done
+          if [[ "$APPLY" == true && "$EUS2_APPLY_READY" != true ]]; then
+            echo '::error::Apply requires AZURE_EUS2_APPLY_READY=true in the protected azure-demo-eus2 environment.'
+            exit 1
+          fi
+          [[ "$TF_STATE_RESOURCE_GROUP" == rg-qapaqsecopsdemoeus-state-3a2405f3 ]] || {
+            echo '::error::Terraform state resource group is not the dedicated East US 2 backend.'
+            exit 1
+          }
+          [[ "$TF_STATE_STORAGE_ACCOUNT" == qapaqsecopseus23a2405f3 ]] || {
+            echo '::error::Terraform state storage is not the dedicated East US 2 backend.'
+            exit 1
+          }
+          [[ "$TF_STATE_CONTAINER" == tfstate && "$TF_STATE_KEY" == qapaq-secops/demo-eus2/terraform.tfstate ]] || {
+            echo '::error::Terraform state container/key is not isolated from the Chile demo.'
+            exit 1
+          }
+          grep -Eq '^environment[[:space:]]*=[[:space:]]*"demo-eus2"$' infra/azure/profiles/demo-eus2.tfvars || {
+            echo '::error::The committed Terraform profile does not target demo-eus2.'
+            exit 1
+          }
+          grep -Eq '^location[[:space:]]*=[[:space:]]*"eastus2"$' infra/azure/profiles/demo-eus2.tfvars || {
+            echo '::error::The committed Terraform profile does not target East US 2.'
+            exit 1
+          }
+          grep -Eq '^address_space[[:space:]]*=[[:space:]]*"10\.80\.0\.0/16"$' infra/azure/profiles/demo-eus2.tfvars || {
+            echo '::error::The committed Terraform profile does not match the reserved East US 2 VNet CIDR.'
+            exit 1
+          }
+          node scripts/ci/validate-azure-eus2-deployment-scope.mjs
+          if [[ "$APPLY" == true ]]; then
+            printf '%s\n' "Cost review: $COST_REVIEW_REFERENCE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Validate opt-in runtime configuration without printing inputs
+        working-directory: .
+        run: node scripts/ci/validate-azure-deployment-inputs.mjs
+
+      - name: Test East US 2 deployment scope gates
+        working-directory: .
+        run: node --test scripts/ci/validate-azure-eus2-deployment-scope.test.mjs
+
+      - name: Sign in before optional KrakenD secret metadata preflight
+        if: ${{ env.TF_VAR_krakend_gateway != 'null' }}
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Require the two exact enabled Key Vault references before planning
+        if: ${{ env.TF_VAR_krakend_gateway != 'null' }}
+        working-directory: .
+        run: python3 .github/ci/verify-eus2-indexer-secret-metadata.py
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Check format
+        run: terraform fmt -check -recursive
+
+      - name: Initialize the isolated East US 2 state backend with OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Validate
+        run: terraform validate -no-color
+
+      - name: Create saved plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform plan -input=false -no-color \
+            -var-file=profiles/demo-eus2.tfvars \
+            -out="$RUNNER_TEMP/azure-demo-eus2.tfplan"
+          terraform show -json "$RUNNER_TEMP/azure-demo-eus2.tfplan" > "$RUNNER_TEMP/azure-demo-eus2-plan.json"
+
+      - name: Reject destructive actions and summarize resource changes
+        run: node scripts/ci/azure-tf-plan-summary.mjs "$RUNNER_TEMP/azure-demo-eus2-plan.json"
+        working-directory: .
+
+      - name: Record commit and plan checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/plan.commit"
+          sha256sum "$RUNNER_TEMP/azure-demo-eus2.tfplan" | awk '{print $1}' > "$RUNNER_TEMP/plan.sha256"
+
+      - name: Upload sensitive saved plan for same-run apply
+        if: ${{ inputs.apply }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: azure-demo-eus2-tfplan-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/azure-demo-eus2.tfplan
+            ${{ runner.temp }}/plan.commit
+            ${{ runner.temp }}/plan.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  apply:
+    name: Apply exact reviewed East US 2 plan
+    if: ${{ inputs.apply }}
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: azure-demo-eus2
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_subscription_id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      TF_VAR_postgres_admin_password: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
+      TF_VAR_additional_github_environments: '["azure-demo-eus2"]'
+      TF_VAR_krakend_gateway: ${{ vars.AZURE_EUS2_KRAKEND_GATEWAY_JSON || 'null' }}
+      TF_STATE_RESOURCE_GROUP: ${{ vars.AZURE_EUS2_TF_STATE_RESOURCE_GROUP }}
+      TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS2_TF_STATE_STORAGE_ACCOUNT }}
+      TF_STATE_CONTAINER: ${{ vars.AZURE_EUS2_TF_STATE_CONTAINER }}
+      TF_STATE_KEY: ${{ vars.AZURE_EUS2_TF_STATE_KEY }}
+    steps:
+      - name: Checkout exact planned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Sign in before optional KrakenD secret metadata preflight
+        if: ${{ env.TF_VAR_krakend_gateway != 'null' }}
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Require the two exact enabled Key Vault references before applying
+        if: ${{ env.TF_VAR_krakend_gateway != 'null' }}
+        working-directory: .
+        run: python3 .github/ci/verify-eus2-indexer-secret-metadata.py
+
+      - name: Download this run's saved plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: azure-demo-eus2-tfplan-${{ github.sha }}
+          path: ${{ runner.temp }}/azure-demo-eus2-plan
+
+      - name: Verify commit and plan checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(cat "$RUNNER_TEMP/azure-demo-eus2-plan/plan.commit")" == "$GITHUB_SHA" ]] || {
+            echo '::error::Saved plan commit does not match this workflow run.'
+            exit 1
+          }
+          expected="$(cat "$RUNNER_TEMP/azure-demo-eus2-plan/plan.sha256")"
+          actual="$(sha256sum "$RUNNER_TEMP/azure-demo-eus2-plan/azure-demo-eus2.tfplan" | awk '{print $1}')"
+          [[ "$expected" == "$actual" ]] || { echo '::error::Saved plan checksum mismatch.'; exit 1; }
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Initialize the same isolated East US 2 backend with OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color \
+            -backend-config="resource_group_name=$TF_STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$TF_STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$TF_STATE_CONTAINER" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Apply only the reviewed saved plan
+        run: terraform apply -input=false -auto-approve -no-color "$RUNNER_TEMP/azure-demo-eus2-plan/azure-demo-eus2.tfplan"

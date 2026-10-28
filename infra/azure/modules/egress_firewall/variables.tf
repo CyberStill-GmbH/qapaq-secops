@@ -2,6 +2,21 @@ variable "resource_group_name" { type = string }
 variable "location" { type = string }
 variable "name_base" { type = string }
 variable "firewall_subnet_id" { type = string }
+variable "sku_tier" {
+  description = "Basic basta para filtrar egress por FQDN y publicar el DNAT; Standard agrega Threat Intelligence en Deny y DNS proxy."
+  type        = string
+  default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard"], var.sku_tier)
+    error_message = "sku_tier debe ser Basic o Standard."
+  }
+}
+variable "management_subnet_id" {
+  description = "AzureFirewallManagementSubnet; obligatoria solo con sku_tier Basic."
+  type        = string
+  default     = null
+}
 variable "log_analytics_workspace_id" {
   description = "Workspace de Azure Monitor que recibe los logs NAT estructurados del Firewall."
   type        = string
@@ -41,7 +56,7 @@ variable "ingress_http_enabled" {
   default     = true
 }
 variable "allowed_fqdns" {
-  description = "Explicit HTTPS egress allowlist for Ubuntu, Entra, Graph and VirusTotal."
+  description = "Explicit HTTPS egress allowlist for Ubuntu, Entra, Graph, Teams Workflows and VirusTotal."
   type        = set(string)
   default = [
     "archive.ubuntu.com",
@@ -49,6 +64,8 @@ variable "allowed_fqdns" {
     "graph.microsoft.com",
     "login.microsoftonline.com",
     "packages.microsoft.com",
+    "*.logic.azure.com",
+    "*.api.powerplatform.com",
     "security.ubuntu.com",
     "api.virustotal.com",
     "acme-v02.api.letsencrypt.org",
@@ -59,4 +76,38 @@ variable "allowed_fqdns" {
     error_message = "allowed_fqdns must contain valid explicit FQDNs or a subdomain wildcard."
   }
 }
+
+variable "container_apps_source_cidrs" {
+  description = "Subnets of private ACA environments routed through this firewall; empty means no ACA-specific rules."
+  type        = set(string)
+  default     = []
+}
+
+variable "container_apps_allowed_fqdns" {
+  description = "Exact ACA platform/registry/Entra FQDNs allowed through the firewall, scoped to ACA source CIDRs."
+  type        = set(string)
+  default     = []
+}
+
+variable "container_apps_allowed_service_tags" {
+  description = "Azure service tags required by private ACA with UDR, scoped to ACA source CIDRs."
+  type        = set(string)
+  default     = []
+}
 variable "tags" { type = map(string) }
+
+variable "agent_public_cidrs" {
+  description = "IPs públicas de las redes con agentes Wazuh (oficinas, egress de Cato). Vacío no publica 1514/1515."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for cidr in var.agent_public_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
+    error_message = "Cada origen de agentes debe ser un CIDR válido y no puede abarcar todo Internet."
+  }
+}
+variable "agent_target_ip" {
+  description = "IP privada fija de la VM SIEM que recibe registro (1515) y eventos (1514) de agentes."
+  type        = string
+  default     = null
+}

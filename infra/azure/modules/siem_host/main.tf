@@ -7,12 +7,21 @@ locals {
   identity              = azurerm_user_assigned_identity.siem
   ingress_lb_private_ip = var.ingress_lb_private_ip == null ? cidrhost(var.address_prefix, 10) : var.ingress_lb_private_ip
 
+  # Azure limita custom_data a 87 380 caracteres en base64 y los dos scripts sin comprimir ya
+  # lo superan; cloud-init descomprime `gz+b64` de forma nativa al escribir cada archivo.
   cloud_init = "#cloud-config\n${yamlencode({
     write_files = [{
       path        = "/usr/local/sbin/qapaq-siem-bootstrap.py"
       owner       = "root:root"
       permissions = "0700"
-      content     = file("${path.module}/bootstrap-siem.py")
+      encoding    = "gz+b64"
+      content     = base64gzip(file("${path.module}/bootstrap-siem.py"))
+      }, {
+      path        = "/usr/local/sbin/indexer_read_proxy.py"
+      owner       = "root:root"
+      permissions = "0600"
+      encoding    = "gz+b64"
+      content     = base64gzip(file("${path.module}/indexer_read_proxy.py"))
     }]
   })}"
 
@@ -26,7 +35,12 @@ locals {
     provider_ingestion = var.provider_ingestion
     core_environment   = var.core_environment
     office365          = var.office365
-    data_disk_size_gb  = var.data_disk_size_gb
+    indexer_read_proxy = var.indexer_proxy == null ? null : {
+      private_ip_address   = var.private_ip_address
+      reader_secret_name   = var.indexer_proxy.reader_secret_name
+      proxy_ca_secret_name = var.indexer_proxy.proxy_ca_secret_name
+    }
+    data_disk_size_gb = var.data_disk_size_gb
     expected = {
       wazuh_version = "4.14.8"
       osd_version   = "2.19.6"
@@ -137,47 +151,54 @@ resource "azurerm_network_security_group" "siem" {
     }
   }
 
+  dynamic "security_rule" {
+    for_each = length(var.krakend_source_cidrs) == 0 ? {} : { krakend = var.krakend_source_cidrs }
+    content {
+      name                       = "allow-indexer-read-proxy-from-krakend"
+      priority                   = 120
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "9443"
+      source_address_prefixes    = tolist(security_rule.value)
+      destination_address_prefix = "*"
+      description                = "Solo KrakenD privado puede alcanzar el proxy TLS read-only del Indexer en 9443."
+    }
+  }
+
+  security_rule {
+    name                       = "deny-direct-indexer-vnet-access"
+    priority                   = 121
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9200"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+    description                = "El Indexer permanece interno; ninguna subred VNet accede directamente al puerto de administración/búsqueda."
+  }
+
+  security_rule {
+    name                       = "deny-indexer-proxy-from-other-vnet"
+    priority                   = 122
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "9443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+    description                = "Tras la allowlist ACA anterior, y aunque KrakenD esté apagado, evita que otros workloads VNet consulten el proxy."
+  }
+
   # The subnet has no default outbound access. Only private dependencies and HTTP/S routed
   # through the explicitly required Azure Firewall are allowed; explicit denies precede Azure's
   # built-in AllowVnetOutBound/AllowInternetOutBound rules.
-  security_rule {
-    name                       = "allow-azure-platform-dns"
-    priority                   = 100
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "53"
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzurePlatformDNS"
-    description                = "DNS al resolver virtual de Azure; el resto de egress queda bloqueado."
-  }
-
-  security_rule {
-    name                       = "allow-azure-managed-identity-imds"
-    priority                   = 106
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzurePlatformIMDS"
-    description                = "Permite obtener tokens de Managed Identity desde IMDS, sin abrir egress general."
-  }
-
-  security_rule {
-    name                       = "allow-azure-platform-wireserver"
-    priority                   = 107
-    direction                  = "Outbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_ranges    = ["80", "32526"]
-    source_address_prefix      = "*"
-    destination_address_prefix = "AzurePlatformLKM"
-    description                = "Canal Azure WireServer/VM Agent requerido para estado Ready y extensiones; no permite el puerto 1688."
-  }
+  # DNS (168.63.129.16), IMDS (169.254.169.254) y WireServer no pasan por el NSG mientras no
+  # se los nombre con sus service tags, y Azure solo admite esos tags en reglas Deny. Por eso
+  # no hay reglas Allow para ellos: el deny de egress general no los alcanza.
 
   security_rule {
     name                         = "allow-private-endpoints-https"
@@ -302,6 +323,8 @@ resource "azurerm_role_assignment" "acr_pull" {
 }
 
 resource "azurerm_role_assignment" "artifact_read" {
+  count = var.manage_artifact_read_assignment ? 1 : 0
+
   scope                = var.artifact_container_scope_id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = local.identity.principal_id
@@ -326,6 +349,21 @@ resource "azurerm_role_assignment" "key_vault_secret_read" {
   principal_type       = "ServicePrincipal"
 }
 
+# The host may get/set only the two pre-created values used by the opt-in
+# KrakenD proxy. The custom role contains no list, delete, or vault-management
+# actions and is assigned at each exact Key Vault secret scope.
+resource "azurerm_role_assignment" "indexer_proxy_secret_seed" {
+  for_each = var.indexer_proxy == null ? {} : {
+    reader = var.indexer_proxy.reader_secret_name
+    ca     = var.indexer_proxy.proxy_ca_secret_name
+  }
+
+  scope              = "${trimsuffix(var.key_vault_id, "/")}/secrets/${each.value}"
+  role_definition_id = var.indexer_proxy_secret_role_definition_id
+  principal_id       = local.identity.principal_id
+  principal_type     = "ServicePrincipal"
+}
+
 resource "azurerm_network_interface" "siem" {
   name                = local.nic_name
   location            = var.location
@@ -335,7 +373,8 @@ resource "azurerm_network_interface" "siem" {
   ip_configuration {
     name                          = "private"
     subnet_id                     = azurerm_subnet.siem.id
-    private_ip_address_allocation = "Dynamic"
+    private_ip_address_allocation = var.private_ip_address == null ? "Dynamic" : "Static"
+    private_ip_address            = var.private_ip_address
     primary                       = true
   }
 }
@@ -477,6 +516,11 @@ resource "azurerm_linux_virtual_machine" "siem" {
     prevent_destroy = true
 
     precondition {
+      condition     = length(base64encode(local.cloud_init)) <= 87380
+      error_message = "custom_data supera el máximo de Azure (87 380 caracteres en base64)."
+    }
+
+    precondition {
       condition     = !contains(var.dashboard_ingress_cidrs, "0.0.0.0/0")
       error_message = "No se permite exponer el Dashboard HTTPS a Internet completa."
     }
@@ -491,6 +535,7 @@ resource "azurerm_linux_virtual_machine" "siem" {
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.artifact_read,
     azurerm_role_assignment.key_vault_secret_read,
+    azurerm_role_assignment.indexer_proxy_secret_seed,
     azurerm_role_assignment.evidence_write,
   ]
 }
@@ -521,6 +566,7 @@ resource "azurerm_virtual_machine_extension" "siem_bootstrap" {
     azurerm_role_assignment.acr_pull,
     azurerm_role_assignment.artifact_read,
     azurerm_role_assignment.key_vault_secret_read,
+    azurerm_role_assignment.indexer_proxy_secret_seed,
     azurerm_role_assignment.evidence_write,
   ]
 }

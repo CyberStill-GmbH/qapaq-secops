@@ -15,11 +15,10 @@
 # Entradas (variables de entorno):
 #   QAPAQ_O365_TENANT_ID       GUID del tenant (obligatorio)
 #   QAPAQ_O365_CLIENT_ID       GUID de la app con ActivityFeed.Read (obligatorio)
-#   QAPAQ_O365_SECRET_SOURCE   aws-secretsmanager:<id> | file:<ruta> (obligatorio en apply)
-#   QAPAQ_BREAK_GLASS_SOURCE   aws-secretsmanager:<id> | file:<ruta> (opcional; lista UPN separada por comas o líneas)
+#   QAPAQ_O365_SECRET_SOURCE   file:<ruta> (obligatorio en apply; el host lo materializa desde Key Vault)
+#   QAPAQ_BREAK_GLASS_SOURCE   file:<ruta> (opcional; lista UPN separada por comas o líneas)
 #   QAPAQ_O365_API_TYPE        commercial | gcc | gcc-high (por defecto commercial)
 #   QAPAQ_O365_ENABLE_DLP      true | false (por defecto false; requiere ActivityFeed.ReadDlp)
-#   QAPAQ_AWS_REGION           región para Secrets Manager (por defecto us-east-1)
 #   QAPAQ_WAZUH_HOME           por defecto /var/ossec
 #   QAPAQ_APPLY_MODE           apply | render (render solo valida y muestra el bloque, sin tocar nada)
 set -Eeuo pipefail
@@ -30,7 +29,6 @@ readonly WAZUH_HOME="${QAPAQ_WAZUH_HOME:-/var/ossec}"
 readonly MODE="${QAPAQ_APPLY_MODE:-apply}"
 readonly API_TYPE="${QAPAQ_O365_API_TYPE:-commercial}"
 readonly ENABLE_DLP="${QAPAQ_O365_ENABLE_DLP:-false}"
-readonly REGION="${QAPAQ_AWS_REGION:-us-east-1}"
 readonly RULES_NAME='qapaq_office365_rules.xml'
 readonly LIST_NAME='qapaq-break-glass'
 readonly GUID_PATTERN='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
@@ -50,15 +48,11 @@ case "${ENABLE_DLP}" in true | false) ;; *) fail 'QAPAQ_O365_ENABLE_DLP debe ser
 [[ -f "${SCRIPT_DIR}/rules/${RULES_NAME}" ]] || fail 'no se encontró el archivo de reglas junto al script.'
 
 # Lee un secreto de la fuente declarada y lo escribe en $2 sin pasar por stdout ni argv.
+# Solo archivos: en Azure el bootstrap del SIEM los escribe desde Key Vault con la identidad de
+# la VM, y el bundle no debe llevar rutas hacia otros proveedores de nube.
 read_secret_to() {
   local source="$1" target="$2"
   case "${source}" in
-    aws-secretsmanager:*)
-      local id="${source#aws-secretsmanager:}"
-      [[ -n "${id}" ]] || return 1
-      aws secretsmanager get-secret-value --region "${REGION}" --secret-id "${id}" \
-        --query SecretString --output text >"${target}" 2>/dev/null
-      ;;
     file:*)
       local path="${source#file:}"
       [[ -f "${path}" ]] || return 1
@@ -66,7 +60,7 @@ read_secret_to() {
       ;;
     *) return 1 ;;
   esac
-  # La CLI agrega salto de línea final; Wazuh lee el archivo tal cual.
+  # Un salto de línea final rompería la autenticación; Wazuh lee el archivo tal cual.
   local value
   value="$(<"${target}")"
   printf '%s' "${value}" >"${target}"

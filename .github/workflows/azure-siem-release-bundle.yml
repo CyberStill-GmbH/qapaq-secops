@@ -68,12 +68,16 @@ jobs:
             exit 1
           }
           git diff --quiet "$RELEASE_SHA" "$GITHUB_SHA" -- \
-            wazuh/azure-release/install.sh wazuh/azure-release/install_detection_rules.py \
+            wazuh/azure-release/assemble_release.py wazuh/azure-release/install.sh wazuh/azure-release/install_detection_rules.py \
             wazuh/azure-release/verify_wazuh_credentials_tar.py \
             wazuh/azure-release/normalize_ubuntu_apt_sources.py \
             wazuh/core wazuh/dashboard wazuh/office365 \
             wazuh/provider-ingestion ':!wazuh/provider-ingestion/tests/**' \
             infra/wazuh/endpoint/rules infra/wazuh/launch-detections/rules \
+            infra/wazuh/active-directory/rules \
+            infra/wazuh/active-directory/agent-groups infra/wazuh/active-directory/profile-catalog.json infra/wazuh/active-directory/README.md \
+            infra/wazuh/launch-detections/agent-groups \
+            infra/wazuh/teams \
             docs/security/launch-detection-catalog-2026-10-20.json \
             infra/azure/modules/siem_host/bootstrap-siem.py || {
               echo 'Package, installer, detection rules, or bootstrap sources changed after release_sha; rebuild the candidate on current main.' >&2
@@ -85,10 +89,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s wazuh/azure-release/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s infra/wazuh/teams/tests -p 'test_*.py' -v
           python3 -m unittest discover -s wazuh/provider-ingestion/tests -p 'test_*.py' -v
           python3 -m py_compile wazuh/provider-ingestion/configure.py wazuh/provider-ingestion/cato/events_feed.py wazuh/provider-ingestion/sophos/upstream/*.py
           bash -n wazuh/azure-release/install.sh
           python3 -m py_compile wazuh/azure-release/assemble_release.py wazuh/azure-release/install_detection_rules.py wazuh/azure-release/verify_wazuh_credentials_tar.py
+          python3 -m py_compile infra/wazuh/teams/apply_teams_workflow.py
 
       - name: Validate source workflow run IDs, branch and exact Git SHA
         env:
@@ -256,11 +262,23 @@ jobs:
               assert set(manifest["detectionPack"]["rules"]) == {
                   "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
                   "wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+                  "wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
               }
               assert "wazuh/launch-detections/catalog.json" in manifest["files"]
               assert "wazuh/launch-detections/install_detection_rules.py" in manifest["files"]
+              assert manifest["agentProfilePack"]["status"] == "candidate-disabled"
+              assert manifest["agentProfilePack"]["activation"] == "owner-approval-and-domain-controller-pilot-required"
+              assert manifest["agentProfilePack"]["installerAppliesAgentProfiles"] is False
+              assert set(manifest["agentProfilePack"]["profiles"]) == {
+                  "wazuh/agent-profiles/windows-domain-controller.agent.conf",
+                  "wazuh/agent-profiles/windows-pilot.agent.conf",
+                  "wazuh/agent-profiles/windows-sysmon-pilot.agent.conf",
+              }
+              assert "wazuh/agent-profiles/active-directory/profile-catalog.json" in manifest["files"]
+              assert "wazuh/agent-profiles/active-directory/README.md" in manifest["files"]
               installer = archive.extractfile(f"{root}/install.sh").read().decode()
               assert "install_detection_rules.py" in installer
+              assert "agent-profiles" not in installer
               for name, digest in manifest["files"].items():
                   member = archive.extractfile(f"{root}/{name}")
                   assert hashlib.sha256(member.read()).hexdigest() == digest, name
@@ -276,13 +294,16 @@ jobs:
           retention-days: 7
 
       - name: Summarize runtime gates
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
         run: |
           {
             echo '## Azure QAPAQ SIEM release candidate'
-            echo "- QAPAQ source commit: `${{ inputs.release_sha }}` (all source artifacts are validated against this commit)."
+            printf '%s\n' "- QAPAQ source commit: \`$RELEASE_SHA\` (all source artifacts are validated against this commit)."
             echo '- Produces the exact Blob bundle contract consumed by `siem_host`.'
             echo '- Installs pinned official Wazuh Manager, Indexer, Filebeat, QAPAQ Dashboard and QAPAQ core from offline artifacts.'
-            echo '- Installs the versioned QAPAQ endpoint/provider detection rules; Sophos/Cato connectors remain opt-in and require validated credentials and provider acceptance.'
+            echo '- Installs the versioned QAPAQ AD, endpoint and provider detection rules; applying DC agent collection profiles and Sophos/Cato connectors remains opt-in and requires owner approval/provider acceptance.'
+            echo '- The release artifact includes the Windows, Domain Controller and Sysmon agent profiles as `candidate-disabled` reference files; the installer never copies or applies them.'
             echo '- No Azure login, Key Vault read, Blob publication, Terraform apply, DNS change or deployment occurs in this workflow.'
             echo '- First boot still requires the one-line base64 `wazuh-install-files.tar.b64` Key Vault secret, all QAPAQ core secret refs, private network and firewall allowlist.'
             echo '- The bundle contains optional Sophos Central and Cato eventsFeed collectors in the Wazuh overlay. They remain inactive unless Key Vault references, tenant/account configuration and explicit egress are supplied; CI packaging is not tenant acceptance.'

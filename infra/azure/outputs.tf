@@ -13,6 +13,11 @@ output "github_publisher_client_id" {
   value       = module.identity_registry.github_publisher_client_id
 }
 
+output "eus2_secret_seeder_client_id" {
+  description = "Client ID que debe configurarse como AZURE_EUS2_SECRET_SEEDER_CLIENT_ID en el GitHub Environment protegido azure-demo-eus2. Null fuera de demo-eus2."
+  value       = try(module.key_vault_seed_identity[0].client_id, null)
+}
+
 output "runtime_identity_client_id" {
   description = "Client ID de la identidad administrada del runtime."
   value       = module.identity_registry.runtime_identity_client_id
@@ -41,6 +46,11 @@ output "edge_default_fqdn" {
 output "siem_private_ip" {
   description = "IP privada del SIEM QAPAQ cuando se habilita el host. null mientras falten las gates de release y red."
   value       = try(module.siem_host[0].private_ip_address, null)
+}
+
+output "krakend_gateway_base_url" {
+  description = "URL privada HTTPS de KrakenD para QAPAQ Core cuando el módulo opcional está habilitado; null por defecto."
+  value       = try(module.krakend_gateway[0].gateway_base_url, null)
 }
 
 output "siem_firewall_public_ip" {

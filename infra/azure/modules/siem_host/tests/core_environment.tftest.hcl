@@ -15,6 +15,7 @@ variables {
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
   dashboard_ingress_cidrs      = ["198.51.100.25/32"]
+  core_secret_names            = { QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret" }
   wazuh_secret_names           = { "wazuh-install-files.tar.b64" = "wazuh-install-files-tar-b64" }
   key_vault_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.KeyVault/vaults/kv-qapaq-test"
   key_vault_uri                = "https://kv-qapaq-test.vault.azure.net/"
@@ -51,6 +52,82 @@ run "accepts_matching_key_vault_reference" {
     condition     = one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-dashboard-https-approved-sources"]).source_address_prefix == var.firewall_private_ip
     error_message = "The SIEM NSG must allow HTTPS only from the Azure Firewall private IP; the Firewall DNAT rule filters the original client CIDR."
   }
+
+  assert {
+    condition = (
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).destination_port_range == "9443" &&
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).access == "Deny"
+    )
+    error_message = "TCP/9443 must be explicitly denied to the VNet even when the optional KrakenD proxy is disabled."
+  }
+}
+
+run "accepts_postgres_with_matching_key_vault_references" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE       = "postgres"
+      QAPAQ_POSTGRES_PASSWORD_REF = "secret://keyvault/qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY_REF    = "secret://keyvault/qapaq-entity-ref-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+}
+
+run "rejects_postgres_without_password_secret_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE = "postgres"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_postgres_without_entity_reference_key_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE = "postgres"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_postgres_reference_that_does_not_match_key_vault_mapping" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SOC_PERSISTENCE       = "postgres"
+      QAPAQ_POSTGRES_PASSWORD_REF = "secret://keyvault/qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY_REF    = "secret://keyvault/unmapped-entity-ref-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
 }
 
 run "rejects_plaintext_client_secret_reference" {
@@ -83,6 +160,30 @@ run "rejects_reference_not_backed_by_secret_mapping" {
   expect_failures = [var.core_environment]
 }
 
+run "rejects_provider_endpoint_outside_configured_vault" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SECRET_PROVIDER_ENDPOINT = "https://other-vault.vault.azure.net"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_non_azure_secret_provider_type" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_SECRET_PROVIDER_TYPE = "environment"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
 run "rejects_secret_value_in_environment" {
   command = plan
 
@@ -92,6 +193,38 @@ run "rejects_secret_value_in_environment" {
     }
     core_secret_names = {
       QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_plaintext_entity_reference_key" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_ENTITY_REF_KEY = "synthetic-entity-key-must-not-enter-terraform"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
+
+run "rejects_plaintext_teams_workflow_url" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_TEAMS_WORKFLOW_URL = "https://example.invalid/workflows/demo?sig=synthetic"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+      QAPAQ_TEAMS_WORKFLOW_URL  = "qapaq-teams-workflow-url"
     }
   }
 
@@ -144,4 +277,79 @@ run "rejects_missing_wazuh_install_archive_reference" {
   }
 
   expect_failures = [var.wazuh_secret_names]
+}
+
+run "grants_proxy_secret_write_only_at_the_two_named_secret_scopes" {
+  command = plan
+
+  variables {
+    indexer_proxy = {
+      reader_secret_name   = "wazuh-reader-b64"
+      proxy_ca_secret_name = "wazuh-proxy-ca"
+    }
+    indexer_proxy_secret_role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-4000-8000-000000000099"
+    krakend_source_cidrs                    = ["10.20.4.0/27"]
+  }
+
+  assert {
+    condition = length(azurerm_role_assignment.indexer_proxy_secret_seed) == 2 && alltrue([
+      for assignment in values(azurerm_role_assignment.indexer_proxy_secret_seed) :
+      startswith(assignment.scope, "${trimsuffix(var.key_vault_id, "/")}/secrets/") &&
+      assignment.role_definition_id == var.indexer_proxy_secret_role_definition_id
+    ])
+    error_message = "Indexer bootstrap must get/set only its two pre-existing secret scopes with the dedicated custom role."
+  }
+
+  assert {
+    condition = (
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-indexer-read-proxy-from-krakend"]).destination_port_range == "9443" &&
+      length(one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-indexer-read-proxy-from-krakend"]).source_address_prefixes) == 1 &&
+      contains(one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "allow-indexer-read-proxy-from-krakend"]).source_address_prefixes, "10.20.4.0/27")
+    )
+    error_message = "Only KrakenD may connect to the private read-only proxy on port 9443."
+  }
+
+  assert {
+    condition     = one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-direct-indexer-vnet-access"]).destination_port_range == "9200"
+    error_message = "No VNet workload may access the Indexer directly on port 9200."
+  }
+
+  assert {
+    condition = (
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).priority == 122 &&
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).access == "Deny" &&
+      one([for rule in azurerm_network_security_group.siem.security_rule : rule if rule.name == "deny-indexer-proxy-from-other-vnet"]).source_address_prefix == "VirtualNetwork"
+    )
+    error_message = "Other VNet workloads must be denied after the exact KrakenD subnet allow rule."
+  }
+}
+
+run "rejects_proxy_when_krakend_source_allowlist_is_empty" {
+  command = plan
+
+  variables {
+    indexer_proxy = {
+      reader_secret_name   = "wazuh-reader-b64"
+      proxy_ca_secret_name = "wazuh-proxy-ca"
+    }
+    indexer_proxy_secret_role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-4000-8000-000000000099"
+    krakend_source_cidrs                    = []
+  }
+
+  expect_failures = [var.krakend_source_cidrs]
+}
+
+run "rejects_non_private_krakend_source_cidr" {
+  command = plan
+
+  variables {
+    indexer_proxy = {
+      reader_secret_name   = "wazuh-reader-b64"
+      proxy_ca_secret_name = "wazuh-proxy-ca"
+    }
+    indexer_proxy_secret_role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-4000-8000-000000000099"
+    krakend_source_cidrs                    = ["192.0.2.0/24"]
+  }
+
+  expect_failures = [var.krakend_source_cidrs]
 }

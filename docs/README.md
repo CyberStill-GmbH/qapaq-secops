@@ -24,6 +24,11 @@ Qapaq, la arquitectura resiliente y el rollout de Terraform) y los archivos que 
 fuentes, guía de extensión de proveedores, baseline de toolchain y gates de release). Si se mueven,
 hay que actualizar los tests que los referencian.
 
+## Arquitectura cloud
+
+- [Destino Azure EUS2, límites, perfil Terraform y gates de despliegue](cloud/azure/target-architecture-demo-eus2.md)
+- [Índice de arquitectura Azure y estado verificado](cloud/azure/README.md)
+
 ## Reglas de esta documentación
 
 - Un tema, un documento. Si algo ya está en el código o en git, se enlaza en vez de repetirse.

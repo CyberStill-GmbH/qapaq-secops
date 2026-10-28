@@ -34,6 +34,15 @@ jobs:
       - name: Test fail-closed disk bootstrap
         run: python3 infra/azure/modules/ankay_host/test_prepare_data_disk.py
 
+      - name: Test Key Vault secret materialization and validate runtime scripts
+        run: |
+          set -euo pipefail
+          python3 -m unittest infra.azure.modules.ankay_host.test_fetch_runtime_secrets -v
+          python3 -m py_compile infra/azure/modules/ankay_host/fetch-runtime-secrets.py
+          bash -n infra/azure/modules/ankay_host/install-runtime.sh.tftpl
+          bash -n infra/azure/modules/ankay_host/registry-login.sh.tftpl
+          bash -n infra/azure/modules/ankay_host/start-compose.sh.tftpl
+
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive infra/azure/modules/ankay_host
 

@@ -61,6 +61,17 @@ variable "github_environment" {
   default     = "azure-demo"
 }
 
+variable "additional_github_environments" {
+  description = "GitHub Environments adicionales autorizados por OIDC para la identidad publicadora de este stack."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for name in var.additional_github_environments : can(regex("^[A-Za-z0-9][A-Za-z0-9-]{0,38}$", name))])
+    error_message = "Cada GitHub Environment adicional debe usar solo letras, números y guiones, y comenzar con letra o número."
+  }
+}
+
 variable "postgres_admin_login" {
   description = "Login de bootstrap PostgreSQL; no se usa desde API ni workers."
   type        = string
@@ -75,7 +86,7 @@ variable "postgres_admin_password" {
 }
 
 variable "postgres_sku_name" {
-  description = "SKU de PostgreSQL Flexible Server. Debe aprobarse con el presupuesto y pruebas de carga."
+  description = "SKU por defecto de PostgreSQL Flexible Server. Los entornos pueden sobrescribirlo tras verificar disponibilidad regional."
   type        = string
   default     = "B_Standard_B2s"
 }
@@ -110,6 +121,23 @@ variable "container_images" {
   }
 }
 
+variable "siem_firewall_sku_tier" {
+  description = "SKU del Azure Firewall de egress e ingreso del SIEM. Basic (~USD 0.395/h) filtra por FQDN y publica el DNAT; Standard (~USD 1.25/h) agrega Threat Intelligence en Deny y DNS proxy."
+  type        = string
+  default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard"], var.siem_firewall_sku_tier)
+    error_message = "siem_firewall_sku_tier debe ser Basic o Standard."
+  }
+}
+
+variable "siem_artifact_read_assignment_managed" {
+  description = "false cuando un Owner asigna Storage Blob Data Reader del bundle a la identidad del SIEM fuera de Terraform."
+  type        = bool
+  default     = true
+}
+
 variable "enable_runtime" {
   description = "Crea Container Apps solo al contar con cinco digests verificados y compatibilidad de runtime aprobada."
   type        = bool
@@ -120,12 +148,14 @@ variable "siem_host" {
   description = "Configuración completa para habilitar el host Wazuh QAPAQ. null mantiene el módulo apagado; al habilitarlo Terraform crea el firewall Azure con policy, bundle inmutable, clave pública y CIDR aprobados."
   type = object({
     address_prefix          = string
+    private_ip_address      = optional(string)
     vm_size                 = string
     admin_ssh_public_key    = string
     ubuntu_image_version    = string
     data_disk_size_gb       = number
     dashboard_ingress_cidrs = set(string)
     agent_ingress_cidrs     = set(string)
+    agent_public_cidrs      = optional(set(string), [])
     core_secret_names       = map(string)
     wazuh_secret_names      = map(string)
     core_environment        = map(string)
@@ -143,6 +173,7 @@ variable "siem_host" {
 
   validation {
     condition = var.siem_host == null || (
+      (var.siem_host.private_ip_address == null || can(cidrhost("${var.siem_host.private_ip_address}/32", 0))) &&
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.tenant_id)) &&
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.siem_host.office365.client_id)) &&
       contains(["commercial", "gcc", "gcc-high"], var.siem_host.office365.api_type) &&
@@ -170,17 +201,61 @@ variable "siem_host" {
   }
 }
 
-variable "ankay_host" {
-  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR y Compose sin secretos revisado; comparte el firewall Azure del SIEM."
+variable "krakend_gateway" {
+  description = "KrakenD privado de ingesta Wazuh en ACA. null mantiene gateway y rutas apagados; requiere SIEM, digest ACR, audience/scope Entra, client ID explícito de Core y las dos referencias Key Vault exactas permitidas por el seeder EUS2."
   type = object({
-    private_ip_address   = string
-    admin_ssh_public_key = string
-    vm_size              = string
-    ubuntu_image_version = string
-    data_disk_size_gb    = optional(number, 128)
-    container_images     = map(string)
-    compose_yaml         = string
-    compose_sha256       = string
+    image                        = string
+    tenant_id                    = string
+    client_scope                 = string
+    core_client_id               = string
+    indexer_reader_secret_name   = string
+    indexer_proxy_ca_secret_name = string
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.krakend_gateway == null || (
+      can(regex("^[a-z0-9]+\\.azurecr\\.io/qapaq-secops-krakend@sha256:[0-9a-f]{64}$", var.krakend_gateway.image)) &&
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.krakend_gateway.tenant_id)) &&
+      can(regex("^api://[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/\\.default$", var.krakend_gateway.client_scope)) &&
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.krakend_gateway.core_client_id)) &&
+      can(regex("^[A-Za-z0-9-]{1,127}$", var.krakend_gateway.indexer_reader_secret_name)) &&
+      can(regex("^[A-Za-z0-9-]{1,127}$", var.krakend_gateway.indexer_proxy_ca_secret_name)) &&
+      var.krakend_gateway.indexer_reader_secret_name == "wazuh-reader-b64" &&
+      var.krakend_gateway.indexer_proxy_ca_secret_name == "wazuh-proxy-ca"
+    )
+    error_message = "krakend_gateway requiere digest ACR, tenant/scope, client ID Core y las referencias Key Vault exactas permitidas por el seeder; no acepta valores secretos."
+  }
+
+  validation {
+    condition = var.krakend_gateway == null || (
+      var.siem_host != null &&
+      var.siem_host.private_ip_address != null &&
+      can(cidrhost("${var.siem_host.private_ip_address}/32", 0)) &&
+      var.siem_host.private_ip_address == cidrhost(var.siem_host.address_prefix, 4) &&
+      contains(keys(var.siem_host.core_secret_names), "QAPAQ_ENTRA_CLIENT_SECRET") &&
+      lookup(var.siem_host.core_environment, "QAPAQ_ENTRA_TENANT_ID", "") == var.krakend_gateway.tenant_id &&
+      lookup(var.siem_host.core_environment, "QAPAQ_ENTRA_CLIENT_ID", "") == var.krakend_gateway.core_client_id &&
+      lookup(var.siem_host.core_environment, "QAPAQ_INGESTION_SOURCE", "wazuh") == "wazuh"
+    )
+    error_message = "KrakenD requiere siem_host, QAPAQ_ENTRA_CLIENT_SECRET en Key Vault y core_client_id coincidente con QAPAQ_ENTRA_CLIENT_ID; la ingesta debe usar la fuente wazuh."
+  }
+}
+
+variable "ankay_host" {
+  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR, Compose sin secretos y referencias a secretos precreados en Key Vault; comparte el firewall Azure del SIEM."
+  type = object({
+    private_ip_address      = string
+    admin_ssh_public_key    = string
+    vm_size                 = string
+    ubuntu_image_version    = string
+    data_disk_size_gb       = optional(number, 128)
+    container_images        = map(string)
+    compose_yaml            = string
+    compose_sha256          = string
+    secret_names            = map(string)
+    docker_package_versions = map(string)
   })
   default  = null
   nullable = true
@@ -188,6 +263,23 @@ variable "ankay_host" {
   validation {
     condition     = var.ankay_host == null || var.siem_host != null
     error_message = "Ankay Qapaq requiere que siem_host esté configurado para compartir el edge y callback protegido de QAPAQ."
+  }
+
+  validation {
+    condition = var.ankay_host == null || (
+      length(var.ankay_host.secret_names) >= 1 &&
+      alltrue([for key, value in var.ankay_host.secret_names : can(regex("^[A-Z][A-Z0-9_]{0,127}$", key)) && can(regex("^[A-Za-z0-9-]{1,127}$", value))])
+    )
+    error_message = "ankay_host.secret_names debe mapear variables de entorno a nombres existentes de Key Vault; nunca incluyas valores secretos."
+  }
+
+  validation {
+    condition = var.ankay_host == null || (
+      length(var.ankay_host.docker_package_versions) == 6 &&
+      alltrue([for key in ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin", "azure-cli"] : contains(keys(var.ankay_host.docker_package_versions), key)]) &&
+      alltrue([for value in values(var.ankay_host.docker_package_versions) : can(regex("^[A-Za-z0-9:.+~_-]{1,80}$", value))])
+    )
+    error_message = "ankay_host.docker_package_versions debe fijar las seis versiones apt de Docker y Azure CLI."
   }
 }
 

@@ -57,6 +57,12 @@ jobs:
       - name: Verify SIEM bootstrap suppresses installer output
         run: python3 infra/azure/modules/siem_host/test_bootstrap_siem.py
 
+      - name: Verify private Indexer read proxy and secret metadata preflight
+        run: |
+          python3 infra/azure/modules/siem_host/test_indexer_read_proxy.py
+          python3 .github/ci/test_verify_eus2_indexer_secret_metadata.py
+          python3 .github/ci/test_eus2_key_vault_seed.py
+
       - name: Verify SIEM and Ankay disk formatting fails closed
         run: python3 infra/azure/modules/ankay_host/test_prepare_data_disk.py
 
@@ -74,6 +80,15 @@ jobs:
 
       - name: Validate configuration
         run: terraform -chdir=infra/azure validate -no-color
+
+      - name: Initialize the isolated EUS2 Key Vault seeder identity module
+        run: terraform -chdir=infra/azure/modules/key_vault_seed_identity init -backend=false -input=false -no-color
+
+      - name: Validate the EUS2 Key Vault seeder identity module
+        run: terraform -chdir=infra/azure/modules/key_vault_seed_identity validate -no-color
+
+      - name: Test EUS2 seeder OIDC, scopes and least privilege
+        run: terraform -chdir=infra/azure/modules/key_vault_seed_identity test -no-color
 
       - name: Initialize the managed egress firewall module without cloud credentials
         run: terraform -chdir=infra/azure/modules/egress_firewall init -backend=false -input=false -no-color
@@ -101,3 +116,12 @@ jobs:
 
       - name: Validate the Ankay host module
         run: terraform -chdir=infra/azure/modules/ankay_host validate -no-color
+
+      - name: Initialize private KrakenD gateway module without cloud credentials
+        run: terraform -chdir=infra/azure/modules/krakend_gateway init -backend=false -input=false -no-color
+
+      - name: Validate the private KrakenD gateway module
+        run: terraform -chdir=infra/azure/modules/krakend_gateway validate -no-color
+
+      - name: Test private KrakenD network, ingress and secret-reference contract
+        run: terraform -chdir=infra/azure/modules/krakend_gateway test -no-color

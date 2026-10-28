@@ -72,6 +72,7 @@ class ProviderIngestionValidationTests(unittest.TestCase):
             "artifact_sha256": "a" * 64,
             "artifact_url": "https://releases.blob.core.windows.net/private/bundle.tar.gz",
             "identity_client_id": "managed-identity-client-id",
+            "key_vault_uri": "https://kv-qapaq-test.vault.azure.net/",
             "office365": {
                 "tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
                 "client_id": "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998",
@@ -82,8 +83,108 @@ class ProviderIngestionValidationTests(unittest.TestCase):
                 "office365-client-secret": "office365-secret",
                 "wazuh-install-files.tar.b64": "wazuh-install-files-tar-b64",
             },
+            "core_secret_names": {
+                "QAPAQ_ENTRA_CLIENT_SECRET": "entra-client-secret",
+            },
             "data_disk_size_gb": 128,
         }
+
+    def _load_config(self, config: dict) -> dict:
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                return BOOTSTRAP.load_config()
+
+    def _assert_config_rejected(self, config: dict, expected_message: str) -> None:
+        captured_output = io.StringIO()
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "bootstrap.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with patch.object(BOOTSTRAP, "CONFIG_PATH", path):
+                with contextlib.redirect_stdout(captured_output):
+                    with self.assertRaises(SystemExit):
+                        BOOTSTRAP.load_config()
+        self.assertIn(expected_message, captured_output.getvalue())
+
+    def test_accepts_postgres_with_matching_secret_names_and_references(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {
+            "QAPAQ_SOC_PERSISTENCE": "postgres",
+            "QAPAQ_POSTGRES_PASSWORD_REF": "secret://keyvault/qapaq-postgres-password",
+            "QAPAQ_ENTITY_REF_KEY_REF": "secret://keyvault/qapaq-entity-ref-key",
+        }
+        config["core_secret_names"].update({
+            "QAPAQ_POSTGRES_PASSWORD": "qapaq-postgres-password",
+            "QAPAQ_ENTITY_REF_KEY": "qapaq-entity-ref-key",
+        })
+
+        loaded = self._load_config(config)
+
+        self.assertEqual(loaded["core_environment"]["QAPAQ_SOC_PERSISTENCE"], "postgres")
+
+    def test_rejects_postgres_without_password_secret_mapping(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {"QAPAQ_SOC_PERSISTENCE": "postgres"}
+        config["core_secret_names"]["QAPAQ_ENTITY_REF_KEY"] = "qapaq-entity-ref-key"
+
+        self._assert_config_rejected(config, "persistencia PostgreSQL requiere referencias Key Vault")
+
+    def test_rejects_postgres_without_entity_reference_key_mapping(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {"QAPAQ_SOC_PERSISTENCE": "postgres"}
+        config["core_secret_names"]["QAPAQ_POSTGRES_PASSWORD"] = "qapaq-postgres-password"
+
+        self._assert_config_rejected(config, "persistencia PostgreSQL requiere referencias Key Vault")
+
+    def test_rejects_core_reference_that_does_not_match_secret_mapping(self) -> None:
+        config = self._base_config()
+        config["core_environment"] = {
+            "QAPAQ_POSTGRES_PASSWORD_REF": "secret://keyvault/unmapped-password",
+        }
+        config["core_secret_names"]["QAPAQ_POSTGRES_PASSWORD"] = "qapaq-postgres-password"
+        config["core_secret_names"]["QAPAQ_ENTITY_REF_KEY"] = "qapaq-entity-ref-key"
+
+        self._assert_config_rejected(config, "la referencia Core no coincide")
+
+    def test_rejects_plaintext_entity_key_and_teams_url_in_bootstrap_config(self) -> None:
+        secret_values = (
+            ("QAPAQ_ENTITY_REF_KEY", "synthetic-entity-key-must-not-enter-bootstrap", "qapaq-entity-ref-key"),
+            (
+                "QAPAQ_TEAMS_WORKFLOW_URL",
+                "https://example.invalid/workflows/demo?sig=synthetic",
+                "qapaq-teams-workflow-url",
+            ),
+        )
+        for key, value, secret_name in secret_values:
+            with self.subTest(key=key):
+                config = self._base_config()
+                config["core_environment"] = {key: value}
+                config["core_secret_names"][key] = secret_name
+                self._assert_config_rejected(
+                    config,
+                    "core_environment solo admite variables no secretas allowlisted",
+                )
+
+    def test_rejects_plaintext_secret_before_bootstrap_key_vault_access(self) -> None:
+        secret_values = (
+            ("QAPAQ_ENTITY_REF_KEY", "synthetic-entity-key-must-not-enter-bootstrap", "qapaq-entity-ref-key"),
+            (
+                "QAPAQ_TEAMS_WORKFLOW_URL",
+                "https://example.invalid/workflows/demo?sig=synthetic",
+                "qapaq-teams-workflow-url",
+            ),
+        )
+        for key, value, secret_name in secret_values:
+            with self.subTest(key=key):
+                config = self._base_config()
+                config["core_environment"] = {key: value}
+                config["core_secret_names"][key] = secret_name
+                with patch.object(BOOTSTRAP, "get_token") as get_token:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        with self.assertRaises(SystemExit):
+                            BOOTSTRAP.materialize_secrets(config)
+                get_token.assert_not_called()
 
     def test_accepts_provider_references_without_secret_values(self) -> None:
         config = self._base_config()
@@ -130,6 +231,39 @@ class ProviderIngestionValidationTests(unittest.TestCase):
                     with self.assertRaises(SystemExit):
                         BOOTSTRAP.load_config()
             self.assertIn("wazuh-install-files.tar.b64", captured_output.getvalue())
+
+    def test_materializes_optional_teams_reference_only_as_root_only_file(self) -> None:
+        config = self._base_config()
+        config["wazuh_secret_names"]["qapaq-teams-workflow-url"] = "teams-workflow"
+        config["core_secret_names"]["QAPAQ_TEAMS_WORKFLOW_URL"] = "core-teams-workflow"
+        expected_url = "https://prod-01.westus.logic.azure.com/workflows/synthetic?sig=not-real"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            with patch.object(BOOTSTRAP, "WAZUH_SECRET_DIR", root / "secrets"):
+                with patch.object(BOOTSTRAP, "CORE_ENV_PATH", root / "core" / "core.env"):
+                    with patch.object(BOOTSTRAP, "get_token", return_value="synthetic-token"):
+                        with patch.object(BOOTSTRAP, "key_vault_get", return_value=expected_url) as get_secret:
+                            with patch.object(BOOTSTRAP.pwd, "getpwnam", return_value=SimpleNamespace(pw_gid=1000), create=True):
+                                with patch.object(BOOTSTRAP.os, "chown", create=True):
+                                    with patch.object(BOOTSTRAP.os, "O_NOFOLLOW", 0, create=True):
+                                        BOOTSTRAP.materialize_secrets(config)
+
+            secret_file = root / "secrets" / "qapaq-teams-workflow-url"
+            self.assertEqual(secret_file.read_text(encoding="utf-8"), expected_url)
+            core_environment = (root / "core" / "core.env").read_text(encoding="utf-8")
+            self.assertIn('QAPAQ_ENTRA_CLIENT_SECRET_REF="secret://keyvault/entra-client-secret"', core_environment)
+            self.assertIn('QAPAQ_TEAMS_WORKFLOW_URL_REF="secret://keyvault/core-teams-workflow"', core_environment)
+            self.assertIn('QAPAQ_SECRET_PROVIDER_TYPE="azure-key-vault"', core_environment)
+            self.assertIn('QAPAQ_SECRET_PROVIDER_ENDPOINT="https://kv-qapaq-test.vault.azure.net"', core_environment)
+            self.assertIn('AZURE_CLIENT_ID="managed-identity-client-id"', core_environment)
+            self.assertNotIn("QAPAQ_ENTRA_CLIENT_SECRET=", core_environment)
+            self.assertNotIn(expected_url, core_environment)
+            fetched_names = {call.args[2] for call in get_secret.call_args_list}
+            self.assertNotIn("entra-client-secret", fetched_names)
+            self.assertNotIn("core-teams-workflow", fetched_names)
+            self.assertEqual(fetched_names, {"office365-secret", "wazuh-install-files-tar-b64", "teams-workflow"})
+            if BOOTSTRAP.os.name != "nt":
+                self.assertEqual(secret_file.stat().st_mode & 0o777, 0o600)
 
 
 class InstallerIdempotencyTests(unittest.TestCase):

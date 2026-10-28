@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Install as root:root mode 0750. Invoke once before Compose startup and from a
+# root-owned systemd timer every 45 minutes. Microsoft Entra ACR tokens issued by
+# `az acr login` expire after 3 hours; 45 minutes refreshes them well before expiry
+# and also supports Orborus worker pulls long after the initial boot.
+set -Eeuo pipefail
+umask 077
+
+readonly REGISTRY_LOGIN_SERVER="${registry_login_server}"
+readonly REGISTRY_NAME="${registry_name}"
+readonly IDENTITY_CLIENT_ID="${identity_client_id}"
+readonly DOCKER_CONFIG_DIR="/root/.docker"
+
+if [[ "$EUID" -ne 0 ]]; then
+  printf '%s\n' 'ankay-acr-login: must run as root' >&2
+  exit 1
+fi
+
+install -d -o root -g root -m 0700 "$DOCKER_CONFIG_DIR"
+exec 9>/run/ankay-acr-login.lock
+flock -x 9
+
+if ! az login --identity --client-id "$IDENTITY_CLIENT_ID" --allow-no-subscriptions --output none >/dev/null 2>&1; then
+  printf '%s\n' 'ankay-acr-login: managed-identity authentication failed' >&2
+  exit 1
+fi
+
+# Keep the short-lived token in a pipe; never place it in argv, a file, or logs.
+if ! az acr login --name "$REGISTRY_NAME" --expose-token --query accessToken --output tsv 2>/dev/null |
+  docker login "$REGISTRY_LOGIN_SERVER" \
+    --username 00000000-0000-0000-0000-000000000000 --password-stdin >/dev/null 2>&1; then
+  printf '%s\n' 'ankay-acr-login: registry authentication failed' >&2
+  exit 1
+fi
+
+printf '%s\n' 'ankay-acr-login: refreshed managed-identity registry session'

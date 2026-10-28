@@ -19,6 +19,11 @@ workflow principal hasta revisar este código, el plan y los roles.
 - User-assigned managed identity federada únicamente con el subject inmutable
   `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`
   y audiencia `api://AzureADTokenExchange`.
+- De forma opcional, se puede añadir una segunda credencial federada a esa misma
+  identidad para otro GitHub Environment. La credencial original conserva su
+  dirección Terraform, nombre y subject. Para el despliegue separado de EUS,
+  usa `azure-demo-eus` como entorno adicional y conserva `azure-demo` como el
+  entorno principal.
 - `Contributor` y `Role Based Access Control Administrator` sobre el grupo
   destino QAPAQ. Esto permite a la identidad administrar recursos de ese grupo;
   una condición ABAC limita la delegación a `AcrPull`, `AcrPush`, `Key Vault
@@ -38,6 +43,29 @@ elevar el scope como atajo: revisar el permiso faltante con el administrador del
 tenant.
 
 ## Aplicación manual revisable
+
+### Añadir el Environment `azure-demo-eus` a la identidad existente
+
+Ejecuta este plan desde el mismo root y con el mismo state de bootstrap que ya
+gestiona la identidad y la credencial `azure-demo`. No cambies `environment`,
+el backend ni `github_environment`: el único cambio esperado es añadir una FIC
+para `azure-demo-eus` a esa identidad. La credencial principal seguirá usando
+el subject `repo:CyberStill-GmbH@220633794/qapaq-secops@1374673243:environment:azure-demo`.
+
+```bash
+export TF_VAR_github_environment="azure-demo"
+export TF_VAR_github_additional_environment="azure-demo-eus"
+terraform plan -input=false -out=bootstrap-eus-federation.tfplan
+terraform show -no-color bootstrap-eus-federation.tfplan
+```
+
+El plan esperado es una única creación de
+`azurerm_federated_identity_credential.github_terraform_additional[0]`, con
+cero cambios/destrucciones a la identidad y a la FIC existente. Si el plan
+propone reemplazar o destruir `azurerm_federated_identity_credential.github_terraform`,
+no lo apliques. Para volver a la configuración sin la FIC adicional, deja la
+variable sin definir o asígnale `null` y revisa que el state y el destino sean
+los previstos antes de cualquier operación.
 
 En Azure Cloud Shell (Bash), autenticado en la suscripción destino:
 

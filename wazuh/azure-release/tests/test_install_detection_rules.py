@@ -32,6 +32,7 @@ class InstallDetectionRulesTests(unittest.TestCase):
         self.bundle_wazuh = pathlib.Path(self.temp.name) / "bundle/wazuh"
         (self.bundle_wazuh / "launch-detections/rules").mkdir(parents=True)
         (self.bundle_wazuh / "endpoint/rules").mkdir(parents=True)
+        (self.bundle_wazuh / "active-directory/rules").mkdir(parents=True)
         shutil.copyfile(
             repo_root / "infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
             self.bundle_wazuh / "launch-detections/rules/qapaq_launch_provider_rules.xml",
@@ -39,6 +40,10 @@ class InstallDetectionRulesTests(unittest.TestCase):
         shutil.copyfile(
             repo_root / "infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
             self.bundle_wazuh / "endpoint/rules/qapaq_endpoint_rules.xml",
+        )
+        shutil.copyfile(
+            repo_root / "infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
+            self.bundle_wazuh / "active-directory/rules/qapaq_active_directory_rules.xml",
         )
 
     def tearDown(self) -> None:
@@ -53,6 +58,7 @@ class InstallDetectionRulesTests(unittest.TestCase):
         self.assertIn("<rule_dir>etc/rules</rule_dir>", self.conf.read_text(encoding="utf-8"))
         self.assertTrue((self.root / "etc/rules/qapaq_launch_provider_rules.xml").is_file())
         self.assertTrue((self.root / "etc/rules/qapaq_endpoint_rules.xml").is_file())
+        self.assertTrue((self.root / "etc/rules/qapaq_active_directory_rules.xml").is_file())
         self.assertEqual(run.call_count, 2)
         self.assertEqual(run.call_args_list[0].args[0][-1], "-t")
         self.assertEqual(run.call_args_list[1].args[0], ["systemctl", "restart", "wazuh-manager"])
@@ -80,6 +86,7 @@ class InstallDetectionRulesTests(unittest.TestCase):
         self.assertEqual(self.conf.read_bytes(), original_conf)
         self.assertEqual(target.read_text(encoding="utf-8"), "previous endpoint rules\n")
         self.assertFalse((self.root / "etc/rules/qapaq_launch_provider_rules.xml").exists())
+        self.assertFalse((self.root / "etc/rules/qapaq_active_directory_rules.xml").exists())
 
 
 if __name__ == "__main__":
