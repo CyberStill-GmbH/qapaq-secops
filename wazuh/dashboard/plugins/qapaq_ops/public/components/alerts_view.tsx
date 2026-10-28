@@ -45,6 +45,12 @@ import {
   VERDICT_LABEL,
 } from '../../common';
 import { QapaqApiError } from '../api/client';
+import {
+  AssistantLauncher,
+  AssistantPanel,
+  AssistantSession,
+  useAssistantSession,
+} from './assistant_panel';
 import { QapaqPage, useChanges, useConsole } from './console_context';
 import {
   DataZone,
@@ -93,6 +99,8 @@ export function AlertsView({
   initialPriority?: string | null;
 }) {
   const { api } = useConsole();
+  // Qapaqzito: la conversación vive en la vista, así sobrevive a cerrar el panel o cambiar de alerta.
+  const assistant = useAssistantSession();
   const [status, setStatus] = useState<StatusFilter>('open');
   const [priority, setPriority] = useState<Priority | ''>(
     isPriority(initialPriority) ? initialPriority : '',
@@ -193,6 +201,7 @@ export function AlertsView({
     <QapaqPage
       title="Cola de alertas"
       description="Cola priorizada por QAPAQ (P1–P4) a partir de las detecciones del SIEM y de Microsoft 365."
+      actions={<AssistantLauncher session={assistant} label="Preguntar a Qapaqzito" />}
     >
       <EuiTabs size="s" className="qapaqTabs">
         {STATUS_TABS.map((tab) => (
@@ -271,6 +280,7 @@ export function AlertsView({
         <AlertFlyout
           alertId={selectedId}
           basePath={basePath}
+          assistant={assistant}
           onClose={() => onSelect(null)}
           onChanged={(updated) =>
             setItems((current) =>
@@ -279,6 +289,7 @@ export function AlertsView({
           }
         />
       )}
+      <AssistantPanel session={assistant} />
     </QapaqPage>
   );
 }
@@ -286,11 +297,13 @@ export function AlertsView({
 function AlertFlyout({
   alertId,
   basePath,
+  assistant,
   onClose,
   onChanged,
 }: {
   alertId: string;
   basePath: string;
+  assistant: AssistantSession;
   onClose: () => void;
   onChanged: (alert: Alert) => void;
 }) {
@@ -365,6 +378,16 @@ function AlertFlyout({
               <span className="qapaqTabular">{alert.score}</span>
             </p>
           </EuiText>
+        )}
+        {alert && (
+          <>
+            <EuiSpacer size="s" />
+            <AssistantLauncher
+              session={assistant}
+              alertId={alert.id}
+              label="Preguntar a Qapaqzito sobre esta alerta"
+            />
+          </>
         )}
       </EuiFlyoutHeader>
       <EuiFlyoutBody>

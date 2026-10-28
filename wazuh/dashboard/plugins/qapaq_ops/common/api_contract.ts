@@ -421,6 +421,7 @@ export const API_ERROR_CODES = [
   'STATE_CONFLICT',
   'VALIDATION_FAILED',
   'DEPENDENCY_DEGRADED',
+  'FEATURE_NOT_CONFIGURED',
   'INTERNAL_ERROR',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
@@ -458,4 +459,33 @@ export const CAPABILITIES = {
   notificationsRead: 'notifications.read',
   observabilitySoc: 'observability.read_soc',
   observabilityPlatform: 'observability.read_platform',
+  assistantUse: 'assistant.use',
 } as const;
+
+/**
+ * Asistente Qapaqzito (`apps/api/src/soc/assistant.controller.ts`). El backend seudonimiza todo lo
+ * que envía al modelo y re-resuelve la respuesta: `reply.text` ya trae las entidades en claro.
+ * El historial vive en el servidor; la consola solo envía el mensaje nuevo y `conversationId`.
+ */
+export interface AssistantStatus {
+  readonly name: string;
+  readonly configured: boolean;
+  readonly model: string | null;
+  readonly limits: { readonly messageMaxLength: number; readonly maxTurns: number };
+  readonly correlationId: string;
+}
+
+export interface AssistantMessageRequest {
+  readonly conversationId?: string;
+  readonly message: string;
+  readonly context?: { readonly alertId?: string; readonly incidentId?: string };
+}
+
+export interface AssistantMessageResponse {
+  readonly conversationId: string;
+  readonly reply: { readonly text: string; readonly truncated: boolean; readonly declined: boolean };
+  readonly model: string;
+  readonly toolsUsed: readonly string[];
+  readonly usage: { readonly inputTokens: number; readonly outputTokens: number };
+  readonly correlationId: string;
+}
