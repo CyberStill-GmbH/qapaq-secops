@@ -353,3 +353,58 @@ run "rejects_non_private_krakend_source_cidr" {
 
   expect_failures = [var.krakend_source_cidrs]
 }
+
+# Contrato EUS2 documentado en docs/cloud/azure/eus2-siem-profile-readiness.md: el perfil
+# completo para QAPAQ_SOC_PERSISTENCE=postgres debe pasar sin valores secretos.
+run "accepts_documented_eus2_postgres_core_contract" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_PROFILE                     = "production"
+      QAPAQ_API_HOST                    = "127.0.0.1"
+      QAPAQ_API_PORT                    = "3000"
+      QAPAQ_ENTRA_TENANT_ID             = "00000000-0000-0000-0000-000000000001"
+      QAPAQ_ENTRA_CLIENT_ID             = "00000000-0000-0000-0000-000000000003"
+      QAPAQ_ENTRA_REDIRECT_URI          = "https://soc.example.invalid/auth/callback"
+      QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS = "https://soc.example.invalid/auth/callback"
+      QAPAQ_ENTRA_CLIENT_SECRET_REF     = "secret://keyvault/qapaq-entra-client-secret"
+      QAPAQ_SOC_PERSISTENCE             = "postgres"
+      QAPAQ_POSTGRES_HOST               = "psql-qapaq-test.postgres.database.azure.com"
+      QAPAQ_POSTGRES_DATABASE           = "qapaq_secops"
+      QAPAQ_POSTGRES_USERNAME           = "qapaq_soc_runtime"
+      QAPAQ_POSTGRES_TLS                = "true"
+      QAPAQ_POSTGRES_PASSWORD_REF       = "secret://keyvault/qapaq-postgres-app-password"
+      QAPAQ_ENTITY_REF_KEY_REF          = "secret://keyvault/qapaq-entity-ref-key"
+      QAPAQ_SECRET_PROVIDER_TYPE        = "azure-key-vault"
+      QAPAQ_SECRET_PROVIDER_ENDPOINT    = "https://kv-qapaq-test.vault.azure.net"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "qapaq-entra-client-secret"
+      QAPAQ_POSTGRES_PASSWORD   = "qapaq-postgres-app-password"
+      QAPAQ_ENTITY_REF_KEY      = "qapaq-entity-ref-key"
+    }
+  }
+
+  assert {
+    condition     = contains(keys(azurerm_role_assignment.key_vault_secret_read), "qapaq-postgres-app-password")
+    error_message = "La identidad del SIEM debe leer exactamente el secreto del rol de aplicación PostgreSQL."
+  }
+}
+
+# El bootstrap-siem.py de la VM ya creada solo admite cinco referencias; aceptar otras en
+# Terraform haría fallar la extensión en el host sin poder reemplazar la VM.
+run "rejects_references_the_deployed_host_bootstrap_cannot_write" {
+  command = plan
+
+  variables {
+    core_environment = {
+      QAPAQ_ANTHROPIC_API_KEY_REF = "secret://keyvault/qapaq-anthropic-api-key"
+    }
+    core_secret_names = {
+      QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret"
+    }
+  }
+
+  expect_failures = [var.core_environment]
+}
