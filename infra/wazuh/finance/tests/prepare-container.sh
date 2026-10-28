@@ -87,7 +87,10 @@ if ! docker exec "${container}" /var/ossec/bin/wazuh-control restart; then
   echo 'wazuh-control restart devolvió error; se verifica analysisd a continuación.'
 fi
 for _ in $(seq 1 60); do
-  if docker exec "${container}" /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
+  # `status` sale con error si hay demonios opcionales detenidos (maild, clusterd);
+  # con pipefail eso haría fallar la tubería aunque analysisd esté en ejecución.
+  status="$(docker exec "${container}" /var/ossec/bin/wazuh-control status 2>/dev/null || true)"
+  if grep -q 'wazuh-analysisd is running' <<<"${status}"; then
     MSYS_NO_PATHCONV=1 docker exec "${container}" /var/ossec/bin/wazuh-analysisd -t
     echo "Manager listo con hora local ${local_hour}:xx."
     exit 0
