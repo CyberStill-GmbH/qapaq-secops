@@ -35,7 +35,7 @@ docs_dir = root / "docs/security/ankay-playbooks/finance"
 RANGE = range(101400, 101450)
 
 # Reglas oficiales de Wazuh 4.14 de las que cuelgan las financieras.
-OFFICIAL_PARENTS = {"91532", "60106"}
+OFFICIAL_PARENTS = {"91532", "91537", "60106", "60118", "60119", "92651", "92652", "92653"}
 OFFICIAL_GROUPS = {"sysmon_event1"}
 
 errors: list[str] = []

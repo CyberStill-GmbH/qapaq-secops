@@ -165,11 +165,12 @@
 
   <!--
     Marca de descarga o sincronización desde SharePoint/OneDrive. Nivel 3: una descarga
-    no es alerta; sirve de base para las reglas de volumen. Cuelga de 91532 como las
-    demás reglas QAPAQ de Office 365.
+    no es alerta; sirve de base para las reglas de volumen. Cuelga también de 91537
+    (RecordType 6, SharePointFileOperation): la oficial gana a igual nivel y sin ella la
+    marca nunca se evalúa (comprobado con wazuh-logtest 4.14.8).
   -->
   <rule id="101415" level="3">
-    <if_sid>91532</if_sid>
+    <if_sid>91532, 91537</if_sid>
     <field name="office365.Operation" type="pcre2">^(FileDownloaded|FileSyncDownloadedFull|FileCopied)$</field>
     <field name="office365.Workload" type="pcre2">^(SharePoint|OneDrive)$</field>
     <description>QAPAQ finanzas: $(office365.UserId) descargó $(office365.ObjectId).</description>
@@ -314,10 +315,13 @@
 
   <!--
     Inicio de sesión exitoso (4624) de una cuenta break-glass de AD. La lista contiene
-    sAMAccountName exactos tal como los registra el DC.
+    sAMAccountName exactos tal como los registra el DC. El ruleset oficial reparte el 4624
+    entre 60106 y sus hijas (60118 interactivo, 60119 primera vez, 92651-92653 remoto, RDP
+    y NTLM); la regla cuelga de todas para no perder el inicio por RDP (comprobado con
+    wazuh-logtest 4.14.8).
   -->
   <rule id="101428" level="14">
-    <if_sid>60106</if_sid>
+    <if_sid>60106, 60118, 60119, 92651, 92652, 92653</if_sid>
     <field name="win.system.eventID">^4624$</field>
     <list field="win.eventdata.targetUserName" lookup="match_key">etc/lists/qapaq-break-glass-ad</list>
     <description>QAPAQ finanzas: inicio de sesión de la cuenta de emergencia de AD $(win.eventdata.targetUserName) en $(win.system.computer).</description>
@@ -358,9 +362,12 @@
     </mitre>
   </rule>
 
-  <!-- Detección de ransomware de Sophos (CryptoGuard o firma de ransomware) aún activa. -->
+  <!--
+    Detección de ransomware de Sophos (CryptoGuard o firma de ransomware). Cuelga también
+    de 101201 (amenaza alta/crítica activa), que la gana cuando la severidad es alta.
+  -->
   <rule id="101432" level="15">
-    <if_sid>101200</if_sid>
+    <if_sid>101200, 101201</if_sid>
     <field name="qapaq_vendor">sophos</field>
     <field name="qapaq_event_type">threat_detected</field>
     <field name="qapaq_threat_name" type="pcre2">(?i)(ransom|cryptoguard|wipeguard|crypto-?locker)</field>
@@ -433,10 +440,11 @@
 
   <!--
     Acceso a un sitio de SharePoint clasificado como sensible (créditos, cobranzas, RR. HH.,
-    PLAFT). Marca de nivel 3; la lista contiene la SiteUrl exacta sin barra final.
+    PLAFT). Marca de nivel 3; la lista contiene la SiteUrl exacta sin barra final. Cuelga
+    también de 91537 por el mismo motivo que 101415.
   -->
   <rule id="101440" level="3">
-    <if_sid>91532</if_sid>
+    <if_sid>91532, 91537</if_sid>
     <field name="office365.Operation" type="pcre2">^(FileAccessed|FileDownloaded|FilePreviewed)$</field>
     <list field="office365.SiteUrl" lookup="match_key">etc/lists/qapaq-sensitive-sites</list>
     <description>QAPAQ finanzas: $(office365.UserId) accedió al sitio sensible $(office365.SiteUrl).</description>

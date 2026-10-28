@@ -103,11 +103,21 @@ add(o365("UserLoggedIn", "pagos@qapaq-lab.example", "AzureActiveDirectory", 15,
          "198.51.100.61"), "100505")
 add(o365("Set-Mailbox", "pagos@qapaq-lab.example", Parameters=[
     {"Name": "ForwardingSmtpAddress", "Value": "smtp:proveedor@ajeno.example"}]), "101401")
-add(o365("User registered security info", "pagos@qapaq-lab.example", "AzureActiveDirectory", 8),
-    "101410")
 # Otro usuario sin fuerza bruta previa: el cambio MFA queda en 100526.
 add(o365("User registered security info", "normal@qapaq-lab.example", "AzureActiveDirectory", 8),
     "100526")
+
+session()
+# Cambio de MFA tras fuerza bruta (101410), en su propia sesión: 100503 tiene `ignore`.
+for _ in range(9):
+    add(o365("UserLoginFailed", "mfa@qapaq-lab.example", "AzureActiveDirectory", 15,
+             "198.51.100.64", ResultStatus="Failed"), "100502")
+add(o365("UserLoginFailed", "mfa@qapaq-lab.example", "AzureActiveDirectory", 15,
+         "198.51.100.64", ResultStatus="Failed"), "100503")
+add(o365("UserLoggedIn", "mfa@qapaq-lab.example", "AzureActiveDirectory", 15,
+         "198.51.100.64"), "100505")
+add(o365("User registered security info", "mfa@qapaq-lab.example", "AzureActiveDirectory", 8),
+    "101410")
 
 add(provider("erp", "vendor_bank_account_changed", "syn-erp-001", qapaq_vendor_ref="vendor-ref-0001",
              qapaq_user_id="compras@qapaq-lab.example", qapaq_change_status="approved"), "101402")
