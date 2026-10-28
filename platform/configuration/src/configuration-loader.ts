@@ -200,6 +200,46 @@ export function loadVapidPrivateKey(environment: EnvironmentInput): SecretValue 
   return new SecretValue(value);
 }
 
+/** Modelo del asistente cuando el despliegue no declara `QAPAQ_ASSISTANT_MODEL`. */
+export const DEFAULT_ASSISTANT_MODEL = 'claude-sonnet-5-5';
+
+/**
+ * Id de modelo de Anthropic tal como lo publica la API (`claude-…`): sin espacios ni rutas, para
+ * que un valor mal pegado falle al arrancar y no en la primera conversación.
+ */
+const ASSISTANT_MODEL_PATTERN = /^claude-[a-z0-9][a-z0-9.-]{1,62}$/u;
+/**
+ * Forma de una API key de Anthropic: una sola línea, sin espacios. No se fija el prefijo para no
+ * romper el arranque si el proveedor cambia el formato; sí se rechaza lo que claramente no es una
+ * clave (un JSON, una URL o un valor con saltos de línea pegado en el secreto equivocado).
+ */
+const ANTHROPIC_API_KEY_PATTERN = /^[A-Za-z0-9_-]{20,256}$/u;
+
+export interface AssistantConfig {
+  /** `undefined` = asistente sin configurar: el endpoint responde `FEATURE_NOT_CONFIGURED`. */
+  readonly apiKey: SecretValue | undefined;
+  readonly model: string;
+}
+
+/**
+ * Asistente Claude embebido. La API key llega resuelta desde Key Vault (`QAPAQ_ANTHROPIC_API_KEY_REF`)
+ * o, en desarrollo, del entorno. Es opcional: sin ella el resto del API arranca igual y el endpoint
+ * del asistente responde un error del catálogo. Presente pero malformada, falla al arrancar.
+ */
+export function loadAssistantConfig(environment: EnvironmentInput): AssistantConfig {
+  const profile = profileFrom(environment);
+  const model = environment['QAPAQ_ASSISTANT_MODEL'] || DEFAULT_ASSISTANT_MODEL;
+  if (!ASSISTANT_MODEL_PATTERN.test(model)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ASSISTANT_MODEL', profile.name);
+  }
+  const value = environment['QAPAQ_ANTHROPIC_API_KEY'];
+  if (value === undefined || value === '') return deepFreeze({ apiKey: undefined, model });
+  if (!ANTHROPIC_API_KEY_PATTERN.test(value)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ANTHROPIC_API_KEY', profile.name);
+  }
+  return { apiKey: new SecretValue(value), model };
+}
+
 /** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */
 export function loadWorkerEntrypointConfig(environment: EnvironmentInput) {
   return deepFreeze({ profile: profileFrom(environment).name });

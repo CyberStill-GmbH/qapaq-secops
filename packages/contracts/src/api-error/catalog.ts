@@ -27,6 +27,7 @@ export const API_ERROR_CODES = [
   'STATE_CONFLICT',
   'VALIDATION_FAILED',
   'DEPENDENCY_DEGRADED',
+  'FEATURE_NOT_CONFIGURED',
   'INTERNAL_ERROR',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
@@ -156,6 +157,16 @@ export const API_ERROR_CATALOG: Readonly<Record<ApiErrorCode, ApiErrorDefinition
     action: 'retry_later',
     helpRef: `${HELP_BASE}#dependency-degraded`,
     retriable: true,
+  },
+  // Función opcional sin su configuración en este despliegue (p. ej. el asistente sin API key).
+  // No es una caída: reintentar no cambia nada hasta que operación la configure.
+  FEATURE_NOT_CONFIGURED: {
+    code: 'FEATURE_NOT_CONFIGURED',
+    httpStatus: 503,
+    publicMessage: 'Esta función no está habilitada en este despliegue.',
+    action: 'contact_support',
+    helpRef: `${HELP_BASE}#feature-not-configured`,
+    retriable: false,
   },
   INTERNAL_ERROR: {
     code: 'INTERNAL_ERROR',

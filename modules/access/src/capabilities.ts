@@ -53,6 +53,12 @@ export const CAPABILITIES = [
   'audit.read_sensitive',
   'audit.verify',
   'secrets.write',
+  /**
+   * Conversar con el asistente Claude embebido. Sus herramientas son de solo lectura y cada una
+   * vuelve a exigir la capability de lo que lee (`alerts.read`, `incidents.read`): esta solo
+   * habilita enviar la conversación, seudonimizada, a un proveedor externo.
+   */
+  'assistant.use',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
@@ -86,6 +92,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.tasks.write',
     'incidents.notes.write',
     'notifications.read',
+    'assistant.use',
   ],
   'qapaq.soc.lead': [
     'events.read',
@@ -139,6 +146,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'audit.read_sensitive',
     'audit.verify',
     'secrets.write',
+    'assistant.use',
   ],
   // Aprobadores de cambios de rol. No son asignables desde la consola ni por `QAPAQ_ROLE_BINDINGS`:
   // solo los reciben los OID declarados en `QAPAQ_ACCESS_APPROVER_OIDS` y
@@ -176,6 +184,9 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'roles.request',
     'roles.approve',
     'roles.approve.privileged',
+    // Enviar datos (seudonimizados) a un tercero es un efecto externo, como el despacho a Teams:
+    // un cliente que solo pidió lectura no lo ejerce aunque el rol lo tenga.
+    'assistant.use',
   ],
   'audit.read': ['audit.read', 'audit.read_sensitive', 'audit.verify'],
 });

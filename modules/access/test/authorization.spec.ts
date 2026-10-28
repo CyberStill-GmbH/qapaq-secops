@@ -42,6 +42,20 @@ describe('C-18 · capabilities por rol y scope', () => {
     expect(administrator).toContain('secrets.write');
   });
 
+  it('concede el asistente solo a analista y administrador, y solo con scope de escritura', () => {
+    expect(capabilitiesForRoles(['qapaq.soc.analyst'])).toContain('assistant.use');
+    expect(capabilitiesForRoles(['qapaq.platform.admin'])).toContain('assistant.use');
+    expect(capabilitiesForRoles(['qapaq.auditor'])).not.toContain('assistant.use');
+    expect(capabilitiesForRoles(['qapaq.soc.lead'])).not.toContain('assistant.use');
+    // Enviar la conversación a un tercero es un efecto externo: `soc.read` no lo habilita.
+    expect([...effectiveCapabilities(['qapaq.soc.analyst'], ['soc.read'])]).not.toContain(
+      'assistant.use',
+    );
+    expect([...effectiveCapabilities(['qapaq.soc.analyst'], ['soc.write'])]).toContain(
+      'assistant.use',
+    );
+  });
+
   it('no concede nada ante un rol desconocido', () => {
     expect(capabilitiesForRoles(['rol.inventado']).size).toBe(0);
     expect(capabilitiesForRoles([]).size).toBe(0);

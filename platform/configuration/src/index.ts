@@ -17,12 +17,15 @@ export {
   loadTeamsWorkflowUrl,
   loadAlertMailSender,
   loadVapidPrivateKey,
+  loadAssistantConfig,
+  DEFAULT_ASSISTANT_MODEL,
   loadSocPersistenceConfig,
   loadLocalWorkerConfig,
   loadRuntimeConfig,
   loadWorkerConfig,
   loadWorkerEntrypointConfig,
 } from './configuration-loader.js';
+export type { AssistantConfig } from './configuration-loader.js';
 export type {
   ApiConfig,
   ControlPlaneSecretConfig,
