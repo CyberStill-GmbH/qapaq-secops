@@ -67,6 +67,13 @@ jobs:
           archive_ca="$(tar -xOf "$archive" "$top/certs/rds-global-bundle.pem" | sha256sum | awk '{print $1}')"
           runner_ca="$(sha256sum /etc/ssl/certs/ca-certificates.crt | awk '{print $1}')"
           [[ "$archive_ca" == "$runner_ca" ]] || { echo 'Azure core archive does not contain the runner system CA store.' >&2; exit 1; }
+          # El bootstrap PostgreSQL del host (Run Command) usa el migrator y Prisma del release.
+          members="$RUNNER_TEMP/qapaq-core-members.txt"
+          tar -tzf "$archive" > "$members"
+          grep -qx "$top/migrator/migrator/entrypoint.mjs" "$members" || { echo 'Azure core archive lacks the migrator.' >&2; exit 1; }
+          grep -q "^$top/migrator/prisma/migrations/" "$members" || { echo 'Azure core archive lacks Prisma migrations.' >&2; exit 1; }
+          grep -Eq "^$top/migrator/node_modules/prisma/?$" "$members" || { echo 'Azure core archive lacks the Prisma CLI.' >&2; exit 1; }
+          rm -f "$members"
           {
             echo '## Azure QAPAQ core build'
             echo '- Build target: system CA trust store; no AWS RDS CA download.'
