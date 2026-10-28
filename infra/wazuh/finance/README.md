@@ -143,7 +143,9 @@ Al cambiar casos, editar `tests/generate_cases.py` y ejecutar
   otra correlación de nivel igual o mayor (`lf->matched >= rule->level` en
   `Search_LastSids`, comprobado con wazuh-logtest 4.14.8). Por eso 101410 y 101416 tienen
   un nivel más que la regla que marca sus eventos. Mantener esa relación al cambiar niveles.
-- En logtest, `ignore` no suprimió 101417: dispara cada 30 descargas nuevas. Los
+- En logtest, `ignore` no suprimió 101417: dispara cada 30 descargas nuevas. Las
+  descargas que terminan en 101417 no cuentan para 101416, que de noche dispara unas
+  descargas más tarde (en el caso de prueba, en la 103). Los
   escenarios con fuerza bruta van en sesiones separadas porque 100503 consume los fallos.
 - 101418 (fin de semana) comparte umbral y nivel con 101417 y va después: un fin de semana
   de noche gana 101417. El caso de logtest no puede forzar el día de la semana.
