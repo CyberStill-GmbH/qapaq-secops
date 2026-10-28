@@ -36,7 +36,8 @@ function blobService(options: { failures?: number[]; raceOnPut?: StoredBlob } = 
     const headers = new Headers(init?.headers);
     requests.push({ method, path: url.pathname, headers });
     const failure = failures.shift();
-    if (failure !== undefined) return new Response('<Error>internal detail</Error>', { status: failure });
+    if (failure !== undefined)
+      return new Response('<Error>internal detail</Error>', { status: failure });
     const existing = blobs.get(url.pathname);
     if (method === 'HEAD') {
       if (!existing) return new Response(null, { status: 404 });
@@ -171,9 +172,7 @@ describe('AzureBlobRawStore', () => {
     await expect(store(service).putIfAbsent('raw:../../etc', bytes, sha256)).rejects.toThrow(
       /Invalid raw reference/u,
     );
-    await expect(store(service).putIfAbsent(REF, bytes, 'not-a-digest')).rejects.toThrow(
-      /digest/u,
-    );
+    await expect(store(service).putIfAbsent(REF, bytes, 'not-a-digest')).rejects.toThrow(/digest/u);
     const base = { container: 'security-event-raw', tokenSource: { getToken: async () => TOKEN } };
     for (const accountUrl of [
       'http://stqapaqevidence.blob.core.windows.net',
@@ -237,8 +236,16 @@ describe('createManagedIdentityTokenSource', () => {
     for (const [body, status, code] of [
       [{}, 500, 'TOKEN_UNAVAILABLE'],
       [{ access_token: TOKEN, expires_on: 'soon', token_type: 'Bearer' }, 200, 'TOKEN_INVALID'],
-      [{ access_token: TOKEN, expires_on: String(now / 1_000 - 1), token_type: 'Bearer' }, 200, 'TOKEN_INVALID'],
-      [{ access_token: TOKEN, expires_on: String(now / 1_000 + 60), token_type: 'MAC' }, 200, 'TOKEN_INVALID'],
+      [
+        { access_token: TOKEN, expires_on: String(now / 1_000 - 1), token_type: 'Bearer' },
+        200,
+        'TOKEN_INVALID',
+      ],
+      [
+        { access_token: TOKEN, expires_on: String(now / 1_000 + 60), token_type: 'MAC' },
+        200,
+        'TOKEN_INVALID',
+      ],
     ] as const) {
       const source = createManagedIdentityTokenSource({
         clientId,
@@ -251,7 +258,10 @@ describe('createManagedIdentityTokenSource', () => {
       expect(error).toMatchObject({ code });
     }
     expect(() =>
-      createManagedIdentityTokenSource({ clientId: 'not-a-guid', resource: AZURE_BLOB_TOKEN_RESOURCE }),
+      createManagedIdentityTokenSource({
+        clientId: 'not-a-guid',
+        resource: AZURE_BLOB_TOKEN_RESOURCE,
+      }),
     ).toThrow(/GUID/u);
   });
 });

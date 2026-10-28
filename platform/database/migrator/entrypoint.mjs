@@ -233,7 +233,10 @@ async function migrate(password = required('QAPAQ_MIGRATOR_PASSWORD')) {
  * AWS ni guarda la contraseña de `qapaq_migrator` (ver `azure-bootstrap.mjs`).
  */
 async function azureBootstrap() {
-  const masterUrl = connectionUrl(required('QAPAQ_MASTER_USERNAME'), required('QAPAQ_MASTER_PASSWORD'));
+  const masterUrl = connectionUrl(
+    required('QAPAQ_MASTER_USERNAME'),
+    required('QAPAQ_MASTER_PASSWORD'),
+  );
   const sql = await readFile(new URL('../bootstrap/roles.sql', import.meta.url), 'utf8');
   await runAzureBootstrap({
     runtimePassword: required('QAPAQ_RUNTIME_PASSWORD'),

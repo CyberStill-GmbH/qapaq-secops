@@ -15,10 +15,7 @@ const SHA256_HEX = /^[0-9a-f]{64}$/u;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
 export type AzureBlobStorageErrorCode =
-  | 'NOT_FOUND'
-  | 'ACCESS_DENIED'
-  | 'UNAVAILABLE'
-  | 'REQUEST_FAILED';
+  'NOT_FOUND' | 'ACCESS_DENIED' | 'UNAVAILABLE' | 'REQUEST_FAILED';
 
 /** Carries only a code and HTTP status: Blob error bodies and URLs never leave the adapter. */
 export class AzureBlobStorageError extends Error {
