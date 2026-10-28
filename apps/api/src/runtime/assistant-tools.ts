@@ -62,7 +62,10 @@ const invalid = { ok: false, code: 'VALIDATION_FAILED' } as const;
 
 function limitOf(value: unknown): number | undefined {
   if (value === undefined) return LIST_LIMIT_DEFAULT;
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= LIST_LIMIT_MAX
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= LIST_LIMIT_MAX
     ? value
     : undefined;
 }

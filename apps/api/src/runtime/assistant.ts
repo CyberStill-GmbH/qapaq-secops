@@ -243,8 +243,7 @@ export class AssistantService {
     const { alertId, incidentId } = request.context ?? {};
     if (
       (alertId !== undefined && (typeof alertId !== 'string' || !ID_PATTERN.test(alertId))) ||
-      (incidentId !== undefined &&
-        (typeof incidentId !== 'string' || !ID_PATTERN.test(incidentId)))
+      (incidentId !== undefined && (typeof incidentId !== 'string' || !ID_PATTERN.test(incidentId)))
     ) {
       throw new AssistantError('VALIDATION_FAILED', 'CONTEXT_INVALID', ['context']);
     }
@@ -276,8 +275,9 @@ export class AssistantService {
       request.context?.incidentId ? `incidente ${request.context.incidentId}` : undefined,
     ].filter(Boolean);
     const userText =
-      (context.length > 0 ? `[Contexto de la consola: el analista tiene abierta la ${context.join(' y el ')}.]\n\n` : '') +
-      pseudonymizer.scrub(message);
+      (context.length > 0
+        ? `[Contexto de la consola: el analista tiene abierta la ${context.join(' y el ')}.]\n\n`
+        : '') + pseudonymizer.scrub(message);
     // Se trabaja sobre una copia: si la petición falla, el historial queda como estaba.
     const messages: BetaMessageParam[] = [
       ...conversation.messages,
@@ -298,7 +298,10 @@ export class AssistantService {
     try {
       while (true) {
         const spent = usage.inputTokens + usage.outputTokens + usage.cacheReadTokens;
-        if (modelCalls >= ASSISTANT_LIMITS.maxModelCalls || spent >= ASSISTANT_LIMITS.maxTokensPerRequest) {
+        if (
+          modelCalls >= ASSISTANT_LIMITS.maxModelCalls ||
+          spent >= ASSISTANT_LIMITS.maxTokensPerRequest
+        ) {
           truncated = true;
           break;
         }
@@ -419,7 +422,10 @@ export class AssistantService {
   private async conversationFor(request: AssistantRequest): Promise<Conversation> {
     const now = this.clock().getTime();
     for (const [id, conversation] of this.conversations) {
-      if (!conversation.busy && now - conversation.lastUsedAt >= ASSISTANT_LIMITS.conversationTtlMs) {
+      if (
+        !conversation.busy &&
+        now - conversation.lastUsedAt >= ASSISTANT_LIMITS.conversationTtlMs
+      ) {
         this.conversations.delete(id);
       }
     }

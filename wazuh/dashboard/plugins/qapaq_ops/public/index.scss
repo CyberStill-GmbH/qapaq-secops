@@ -487,7 +487,9 @@ $qapaqBreakpointTablet: 1023px;
   color: $ouiTextColor;
   font-size: $ouiFontSizeS;
   cursor: pointer;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
 
   &:hover:not(:disabled),
   &:focus-visible {

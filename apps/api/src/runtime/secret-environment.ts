@@ -21,7 +21,10 @@ const API_SECRET_REFERENCES = [
  * responde `FEATURE_NOT_CONFIGURED`. Por eso no está en la lista de arriba, donde cualquier fallo
  * detiene el arranque.
  */
-const ASSISTANT_SECRET_REFERENCE = ['QAPAQ_ANTHROPIC_API_KEY_REF', 'QAPAQ_ANTHROPIC_API_KEY'] as const;
+const ASSISTANT_SECRET_REFERENCE = [
+  'QAPAQ_ANTHROPIC_API_KEY_REF',
+  'QAPAQ_ANTHROPIC_API_KEY',
+] as const;
 
 /**
  * Nombre convenido del secreto en Key Vault cuando el despliegue no declara la referencia.

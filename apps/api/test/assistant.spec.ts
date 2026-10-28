@@ -186,7 +186,12 @@ function securityEvent(recordId: string) {
         groups: ['authentication_failed'],
       },
     },
-    raw: { ref: `raw:${recordId}`, sha256: 'a'.repeat(64), mediaType: 'application/json', sizeBytes: 1 },
+    raw: {
+      ref: `raw:${recordId}`,
+      sha256: 'a'.repeat(64),
+      mediaType: 'application/json',
+      sizeBytes: 1,
+    },
     provenance: {
       connector: 'qapaq-wazuh-indexer',
       connectorVersion: '1.0.0',
@@ -194,7 +199,12 @@ function securityEvent(recordId: string) {
       mappingVersion: '1.0.0',
       timestampQuality: 'source',
       ingestionPath: [
-        { kind: 'collector', vendor: 'Wazuh, Inc.', product: 'Wazuh', instanceId: 'siem-qapaq-lab' },
+        {
+          kind: 'collector',
+          vendor: 'Wazuh, Inc.',
+          product: 'Wazuh',
+          instanceId: 'siem-qapaq-lab',
+        },
         { kind: 'adapter', vendor: 'QAPAQ', product: 'QAPAQ SecOps' },
       ],
     },
@@ -260,7 +270,9 @@ function investigatingScript(alertId: string) {
     const user = alert.entities.find((entity) => entity.kind === 'user')!.ref;
     const ip = alert.entities.find((entity) => entity.kind === 'ip')!.ref;
     return message(
-      [{ type: 'text', text: `La cuenta ${user} inició sesión desde ${ip}.` }] as BetaMessage['content'],
+      [
+        { type: 'text', text: `La cuenta ${user} inició sesión desde ${ip}.` },
+      ] as BetaMessage['content'],
       'end_turn',
     );
   };
@@ -563,12 +575,18 @@ describe('POST /api/assistant/messages · configuración, topes y fallos', () =>
       model: null,
     });
     expect(post.statusCode).toBe(503);
-    expect(JSON.parse(post.body)).toMatchObject({ code: 'FEATURE_NOT_CONFIGURED', retriable: false });
+    expect(JSON.parse(post.body)).toMatchObject({
+      code: 'FEATURE_NOT_CONFIGURED',
+      retriable: false,
+    });
   });
 
   it('el API arranca sin API key y el asistente queda sin configurar', () => {
     // El harness construye el API con el perfil de pruebas, que no declara la key.
-    expect(new AssistantService({ model: 'claude-sonnet-5-5', refOf, soc: () => runtime.soc }).configured).toBe(false);
+    expect(
+      new AssistantService({ model: 'claude-sonnet-5-5', refOf, soc: () => runtime.soc })
+        .configured,
+    ).toBe(false);
   });
 
   it('valida el mensaje y el contexto antes de llamar al proveedor', async () => {
@@ -625,7 +643,9 @@ describe('POST /api/assistant/messages · configuración, topes y fallos', () =>
   it('corta la vuelta de herramientas en el tope de llamadas y lo declara', async () => {
     const { client, requests } = scriptedClient(() =>
       message(
-        [{ type: 'tool_use', id: `toolu_${Math.random()}`, name: 'soc_summary', input: {} }] as BetaMessage['content'],
+        [
+          { type: 'tool_use', id: `toolu_${Math.random()}`, name: 'soc_summary', input: {} },
+        ] as BetaMessage['content'],
         'tool_use',
       ),
     );

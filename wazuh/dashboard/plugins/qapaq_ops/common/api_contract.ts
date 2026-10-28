@@ -483,7 +483,11 @@ export interface AssistantMessageRequest {
 
 export interface AssistantMessageResponse {
   readonly conversationId: string;
-  readonly reply: { readonly text: string; readonly truncated: boolean; readonly declined: boolean };
+  readonly reply: {
+    readonly text: string;
+    readonly truncated: boolean;
+    readonly declined: boolean;
+  };
   readonly model: string;
   readonly toolsUsed: readonly string[];
   readonly usage: { readonly inputTokens: number; readonly outputTokens: number };

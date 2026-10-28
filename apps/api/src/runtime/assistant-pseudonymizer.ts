@@ -34,7 +34,8 @@ const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,6
 const DOMAIN_ACCOUNT = /\b[A-Za-z0-9][A-Za-z0-9-]{0,14}\\[A-Za-z0-9._-]{1,64}/gu;
 const IPV4_CANDIDATE = /\b\d{1,3}(?:\.\d{1,3}){3}\b/gu;
 /** Candidatos IPv6: se confirman con `isIPv6` para no confundir horas (`10:20:30`). */
-const IPV6_CANDIDATE = /(?<![A-Za-z0-9:])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?![A-Za-z0-9:])/gu;
+const IPV6_CANDIDATE =
+  /(?<![A-Za-z0-9:])[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?![A-Za-z0-9:])/gu;
 const HOSTNAME =
   /\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z][A-Za-z0-9-]{0,62}[A-Za-z0-9]\b/gu;
 

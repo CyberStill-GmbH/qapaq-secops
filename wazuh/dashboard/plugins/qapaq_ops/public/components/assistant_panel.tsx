@@ -22,11 +22,7 @@ import {
   EuiTitle,
   EuiToolTip,
 } from '@elastic/eui';
-import {
-  AssistantMessageResponse,
-  AssistantStatus,
-  CAPABILITIES,
-} from '../../common';
+import { AssistantMessageResponse, AssistantStatus, CAPABILITIES } from '../../common';
 import { QapaqApiError } from '../api/client';
 import { useConsole } from './console_context';
 import { DataZone, ErrorCallout, Mono, useAsync, useIsMobile } from './primitives';
@@ -130,13 +126,17 @@ export function useAssistantSession(): AssistantSession {
           conversationId
         ) {
           setConversationId(null);
-          setNotice('La conversación anterior venció. Vuelve a enviar tu pregunta para empezar una nueva.');
+          setNotice(
+            'La conversación anterior venció. Vuelve a enviar tu pregunta para empezar una nueva.',
+          );
         } else if (
           failure instanceof QapaqApiError &&
           failure.code === 'VALIDATION_FAILED' &&
           failure.fields.includes('conversationId')
         ) {
-          setNotice('Esta conversación llegó a su límite de mensajes. Empieza una nueva para seguir.');
+          setNotice(
+            'Esta conversación llegó a su límite de mensajes. Empieza una nueva para seguir.',
+          );
         } else {
           setError(failure);
         }
@@ -237,8 +237,7 @@ function Turn({ turn }: { turn: AssistantTurn }) {
             {turn.toolsUsed && turn.toolsUsed.length > 0 && (
               <EuiText size="xs" color="subdued">
                 <span>
-                  Consultó:{' '}
-                  {turn.toolsUsed.map((tool) => TOOL_LABEL[tool] ?? tool).join(' · ')}
+                  Consultó: {turn.toolsUsed.map((tool) => TOOL_LABEL[tool] ?? tool).join(' · ')}
                 </span>
               </EuiText>
             )}
@@ -329,7 +328,10 @@ export function AssistantPanel({ session }: { session: AssistantSession }) {
   const [draft, setDraft] = useState('');
   const scroller = useRef<HTMLDivElement | null>(null);
   const status = useAsync<AssistantStatus | null>(
-    () => (allowed && session.open ? api.get<AssistantStatus>('/assistant/status') : Promise.resolve(null)),
+    () =>
+      allowed && session.open
+        ? api.get<AssistantStatus>('/assistant/status')
+        : Promise.resolve(null),
     [api, allowed, session.open],
   );
 
@@ -376,7 +378,11 @@ export function AssistantPanel({ session }: { session: AssistantSession }) {
     body = (
       <>
         {session.turns.length === 0 && !session.sending ? (
-          <Welcome alertId={session.alertId} onPick={(text) => void session.send(text)} disabled={session.sending} />
+          <Welcome
+            alertId={session.alertId}
+            onPick={(text) => void session.send(text)}
+            disabled={session.sending}
+          />
         ) : (
           session.turns.map((turn) => <Turn key={turn.id} turn={turn} />)
         )}
