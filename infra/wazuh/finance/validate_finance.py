@@ -117,7 +117,11 @@ for line in (tests / "expected-rules.txt").read_text(encoding="utf-8").splitline
             error(f"expected-rules.txt: la regla {token} no existe")
 covered = {token for line in (tests / "expected-rules.txt").read_text(encoding="utf-8").splitlines()
            if not line.startswith("!") for token in line.strip().split("|")}
-untested = sorted(set(finance_ids) - covered)
+# Reglas que logtest no puede ejercitar de forma determinista; cada una con su motivo.
+NOT_DETERMINISTIC = {
+    "101418": "<weekday>weekends</weekday>: la TZ del contenedor solo desplaza un día",
+}
+untested = sorted(set(finance_ids) - covered - set(NOT_DETERMINISTIC))
 if untested:
     error(f"reglas sin caso positivo en logtest: {', '.join(untested)}")
 for line in (tests / "logtest-cases.jsonl").read_text(encoding="utf-8").splitlines():

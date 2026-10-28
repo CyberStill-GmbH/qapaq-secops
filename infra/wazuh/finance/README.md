@@ -45,11 +45,11 @@ retirado: registrarlo aquí como retirado.
 | 101402 | 8 | Cambio de cuenta bancaria de proveedor en ERP | 101200 | Pendiente: adaptador ERP |
 | 101403 | 13 | Ese cambio sin aprobación válida o con conflicto SoD | 101402 | Pendiente: adaptador ERP |
 | 101404 | 13 | Pago liberado a beneficiario nuevo o con cuenta cambiada en 72 h | 101200 | Pendiente: adaptador ERP |
-| 101410 | 13 | Cambio MFA en la hora siguiente a un acceso tras fuerza bruta | 100526, 100505 | M365 documentado |
+| 101410 | 14 | Cambio MFA en la hora siguiente a un acceso tras fuerza bruta | 100526, 100505 | M365 documentado |
 | 101411 | 14 | Inicio de sesión de riesgo alto de usuario del core | 101205 + lista | Pendiente: contrato Entra |
 | 101412 | 14 | Acceso tras fuerza bruta de usuario del core | 100505 + lista | M365 documentado |
 | 101415 | 3 | Marca de descarga desde SharePoint/OneDrive | 91532 | M365 documentado |
-| 101416 | 12 | 100 descargas del mismo usuario en 10 min | 101415 | M365 documentado |
+| 101416 | 13 | 100 descargas del mismo usuario en 10 min | 101415 | M365 documentado |
 | 101417 | 12 | 30 descargas en 10 min entre 21:00 y 06:30 | 101415 | M365 documentado |
 | 101418 | 12 | 30 descargas en 10 min en fin de semana | 101415 | M365 documentado; ver límites |
 | 101419 | 12 | 10 enlaces anónimos en una hora | 100515 | M365 documentado |
@@ -139,11 +139,14 @@ Al cambiar casos, editar `tests/generate_cases.py` y ejecutar
 
 ## Límites conocidos
 
-- `ignore` es global por regla dentro de una sesión de logtest y en el Manager: tras
-  disparar, la regla queda suprimida para cualquier usuario durante su ventana. Por eso los
-  escenarios con estado van en sesiones separadas y en producción QAPAQ correlaciona por
-  entidad.
-- 101418 solo dispara en fin de semana; el caso lo acepta como alternativa (`101415|101418`).
+- Una correlación (`if_matched_sid`, `frequency`) no reutiliza un evento previo que ya usó
+  otra correlación de nivel igual o mayor (`lf->matched >= rule->level` en
+  `Search_LastSids`, comprobado con wazuh-logtest 4.14.8). Por eso 101410 y 101416 tienen
+  un nivel más que la regla que marca sus eventos. Mantener esa relación al cambiar niveles.
+- En logtest, `ignore` no suprimió 101417: dispara cada 30 descargas nuevas. Los
+  escenarios con fuerza bruta van en sesiones separadas porque 100503 consume los fallos.
+- 101418 (fin de semana) comparte umbral y nivel con 101417 y va después: un fin de semana
+  de noche gana 101417. El caso de logtest no puede forzar el día de la semana.
 - 101433 y 101431 suponen agencias identificables por `qapaq_site` o por nombre de equipo;
   confirmar la convención de nombres de agencias con TI.
 - Las reglas de volumen (101416–101419, 101441, 101443) usan umbrales iniciales sin línea

@@ -146,11 +146,13 @@ add(o365("UserLoggedIn", "jefe.agencia@qapaq-lab.example", "AzureActiveDirectory
 
 # ------------------------------------------------------------------- Exfiltración
 session()
-# 100 descargas del mismo usuario. El runner fuerza 23:00 local: la descarga 30 dispara
-# 101417 (fuera de horario), que luego queda en su ventana `ignore`; la 31 puede disparar
-# 101418 solo si el día es fin de semana; la 100 dispara 101416 (volumen).
+# 100 descargas del mismo usuario. El runner fuerza 23:00 local: 101417 (fuera de horario)
+# dispara cada 30 descargas nuevas, porque Wazuh no reutiliza eventos ya usados por una
+# correlación de igual nivel (en logtest `ignore` no la suprime). 101418 (fin de semana)
+# tiene el mismo umbral y nivel pero va después, así que no le gana. La descarga 100
+# dispara 101416 (nivel 13), que sí puede contar eventos marcados con nivel 12.
 for index in range(99):
-    expected = {29: "101417", 30: "101415|101418"}.get(index, "101415")
+    expected = {29: "101417", 59: "101417", 89: "101417"}.get(index, "101415")
     add(o365("FileSyncDownloadedFull", "masivo@qapaq-lab.example", "OneDrive", 6,
              ObjectId=f"https://qapaqlab-my.sharepoint.example/personal/doc-{index}.pdf"), expected)
 add(o365("FileSyncDownloadedFull", "masivo@qapaq-lab.example", "OneDrive", 6,

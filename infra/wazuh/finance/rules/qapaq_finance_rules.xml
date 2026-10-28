@@ -119,8 +119,12 @@
 
   <!-- ==================================================== Toma de cuenta (101410-101414) -->
 
-  <!-- Cambio de método MFA dentro de la hora siguiente a un acceso por fuerza bruta. -->
-  <rule id="101410" level="13" timeframe="3600">
+  <!--
+    Cambio de método MFA dentro de la hora siguiente a un acceso por fuerza bruta. Nivel
+    14 a propósito: Wazuh no reutiliza un evento previo ya usado por una correlación de
+    nivel igual o mayor, y 100505 (nivel 13) marca el acceso con su propio nivel.
+  -->
+  <rule id="101410" level="14" timeframe="3600">
     <if_sid>100526</if_sid>
     <if_matched_sid>100505</if_matched_sid>
     <same_field>office365.UserId</same_field>
@@ -178,8 +182,11 @@
     <group>sharepoint,qapaq_collection,</group>
   </rule>
 
-  <!-- Descarga masiva: 100 descargas del mismo usuario en 10 minutos. -->
-  <rule id="101416" level="12" frequency="100" timeframe="600" ignore="900">
+  <!--
+    Descarga masiva: 100 descargas del mismo usuario en 10 minutos. Nivel 13 para poder
+    contar descargas que 101417/101418 (nivel 12) ya usaron de noche o en fin de semana.
+  -->
+  <rule id="101416" level="13" frequency="100" timeframe="600" ignore="900">
     <if_matched_sid>101415</if_matched_sid>
     <same_field>office365.UserId</same_field>
     <description>QAPAQ finanzas: descarga masiva desde SharePoint/OneDrive por $(office365.UserId) (100 archivos en 10 min).</description>
