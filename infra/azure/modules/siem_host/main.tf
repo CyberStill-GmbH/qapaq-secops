@@ -359,6 +359,18 @@ resource "azurerm_role_assignment" "key_vault_secret_read" {
   principal_type       = "ServicePrincipal"
 }
 
+# Qapaqzito: lectura de un único secreto, en su scope exacto. Va aparte de core_secret_names a
+# propósito: ese mapa viaja a bootstrap.json y el allowlist del bootstrap (custom_data de la VM)
+# no lo admite; el API lo resuelve por su nombre convenido sin tocar la VM ni su extensión.
+resource "azurerm_role_assignment" "assistant_secret_read" {
+  count = var.assistant_secret_name == null ? 0 : 1
+
+  scope                = "${trimsuffix(var.key_vault_id, "/")}/secrets/${var.assistant_secret_name}"
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = local.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 # The host may get/set only the two pre-created values used by the opt-in
 # KrakenD proxy. The custom role contains no list, delete, or vault-management
 # actions and is assigned at each exact Key Vault secret scope.
