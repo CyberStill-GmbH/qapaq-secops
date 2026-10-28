@@ -41,6 +41,37 @@ en el artefacto actual por incompatibilidad de plugins y protocolos.
 | Logout: `/qapaq/logout` → `GET /auth/session` (CSRF) → `POST /auth/logout` | `auth.controller.ts:152` | ✓ |
 | Proxy auth: `GET /api/auth/introspect` → 204 con `x-qapaq-user` y `x-qapaq-roles` | `apps/api/src/soc/auth.controller.ts`, edge y Security plugin | Verificar con el runbook de release en el entorno objetivo; el build no prueba identidad en vivo |
 | Administración de roles: grant, solicitud, bandeja y aprobación | `/api/admin/users/:oid/role-grant`, `/api/admin/users/:oid/role-requests`, `/api/admin/role-requests` | En esta rama; no afirmar que está desplegado hasta aprobación del PR y migración de BD |
+| Qapaqzito: `GET /assistant/status`, `POST /assistant/messages` | `assistant.controller.ts` | En rama; ver «Asistente Qapaqzito» abajo. Sin despliegue ni prueba con la API real |
+
+### Asistente Qapaqzito (contrato)
+
+Panel acoplado al borde izquierdo en la cola y el detalle de alertas
+(`plugins/qapaq_ops/public/components/assistant_panel.tsx`). El backend es el único que habla con
+Anthropic (`@anthropic-ai/sdk`, modelo `QAPAQ_ASSISTANT_MODEL`, por defecto `claude-sonnet-5-5`).
+
+- **Autorización:** capability `assistant.use` (analista SOC y administrador de plataforma, bajo el
+  scope `soc.write` porque envía datos a un tercero). Sin ella, ambos endpoints responden
+  `RESOURCE_UNAVAILABLE`. `POST` exige CSRF como cualquier mutación.
+- **`GET /api/assistant/status`** → `{name, configured, model, limits: {messageMaxLength, maxTurns}}`.
+  `configured=false` es el estado «sin configuración» de la UI.
+- **`POST /api/assistant/messages`** `{message, conversationId?, context?: {alertId?, incidentId?}}` →
+  `{conversationId, reply: {text, truncated, declined}, model, toolsUsed, usage}`. El historial vive
+  en el servidor (memoria, 30 min sin uso); el cliente solo envía el mensaje nuevo.
+- **Seudonimización:** UPN, correo, IP, hostname, cuenta `DOMINIO\usuario`, nombres del padrón y la
+  persona que conversa salen como `ent_…` (D-10b, misma clave HMAC que la consola). `reply.text` llega
+  re-resuelto. Ni el texto ni las entidades entran a la auditoría (`assistant.message`: actor,
+  correlación, herramientas, llamadas y tokens).
+- **Herramientas (solo lectura, revalidan capability y tenant):** `list_alerts`, `get_alert`,
+  `related_alerts_by_entity`, `soc_summary`, `incident_log`.
+- **Topes:** 4 000 caracteres por mensaje, 20 mensajes por conversación, 20 mensajes cada 10 min por
+  persona (`RATE_LIMITED`), 6 llamadas al modelo y 150 000 tokens por petición, 55 s de plazo (el
+  edge corta a 65 s). Al llegar a un tope responde con `truncated=true`.
+- **Errores:** `FEATURE_NOT_CONFIGURED` (503, sin API key), `DEPENDENCY_DEGRADED` (proveedor caído),
+  `VALIDATION_FAILED` con `fields=["conversationId"]` (conversación llena) y `RESOURCE_UNAVAILABLE`
+  (conversación vencida o ajena).
+- **Secreto y egress:** el API lee `QAPAQ_ANTHROPIC_API_KEY_REF` o, en modo Key Vault, el nombre
+  convenido `qapaq-anthropic-api-key`, sin pasar por el bootstrap de la VM. Terraform concede la
+  lectura y abre `api.anthropic.com` solo con `siem_host.assistant_secret_name`.
 
 **Endpoints del backend que el plugin todavía no usa:**
 
