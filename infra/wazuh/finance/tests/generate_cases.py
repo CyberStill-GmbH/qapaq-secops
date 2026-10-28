@@ -250,7 +250,8 @@ add(provider("core_banking", "customer_report_exported", "syn-core-200",
 
 
 def render() -> tuple[str, str]:
-    events = "".join(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n"
+    events = "".join((event if event == SESSION else
+                      json.dumps(event, ensure_ascii=False, separators=(",", ":"))) + "\n"
                      for event, _ in cases)
     expected = "".join(f"{wanted}\n" for _, wanted in cases)
     return events, expected
