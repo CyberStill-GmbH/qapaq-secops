@@ -83,9 +83,9 @@ substitute an example CIDR, user key, credential, or identifier.
 | `data_disk_size_gb` | Minimum is `128`; disk has `prevent_destroy` and is security-sensitive persistent Wazuh data. | Confirm size against event volume, retention, and growth. `128` is a floor, not a retention guarantee. |
 | `dashboard_ingress_cidrs` | Empty means HTTPS stays closed; `/0` is rejected. Firewall DNAT → internal LB → Nginx is the intended path. | Supply approved operator/VPN source CIDRs. Do not use `0.0.0.0/0` or `::/0`. |
 | `agent_ingress_cidrs` | Empty means agent ports 1514/1515 stay closed; `/0` is rejected. | Supply actual managed endpoint/domain-controller private egress ranges or VPN ranges. Without them, no agent enrollment is enabled. |
-| `core_secret_names` | Map is non-secret `ENV_NAME` → existing Key Vault **name**. The approved seed allowlist names include `qapaq-entra-client-secret` and `qapaq-teams-workflow-url`. | Confirm a rotated QAPAQ Entra secret, Teams Workflow URL, least-privilege PostgreSQL application credential, and the additional Core secret-provider/storage/gateway keys listed below exist. The PostgreSQL admin password in GitHub is not an application account. |
+| `core_secret_names` | Map is non-secret `ENV_NAME` → existing Key Vault **name**. The approved seed allowlist names include `qapaq-entra-client-secret` and `qapaq-teams-workflow-url`. | Confirm a rotated QAPAQ Entra secret and Teams Workflow URL exist. `qapaq-postgres-app-password` and `qapaq-entity-ref-key` are created by `bootstrap-eus2-postgres.yml`. The PostgreSQL admin password in GitHub is not an application account. |
 | `wazuh_secret_names` | Must include exactly these required keys: `office365-client-secret` and `wazuh-install-files.tar.b64`; these are Key Vault names, not values. | Confirm the Office 365 app secret corresponds to the selected Graph app. Generate the separate official Wazuh installer tar with passwords/certificates and load its one-line base64 as `wazuh-install-files.tar.b64` (decoded tar ≤18 KB). The release Blob is not this credential tar. |
-| `core_environment` | Non-secret Core configuration map. Production defaults exist for some timeouts and TLS settings, but required endpoints/identity/storage/gateway configuration has no EUS2 profile yet. | Complete from the current Core config contract, including app database role/FQDN, identity/redirects, secrets provider, object storage, and Wazuh gateway. Current Terraform validation rejects several legitimate `*_REF` entries; see Core blockers. **This map is not currently satisfiable for the production Core contract.** |
+| `core_environment` | Non-secret Core configuration map. Production defaults exist for some timeouts and TLS settings, but required endpoints/identity/storage/gateway configuration has no EUS2 profile yet. | Completar según «`core_environment` y `core_secret_names` de EUS2» (sección de bloqueos del Core): es satisfacible para el API actual en `memory` y en `postgres`. Object storage, Redis y gateway no forman parte de este camino. |
 | `office365.tenant_id` | GUID required. | Supply/confirm the Microsoft 365 tenant that owns the Graph app. |
 | `office365.client_id` | GUID required. Do not assume QAPAQ dashboard login client ID is also the Graph collector app. | Confirm the app registration, Graph application permissions/admin consent, and secret pairing. |
 | `office365.api_type` | `commercial`, `gcc`, or `gcc-high`. | Confirm tenant cloud. |
@@ -213,26 +213,43 @@ and state reconciliation remain an independent gate.
 
 ### QAPAQ Dashboard/Core gates
 
-- `core_environment` validation in `infra/azure/variables.tf` uses a deny regex for
-  names such as `PASSWORD`, `SECRET`, and `TOKEN`, with only
-  `QAPAQ_ENTRA_CLIENT_SECRET_REF` exempted. Core's production parser also requires
-  references such as `QAPAQ_POSTGRES_PASSWORD_REF`,
-  `QAPAQ_MINIO_SECRET_KEY_REF`, `QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN_REF`,
-  `QAPAQ_WAZUH_CURSOR_SECRET_REF`, and `QAPAQ_SECRET_FINGERPRINT_KEY_REF`. Therefore,
-  a complete production `core_environment` cannot currently pass the Terraform
-  validation. The safe code correction is to allowlist only the supported `*_REF`
-  keys, validate the `secret://keyvault/<name>` form, and assert each reference matches
-  the corresponding `core_secret_names` entry. No code change is made in this branch.
-- Core's production configuration requires a PostgreSQL runtime principal/password.
-  Azure `modules/data` creates the databases but does not provision/validate the
-  least-privilege application role or its secret for this VM path. The Terraform
-  PostgreSQL administrator credential is not a substitute for the app role.
-- Core's current object storage contract is MinIO/S3 (`QAPAQ_MINIO_ENDPOINT`, raw
-  bucket, access-key and secret-key refs). Azure Blob Storage is not a drop-in MinIO
-  or S3 API endpoint. A small, explicit Azure Blob adapter is required behind the
-  existing object-storage port; it should use Managed Identity/Blob Data RBAC and
-  preserve retention, idempotency, and AWS's current adapter. Do not repoint MinIO
-  variables to a Blob hostname.
+- **Resuelto (PR #184 + este cambio).** `modules/siem_host/variables.tf` ya no usa el
+  regex de denegación: admite solo las cinco referencias que el API resuelve al arrancar
+  (`QAPAQ_ENTRA_CLIENT_SECRET_REF`, `QAPAQ_POSTGRES_PASSWORD_REF`,
+  `QAPAQ_ENTITY_REF_KEY_REF`, `QAPAQ_TEAMS_WORKFLOW_URL_REF`,
+  `QAPAQ_VAPID_PRIVATE_KEY_REF`), exige la forma `secret://keyvault/<nombre>` y que el
+  nombre coincida con `core_secret_names`; `terraform test` lo cubre
+  (`modules/siem_host/tests/core_environment.tftest.hcl`). La allowlist **no se amplía**
+  a `QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN_REF`, `QAPAQ_WAZUH_CURSOR_SECRET_REF`,
+  `QAPAQ_SECRET_FINGERPRINT_KEY_REF`, `QAPAQ_REDIS_PASSWORD_REF`,
+  `QAPAQ_ANTHROPIC_API_KEY_REF` ni `QAPAQ_VIRUSTOTAL_API_KEY_REF`: el
+  `bootstrap-siem.py` que valida y escribe `core.env` viaja en el `custom_data` de la VM
+  ya creada (`vm-qapaqsecopsdemoeus-siem`), mantiene su propia allowlist de cinco claves y
+  cambiarlo forzaría reemplazar la VM (`prevent_destroy`). Si Terraform aceptara claves que
+  ese script rechaza, la extensión de bootstrap fallaría en el host. Las tres primeras
+  pertenecen a `loadRuntimeConfig`/control plane, que el API actual no invoca (usa la
+  ingesta con Entra client credentials y `resolveApiSecretEnvironment`). Entregar claves
+  nuevas al host requiere una ruta fuera de `custom_data` (como la de Cato en #202) y un
+  cambio coordinado de `resolveApiSecretEnvironment`.
+- **Resuelto en este cambio, pendiente de ejecutar.** El rol de mínimo privilegio
+  `qapaq_soc_runtime` (DML sin DELETE/TRUNCATE/DDL, el mismo `roles.sql` de AWS D-6) se
+  crea con `.github/workflows/bootstrap-eus2-postgres.yml`; ver «Rol PostgreSQL de
+  aplicación» más abajo. El administrador de Terraform sigue sin ser credencial del
+  runtime. Falta correrlo y probar TLS/roles contra el Flexible Server real (Azure
+  `azure_pg_admin` no es superusuario; `roles.sql` debe validarse allí).
+- **Adaptador listo, sin consumidor en runtime.** `AzureBlobRawStore`
+  (`modules/telemetry/src/azure-blob-raw-store.ts`) implementa el puerto
+  `DurableRawStore` con la API REST de Blob y un token de Managed Identity (IMDS,
+  audiencia `https://storage.azure.com/`), sin claves de cuenta ni SAS. Conserva el
+  contrato de `S3RawStore`: misma clave `raw/v1/<uuid>`, escritura create-only
+  (`If-None-Match: *`), verificación SHA-256/tamaño del objeto existente o del ganador de
+  una carrera, lectura acotada, reintentos solo ante 408/429/5xx y nunca borra ni
+  sobrescribe; la retención la aportan el versionado y el soft delete de la cuenta
+  (`modules/data`). La identidad del SIEM ya tiene `Storage Blob Data Contributor`
+  solo sobre `security-event-raw`. Las variables MinIO no se reutilizan. Hoy ningún
+  proceso del API/worker instancia un raw store (tampoco `S3RawStore`); conectar el
+  adaptador exige la vertical de admisión y variables nuevas, que el `core.env` congelado
+  del host no admite todavía. `S3RawStore` sigue intacto para AWS/local.
 - Core requires a Wazuh gateway URL and a workload token. Terraform has an optional
   `krakend_gateway` module, but the EUS2 profile leaves it disabled (`null`). The
   module can deploy private KrakenD ACA routes; it does not provision the read-only
@@ -253,11 +270,12 @@ and state reconciliation remain an independent gate.
   review says the worker is lifecycle-only and ADR-AZ-001 remains proposed. A managed
   Redis-compatible service cannot be called the queue until the actual queue contract
   is exercised.
-- `QAPAQ_SECRET_PROVIDER_TYPE` is required for the Core control plane, and the local
-  configuration README still marks the production backend `TO_BE_PROVIDED`. The SIEM
-  bootstrap can read Key Vault secrets with VM Managed Identity and write a root-owned
-  environment file, but that is not the same as a working Core secret-provider adapter
-  for references at runtime.
+- **Resuelto (PR #184).** `QAPAQ_SECRET_PROVIDER_TYPE=azure-key-vault` selecciona
+  `AzureKeyVaultSecretProvider` (`apps/api/src/runtime/azure-key-vault-secret-provider.ts`):
+  resuelve `secret://keyvault/<nombre>` al arrancar con la identidad administrada de la VM
+  vía IMDS, sin `@azure/identity` (se retiró por la dependencia MSAL vulnerable, 652b0fa),
+  con timeout, respuesta acotada y sin registrar valores. Los despliegues AWS conservan la
+  inyección de Secrets Manager por variables de entorno.
 - The deployment-input preflight rejects a SIEM subnet outside the configured VNet and
   computes overlap against the network/gateway modules' reserved Container Apps, Ankay,
   KrakenD, PostgreSQL, Private Endpoints, and Azure Firewall subnets. The preflight tests cover
@@ -284,15 +302,89 @@ and state reconciliation remain an independent gate.
   hardening, private routes/auth, and E2E playbook tests are separate from this SIEM
   profile. DNS stays at Punto.pe until the whole path is accepted.
 
+### `core_environment` y `core_secret_names` de EUS2 (nombres, no valores)
+
+Contrato satisfacible hoy por Terraform, por el `bootstrap-siem.py` ya desplegado y por el
+API (`buildApi` + `resolveApiSecretEnvironment`). Los valores marcados `<…>` son entradas
+no secretas del operador; ningún valor secreto va en tfvars, variables de GitHub ni aquí.
+
+`core_secret_names` (variable consumida → nombre en Key Vault):
+
+| Clave | Secreto Key Vault | Origen |
+| --- | --- | --- |
+| `QAPAQ_ENTRA_CLIENT_SECRET` | `qapaq-entra-client-secret` | `seed-eus2-key-vault-secret.yml` (create-only) |
+| `QAPAQ_POSTGRES_PASSWORD` | `qapaq-postgres-app-password` | `bootstrap-eus2-postgres.yml` (rota en cada corrida) |
+| `QAPAQ_ENTITY_REF_KEY` | `qapaq-entity-ref-key` | `bootstrap-eus2-postgres.yml` (solo si falta; nunca rota) |
+| `QAPAQ_TEAMS_WORKFLOW_URL` | `qapaq-teams-workflow-url` | seeder; opcional |
+| `QAPAQ_VAPID_PRIVATE_KEY` | `qapaq-vapid-private-key` | sin flujo Azure todavía; omitir (Web Push queda deshabilitado) |
+
+`core_environment` mínimo para `QAPAQ_SOC_PERSISTENCE=memory` (estado actual):
+
+- `QAPAQ_PROFILE=production`, `QAPAQ_API_HOST=127.0.0.1`, `QAPAQ_API_PORT=3000`.
+- `QAPAQ_ENTRA_TENANT_ID`, `QAPAQ_ENTRA_CLIENT_ID`, `QAPAQ_ENTRA_REDIRECT_URI` y
+  `QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS` (`<…>`, obligatorias en `access.schema.ts`);
+  `QAPAQ_ENTRA_AUTHORITY`, `QAPAQ_ENTRA_SCOPES` y `QAPAQ_ACCESS_IDENTITY_MODE=entra`
+  tienen default de producción. `QAPAQ_CONSOLE_BASE_URL`,
+  `QAPAQ_ACCESS_ALLOWED_CIDRS` y `QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS` según el edge
+  (Nginx del SIEM) aprobado.
+- `QAPAQ_ENTRA_CLIENT_SECRET_REF=secret://keyvault/qapaq-entra-client-secret`.
+- `QAPAQ_SOC_PERSISTENCE=memory`.
+- Opcionales sin secreto: roles/aprobadores (`QAPAQ_ROLE_BINDINGS`, `QAPAQ_GROUP_OWNER_OIDS`,
+  `QAPAQ_ADMIN_GROUP_IDS`, `QAPAQ_ACCESS_APPROVER_OIDS`, `QAPAQ_SECURITY_APPROVER_OIDS`),
+  padrón (`QAPAQ_DIRECTORY_*`), contexto de detección (`QAPAQ_DETECTION_*`),
+  `QAPAQ_ALERT_MAIL_SENDER` y, si se seeda, `QAPAQ_TEAMS_WORKFLOW_URL_REF`.
+- El bootstrap del host completa `QAPAQ_SECRET_PROVIDER_TYPE=azure-key-vault`,
+  `QAPAQ_SECRET_PROVIDER_TIMEOUT=5s`, `QAPAQ_SECRET_PROVIDER_ENDPOINT` y `AZURE_CLIENT_ID`;
+  si se declaran, deben coincidir con el vault y la identidad del host.
+
+Para pasar a `QAPAQ_SOC_PERSISTENCE=postgres` cambiando solo perfil y secretos, agregar:
+
+- `QAPAQ_POSTGRES_HOST=<servidor>.postgres.database.azure.com`,
+  `QAPAQ_POSTGRES_DATABASE=qapaq_secops`, `QAPAQ_POSTGRES_USERNAME=qapaq_soc_runtime`,
+  `QAPAQ_POSTGRES_TLS=true` (puerto, timeouts y pool tienen default de producción).
+- `QAPAQ_POSTGRES_PASSWORD_REF=secret://keyvault/qapaq-postgres-app-password` y
+  `QAPAQ_ENTITY_REF_KEY_REF=secret://keyvault/qapaq-entity-ref-key`, con sus entradas en
+  `core_secret_names` (Terraform lo exige para `postgres`).
+
+No incluir variables `QAPAQ_MINIO_*`, `QAPAQ_REDIS_*` ni `QAPAQ_WAZUH_GATEWAY_*` en EUS2:
+no hay MinIO/Redis aprovisionados, el gateway sigue desactivado y el API no los consume en
+este camino.
+
+### Rol PostgreSQL de aplicación (`bootstrap-eus2-postgres.yml`)
+
+Orden para activar `postgres` sin reemplazar la VM:
+
+1. Aplicar Terraform con `QAPAQ_POSTGRES_HOST/DATABASE/TLS/USERNAME` en `core_environment`
+   y todavía `QAPAQ_SOC_PERSISTENCE=memory` (el script del host lee la conexión de
+   `core.env`). Requiere que exista una release Core Azure construida desde este cambio:
+   el migrator y Prisma viajan en `/opt/qapaq-core/current/migrator`.
+2. Lanzar el workflow desde `main` con `BOOTSTRAP-EUS2-POSTGRES` y aprobación del
+   Environment `azure-demo-eus2`. Con la identidad OIDC de Terraform, una deployment ARM
+   escribe `qapaq-postgres-app-password` (y `qapaq-entity-ref-key` si no existe) y luego
+   ejecuta un Run Command administrado que aplica `roles.sql`, corre
+   `prisma migrate deploy` como `qapaq_migrator` con contraseña de un solo uso,
+   reaplica `post-migrate.sql` y deja `qapaq_migrator` sin LOGIN. Contraseñas del
+   administrador y del runtime: solo `secureString`/parámetros protegidos; el Run Command se
+   borra al terminar.
+3. Agregar `QAPAQ_POSTGRES_PASSWORD`/`QAPAQ_ENTITY_REF_KEY` a `core_secret_names`, sus
+   `_REF` y `QAPAQ_SOC_PERSISTENCE=postgres`, y aplicar Terraform: crea la lectura exacta
+   de esos secretos para la identidad del SIEM y la extensión reescribe `core.env` y
+   reinicia el API.
+
+Repetir el paso 2 rota la contraseña del runtime (y reinicia el API si ya usa
+`postgres`) y aplica migraciones nuevas. Se asume que la identidad de Terraform puede
+crear deployments, escribir secretos por ARM y Run Commands en el grupo de recursos;
+verificar esa asignación antes de la primera corrida. Ninguna corrida se ha ejecutado
+contra Azure real.
+
 ### Architecture decision for Azure adapters
 
 Azure Blob + a private Redis-compatible service + Key Vault can be target services, but
 they do not satisfy the current Core contracts by configuration alone:
 
-- Use Azure Blob only after implementing/testing the Core storage adapter. Key Vault
-  can hold named values; implement an Azure Key Vault provider if the Core will resolve
-  references dynamically. The existing VM bootstrap read/materialization path alone
-  does not prove that interface.
+- El adaptador Blob (`AzureBlobRawStore`) y el proveedor Key Vault ya existen con
+  pruebas unitarias sobre dobles; ninguno está probado todavía contra la cuenta ni el
+  vault reales de EUS2.
 - Azure Managed Redis is a candidate only after the repository's queue code is enabled,
   EUS2 private endpoint/DNS and NSG/firewall paths are added, the selected cluster
   policy/auth mode is compatible with the actual Node client, and enqueue/worker/retry/
