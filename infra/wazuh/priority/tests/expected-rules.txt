@@ -10,8 +10,8 @@
 101605	# sube: AS-REP de identidad privilegiada
 101305	# mantiene: AS-REP de cuenta no privilegiada
 101606	# sube: tier0 por RDP en estación general
-60106|60119	# mantiene: tier0 por RDP en PAW
-60106|60119	# mantiene: tier1 por RDP en estación general
+60106|60119|67022	# mantiene: tier0 por RDP en PAW
+60106|60119|67022	# mantiene: tier1 por RDP en estación general
 101607	# sube: bloqueo de cuenta privilegiada
 60115	# mantiene: bloqueo de cuenta normal
 101608	# baja: fallo Kerberos por desfase de reloj

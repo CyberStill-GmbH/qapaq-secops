@@ -333,9 +333,16 @@
        4. Microsoft 365 / Entra (office365.UserId)
        ================================================================ -->
 
-  <!-- Inicio de sesión tras fuerza bruta sobre una identidad privilegiada: toma de cuenta. -->
-  <rule id="101640" level="15">
-    <if_sid>100505</if_sid>
+  <!--
+    Inicio de sesión tras fuerza bruta sobre una identidad privilegiada: toma de cuenta.
+    No cuelga de 100505: para una identidad privilegiada la ráfaga termina en 101643 (hija de
+    100503) y Wazuh solo guarda la regla final, así que 100505 (if_matched_sid 100503) ya no
+    dispararía. Se correlaciona directamente contra 101643 (comprobado con wazuh-logtest 4.14.8).
+  -->
+  <rule id="101640" level="15" timeframe="900">
+    <if_sid>100506</if_sid>
+    <if_matched_sid>101643</if_matched_sid>
+    <same_field>office365.UserId</same_field>
     <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
     <description>QAPAQ crítico: inicio de sesión de la identidad privilegiada $(office365.UserId) tras fuerza bruta.</description>
     <options>no_full_log</options>
