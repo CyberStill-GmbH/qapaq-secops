@@ -421,9 +421,44 @@ export const API_ERROR_CODES = [
   'STATE_CONFLICT',
   'VALIDATION_FAILED',
   'DEPENDENCY_DEGRADED',
+  'INTEGRATION_NOT_CONFIGURED',
   'INTERNAL_ERROR',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
+
+/**
+ * Reputación de archivos por hash (`POST /api/alerts/:id/enrichment/virustotal`), contrato 1.0.0
+ * de `packages/contracts/src/enrichment`. El BFF elige el hash entre los que trae la alerta.
+ */
+export const FILE_HASH_KINDS = ['sha256', 'sha1', 'md5'] as const;
+export type FileHashKind = (typeof FILE_HASH_KINDS)[number];
+
+export interface FileReputationEnrichment {
+  readonly correlationId: string;
+  readonly alertId: string;
+  readonly hash: { readonly algorithm: FileHashKind; readonly value: string };
+  readonly status: 'found' | 'unknown';
+  readonly reputation: {
+    readonly detections: number;
+    readonly engines: number;
+    readonly firstSeenAt: string | null;
+    readonly lastAnalysisAt: string | null;
+    readonly threatLabels: readonly string[];
+    readonly reportUrl: string;
+  } | null;
+  readonly cached: boolean;
+  readonly checkedAt: string;
+  readonly cacheTtlHours: number;
+  readonly quota: {
+    readonly minute: { readonly limit: number; readonly remaining: number };
+    readonly day: { readonly limit: number; readonly remaining: number; readonly resetsAt: string };
+  };
+}
+
+/** Entidades de hash de la alerta, en orden de preferencia (el BFF consulta la primera). */
+export function fileHashEntities(entities: readonly AlertEntity[]): readonly AlertEntity[] {
+  return FILE_HASH_KINDS.flatMap((kind) => entities.filter((entity) => entity.kind === kind));
+}
 
 /** Cuerpo de error del catálogo (plano, sin envoltorio). */
 export interface ApiErrorBody {
@@ -456,6 +491,7 @@ export const CAPABILITIES = {
   sessionsRead: 'sessions.read',
   sessionsRevoke: 'sessions.revoke',
   notificationsRead: 'notifications.read',
+  enrichmentVirusTotal: 'enrichment.virustotal',
   observabilitySoc: 'observability.read_soc',
   observabilityPlatform: 'observability.read_platform',
 } as const;

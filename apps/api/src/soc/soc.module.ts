@@ -8,6 +8,7 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { AdminRoleGrantsController } from './admin-role-grants.controller.js';
 import { AdminSessionsController } from './admin-sessions.controller.js';
 import { ChangesController } from './changes.controller.js';
+import { EnrichmentController } from './enrichment.controller.js';
 import { EventsController } from './events.controller.js';
 import { SourcesHealthController } from './sources-health.controller.js';
 import { AdminUsersController } from './admin-users.controller.js';
@@ -35,6 +36,7 @@ export class SocModule {
         IncidentWorkController,
         ChangesController,
         EventsController,
+        EnrichmentController,
         SourcesHealthController,
         AdminUsersController,
         AdminRoleGrantsController,

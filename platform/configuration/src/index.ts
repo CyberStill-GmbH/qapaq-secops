@@ -17,6 +17,7 @@ export {
   loadTeamsWorkflowUrl,
   loadAlertMailSender,
   loadVapidPrivateKey,
+  loadVirusTotalApiKey,
   loadSocPersistenceConfig,
   loadLocalWorkerConfig,
   loadRuntimeConfig,

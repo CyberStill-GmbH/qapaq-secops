@@ -92,7 +92,7 @@ describe('C-12 · Office 365: lo que el analista necesita para triar', () => {
     expect(validateSecurityEvent(event).valid).toBe(true);
     expect(event.action).toBe('office365.new-inboxrule');
     expect(event.provenance.mappingVersion).toBe(WAZUH_MAPPING_VERSION);
-    expect(WAZUH_MAPPING_VERSION).toBe('1.1.0');
+    expect(WAZUH_MAPPING_VERSION).toBe('1.2.0');
   });
 
   it('identifica al usuario por UPN con dominio e identificador opaco', () => {

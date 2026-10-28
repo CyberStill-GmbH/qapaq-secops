@@ -5,7 +5,20 @@
 import { discoverUrlForEntity, entityQuery, kqlQuoted, risonString } from './discover';
 import { parseResource } from './audit_filters';
 import { userState } from './user_state';
+import { fileHashEntities } from './api_contract';
 import type { DirectoryUser } from './api_contract';
+
+describe('hashes de archivo de la alerta', () => {
+  it('ordena por preferencia de consulta y descarta otras entidades', () => {
+    const entities = [
+      { ref: null, kind: 'md5', label: 'a'.repeat(32) },
+      { ref: null, kind: 'user', label: 'ana@qapaq.pe' },
+      { ref: null, kind: 'sha256', label: 'b'.repeat(64) },
+    ];
+    expect(fileHashEntities(entities).map((entity) => entity.kind)).toEqual(['sha256', 'md5']);
+    expect(fileHashEntities([{ ref: null, kind: 'ip', label: '10.0.0.1' }])).toEqual([]);
+  });
+});
 
 describe('enlace a Discover', () => {
   it('escapa rison y KQL', () => {

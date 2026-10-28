@@ -36,6 +36,8 @@ import {
   AlertVerdict,
   CAPABILITIES,
   discoverUrlForEntity,
+  fileHashEntities,
+  FileReputationEnrichment,
   INCIDENT_SEVERITIES,
   IncidentSeverity,
   Page,
@@ -72,6 +74,9 @@ const ENTITY_KIND_LABEL: Record<string, string> = {
   user: 'Usuario',
   ip: 'IP',
   host: 'Equipo',
+  md5: 'MD5',
+  sha1: 'SHA-1',
+  sha256: 'SHA-256',
 };
 
 const NOTE_MIN = 10;
@@ -456,6 +461,10 @@ function AlertFlyout({
               </ul>
             )}
 
+            {fileHashEntities(alert.entities).length > 0 && (
+              <FileReputationPanel alert={alert} allowed={can(CAPABILITIES.enrichmentVirusTotal)} />
+            )}
+
             {mode === 'triage' && (
               <>
                 <EuiSpacer size="l" />
@@ -585,6 +594,177 @@ function AlertFlyout({
         </EuiFlyoutFooter>
       )}
     </EuiFlyout>
+  );
+}
+
+/**
+ * Reputación del archivo en VirusTotal, solo a pedido. La clave es de la API pública: cada
+ * consulta gasta la cuota del tenant (4 por minuto, 500 por día), así que no se consulta al abrir
+ * la alerta. El BFF elige el hash de la alerta; aquí no se envía ninguno.
+ */
+function FileReputationPanel({ alert, allowed }: { alert: Alert; allowed: boolean }) {
+  const { api } = useConsole();
+  const [result, setResult] = useState<FileReputationEnrichment | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const preferred = fileHashEntities(alert.entities)[0];
+
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+  }, [alert.id]);
+
+  const consult = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setResult(
+        await api.post<FileReputationEnrichment>(
+          `/alerts/${encodeURIComponent(alert.id)}/enrichment/virustotal`,
+        ),
+      );
+    } catch (failure) {
+      setError(failure);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const errorCode = error instanceof QapaqApiError ? error.code : null;
+  const reputation = result?.reputation ?? null;
+
+  return (
+    <>
+      <EuiSpacer size="l" />
+      <EuiTitle size="xxs">
+        <h3>Reputación del archivo</h3>
+      </EuiTitle>
+      <EuiSpacer size="s" />
+      <EuiText size="xs" color="subdued">
+        <p>
+          Consulta manual en VirusTotal por {ENTITY_KIND_LABEL[preferred.kind] ?? preferred.kind}.
+          Solo se envía el hash, nunca el archivo; cada consulta nueva gasta cuota compartida del
+          equipo.
+        </p>
+      </EuiText>
+      <EuiSpacer size="s" />
+      {!allowed ? (
+        <EmptyLine>Tu rol no permite consultar reputación externa.</EmptyLine>
+      ) : (
+        <>
+          {errorCode === 'INTEGRATION_NOT_CONFIGURED' ? (
+            <EmptyLine>
+              La consulta a VirusTotal no está configurada en esta plataforma. Pide a administración
+              que cargue la clave.
+            </EmptyLine>
+          ) : errorCode === 'RATE_LIMITED' ? (
+            <EmptyLine>
+              Se agotó la cuota de consultas (4 por minuto o 500 por día). Vuelve a intentarlo en
+              unos minutos.
+            </EmptyLine>
+          ) : errorCode === 'RESOURCE_UNAVAILABLE' ? (
+            <EmptyLine>No tienes acceso a esta consulta para esta alerta.</EmptyLine>
+          ) : error != null ? (
+            <ErrorCallout error={error} onRetry={consult} />
+          ) : null}
+          {result && (
+            <>
+              <EuiDescriptionList
+                type="responsiveColumn"
+                compressed
+                className="qapaqFacts"
+                listItems={[
+                  {
+                    title: ENTITY_KIND_LABEL[result.hash.algorithm] ?? result.hash.algorithm,
+                    description: <Mono>{result.hash.value}</Mono>,
+                  },
+                  {
+                    title: 'Detecciones',
+                    description: reputation ? (
+                      <span className="qapaqTabular">
+                        {reputation.detections} de {reputation.engines} motores
+                      </span>
+                    ) : (
+                      'VirusTotal no tiene análisis de este hash (no implica que sea benigno).'
+                    ),
+                  },
+                  ...(reputation
+                    ? [
+                        {
+                          title: 'Primera vez visto',
+                          description: <Timestamp iso={reputation.firstSeenAt} />,
+                        },
+                        {
+                          title: 'Último análisis',
+                          description: <Timestamp iso={reputation.lastAnalysisAt} />,
+                        },
+                        {
+                          title: 'Etiquetas',
+                          description:
+                            reputation.threatLabels.length > 0 ? (
+                              <span data-qapaq-no-translate="">
+                                {reputation.threatLabels.map((label) => (
+                                  <EuiBadge key={label} color="hollow">
+                                    {label}
+                                  </EuiBadge>
+                                ))}
+                              </span>
+                            ) : (
+                              <span className="qapaqMuted">Sin etiquetas de amenaza</span>
+                            ),
+                        },
+                        {
+                          title: 'Ficha',
+                          description: (
+                            <a
+                              className="qapaqInlineLink"
+                              href={reputation.reportUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Abrir en VirusTotal
+                            </a>
+                          ),
+                        },
+                      ]
+                    : []),
+                  {
+                    title: 'Consultado',
+                    description: (
+                      <span>
+                        <Timestamp iso={result.checkedAt} />
+                        {result.cached
+                          ? ` · desde caché (${result.cacheTtlHours} h), sin gastar cuota`
+                          : ''}
+                      </span>
+                    ),
+                  },
+                  {
+                    title: 'Cuota restante',
+                    description: (
+                      <span className="qapaqTabular">
+                        {result.quota.minute.remaining} de {result.quota.minute.limit} este minuto ·{' '}
+                        {result.quota.day.remaining} de {result.quota.day.limit} hoy
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+              <EuiSpacer size="s" />
+            </>
+          )}
+          <EuiButton
+            size="s"
+            iconType="search"
+            isLoading={busy}
+            isDisabled={errorCode === 'INTEGRATION_NOT_CONFIGURED'}
+            onClick={consult}
+          >
+            {result ? 'Volver a consultar' : 'Consultar en VirusTotal'}
+          </EuiButton>
+        </>
+      )}
+    </>
   );
 }
 

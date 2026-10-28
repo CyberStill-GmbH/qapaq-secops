@@ -67,7 +67,7 @@ variable "allowed_fqdns" {
     "*.logic.azure.com",
     "*.api.powerplatform.com",
     "security.ubuntu.com",
-    "api.virustotal.com",
+    "www.virustotal.com",
     "acme-v02.api.letsencrypt.org",
   ]
 

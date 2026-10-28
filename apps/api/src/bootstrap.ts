@@ -9,6 +9,7 @@ import {
   loadTeamsWorkflowUrl,
   loadAlertMailSender,
   loadVapidPrivateKey,
+  loadVirusTotalApiKey,
   loadSocPersistenceConfig,
   type DetectionContextConfig,
   type EnvironmentInput,
@@ -44,6 +45,11 @@ import { directoryRecipients } from './runtime/notification-recipients.js';
 import { GraphMailFallbackChannel } from './runtime/email-fallback.js';
 import { ephemeralVapidKey, VapidPushSender, vapidKeyFrom } from './runtime/web-push.js';
 import { InMemoryPushSubscriptionStore, type PushSubscriptionStore } from '@qapaq/soar';
+import {
+  createVirusTotalFileReputationProvider,
+  InMemoryFileReputationStore,
+  type FileReputationStore,
+} from '@qapaq/connectors';
 import { NotificationDispatcher } from './runtime/notification-dispatcher.js';
 import {
   DirectoryError,
@@ -96,6 +102,7 @@ interface DurableStores {
   readonly directory: DirectoryStore & { close(): Promise<void> };
   readonly push: PushSubscriptionStore & { close(): Promise<void> };
   readonly roleAdministration: RoleAdministration & { close(): Promise<void> };
+  readonly fileReputation: FileReputationStore & { close(): Promise<void> };
 }
 
 /**
@@ -112,10 +119,12 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
     { PostgresSocPersistence },
     { PostgresNotificationAttemptStore, PostgresPushSubscriptionStore },
     { PostgresSessionStore, PostgresDirectoryStore, PostgresRoleAdministration },
+    { PostgresFileReputationStore },
   ] = await Promise.all([
     import('@qapaq/soc/postgres'),
     import('@qapaq/soar/postgres'),
     import('@qapaq/access/postgres'),
+    import('@qapaq/connectors/postgres'),
   ]);
   const { postgres } = config;
   const connectionString = connectionStringFor(config);
@@ -161,6 +170,13 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
     statementTimeoutMs: postgres.statementTimeoutMs,
     maxConnections: 2,
   });
+  // Caché y cuota de reputación por hash: consultas manuales, a lo sumo 4 por minuto y tenant.
+  const fileReputation = PostgresFileReputationStore.connect({
+    connectionString,
+    connectionTimeoutMs: postgres.connectionTimeoutMs,
+    statementTimeoutMs: postgres.statementTimeoutMs,
+    maxConnections: 1,
+  });
   try {
     // Falla al arrancar, no en la primera alerta: sin base o con esquema viejo no se sirve.
     await soc.ready();
@@ -172,10 +188,11 @@ async function durableStoresFor(config: SocPersistenceConfig): Promise<DurableSt
       directory.close(),
       push.close(),
       roleAdministration.close(),
+      fileReputation.close(),
     ]);
     throw error;
   }
-  return { soc, notifications, sessions, directory, push, roleAdministration };
+  return { soc, notifications, sessions, directory, push, roleAdministration, fileReputation };
 }
 
 export async function buildApi(
@@ -194,7 +211,10 @@ export async function buildApi(
   /** Inicios de sesión rechazados: etapa y código técnico, sin datos de la cuenta. */
   onSignInDenied?: (diagnostic: SignInDiagnostic) => void,
 ) {
-  const environment = await resolveApiSecretEnvironment(unresolvedEnvironment);
+  const unavailableOptionalSecrets: string[] = [];
+  const environment = await resolveApiSecretEnvironment(unresolvedEnvironment, undefined, (name) =>
+    unavailableOptionalSecrets.push(name),
+  );
   const config = loadApiConfig(environment);
   const access = loadAccessConfig(environment);
   const detection = loadDetectionContextConfig(environment);
@@ -216,6 +236,14 @@ export async function buildApi(
     : config.profile === 'production'
       ? undefined
       : ephemeralVapidKey();
+  // Reputación de archivos por hash: opcional. Sin clave (o si Key Vault no la entrega), el
+  // endpoint responde `INTEGRATION_NOT_CONFIGURED` y el API arranca igual.
+  const virusTotalKey = loadVirusTotalApiKey(environment);
+  const fileReputationState: 'enabled' | 'disabled' | 'unavailable' = virusTotalKey
+    ? 'enabled'
+    : unavailableOptionalSecrets.includes('QAPAQ_VIRUSTOTAL_API_KEY_REF')
+      ? 'unavailable'
+      : 'disabled';
   const clientSecret = environment['QAPAQ_ENTRA_CLIENT_SECRET'];
   // Sprint 5 · fase 3: el padrón usa un token de aplicación de Graph con el mismo secreto.
   if (directoryConfig.mode === 'graph' && !clientSecret) {
@@ -377,6 +405,14 @@ export async function buildApi(
           }
         : { mode: 'disabled' },
     sourceHealth: monitor,
+    ...(virusTotalKey
+      ? {
+          fileReputation: {
+            provider: createVirusTotalFileReputationProvider({ apiKey: virusTotalKey.reveal() }),
+            store: durable?.fileReputation ?? new InMemoryFileReputationStore(),
+          },
+        }
+      : {}),
     ...(vapidKey
       ? {
           push: {
@@ -481,6 +517,7 @@ export async function buildApi(
       await durable?.directory.close();
       await durable?.push.close();
       await durable?.roleAdministration.close();
+      await durable?.fileReputation.close();
     }, API_SHUTDOWN_TIMEOUT_MS);
   return {
     application,
@@ -491,6 +528,8 @@ export async function buildApi(
     persistence: runtime.soc.kind,
     /** Fuente de ingesta efectiva, para el registro de arranque. */
     ingestion: ingestionConfig.source,
+    /** Reputación por hash: `unavailable` = hay referencia pero Key Vault no entregó la clave. */
+    fileReputation: fileReputationState,
     async start() {
       try {
         if (lifecycle.state !== 'starting') throw new Error('STARTUP_CANCELLED');

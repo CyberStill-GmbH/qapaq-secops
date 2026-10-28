@@ -8,6 +8,11 @@
       "types": "./src/public/index.ts",
       "development": "./src/public/index.ts",
       "default": "./dist/public/index.js"
+    },
+    "./postgres": {
+      "types": "./src/infrastructure/postgres/postgres-file-reputation-store.ts",
+      "development": "./src/infrastructure/postgres/postgres-file-reputation-store.ts",
+      "default": "./dist/infrastructure/postgres/postgres-file-reputation-store.js"
     }
   },
   "scripts": {
@@ -15,7 +20,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config ../../vitest.config.ts modules/connectors/test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@qapaq/contracts": "workspace:*",
+    "@qapaq/database": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "24.13.6",
     "typescript": "6.0.3"

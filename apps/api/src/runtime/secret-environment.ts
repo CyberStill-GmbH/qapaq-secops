@@ -13,7 +13,15 @@ const API_SECRET_REFERENCES = [
   ['QAPAQ_ENTITY_REF_KEY_REF', 'QAPAQ_ENTITY_REF_KEY'],
   ['QAPAQ_TEAMS_WORKFLOW_URL_REF', 'QAPAQ_TEAMS_WORKFLOW_URL'],
   ['QAPAQ_VAPID_PRIVATE_KEY_REF', 'QAPAQ_VAPID_PRIVATE_KEY'],
+  ['QAPAQ_VIRUSTOTAL_API_KEY_REF', 'QAPAQ_VIRUSTOTAL_API_KEY'],
 ] as const;
+
+/**
+ * Secretos de integraciones opcionales: si la referencia no se puede resolver (secreto ausente,
+ * sin permiso, Key Vault caído), la integración queda sin configurar y el API arranca igual. El
+ * resto de referencias son obligatorias: sin ellas el proceso no sirve.
+ */
+const OPTIONAL_SECRET_REFERENCES: ReadonlySet<string> = new Set(['QAPAQ_VIRUSTOTAL_API_KEY_REF']);
 
 const KEY_VAULT_PROVIDER_TYPE = 'azure-key-vault';
 const DEFAULT_SECRET_PROVIDER_TIMEOUT_MS = 5_000;
@@ -56,6 +64,8 @@ function configuredKeyVaultReferences(environment: EnvironmentInput) {
 export async function resolveApiSecretEnvironment(
   environment: EnvironmentInput,
   providerFactory?: (environment: EnvironmentInput) => SecretProvider,
+  /** Referencia opcional que no se pudo resolver; solo su nombre, nunca el valor. */
+  onOptionalSecretUnavailable?: (referenceName: string) => void,
 ): Promise<EnvironmentInput> {
   const providerType = environment['QAPAQ_SECRET_PROVIDER_TYPE'];
   const hasKeyVaultReference = API_SECRET_REFERENCES.some(([referenceName]) =>
@@ -91,8 +101,16 @@ export async function resolveApiSecretEnvironment(
         timeoutMs: parseTimeout(environment['QAPAQ_SECRET_PROVIDER_TIMEOUT']),
       });
   const resolved: Record<string, string | undefined> = { ...environment };
-  for (const { valueName, reference } of references) {
-    resolved[valueName] = await provider.resolve(reference);
+  for (const { referenceName, valueName, reference } of references) {
+    if (!OPTIONAL_SECRET_REFERENCES.has(referenceName)) {
+      resolved[valueName] = await provider.resolve(reference);
+      continue;
+    }
+    try {
+      resolved[valueName] = await provider.resolve(reference);
+    } catch {
+      onOptionalSecretUnavailable?.(referenceName);
+    }
   }
   return Object.freeze(resolved);
 }

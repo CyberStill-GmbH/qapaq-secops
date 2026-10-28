@@ -205,7 +205,8 @@ module "egress_firewall" {
     "*.logic.azure.com",
     "*.api.powerplatform.com",
     "security.ubuntu.com",
-    format("%s.virustotal.com", "api"),
+    # API v3 de reputación de archivos (`/api/v3/files/{hash}`); solo consultas manuales por hash.
+    "www.virustotal.com",
     "acme-v02.api.letsencrypt.org",
     ]), local.provider_egress_fqdns, var.ankay_host == null ? toset([]) : toset([
     "download.docker.com",

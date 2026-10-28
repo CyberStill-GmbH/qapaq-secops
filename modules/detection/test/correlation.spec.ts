@@ -93,6 +93,27 @@ describe('C-16 · claves y señales', () => {
     expect(entityKeysOf(event)).toEqual([]);
   });
 
+  it('indexa los hashes de archivo válidos por algoritmo', () => {
+    const sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const event = securityEvent({
+      entities: {
+        identities: [],
+        resources: [
+          { kind: 'file', type: 'sha256', id: sha256.toUpperCase() },
+          { kind: 'file', type: 'md5', id: 'd41d8cd98f00b204e9800998ecf8427e' },
+          // Forma inválida o algoritmo no admitido: no se indexan.
+          { kind: 'file', type: 'sha1', id: 'abc' },
+          { kind: 'file', type: 'imphash', id: '0'.repeat(32) },
+          { kind: 'host', type: 'sha256', id: sha256 },
+        ],
+      },
+    });
+    expect(entityKeysOf(event)).toEqual([
+      'md5:d41d8cd98f00b204e9800998ecf8427e',
+      `sha256:${sha256}`,
+    ]);
+  });
+
   it.each([
     ['office365.new-inboxrule', 'persistence'],
     ['office365.add-member-to-role', 'privilege_escalation'],

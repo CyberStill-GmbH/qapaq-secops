@@ -384,4 +384,40 @@ describe('resolveApiSecretEnvironment', () => {
     });
     expect(providerFactory).not.toHaveBeenCalled();
   });
+
+  it('resolves the optional reputation key and keeps starting when Key Vault cannot deliver it', async () => {
+    const environment = {
+      ...keyVaultEnvironment,
+      QAPAQ_VIRUSTOTAL_API_KEY_REF: 'secret://keyvault/qapaq-virustotal-api-key',
+    };
+    const delivered = await resolveApiSecretEnvironment(environment, () => ({
+      resolve: async (reference) => `synthetic-${reference.split('/').at(-1)}`,
+    }));
+    expect(delivered.QAPAQ_VIRUSTOTAL_API_KEY).toBe('synthetic-qapaq-virustotal-api-key');
+
+    const unavailable: string[] = [];
+    const missing = await resolveApiSecretEnvironment(
+      environment,
+      () => ({
+        resolve: async (reference) => {
+          if (reference.endsWith('qapaq-virustotal-api-key')) throw new Error('SECRET_NOT_FOUND');
+          return 'synthetic-required-value';
+        },
+      }),
+      (name) => unavailable.push(name),
+    );
+    expect(missing.QAPAQ_VIRUSTOTAL_API_KEY).toBeUndefined();
+    expect(missing.QAPAQ_ENTRA_CLIENT_SECRET).toBe('synthetic-required-value');
+    expect(unavailable).toEqual(['QAPAQ_VIRUSTOTAL_API_KEY_REF']);
+  });
+
+  it('still fails closed when a required reference cannot be resolved', async () => {
+    await expect(
+      resolveApiSecretEnvironment(keyVaultEnvironment, () => ({
+        resolve: async () => {
+          throw new Error('SECRET_NOT_FOUND');
+        },
+      })),
+    ).rejects.toThrow('SECRET_NOT_FOUND');
+  });
 });

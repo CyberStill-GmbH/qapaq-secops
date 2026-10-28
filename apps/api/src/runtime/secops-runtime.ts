@@ -83,6 +83,7 @@ import {
   type OutboxReader,
 } from '@qapaq/soar';
 import type { SecurityEvent } from '@qapaq/contracts';
+import type { FileReputationProvider, FileReputationStore } from '@qapaq/connectors';
 
 import {
   EntraJwksProvider,
@@ -219,6 +220,14 @@ export interface RuntimeOptions {
   readonly fallbackChain?: (consoleFallback: FallbackChannel) => FallbackChannel;
   /** Avisos al dispositivo (Web Push, Sprint 5); sin él la consola los muestra deshabilitados. */
   readonly push?: { readonly store: PushSubscriptionStore; readonly sender: PushSender };
+  /**
+   * Reputación de archivos por hash, a pedido del analista. Sin ella (sin clave en el despliegue)
+   * el endpoint responde `INTEGRATION_NOT_CONFIGURED` y el resto del API funciona igual.
+   */
+  readonly fileReputation?: {
+    readonly provider: FileReputationProvider;
+    readonly store: FileReputationStore;
+  };
 }
 
 /** Tope de alertas que la correlación lee por evento; protege frente a entidades ruidosas. */
@@ -386,6 +395,11 @@ export class SecOpsRuntime {
   /** Lector del explorador de eventos; `undefined` si no hay fuente configurada. */
   public get events(): EventsReader | undefined {
     return this.options.events;
+  }
+
+  /** Reputación de archivos por hash; `undefined` si el despliegue no tiene clave. */
+  public get fileReputation(): RuntimeOptions['fileReputation'] {
+    return this.options.fileReputation;
   }
 
   public get isLocalIdentity(): boolean {

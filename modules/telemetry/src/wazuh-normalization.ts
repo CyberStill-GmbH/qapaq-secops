@@ -1,7 +1,10 @@
 import {
+  FILE_HASH_ALGORITHMS,
+  isFileHash,
   SECURITY_EVENT_LIMITS,
   SECURITY_EVENT_SCHEMA_VERSION,
   validateSecurityEvent,
+  type FileHashAlgorithm,
   type Identity,
   type Raw,
   type Resource,
@@ -40,11 +43,14 @@ import {
  *   workload, objeto, resultado y extensión `microsoft.office365`; además `data.srcip`
  *   como recurso IP para cualquier alerta. Un evento 1.0.0 almacenado sigue siendo válido:
  *   el cambio es aditivo dentro del contrato 1.0.0.
+ * - 1.2.0: hashes del archivo observado como recursos `file` (`type` = algoritmo, `id` = hash),
+ *   desde FIM (`syscheck.*_after`) y Sysmon (`data.win.eventdata.hashes`). Aditivo: habilita el
+ *   enriquecimiento manual de reputación por hash sin leer el crudo.
  */
 
 export const WAZUH_MAPPING_ID = 'wazuh.alerts' as const;
-export const WAZUH_MAPPING_VERSION = '1.1.0' as const;
-export const WAZUH_PARSER_VERSION = '1.1.0' as const;
+export const WAZUH_MAPPING_VERSION = '1.2.0' as const;
+export const WAZUH_PARSER_VERSION = '1.2.0' as const;
 export const WAZUH_SEVERITY_MAPPING_ID = 'wazuh.alerts.severity' as const;
 export const WAZUH_SEVERITY_SCALE = 'provider-level-0-15' as const;
 
@@ -277,6 +283,39 @@ function mapSourceIp(raw: Readonly<Record<string, unknown>>): Resource[] {
   return ip === undefined ? [] : [{ kind: 'ip', id: ip, type: 'source' }];
 }
 
+/**
+ * Hashes del archivo observado. FIM publica `syscheck.md5_after`/`sha1_after`/`sha256_after`;
+ * Sysmon, `data.win.eventdata.hashes` como `SHA1=…,MD5=…,SHA256=…,IMPHASH=…`. Solo pasan
+ * hexadecimales con la longitud de su algoritmo; IMPHASH y cualquier otro valor se descartan.
+ */
+function mapFileHashes(raw: Readonly<Record<string, unknown>>): Resource[] {
+  const hashes = new Map<FileHashAlgorithm, string>();
+  const add = (algorithm: string | undefined, value: unknown) => {
+    if (algorithm === undefined || typeof value !== 'string') return;
+    const normalized = value.trim().toLowerCase();
+    if (isFileHash(algorithm, normalized) && !hashes.has(algorithm)) {
+      hashes.set(algorithm, normalized);
+    }
+  };
+  const syscheck = readObject(raw['syscheck']);
+  if (syscheck) {
+    for (const algorithm of FILE_HASH_ALGORITHMS) add(algorithm, syscheck[`${algorithm}_after`]);
+  }
+  const eventData = readObject(readObject(readObject(raw['data'])?.['win'])?.['eventdata']);
+  const sysmonHashes = eventData?.['hashes'];
+  if (typeof sysmonHashes === 'string' && sysmonHashes.length <= 1_024) {
+    for (const part of sysmonHashes.split(',')) {
+      const separator = part.indexOf('=');
+      if (separator > 0)
+        add(part.slice(0, separator).trim().toLowerCase(), part.slice(separator + 1));
+    }
+  }
+  return FILE_HASH_ALGORITHMS.flatMap((algorithm) => {
+    const value = hashes.get(algorithm);
+    return value === undefined ? [] : [{ kind: 'file', type: algorithm, id: value }];
+  });
+}
+
 function mapResources(raw: Readonly<Record<string, unknown>>): Resource[] {
   const agent = readObject(raw['agent']);
   if (!agent) return [];
@@ -483,6 +522,7 @@ export function normalizeWazuhAlert(
       resources: dedupeResources([
         ...mapResources(source),
         ...(office365 ? office365.resources : mapSourceIp(source)),
+        ...mapFileHashes(source),
       ]),
     },
     detection: {

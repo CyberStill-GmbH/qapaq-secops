@@ -200,6 +200,22 @@ export function loadVapidPrivateKey(environment: EnvironmentInput): SecretValue 
   return new SecretValue(value);
 }
 
+/**
+ * Clave de la API pública de VirusTotal (`QAPAQ_VIRUSTOTAL_API_KEY`, resuelta desde Key Vault
+ * por `QAPAQ_VIRUSTOTAL_API_KEY_REF`). Es opcional: `undefined` deja el enriquecimiento por hash
+ * sin configurar y el API arranca igual. Solo admite caracteres alfanuméricos para que una
+ * clave mal copiada (comillas, saltos de línea) falle aquí y no en la primera consulta.
+ */
+export function loadVirusTotalApiKey(environment: EnvironmentInput): SecretValue | undefined {
+  const profile = profileFrom(environment);
+  const value = environment['QAPAQ_VIRUSTOTAL_API_KEY']?.trim();
+  if (value === undefined || value === '') return undefined;
+  if (!/^[A-Za-z0-9]{32,128}$/u.test(value)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_VIRUSTOTAL_API_KEY', profile.name);
+  }
+  return new SecretValue(value);
+}
+
 /** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */
 export function loadWorkerEntrypointConfig(environment: EnvironmentInput) {
   return deepFreeze({ profile: profileFrom(environment).name });

@@ -23,7 +23,7 @@
  *   pero no basta para afirmar que fue el mismo actor (NAT, proxies, VPN corporativa).
  */
 
-import type { SecurityEvent } from '@qapaq/contracts';
+import { isFileHash, type SecurityEvent } from '@qapaq/contracts';
 
 export const CORRELATION_VERSION = '1.0.0' as const;
 
@@ -126,9 +126,10 @@ const IMPACT_SIGNALS: ReadonlySet<SignalClass> = new Set([
 export const ACCOUNT_COMPROMISE_CHAIN_ID = 'm365.account-compromise' as const;
 
 /**
- * Claves de entidad estables: `user:<upn en minúsculas>` e `ip:<ip>`. Son el índice por
- * el que el adapter busca alertas recientes, así que su formato es parte del contrato de
- * persistencia (columna `entity_keys`).
+ * Claves de entidad estables: `user:<upn en minúsculas>`, `ip:<ip>` y, para archivos,
+ * `md5:`/`sha1:`/`sha256:<hash hexadecimal>`. Son el índice por el que el adapter busca alertas
+ * recientes, así que su formato es parte del contrato de persistencia (columna `entity_keys`).
+ * Las de hash permiten además el enriquecimiento manual de reputación sin releer el evento.
  */
 export function entityKeysOf(event: SecurityEvent): readonly string[] {
   const keys = new Set<string>();
@@ -138,6 +139,10 @@ export function entityKeysOf(event: SecurityEvent): readonly string[] {
   }
   for (const resource of event.entities.resources) {
     if (resource.kind === 'ip' && resource.id) keys.add(`ip:${resource.id.toLowerCase()}`);
+    const hash = resource.id?.toLowerCase();
+    if (resource.kind === 'file' && resource.type && hash && isFileHash(resource.type, hash)) {
+      keys.add(`${resource.type}:${hash}`);
+    }
   }
   return Object.freeze([...keys].sort());
 }

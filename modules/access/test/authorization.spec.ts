@@ -57,6 +57,22 @@ describe('C-18 · capabilities por rol y scope', () => {
     // El scope de auditoría no concede auditoría a quien no la tiene por rol.
     expect([...effectiveCapabilities(['qapaq.soc.analyst'], ['audit.read'])]).toEqual([]);
   });
+
+  it('la consulta de reputación por hash es de analista y admin, y se ejerce como escritura', () => {
+    for (const role of ['qapaq.soc.analyst', 'qapaq.platform.admin']) {
+      expect([...capabilitiesForRoles([role])]).toContain('enrichment.virustotal');
+      expect([...effectiveCapabilities([role], ['soc.read', 'soc.write'])]).toContain(
+        'enrichment.virustotal',
+      );
+      // Sale a Internet y gasta cuota: un cliente de solo lectura no la ejerce.
+      expect([...effectiveCapabilities([role], ['soc.read'])]).not.toContain(
+        'enrichment.virustotal',
+      );
+    }
+    for (const role of ['qapaq.soc.lead', 'qapaq.auditor', 'qapaq.access.approver']) {
+      expect([...capabilitiesForRoles([role])]).not.toContain('enrichment.virustotal');
+    }
+  });
 });
 
 describe('C-18 · autorización contextual', () => {
