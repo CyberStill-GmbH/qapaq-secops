@@ -17,11 +17,11 @@
  *   (`CORRELATED_ENTITY`) y cadena de compromiso de cuenta (`ATTACK_CHAIN`); comparación de
  *   identidades y activos sin distinguir mayúsculas, porque los UPN de Entra no las
  *   distinguen y una diferencia de capitalización no puede apagar un ajuste.
- * - 1.2.0: contexto declarado por el SIEM. Las reglas de prioridad de Wazuh
- *   (infra/wazuh/priority) consultan listas CDB de activos e identidades y lo dejan escrito
+ * - 1.2.0: contexto declarado por el SIEM. Sus reglas de prioridad consultan las listas
+ *   de activos e identidades y lo dejan escrito
  *   en grupos `qapaq_ctx_*`; aquí cuentan como el mismo reason code que la lista propia, una
  *   sola vez. Nuevos códigos `SENSITIVE_WORKSTATION` y `OFF_HOURS`, que solo conoce el SIEM,
- *   y `PROVIDER_TUNED_DOWN`: si Wazuh rebajó una regla por ruido conocido, el contexto ya se
+ *   y `PROVIDER_TUNED_DOWN`: si el SIEM rebajó una regla por ruido conocido, el contexto ya se
  *   evaluó allí y el núcleo no la vuelve a subir.
  */
 
@@ -113,7 +113,7 @@ export const PROMOTION_THRESHOLD = PRIORITY_THRESHOLDS.P3;
 
 /**
  * Grupos de regla con los que el SIEM declara contexto ya verificado contra sus listas.
- * Son contrato con infra/wazuh/priority/rules/qapaq_priority_rules.xml.
+ * Son contrato con las reglas de prioridad del SIEM (docs/security/agents/03-matriz-priorizacion.md).
  */
 export const PROVIDER_CONTEXT_GROUPS = Object.freeze({
   criticalAsset: 'qapaq_ctx_critical_asset',
