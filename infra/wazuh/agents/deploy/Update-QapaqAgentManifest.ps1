@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Construye el paquete interno Windows (MSI de Wazuh y Sysmon) y fija sus SHA-256 en el manifiesto.
 

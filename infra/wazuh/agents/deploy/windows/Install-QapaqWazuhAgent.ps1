@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Instala o actualiza el agente Wazuh 4.14.8 de QAPAQ en Windows y lo inscribe en su grupo.
 

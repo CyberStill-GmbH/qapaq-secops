@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Rollback del agente Wazuh QAPAQ en Windows: detiene el servicio y desinstala el MSI.
 

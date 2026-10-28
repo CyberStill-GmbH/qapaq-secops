@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Instala o actualiza Sysmon con la configuración base QAPAQ, verificando hash y firma.
 
