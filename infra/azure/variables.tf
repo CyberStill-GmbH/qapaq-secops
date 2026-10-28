@@ -157,9 +157,12 @@ variable "siem_host" {
     agent_ingress_cidrs     = set(string)
     agent_public_cidrs      = optional(set(string), [])
     core_secret_names       = map(string)
-    wazuh_secret_names      = map(string)
-    core_environment        = map(string)
-    provider_ingestion      = optional(map(string), {})
+    # Secretos opcionales del núcleo (hoy, la clave de reputación por hash): solo permiso de
+    # lectura de la identidad del host; no entran al bootstrap.
+    optional_core_secret_names = optional(map(string), {})
+    wazuh_secret_names         = map(string)
+    core_environment           = map(string)
+    provider_ingestion         = optional(map(string), {})
     office365 = object({
       tenant_id  = string
       client_id  = string

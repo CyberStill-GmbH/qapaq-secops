@@ -353,3 +353,35 @@ run "rejects_non_private_krakend_source_cidr" {
 
   expect_failures = [var.krakend_source_cidrs]
 }
+
+run "grants_optional_reputation_key_without_touching_bootstrap" {
+  command = plan
+
+  variables {
+    optional_core_secret_names = {
+      QAPAQ_VIRUSTOTAL_API_KEY = "qapaq-virustotal-api-key"
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.key_vault_optional_core_secret_read) == 1
+    error_message = "La clave opcional de reputación por hash debe recibir un permiso de lectura propio."
+  }
+
+  assert {
+    condition     = endswith(azurerm_role_assignment.key_vault_optional_core_secret_read["qapaq-virustotal-api-key"].scope, "/secrets/qapaq-virustotal-api-key")
+    error_message = "El permiso debe limitarse al secreto exacto de la clave de reputación por hash."
+  }
+}
+
+run "rejects_unknown_optional_core_secret" {
+  command = plan
+
+  variables {
+    optional_core_secret_names = {
+      QAPAQ_VIRUSTOTAL_API_KEY = "otro-secreto"
+    }
+  }
+
+  expect_failures = [var.optional_core_secret_names]
+}

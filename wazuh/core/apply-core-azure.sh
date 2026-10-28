@@ -38,6 +38,13 @@ for command in curl tar systemctl install useradd; do
 done
 
 BASE=/opt/qapaq-core
+# Secretos opcionales del núcleo (hoy, la clave de reputación por hash). Su referencia viaja como
+# drop-in de systemd porque el bootstrap de la VM reescribe core.env con una allowlist fija. El
+# valor nunca toca disco: el API lo resuelve de Key Vault al arrancar y, si la identidad no puede
+# leerlo, deja la integración sin configurar y arranca igual.
+OPTIONAL_SECRETS_DROPIN_DIR=/etc/systemd/system/qapaq-core-api.service.d
+OPTIONAL_SECRETS_DROPIN="$OPTIONAL_SECRETS_DROPIN_DIR/20-optional-secrets.conf"
+VIRUSTOTAL_KEY_REFERENCE='secret://keyvault/qapaq-virustotal-api-key'
 work="$(mktemp -d)"
 link_tmp=''
 previous=''
@@ -45,6 +52,9 @@ switched=false
 deployment_ok=false
 rollback() {
   [[ "$switched" == true && "$deployment_ok" != true ]] || return 0
+  # Un release anterior puede no conocer la variable opcional y la rechazaría al arrancar.
+  rm -f -- "$OPTIONAL_SECRETS_DROPIN"
+  systemctl daemon-reload || true
   if [[ -n "$previous" && -d "$previous" ]]; then
     local restore_tmp="$BASE/.rollback-$$"
     rm -f -- "$restore_tmp"
@@ -113,6 +123,19 @@ if [[ -n "$previous" ]]; then
     fail 'el release actualmente activo apunta fuera del directorio administrado'
 fi
 install -m 0644 "$release"/systemd/qapaq-core-*.service /etc/systemd/system/
+# La referencia solo se publica si el host usa Key Vault (sin proveedor, el API rechazaría una
+# referencia `secret://keyvault/`) y si el release la reconoce; si no, se retira.
+if grep -qx 'QAPAQ_SECRET_PROVIDER_TYPE="azure-key-vault"' "$env_file" &&
+  ! grep -q '^QAPAQ_VIRUSTOTAL_API_KEY' "$env_file" &&
+  grep -qsx 'QAPAQ_VIRUSTOTAL_API_KEY_REF' "$release/OPTIONAL_SECRET_REFS"; then
+  install -d -m 0755 "$OPTIONAL_SECRETS_DROPIN_DIR"
+  printf '[Service]\nEnvironment=QAPAQ_VIRUSTOTAL_API_KEY_REF=%s\n' "$VIRUSTOTAL_KEY_REFERENCE" \
+    > "$work/optional-secrets.conf"
+  install -m 0644 "$work/optional-secrets.conf" "$OPTIONAL_SECRETS_DROPIN"
+  info 'referencia Key Vault opcional de reputación por hash publicada para la API'
+else
+  rm -f -- "$OPTIONAL_SECRETS_DROPIN"
+fi
 systemctl daemon-reload
 link_tmp="$BASE/.current-${top#qapaq-core-}.$$"
 ln -s -- "$release" "$link_tmp"

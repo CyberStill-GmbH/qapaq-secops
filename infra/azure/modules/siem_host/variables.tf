@@ -293,6 +293,20 @@ variable "core_secret_names" {
   }
 }
 
+variable "optional_core_secret_names" {
+  description = "Secretos opcionales del núcleo que la identidad del host puede leer. No entran al bootstrap ni a core.env: el instalador del core publica su referencia fija como drop-in de systemd y el API la resuelve de Key Vault al arrancar. Solo admite la clave de reputación por hash."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for key, name in var.optional_core_secret_names :
+      key == "QAPAQ_VIRUSTOTAL_API_KEY" && name == "qapaq-virustotal-api-key"
+    ])
+    error_message = "optional_core_secret_names solo admite QAPAQ_VIRUSTOTAL_API_KEY = \"qapaq-virustotal-api-key\" (la referencia que publica el instalador del core)."
+  }
+}
+
 variable "wazuh_secret_names" {
   description = "Mapa nombre de archivo seguro → secreto preexistente para la instalación Wazuh. Solo referencias, nunca valores."
   type        = map(string)

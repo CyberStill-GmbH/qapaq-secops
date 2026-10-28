@@ -275,6 +275,7 @@ module "siem_host" {
   key_vault_uri                   = module.data.key_vault_uri
   manage_artifact_read_assignment = var.siem_artifact_read_assignment_managed
   core_secret_names               = try(var.siem_host.core_secret_names, {})
+  optional_core_secret_names      = try(var.siem_host.optional_core_secret_names, {})
   wazuh_secret_names              = try(var.siem_host.wazuh_secret_names, {})
   indexer_proxy = var.krakend_gateway == null ? null : {
     reader_secret_name   = var.krakend_gateway.indexer_reader_secret_name
