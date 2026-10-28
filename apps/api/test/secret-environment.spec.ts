@@ -1,5 +1,6 @@
 import {
   parseSecretReference,
+  SecretProviderError,
   type EnvironmentInput,
   type SecretProvider,
 } from '@qapaq/configuration';
@@ -8,7 +9,10 @@ import {
   AzureKeyVaultSecretProvider,
   createAzureKeyVaultSecretProvider,
 } from '../src/runtime/azure-key-vault-secret-provider.js';
-import { resolveApiSecretEnvironment } from '../src/runtime/secret-environment.js';
+import {
+  DEFAULT_ASSISTANT_SECRET_REFERENCE,
+  resolveApiSecretEnvironment,
+} from '../src/runtime/secret-environment.js';
 
 const syntheticManagedIdentity = '11111111-1111-4111-8111-111111111111';
 const syntheticVaultUri = 'https://kv-qapaq.vault.azure.net';
@@ -308,7 +312,10 @@ describe('resolveApiSecretEnvironment', () => {
 
     const result = await resolveApiSecretEnvironment(keyVaultEnvironment, () => provider);
 
-    expect(resolvedReferences).toHaveLength(5);
+    // Las cinco declaradas y la API key del asistente por su nombre convenido.
+    expect(resolvedReferences).toHaveLength(6);
+    expect(resolvedReferences).toContain(DEFAULT_ASSISTANT_SECRET_REFERENCE);
+    expect(result.QAPAQ_ANTHROPIC_API_KEY).toBe('synthetic-value:qapaq-anthropic-api-key');
     expect(result.QAPAQ_ENTRA_CLIENT_SECRET).toBe('synthetic-value:entra-client-secret');
     expect(result.QAPAQ_POSTGRES_PASSWORD).toBe('synthetic-value:postgres-runtime-password');
     expect(result.QAPAQ_ENTITY_REF_KEY).toBe('synthetic-value:entity-ref-key');
@@ -383,5 +390,75 @@ describe('resolveApiSecretEnvironment', () => {
       code: 'SECRET_REFERENCE_INVALID',
     });
     expect(providerFactory).not.toHaveBeenCalled();
+  });
+
+  describe('API key del asistente (secreto opcional)', () => {
+    function providerDenying(reference: string): SecretProvider {
+      return {
+        resolve: async (requested) => {
+          if (requested === reference) throw new SecretProviderError('SECRET_ACCESS_DENIED');
+          return `synthetic-value:${requested.split('/').at(-1)}`;
+        },
+      };
+    }
+
+    it('sin permiso sobre el secreto el API arranca igual y solo informa variable y código', async () => {
+      const unavailable = vi.fn();
+
+      const result = await resolveApiSecretEnvironment(
+        keyVaultEnvironment,
+        () => providerDenying(DEFAULT_ASSISTANT_SECRET_REFERENCE),
+        { onOptionalSecretUnavailable: unavailable },
+      );
+
+      expect(result.QAPAQ_ANTHROPIC_API_KEY).toBeUndefined();
+      expect(result.QAPAQ_ENTRA_CLIENT_SECRET).toBe('synthetic-value:entra-client-secret');
+      expect(unavailable).toHaveBeenCalledWith('QAPAQ_ANTHROPIC_API_KEY', 'SECRET_ACCESS_DENIED');
+    });
+
+    it('usa la referencia declarada en lugar del nombre convenido', async () => {
+      const resolved: string[] = [];
+      const result = await resolveApiSecretEnvironment(
+        {
+          ...keyVaultEnvironment,
+          QAPAQ_ANTHROPIC_API_KEY_REF: 'secret://keyvault/anthropic-key-v2',
+        },
+        () => ({
+          resolve: async (reference) => {
+            resolved.push(reference);
+            return 'synthetic-anthropic-key';
+          },
+        }),
+      );
+
+      expect(resolved).toContain('secret://keyvault/anthropic-key-v2');
+      expect(resolved).not.toContain(DEFAULT_ASSISTANT_SECRET_REFERENCE);
+      expect(result.QAPAQ_ANTHROPIC_API_KEY).toBe('synthetic-anthropic-key');
+    });
+
+    it('rechaza la key en claro y referencias fuera de Key Vault en modo Azure', async () => {
+      await expect(
+        resolveApiSecretEnvironment(
+          { ...keyVaultEnvironment, QAPAQ_ANTHROPIC_API_KEY: 'plaintext-must-not-be-used' },
+          () => ({ resolve: vi.fn() }),
+        ),
+      ).rejects.toMatchObject({ code: 'CONFIG_VALUE_INVALID', path: 'QAPAQ_ANTHROPIC_API_KEY' });
+      await expect(
+        resolveApiSecretEnvironment(
+          { ...keyVaultEnvironment, QAPAQ_ANTHROPIC_API_KEY_REF: 'secret://environment/KEY' },
+          () => ({ resolve: async () => 'synthetic' }),
+        ),
+      ).rejects.toMatchObject({ code: 'SECRET_REFERENCE_INVALID' });
+    });
+
+    it('fuera de Azure no consulta ningún proveedor', async () => {
+      const providerFactory = vi.fn(() => ({ resolve: vi.fn() }));
+      const environment = { QAPAQ_PROFILE: 'development' };
+
+      await expect(resolveApiSecretEnvironment(environment, providerFactory)).resolves.toBe(
+        environment,
+      );
+      expect(providerFactory).not.toHaveBeenCalled();
+    });
   });
 });

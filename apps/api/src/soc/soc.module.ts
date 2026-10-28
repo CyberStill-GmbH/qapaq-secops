@@ -11,6 +11,7 @@ import { ChangesController } from './changes.controller.js';
 import { EventsController } from './events.controller.js';
 import { SourcesHealthController } from './sources-health.controller.js';
 import { AdminUsersController } from './admin-users.controller.js';
+import { AssistantController } from './assistant.controller.js';
 import { MePushController } from './me-push.controller.js';
 import { IncidentWorkController } from './incident-work.controller.js';
 import { AuditController } from './audit.controller.js';
@@ -39,6 +40,7 @@ export class SocModule {
         AdminUsersController,
         AdminRoleGrantsController,
         MePushController,
+        AssistantController,
         // Las rutas del emisor local solo se registran cuando ese emisor existe.
         ...(runtime.isLocalIdentity ? [LocalAuthController] : []),
       ],

@@ -103,10 +103,13 @@ export async function main(): Promise<void> {
           correlationId: diagnostic.correlationId,
           ...(diagnostic.code ? { detail: diagnostic.code } : {}),
         }),
+      // Asistente: secreto ilegible o proveedor caído, solo con su código.
+      (code) => log('assistant.failed', code),
     );
     // Solo el modo (`memory` o `postgres`), nunca datos de conexión.
     log(`soc.persistence.${runtime.persistence}`);
     log(`ingestion.source.${runtime.ingestion}`);
+    log(`assistant.${runtime.assistant}`);
     process.on('SIGINT', onSignal);
     process.on('SIGTERM', onSignal);
     process.on('uncaughtException', onException);
