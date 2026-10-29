@@ -8,6 +8,7 @@ import tarfile
 import tempfile
 import unittest
 import base64
+import gzip
 from unittest.mock import patch
 
 
@@ -42,6 +43,19 @@ class WazuhCredentialsArchiveTests(unittest.TestCase):
             source.write_bytes(base64.b64encode(payload))
             verifier.decode_and_validate(source, output)
             self.assertEqual(output.read_bytes(), payload)
+
+    def test_accepts_gzip_from_assistant_and_writes_plain_tar(self) -> None:
+        plain = credential_tar(
+            ("wazuh-install-files/wazuh-passwords.txt", b"fixture only\n"),
+            ("wazuh-install-files/root-ca.pem", b"fixture ca only\n"),
+            ("wazuh-install-files/admin.pem", b"fixture admin only\n"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = pathlib.Path(directory) / "secret.b64"
+            output = pathlib.Path(directory) / "wazuh-install-files.tar"
+            source.write_bytes(base64.b64encode(gzip.compress(plain)))
+            verifier.decode_and_validate(source, output)
+            self.assertEqual(output.read_bytes(), plain)
 
     def test_rejects_flat_layout_without_admin_certificate(self) -> None:
         payload = credential_tar(

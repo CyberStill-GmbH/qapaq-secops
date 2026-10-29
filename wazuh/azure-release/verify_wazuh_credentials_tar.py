@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import io
 import pathlib
 import sys
@@ -13,6 +14,9 @@ import tarfile
 MAX_ENCODED_BYTES = 24_000
 MAX_ARCHIVE_BYTES = 18_000
 MAX_ARCHIVE_MEMBERS = 32
+# El asistente 4.14 puede entregar el tar comprimido con gzip; Key Vault limita los secretos a
+# 25 KB, así que el tar plano con todos los certificados no cabe y se acepta comprimido.
+MAX_DECOMPRESSED_BYTES = 256 * 1024
 MAX_EXTRACTED_BYTES = 4 * 1024 * 1024
 MAX_MEMBER_BYTES = 2 * 1024 * 1024
 PASSWORDS_MEMBER = "wazuh-install-files/wazuh-passwords.txt"
@@ -32,6 +36,15 @@ def decode_and_validate(encoded_path: pathlib.Path, output_path: pathlib.Path) -
         raise ValueError("Key Vault archive is not strict base64") from error
     if not payload or len(payload) > MAX_ARCHIVE_BYTES:
         raise ValueError("decoded Wazuh archive is empty or exceeds the configured size limit")
+
+    if payload[:2] == bytes((0x1F, 0x8B)):
+        try:
+            with gzip.GzipFile(fileobj=io.BytesIO(payload)) as stream:
+                payload = stream.read(MAX_DECOMPRESSED_BYTES + 1)
+        except (OSError, EOFError) as error:
+            raise ValueError("Wazuh archive is not valid gzip") from error
+        if not payload or len(payload) > MAX_DECOMPRESSED_BYTES:
+            raise ValueError("decompressed Wazuh archive exceeds the configured size limit")
 
     try:
         with tarfile.open(fileobj=io.BytesIO(payload), mode="r:") as archive:

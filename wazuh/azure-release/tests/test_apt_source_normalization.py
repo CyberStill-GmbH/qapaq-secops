@@ -20,8 +20,17 @@ class AptSourceNormalizationTests(unittest.TestCase):
             sources.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
             self.assertEqual(normalizer.normalize_sources([sources]), [sources])
             normalized = sources.read_text(encoding="utf-8")
-            self.assertIn("URIs: https://azure.archive.ubuntu.com/ubuntu/", normalized)
+            # azure.archive.ubuntu.com no sirve HTTPS: se usa el archivo oficial.
+            self.assertIn("URIs: https://archive.ubuntu.com/ubuntu/", normalized)
+            self.assertNotIn("azure.archive.ubuntu.com", normalized)
             self.assertIn("URIs: https://security.ubuntu.com/ubuntu/", normalized)
+
+    def test_moves_https_azure_mirror_left_by_a_previous_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sources = pathlib.Path(tmp) / "ubuntu.sources"
+            sources.write_text("URIs: https://azure.archive.ubuntu.com/ubuntu/\n", encoding="utf-8")
+            self.assertEqual(normalizer.normalize_sources([sources]), [sources])
+            self.assertEqual(sources.read_text(encoding="utf-8"), "URIs: https://archive.ubuntu.com/ubuntu/\n")
 
     def test_leaves_approved_https_mirror_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
