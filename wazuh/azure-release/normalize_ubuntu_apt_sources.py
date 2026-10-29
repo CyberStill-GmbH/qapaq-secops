@@ -15,6 +15,8 @@ UBUNTU_MIRRORS = {
     "security.ubuntu.com",
 }
 URL = re.compile(r"https?://[^\s,]+", re.IGNORECASE)
+# azure.archive.ubuntu.com solo sirve HTTP; por HTTPS se usa el archivo oficial de Ubuntu.
+HTTPS_HOST_FOR = {"azure.archive.ubuntu.com": "archive.ubuntu.com"}
 
 
 def normalize_sources(paths: list[pathlib.Path]) -> list[pathlib.Path]:
@@ -28,11 +30,14 @@ def normalize_sources(paths: list[pathlib.Path]) -> list[pathlib.Path]:
         def upgrade(match: re.Match[str]) -> str:
             url = match.group(0)
             parsed = urlsplit(url)
+            host = (parsed.hostname or "").lower()
             if parsed.scheme.lower() != "http":
+                if host in HTTPS_HOST_FOR and parsed.port is None:
+                    return "https://" + HTTPS_HOST_FOR[host] + url[len("https://") + len(parsed.netloc) :]
                 return url
-            if (parsed.hostname or "").lower() not in UBUNTU_MIRRORS or parsed.port is not None:
+            if host not in UBUNTU_MIRRORS or parsed.port is not None:
                 raise ValueError("active HTTP APT source is outside the approved Ubuntu mirror allowlist")
-            return "https://" + url[len("http://") :]
+            return "https://" + HTTPS_HOST_FOR.get(host, parsed.netloc) + url[len("http://") + len(parsed.netloc) :]
 
         return URL.sub(upgrade, line)
 
