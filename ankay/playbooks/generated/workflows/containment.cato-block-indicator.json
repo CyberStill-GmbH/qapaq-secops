@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "3dda1557-571b-56b1-a0d1-bcba74ba3037",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "containment.cato-block-indicator"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "2af64b28-bb4d-5063-88ba-0aa4084bae3d",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "hold_for_outbox",
+      "name": "hold_for_outbox",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "3dda1557-571b-56b1-a0d1-bcba74ba3037",
+      "id": "0f944188-c890-5141-b013-4e48155bfb85",
+      "source_id": "28ac44e0-a065-5f82-b107-87024bd6fa26"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "2af64b28-bb4d-5063-88ba-0aa4084bae3d",
+      "id": "2568cb56-7115-557e-8f8f-7d368d1f474e",
+      "source_id": "3dda1557-571b-56b1-a0d1-bcba74ba3037"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "containment.cato-block-indicator (qapaq-ankay-initial-soc). Efecto declarado: network-policy-change. Requiere aprobación dual-control-and-sod en QAPAQ; Ankay solo verifica y retiene: el efecto lo despacha el outbox QAPAQ.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · containment.cato-block-indicator 0.1.0",
+  "start": "3dda1557-571b-56b1-a0d1-bcba74ba3037",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:containment.cato-block-indicator@0.1.0",
+    "effects:network-policy-change",
+    "ankay-sha256:0e07298080f8481bc108ebb1260f96d0"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "28ac44e0-a065-5f82-b107-87024bd6fa26",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_28ac44e0-a065-5f82-b107-87024bd6fa26"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

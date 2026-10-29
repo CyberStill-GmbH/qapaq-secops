@@ -1,4 +1,4 @@
-name: Publish Ankay Qapaq frontend to Azure EUS2 ACR
+name: Publish Ankay Qapaq runtime to Azure EUS2 ACR
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         type: string
         required: true
       source_sha:
-        description: Exact 40-character QAPAQ commit recorded in the Ankay artifact
+        description: Exact 40-character QAPAQ commit recorded in the Ankay artifacts
         type: string
         required: true
 
@@ -20,28 +20,28 @@ concurrency:
   group: ankay-azure-eus2-publish
   cancel-in-progress: false
 
+env:
+  ACR_EXPECTED: qapaqsecopsdemoeus3a2405f3.azurecr.io
+  STORAGE_ACCOUNT: qapaqdemoeus2rel3a2405f3
+  CONTAINER: siem-release
+
 jobs:
   review:
-    name: Verify frontend artifact and summarize exact EUS2 writes
+    name: Verify Ankay artifacts and summarize exact EUS2 writes
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
     outputs:
-      image_sha256: ${{ steps.inspect.outputs.image_sha256 }}
-      image_size: ${{ steps.inspect.outputs.image_size }}
-      source_sha256: ${{ steps.inspect.outputs.source_sha256 }}
-      source_size: ${{ steps.inspect.outputs.source_size }}
-      image_tag: ${{ steps.inspect.outputs.image_tag }}
-      source_blob_name: ${{ steps.inspect.outputs.source_blob_name }}
+      plan_sha256: ${{ steps.plan.outputs.plan_sha256 }}
     env:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
       SOURCE_SHA: ${{ inputs.source_sha }}
     steps:
-      - name: Validate successful source run and retained artifact
+      - name: Validate successful source run and retained artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -55,68 +55,56 @@ jobs:
               echo '::error::Source must be a successful Ankay build on main for the requested commit.'
               exit 1
             }
-          artifact_name="ankay-$SOURCE_SHA"
           artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/artifacts")"
-          jq -e --arg name "$artifact_name" \
-            '.artifacts[] | select(.name == $name and .expired == false and .size_in_bytes > 0)' \
-            <<<"$artifacts" >/dev/null || {
-              echo '::error::Expected unexpired Ankay build artifact is missing.'
-              exit 1
-            }
+          for name in "ankay-$SOURCE_SHA" "ankay-runtime-components-$SOURCE_SHA"; do
+            jq -e --arg name "$name" \
+              '.artifacts[] | select(.name == $name and .expired == false and .size_in_bytes > 0)' \
+              <<<"$artifacts" >/dev/null || {
+                echo "::error::Expected unexpired artifact $name is missing."
+                exit 1
+              }
+          done
 
-      - name: Download and verify the artifact without Azure credentials
+      - name: Check out the reviewed main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download the frontend artifact without Azure credentials
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ankay-${{ inputs.source_sha }}
           run-id: ${{ inputs.source_run_id }}
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/ankay-publish
+          path: ${{ runner.temp }}/ankay-publish/frontend
 
-      - name: Summarize exact ACR tag and AGPL source Blob
-        id: inspect
+      - name: Download the runtime artifact without Azure credentials
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ankay-runtime-components-${{ inputs.source_sha }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ankay-publish/runtime
+
+      - name: Build and summarize the exact publication plan
+        id: plan
         working-directory: ${{ runner.temp }}/ankay-publish
-        env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum --check --strict SHA256SUMS
-          grep -Fxq "commit=$SOURCE_SHA" metadata.txt
-          grep -Fxq "image=ankay-qapaq-frontend:$SOURCE_SHA" metadata.txt
-          image_tar=image.tar.gz
-          source_tar="$(find . -maxdepth 1 -type f -name 'ankay-qapaq-frontend-source-*.tar.gz' -print -quit)"
-          [[ -f "$image_tar" && -n "$source_tar" ]]
-          image_sha="$(sha256sum "$image_tar" | awk '{print $1}')"
-          source_sha="$(sha256sum "$source_tar" | awk '{print $1}')"
-          image_size="$(stat -c '%s' "$image_tar")"
-          source_size="$(stat -c '%s' "$source_tar")"
-          [[ "$image_sha" == "$(sed -n 's/^image_sha256=//p' metadata.txt)" ]]
-          [[ "$source_sha" == "$(sed -n 's/^source_sha256=//p' metadata.txt)" ]]
-          [[ "$image_sha" =~ ^[0-9a-f]{64}$ && "$source_sha" =~ ^[0-9a-f]{64}$ ]]
-          image_tag="git-${SOURCE_SHA}-sha256-${image_sha}"
-          source_name="$(basename "$source_tar")"
-          source_blob_name="ankay-source/$SOURCE_SHA/$source_name"
-          printf 'image_sha256=%s\nimage_size=%s\nsource_sha256=%s\nsource_size=%s\nimage_tag=%s\nsource_blob_name=%s\n' \
-            "$image_sha" "$image_size" "$source_sha" "$source_size" "$image_tag" "$source_blob_name" >> "$GITHUB_OUTPUT"
-          {
-            echo '## Revisión de publicación Ankay EUS2'
-            echo
-            echo "- Fuente: [run ${{ inputs.source_run_id }}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${{ inputs.source_run_id }})"
-            echo "- Commit QAPAQ: \`$SOURCE_SHA\`"
-            echo "- ACR: \`qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-frontend:$image_tag\` ($image_size bytes comprimidos; SHA-256 \`$image_sha\`)"
-            echo "- Código fuente AGPL: \`https://qapaqdemoeus2rel3a2405f3.blob.core.windows.net/siem-release/$source_blob_name\` ($source_size bytes; SHA-256 \`$source_sha\`)"
-            echo '- Efecto máximo: crear un tag nuevo en el ACR existente y un blob privado de fuentes; los dos destinos se rechazan si ya existen.'
-            echo '- No crea ni cambia recursos, permisos, red, Key Vault, Terraform, DNS o cómputo.'
-            echo '- El ACR actual es Basic y el almacenamiento usa la redundancia/tier ya configurados; revisar los cargos de almacenamiento vigentes antes de aprobar la etapa protegida.'
-            echo '- Este paso publica solo el frontend Ankay. No acredita un runtime Ankay completo ni provee backend/Orborus/worker/OpenSearch.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python3 "$GITHUB_WORKSPACE/.github/ci/ankay-publication-plan.py" \
+            --frontend frontend --runtime runtime --source-sha "$SOURCE_SHA" \
+            --acr "$ACR_EXPECTED" --storage-account "$STORAGE_ACCOUNT" --container "$CONTAINER" \
+            --output plan.json --summary "$GITHUB_STEP_SUMMARY"
+          echo "plan_sha256=$(sha256sum plan.json | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
   publish:
-    name: Publish reviewed Ankay frontend and source to EUS2
+    name: Publish reviewed Ankay images and AGPL sources to EUS2
     if: github.ref == 'refs/heads/main'
     needs: [review]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: azure-demo-eus2
     permissions:
       actions: read
@@ -126,54 +114,57 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_RUN_ID: ${{ inputs.source_run_id }}
       SOURCE_SHA: ${{ inputs.source_sha }}
-      AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      PLAN_SHA256: ${{ needs.review.outputs.plan_sha256 }}
       ACR_LOGIN_SERVER: ${{ vars.AZURE_EUS2_ACR_LOGIN_SERVER }}
-      STORAGE_ACCOUNT: qapaqdemoeus2rel3a2405f3
-      CONTAINER: siem-release
     steps:
-      - name: Re-validate EUS2 target and reviewed metadata
+      - name: Check out the reviewed main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Re-validate EUS2 target identifiers
         shell: bash
         env:
-          IMAGE_TAG: ${{ needs.review.outputs.image_tag }}
-          IMAGE_SHA256: ${{ needs.review.outputs.image_sha256 }}
-          SOURCE_SHA256: ${{ needs.review.outputs.source_sha256 }}
-          SOURCE_BLOB_NAME: ${{ needs.review.outputs.source_blob_name }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_EUS2_GITHUB_PUBLISHER_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
         run: |
           set -euo pipefail
-          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID ACR_LOGIN_SERVER STORAGE_ACCOUNT CONTAINER IMAGE_TAG IMAGE_SHA256 SOURCE_SHA256 SOURCE_BLOB_NAME; do
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID ACR_LOGIN_SERVER PLAN_SHA256; do
             [[ -n "${!name}" ]] || { echo "::error::Missing reviewed EUS2 publishing value: $name"; exit 1; }
           done
-          [[ "$ACR_LOGIN_SERVER" == qapaqsecopsdemoeus3a2405f3.azurecr.io ]]
-          [[ "$STORAGE_ACCOUNT" == qapaqdemoeus2rel3a2405f3 && "$CONTAINER" == siem-release ]]
-          [[ "$IMAGE_TAG" == "git-$SOURCE_SHA-sha256-$IMAGE_SHA256" ]]
-          [[ "$IMAGE_SHA256" =~ ^[0-9a-f]{64}$ && "$SOURCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
-          [[ "$SOURCE_BLOB_NAME" == "ankay-source/$SOURCE_SHA/ankay-qapaq-frontend-source-$SOURCE_SHA.tar.gz" ]]
+          [[ "$ACR_LOGIN_SERVER" == "$ACR_EXPECTED" ]]
+          [[ "$AZURE_SUBSCRIPTION_ID" == aaf787f8-5964-4470-9eb6-89d15eacda61 ]]
 
-      - name: Download the exact reviewed artifact
+      - name: Download the frontend artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ankay-${{ inputs.source_sha }}
           run-id: ${{ inputs.source_run_id }}
           github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/ankay-publish
+          path: ${{ runner.temp }}/ankay-publish/frontend
 
-      - name: Re-check image and source bytes before cloud authentication
+      - name: Download the runtime artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ankay-runtime-components-${{ inputs.source_sha }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ankay-publish/runtime
+
+      - name: Recompute the plan and require it to match the reviewed one
         working-directory: ${{ runner.temp }}/ankay-publish
         shell: bash
-        env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          IMAGE_SHA256: ${{ needs.review.outputs.image_sha256 }}
-          SOURCE_SHA256: ${{ needs.review.outputs.source_sha256 }}
         run: |
           set -euo pipefail
-          sha256sum --check --strict SHA256SUMS
-          grep -Fxq "commit=$SOURCE_SHA" metadata.txt
-          [[ "$(sha256sum image.tar.gz | awk '{print $1}')" == "$IMAGE_SHA256" ]]
-          source_tar="$(find . -maxdepth 1 -type f -name 'ankay-qapaq-frontend-source-*.tar.gz' -print -quit)"
-          [[ -n "$source_tar" ]]
-          [[ "$(sha256sum "$source_tar" | awk '{print $1}')" == "$SOURCE_SHA256" ]]
+          python3 "$GITHUB_WORKSPACE/.github/ci/ankay-publication-plan.py" \
+            --frontend frontend --runtime runtime --source-sha "$SOURCE_SHA" \
+            --acr "$ACR_EXPECTED" --storage-account "$STORAGE_ACCOUNT" --container "$CONTAINER" \
+            --output plan.json
+          [[ "$(sha256sum plan.json | awk '{print $1}')" == "$PLAN_SHA256" ]] || {
+            echo '::error::Artifacts changed after review; refusing to publish.'; exit 1;
+          }
 
       - name: Sign in with the EUS2 publisher identity
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
@@ -182,45 +173,73 @@ jobs:
           tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
 
-      - name: Publish only new immutable ACR tag and source blob
+      - name: Publish only new immutable ACR tags and source blobs
         working-directory: ${{ runner.temp }}/ankay-publish
         shell: bash
-        env:
-          IMAGE_TAG: ${{ needs.review.outputs.image_tag }}
-          IMAGE_SHA256: ${{ needs.review.outputs.image_sha256 }}
-          SOURCE_SHA256: ${{ needs.review.outputs.source_sha256 }}
-          SOURCE_BLOB_NAME: ${{ needs.review.outputs.source_blob_name }}
         run: |
           set -euo pipefail
-          docker load --input image.tar.gz
-          source_image="ankay-qapaq-frontend:${SOURCE_SHA}"
-          target_image="$ACR_LOGIN_SERVER/ankay-qapaq-frontend:$IMAGE_TAG"
-          docker image inspect "$source_image" >/dev/null
-          tag_exists="$(az acr repository show --name "${ACR_LOGIN_SERVER%.azurecr.io}" \
-            --image "ankay-qapaq-frontend:$IMAGE_TAG" --query name --output tsv 2>/dev/null || true)"
-          [[ -z "$tag_exists" ]] || { echo '::error::The content-addressed ACR tag already exists; refusing to overwrite.'; exit 1; }
-          blob_exists="$(az storage blob exists --auth-mode login --account-name "$STORAGE_ACCOUNT" \
-            --container-name "$CONTAINER" --name "$SOURCE_BLOB_NAME" --query exists --output tsv)"
-          [[ "$blob_exists" == false ]] || { echo '::error::The AGPL source Blob already exists; refusing to overwrite.'; exit 1; }
-          access_token="$(az acr login --name "${ACR_LOGIN_SERVER%.azurecr.io}" --expose-token --output tsv --query accessToken)"
+          registry="${ACR_LOGIN_SERVER%.azurecr.io}"
+          # Refuse before writing anything if any target already exists.
+          while read -r repository tag; do
+            exists="$(az acr repository show --name "$registry" --image "$repository:$tag" --query name --output tsv 2>/dev/null || true)"
+            [[ -z "$exists" ]] || { echo "::error::$repository:$tag already exists; refusing to overwrite."; exit 1; }
+          done < <(jq -r '.images[] | "\(.repository) \(.tag)"' plan.json)
+          while read -r blob; do
+            exists="$(az storage blob exists --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$blob" --query exists --output tsv)"
+            [[ "$exists" == false ]] || { echo "::error::Source blob $blob already exists; refusing to overwrite."; exit 1; }
+          done < <(jq -r '.sources[].blob' plan.json)
+
+          access_token="$(az acr login --name "$registry" --expose-token --output tsv --query accessToken)"
           [[ -n "$access_token" ]] || { echo 'Azure no entregó un token temporal para ACR.'; exit 1; }
           printf '%s' "$access_token" | docker login "$ACR_LOGIN_SERVER" \
             --username 00000000-0000-0000-0000-000000000000 --password-stdin
           unset access_token
-          docker tag "$source_image" "$target_image"
-          docker push "$target_image"
-          image_digest="$(az acr manifest show-metadata --registry "${ACR_LOGIN_SERVER%.azurecr.io}" \
-            --name "ankay-qapaq-frontend:$IMAGE_TAG" --query digest --output tsv)"
-          [[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          source_tar="$(find . -maxdepth 1 -type f -name 'ankay-qapaq-frontend-source-*.tar.gz' -print -quit)"
-          az storage blob upload --auth-mode login --account-name "$STORAGE_ACCOUNT" \
-            --container-name "$CONTAINER" --name "$SOURCE_BLOB_NAME" --file "$source_tar" \
-            --overwrite false --max-connections 4 --no-progress \
-            --metadata "sha256=$SOURCE_SHA256" "source_sha=$SOURCE_SHA" \
-            --content-type application/gzip --output none
-          stored_sha="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
-            --container-name "$CONTAINER" --name "$SOURCE_BLOB_NAME" --query metadata.sha256 --output tsv)"
-          [[ "$stored_sha" == "$SOURCE_SHA256" ]]
-          printf '### Ankay frontend y fuente publicados en EUS2\n\n- Commit: `%s`\n- Imagen: `%s/ankay-qapaq-frontend@%s`\n- Blob de fuentes: `https://%s.blob.core.windows.net/%s/%s`\n- SHA-256 imagen del artefacto CI: `%s`\n- SHA-256 fuente AGPL: `%s`\n- El servicio aún no se instala; falta construir y aprobar los otros cinco servicios Ankay.\n' \
-            "$SOURCE_SHA" "$ACR_LOGIN_SERVER" "$image_digest" "$STORAGE_ACCOUNT" "$CONTAINER" "$SOURCE_BLOB_NAME" \
-            "$IMAGE_SHA256" "$SOURCE_SHA256" >> "$GITHUB_STEP_SUMMARY"
+
+          published='[]'
+          while read -r key archive local repository tag; do
+            docker load --input "$archive" >/dev/null
+            docker image inspect "$local" >/dev/null
+            docker tag "$local" "$ACR_LOGIN_SERVER/$repository:$tag"
+            docker push "$ACR_LOGIN_SERVER/$repository:$tag" >/dev/null
+            digest="$(az acr manifest show-metadata --registry "$registry" --name "$repository:$tag" --query digest --output tsv)"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            published="$(jq --arg k "$key" --arg ref "$ACR_LOGIN_SERVER/$repository@$digest" --arg tag "$tag" \
+              '. + [{key:$k, image:$ref, tag:$tag}]' <<<"$published")"
+          done < <(jq -r '.images[] | "\(.key) \(.archive) \(.localImage) \(.repository) \(.tag)"' plan.json)
+
+          while read -r file blob sha; do
+            az storage blob upload --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$blob" --file "$file" \
+              --overwrite false --max-connections 4 --no-progress \
+              --metadata "sha256=$sha" "source_sha=$SOURCE_SHA" \
+              --content-type application/gzip --output none
+            stored="$(az storage blob show --auth-mode login --account-name "$STORAGE_ACCOUNT" \
+              --container-name "$CONTAINER" --name "$blob" --query metadata.sha256 --output tsv)"
+            [[ "$stored" == "$sha" ]]
+          done < <(jq -r '.sources[] | "\(.file) \(.blob) \(.sha256)"' plan.json)
+
+          jq -n --arg sha "$SOURCE_SHA" --argjson images "$published" \
+            '{schemaVersion:1, sourceSha:$sha, images:$images,
+              container_images:([$images[] | select(.key != "app-qapaq-ankay") | {(.key):.image}] | add),
+              app_images:{"ankay/apps:qapaq-ankay_1.0.0":([$images[] | select(.key == "app-qapaq-ankay") | .image][0])}}' \
+            > published-images.json
+          {
+            echo '### Ankay publicado en EUS2'
+            echo
+            echo "- Commit: \`$SOURCE_SHA\`"
+            echo '- Digests (para `ankay/deploy/render-ankay-host.py --published`):'
+            echo
+            echo '```json'
+            cat published-images.json
+            echo '```'
+            echo '- No crea ni cambia recursos, red, Key Vault, Terraform ni cómputo.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the digest manifest (no secrets)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ankay-eus2-published-${{ inputs.source_sha }}
+          path: ${{ runner.temp }}/ankay-publish/published-images.json
+          if-no-files-found: error
+          retention-days: 90

@@ -25,6 +25,9 @@ COPY --from=builder /app/shufflebackend /app/shufflebackend
 COPY --from=builder /app_sdk/ /app_sdk
 COPY --from=builder /app_gen/ /app_gen
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+# Definición de la app QAPAQ Ankay para el hotload (SHUFFLE_APP_HOTLOAD_FOLDER); sin red
+# hacia GitHub, este es el único origen de apps del backend.
+COPY ankay-apps/ /shuffle-apps/
 
 WORKDIR /app
 RUN addgroup -S -g 10001 ankay \

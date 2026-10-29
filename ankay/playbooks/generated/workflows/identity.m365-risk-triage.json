@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "eab4be49-c9cd-56af-997d-0aa91c7a9781",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "identity.m365-risk-triage"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "eae2ebdb-1099-5379-872a-63a45f8aed03",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "eab4be49-c9cd-56af-997d-0aa91c7a9781",
+      "id": "10445a38-6820-5758-95ea-2cc3fc34c156",
+      "source_id": "01a04d23-c91d-586d-a985-3186e735c76d"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "eae2ebdb-1099-5379-872a-63a45f8aed03",
+      "id": "63478211-237f-51cc-b547-0f33d0d194eb",
+      "source_id": "eab4be49-c9cd-56af-997d-0aa91c7a9781"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "identity.m365-risk-triage (qapaq-ankay-initial-soc). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: design-only.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · identity.m365-risk-triage 1.0.0",
+  "start": "eab4be49-c9cd-56af-997d-0aa91c7a9781",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:identity.m365-risk-triage@1.0.0",
+    "effects:none",
+    "ankay-sha256:e865c52e714e84f5de0d9c674e8233f4"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "01a04d23-c91d-586d-a985-3186e735c76d",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_01a04d23-c91d-586d-a985-3186e735c76d"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

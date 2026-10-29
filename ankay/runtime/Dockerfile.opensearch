@@ -13,11 +13,13 @@ COPY --from=upstream --chown=1000:1000 /usr/share/opensearch/ /usr/share/opensea
 COPY opensearch-dependencies.lock /usr/share/opensearch/opensearch-dependencies.lock
 COPY patch-opensearch-dependencies.sh /usr/local/sbin/patch-opensearch-dependencies
 COPY prune_opensearch_shadow_metadata.py /usr/local/sbin/prune_opensearch_shadow_metadata.py
+COPY sync_opensaml_guava_descriptor.py /usr/local/sbin/sync_opensaml_guava_descriptor.py
 RUN bash /usr/local/sbin/patch-opensearch-dependencies \
     /usr/share/opensearch /usr/share/opensearch/opensearch-dependencies.lock \
+    && python3 /usr/local/sbin/sync_opensaml_guava_descriptor.py /usr/share/opensearch \
     && rm -f /usr/share/opensearch/opensearch-dependencies.lock \
     && rm -f /usr/local/sbin/patch-opensearch-dependencies \
-    && rm -f /usr/local/sbin/prune_opensearch_shadow_metadata.py
+    && rm -f /usr/local/sbin/prune_opensearch_shadow_metadata.py /usr/local/sbin/sync_opensaml_guava_descriptor.py
 
 FROM ${AMAZON_LINUX_IMAGE}
 

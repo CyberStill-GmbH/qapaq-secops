@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "84111dc2-fbce-5fc4-abe5-0f3443d89086",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "notification.soc-critical"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "1949b5ef-3dc6-54ec-9acb-4825e86be300",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "84111dc2-fbce-5fc4-abe5-0f3443d89086",
+      "id": "7add191e-ba5e-5624-b2dc-626728fb1f63",
+      "source_id": "ae1a5623-4f04-5ffa-afc3-9db0d731d4e3"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "1949b5ef-3dc6-54ec-9acb-4825e86be300",
+      "id": "4a4ab551-a955-5bab-818f-c7394b04e13e",
+      "source_id": "84111dc2-fbce-5fc4-abe5-0f3443d89086"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "notification.soc-critical (qapaq-ankay-initial-soc). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: design-only.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · notification.soc-critical 1.0.0",
+  "start": "84111dc2-fbce-5fc4-abe5-0f3443d89086",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:notification.soc-critical@1.0.0",
+    "effects:notification-only",
+    "ankay-sha256:dc2fda990533b2b92cec9c1445e043bb"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "ae1a5623-4f04-5ffa-afc3-9db0d731d4e3",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_ae1a5623-4f04-5ffa-afc3-9db0d731d4e3"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

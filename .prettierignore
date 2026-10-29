@@ -11,3 +11,6 @@ docs
 
 # Artefactos generados desde el catálogo de señales (C-26) y desde routes.json (C-28).
 # Su formato lo fija el generador; reformatearlos rompería la comprobación de deriva.
+
+# Workflows Shuffle generados por ankay/playbooks/build_workflows.py (test_playbooks comprueba la deriva).
+ankay/playbooks/generated

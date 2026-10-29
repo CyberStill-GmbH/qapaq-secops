@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "e4e66c0f-afc8-58cc-9cba-43ef7fbf8465",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "phishing.endpoint-office-child-process"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "a89dc507-4d3c-5e15-8344-63ba902de8d4",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "e4e66c0f-afc8-58cc-9cba-43ef7fbf8465",
+      "id": "9e35ca0e-1c1e-5da1-b196-845a6830df9f",
+      "source_id": "04b0d400-5e53-53c6-83c5-d004e3539f64"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "a89dc507-4d3c-5e15-8344-63ba902de8d4",
+      "id": "f12b6dec-4b37-5c67-acea-d2fc0e153f2c",
+      "source_id": "e4e66c0f-afc8-58cc-9cba-43ef7fbf8465"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "phishing.endpoint-office-child-process (qapaq-ankay-initial-soc). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: design-only.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · phishing.endpoint-office-child-process 0.1.0",
+  "start": "e4e66c0f-afc8-58cc-9cba-43ef7fbf8465",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:phishing.endpoint-office-child-process@0.1.0",
+    "effects:none",
+    "ankay-sha256:d91c9d4b42077e4f18862bb49d76a2b6"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "04b0d400-5e53-53c6-83c5-d004e3539f64",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_04b0d400-5e53-53c6-83c5-d004e3539f64"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

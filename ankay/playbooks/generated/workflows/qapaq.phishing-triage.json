@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "1e1c6706-e648-5539-8e0c-2803990d8bc1",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "qapaq.phishing-triage"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "ed0a8e42-9d4e-5026-a6f2-779468a10575",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "1e1c6706-e648-5539-8e0c-2803990d8bc1",
+      "id": "2885c696-18d4-5e3f-b611-5e9230e470f2",
+      "source_id": "3f260742-5086-50b9-ace6-afbb118350de"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "ed0a8e42-9d4e-5026-a6f2-779468a10575",
+      "id": "a1a489be-370d-5a21-a373-8540fcfa4c74",
+      "source_id": "1e1c6706-e648-5539-8e0c-2803990d8bc1"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "qapaq.phishing-triage (qapaq-financial-demo-v1). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: prepared-read-only.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · qapaq.phishing-triage 1.0.0",
+  "start": "1e1c6706-e648-5539-8e0c-2803990d8bc1",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:qapaq.phishing-triage@1.0.0",
+    "effects:none",
+    "ankay-sha256:74795ba87fedb643ff0358c91b1e2d7b"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "3f260742-5086-50b9-ace6-afbb118350de",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_3f260742-5086-50b9-ace6-afbb118350de"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

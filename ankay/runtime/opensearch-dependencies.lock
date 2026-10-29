@@ -6,3 +6,9 @@ jline-builtins-3.21.0.jar|jline-builtins-3.30.15.jar|https://repo.maven.apache.o
 jsoup-1.23.1.jar|jsoup-1.23.2.jar|https://repo.maven.apache.org/maven2/org/jsoup/jsoup/1.23.2/jsoup-1.23.2.jar|e9d8c856856680427f096d156f02a414289985c930998fcb519ce5be39b42003
 jackson-core-3.2.2.jar|jackson-core-3.2.3.jar|https://repo.maven.apache.org/maven2/tools/jackson/core/jackson-core/3.2.3/jackson-core-3.2.3.jar|a0c17e7e665a5e95c82f5fb45c0fec2ae3dc556c80f0016452c9c84cd23f3817
 jackson-databind-3.2.2.jar|jackson-databind-3.2.3.jar|https://repo.maven.apache.org/maven2/tools/jackson/core/jackson-databind/3.2.3/jackson-databind-3.2.3.jar|235b72436af983857e44efa42449f4f0a2c571e69d6c5d9dd1253ae7d192dcf2
+guava-32.1.3-jre.jar|guava-33.7.2-jre.jar|https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar|b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c
+guava-33.2.1-jre.jar|guava-33.7.2-jre.jar|https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar|b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c
+guava-33.3.0-jre.jar|guava-33.7.2-jre.jar|https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar|b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c
+guava-33.5.0-jre.jar|guava-33.7.2-jre.jar|https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar|b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c
+guava-33.7.1-jre.jar|guava-33.7.2-jre.jar|https://repo.maven.apache.org/maven2/com/google/guava/guava/33.7.2-jre/guava-33.7.2-jre.jar|b530942257fb935f8b2cfaa5f8eb5bd59c555fd8e8d01b8ce98912e077ea606c
+snappy-java-1.1.10.8.jar|snappy-java-1.1.10.9.jar|https://repo.maven.apache.org/maven2/org/xerial/snappy/snappy-java/1.1.10.9/snappy-java-1.1.10.9.jar|35228628442e4b9797681c7cbd3b26594f6da3379159dbd0cb07094ed3aece0d

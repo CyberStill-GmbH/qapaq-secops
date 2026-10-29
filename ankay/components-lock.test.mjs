@@ -49,9 +49,9 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   assert.equal(lock.sources.opensearch.license, 'Apache-2.0');
   assert.equal(
     lock.buildBases.amazonLinux2023,
-    'public.ecr.aws/amazonlinux/amazonlinux:2023.12.20261013.0@sha256:1eb8fe7a098746ce0cd385894f4d512f010feb7ca5ef40e0bac731b71a15feb2',
+    'public.ecr.aws/amazonlinux/amazonlinux:2023.12.20261021.0@sha256:d9b4c61f49de68d41e43af1c0ef89c5600b0ad51da024406a15f5d014720c998',
   );
-  assert.equal(lock.buildPolicy.amazonLinux2023Release, '2023.12.20261013');
+  assert.equal(lock.buildPolicy.amazonLinux2023Release, '2023.12.20261028');
   assert.equal(
     lock.buildBases.golang1273Alpine323,
     'docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df',
@@ -62,7 +62,15 @@ test('runtime component refs use immutable digests and linux/amd64 target', () =
   );
   assert.deepEqual(
     Object.keys(lock.componentStatus).sort(),
-    ['backend', 'frontend', 'opensearch', 'orborus', 'shuffle-security', 'worker'].sort(),
+    [
+      'backend',
+      'docker-guard',
+      'frontend',
+      'opensearch',
+      'orborus',
+      'qapaq-ankay-app',
+      'worker',
+    ].sort(),
   );
 });
 
@@ -230,7 +238,8 @@ test('runtime build checks effective users and documents the Docker socket produ
   assert.match(runtimeCheck, /test -w \/app\/generated/);
   assert.match(runtimeCheck, /test ! -w \/app/);
   assert.match(workflow, /bash ankay\/verify-runtime-users\.sh/);
-  assert.match(readme, /autoridad prácticamente equivalente\s+a root sobre el daemon y su VM/);
+  assert.match(readme, /solo lo monta\s+`docker-guard`/);
+  assert.match(workflow, /bash ankay\/verify-docker-guard\.sh/);
   assert.match(readme, /Ankay no queda listo para producción/);
 });
 
@@ -344,10 +353,10 @@ test('backend Docker SDK migration uses pinned Moby overlays and corresponding s
 test('Moby v29 migration stays blocked until the Engine runtime check passes', () => {
   const blocker = lock.securityBlockers.dockerSdk;
   assert.equal(blocker.module, 'github.com/docker/docker@v28.3.3+incompatible');
-  assert.equal(blocker.status, 'backend-and-worker-migrated-runtime-test-pending');
+  assert.equal(blocker.status, 'backend-worker-and-orborus-migrated-runtime-test-pending');
   assert.deepEqual(blocker.cves, ['CVE-2026-41567', 'CVE-2026-42306']);
   assert.equal(blocker.requiredEngineVersion, '29.5.1');
-  assert.match(blocker.reason, /runtime tests against Engine 29\.5\.1 or later pass/);
+  assert.match(blocker.reason, /runtime test against Engine 29\.5\.1 or later passes/);
   const archive = lock.securityBlockers.mobyGoArchive;
   assert.equal(archive.module, 'github.com/moby/go-archive@v0.1.0');
   assert.equal(archive.status, 'removed-from-backend-and-worker-module-graphs');
@@ -356,18 +365,27 @@ test('Moby v29 migration stays blocked until the Engine runtime check passes', (
   assert.match(archive.reason, /nested shuffle-shared app_upload module remains excluded/);
 });
 
-test('unverified service sources remain blocked instead of receiving mutable tags', () => {
-  for (const key of ['orborus', 'shuffleSecurity']) {
-    assert.match(lock.sources[key].commit, /^[0-9a-f]{40}$/);
-    assert.equal(lock.sources[key].license, 'NOASSERTION');
-    assert.equal(lock.sources[key].status, 'blocked');
-    assert.ok(lock.sources[key].reason.length > 20);
-  }
-  assert.equal(lock.componentStatus.orborus, 'blocked-license-review');
-  assert.equal(
-    lock.componentStatus['shuffle-security'],
-    'blocked-license-and-compatibility-review',
+test('Orborus comes from the last AGPL monorepo tag and shuffle-security is not shipped', () => {
+  const orborus = lock.sources.orborus;
+  assert.equal(orborus.repository, 'https://github.com/Shuffle/Shuffle.git');
+  assert.equal(orborus.tag, 'v2.2.0');
+  assert.equal(orborus.commit, '36fad33c2e7afb47134d12dc23e6e99948e34b13');
+  assert.equal(orborus.path, 'functions/onprem/orborus');
+  assert.equal(orborus.license, 'AGPL-3.0');
+  const patch = readFileSync(
+    new URL('./runtime/orborus/orborus-moby-v29.patch', import.meta.url),
+    'utf8',
   );
+  assert.match(patch, /\+\s*dockerclient "github\.com\/moby\/moby\/client"/);
+  assert.doesNotMatch(patch, /\+\s*"github\.com\/docker\/docker/);
+  const goMod = readFileSync(new URL('./runtime/orborus/go.mod', import.meta.url), 'utf8');
+  assert.match(goMod, /^module orborus$/m);
+  assert.match(goMod, /^exclude github\.com\/docker\/docker v28\.3\.3\+incompatible$/m);
+  assert.doesNotMatch(goMod, /^\s*github\.com\/docker\/docker\s+v/m);
+  assert.equal(lock.sources.shuffleSecurity.license, 'NOASSERTION');
+  assert.equal(lock.sources.shuffleSecurity.status, 'excluded');
+  assert.equal(lock.sources.shuffleSecurity.replacedBy, 'dockerGuard');
+  assert.equal(lock.sources.dockerGuard.path, 'ankay/runtime/docker-guard');
 });
 
 test('Shuffle OpenSearch connections keep certificate verification enabled', () => {

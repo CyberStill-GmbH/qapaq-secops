@@ -68,27 +68,25 @@ Las carpetas del host que se monten como `/shuffle-apps` o `/shuffle-files` debe
 provisionarse con permisos específicos para este UID/GID; este Dockerfile no cambia
 permisos del host ni de montajes.
 
-La configuración upstream monta `/var/run/docker.sock` para backend y Orborus. El
-acceso de escritura a ese socket sigue entregando autoridad prácticamente equivalente
-a root sobre el daemon y su VM, aunque el proceso dentro del contenedor use UID 10001.
-El runtime debe suministrar el GID numérico real del socket como grupo suplementario al
-backend y a los workers dinámicos; ese contrato todavía no está implementado ni probado
-en Compose/Azure. No usar un montaje `:ro` como sustituto de autorización al API.
-
-El usuario no-root mitiga privilegios del proceso y habilita el control Trivy `DS-0002`,
-pero no contiene el poder del Docker socket. Una VM exclusiva reduce el alcance del
-incidente solo si no comparte workloads, datos ni identidades cloud de privilegio amplio.
-Esto no acredita ejecución de workflows, grupos del socket, permisos de volúmenes,
-aislamiento de workers ni controles de red; **Ankay no queda listo para producción**.
-Mantener el release bloqueado hasta versionar y verificar el contrato del socket y
-ejecutar workflows end-to-end en un host dedicado aislado.
+La configuración upstream monta `/var/run/docker.sock` en backend y Orborus. En Ankay solo lo monta
+`docker-guard` (`runtime/docker-guard`, Go, sin dependencias externas), que corre como UID 10002 con el
+grupo `docker` de GID fijo 2375, rootfs de solo lectura y sin capacidades. Orborus y los workers usan
+`DOCKER_HOST=tcp://docker-guard:2375`. El guard permite solo create/start/stop/kill/wait/logs/delete sobre
+contenedores que él creó, imágenes de la allowlist y lectura de `_ping`, `version`, `info`, listas e
+inspección. Fuerza `no-new-privileges` y `PidsLimit`, y rechaza privileged, binds, mounts, devices, red/PID/IPC
+del host, puertos publicados, perfiles unconfined, exec/attach, pull, build, swarm, redes y volúmenes.
+`verify-docker-guard.sh` lo comprueba en CI contra el daemon real. Los contenedores de apps comparten la red
+del worker y pueden alcanzar el guard, pero quedan sujetos a la misma política. El backend no tiene acceso al
+daemon: los builds de apps fallan y las apps llegan como imágenes fijadas por digest.
+**Ankay no queda listo para producción** hasta ejecutar un workflow sintético de punta a punta en el
+host Azure con este límite.
 
 ### Pin de OpenSearch para runtime
 
 El Compose fijado de Shuffle v2.3.0 usa OpenSearch 3.2.0. QAPAQ conserva el contrato
 del servicio y su API, fija la imagen linux/amd64 oficial de OpenSearch 3.9.0 por
 digest inmutable y construye una imagen derivada sobre Amazon Linux 2023 con release
-fechado `2023.12.20261013`. Una etapa intermedia copia la distribución OpenSearch y
+fechado `2023.12.20261028` (sobre la imagen base 2023.12.20261021.0). Una etapa intermedia copia la distribución OpenSearch y
 reemplaza siete bibliotecas Java con versiones corregidas y checksum fijado en
 [`runtime/opensearch-dependencies.lock`](runtime/opensearch-dependencies.lock),
 y copia solo el árbol corregido a la imagen final sobre AL2023. Los digests, los
@@ -136,38 +134,14 @@ y verificación reproducible de componentes Ankay pertenece al workflow personal
 `.github/ci/verify-container-images.sh` aún enumera imágenes por separado y no debe
 considerarse evidencia de que haya construido backend o worker.
 
-### Migración parcial del Docker SDK
+### Migración del Docker SDK
 
-Backend y worker compilan con Go `1.27.3` fijado por digest sobre Alpine `3.23`; las imágenes
-runtime usan Alpine `3.22.6` fijado por digest. El overlay
-`runtime/shuffle-runtime-security-upgrades.patch` actualiza ambos lockfiles a `golang.org/x/net`
-`v0.60.0`, `x/crypto` `v0.57.0`, `x/text` `v0.42.0`, `x/sys` `v0.48.0`, `x/term` `v0.46.0`
-y gRPC `v1.83.2`, más sus transitivas. `x/net v0.60.0` requiere
-Go `1.26.0`; por eso el builder ya no puede permanecer en Go 1.25.
-
-`runtime/shuffle-runtime-vet-and-cloud-url.patch` corrige los errores de formato que
-`go vet` encuentra en el código fijado y agrega una prueba unitaria para la normalización
-del host de cloud sync. La condición upstream usaba `||`, por lo que siempre descartaba
-también `http://localhost:5002`; el comentario junto al código define como permitidos el
-host oficial y localhost. El overlay usa `&&`, preserva esas dos opciones y normaliza los
-demás hosts a `https://shuffler.io`. Esta ruta solo aplica al endpoint administrativo de
-cloud sync legado; no participa en el runtime QAPAQ ni en los jobs de Ankay.
-
-El backend del overlay migra a los módulos oficiales `github.com/moby/moby/client v0.2.1` y
-`github.com/moby/moby/api v1.53.0`. También fija `shuffle-shared` a su commit fuente, aplica un
-overlay reproducible para el helper Docker y elimina `go-dockerclient` del backend. Las
-operaciones de build, pull, list, tag y export de imágenes usan Moby. El requisito Docker SDK
-obsoleto que `shuffle/singul` conserva en su `go.mod` no es importado por código; `go mod why`
-confirma que el backend no necesita ese módulo y el overlay lo excluye del grafo.
-
-La migración del worker está pendiente. Ese componente aún compila con
-`github.com/docker/docker v28.3.3+incompatible` (`CVE-2026-41567`, `CVE-2026-42306`) y
-`github.com/moby/go-archive v0.1.0` (`CVE-2026-17106`), por lo que el conjunto Ankay sigue bloqueado
-para publicación. No subir imágenes ni habilitar el host hasta portar el worker, validar los
-contratos de socket y operaciones contra Engine 29.5.1+, y pasar los gates de Trivy de backend y
-worker. La migración del backend se verificó con `go test ./...`; no se pudo probar contra un
-daemon Engine local. El registro de fuentes, versiones y bloqueos está en
-`azure-components.lock.json`; Trivy no se suprime ni se allowlistea.
+Backend, worker y Orborus usan `github.com/moby/moby/client v0.2.1` y `github.com/moby/moby/api v1.53.0`.
+Ninguno conserva `github.com/docker/docker` ni `github.com/moby/go-archive` en su grafo de módulos.
+Orborus sale del monorepo Shuffle v2.2.0 (AGPL-3.0) con `runtime/orborus/orborus-moby-v29.patch`. El repositorio
+separado `Shuffle/orborus` no tiene licencia. `runtime/shuffle-runtime-go-jose.patch` sube go-jose a 4.1.6
+(CVE-2026-116587) en backend y worker. Trivy HIGH/CRITICAL corre sobre las seis imágenes y la app; no se
+suprime ningún CVE. Falta la prueba de ejecución contra Engine 29.x en el host Azure.
 
 ## Uso
 

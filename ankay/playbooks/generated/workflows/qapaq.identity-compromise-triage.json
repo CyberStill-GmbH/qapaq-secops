@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "51b7df27-8e5b-5005-b638-dfddb00c33e7",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "qapaq.identity-compromise-triage"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "6a64ab45-87dc-5597-b755-57e8da97495d",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "51b7df27-8e5b-5005-b638-dfddb00c33e7",
+      "id": "4ad49e21-f77e-5ca3-8f97-11c1f9ac6b04",
+      "source_id": "d2a11479-7df1-569b-9088-52bb84b9c566"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "6a64ab45-87dc-5597-b755-57e8da97495d",
+      "id": "146aa3ca-a5ae-5cef-9a18-e10d8ff6591a",
+      "source_id": "51b7df27-8e5b-5005-b638-dfddb00c33e7"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "qapaq.identity-compromise-triage (qapaq-financial-demo-v1). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: prepared-read-only.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · qapaq.identity-compromise-triage 1.0.0",
+  "start": "51b7df27-8e5b-5005-b638-dfddb00c33e7",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:qapaq.identity-compromise-triage@1.0.0",
+    "effects:none",
+    "ankay-sha256:6b7135131128746d406b4a6fd4a904fe"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "d2a11479-7df1-569b-9088-52bb84b9c566",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_d2a11479-7df1-569b-9088-52bb84b9c566"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}
