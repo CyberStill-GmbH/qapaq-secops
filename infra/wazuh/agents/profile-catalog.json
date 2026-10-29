@@ -21,7 +21,13 @@
       "cdbLists": ["qapaq-critical-assets:dc"],
       "assignment": "OU=Domain Controllers",
       "estimatedEps": [5, 30],
-      "channels": ["Security (DC)", "System", "PowerShell 4104 completo", "Sysmon completo", "Sophos local"]
+      "channels": [
+        "Security (DC)",
+        "System",
+        "PowerShell 4104 completo",
+        "Sysmon completo",
+        "Sophos local"
+      ]
     },
     {
       "group": "qapaq-srv-core",
@@ -32,7 +38,14 @@
       "cdbLists": ["qapaq-critical-assets:core"],
       "assignment": "TO_BE_PROVIDED (OU o patrón de nombre, cuestionario R2)",
       "estimatedEps": [1, 8],
-      "channels": ["Security (servidor)", "System", "PowerShell 4104 Warning", "Sysmon completo", "Sophos local", "auditd"]
+      "channels": [
+        "Security (servidor)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon completo",
+        "Sophos local",
+        "auditd"
+      ]
     },
     {
       "group": "qapaq-srv-db",
@@ -43,7 +56,15 @@
       "cdbLists": ["qapaq-critical-assets:db"],
       "assignment": "TO_BE_PROVIDED",
       "estimatedEps": [1, 8],
-      "channels": ["Security (servidor)", "System", "PowerShell 4104 Warning", "Sysmon completo", "Sophos local + SQL 18456/33205", "auditd", "PostgreSQL"]
+      "channels": [
+        "Security (servidor)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon completo",
+        "Sophos local + SQL 18456/33205",
+        "auditd",
+        "PostgreSQL"
+      ]
     },
     {
       "group": "qapaq-srv-web",
@@ -54,7 +75,15 @@
       "cdbLists": ["qapaq-internet-facing:web"],
       "assignment": "TO_BE_PROVIDED",
       "estimatedEps": [3, 40],
-      "channels": ["Security (servidor)", "System", "PowerShell 4104 Warning", "Sysmon completo", "Sophos local", "IIS/nginx/Apache", "auditd"]
+      "channels": [
+        "Security (servidor)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon completo",
+        "Sophos local",
+        "IIS/nginx/Apache",
+        "auditd"
+      ]
     },
     {
       "group": "qapaq-ws-sensitive",
@@ -65,7 +94,13 @@
       "cdbLists": ["qapaq-sensitive-workstations"],
       "assignment": "TO_BE_PROVIDED (OU por área)",
       "estimatedEps": [0.3, 2],
-      "channels": ["Security (estación + USB 6416 + 4648)", "System", "PowerShell 4104 completo", "Sysmon completo", "Sophos local"]
+      "channels": [
+        "Security (estación + USB 6416 + 4648)",
+        "System",
+        "PowerShell 4104 completo",
+        "Sysmon completo",
+        "Sophos local"
+      ]
     },
     {
       "group": "qapaq-ws-general",
@@ -76,7 +111,13 @@
       "cdbLists": [],
       "assignment": "grupo por defecto",
       "estimatedEps": [0.1, 0.8],
-      "channels": ["Security (estación)", "System", "PowerShell 4104 Warning", "Sysmon sin red", "Sophos local"]
+      "channels": [
+        "Security (estación)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon sin red",
+        "Sophos local"
+      ]
     },
     {
       "group": "qapaq-linux-server",
@@ -98,7 +139,13 @@
       "cdbLists": [],
       "assignment": "TO_BE_PROVIDED (OU de portátiles)",
       "estimatedEps": [0.1, 0.8],
-      "channels": ["Security (estación)", "System", "PowerShell 4104 Warning", "Sysmon sin red", "Sophos local"]
+      "channels": [
+        "Security (estación)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon sin red",
+        "Sophos local"
+      ]
     }
   ]
 }
