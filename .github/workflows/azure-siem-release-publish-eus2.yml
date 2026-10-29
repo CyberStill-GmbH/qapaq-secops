@@ -25,7 +25,8 @@ jobs:
     name: Verify candidate and summarize exact EUS2 Blob write
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45  # descarga y verifica ~14 GB; 15 min no alcanzó (run 40910655538)
+    # Descarga y verifica ~14 GB; 15 min no alcanzó (run 40910655538).
+    timeout-minutes: 45
     permissions:
       actions: read
       contents: read
