@@ -17,6 +17,9 @@ MAX_EXTRACTED_BYTES = 4 * 1024 * 1024
 MAX_MEMBER_BYTES = 2 * 1024 * 1024
 PASSWORDS_MEMBER = "wazuh-install-files/wazuh-passwords.txt"
 CERTIFICATES_PREFIX = "wazuh-install-files/wazuh-certificates/"
+# `wazuh-install.sh --generate-config-files` (4.14) deja los certificados planos junto a las
+# contraseñas; la CA y el certificado admin existen en todo despliegue all-in-one.
+OFFICIAL_CERTIFICATE_MEMBERS = ("wazuh-install-files/root-ca.pem", "wazuh-install-files/admin.pem")
 
 
 def decode_and_validate(encoded_path: pathlib.Path, output_path: pathlib.Path) -> None:
@@ -61,7 +64,10 @@ def decode_and_validate(encoded_path: pathlib.Path, output_path: pathlib.Path) -
 
             if not any(member.name == PASSWORDS_MEMBER and member.isfile() for member in members):
                 raise ValueError("Wazuh archive lacks the official passwords file")
-            if not any(member.name.startswith(CERTIFICATES_PREFIX) and member.isfile() for member in members):
+            files = {member.name for member in members if member.isfile()}
+            official_layout = all(name in files for name in OFFICIAL_CERTIFICATE_MEMBERS)
+            nested_layout = any(name.startswith(CERTIFICATES_PREFIX) for name in files)
+            if not (official_layout or nested_layout):
                 raise ValueError("Wazuh archive lacks generated Wazuh certificates")
     except tarfile.TarError as error:
         raise ValueError("Wazuh credential archive is not a valid tar") from error
