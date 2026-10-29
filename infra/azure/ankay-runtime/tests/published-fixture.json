@@ -1,0 +1,13 @@
+{
+  "container_images": {
+    "docker-guard": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-docker-guard@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "frontend": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-frontend@sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "backend": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-backend@sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "orborus": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-orborus@sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "opensearch": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-opensearch@sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "worker": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-worker@sha256:6666666666666666666666666666666666666666666666666666666666666666"
+  },
+  "app_images": {
+    "ankay/apps:qapaq-ankay_1.0.0": "qapaqsecopsdemoeus3a2405f3.azurecr.io/ankay-qapaq-app-qapaq-ankay@sha256:7777777777777777777777777777777777777777777777777777777777777777"
+  }
+}

@@ -124,12 +124,57 @@ def parse_mapping(raw: str) -> dict[str, str]:
     return mapping
 
 
+def parse_import_env(raw: str, mapping: dict[str, str]) -> dict[str, str]:
+    """Variables del importador (destino → variable de runtime.env ya presente en mapping)."""
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        raise BootstrapError("import environment mapping is invalid JSON") from None
+    if not isinstance(value, dict):
+        raise BootstrapError("import environment mapping must be a JSON object")
+    for target, source in value.items():
+        if not isinstance(target, str) or not NAME_PATTERN.fullmatch(target):
+            raise BootstrapError("import environment mapping has an invalid target name")
+        if source not in mapping:
+            raise BootstrapError("import environment mapping references a variable outside secret_names")
+    return value
+
+
+def docker_env_file(values: dict[str, str]) -> bytes:
+    # docker run --env-file no interpreta comillas: NAME=valor literal hasta el fin de línea.
+    return ("\n".join(f"{name}={value}" for name, value in values.items()) + "\n").encode("utf-8")
+
+
+def opensearch_internal_users(password: str) -> bytes:
+    """internal_users.yml con el hash bcrypt de la contraseña; el valor no se escribe."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        import crypt  # Python 3.12 de Ubuntu 24.04; libxcrypt soporta bcrypt ($2b$).
+
+    if crypt.METHOD_BLOWFISH not in crypt.methods:
+        raise BootstrapError("bcrypt is not available to hash the OpenSearch password")
+    hashed = crypt.crypt(password, crypt.mksalt(crypt.METHOD_BLOWFISH, rounds=1 << 12))
+    if not hashed or not hashed.startswith("$2"):
+        raise BootstrapError("could not hash the OpenSearch password")
+    return (
+        "_meta:\n  type: \"internalusers\"\n  config_version: 2\n"
+        f"admin:\n  hash: \"{hashed}\"\n  reserved: true\n  backend_roles:\n    - \"admin\"\n"
+        "  description: \"Ankay backend (contraseña en Key Vault)\"\n"
+    ).encode("utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--key-vault-uri", required=True)
     parser.add_argument("--identity-client-id", required=True)
     parser.add_argument("--mapping-json", required=True)
     parser.add_argument("--output", default="/etc/ankay/runtime.env")
+    parser.add_argument("--import-env-json", default="{}")
+    parser.add_argument("--import-output", default="/etc/ankay/import.env")
+    parser.add_argument("--opensearch-admin-secret-env", default="")
+    parser.add_argument("--opensearch-users-output", default="/mnt/ankay/opensearch-tls/internal_users.yml")
     args = parser.parse_args()
 
     if os.geteuid() != 0:
@@ -143,11 +188,22 @@ def main() -> int:
         raise BootstrapError("managed identity client ID is invalid")
 
     mapping = parse_mapping(args.mapping_json)
+    import_env = parse_import_env(args.import_env_json, mapping)
+    if args.opensearch_admin_secret_env and args.opensearch_admin_secret_env not in mapping:
+        raise BootstrapError("OpenSearch password variable is not in secret_names")
     token = managed_identity_token(args.identity_client_id)
-    entries = [f"{env_name}={compose_env_quote(get_secret(args.key_vault_uri, token, secret_name))}" for env_name, secret_name in mapping.items()]
+    values = {env_name: get_secret(args.key_vault_uri, token, secret_name) for env_name, secret_name in mapping.items()}
     del token
-    output = pathlib.Path(args.output)
-    write_private_file(output, ("\n".join(entries) + "\n").encode("utf-8"))
+    entries = [f"{env_name}={compose_env_quote(value)}" for env_name, value in values.items()]
+    write_private_file(pathlib.Path(args.output), ("\n".join(entries) + "\n").encode("utf-8"))
+    if import_env:
+        write_private_file(pathlib.Path(args.import_output), docker_env_file({t: values[s] for t, s in import_env.items()}))
+    users = pathlib.Path(args.opensearch_users_output)
+    if args.opensearch_admin_secret_env and not users.exists():
+        # El índice de seguridad se inicializa una sola vez con este archivo; no se reescribe
+        # después porque cambiarlo no rotaría la contraseña ya cargada en OpenSearch.
+        write_private_file(users, opensearch_internal_users(values[args.opensearch_admin_secret_env]))
+        os.chown(users, 1000, 1000)
     return 0
 
 

@@ -2,7 +2,7 @@ locals {
   name              = "${var.name_base}-ankay"
   compose_document  = try(yamldecode(var.compose_yaml), {})
   compose_services  = try(local.compose_document.services, {})
-  expected_services = ["shuffle-security", "frontend", "backend", "orborus", "opensearch"]
+  expected_services = ["docker-guard", "frontend", "backend", "orborus", "opensearch"]
   compose_service_images_match = length(keys(local.compose_services)) == length(local.expected_services) && alltrue([
     for service in local.expected_services : try(local.compose_services[service].image == var.container_images[service], false)
   ])
@@ -14,8 +14,21 @@ locals {
     false
   )
   compose_keeps_internal_services_unpublished = alltrue([
-    for service in ["shuffle-security", "opensearch"] : length(try(local.compose_services[service].ports, [])) == 0
+    for service in ["docker-guard", "opensearch"] : length(try(local.compose_services[service].ports, [])) == 0
   ])
+  # Solo docker-guard (código QAPAQ con política deny-by-default) recibe el socket del daemon.
+  compose_socket_only_in_guard = alltrue([
+    for name, service in local.compose_services : name == "docker-guard" || !anytrue([
+      for volume in try(service.volumes, []) : try(strcontains(volume, "docker.sock"), strcontains(volume.source, "docker.sock"), false)
+    ])
+  ])
+  compose_has_no_host_privileges = alltrue([
+    for service in values(local.compose_services) :
+    !try(service.privileged, false) && try(service.network_mode, "") != "host" && try(service.pid, "") != "host" &&
+    length(try(service.cap_add, [])) == 0 && length(try(service.devices, [])) == 0 &&
+    length([for option in try(service.security_opt, []) : option if strcontains(lower(option), "unconfined")]) == 0
+  ])
+  importer_image = var.playbook_importer_app == "" ? "" : lookup(var.app_images, var.playbook_importer_app, "")
   compose_has_healthchecks = alltrue([
     for service in local.expected_services : try(length(local.compose_services[service].healthcheck.test) > 0, false)
   ])
@@ -33,6 +46,11 @@ locals {
     secret_mapping_json    = jsonencode(var.secret_names)
     compose_sha256         = var.compose_sha256
     health_timeout_seconds = var.compose_health_timeout_seconds
+    worker_image           = var.container_images.worker
+    app_images_json        = jsonencode(var.app_images)
+    importer_tag           = local.importer_image == "" ? "" : var.playbook_importer_app
+    import_env_json        = jsonencode(local.importer_image == "" ? {} : var.playbook_import_secret_env)
+    opensearch_secret_env  = var.opensearch_admin_secret_env
   })
   registry_login = templatefile("${path.module}/registry-login.sh.tftpl", {
     registry_login_server = var.container_registry_login_server
@@ -45,6 +63,7 @@ locals {
     data_disk_gb        = var.data_disk_size_gb
     disk_bootstrap_b64  = base64encode(file("${path.module}/prepare-data-disk.py"))
     secret_fetch_b64    = base64encode(file("${path.module}/fetch-runtime-secrets.py"))
+    opensearch_tls_b64  = base64encode(file("${path.module}/prepare-opensearch-tls.py"))
     install_script_b64  = base64encode(local.install_runtime)
     start_script_b64    = base64encode(local.start_compose)
     registry_script_b64 = base64encode(local.registry_login)
@@ -319,7 +338,22 @@ resource "azurerm_linux_virtual_machine" "ankay" {
 
     precondition {
       condition     = local.compose_service_images_match && !contains(keys(local.compose_services), "worker") && !contains(keys(local.compose_services), "datastore")
-      error_message = "Compose debe declarar exactamente shuffle-security, frontend, backend, orborus y opensearch; worker es dinámico y datastore no forma parte del contrato upstream."
+      error_message = "Compose debe declarar exactamente docker-guard, frontend, backend, orborus y opensearch; worker es dinámico y datastore no forma parte del contrato upstream."
+    }
+
+    precondition {
+      condition     = local.compose_socket_only_in_guard && local.compose_has_no_host_privileges
+      error_message = "Solo docker-guard puede montar el socket Docker y ningún servicio puede ser privileged, usar red/PID del host, cap_add, devices ni perfiles unconfined."
+    }
+
+    precondition {
+      condition     = var.playbook_importer_app == "" || contains(keys(var.app_images), var.playbook_importer_app)
+      error_message = "playbook_importer_app debe ser una de las etiquetas de app_images (o vacío para no importar playbooks)."
+    }
+
+    precondition {
+      condition     = alltrue([for name in concat(values(var.playbook_import_secret_env), [var.opensearch_admin_secret_env]) : contains(keys(var.secret_names), name)])
+      error_message = "El importador y OpenSearch solo pueden leer variables que existan en secret_names (Key Vault)."
     }
 
     precondition {
@@ -329,7 +363,7 @@ resource "azurerm_linux_virtual_machine" "ankay" {
 
     precondition {
       condition     = local.compose_keeps_internal_services_unpublished
-      error_message = "shuffle-security y OpenSearch no pueden publicar puertos del host; el edge usa frontend y OpenSearch queda en la red Compose."
+      error_message = "docker-guard y OpenSearch no pueden publicar puertos del host; el edge usa frontend y OpenSearch queda en la red Compose interna."
     }
 
     precondition {

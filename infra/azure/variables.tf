@@ -244,7 +244,7 @@ variable "krakend_gateway" {
 }
 
 variable "ankay_host" {
-  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR, Compose sin secretos y referencias a secretos precreados en Key Vault; comparte el firewall Azure del SIEM."
+  description = "Configuración de Ankay Qapaq/Shuffle en VM privada separada. null mantiene el host apagado. Requiere SIEM, seis digests ACR (docker-guard, frontend, backend, orborus, opensearch, worker), apps por digest, Compose sin secretos y referencias a secretos precreados en Key Vault; comparte el firewall Azure del SIEM."
   type = object({
     private_ip_address      = string
     admin_ssh_public_key    = string
@@ -252,6 +252,7 @@ variable "ankay_host" {
     ubuntu_image_version    = string
     data_disk_size_gb       = optional(number, 128)
     container_images        = map(string)
+    app_images              = optional(map(string), {})
     compose_yaml            = string
     compose_sha256          = string
     secret_names            = map(string)

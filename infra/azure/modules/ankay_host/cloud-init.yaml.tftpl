@@ -24,6 +24,11 @@ write_files:
     permissions: '0750'
     encoding: b64
     content: ${secret_fetch_b64}
+  - path: /usr/local/sbin/ankay-prepare-opensearch-tls
+    owner: root:root
+    permissions: '0750'
+    encoding: b64
+    content: ${opensearch_tls_b64}
   - path: /usr/local/sbin/ankay-start-compose
     owner: root:root
     permissions: '0750'

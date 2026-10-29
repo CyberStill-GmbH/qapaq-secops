@@ -1,0 +1,5 @@
+{
+  "private_ip_address": "10.80.0.36",
+  "admin_ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMZtB99HNW7C1awUsxjcycJxl1cgLFu285G+ZY5EVanq ankay-test-fixture",
+  "ubuntu_image_version": "24.04.202610210"
+}

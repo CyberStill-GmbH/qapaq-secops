@@ -33,9 +33,51 @@ class KeyVaultSeedHelperTests(unittest.TestCase):
                 "QAPAQ_EUS2_WAZUH_INSTALL_FILES_TAR_B64": "wazuh-install-files.tar.b64",
                 "QAPAQ_EUS2_WAZUH_INDEXER_READER_BOOTSTRAP": "wazuh-reader-b64",
                 "QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP": "wazuh-proxy-ca",
+                "QAPAQ_EUS2_ANKAY_ENCRYPTION_MODIFIER": "ankay-shuffle-encryption-modifier",
+                "QAPAQ_EUS2_ANKAY_OPENSEARCH_PASSWORD": "ankay-opensearch-admin-password",
+                "QAPAQ_EUS2_ANKAY_ADMIN_PASSWORD": "ankay-admin-password",
+                "QAPAQ_EUS2_ANKAY_ADMIN_API_KEY": "ankay-admin-api-key",
+                "QAPAQ_EUS2_ANKAY_WAZUH_WEBHOOK_TOKEN": "ankay-wazuh-webhook-token",
+                "QAPAQ_EUS2_ANKAY_DISPATCH_WEBHOOK_TOKEN": "ankay-dispatch-webhook-token",
+                "QAPAQ_EUS2_ANKAY_DISPATCH_HMAC_KEY": "ankay-dispatch-hmac-key",
             },
-            {**HELPER.SOURCE_TO_SECRET, **HELPER.BOOTSTRAP_SOURCE_TO_SECRET},
+            {**HELPER.SOURCE_TO_SECRET, **HELPER.BOOTSTRAP_SOURCE_TO_SECRET, **HELPER.GENERATED_SOURCE_TO_SECRET},
         )
+
+    def test_generated_ankay_secrets_are_random_and_never_caller_supplied(self):
+        import re
+        import uuid
+
+        for source, expected_name in HELPER.GENERATED_SOURCE_TO_SECRET.items():
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                first = pathlib.Path(directory) / "first.json"
+                second = pathlib.Path(directory) / "second.json"
+                HELPER.write_generated(first, source)
+                HELPER.write_generated(second, source)
+                one = json.loads(first.read_text(encoding="utf-8"))["parameters"]
+                two = json.loads(second.read_text(encoding="utf-8"))["parameters"]
+                self.assertEqual(one["secretName"]["value"], expected_name)
+                value = one["secretValue"]["value"]
+                self.assertNotEqual(value, two["secretValue"]["value"])
+                if source.endswith("ADMIN_API_KEY"):
+                    self.assertEqual(uuid.UUID(value).version, 4)
+                else:
+                    self.assertRegex(value, r"^[A-Za-z0-9_-]{64}$")
+                if os.name != "nt":
+                    self.assertEqual(first.stat().st_mode & 0o777, 0o600)
+                with self.assertRaises(HELPER.SeedInputError):
+                    HELPER._validate_secret(source, "caller-controlled-value")
+        with self.assertRaises(HELPER.SeedInputError):
+            HELPER.write_generated(pathlib.Path("unused"), "QAPAQ_EUS2_ENTRA_CLIENT_SECRET")
+
+    def test_arm_template_and_workflow_allow_every_generated_secret(self):
+        template = json.loads((ROOT / "infra/azure/secrets/eus2-key-vault-secret.json").read_text(encoding="utf-8"))
+        allowed = template["parameters"]["secretName"]["allowedValues"]
+        workflow = (ROOT / ".github/workflows/seed-eus2-key-vault-secret.yml").read_text(encoding="utf-8")
+        for source, name in HELPER.GENERATED_SOURCE_TO_SECRET.items():
+            self.assertIn(name, allowed)
+            self.assertIn(f"- {source}", workflow)
+            self.assertIn(source, workflow.split("case \"$SOURCE_SECRET_NAME\" in", 1)[1])
 
     def test_bootstrap_placeholder_is_fixed_and_only_allows_two_indexer_refs(self):
         for source, expected_name in HELPER.BOOTSTRAP_SOURCE_TO_SECRET.items():

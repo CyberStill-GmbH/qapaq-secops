@@ -422,7 +422,7 @@ function validateAnkay(ankay, siem, registry, env = process.env) {
     'secret_names',
     'docker_package_versions',
   ];
-  exactKeys(ankay, required, ['data_disk_size_gb'], 'ankay_host');
+  exactKeys(ankay, required, ['data_disk_size_gb', 'app_images'], 'ankay_host');
   if (!isPrivateRfc1918(ankay.private_ip_address))
     fail('ankay_host.private_ip_address must be an RFC1918 private IPv4 address.');
   if (!isUsableAnkayHostAddress(ankay.private_ip_address, env))
@@ -436,23 +436,33 @@ function validateAnkay(ankay, siem, registry, env = process.env) {
     )
   )
     fail('ankay_host.admin_ssh_public_key must be a public SSH key.');
-  nonEmptyString(ankay.vm_size, 'ankay_host.vm_size');
+  // Única familia con cuota en la suscripción EUS2 (el SIEM ya usa 4 de 10 vCPU EBDSv5).
+  if (!['Standard_E2bds_v5', 'Standard_E4bds_v5'].includes(ankay.vm_size))
+    fail('ankay_host.vm_size must be Standard_E2bds_v5 or Standard_E4bds_v5.');
   if (
     typeof ankay.ubuntu_image_version !== 'string' ||
-    !/^\d{8}(?:\.\d+)?$/u.test(ankay.ubuntu_image_version)
+    !/^(?:24\.04\.\d{9}|\d{8}(?:\.\d+)?)$/u.test(ankay.ubuntu_image_version)
   )
-    fail('ankay_host.ubuntu_image_version must pin a numeric Ubuntu image version.');
+    fail('ankay_host.ubuntu_image_version must pin an exact Ubuntu 24.04 image version.');
   if (
     Object.hasOwn(ankay, 'data_disk_size_gb') &&
-    (!Number.isInteger(ankay.data_disk_size_gb) || ankay.data_disk_size_gb < 32)
+    (!Number.isInteger(ankay.data_disk_size_gb) || ankay.data_disk_size_gb < 64)
   )
-    fail('ankay_host.data_disk_size_gb must be an integer of at least 32.');
+    fail('ankay_host.data_disk_size_gb must be an integer of at least 64.');
   validateImages(
     ankay.container_images,
     registry,
-    ['shuffle-security', 'frontend', 'backend', 'orborus', 'opensearch', 'worker'],
+    ['docker-guard', 'frontend', 'backend', 'orborus', 'opensearch', 'worker'],
     'ankay_host.container_images',
   );
+  if (Object.hasOwn(ankay, 'app_images')) {
+    object(ankay.app_images, 'ankay_host.app_images');
+    for (const [tag, image] of Object.entries(ankay.app_images)) {
+      if (!/^ankay\/apps:[a-z0-9-]+_\d+\.\d+\.\d+$/u.test(tag))
+        fail(`ankay_host.app_images key ${tag} must be ankay/apps:<app>_<x.y.z>.`);
+      digestImage(image, registry, `ankay_host.app_images.${tag}`);
+    }
+  }
   nonEmptyString(ankay.compose_yaml, 'ankay_host.compose_yaml');
   if (typeof ankay.compose_sha256 !== 'string' || !SHA256.test(ankay.compose_sha256))
     fail('ankay_host.compose_sha256 must be lowercase SHA-256.');

@@ -1,0 +1,206 @@
+# Ankay Qapaq (Shuffle v2.3.0 + overlay QAPAQ) para el host privado de Azure EUS2.
+# Plantilla: render_ankay_host.py reemplaza los marcadores con los digests ACR publicados y
+# devuelve el Compose exacto con su SHA-256. Sin secretos: los ${ANKAY_*} vienen de
+# /etc/ankay/runtime.env, que el host carga desde Key Vault con su identidad administrada.
+#
+# Límites: solo docker-guard monta el socket Docker; OpenSearch vive en la red interna
+# «data» (solo backend); Orborus y los workers alcanzan el daemon únicamente a través de
+# docker-guard en la red interna «docker-api». Nada se publica salvo frontend (edge QAPAQ)
+# y backend (webhooks firmados desde el host SIEM); la NSG restringe ambos orígenes.
+name: ankay
+
+services:
+  docker-guard:
+    image: '@@IMAGE_DOCKER_GUARD@@'
+    restart: unless-stopped
+    user: '10002:10002'
+    group_add: ['2375']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    environment:
+      DOCKER_GUARD_ALLOWED_IMAGES: '@@GUARD_ALLOWED_IMAGES@@'
+      DOCKER_GUARD_COMPOSE_PROJECT: ankay
+      DOCKER_GUARD_NETNS_SERVICES: orborus
+      DOCKER_GUARD_PIDS_LIMIT: '1024'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [docker-api]
+    healthcheck:
+      test: ['CMD', '/usr/local/bin/docker-guard', '-healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+  opensearch:
+    image: '@@IMAGE_OPENSEARCH@@'
+    restart: unless-stopped
+    environment:
+      cluster.name: ankay
+      node.name: opensearch
+      discovery.type: single-node
+      bootstrap.memory_lock: 'true'
+      OPENSEARCH_JAVA_OPTS: '-Xms@@OPENSEARCH_HEAP@@ -Xmx@@OPENSEARCH_HEAP@@'
+      DISABLE_INSTALL_DEMO_CONFIG: 'true'
+      DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI: 'true'
+      # Certificados por host (prepare-opensearch-tls) en vez de los certificados demo públicos.
+      plugins.security.ssl.transport.pemcert_filepath: certs/node.pem
+      plugins.security.ssl.transport.pemkey_filepath: certs/node-key.pem
+      plugins.security.ssl.transport.pemtrustedcas_filepath: certs/ca.pem
+      plugins.security.ssl.transport.enforce_hostname_verification: 'false'
+      plugins.security.ssl.http.enabled: 'true'
+      plugins.security.ssl.http.pemcert_filepath: certs/node.pem
+      plugins.security.ssl.http.pemkey_filepath: certs/node-key.pem
+      plugins.security.ssl.http.pemtrustedcas_filepath: certs/ca.pem
+      plugins.security.allow_default_init_securityindex: 'true'
+      plugins.security.nodes_dn: 'CN=opensearch,OU=Ankay,O=QAPAQ'
+      plugins.security.authcz.admin_dn: 'CN=ankay-opensearch-admin,OU=Ankay,O=QAPAQ'
+      plugins.security.audit.type: internal_opensearch
+      ANKAY_OPENSEARCH_PASSWORD: ${ANKAY_OPENSEARCH_PASSWORD:?ANKAY_OPENSEARCH_PASSWORD}
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - /mnt/ankay/opensearch:/usr/share/opensearch/data
+      - /mnt/ankay/opensearch-tls/node:/usr/share/opensearch/config/certs:ro
+      - /mnt/ankay/opensearch-tls/internal_users.yml:/usr/share/opensearch/config/opensearch-security/internal_users.yml:ro
+    networks: [data]
+    healthcheck:
+      # La credencial llega a curl por stdin (-K -), nunca en argv ni en el Compose.
+      test:
+        - CMD-SHELL
+        - >-
+          printf 'user = "admin:%s"\n' "$${ANKAY_OPENSEARCH_PASSWORD}" |
+          curl -fsS --cacert /usr/share/opensearch/config/certs/ca.pem -K - https://localhost:9200/_cluster/health >/dev/null
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+  backend:
+    image: '@@IMAGE_BACKEND@@'
+    restart: unless-stopped
+    depends_on:
+      opensearch: { condition: service_healthy }
+    environment:
+      ENVIRONMENT_NAME: Shuffle
+      BASE_URL: http://backend:5001
+      SSO_REDIRECT_URL: '@@PUBLIC_URL@@'
+      SHUFFLE_APP_HOTLOAD_FOLDER: /shuffle-apps
+      SHUFFLE_APP_HOTLOAD_LOCATION: /shuffle-apps
+      # Sin salida a GitHub: la única fuente de apps es /shuffle-apps dentro de la imagen.
+      SHUFFLE_APP_DOWNLOAD_LOCATION: https://127.0.0.1:9/disabled
+      SHUFFLE_APP_FORCE_UPDATE: 'false'
+      SHUFFLE_FILE_LOCATION: /shuffle-files
+      SHUFFLE_DEFAULT_USERNAME: ankay-admin
+      SHUFFLE_DEFAULT_PASSWORD: ${ANKAY_ADMIN_PASSWORD:?ANKAY_ADMIN_PASSWORD}
+      SHUFFLE_DEFAULT_APIKEY: ${ANKAY_ADMIN_API_KEY:?ANKAY_ADMIN_API_KEY}
+      SHUFFLE_ENCRYPTION_MODIFIER: ${ANKAY_ENCRYPTION_MODIFIER:?ANKAY_ENCRYPTION_MODIFIER}
+      SHUFFLE_ELASTIC: 'true'
+      SHUFFLE_OPENSEARCH_URL: https://opensearch:9200
+      SHUFFLE_OPENSEARCH_USERNAME: admin
+      SHUFFLE_OPENSEARCH_PASSWORD: ${ANKAY_OPENSEARCH_PASSWORD:?ANKAY_OPENSEARCH_PASSWORD}
+      SHUFFLE_OPENSEARCH_SKIPSSL_VERIFY: 'false'
+      SHUFFLE_OPENSEARCH_CERTIFICATE_FILE: /run/ankay/opensearch-ca/ca.pem
+      SHUFFLE_CERT_DIR: /run/ankay/opensearch-ca
+      SHUFFLE_HEALTHCHECK_DISABLED: 'true'
+      SHUFFLE_STATS_DISABLED: 'true'
+      SHUFFLE_LOGS_DISABLED: 'true'
+      SHUFFLE_CHAT_DISABLED: 'true'
+      SHUFFLE_CONTAINER_AUTO_CLEANUP: 'true'
+      # El backend no tiene acceso al daemon: los builds de apps fallan y las ejecuciones
+      # las lanza Orborus a través de docker-guard.
+      DOCKER_HOST: tcp://127.0.0.1:9
+      TZ: America/Lima
+    volumes:
+      - /mnt/ankay/files:/shuffle-files
+      - /mnt/ankay/opensearch-tls/ca:/run/ankay/opensearch-ca:ro
+    ports:
+      - '5001:5001'
+    networks: [shuffle, data]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:5001/api/v1/_ah/health']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+  frontend:
+    image: '@@IMAGE_FRONTEND@@'
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+    environment:
+      BACKEND_HOSTNAME: backend
+    ports:
+      - '3001:80'
+    networks: [shuffle]
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS -o /dev/null http://127.0.0.1:80/']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+  orborus:
+    image: '@@IMAGE_ORBORUS@@'
+    container_name: ankay-orborus
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+      docker-guard: { condition: service_healthy }
+    environment:
+      ORBORUS_CONTAINER_NAME: ankay-orborus
+      ENVIRONMENT_NAME: Shuffle
+      BASE_URL: http://backend:5001
+      DOCKER_HOST: tcp://docker-guard:2375
+      DOCKER_API_VERSION: '1.44'
+      SHUFFLE_WORKER_IMAGE: '@@IMAGE_WORKER@@'
+      SHUFFLE_BASE_IMAGE_NAME: ankay/apps
+      SHUFFLE_APP_SDK_TIMEOUT: '300'
+      SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY: '3'
+      SHUFFLE_PASS_WORKER_PROXY: 'false'
+      SHUFFLE_PASS_APP_PROXY: 'false'
+      SHUFFLE_STATS_DISABLED: 'true'
+      SHUFFLE_LOGS_DISABLED: 'true'
+      SHUFFLE_CERT_PATH: /nonexistent
+      CLEANUP: 'true'
+      TZ: America/Lima
+    networks: [shuffle, docker-api]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      # Orborus no expone HTTP: es una prueba de vida del proceso, no de ejecución.
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+networks:
+  shuffle:
+    driver: bridge
+  data:
+    driver: bridge
+    internal: true
+  docker-api:
+    driver: bridge
+    internal: true

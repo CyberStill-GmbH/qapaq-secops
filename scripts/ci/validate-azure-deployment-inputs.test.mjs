@@ -474,10 +474,10 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
   const ankay = {
     private_ip_address: '10.80.0.36',
     admin_ssh_public_key: publicKey,
-    vm_size: 'Standard_D4s_v5',
-    ubuntu_image_version: '20260101.0',
+    vm_size: 'Standard_E2bds_v5',
+    ubuntu_image_version: '24.04.202610210',
     container_images: digestMap([
-      'shuffle-security',
+      'docker-guard',
       'frontend',
       'backend',
       'orborus',
@@ -538,10 +538,10 @@ test('Ankay cannot be enabled without SIEM and literal Compose credentials are r
   const ankay = {
     private_ip_address: '10.80.0.36',
     admin_ssh_public_key: publicKey,
-    vm_size: 'Standard_D4s_v5',
-    ubuntu_image_version: '20260101.0',
+    vm_size: 'Standard_E2bds_v5',
+    ubuntu_image_version: '24.04.202610210',
     container_images: digestMap([
-      'shuffle-security',
+      'docker-guard',
       'frontend',
       'backend',
       'orborus',
