@@ -90,7 +90,10 @@ def _validate_wazuh_archive(encoded: str) -> None:
                 if expanded_bytes > MAX_EXPANDED_BYTES:
                     raise SeedInputError("Wazuh bundle exceeds its expanded size limit.")
                 has_password_file |= name == "wazuh-install-files/wazuh-passwords.txt" and member.isfile()
-                has_certificate |= name.startswith("wazuh-install-files/wazuh-certificates/") and member.isfile()
+                has_certificate |= member.isfile() and (
+                    name.startswith("wazuh-install-files/wazuh-certificates/")
+                    or name == "wazuh-install-files/root-ca.pem"
+                )
             if not has_password_file or not has_certificate:
                 raise SeedInputError("Wazuh bundle is missing required installation material.")
     except SeedInputError:

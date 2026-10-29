@@ -29,6 +29,31 @@ def credential_tar(*members: tuple[str, bytes]) -> bytes:
 
 
 class WazuhCredentialsArchiveTests(unittest.TestCase):
+    def test_accepts_official_flat_layout_from_wazuh_install_assistant(self) -> None:
+        payload = credential_tar(
+            ("wazuh-install-files/wazuh-passwords.txt", b"fixture only\n"),
+            ("wazuh-install-files/root-ca.pem", b"fixture ca only\n"),
+            ("wazuh-install-files/admin.pem", b"fixture admin only\n"),
+            ("wazuh-install-files/wazuh-indexer.pem", b"fixture node only\n"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = pathlib.Path(directory) / "secret.b64"
+            output = pathlib.Path(directory) / "wazuh-install-files.tar"
+            source.write_bytes(base64.b64encode(payload))
+            verifier.decode_and_validate(source, output)
+            self.assertEqual(output.read_bytes(), payload)
+
+    def test_rejects_flat_layout_without_admin_certificate(self) -> None:
+        payload = credential_tar(
+            ("wazuh-install-files/wazuh-passwords.txt", b"fixture only\n"),
+            ("wazuh-install-files/root-ca.pem", b"fixture ca only\n"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = pathlib.Path(directory) / "secret.b64"
+            source.write_bytes(base64.b64encode(payload))
+            with self.assertRaises(ValueError):
+                verifier.decode_and_validate(source, pathlib.Path(directory) / "out.tar")
+
     def test_accepts_one_line_base64_with_expected_files(self) -> None:
         payload = credential_tar(
             ("wazuh-install-files/wazuh-passwords.txt", b"fixture only\n"),
