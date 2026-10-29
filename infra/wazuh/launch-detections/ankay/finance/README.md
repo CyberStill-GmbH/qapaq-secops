@@ -28,7 +28,7 @@ Webhook (outbox QAPAQ) ─► verify_dispatch ─┬─► enrich_* (solo lectur
 
 - **verify_dispatch:** QAPAQ valida firma HMAC, timestamp, nonce, expiración, tenant y
   `executionKey`. Ankay no tiene el secreto de firma.
-- **enrich_\*:** cada nodo pide una consulta permitida para ese playbook
+- **enrich\_\*:** cada nodo pide una consulta permitida para ese playbook
   (`triage.queries` del catálogo). QAPAQ rechaza consultas fuera de la lista.
 - **assess:** Python determinista. Agrega resultados y marca `degraded` si una fuente
   falló; nunca concluye “limpio” por falta de datos. No decide efectos.
