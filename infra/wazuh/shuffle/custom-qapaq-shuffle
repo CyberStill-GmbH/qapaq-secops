@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 TIMEOUT_SECONDS = 8
 MAX_TEXT_LENGTH = 160
-WEBHOOK_PATH = re.compile(r"^/api/v1/webhooks/webhook_[A-Za-z0-9_-]{16,128}$")
+WEBHOOK_PATH = re.compile(r"^/api/v1/(?:webhooks|hooks)/webhook_[A-Za-z0-9_-]{16,128}$")
 AUTH_HEADER_NAME = "X-Qapaq-Integration"
 
 
@@ -95,10 +95,28 @@ def _endpoint_secret(path: Path) -> tuple[str, str]:
     parsed = urlparse(url)
     hostname = (parsed.hostname or "").lower()
     try:
-        ipaddress.ip_address(hostname)
+        address = ipaddress.ip_address(hostname)
         literal_ip = True
     except ValueError:
+        address = None
         literal_ip = False
+    if config.get("network") == "azure-private":
+        # Azure EUS2: Manager y Ankay en la misma VNet; la NSG de Ankay solo admite al host
+        # SIEM en 5001 y la cabecera X-Qapaq-Integration autentica el envío.
+        if (
+            parsed.scheme != "http"
+            or address is None
+            or address.version != 4
+            or not any(address in ipaddress.ip_network(net) for net in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+            or parsed.port != 5001
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or not WEBHOOK_PATH.fullmatch(parsed.path)
+        ):
+            raise ValueError("Shuffle webhook URL is invalid")
+        return url, token
     if (
         parsed.scheme != "https"
         or not hostname

@@ -135,6 +135,19 @@ class AssembleReleaseTests(unittest.TestCase):
             self.assertEqual(assemble_release.sha256(root / filename), digest)
         self.assertTrue(bundle.is_file())
         self.assertEqual(assemble_release.sha256(bundle), (self.root / "output" / "SHA256SUMS").read_text().split()[0])
+        # El edge y Ankay se empaquetan siempre, pero sin edge.json install.sh no los aplica.
+        for packaged in (
+            "wazuh/azure-release/configure_edge_azure.sh",
+            "wazuh/edge/apply-edge.sh",
+            "wazuh/indexer/security/apply-security.sh",
+            "wazuh/scripts/indexer-admin.sh",
+            "wazuh/shuffle/apply_ankay_webhook.py",
+            "wazuh/shuffle/custom-qapaq-shuffle",
+        ):
+            self.assertIn(packaged, manifest["files"])
+        self.assertNotIn("edge.json", manifest["files"])
+        real_installer = (pathlib.Path(__file__).resolve().parents[1] / "install.sh").read_text(encoding="utf-8")
+        self.assertIn('if [[ -s "$HERE/edge.json" ]]', real_installer)
 
     def test_rejects_dirty_output_directory(self) -> None:
         (self.root / "output" / "keep.txt").write_text("keep", encoding="utf-8")
