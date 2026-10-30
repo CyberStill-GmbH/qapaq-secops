@@ -116,7 +116,8 @@ class IndexerSecretMetadataTests(unittest.TestCase):
     def test_terraform_workflow_checks_metadata_before_plan_and_apply(self):
         workflow = (pathlib.Path(__file__).parents[1] / "workflows/terraform-azure-demo-eus2.yml").read_text()
         self.assertEqual(workflow.count("python3 .github/ci/verify-eus2-indexer-secret-metadata.py"), 2)
-        self.assertEqual(workflow.count("Sign in before optional KrakenD secret metadata preflight"), 2)
+        self.assertEqual(workflow.count("Sign in before optional KrakenD secret metadata preflight"), 1)
+        self.assertEqual(workflow.count("Sign in for SIEM extension recovery and optional KrakenD preflight"), 1)
         self.assertIn("TF_VAR_krakend_gateway:", workflow)
         self.assertIn("id-token: write", workflow)
 

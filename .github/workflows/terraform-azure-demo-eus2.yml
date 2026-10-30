@@ -221,7 +221,8 @@ jobs:
               echo '::error::Azure returned an empty SIEM bootstrap extension ID.'
               exit 1
             }
-            terraform import -input=false -no-color "$address" "$extension_id"
+            terraform import -input=false -no-color \
+              -var-file=profiles/demo-eus2.tfvars "$address" "$extension_id"
           elif grep -Eqi 'ResourceNotFound|was not found|could not be found' "$error_file"; then
             echo 'No existing SIEM bootstrap extension; Terraform will create it from the reviewed plan.'
           else
