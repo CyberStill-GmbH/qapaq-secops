@@ -82,6 +82,13 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   misma release verifica salud sin volver a ejecutar el instalador. Si encuentra paquetes/datos
   previos sin registro o una release distinta, se detiene para proteger el estado. Las actualizaciones
   requieren un flujo explícito de migración y rollback; cambiar el bundle no equivale a upgrade seguro.
+- `custom_data` es un seed inmutable de cloud-init. Terraform ignora sus cambios después de crear la VM
+  para no reemplazar el host ni el disco de datos cuando evoluciona el código. En cada ejecución,
+  `qapaq-siem-bootstrap` instala primero las versiones actuales de `bootstrap-siem.py` y
+  `indexer_read_proxy.py` desde sus contenidos comprimidos en la extensión y después ejecuta el
+  bootstrap con el bundle/configuración fijados. Los cambios de scripts o bundle actualizan la
+  extensión in-place; no autorizan a reemplazar la VM ni a reformatear el volumen. Terraform rechaza
+  un payload que supere el límite de 256 KiB de Azure Custom Script.
 - La URL del artefacto debe ser Blob HTTPS privado, sin SAS; el SHA-256 completo lo fija CI. No se usa
   `latest`, AWS SSM ni AWS Secrets Manager. El cambio de artefacto reejecuta la extensión sin recrear
   la VM; el bootstrap falla cerrado si no concuerdan versión, integridad o servicios.
