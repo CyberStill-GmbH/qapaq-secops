@@ -171,7 +171,7 @@ jobs:
           else
             echo letsencrypt-certificate-directory-absent
           fi
-          ss -lnt | awk 'NR == 1 || /:80[[:space:]]|:443[[:space:]]|:5601[[:space:]]/'
+          ss -lnt
           curl --silent --output /dev/null --write-out "health_ready_http=%{http_code}\n" --max-time 5 http://127.0.0.1:3000/health/ready || true' \
             --query 'value[0].message' \
             --output tsv
