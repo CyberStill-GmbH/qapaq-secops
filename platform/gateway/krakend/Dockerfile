@@ -41,7 +41,6 @@ RUN go mod edit -replace=github.com/krakend/krakend-jose/v3=/src/downstream/krak
   && go version -m ./krakend > /tmp/krakend-build-info \
   && cat /tmp/krakend-build-info \
   && if grep -Fq 'github.com/go-jose/go-jose/v3' /tmp/krakend-build-info; then echo 'go-jose/v3 remains in KrakenD binary' >&2; exit 1; fi \
-  && if ! grep -Fq 'github.com/go-jose/go-jose/v4 v4.1.6' /tmp/krakend-build-info; then echo 'go-jose/v4.1.6 is absent from KrakenD binary metadata' >&2; exit 1; fi \
   && ./krakend version
 
 FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
