@@ -190,4 +190,13 @@ curl --fail --silent --show-error --max-time 5 --cacert /etc/wazuh-indexer/certs
   -K "$work/indexer-admin.curl" https://127.0.0.1:9200/_cluster/health >/dev/null ||
   fail 'Wazuh Indexer no pasó la comprobación TLS de salud'
 
-info 'Wazuh QAPAQ, reglas M365/endpoint/proveedores y qapaq-core instalados; conectores de proveedor requieren aceptación real; edge/DNS, acceso/roles y Ankay siguen separados'
+# Edge QAPAQ (TLS, login por proxy auth, /api y /ankay/) solo si el bundle lo declara.
+if [[ -s "$HERE/edge.json" ]]; then
+  QAPAQ_RELEASE_DIR="$HERE" QAPAQ_SECRET_DIR="$SECRETS" bash "$HERE/wazuh/azure-release/configure_edge_azure.sh" \
+    >/dev/null 2>&1 || fail 'el edge QAPAQ no pasó sus pruebas; el dashboard quedó como lo dejó el asistente Wazuh'
+  info 'edge QAPAQ activo (TLS, login QAPAQ y rutas protegidas)'
+else
+  info 'edge omitido: el bundle no trae edge.json'
+fi
+
+info 'Wazuh QAPAQ, reglas M365/endpoint/proveedores y qapaq-core instalados; conectores de proveedor requieren aceptación real'

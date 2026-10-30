@@ -54,8 +54,12 @@ if [[ -n "${ANKAY_UPSTREAM:-}" ]]; then
     [[ "$ankay_host" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.internal$ ]] ||
       fail 'ANKAY_UPSTREAM DNS debe usar el sufijo privado .internal'
   fi
-  ankay_code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://$ANKAY_UPSTREAM/" || true)"
-  [[ "$ankay_code" == 200 ]] || fail "Ankay privado no responde HTTP 200 en $ANKAY_UPSTREAM/ (HTTP $ankay_code); edge sin cambios"
+  # En Azure el SIEM se instala antes que el host Ankay: ANKAY_REQUIRE_READY=false deja la ruta
+  # configurada (responde 502 tras el login hasta que Ankay esté sano) sin exigirlo ahora.
+  if [[ "${ANKAY_REQUIRE_READY:-true}" != false ]]; then
+    ankay_code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://$ANKAY_UPSTREAM/" || true)"
+    [[ "$ankay_code" == 200 ]] || fail "Ankay privado no responde HTTP 200 en $ANKAY_UPSTREAM/ (HTTP $ankay_code); edge sin cambios"
+  fi
   ANKAY_LOCATION="$(envsubst '${ANKAY_UPSTREAM}' <"$here/qapaq-ankay.location.conf")"
 fi
 export ANKAY_LOCATION

@@ -45,6 +45,17 @@ class InstallDetectionRulesTests(unittest.TestCase):
             repo_root / "infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
             self.bundle_wazuh / "active-directory/rules/qapaq_active_directory_rules.xml",
         )
+        for candidate in (
+            "finance/rules/qapaq_finance_rules.xml",
+            "priority/rules/qapaq_priority_rules.xml",
+        ):
+            path = self.bundle_wazuh / candidate
+            path.parent.mkdir(parents=True)
+            path.write_text('<group name="qapaq,candidate,">\n  <rule id="110001" level="3"><match>candidate</match></rule>\n</group>\n', encoding="utf-8")
+        (self.bundle_wazuh / "finance/lists").mkdir(parents=True)
+        (self.bundle_wazuh / "priority/lists").mkdir(parents=True)
+        (self.bundle_wazuh / "finance/lists/example.example").write_text("sample.example:synthetic\n", encoding="utf-8")
+        (self.bundle_wazuh / "priority/lists/example.example").write_text("sample.example:synthetic\n", encoding="utf-8")
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -71,6 +82,23 @@ class InstallDetectionRulesTests(unittest.TestCase):
             installer.install(self.bundle_wazuh, self.root)
 
         self.assertEqual(self.conf.read_text(encoding="utf-8").count("<rule_dir>etc/rules</rule_dir>"), 1)
+
+    def test_candidate_rules_and_example_lists_are_not_installed(self) -> None:
+        with patch.object(installer, "grp", None), patch.object(
+            installer.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+        ):
+            installer.install(self.bundle_wazuh, self.root)
+
+        installed_rules = {path.name for path in (self.root / "etc/rules").glob("*.xml")}
+        self.assertEqual(
+            installed_rules,
+            {
+                "qapaq_launch_provider_rules.xml",
+                "qapaq_endpoint_rules.xml",
+                "qapaq_active_directory_rules.xml",
+            },
+        )
+        self.assertFalse((self.root / "etc/lists").exists())
 
     def test_analysisd_failure_restores_existing_config_and_rules(self) -> None:
         original_conf = self.conf.read_bytes()

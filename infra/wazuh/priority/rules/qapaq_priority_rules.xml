@@ -1,0 +1,417 @@
+<!--
+  QAPAQ SecOps — elevación y rebaja de severidad por contexto de red interna (Wazuh 4.14.8).
+
+  Qué hace: reglas hijas de detecciones QAPAQ y oficiales ya existentes. No crean señales
+  nuevas salvo dos (101612 webshell y 101614 inhibición de recuperación); cambian el nivel
+  cuando la señal toca un activo o una identidad que QAPAQ declaró críticos, y lo bajan
+  cuando el ruido es conocido y está justificado. Monitor-only: ninguna regla ejecuta
+  Active Response.
+
+  Escala (igual que modules/telemetry/src/wazuh-normalization.ts):
+    12-15 crítica · 8-11 alta · 4-7 media · 0-3 baja/registro.
+  Matriz completa y P1-P4 del núcleo: docs/security/agents/03-matriz-priorizacion.md.
+
+  Rango reservado: 101600-101699. Los IDs retirados no se reutilizan.
+
+  Dependencias (deben estar cargadas antes; si falta un padre, analysisd lo informa):
+    - infra/wazuh/active-directory/rules (101300-101307)
+    - infra/wazuh/endpoint/rules (101100)
+    - infra/wazuh/launch-detections/rules (101200-101215)
+    - wazuh/office365/rules (100500-100549)
+    - ruleset oficial 0580-win-security_rules.xml (60106, 60115) y sysmon_event1 (61603)
+
+  Listas CDB (se registran en <ruleset> con apply-priority.sh; plantillas en ../lists):
+    etc/lists/qapaq-critical-assets          host -> clase (dc, core, db, pago, paw, ...)
+    etc/lists/qapaq-privileged-identities    cuenta/UPN -> tier0 | tier1 | cloud-admin | payment-approver
+    etc/lists/qapaq-sensitive-workstations   host -> área (tesoreria, operaciones, creditos, ti-priv)
+    etc/lists/qapaq-internet-facing          host -> exposición (web, vpn, mail, api)
+  `match_key` distingue mayúsculas: apply-priority.sh agrega variantes en minúsculas y
+  mayúsculas de cada clave para que `DC01.qapaq.local` y `dc01.qapaq.local` coincidan.
+
+  Grupos que consume el núcleo QAPAQ (modules/detection, ruleset 1.2.0):
+    qapaq_ctx_critical_asset, qapaq_ctx_privileged_identity, qapaq_ctx_sensitive_workstation,
+    qapaq_ctx_internet_facing, qapaq_ctx_off_hours  -> reason codes de contexto (una sola vez)
+    qapaq_priority_lowered                          -> el núcleo no re-eleva por contexto
+    qapaq_<táctica>                                 -> clase de señal para la cadena de ataque
+-->
+<group name="qapaq_priority,">
+
+  <!-- ================================================================
+       1. Activos críticos y controladores de dominio (canal Security)
+       Campo de host: win.system.computer (FQDN que registra Windows).
+       ================================================================ -->
+
+  <!-- Borrado del Security log en un activo crítico: evidencia destruida donde más importa. -->
+  <rule id="101600" level="15">
+    <if_sid>101302</if_sid>
+    <list field="win.system.computer" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: registro Security borrado en activo crítico $(win.system.computer) por $(win.eventdata.subjectUserName).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1070.001</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- Política de auditoría modificada en un activo crítico: suele preceder al borrado de rastros. -->
+  <rule id="101601" level="14">
+    <if_sid>101301</if_sid>
+    <list field="win.system.computer" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: política de auditoría modificada en activo crítico $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.002</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Alta en grupo privilegiado hecha por un actor que NO figura como identidad privilegiada.
+    Solo cuentas administrativas registradas deberían poder hacerlo; si otra lo logra, hay
+    delegación indebida o una cuenta tomada.
+  -->
+  <rule id="101602" level="14">
+    <if_sid>101300</if_sid>
+    <list field="win.eventdata.subjectUserName" lookup="not_match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: $(win.eventdata.subjectUserName), cuenta no registrada como privilegiada, añadió un miembro a un grupo privilegiado de AD.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098.007</id></mitre>
+    <group>qapaq_privilege_escalation,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    DCSync: la replicación legítima la piden cuentas de equipo de controladores (terminan en $).
+    Una cuenta de usuario con derechos de replicación es el patrón de DCSync.
+  -->
+  <rule id="101603" level="13">
+    <if_sid>101306</if_sid>
+    <field name="win.eventdata.subjectUserName" type="pcre2">[^$]$</field>
+    <description>QAPAQ crítico: acceso de replicación de directorio pedido por la cuenta de usuario $(win.eventdata.subjectUserName) (posible DCSync).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1003.006</id></mitre>
+    <group>qapaq_credential_access,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Rebaja: replicación entre controladores. La cuenta de equipo de un DC registrado en
+    qapaq-critical-assets replica de forma constante; a nivel 6 genera decenas de alertas
+    diarias sin valor. Se conserva en nivel 3 para búsqueda forense.
+  -->
+  <rule id="101604" level="3">
+    <if_sid>101306</if_sid>
+    <field name="win.eventdata.subjectUserName" type="pcre2">\$$</field>
+    <list field="win.system.computer" lookup="match_key_value" check_value="^dc$">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ registro: replicación de directorio entre controladores ($(win.eventdata.subjectUserName)); ruido conocido.</description>
+    <options>no_full_log</options>
+    <group>qapaq_priority_lowered,</group>
+  </rule>
+
+  <!-- TGT sin preautenticación para una identidad privilegiada: AS-REP roasting dirigido. -->
+  <rule id="101605" level="12">
+    <if_sid>101305</if_sid>
+    <list field="win.eventdata.targetUserName" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: TGT sin preautenticación Kerberos para la identidad privilegiada $(win.eventdata.targetUserName).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1558.004</id></mitre>
+    <group>qapaq_credential_access,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Modelo de niveles (tiering): una cuenta tier0 solo inicia sesión interactiva o RDP en
+    activos críticos (DC, PAW). Hacerlo en otro equipo deja su credencial en memoria de un
+    host de menor confianza. Las PAW deben estar en qapaq-critical-assets con valor `paw`.
+  -->
+  <rule id="101606" level="10">
+    <if_sid>60106</if_sid>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^2$|^10$</field>
+    <list field="win.eventdata.targetUserName" lookup="match_key_value" check_value="^tier0$">etc/lists/qapaq-privileged-identities</list>
+    <list field="win.system.computer" lookup="not_match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ alto: cuenta tier0 $(win.eventdata.targetUserName) inició sesión interactiva/RDP en $(win.system.computer), fuera de activos críticos.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.002</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- Bloqueo de una identidad privilegiada: fuerza bruta o spray contra administradores. -->
+  <rule id="101607" level="12">
+    <if_sid>60115</if_sid>
+    <list field="win.eventdata.targetUserName" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: cuenta privilegiada $(win.eventdata.targetUserName) bloqueada por fallos de autenticación.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110</id></mitre>
+    <group>qapaq_credential_access,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- Rebaja: fallo Kerberos por desfase de reloj (0x25). Es sincronización NTP, no adivinación. -->
+  <rule id="101608" level="3">
+    <if_sid>101307</if_sid>
+    <field name="win.eventdata.status" type="pcre2">(?i)^0x25$</field>
+    <description>QAPAQ registro: fallo de preautenticación Kerberos por desfase de reloj para $(win.eventdata.targetUserName); ruido conocido.</description>
+    <options>no_full_log</options>
+    <group>qapaq_priority_lowered,</group>
+  </rule>
+
+  <!--
+    Rebaja: fallo de preautenticación de una cuenta de equipo (termina en $). Aparece tras
+    reinstalar o restaurar equipos con contraseña de máquina desfasada; un spray no apunta a
+    cuentas de equipo. Fallos de usuario siguen en 101307 (nivel 6).
+  -->
+  <rule id="101609" level="3">
+    <if_sid>101307</if_sid>
+    <field name="win.eventdata.targetUserName" type="pcre2">\$$</field>
+    <description>QAPAQ registro: fallo de preautenticación Kerberos de la cuenta de equipo $(win.eventdata.targetUserName); ruido conocido.</description>
+    <options>no_full_log</options>
+    <group>qapaq_priority_lowered,</group>
+  </rule>
+
+  <!-- ================================================================
+       2. Endpoint con Sysmon (Event ID 1)
+       ================================================================ -->
+
+  <!-- Outlook lanza intérprete en estación sensible (tesorería, operaciones, créditos, TI). -->
+  <rule id="101610" level="12">
+    <if_sid>101100</if_sid>
+    <list field="win.system.computer" lookup="match_key">etc/lists/qapaq-sensitive-workstations</list>
+    <description>QAPAQ crítico: Outlook inició $(win.eventdata.image) en la estación sensible $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1204.002</id><id>T1566.001</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_sensitive_workstation,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- Outlook lanza intérprete en un servidor crítico: no debería haber Outlook ahí. -->
+  <rule id="101611" level="13">
+    <if_sid>101100</if_sid>
+    <list field="win.system.computer" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: Outlook inició $(win.eventdata.image) en el activo crítico $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1204.002</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Señal nueva: proceso de servidor web que lanza shell o utilidades de reconocimiento.
+    Patrón clásico de webshell (T1505.003). Lógica propia QAPAQ; no deriva de una regla Sigma.
+  -->
+  <rule id="101612" level="12">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.parentImage" type="pcre2">(?i)\\(w3wp|httpd|nginx|php-cgi|tomcat\d*)\.exe$</field>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(cmd|powershell|pwsh|cscript|wscript|mshta|certutil|bitsadmin|whoami|net|net1|nltest|rundll32)\.exe$</field>
+    <description>QAPAQ crítico: el servidor web $(win.eventdata.parentImage) inició $(win.eventdata.image) en $(win.system.computer) (posible webshell).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1505.003</id></mitre>
+    <group>qapaq_persistence,qapaq_webshell,</group>
+  </rule>
+
+  <rule id="101613" level="14">
+    <if_sid>101612</if_sid>
+    <list field="win.system.computer" lookup="match_key">etc/lists/qapaq-internet-facing</list>
+    <description>QAPAQ crítico: posible webshell en el servidor expuesto a Internet $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1505.003</id><id>T1190</id></mitre>
+    <group>qapaq_persistence,qapaq_webshell,qapaq_ctx_internet_facing,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- Señal nueva: borrado de shadow copies / catálogo de respaldo. Precursor típico de ransomware. -->
+  <rule id="101614" level="13">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(vssadmin|wmic|wbadmin|bcdedit|vssvc)\.exe$</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(delete\s+shadows|shadowcopy\s+delete|delete\s+catalog|delete\s+systemstatebackup|recoveryenabled\s+no|resize\s+shadowstorage)</field>
+    <description>QAPAQ crítico: inhibición de recuperación en $(win.system.computer): $(win.eventdata.commandLine).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1490</id></mitre>
+    <group>qapaq_impact,qapaq_ransomware_precursor,</group>
+  </rule>
+
+  <rule id="101615" level="15">
+    <if_sid>101614</if_sid>
+    <list field="win.system.computer" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: inhibición de recuperación en el activo crítico $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1490</id></mitre>
+    <group>qapaq_impact,qapaq_ransomware_precursor,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- ================================================================
+       3. Eventos normalizados de proveedor (integration=qapaq-provider)
+       Campos: qapaq_host, qapaq_user_id.
+       ================================================================ -->
+
+  <rule id="101620" level="13">
+    <if_sid>101210</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: PowerShell codificado con padre no habitual en el activo crítico $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1059.001</id><id>T1027</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101621" level="12">
+    <if_sid>101210</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-sensitive-workstations</list>
+    <description>QAPAQ crítico: PowerShell codificado con padre no habitual en la estación sensible $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1059.001</id><id>T1027</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_ctx_sensitive_workstation,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101622" level="12">
+    <if_sid>101211</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: tarea o servicio nuevo sin cambio aprobado en el activo crítico $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1053.005</id><id>T1543.003</id></mitre>
+    <group>qapaq_persistence,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101623" level="12">
+    <if_sid>101212</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: cambio en ruta de persistencia monitoreada del activo crítico $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1547</id></mitre>
+    <group>qapaq_persistence,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101624" level="12">
+    <if_sid>101214</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: sudo privilegiado fuera de cambio aprobado en el activo crítico $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1548.003</id></mitre>
+    <group>qapaq_privilege_escalation,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- Ráfaga SSH contra un activo crítico interno: movimiento lateral, no ruido de Internet. -->
+  <rule id="101625" level="13">
+    <if_sid>101213</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: ráfaga de fallos SSH desde $(qapaq_source_ip) contra el activo crítico $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110.001</id><id>T1021.004</id></mitre>
+    <group>qapaq_credential_access,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Rebaja: ráfaga SSH contra un host expuesto a Internet que NO es crítico. Es el ruido de
+    fondo de cualquier IP pública; el SOC necesita ver el éxito posterior, no cada barrido.
+    Queda en nivel 6 (P3) para tendencia; el acceso exitoso se detecta aparte.
+  -->
+  <rule id="101626" level="6">
+    <if_sid>101213</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-internet-facing</list>
+    <list field="qapaq_host" lookup="not_match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ medio: barrido SSH desde Internet contra $(qapaq_host) (expuesto, no crítico); ruido esperado.</description>
+    <options>no_full_log</options>
+    <group>qapaq_priority_lowered,</group>
+  </rule>
+
+  <rule id="101627" level="14">
+    <if_sid>101209</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-critical-assets</list>
+    <description>QAPAQ crítico: protección antimalware deshabilitada en el activo crítico $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_ctx_critical_asset,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101628" level="14">
+    <if_sid>101209</if_sid>
+    <list field="qapaq_host" lookup="match_key">etc/lists/qapaq-sensitive-workstations</list>
+    <description>QAPAQ crítico: protección antimalware deshabilitada en la estación sensible $(qapaq_host).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_defense_evasion,qapaq_ctx_sensitive_workstation,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101629" level="14">
+    <if_sid>101205</if_sid>
+    <list field="qapaq_user_id" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: inicio de sesión de riesgo alto de la identidad privilegiada $(qapaq_user_id) desde $(qapaq_source_ip).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!-- ================================================================
+       4. Microsoft 365 / Entra (office365.UserId)
+       ================================================================ -->
+
+  <!-- Regla de bandeja que reenvía u oculta correo de una identidad privilegiada o aprobadora de pagos (BEC). -->
+  <rule id="101641" level="14">
+    <if_sid>100510</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: regla de bandeja que reenvía u oculta correo en el buzón privilegiado $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1564.008</id><id>T1114.003</id></mitre>
+    <group>qapaq_persistence,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101642" level="14">
+    <if_sid>100512</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: reenvío de buzón configurado por la identidad privilegiada $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1114.003</id></mitre>
+    <group>qapaq_persistence,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101643" level="12">
+    <if_sid>100503</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: fuerza bruta contra la identidad privilegiada $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110.001</id></mitre>
+    <group>qapaq_credential_access,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101644" level="12">
+    <if_sid>100526</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: cambio de métodos de autenticación de la identidad privilegiada $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1556.006</id></mitre>
+    <group>qapaq_persistence,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Inicio de sesión tras fuerza bruta sobre una identidad privilegiada: toma de cuenta.
+    No cuelga de 100505: para una identidad privilegiada la ráfaga termina en 101643 (hija de
+    100503) y Wazuh solo guarda la regla final, así que 100505 (if_matched_sid 100503) ya no
+    dispararía. Se correlaciona directamente contra 101643, y va después de ella en el archivo:
+    Wazuh resuelve if_matched_sid al cargar (comprobado con wazuh-logtest 4.14.8).
+  -->
+  <rule id="101640" level="15" timeframe="900">
+    <if_sid>100506</if_sid>
+    <if_matched_sid>101643</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-privileged-identities</list>
+    <description>QAPAQ crítico: inicio de sesión de la identidad privilegiada $(office365.UserId) tras fuerza bruta.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110</id><id>T1078.004</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_privileged_identity,qapaq_priority_elevated,</group>
+  </rule>
+
+  <!--
+    Inicio de sesión de una cuenta tier0 o cloud-admin fuera de horario laboral.
+    <time> usa la hora local del manager. El SIEM EUS2 corre en UTC: 01:00-12:00 UTC equivale
+    a 20:00-07:00 en Lima (UTC-5, sin horario de verano). El horario real de QAPAQ es
+    TO_BE_PROVIDED (cuestionario, docs/security/agents/08-cuestionario-dueno.md).
+  -->
+  <rule id="101645" level="10">
+    <if_sid>100506</if_sid>
+    <list field="office365.UserId" lookup="match_key_value" check_value="^(tier0|cloud-admin)$">etc/lists/qapaq-privileged-identities</list>
+    <time>01:00 - 12:00</time>
+    <description>QAPAQ alto: inicio de sesión de la identidad privilegiada $(office365.UserId) fuera de horario desde $(office365.ClientIP).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_privileged_identity,qapaq_ctx_off_hours,qapaq_priority_elevated,</group>
+  </rule>
+
+  <rule id="101646" level="10">
+    <if_sid>100506</if_sid>
+    <list field="office365.UserId" lookup="match_key_value" check_value="^(tier0|cloud-admin)$">etc/lists/qapaq-privileged-identities</list>
+    <weekday>weekends</weekday>
+    <description>QAPAQ alto: inicio de sesión de la identidad privilegiada $(office365.UserId) en fin de semana desde $(office365.ClientIP).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>qapaq_initial_access,qapaq_ctx_privileged_identity,qapaq_ctx_off_hours,qapaq_priority_elevated,</group>
+  </rule>
+
+</group>

@@ -4,6 +4,8 @@ import {
   prioritize,
   PRIORITY_THRESHOLDS,
   priorityForScore,
+  PROMOTION_THRESHOLD,
+  PROVIDER_CONTEXT_GROUPS,
   type PrioritizationContext,
 } from '../src/prioritization.js';
 import { securityEvent, withSeverity } from './support/events.js';
@@ -12,6 +14,23 @@ const EMPTY_CONTEXT: PrioritizationContext = {
   privilegedIdentities: new Set(),
   criticalAssets: new Set(),
 };
+
+function tagged(
+  severity: Parameters<typeof withSeverity>[0],
+  groups: readonly string[],
+  ruleId = '101600',
+) {
+  return withSeverity(severity, {
+    detection: {
+      rule: {
+        id: ruleId,
+        name: 'Regla de prioridad QAPAQ',
+        provider: 'wazuh',
+        groups: [...groups],
+      },
+    },
+  });
+}
 
 function reasonCodes(context: PrioritizationContext, event = securityEvent()) {
   return prioritize(event, context).reasons.map((reason) => reason.code);
@@ -141,6 +160,102 @@ describe('C-16 · priorización', () => {
     expect(priorityForScore(PRIORITY_THRESHOLDS.P1 - 1)).toBe('P2');
     expect(priorityForScore(PRIORITY_THRESHOLDS.P3)).toBe('P3');
     expect(priorityForScore(PRIORITY_THRESHOLDS.P3 - 1)).toBe('P4');
+  });
+
+  describe('1.2.0 · contexto declarado por el SIEM (infra/wazuh/priority)', () => {
+    it('cuenta la etiqueta de activo crítico del SIEM como CRITICAL_ASSET', () => {
+      const outcome = prioritize(
+        tagged('critical', ['qapaq_priority', PROVIDER_CONTEXT_GROUPS.criticalAsset]),
+        EMPTY_CONTEXT,
+      );
+
+      expect(outcome.reasons.map((reason) => reason.code)).toEqual([
+        'BASE_SEVERITY',
+        'CRITICAL_ASSET',
+      ]);
+      expect(outcome.reasons[1]?.detail).toContain('101600');
+      expect(outcome.priority).toBe('P1');
+    });
+
+    it('no suma dos veces el mismo activo si lo marcan la lista propia y el SIEM', () => {
+      const outcome = prioritize(tagged('critical', [PROVIDER_CONTEXT_GROUPS.criticalAsset]), {
+        ...EMPTY_CONTEXT,
+        criticalAssets: new Set(['HOST-1']),
+      });
+
+      const critical = outcome.reasons.filter((reason) => reason.code === 'CRITICAL_ASSET');
+      expect(critical).toHaveLength(1);
+      expect(critical[0]?.detail).toContain('host-1');
+    });
+
+    it('sube estaciones sensibles y horario no laboral, que solo conoce el SIEM', () => {
+      const sensitive = prioritize(
+        tagged('high', [PROVIDER_CONTEXT_GROUPS.sensitiveWorkstation]),
+        EMPTY_CONTEXT,
+      );
+      const offHours = prioritize(
+        tagged('high', [
+          PROVIDER_CONTEXT_GROUPS.privilegedIdentity,
+          PROVIDER_CONTEXT_GROUPS.offHours,
+        ]),
+        EMPTY_CONTEXT,
+      );
+
+      expect(sensitive.reasons.map((reason) => reason.code)).toContain('SENSITIVE_WORKSTATION');
+      expect(sensitive.score).toBe(70);
+      expect(offHours.reasons.map((reason) => reason.code)).toEqual([
+        'BASE_SEVERITY',
+        'PRIVILEGED_IDENTITY',
+        'OFF_HOURS',
+      ]);
+      expect(offHours.score).toBe(80);
+    });
+
+    it('no re-eleva una regla que el SIEM rebajó por ruido conocido', () => {
+      const outcome = prioritize(tagged('low', [PROVIDER_CONTEXT_GROUPS.tunedDown], '101604'), {
+        ...EMPTY_CONTEXT,
+        criticalAssets: new Set(['host-1']),
+      });
+
+      expect(outcome.reasons.map((reason) => reason.code)).toEqual([
+        'BASE_SEVERITY',
+        'PROVIDER_TUNED_DOWN',
+      ]);
+      expect(outcome.priority).toBe('P4');
+      expect(outcome.score).toBeLessThan(PROMOTION_THRESHOLD);
+    });
+
+    it('una rebaja del SIEM no apaga una cuenta break-glass', () => {
+      const outcome = prioritize(tagged('low', [PROVIDER_CONTEXT_GROUPS.tunedDown]), {
+        ...EMPTY_CONTEXT,
+        breakGlassIdentities: new Set(['jperez@qapaq.pe']),
+      });
+
+      expect(outcome.priority).toBe('P1');
+      expect(outcome.reasons.map((reason) => reason.code)).toContain('BREAK_GLASS_IDENTITY');
+    });
+
+    // Matriz de docs/security/agents/03-matriz-priorizacion.md: nivel Wazuh → P del núcleo.
+    it.each([
+      ['critical', [], 'P2'],
+      ['critical', [PROVIDER_CONTEXT_GROUPS.criticalAsset], 'P1'],
+      ['critical', [PROVIDER_CONTEXT_GROUPS.privilegedIdentity], 'P1'],
+      ['critical', [PROVIDER_CONTEXT_GROUPS.sensitiveWorkstation], 'P1'],
+      ['critical', [PROVIDER_CONTEXT_GROUPS.internetFacing], 'P1'],
+      ['high', [], 'P3'],
+      ['high', [PROVIDER_CONTEXT_GROUPS.internetFacing], 'P2'],
+      ['high', [PROVIDER_CONTEXT_GROUPS.criticalAsset], 'P2'],
+      ['medium', [], 'P3'],
+      ['medium', [PROVIDER_CONTEXT_GROUPS.criticalAsset], 'P3'],
+      ['low', [], 'P4'],
+      ['low', [PROVIDER_CONTEXT_GROUPS.tunedDown], 'P4'],
+    ] as const)('nivel %s con %j queda en %s', (severity, groups, priority) => {
+      expect(prioritize(tagged(severity, groups), EMPTY_CONTEXT).priority).toBe(priority);
+    });
+
+    it('publica la versión del ruleset que introduce el contexto del SIEM', () => {
+      expect(prioritize(securityEvent(), EMPTY_CONTEXT).rulesetVersion).toBe('1.2.0');
+    });
   });
 
   it('no inventa detección propia: la regla citada es la del proveedor', () => {

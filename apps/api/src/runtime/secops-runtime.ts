@@ -117,6 +117,9 @@ export type RuntimeDirectory =
     };
 import { NotificationDispatcher } from './notification-dispatcher.js';
 import { CONNECTED_SOURCE_SIGNAL_CATALOG } from './signal-catalog.js';
+import { AssistantService } from './assistant.js';
+import { entityRefFactory } from './entity-refs.js';
+import { DEFAULT_ASSISTANT_MODEL } from '@qapaq/configuration';
 
 /**
  * Diagnóstico de un inicio de sesión rechazado. Solo códigos: ni tokens, ni claims, ni texto
@@ -219,6 +222,10 @@ export interface RuntimeOptions {
   readonly fallbackChain?: (consoleFallback: FallbackChannel) => FallbackChannel;
   /** Avisos al dispositivo (Web Push, Sprint 5); sin él la consola los muestra deshabilitados. */
   readonly push?: { readonly store: PushSubscriptionStore; readonly sender: PushSender };
+  /** Asistente Claude; sin él, uno sin configurar (el endpoint responde FEATURE_NOT_CONFIGURED). */
+  readonly assistant?: AssistantService;
+  /** Fallos del proveedor del asistente, solo con su código, para el log del proceso. */
+  readonly onAssistantError?: (code: string) => void;
 }
 
 /** Tope de alertas que la correlación lee por evento; protege frente a entidades ruidosas. */
@@ -381,6 +388,23 @@ export class SecOpsRuntime {
 
   public get access(): AccessConfig {
     return this.options.access;
+  }
+
+  private unconfiguredAssistant: AssistantService | undefined;
+
+  /** Asistente Claude. Sin uno inyectado, existe igual pero sin configurar. */
+  public get assistant(): AssistantService {
+    if (this.options.assistant) return this.options.assistant;
+    this.unconfiguredAssistant ??= new AssistantService({
+      model: DEFAULT_ASSISTANT_MODEL,
+      refOf: this.options.entityRefs ?? entityRefFactory(randomBytes(32).toString('base64url')),
+      soc: () => this.soc,
+    });
+    return this.unconfiguredAssistant;
+  }
+
+  public reportAssistantError(code: string): void {
+    this.options.onAssistantError?.(code);
   }
 
   /** Lector del explorador de eventos; `undefined` si no hay fuente configurada. */

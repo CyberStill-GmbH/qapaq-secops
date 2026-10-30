@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import {
   loadAccessConfig,
   loadApiConfig,
@@ -9,6 +11,7 @@ import {
   loadTeamsWorkflowUrl,
   loadAlertMailSender,
   loadVapidPrivateKey,
+  loadAssistantConfig,
   loadSocPersistenceConfig,
   type DetectionContextConfig,
   type EnvironmentInput,
@@ -22,6 +25,7 @@ import { composeApi } from './composition-root.js';
 import { ApiLifecycle, type ApiEvent } from './lifecycle.js';
 import { resolveApiSecretEnvironment } from './runtime/secret-environment.js';
 import { entityRefFactory } from './runtime/entity-refs.js';
+import { AssistantService, anthropicModelClient } from './runtime/assistant.js';
 import { deriveCsrfKey } from './http/csrf.js';
 import type { ProcessInfo } from './soc/operations-health.js';
 import { SecOpsRuntime, type SignInDiagnostic } from './runtime/secops-runtime.js';
@@ -193,14 +197,20 @@ export async function buildApi(
   demoMfaExceptionUntil?: Date,
   /** Inicios de sesión rechazados: etapa y código técnico, sin datos de la cuenta. */
   onSignInDenied?: (diagnostic: SignInDiagnostic) => void,
+  /** Fallos del asistente (secreto ilegible, proveedor caído): solo su código. */
+  onAssistantError?: (code: string) => void,
 ) {
-  const environment = await resolveApiSecretEnvironment(unresolvedEnvironment);
+  const environment = await resolveApiSecretEnvironment(unresolvedEnvironment, undefined, {
+    // La API key del asistente es opcional: sin ella el API arranca y el asistente queda apagado.
+    onOptionalSecretUnavailable: (_variable, code) => onAssistantError?.(`ASSISTANT_KEY_${code}`),
+  });
   const config = loadApiConfig(environment);
   const access = loadAccessConfig(environment);
   const detection = loadDetectionContextConfig(environment);
   const persistenceConfig = loadSocPersistenceConfig(environment);
   const entityRefKey = loadEntityRefKey(environment);
   const entityRefSecret = entityRefKey?.reveal();
+  const assistantConfig = loadAssistantConfig(environment);
   const ingestionConfig = loadIngestionConfig(environment);
   const roleGrants = loadRoleGrantsConfig(environment);
   const directoryConfig = loadDirectoryConfig(environment);
@@ -320,6 +330,23 @@ export async function buildApi(
       : {}),
     ...(onDispatchError ? { onDispatchError } : {}),
     ...(onSignInDenied ? { onSignInDenied } : {}),
+    ...(onAssistantError ? { onAssistantError } : {}),
+    // Qapaqzito: siempre existe; sin API key responde FEATURE_NOT_CONFIGURED. Las referencias de
+    // entidad son las de la consola (D-10b) para que el modelo y el analista hablen de lo mismo;
+    // sin clave, una efímera del proceso sirve igual para seudonimizar.
+    assistant: new AssistantService({
+      ...(assistantConfig.apiKey
+        ? { client: anthropicModelClient(assistantConfig.apiKey.reveal()) }
+        : {}),
+      model: assistantConfig.model,
+      refOf: entityRefFactory(entityRefSecret ?? randomBytes(32).toString('base64url')),
+      soc: () => runtime.soc,
+      knownPeople: async (tenantId) => {
+        const directory = runtime.directory;
+        if (directory?.mode !== 'graph') return [];
+        return directory.store.members(tenantId, directory.groupId);
+      },
+    }),
     ...(processInfo ? { processInfo } : {}),
     ...(clientSecret !== undefined ? { clientSecret } : {}),
     roleGrants:
@@ -491,6 +518,8 @@ export async function buildApi(
     persistence: runtime.soc.kind,
     /** Fuente de ingesta efectiva, para el registro de arranque. */
     ingestion: ingestionConfig.source,
+    /** Estado del asistente para el registro de arranque; nunca la key ni el modelo. */
+    assistant: runtime.assistant.configured ? 'configured' : 'not_configured',
     async start() {
       try {
         if (lifecycle.state !== 'starting') throw new Error('STARTUP_CANCELLED');

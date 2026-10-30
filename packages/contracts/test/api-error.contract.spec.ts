@@ -56,6 +56,14 @@ describe('C-27 · catálogo de errores', () => {
     );
   });
 
+  it('distingue una función sin configurar de una dependencia degradada', () => {
+    const notConfigured = API_ERROR_CATALOG.FEATURE_NOT_CONFIGURED;
+
+    expect(notConfigured.httpStatus).toBe(503);
+    expect(notConfigured.retriable).toBe(false);
+    expect(notConfigured.action).toBe('contact_support');
+  });
+
   it('construye el cuerpo con correlationId siempre presente', () => {
     const body = apiError('STATE_CONFLICT', 'corr-123');
 

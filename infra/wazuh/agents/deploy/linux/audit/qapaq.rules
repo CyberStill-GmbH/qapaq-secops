@@ -1,0 +1,33 @@
+## QAPAQ SecOps — reglas auditd base para servidores Linux (log_format audit en Wazuh).
+## Objetivo: atribuir cambios de identidad, privilegios y persistencia con poco volumen.
+## No se audita execve de todos los usuarios: el volumen en servidores de aplicación sería
+## mayor que el valor. Solo ejecución como root iniciada por un usuario interactivo.
+
+## Identidad y privilegios
+-w /etc/passwd -p wa -k qapaq_identity
+-w /etc/shadow -p wa -k qapaq_identity
+-w /etc/group -p wa -k qapaq_identity
+-w /etc/gshadow -p wa -k qapaq_identity
+-w /etc/sudoers -p wa -k qapaq_privilege
+-w /etc/sudoers.d/ -p wa -k qapaq_privilege
+-w /etc/pam.d/ -p wa -k qapaq_auth_config
+-w /etc/ssh/sshd_config -p wa -k qapaq_auth_config
+
+## Persistencia
+-w /etc/cron.d/ -p wa -k qapaq_persistence
+-w /etc/crontab -p wa -k qapaq_persistence
+-w /var/spool/cron/ -p wa -k qapaq_persistence
+-w /etc/systemd/system/ -p wa -k qapaq_persistence
+-w /etc/ld.so.preload -p wa -k qapaq_persistence
+
+## Ejecución como root por un usuario con sesión (auid real, no demonios)
+-a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=4294967295 -k qapaq_root_exec
+-a always,exit -F arch=b32 -S execve -F euid=0 -F auid>=1000 -F auid!=4294967295 -k qapaq_root_exec
+
+## Módulos de kernel y manipulación de la auditoría
+-a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k qapaq_kernel_module
+-w /sbin/auditctl -p x -k qapaq_audit_tamper
+-w /etc/audit/ -p wa -k qapaq_audit_tamper
+
+## Cambio de hora (borra rastros temporales)
+-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k qapaq_time_change

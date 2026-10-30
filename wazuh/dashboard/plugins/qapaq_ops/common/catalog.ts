@@ -114,6 +114,7 @@ export const API_ERROR_MESSAGE: Record<ApiErrorCode, string> = {
   STATE_CONFLICT: 'El elemento cambió mientras trabajaba en él. Vuelva a cargarlo.',
   VALIDATION_FAILED: 'Revise los datos ingresados y vuelva a enviarlos.',
   DEPENDENCY_DEGRADED: 'El servicio está degradado. Algunos datos pueden no estar actualizados.',
+  FEATURE_NOT_CONFIGURED: 'Esta función no está habilitada en este despliegue.',
   INTERNAL_ERROR: 'Ocurrió un problema inesperado. El equipo ya fue notificado.',
 };
 

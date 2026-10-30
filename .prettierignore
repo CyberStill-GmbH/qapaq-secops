@@ -11,3 +11,5 @@ docs
 
 # Artefactos generados desde el catálogo de señales (C-26) y desde routes.json (C-28).
 # Su formato lo fija el generador; reformatearlos rompería la comprobación de deriva.
+# Workflows Ankay financieros: los genera build_workflows.py desde finance-catalog.yaml.
+infra/wazuh/launch-detections/ankay/finance/*.json

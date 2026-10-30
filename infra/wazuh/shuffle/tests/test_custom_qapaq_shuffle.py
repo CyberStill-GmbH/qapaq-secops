@@ -88,6 +88,29 @@ class ShuffleWebhookAdapterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE._endpoint_secret(self.secret_path)
 
+    def test_azure_private_network_allows_only_rfc1918_backend_port(self):
+        config = json.loads(self.secret_path.read_text(encoding="utf-8"))
+        config["network"] = "azure-private"
+        valid = "http://10.80.0.36:5001/api/v1/hooks/webhook_d182096e-5305-5016-a069-c65851fdc5fa"
+        config["url"] = valid
+        self.secret_path.write_text(json.dumps(config), encoding="utf-8")
+        self.assertEqual(MODULE._endpoint_secret(self.secret_path)[0], valid)
+        for bad in (
+            "http://203.0.113.10:5001/api/v1/hooks/webhook_d182096e-5305-5016-a069-c65851fdc5fa",
+            "http://10.80.0.36:3001/api/v1/hooks/webhook_d182096e-5305-5016-a069-c65851fdc5fa",
+            "http://10.80.0.36:5001/api/v1/apps",
+            "http://user:pw@10.80.0.36:5001/api/v1/hooks/webhook_d182096e-5305-5016-a069-c65851fdc5fa",
+        ):
+            config["url"] = bad
+            self.secret_path.write_text(json.dumps(config), encoding="utf-8")
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                MODULE._endpoint_secret(self.secret_path)
+        config.pop("network")
+        config["url"] = valid
+        self.secret_path.write_text(json.dumps(config), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            MODULE._endpoint_secret(self.secret_path)
+
     def test_rejects_publicly_readable_secret_file(self):
         self.secret_path.chmod(0o644)
         with patch.object(

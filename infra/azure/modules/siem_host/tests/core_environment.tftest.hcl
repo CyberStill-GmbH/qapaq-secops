@@ -363,3 +363,47 @@ run "rejects_non_private_krakend_source_cidr" {
 
   expect_failures = [var.krakend_source_cidrs]
 }
+
+run "assistant_secret_grants_exact_read_without_touching_bootstrap" {
+  command = plan
+
+  variables {
+    core_environment      = {}
+    assistant_secret_name = "qapaq-anthropic-api-key"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.assistant_secret_read[0].scope == "${var.key_vault_id}/secrets/qapaq-anthropic-api-key"
+    error_message = "The assistant key must be readable only at its exact Key Vault secret scope."
+  }
+
+  # bootstrap_config lleva el client_id de la identidad (desconocido en plan); el custom_data no.
+  assert {
+    condition     = !strcontains(local.cloud_init, "anthropic")
+    error_message = "Enabling the assistant must not change the VM custom_data."
+  }
+}
+
+run "assistant_disabled_by_default" {
+  command = plan
+
+  variables {
+    core_environment = {}
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.assistant_secret_read) == 0
+    error_message = "Without assistant_secret_name no assistant secret grant may exist."
+  }
+}
+
+run "rejects_assistant_secret_value" {
+  command = plan
+
+  variables {
+    core_environment      = {}
+    assistant_secret_name = "sk-ant-api03 not a name"
+  }
+
+  expect_failures = [var.assistant_secret_name]
+}

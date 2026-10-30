@@ -1,0 +1,63 @@
+101600	# sube: Security log borrado en DC
+101302	# mantiene: Security log borrado en estación general
+101601	# sube: política de auditoría en DC
+101301	# mantiene: política de auditoría en estación general
+101602	# sube: alta en Domain Admins por actor no privilegiado
+101300	# mantiene: alta en Domain Admins por tier0 registrado
+101603	# sube: DCSync por cuenta de usuario
+101604	# baja: replicación entre DC registrados
+101306	# mantiene: replicación de cuenta de equipo en DC no registrado
+101605	# sube: AS-REP de identidad privilegiada
+101305	# mantiene: AS-REP de cuenta no privilegiada
+101606	# sube: tier0 por RDP en estación general
+60106|60119|67022	# mantiene: tier0 por RDP en PAW
+60106|60119|67022	# mantiene: tier1 por RDP en estación general
+101607	# sube: bloqueo de cuenta privilegiada
+60115	# mantiene: bloqueo de cuenta normal
+101608	# baja: fallo Kerberos por desfase de reloj
+101609	# baja: fallo Kerberos de cuenta de equipo
+101307	# mantiene: fallo Kerberos de usuario
+101610	# sube: Outlook->PowerShell en tesorería
+101611	# sube: Outlook->PowerShell en servidor crítico
+101100	# mantiene: Outlook->PowerShell en estación general
+101613	# sube: webshell en servidor expuesto (host en minúsculas)
+101612	# señal: webshell en servidor interno
+101615	# sube: borrado de shadow copies en BD crítica
+101614	# señal: borrado de shadow copies en estación general
+0	# negativo: listar shadow copies
+101620	# sube: PowerShell codificado en activo crítico
+101621	# sube: PowerShell codificado en estación de operaciones
+101210	# mantiene: PowerShell codificado en estación general
+101622	# sube: servicio sin cambio en activo crítico
+101623	# sube: FIM de persistencia en activo crítico
+101624	# sube: sudo sin cambio en Linux crítico (host en mayúsculas)
+101627	# sube: antimalware deshabilitado en BD
+101628	# sube: antimalware deshabilitado en créditos
+101209	# mantiene: antimalware deshabilitado en estación general
+101629	# sube: inicio de riesgo de admin de nube
+101205	# mantiene: inicio de riesgo de usuario normal
+101215	# secuencia SSH 1/8
+101215	# secuencia SSH 2/8
+101215	# secuencia SSH 3/8
+101215	# secuencia SSH 4/8
+101215	# secuencia SSH 5/8
+101215	# secuencia SSH 6/8
+101215	# secuencia SSH 7/8
+101626	# baja: barrido SSH contra expuesto no crítico
+101641	# sube: regla de reenvío de aprobador de pagos
+100510	# mantiene: regla de reenvío de usuario normal
+101642	# sube: reenvío SMTP de tier0
+101644	# sube: cambio MFA de admin de nube
+100506|101645|101646	# depende de hora y día: login de admin de nube
+100506	# mantiene: login de aprobador de pagos (no tier0/cloud-admin)
+100502	# secuencia fuerza bruta 1/10
+100502	# secuencia fuerza bruta 2/10
+100502	# secuencia fuerza bruta 3/10
+100502	# secuencia fuerza bruta 4/10
+100502	# secuencia fuerza bruta 5/10
+100502	# secuencia fuerza bruta 6/10
+100502	# secuencia fuerza bruta 7/10
+100502	# secuencia fuerza bruta 8/10
+100502	# secuencia fuerza bruta 9/10
+101643	# sube: fuerza bruta contra tier0
+101640	# sube: éxito tras fuerza bruta de tier0
