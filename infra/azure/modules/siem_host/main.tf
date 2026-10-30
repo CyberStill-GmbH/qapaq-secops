@@ -51,6 +51,7 @@ locals {
   bootstrap_extension_script = <<-SCRIPT
     #!/bin/bash
     set -euo pipefail
+    # Revision 2 re-runs the Custom Script payload after an interrupted first apply.
     umask 077
     install -d -m 0700 /etc/qapaq-siem
     install -m 0600 /dev/null /var/log/qapaq-siem-bootstrap.log

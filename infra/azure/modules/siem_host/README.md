@@ -42,7 +42,9 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   adicional al resto del bootstrap y depende de la VM, SKU del disco y host. La extensión Terraform
   usa un timeout de 90 minutos para creación y actualización: Azure permite ese máximo para Custom
   Script en Linux, mientras que el provider usa 30 minutos por defecto. El job apply deja 120 minutos
-  para incluir inicialización, aplicación del plan y liberación del state.
+  para incluir inicialización, aplicación del plan y liberación del state. Si una ejecución anterior
+  alcanzó a crear la extensión pero expiró antes de guardarla en state, el workflow apply la importa
+  desde Azure y vuelve a planificar; no recrea la VM ni el disco persistente.
 - Identidad asignada a la VM: `AcrPull` en el ACR indicado, lectura del blob de release limitada al
   contenedor, lectura Key Vault limitada a los secretos nombrados y escritura opcional limitada al
   contenedor de evidencia indicado.

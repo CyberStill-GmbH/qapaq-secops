@@ -154,8 +154,8 @@ jobs:
         working-directory: .
         run: node --test scripts/ci/validate-azure-eus2-deployment-scope.test.mjs
 
-      - name: Sign in before optional KrakenD secret metadata preflight
-        if: ${{ env.TF_VAR_krakend_gateway != 'null' }}
+      - name: Sign in for SIEM extension recovery and optional KrakenD preflight
+        if: ${{ env.TF_VAR_krakend_gateway != 'null' || (inputs.apply && inputs.deployment_scope != 'foundation' && env.TF_VAR_siem_host != 'null') }}
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
@@ -187,6 +187,47 @@ jobs:
             -backend-config="key=$TF_STATE_KEY" \
             -backend-config="use_oidc=true" \
             -backend-config="use_azuread_auth=true"
+
+      - name: Import an interrupted SIEM bootstrap extension if it is not in state
+        if: ${{ inputs.apply && inputs.deployment_scope != 'foundation' && env.TF_VAR_siem_host != 'null' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          address='module.siem_host[0].azurerm_virtual_machine_extension.siem_bootstrap'
+          if terraform state list | grep -Fxq "$address"; then
+            echo 'SIEM bootstrap extension is already tracked in the isolated state.'
+            exit 0
+          fi
+
+          project="$(sed -n 's/^project[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          environment="$(sed -n 's/^environment[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          [[ -n "$project" && -n "$environment" ]] || {
+            echo '::error::Could not derive the EUS2 resource names from the committed profile.'
+            exit 1
+          }
+          name_base="$(printf '%s' "${project}-${environment}" | tr '[:upper:]' '[:lower:]' | tr -d '-' | cut -c1-18)"
+          suffix="$(printf '%s' "${ARM_SUBSCRIPTION_ID}:${project}:${environment}" | sha256sum | cut -c1-8)"
+          resource_group="rg-${name_base}-${suffix}"
+          vm_name="vm-${name_base}-siem"
+          error_file="$(mktemp)"
+          trap 'rm -f "$error_file"' EXIT
+
+          if extension_id="$(az vm extension show \
+            --resource-group "$resource_group" \
+            --vm-name "$vm_name" \
+            --name qapaq-siem-bootstrap \
+            --query id --output tsv --only-show-errors 2>"$error_file")"; then
+            [[ -n "$extension_id" ]] || {
+              echo '::error::Azure returned an empty SIEM bootstrap extension ID.'
+              exit 1
+            }
+            terraform import -input=false -no-color "$address" "$extension_id"
+          elif grep -Eqi 'ResourceNotFound|was not found|could not be found' "$error_file"; then
+            echo 'No existing SIEM bootstrap extension; Terraform will create it from the reviewed plan.'
+          else
+            cat "$error_file" >&2
+            exit 1
+          fi
 
       - name: Validate
         run: terraform validate -no-color
