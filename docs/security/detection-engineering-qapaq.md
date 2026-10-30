@@ -99,6 +99,17 @@ ventana de fallo que no interrumpa FIM ni ingestión. Una respuesta de reputaci�
 una señal adicional, no una orden para borrar/aislar. El secreto se referenciará
 desde Key Vault al runtime; nunca en `ossec.conf`, Terraform state, CI logs ni Git.
 
+**Decisión del dueño (2026-10-27): consulta manual con la clave pública.** Mientras no
+exista licencia comercial, la única vía es el botón «Consultar en VirusTotal» del detalle
+de alerta (`POST /api/alerts/:id/enrichment/virustotal`, capability
+`enrichment.virustotal`, analista y admin). Solo hashes MD5/SHA-1/SHA-256 que la alerta ya
+trae (mapping Wazuh 1.2.0: `syscheck.*_after` y Sysmon `hashes`), con
+`GET /api/v3/files/{hash}`; nunca subidas, URLs, dominios ni IPs. El núcleo aplica 4
+consultas/min y 500/día por tenant, caché de 24 h en PostgreSQL y audita cada intento. La
+integración VirusTotal de Wazuh, Ankay y cualquier playbook siguen deshabilitados. La clave
+llega por `QAPAQ_VIRUSTOTAL_API_KEY_REF` (Key Vault `qapaq-virustotal-api-key`); sin clave,
+el endpoint responde `INTEGRATION_NOT_CONFIGURED` y el API arranca igual.
+
 ## Criterio para mover una regla a producción
 
 - Origen/commit/licencia atribuidos; versión de Wazuh/decoder fijada.

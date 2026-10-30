@@ -33,6 +33,11 @@
       "types": "./src/push-stores.ts",
       "development": "./src/push-stores.ts",
       "default": "./dist/src/push-stores.js"
+    },
+    "./file-reputation-stores": {
+      "types": "./src/file-reputation-stores.ts",
+      "development": "./src/file-reputation-stores.ts",
+      "default": "./dist/src/file-reputation-stores.js"
     }
   },
   "scripts": {

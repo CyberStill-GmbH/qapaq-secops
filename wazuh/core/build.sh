@@ -63,6 +63,9 @@ node scripts/docker/prune-deploy.mjs "$stage/worker"
 
 cp "$HERE"/systemd/*.service "$stage/systemd/"
 printf '%s\n' "$SHA" >"$stage/RELEASE"
+# Referencias de secretos opcionales que este release reconoce; el instalador Azure solo las
+# publica si el release las declara (un release anterior las rechazaría al arrancar).
+printf '%s\n' QAPAQ_VIRUSTOTAL_API_KEY_REF >"$stage/OPTIONAL_SECRET_REFS"
 
 tar -C "$work" -czf "$OUT_DIR/qapaq-core-$SHA.tar.gz" "qapaq-core-$SHA"
 (cd "$OUT_DIR" && sha256sum "qapaq-core-$SHA.tar.gz" >SHA256SUMS)

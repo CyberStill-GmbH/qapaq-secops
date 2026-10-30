@@ -27,6 +27,7 @@ export const API_ERROR_CODES = [
   'STATE_CONFLICT',
   'VALIDATION_FAILED',
   'DEPENDENCY_DEGRADED',
+  'INTEGRATION_NOT_CONFIGURED',
   'INTERNAL_ERROR',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
@@ -156,6 +157,16 @@ export const API_ERROR_CATALOG: Readonly<Record<ApiErrorCode, ApiErrorDefinition
     action: 'retry_later',
     helpRef: `${HELP_BASE}#dependency-degraded`,
     retriable: true,
+  },
+  // Integración opcional sin credencial en este despliegue: reintentar no cambia nada hasta que
+  // la plataforma la configure. No dice qué integración ni por qué falta.
+  INTEGRATION_NOT_CONFIGURED: {
+    code: 'INTEGRATION_NOT_CONFIGURED',
+    httpStatus: 503,
+    publicMessage: 'Esta integración no está configurada en la plataforma.',
+    action: 'contact_support',
+    helpRef: `${HELP_BASE}#integration-not-configured`,
+    retriable: false,
   },
   INTERNAL_ERROR: {
     code: 'INTERNAL_ERROR',

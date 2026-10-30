@@ -111,7 +111,10 @@ y adaptadores QAPAQ de mínimo privilegio.
   servicios o workflows comerciales. Se necesita acuerdo privado/Enterprise que
   permita el caso financiero. Un lookup puede divulgar el IOC al proveedor/dataset;
   no buscar direcciones internas, URLs con tokens, PII ni adjuntos confidenciales.
-  No subir archivos de correo a VirusTotal en la fase inicial.
+  No subir archivos de correo a VirusTotal en la fase inicial. La clave pública solo
+  se usa en la consulta manual por hash del núcleo (ver
+  [`detection-engineering-qapaq.md`](../detection-engineering-qapaq.md#virustotal));
+  ningún playbook la recibe.
 
 ## Secuencia de habilitación
 

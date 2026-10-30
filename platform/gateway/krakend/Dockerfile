@@ -15,7 +15,10 @@ RUN apk add --no-cache git make gcc musl-dev binutils-gold
 WORKDIR /src
 RUN git clone --depth 1 --branch "v${KRAKEND_VERSION}" https://github.com/krakend/krakend-ce.git . \
   && test "$(git rev-parse HEAD)" = "${KRAKEND_COMMIT}"
-RUN go get golang.org/x/net@v0.60.0 && go mod tidy && make build GLIBC_VERSION=musl \
+# go-jose v4.1.6 corrige GHSA-mgcc-cww5-fp2q (CVE-2026-116587). La v3 no tiene corrección
+# publicada y la importa krakend-jose v3.0.x directamente: ver `.trivyignore.yaml`.
+RUN go get golang.org/x/net@v0.60.0 github.com/go-jose/go-jose/v4@v4.1.6 && go mod tidy \
+  && make build GLIBC_VERSION=musl \
   && ./krakend version
 
 FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0

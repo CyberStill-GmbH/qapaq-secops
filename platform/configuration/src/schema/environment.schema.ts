@@ -96,6 +96,8 @@ export const KNOWN_QAPAQ_VARIABLES = new Set([
   'QAPAQ_ALERT_MAIL_SENDER',
   'QAPAQ_VAPID_PRIVATE_KEY',
   'QAPAQ_VAPID_PRIVATE_KEY_REF',
+  'QAPAQ_VIRUSTOTAL_API_KEY',
+  'QAPAQ_VIRUSTOTAL_API_KEY_REF',
 ]);
 
 export function rejectUnknownQapaqVariables(

@@ -1,0 +1,13 @@
+# Excepciones de Trivy para la imagen de KrakenD. Cada una es exacta (purl), justificada y vence:
+# al vencer, la CI vuelve a fallar y obliga a revisar si ya existe corrección.
+vulnerabilities:
+  - id: CVE-2026-116587
+    purls:
+      - pkg:golang/github.com/go-jose/go-jose/v3@v3.0.5
+    statement: >-
+      GHSA-mgcc-cww5-fp2q: DoS al validar claves RSA privadas incluidas en un JWK. go-jose v3 no
+      tiene versión corregida y krakend-jose v3.0.1 (última) la importa directamente; la v4 sí se
+      parchea en el Dockerfile. KrakenD solo carga los JWKS públicos (n, e) de Entra desde la URL
+      configurada; un cliente no puede entregar un JWK con parámetros privados, que es lo que
+      dispara la validación costosa.
+    expired_at: 2026-11-30

@@ -358,6 +358,18 @@ resource "azurerm_role_assignment" "key_vault_secret_read" {
   principal_type       = "ServicePrincipal"
 }
 
+# Lectura de secretos opcionales del núcleo, fuera de `bootstrap_config`: habilitarlos no cambia
+# la extensión ni el custom_data de la VM. Sin esta asignación, el API arranca con la integración
+# sin configurar.
+resource "azurerm_role_assignment" "key_vault_optional_core_secret_read" {
+  for_each = toset(values(var.optional_core_secret_names))
+
+  scope                = "${trimsuffix(var.key_vault_id, "/")}/secrets/${each.value}"
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = local.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 # The host may get/set only the two pre-created values used by the opt-in
 # KrakenD proxy. The custom role contains no list, delete, or vault-management
 # actions and is assigned at each exact Key Vault secret scope.

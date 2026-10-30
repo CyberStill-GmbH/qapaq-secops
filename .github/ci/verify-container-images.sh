@@ -60,7 +60,9 @@ test "$(docker inspect --format '{{.State.ExitCode}}' qapaq-ci-worker)" = 0
 trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:worker
 
 docker build --file platform/gateway/krakend/Dockerfile --tag qapaq-ci:krakend platform/gateway/krakend
-trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress qapaq-ci:krakend
+# Solo KrakenD tiene excepciones, exactas por purl y con vencimiento (ver el archivo).
+trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress \
+  --ignorefile platform/gateway/krakend/.trivyignore.yaml qapaq-ci:krakend
 
 # C-1 — imagen migrator: mismo commit que el API. El smoke comprueba que arranca, que
 # rechaza un modo desconocido con código distinto de cero y emite el evento JSON de fallo, y

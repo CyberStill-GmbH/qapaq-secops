@@ -107,6 +107,7 @@ export async function main(): Promise<void> {
     // Solo el modo (`memory` o `postgres`), nunca datos de conexión.
     log(`soc.persistence.${runtime.persistence}`);
     log(`ingestion.source.${runtime.ingestion}`);
+    log(`enrichment.file_reputation.${runtime.fileReputation}`);
     process.on('SIGINT', onSignal);
     process.on('SIGTERM', onSignal);
     process.on('uncaughtException', onException);

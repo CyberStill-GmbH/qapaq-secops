@@ -24,6 +24,12 @@ export const CAPABILITIES = [
   'incidents.notes.write',
   'notifications.read',
   /**
+   * Consultar a pedido, por hash de archivo de una alerta, la reputación pública en VirusTotal.
+   * Consume una cuota externa compartida por el tenant y sale a Internet, así que es una acción
+   * explícita y auditada, no parte de la lectura de la alerta ni de ningún playbook.
+   */
+  'enrichment.virustotal',
+  /**
    * Forzar una pasada del despacho de notificaciones. Es un efecto externo (Teams), así que
    * no basta con poder leer la bandeja: el despacho normal lo hace el bucle del runtime.
    */
@@ -86,6 +92,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.tasks.write',
     'incidents.notes.write',
     'notifications.read',
+    'enrichment.virustotal',
   ],
   'qapaq.soc.lead': [
     'events.read',
@@ -127,6 +134,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.close',
     'notifications.read',
     'notifications.dispatch',
+    'enrichment.virustotal',
     'observability.read_soc',
     'sources.health.read',
     'observability.read_platform',
@@ -172,6 +180,8 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'incidents.tasks.write',
     'incidents.notes.write',
     'notifications.dispatch',
+    // Sale a Internet y gasta cuota: se ejerce como una escritura, con CSRF.
+    'enrichment.virustotal',
     'sessions.revoke',
     'roles.request',
     'roles.approve',

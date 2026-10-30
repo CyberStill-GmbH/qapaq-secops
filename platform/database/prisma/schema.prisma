@@ -644,6 +644,33 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
+// Reputación de archivos por hash: último resultado por tenant, servicio y hash (24 h). Vencido
+// se reemplaza con UPSERT; sin DELETE.
+model FileReputationCache {
+  tenantId  String   @map("tenant_id") @db.Text
+  provider  String   @db.Text
+  algorithm String   @db.Text
+  hash      String   @db.Text
+  status    String   @db.Text
+  result    Json?    @db.JsonB
+  checkedAt DateTime @map("checked_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@id([tenantId, provider, hash], map: "file_reputation_cache_pkey")
+  @@map("file_reputation_cache")
+}
+
+// Cada consulta que salió al servicio de reputación: contador compartido de la cuota del tenant.
+model FileReputationQuotaUse {
+  id       String   @id @db.Uuid
+  tenantId String   @map("tenant_id") @db.Text
+  provider String   @db.Text
+  usedAt   DateTime @map("used_at") @db.Timestamptz(3)
+
+  @@index([tenantId, provider, usedAt(sort: Desc)], map: "file_reputation_quota_uses_window_idx")
+  @@map("file_reputation_quota_uses")
+}
+
 // Roles concedidos desde la administración; separados de las asignaciones del deploy y de los
 // dueños del grupo. Reemplazo completo bajo compare-and-set sobre `revision`; sin DELETE.
 model AccessRoleGrant {

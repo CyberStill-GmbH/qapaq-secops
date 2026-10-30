@@ -205,7 +205,8 @@ module "egress_firewall" {
     "*.logic.azure.com",
     "*.api.powerplatform.com",
     "security.ubuntu.com",
-    format("%s.virustotal.com", "api"),
+    # API v3 de reputación de archivos (`/api/v3/files/{hash}`); solo consultas manuales por hash.
+    "www.virustotal.com",
     "acme-v02.api.letsencrypt.org",
     ]), local.provider_egress_fqdns, var.ankay_host == null ? toset([]) : toset([
     "download.docker.com",
@@ -274,6 +275,7 @@ module "siem_host" {
   key_vault_uri                   = module.data.key_vault_uri
   manage_artifact_read_assignment = var.siem_artifact_read_assignment_managed
   core_secret_names               = try(var.siem_host.core_secret_names, {})
+  optional_core_secret_names      = try(var.siem_host.optional_core_secret_names, {})
   wazuh_secret_names              = try(var.siem_host.wazuh_secret_names, {})
   indexer_proxy = var.krakend_gateway == null ? null : {
     reader_secret_name   = var.krakend_gateway.indexer_reader_secret_name

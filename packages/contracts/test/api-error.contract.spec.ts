@@ -89,6 +89,7 @@ describe('C-27 · catálogo de errores', () => {
       'STATE_CONFLICT',
       'VALIDATION_FAILED',
       'DEPENDENCY_DEGRADED',
+      'INTEGRATION_NOT_CONFIGURED',
       'INTERNAL_ERROR',
     ];
 

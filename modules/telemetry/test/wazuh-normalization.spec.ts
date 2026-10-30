@@ -129,6 +129,56 @@ describe('C-12 normalización de alertas Wazuh', () => {
     expect(first.event.recordId).toBe(second.event.recordId);
     expect(first.event.eventUid).toBe(second.event.eventUid);
   });
+
+  it('1.2.0: proyecta los hashes de FIM como recursos de archivo', () => {
+    const outcome = normalizeWazuhAlert(
+      alert({
+        rule: { id: 554, level: 7, description: 'File added to the system.', groups: ['syscheck'] },
+        syscheck: {
+          path: 'C:\\Users\\jperez\\Downloads\\factura.exe',
+          md5_after: 'D41D8CD98F00B204E9800998ECF8427E',
+          sha1_after: 'da39a3ee5e6b4b0d3255bfef95601890afd80709',
+          sha256_after: 'no-es-un-hash',
+        },
+      }),
+      context,
+    );
+    if (outcome.status !== 'normalized') throw new Error('se esperaba normalización');
+
+    expect(validateSecurityEvent(outcome.event).valid).toBe(true);
+    expect(outcome.event.entities.resources.filter((resource) => resource.kind === 'file')).toEqual(
+      [
+        { kind: 'file', type: 'md5', id: 'd41d8cd98f00b204e9800998ecf8427e' },
+        { kind: 'file', type: 'sha1', id: 'da39a3ee5e6b4b0d3255bfef95601890afd80709' },
+      ],
+    );
+    // La ruta del archivo no es un hash y no entra al evento.
+    expect(JSON.stringify(outcome.event)).not.toContain('factura.exe');
+  });
+
+  it('1.2.0: proyecta los hashes de Sysmon y descarta IMPHASH', () => {
+    const sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const outcome = normalizeWazuhAlert(
+      alert({
+        data: {
+          win: {
+            eventdata: {
+              hashes: `SHA1=DA39A3EE5E6B4B0D3255BFEF95601890AFD80709,MD5=zz,SHA256=${sha256.toUpperCase()},IMPHASH=00000000000000000000000000000000`,
+            },
+          },
+        },
+      }),
+      context,
+    );
+    if (outcome.status !== 'normalized') throw new Error('se esperaba normalización');
+
+    expect(outcome.event.entities.resources.filter((resource) => resource.kind === 'file')).toEqual(
+      [
+        { kind: 'file', type: 'sha1', id: 'da39a3ee5e6b4b0d3255bfef95601890afd80709' },
+        { kind: 'file', type: 'sha256', id: sha256 },
+      ],
+    );
+  });
 });
 
 describe('C-12 rechazo seguro con código estable', () => {
