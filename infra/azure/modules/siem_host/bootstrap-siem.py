@@ -632,7 +632,9 @@ def materialize_secrets(config: dict) -> None:
     with CORE_ENV_PATH.open("w", encoding="utf-8") as stream:
         for key in sorted(merged_env):
             stream.write(f"{key}={systemd_quote(merged_env[key])}\n")
-    os.chmod(CORE_ENV_PATH, 0o640)
+    # systemd lee el EnvironmentFile como root antes de bajar a qapaq-core, y
+    # apply-core-azure.sh exige que no tenga permisos de grupo ni de otros.
+    os.chmod(CORE_ENV_PATH, 0o600)
     try:
         qapaq_gid = pwd.getpwnam("qapaq-core").pw_gid
     except KeyError:

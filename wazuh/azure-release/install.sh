@@ -64,31 +64,52 @@ chmod 0600 "$work/wazuh-install-files.tar"
 install -m 0600 "$work/wazuh-install-files.tar" "$OFFLINE_ROOT/wazuh-install-files.tar"
 
 # The module bootstrap already verified a pristine host and the signed release hashes.
-# Never re-run the official assistant over an existing installation.
+# Never re-run the official assistant over an existing installation. A retry of the bootstrap
+# after a later step failed finds the four packages installed by this same bundle: it resumes
+# (the manifest version check below still applies) instead of reinstalling. Anything partial
+# or foreign stops without changes.
+installed_packages=0
 for package in wazuh-manager wazuh-indexer wazuh-dashboard filebeat; do
   state="$(dpkg-query --show -f='${db:Status-Status}' "$package" 2>/dev/null || true)"
-  [[ -z "$state" ]] || fail "host has pre-existing package $package; refusing an in-place install"
+  if [[ "$state" == installed ]]; then
+    installed_packages=$((installed_packages + 1))
+  elif [[ -n "$state" ]]; then
+    fail "host has package $package in state $state; refusing an in-place install"
+  fi
 done
+resume_install=false
+if (( installed_packages == 4 )); then
+  resume_install=true
+elif (( installed_packages > 0 )); then
+  fail 'host has a partial Wazuh installation; refusing an in-place install'
+fi
 
-# El bootstrap ya montó los directorios de estado sobre el disco persistente, y el asistente
-# oficial toma su sola existencia como restos de una instalación previa. Con los paquetes
-# ausentes (comprobado arriba) y esos directorios vacíos, pedirle --overwrite es seguro; si
-# alguno tiene datos, se detiene sin tocarlos.
-overwrite_args=()
-for state_dir in /var/ossec /var/lib/wazuh-indexer /var/lib/wazuh-dashboard; do
-  [[ -d "$state_dir" ]] || continue
-  [[ -z "$(find "$state_dir" -mindepth 1 -print -quit)" ]] ||
-    fail "$state_dir ya contiene datos; no se sobrescribe una instalación existente"
-  overwrite_args=(--overwrite)
-done
+if [[ "$resume_install" == true ]]; then
+  info 'Wazuh 4.14.8 ya instalado por este bundle; se reanudan los pasos posteriores'
+  for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard; do
+    systemctl start "$service" || fail "no se pudo iniciar $service al reanudar"
+  done
+else
+  # El bootstrap ya montó los directorios de estado sobre el disco persistente, y el asistente
+  # oficial toma su sola existencia como restos de una instalación previa. Con los paquetes
+  # ausentes (comprobado arriba) y esos directorios vacíos, pedirle --overwrite es seguro; si
+  # alguno tiene datos, se detiene sin tocarlos.
+  overwrite_args=()
+  for state_dir in /var/ossec /var/lib/wazuh-indexer /var/lib/wazuh-dashboard; do
+    [[ -d "$state_dir" ]] || continue
+    [[ -z "$(find "$state_dir" -mindepth 1 -print -quit)" ]] ||
+      fail "$state_dir ya contiene datos; no se sobrescribe una instalación existente"
+    overwrite_args=(--overwrite)
+  done
 
-info 'instalando Wazuh 4.14.8 con el asistente oficial fijado y paquetes offline verificados'
-(
-  cd "$OFFLINE_ROOT"
-  # The official assistant handles cert installation, Indexer security initialization,
-  # Manager/Filebeat configuration, and Dashboard initialization for an all-in-one node.
-  bash ./wazuh-install.sh --all-in-one --offline-installation --tar ./wazuh-install-files.tar "${overwrite_args[@]}"
-) >/dev/null 2>&1 || fail 'el asistente oficial no completó la instalación offline; salida suprimida por seguridad'
+  info 'instalando Wazuh 4.14.8 con el asistente oficial fijado y paquetes offline verificados'
+  (
+    cd "$OFFLINE_ROOT"
+    # The official assistant handles cert installation, Indexer security initialization,
+    # Manager/Filebeat configuration, and Dashboard initialization for an all-in-one node.
+    bash ./wazuh-install.sh --all-in-one --offline-installation --tar ./wazuh-install-files.tar "${overwrite_args[@]}"
+  ) >/dev/null 2>&1 || fail 'el asistente oficial no completó la instalación offline; salida suprimida por seguridad'
+fi
 
 expected_manifest="$HERE/manifest.json"
 [[ -s "$expected_manifest" ]] || fail 'manifest.json ausente'

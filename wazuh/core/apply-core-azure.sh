@@ -32,7 +32,8 @@ fi
 [[ -f "$env_file" && ! -L "$env_file" ]] || fail 'falta el EnvironmentFile materializado desde Key Vault'
 [[ "$(stat -c '%u' "$env_file")" == 0 ]] || fail 'core.env no pertenece a root'
 mode="$(stat -c '%a' "$env_file")"
-(( (8#$mode & 0077) == 0 )) || fail 'core.env permite acceso a otros usuarios'
+# El bootstrap lo deja 0640 root:qapaq-core para el grupo del servicio; nunca para otros.
+(( (8#$mode & 0027) == 0 )) || fail 'core.env permite escritura de grupo o acceso a otros usuarios'
 for command in curl tar systemctl install useradd; do
   command -v "$command" >/dev/null || fail "falta el comando requerido: $command"
 done
