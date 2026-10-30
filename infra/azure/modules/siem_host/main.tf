@@ -566,6 +566,14 @@ resource "azurerm_virtual_machine_extension" "siem_bootstrap" {
   automatic_upgrade_enabled  = false
   tags                       = merge(var.tags, { service = "siem-bootstrap" })
 
+  # The first install checks the full data disk and installs the pinned SIEM
+  # bundle. Azure Custom Script allows up to 90 minutes; the provider default
+  # of 30 minutes expired while this first boot was still progressing.
+  timeouts {
+    create = "90m"
+    update = "90m"
+  }
+
   protected_settings = jsonencode({
     script = base64encode(local.bootstrap_extension_script)
   })

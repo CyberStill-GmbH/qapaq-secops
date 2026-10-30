@@ -229,7 +229,9 @@ jobs:
     if: ${{ inputs.apply }}
     needs: [plan]
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # Azure Custom Script has a 90-minute execution limit. Leave room for
+    # Terraform setup, saved-plan checks, and state unlock after the extension.
+    timeout-minutes: 120
     environment: azure-demo-eus2
     permissions:
       actions: read

@@ -39,7 +39,10 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   detiene ante datos previos en los puntos de montaje; nunca los oculta ni reforma un disco firmado.
   No medimos el throughput real del SKU/host Azure. Como ejemplo de dimensionamiento, escanear
   128 GiB a 100–500 MiB/s toma aproximadamente 22–4 minutos; 64 GiB, 11–2 minutos. Es tiempo
-  adicional al resto del bootstrap y depende de la VM, SKU del disco y host.
+  adicional al resto del bootstrap y depende de la VM, SKU del disco y host. La extensión Terraform
+  usa un timeout de 90 minutos para creación y actualización: Azure permite ese máximo para Custom
+  Script en Linux, mientras que el provider usa 30 minutos por defecto. El job apply deja 120 minutos
+  para incluir inicialización, aplicación del plan y liberación del state.
 - Identidad asignada a la VM: `AcrPull` en el ACR indicado, lectura del blob de release limitada al
   contenedor, lectura Key Vault limitada a los secretos nombrados y escritura opcional limitada al
   contenedor de evidencia indicado.
