@@ -184,7 +184,7 @@ class AssembleReleaseTests(unittest.TestCase):
         ]
         for source in context_sources:
             with self.subTest(context_list=source.name):
-                assemble_release.validate_synthetic_context_list(source)
+                assemble_release.validate_synthetic_context_list(pathlib.Path(self.args.repo_root), source)
         installer_text = (root / "install.sh").read_text(encoding="utf-8")
         self.assertNotIn("agent-profiles", installer_text)
         self.assertNotIn("agent-deployment", installer_text)
@@ -235,10 +235,12 @@ class AssembleReleaseTests(unittest.TestCase):
             assemble_release.assemble(self.args)
 
     def test_rejects_context_list_without_synthetic_domain_marker(self) -> None:
-        context_list = self.root / "qapaq-real-context.example"
+        repo_root = self.root / "candidate-repo"
+        context_list = repo_root / "infra/wazuh/finance/lists/qapaq-break-glass-ad.example"
+        context_list.parent.mkdir(parents=True)
         context_list.write_text("finance-admin@qapaq.pe:admin\n", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "non-synthetic key"):
-            assemble_release.validate_synthetic_context_list(context_list)
+        with self.assertRaisesRegex(ValueError, "pinned synthetic template"):
+            assemble_release.validate_synthetic_context_list(repo_root, context_list)
 
     def test_bundles_public_edge_config_when_requested_without_ankay(self) -> None:
         edge_config = self.root / "edge.json"

@@ -27,6 +27,16 @@ ASSISTANT_COMMIT = "33d2069715e8500b676d13cefe7ddaea8eb79019"
 ASSISTANT_TAG = "v4.14.8"
 SOPHOS_SIEM_COMMIT = "4fd97bbc7ec54e507bca9eaf4245f136cc90097d"
 SOPHOS_SIEM_TAG = "v2.1.0"
+SYNTHETIC_CONTEXT_LIST_SHA256 = {
+    "infra/wazuh/finance/lists/qapaq-break-glass-ad.example": "dd97a6b15065bb284040fac0e9d21cd8b0970857601576cdd4f3ac5042068176",
+    "infra/wazuh/finance/lists/qapaq-finance-core-users.example": "159c59f0407d714570d882dfd0fd404d4b6c20d64a6e263e60a541aca998715e",
+    "infra/wazuh/finance/lists/qapaq-lookalike-domains.example": "b914a1517d05039acaf72ab8769fd96ec4dcc3739578a90a075443d6f8580faa",
+    "infra/wazuh/finance/lists/qapaq-sensitive-sites.example": "a88c41cff02ea6ca2aa7d3382e8f4441c90f08306d6e32806166efc2d2a39899",
+    "infra/wazuh/priority/lists/qapaq-critical-assets.example": "d9d7778e172241d6f88ffd9e76957b21359eb72e17fa55bd5ab8ca6a7fe39eb8",
+    "infra/wazuh/priority/lists/qapaq-internet-facing.example": "2f1a558fcbd284c5eb5e5b549112193a48d4d734b0e2ad9c07529a6f9d0d1565",
+    "infra/wazuh/priority/lists/qapaq-privileged-identities.example": "a1141d1b80a5e44bae7279b70dc3d13e48a1d1ead67c8ac7e9c8c44442700c1c",
+    "infra/wazuh/priority/lists/qapaq-sensitive-workstations.example": "2c328abf170c354e47ce72f14cb92a54968a9ecbe2c0c90dc955b5745ff66ffd",
+}
 
 
 def sha256(path: pathlib.Path) -> str:
@@ -70,18 +80,16 @@ def copy_regular(source: pathlib.Path, destination: pathlib.Path) -> None:
     shutil.copyfile(source, destination)
 
 
-def validate_synthetic_context_list(source: pathlib.Path) -> None:
+def validate_synthetic_context_list(repo_root: pathlib.Path, source: pathlib.Path) -> None:
     if source.suffix != ".example" or not source.is_file() or source.is_symlink():
         raise ValueError(f"candidate context list must be a regular .example file: {source.name}")
-    lines = [line.strip() for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
-    if not lines:
-        raise ValueError(f"candidate context list is empty: {source.name}")
-    for line in lines:
-        if line.startswith("#"):
-            continue
-        key = line.rsplit(":", 1)[0].strip().strip('"')
-        if ".example" not in key.lower():
-            raise ValueError(f"candidate context list contains a non-synthetic key: {source.name}")
+    try:
+        relative = source.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError as error:
+        raise ValueError(f"candidate context list is outside the repository: {source.name}") from error
+    expected = SYNTHETIC_CONTEXT_LIST_SHA256.get(relative)
+    if expected is None or sha256(source) != expected:
+        raise ValueError(f"candidate context list does not match the pinned synthetic template: {source.name}")
 
 
 def sha256_map(root: pathlib.Path) -> dict[str, str]:
@@ -289,7 +297,7 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         }
         for relative, source in detection_sources.items():
             if relative.startswith(("wazuh/finance/lists/", "wazuh/priority/lists/")):
-                validate_synthetic_context_list(source)
+                validate_synthetic_context_list(pathlib.Path(args.repo_root), source)
             destination = root / relative
             copy_regular(source, destination)
             artifact_paths[f"detection:{relative}"] = destination.relative_to(root).as_posix()
