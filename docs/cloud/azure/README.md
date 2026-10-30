@@ -11,6 +11,7 @@ de la arquitectura AWS y no modifica la documentación/demo AWS.
 - [Bootstrap aislado EUS: identidad OIDC y Terraform state](bootstrap-eus.md)
 - [Runbook Terraform de East US 2](runbook-demo-eus2.md)
 - [Revisión de costo de la fundación demo EUS2](cost-review-demo-eus2-2026-10-26.md)
+- [Revisión de costo del SIEM QAPAQ EUS2](cost-review-siem-eus2-2026-10-30.md)
 - [Readiness operativa verificada 2026-10-26](operational-readiness-2026-10-26.md)
 - [Viabilidad de costos en Chile Central, revalidada 2026-10-20](cost-feasibility-2026-10-20.md)
 - [Terraform Azure](../../../infra/azure/README.md)
