@@ -169,7 +169,7 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
   assert.match(dependencyPatcher, /sha256sum --check --status/);
   assert.match(dependencyPatcher, /https:\/\/repo\.maven\.apache\.org\/maven2/);
   const dependencyRows = dependencyLock
-    .split('\n')
+    .split(/\r?\n/)
     .filter((line) => line && !line.startsWith('#'))
     .map((line) => line.split('|'));
   assert.deepEqual(
@@ -182,6 +182,12 @@ test('Ankay builds and scans an OpenSearch image from the pinned vendor digest a
       ['jsoup-1.23.1.jar', 'jsoup-1.23.2.jar'],
       ['jackson-core-3.2.2.jar', 'jackson-core-3.2.3.jar'],
       ['jackson-databind-3.2.2.jar', 'jackson-databind-3.2.3.jar'],
+      ['guava-32.1.3-jre.jar', 'guava-33.7.2-jre.jar'],
+      ['guava-33.2.1-jre.jar', 'guava-33.7.2-jre.jar'],
+      ['guava-33.3.0-jre.jar', 'guava-33.7.2-jre.jar'],
+      ['guava-33.5.0-jre.jar', 'guava-33.7.2-jre.jar'],
+      ['guava-33.7.1-jre.jar', 'guava-33.7.2-jre.jar'],
+      ['snappy-java-1.1.10.8.jar', 'snappy-java-1.1.10.9.jar'],
     ],
   );
   for (const [, , url, checksum] of dependencyRows) {
