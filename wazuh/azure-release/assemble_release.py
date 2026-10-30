@@ -70,6 +70,20 @@ def copy_regular(source: pathlib.Path, destination: pathlib.Path) -> None:
     shutil.copyfile(source, destination)
 
 
+def validate_synthetic_context_list(source: pathlib.Path) -> None:
+    if source.suffix != ".example" or not source.is_file() or source.is_symlink():
+        raise ValueError(f"candidate context list must be a regular .example file: {source.name}")
+    lines = [line.strip() for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not lines:
+        raise ValueError(f"candidate context list is empty: {source.name}")
+    for line in lines:
+        if line.startswith("#"):
+            continue
+        key = line.rsplit(":", 1)[0].strip().strip('"')
+        if ".example" not in key.lower():
+            raise ValueError(f"candidate context list contains a non-synthetic key: {source.name}")
+
+
 def sha256_map(root: pathlib.Path) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): sha256(path)
@@ -219,12 +233,38 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                 pathlib.Path(args.repo_root) / "infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
             "wazuh/active-directory/rules/qapaq_active_directory_rules.xml":
                 pathlib.Path(args.repo_root) / "infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
+            "wazuh/finance/rules/qapaq_finance_rules.xml":
+                pathlib.Path(args.repo_root) / "infra/wazuh/finance/rules/qapaq_finance_rules.xml",
+            "wazuh/finance/README.md": pathlib.Path(args.repo_root) / "infra/wazuh/finance/README.md",
+            "wazuh/finance/lists/qapaq-break-glass-ad.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/finance/lists/qapaq-break-glass-ad.example",
+            "wazuh/finance/lists/qapaq-finance-core-users.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/finance/lists/qapaq-finance-core-users.example",
+            "wazuh/finance/lists/qapaq-lookalike-domains.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/finance/lists/qapaq-lookalike-domains.example",
+            "wazuh/finance/lists/qapaq-sensitive-sites.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/finance/lists/qapaq-sensitive-sites.example",
+            "wazuh/priority/rules/qapaq_priority_rules.xml":
+                pathlib.Path(args.repo_root) / "infra/wazuh/priority/rules/qapaq_priority_rules.xml",
+            "wazuh/priority/README.md": pathlib.Path(args.repo_root) / "infra/wazuh/priority/README.md",
+            "wazuh/priority/apply-priority.sh":
+                pathlib.Path(args.repo_root) / "infra/wazuh/priority/apply-priority.sh",
+            "wazuh/priority/lists/qapaq-critical-assets.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/priority/lists/qapaq-critical-assets.example",
+            "wazuh/priority/lists/qapaq-internet-facing.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/priority/lists/qapaq-internet-facing.example",
+            "wazuh/priority/lists/qapaq-privileged-identities.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/priority/lists/qapaq-privileged-identities.example",
+            "wazuh/priority/lists/qapaq-sensitive-workstations.example":
+                pathlib.Path(args.repo_root) / "infra/wazuh/priority/lists/qapaq-sensitive-workstations.example",
             "wazuh/launch-detections/catalog.json":
                 pathlib.Path(args.repo_root) / "docs/security/launch-detection-catalog-2026-10-20.json",
             "wazuh/launch-detections/install_detection_rules.py":
                 pathlib.Path(args.repo_root) / "wazuh/azure-release/install_detection_rules.py",
         }
         for relative, source in detection_sources.items():
+            if relative.startswith(("wazuh/finance/lists/", "wazuh/priority/lists/")):
+                validate_synthetic_context_list(source)
             destination = root / relative
             copy_regular(source, destination)
             artifact_paths[f"detection:{relative}"] = destination.relative_to(root).as_posix()
@@ -280,6 +320,65 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
             "installerAppliesAgentProfiles": False,
         }
 
+        agent_source_root = pathlib.Path(args.repo_root) / "infra" / "wazuh" / "agents"
+        agent_catalog_source = agent_source_root / "profile-catalog.json"
+        agent_catalog = json.loads(agent_catalog_source.read_text(encoding="utf-8"))
+        agent_safety = agent_catalog.get("safety", {})
+        if (
+            agent_catalog.get("status") != "candidate-pilot-required"
+            or agent_catalog.get("activation") != "owner-approval-pilot-per-profile"
+            or agent_safety.get("activeResponse") is not False
+            or agent_safety.get("remoteCommands") is not False
+            or agent_safety.get("enrollmentSecretInArgv") is not False
+            or agent_safety.get("requiresPrivacyReviewForCommandLines") is not True
+        ):
+            raise ValueError("agent deployment catalog must remain pilot-gated")
+
+        agent_sources = [
+            agent_source_root / "README.md",
+            agent_source_root / "apply-agent-groups.sh",
+            agent_source_root / "group-mapping.example.json",
+            agent_source_root / "profile-catalog.json",
+            agent_source_root / "tools" / "verify_agent.py",
+            agent_source_root / "deploy" / "package-manifest.json",
+        ]
+        for directory in ("deploy", "shared"):
+            agent_sources.extend(
+                sorted(path for path in (agent_source_root / directory).rglob("*") if path.is_file())
+            )
+        agent_docs_root = pathlib.Path(args.repo_root) / "docs" / "security" / "agents"
+        agent_sources.extend(sorted(path for path in agent_docs_root.rglob("*") if path.is_file()))
+        agent_deployment_paths: list[str] = []
+        for source in sorted(set(agent_sources)):
+            if source.is_symlink():
+                raise ValueError("agent deployment pack must not contain symlinks")
+            if source.is_relative_to(agent_docs_root):
+                relative = pathlib.PurePosixPath("docs") / source.relative_to(agent_docs_root).as_posix()
+            else:
+                relative = source.relative_to(agent_source_root)
+            artifact_path = (pathlib.PurePosixPath("wazuh/agent-deployment") / relative.as_posix()).as_posix()
+            destination = root / artifact_path
+            copy_regular(source, destination)
+            artifact_paths[f"agent:{artifact_path}"] = destination.relative_to(root).as_posix()
+            agent_deployment_paths.append(artifact_path)
+
+        agent_catalog_artifact = "wazuh/agent-deployment/profile-catalog.json"
+        agent_package_manifest = "wazuh/agent-deployment/deploy/package-manifest.json"
+        agent_deployment_pack = {
+            "status": "candidate-pilot-required",
+            "catalog": agent_catalog_artifact,
+            "packageManifest": agent_package_manifest,
+            "documentation": "wazuh/agent-deployment/docs/README.md",
+            "files": sorted(agent_deployment_paths),
+            "profiles": sorted(
+                path for path in agent_deployment_paths if path.startswith("wazuh/agent-deployment/shared/")
+            ),
+            "activation": "owner-approval-pilot-per-profile",
+            "installerAppliesAgentProfiles": False,
+            "requiresAssetAssignments": True,
+            "requiresPrivacyReviewForCommandLines": True,
+        }
+
         files = sha256_map(root)
         manifest = {
             "schemaVersion": 1,
@@ -300,11 +399,55 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
                     "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
                     "wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
                     "wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
+                    "wazuh/finance/rules/qapaq_finance_rules.xml",
+                    "wazuh/priority/rules/qapaq_priority_rules.xml",
                 ],
-                "activation": "rules-installed-provider-connectors-remain-opt-in",
+                "installedByDefault": [
+                    "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
+                    "wazuh/endpoint/rules/qapaq_endpoint_rules.xml",
+                    "wazuh/active-directory/rules/qapaq_active_directory_rules.xml",
+                ],
+                "candidatePacks": {
+                    "finance": {
+                        "status": "candidate-disabled",
+                        "rules": ["wazuh/finance/rules/qapaq_finance_rules.xml"],
+                        "contextLists": [
+                            "wazuh/finance/lists/qapaq-break-glass-ad.example",
+                            "wazuh/finance/lists/qapaq-finance-core-users.example",
+                            "wazuh/finance/lists/qapaq-lookalike-domains.example",
+                            "wazuh/finance/lists/qapaq-sensitive-sites.example",
+                        ],
+                        "requiresProductionContextLists": True,
+                        "activation": "owner-approved-live-cdb-lists-and-tenant-observation",
+                        "evidence": "synthetic-logtest-only",
+                    },
+                    "priority": {
+                        "status": "candidate-disabled",
+                        "rules": ["wazuh/priority/rules/qapaq_priority_rules.xml"],
+                        "contextLists": [
+                            "wazuh/priority/lists/qapaq-critical-assets.example",
+                            "wazuh/priority/lists/qapaq-internet-facing.example",
+                            "wazuh/priority/lists/qapaq-privileged-identities.example",
+                            "wazuh/priority/lists/qapaq-sensitive-workstations.example",
+                        ],
+                        "installer": "wazuh/priority/apply-priority.sh",
+                        "requiresProductionContextLists": True,
+                        "activation": "owner-approved-live-cdb-lists-and-agent-pilot",
+                        "evidence": "synthetic-logtest-only",
+                    },
+                },
+                "activation": "baseline-rules-installed-context-packs-require-live-cdb-lists-and-review",
             },
             "agentProfilePack": agent_profile_pack,
+            "agentDeploymentPack": agent_deployment_pack,
             "qapaqDashboardPackage": dashboard_version,
+            "qapaqAssistant": {
+                "name": "Qapaqzito",
+                "status": "bundled-with-dashboard-and-core",
+                "provider": "anthropic",
+                "activation": "assistant_secret_name-and-api-egress-required",
+                "secretValueBundled": False,
+            },
             "qapaqCoreSourceCommit": qapaq_commit[:12],
             "debianPackages": debian_packages,
             "artifacts": artifact_paths,

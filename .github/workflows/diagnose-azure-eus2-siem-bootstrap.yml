@@ -24,6 +24,34 @@ jobs:
           tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
 
+      - name: Read selected EUS2 Key Vault metadata without secret values
+        shell: bash
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+        run: |
+          set -euo pipefail
+          vault_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/rg-qapaqsecopsdemoeus-3a2405f3/providers/Microsoft.KeyVault/vaults/kv-qapaqsecopsd-3a2405f3"
+          metadata="$RUNNER_TEMP/eus2-key-vault-metadata.json"
+          trap 'rm -f "$metadata"' EXIT
+          az rest --method get --url "https://management.azure.com${vault_id}/secrets?api-version=2025-05-01" \
+            --output json > "$metadata"
+          for name in \
+            qapaq-anthropic-api-key qapaq-virustotal-api-key \
+            qapaq-entra-client-secret office365-client-secret \
+            sophos-client-id sophos-client-secret cato-api-key \
+            qapaq-teams-workflow-url qapaq-active-directory-secret \
+            wazuh-install-files-tar-b64; do
+            row="$(jq -r --arg name "$name" '
+              .value[]? | select((.id | split("/")[-1]) == $name) |
+              [(.properties.attributes.enabled // false), (.properties.attributes.exp // "not-set")] | @tsv
+            ' "$metadata" | head -n 1)"
+            if [[ -n "$row" ]]; then
+              printf 'KEY_VAULT_METADATA|%s|%s\n' "$name" "$row"
+            else
+              printf 'KEY_VAULT_METADATA|%s|missing\n' "$name"
+            fi
+          done
+
       - name: Read extension status without protected settings
         shell: bash
         env:
@@ -103,6 +131,18 @@ jobs:
           else
             echo node-runtime-absent
           fi
+          echo "== public edge TLS metadata and services =="
+          systemctl is-active nginx 2>/dev/null || true
+          if [ -d /etc/letsencrypt/live ]; then
+            find /etc/letsencrypt/live -mindepth 2 -maxdepth 2 -type f -name fullchain.pem -print | sort
+            for cert in /etc/letsencrypt/live/*/fullchain.pem; do
+              [ -r "$cert" ] || continue
+              openssl x509 -in "$cert" -noout -enddate -ext subjectAltName 2>/dev/null || true
+            done
+          else
+            echo letsencrypt-certificate-directory-absent
+          fi
+          ss -lnt | awk 'NR == 1 || /:80[[:space:]]|:443[[:space:]]|:5601[[:space:]]/'
           curl --silent --output /dev/null --write-out "health_ready_http=%{http_code}\n" --max-time 5 http://127.0.0.1:3000/health/ready || true' \
             --query 'value[0].message' \
             --output tsv

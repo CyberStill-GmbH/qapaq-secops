@@ -1,5 +1,5 @@
-adm-tier0:tier0
-adm-tier1:tier1
+adm-tier0@qapaq-lab.example:tier0
+adm-tier1@qapaq-lab.example:tier1
 adm.tier0@qapaq-lab.example:tier0
 admin.nube@qapaq-lab.example:cloud-admin
 aprobador.pagos@qapaq-lab.example:payment-approver
