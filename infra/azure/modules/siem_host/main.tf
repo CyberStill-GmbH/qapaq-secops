@@ -53,6 +53,15 @@ locals {
     set -euo pipefail
     # Revision 2 re-runs the Custom Script payload after an interrupted first apply.
     umask 077
+    install -d -m 0700 /usr/local/sbin
+    script_dir="$(mktemp -d /run/qapaq-siem-scripts.XXXXXX)"
+    trap 'rm -rf "$script_dir"' EXIT
+    printf '%s' '${base64gzip(file("${path.module}/bootstrap-siem.py"))}' | base64 --decode | gzip --decompress > "$script_dir/bootstrap-siem.py"
+    printf '%s' '${base64gzip(file("${path.module}/indexer_read_proxy.py"))}' | base64 --decode | gzip --decompress > "$script_dir/indexer_read_proxy.py"
+    install -o root -g root -m 0700 "$script_dir/bootstrap-siem.py" /usr/local/sbin/qapaq-siem-bootstrap.py
+    install -o root -g root -m 0700 "$script_dir/indexer_read_proxy.py" /usr/local/sbin/indexer_read_proxy.py
+    rm -rf "$script_dir"
+    trap - EXIT
     install -d -m 0700 /etc/qapaq-siem
     install -m 0600 /dev/null /var/log/qapaq-siem-bootstrap.log
     printf '%s' '${base64encode(local.bootstrap_config)}' | base64 --decode > /etc/qapaq-siem/bootstrap.json
@@ -536,6 +545,10 @@ resource "azurerm_linux_virtual_machine" "siem" {
 
   lifecycle {
     prevent_destroy = true
+    # custom_data is immutable in Azure and contains only the initial cloud-init seed scripts.
+    # Versioned bootstrap scripts are delivered by the updateable Custom Script extension below.
+    # Keep the existing SIEM VM and its attached durable data disk when those scripts change.
+    ignore_changes = [custom_data]
 
     precondition {
       condition     = length(base64encode(local.cloud_init)) <= 87380
@@ -585,6 +598,13 @@ resource "azurerm_virtual_machine_extension" "siem_bootstrap" {
   protected_settings = jsonencode({
     script = base64encode(local.bootstrap_extension_script)
   })
+
+  lifecycle {
+    precondition {
+      condition     = length(base64encode(local.bootstrap_extension_script)) <= 256 * 1024
+      error_message = "El script Custom Script de QAPAQ supera el límite Azure de 256 KiB."
+    }
+  }
 
   depends_on = [
     azurerm_virtual_machine_data_disk_attachment.siem_data,
