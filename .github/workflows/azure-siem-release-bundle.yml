@@ -120,7 +120,7 @@ jobs:
           python3 -m py_compile infra/wazuh/shuffle/apply_ankay_webhook.py wazuh/azure-release/write_edge_config.py
           bash -n wazuh/azure-release/configure_edge_azure.sh wazuh/edge/apply-edge.sh
 
-      - name: Validate source workflow run IDs, branch and exact Git SHA
+      - name: Validate build run IDs, provenance and exact QAPAQ commits
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ inputs.release_sha }}
