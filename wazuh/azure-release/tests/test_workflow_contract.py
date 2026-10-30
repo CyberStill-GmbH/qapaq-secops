@@ -18,6 +18,7 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             'git merge-base --is-ancestor "$RELEASE_SHA" "$GITHUB_SHA"',
             'git diff --quiet "$RELEASE_SHA" "$GITHUB_SHA" --',
             "wazuh/azure-release/install.sh",
+            "wazuh/azure-release/check-install-state.sh",
             "wazuh/azure-release/assemble_release.py wazuh/azure-release/install.sh",
             "wazuh/azure-release/verify_wazuh_credentials_tar.py",
             "wazuh/azure-release/install_detection_rules.py",

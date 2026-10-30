@@ -1,11 +1,19 @@
 # EUS2 SIEM profile: readiness and operator inputs
 
-**State as of 2026-10-30: partial SIEM apply.** The SIEM Custom Script extension was
-imported into the isolated Terraform state, updated, and then failed with exit code 1
-after 81 seconds. The VM bootstrap log has not yet been retrieved, so Wazuh/Core service
-health is unverified. `app.jappi.net.pe` resolves to Azure, but HTTPS has not been
-reachable from the current network. The owner now requires public HTTPS/443; the next
-reviewed apply will permit all IPv4 sources to the Dashboard while agent ports remain
+**State as of 2026-10-30: partial SIEM apply; recovery diagnosed, not yet applied.**
+The SIEM Custom Script extension was imported into the isolated Terraform state,
+updated, and failed with exit code 1 after 81 seconds. Protected diagnostic run
+`41115511017` retrieved the bootstrap log and a non-secret VM inventory. The log shows
+that the bundle stopped because `wazuh-manager` remained in dpkg `config-files` state
+without a durable install marker. Its version is `4.14.8-1`, matching the retained
+release directory `70141b19649539197d0361a8337f7c1c815be81e5960690598eba8990405c149`.
+The other Wazuh packages are absent; the persistent manager/indexer/dashboard data
+directories are empty; Core is absent; all Wazuh/Core services are inactive; and
+`/health/ready` returns no response. A narrow retry check is being prepared to accept
+only that exact config-files residue with empty data and no active services; it does not
+purge or overwrite the disk. `app.jappi.net.pe` resolves to Azure (`20.22.207.143`),
+but HTTPS currently times out because the intended public 443 rule has not been applied.
+The configured dashboard ingress is IPv4 `0.0.0.0/0`; agent enrollment ports remain
 restricted. The JSON-shaped block below is intentionally **not valid JSON** and is not
 a value to paste into `AZURE_EUS2_SIEM_HOST_JSON`.
 
