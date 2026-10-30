@@ -1,0 +1,188 @@
+diff --git a/backend/go-app/cloud_sync_url_test.go b/backend/go-app/cloud_sync_url_test.go
+new file mode 100644
+index 00000000..13288681
+--- /dev/null
++++ b/backend/go-app/cloud_sync_url_test.go
+@@ -0,0 +1,25 @@
++package main
++
++import "testing"
++
++func TestNormalizeCloudSyncBaseURL(t *testing.T) {
++	tests := []struct {
++		name  string
++		input string
++		want  string
++	}{
++		{name: "canonical upstream", input: "https://shuffler.io", want: "https://shuffler.io"},
++		{name: "local development", input: "http://localhost:5002", want: "http://localhost:5002"},
++		{name: "region endpoint is normalized", input: "https://eu.shuffler.io", want: "https://shuffler.io"},
++		{name: "arbitrary host is normalized", input: "https://example.invalid", want: "https://shuffler.io"},
++		{name: "empty endpoint is normalized", input: "", want: "https://shuffler.io"},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			if got := normalizeCloudSyncBaseURL(tt.input); got != tt.want {
++				t.Fatalf("normalizeCloudSyncBaseURL(%q) = %q, want %q", tt.input, got, tt.want)
++			}
++		})
++	}
++}
+diff --git a/backend/go-app/docker.go b/backend/go-app/docker.go
+index 54e7f1af..f422d0ce 100755
+--- a/backend/go-app/docker.go
++++ b/backend/go-app/docker.go
+@@ -61,7 +61,7 @@ func getParsedTar(tw *tar.Writer, baseDir, extra string) error {
+ 			filenamesplit := strings.Split(filepath.ToSlash(file), "/")
+ 			filename := fmt.Sprintf("%s%s/", extra, filenamesplit[len(filenamesplit)-1])
+ 
+-			tmpExtra := fmt.Sprintf(filename)
++			tmpExtra := filename
+ 			err = getParsedTar(tw, file, tmpExtra)
+ 			if err != nil {
+ 				log.Printf("Directory parse issue: %s", err)
+@@ -985,7 +985,7 @@ func handleRemoteDownloadApp(resp http.ResponseWriter, ctx context.Context, user
+ 		newapp := shuffle.ParsedOpenApi{}
+ 		err = json.Unmarshal(key, &newapp)
+ 		if err != nil {
+-			log.Printf("[ERROR] Failed openapi unmarshal during auto-download: %s", app.Success, len(app.OpenAPI), err)
++			log.Printf("[ERROR] Failed openapi unmarshal during auto-download: success=%t openapi_bytes=%d err=%v", app.Success, len(app.OpenAPI), err)
+ 			resp.WriteHeader(401)
+ 			resp.Write([]byte(`{"success": false, "reason": "App doesn't exist"}`))
+ 			return
+@@ -993,7 +993,7 @@ func handleRemoteDownloadApp(resp http.ResponseWriter, ctx context.Context, user
+ 
+ 		err = json.Unmarshal(key, &newapp)
+ 		if err != nil {
+-			log.Printf("[ERROR] Failed openapi unmarshal during auto-download: %s", app.Success, len(app.OpenAPI), err)
++			log.Printf("[ERROR] Failed openapi unmarshal during auto-download: success=%t openapi_bytes=%d err=%v", app.Success, len(app.OpenAPI), err)
+ 			resp.WriteHeader(401)
+ 			resp.Write([]byte(`{"success": false, "reason": "App doesn't exist"}`))
+ 			return
+diff --git a/backend/go-app/main.go b/backend/go-app/main.go
+index ae61a9ec..79bbff60 100755
+--- a/backend/go-app/main.go
++++ b/backend/go-app/main.go
+@@ -956,9 +956,9 @@ func handleInfo(resp http.ResponseWriter, request *http.Request) {
+ 		}
+ 
+ 		if parentOrg.Licensed {
+-			log.Printf("[INFO] Parent org %s is licensed. But Multi-tenant feature is not active. Moving user %s to parent org %s", parentOrg.Name, userInfo.Username)
++			log.Printf("[INFO] Parent org %s is licensed. But Multi-tenant feature is not active. Moving user %s to parent org %s", parentOrg.Name, userInfo.Username, parentOrg.Name)
+ 		} else {
+-			log.Printf("[INFO] Parent org %s has more than 3 child orgs and is not licensed. Moving user %s to parent org %s", parentOrg.Name, userInfo.Username)
++			log.Printf("[INFO] Parent org %s has more than 3 child orgs and is not licensed. Moving user %s to parent org %s", parentOrg.Name, userInfo.Username, parentOrg.Name)
+ 		}
+ 
+ 		err = shuffle.SetUser(ctx, &userInfo, false)
+@@ -2336,7 +2336,7 @@ func handlePipelineCallback(resp http.ResponseWriter, request *http.Request) {
+ 	}
+ 
+ 	if len(pipeline.StartNode) == 0 {
+-		log.Printf("[WARNING] No start node for pipeline %s - running with workflow default.")
++		log.Printf("[WARNING] No start node for pipeline - running with workflow default.")
+ 	}
+ 
+ 	newRequest := &http.Request{
+@@ -5820,7 +5820,7 @@ func handleStopCloudSync(syncUrl string, org shuffle.Org) (*shuffle.Org, error)
+ 	err = shuffle.SetOrg(ctx, org, org.Id)
+ 	if err != nil {
+ 		newerror := fmt.Sprintf("[WARNING] ERROR: Failed updating even though there was success: %s", err)
+-		log.Printf(newerror)
++		log.Print(newerror)
+ 		return &org, errors.New(newerror)
+ 	}
+ 
+@@ -5859,6 +5859,13 @@ func handleStopCloudSync(syncUrl string, org shuffle.Org) (*shuffle.Org, error)
+ /*
+ 	This is here to both enable and disable cloud sync features for an organization
+ */
++func normalizeCloudSyncBaseURL(syncURL string) string {
++	if syncURL != "https://shuffler.io" && syncURL != "http://localhost:5002" {
++		return "https://shuffler.io"
++	}
++	return syncURL
++}
++
+ func handleCloudSetup(resp http.ResponseWriter, request *http.Request) {
+ 	cors := shuffle.HandleCors(resp, request)
+ 	if cors {
+@@ -5952,9 +5959,7 @@ func handleCloudSetup(resp http.ResponseWriter, request *http.Request) {
+ 	// FIXME: Path
+ 
+ 	// just in case setup/stop URL is overwritten by region url
+-	if syncUrl != "https://shuffler.io" || syncUrl != "http://localhost:5002" {
+-		syncUrl = "https://shuffler.io"
+-	}
++	syncUrl = normalizeCloudSyncBaseURL(syncUrl)
+ 
+ 	apiPath := "/api/v1/cloud/sync/setup"
+ 	if tmpData.Disable {
+diff --git a/functions/onprem/worker/worker.go b/functions/onprem/worker/worker.go
+index 81eb4eb4..0e585514 100644
+--- a/functions/onprem/worker/worker.go
++++ b/functions/onprem/worker/worker.go
+@@ -2052,7 +2052,7 @@ func handleExecutionResult(workflowExecution shuffle.WorkflowExecution) {
+ 							log.Printf("[WARNING] Failed deploying image THREE TIMES. Attempting to download %s as last resort from backend and dockerhub: %s", imageName, err)
+ 
+ 							if isKubernetes == "true" {
+-								log.Printf("[ERROR] Image %s doesn't exist. Returning error for now")
++								log.Printf("[ERROR] Image %s doesn't exist. Returning error for now", imageName)
+ 								return
+ 							}
+ 							if os.Getenv("SHUFFLE_AUTO_IMAGE_DOWNLOAD") == "false" {
+@@ -2989,7 +2989,7 @@ func getWorkerBackendExecution(auth string, executionId string) (*shuffle.Workfl
+ 	}
+ 
+ 	if debug {
+-		log.Printf("[INFO] Here is the result we got back from backend: %s", workflowExecution.Results)
++		log.Printf("[INFO] Here is the result we got back from backend: %v", workflowExecution.Results)
+ 	}
+ 
+ 	//setWorkflowExecution(context.Background(), *workflowExecution, false)
+@@ -3188,7 +3188,7 @@ func runWorkflowExecutionTransaction(ctx context.Context, attempts int64, workfl
+ 		/*** ENDREMOVE ***/
+ 	} else {
+ 		if strings.Contains(strings.ToLower(fmt.Sprintf("%s", err)), "already been ran") || strings.Contains(strings.ToLower(fmt.Sprintf("%s", err)), "already finished") {
+-			log.Printf("[ERROR][%s] Skipping rerun of action result as it's already been ran: %s", workflowExecution.ExecutionId)
++			log.Printf("[ERROR][%s] Skipping rerun of action result as it's already been ran: %v", workflowExecution.ExecutionId, err)
+ 			return
+ 		}
+ 
+@@ -3480,7 +3480,7 @@ func validateFinished(workflowExecution shuffle.WorkflowExecution) bool {
+ 		if len(workflowExecution.Authorization) > 0 {
+ 			err = shuffle.SetCache(ctx, cacheKey, shutdownData, 31)
+ 			if err != nil {
+-				log.Printf("[ERROR][%s] Failed adding to cache during ValidateFinished", workflowExecution)
++				log.Printf("[ERROR][%s] Failed adding to cache during ValidateFinished: %v", workflowExecution.ExecutionId, err)
+ 			}
+ 		}
+ 
+@@ -3827,7 +3827,7 @@ func deploySwarmService(dockercli *dockerclient.Client, name, image string, depl
+ 	replicatedJobs := uint64(replicas * nodeCount)
+ 	log.Printf("[DEBUG] Deploying app with name %s with image %s", name, image)
+ 
+-	containerName := fmt.Sprintf(strings.Replace(name, ".", "-", -1))
++	containerName := strings.ReplaceAll(name, ".", "-")
+ 	serviceSpec := swarm.ServiceSpec{
+ 		Annotations: swarm.Annotations{
+ 			Name:   containerName,
+@@ -4826,7 +4826,7 @@ func getStreamResultsWrapper(client *http.Client, req *http.Request, workflowExe
+ 			listener := webserverSetup(workflowExecution)
+ 			err := executionInit(workflowExecution)
+ 			if err != nil {
+-				log.Printf("[DEBUG] Workflow setup failed: %s", workflowExecution.ExecutionId, err)
++				log.Printf("[DEBUG][%s] Workflow setup failed: %v", workflowExecution.ExecutionId, err)
+ 				log.Printf("[DEBUG] Shutting down (30)")
+ 				shutdown(workflowExecution, "", "", true)
+ 			}
+@@ -4850,7 +4850,7 @@ func getStreamResultsWrapper(client *http.Client, req *http.Request, workflowExe
+ 			log.Printf("[DEBUG] Running NON-OPTIMIZED execution for type %s with %d environment(s). This only happens when ran manually OR when running with subflows. Status: %s", workflowExecution.ExecutionSource, len(environments), workflowExecution.Status)
+ 			err := executionInit(workflowExecution)
+ 			if err != nil {
+-				log.Printf("[DEBUG] Workflow setup failed: %s", workflowExecution.ExecutionId, err)
++				log.Printf("[DEBUG][%s] Workflow setup failed: %v", workflowExecution.ExecutionId, err)
+ 				shutdown(workflowExecution, "", "", true)
+ 			}
+ 

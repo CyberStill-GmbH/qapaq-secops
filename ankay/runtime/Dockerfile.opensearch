@@ -1,0 +1,47 @@
+ARG OPENSEARCH_BASE_IMAGE
+ARG AMAZON_LINUX_IMAGE
+FROM ${OPENSEARCH_BASE_IMAGE} AS upstream
+
+FROM ${AMAZON_LINUX_IMAGE} AS dependency-patcher
+
+USER 0
+RUN dnf install --assumeyes bash coreutils-single curl-minimal findutils python3 \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+COPY --from=upstream --chown=1000:1000 /usr/share/opensearch/ /usr/share/opensearch/
+COPY opensearch-dependencies.lock /usr/share/opensearch/opensearch-dependencies.lock
+COPY patch-opensearch-dependencies.sh /usr/local/sbin/patch-opensearch-dependencies
+COPY prune_opensearch_shadow_metadata.py /usr/local/sbin/prune_opensearch_shadow_metadata.py
+RUN bash /usr/local/sbin/patch-opensearch-dependencies \
+    /usr/share/opensearch /usr/share/opensearch/opensearch-dependencies.lock \
+    && rm -f /usr/share/opensearch/opensearch-dependencies.lock \
+    && rm -f /usr/local/sbin/patch-opensearch-dependencies \
+    && rm -f /usr/local/sbin/prune_opensearch_shadow_metadata.py
+
+FROM ${AMAZON_LINUX_IMAGE}
+
+ARG AMAZON_LINUX_RELEASE
+
+USER 0
+RUN dnf --releasever="${AMAZON_LINUX_RELEASE}" upgrade --refresh --assumeyes \
+    && test "$(rpm -q --qf '%{VERSION}' system-release)" = "${AMAZON_LINUX_RELEASE}" \
+    && dnf install --assumeyes bash curl-minimal findutils gzip procps-ng shadow-utils tar which \
+    && groupadd --gid 1000 opensearch \
+    && useradd --uid 1000 --gid 1000 --home-dir /usr/share/opensearch --no-create-home --shell /sbin/nologin opensearch \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+COPY --from=dependency-patcher --chown=1000:1000 /usr/share/opensearch/ /usr/share/opensearch/
+
+ENV OPENSEARCH_HOME=/usr/share/opensearch
+ENV JAVA_HOME=/usr/share/opensearch/jdk
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/share/opensearch/jdk/bin:/usr/share/opensearch/bin
+ENV LD_LIBRARY_PATH=/usr/share/opensearch/plugins/opensearch-knn/lib:/usr/share/opensearch/plugins/opensearch-neural-search/lib
+
+WORKDIR /usr/share/opensearch
+EXPOSE 9200 9300 9600 9650
+ENTRYPOINT ["./opensearch-docker-entrypoint.sh"]
+CMD ["opensearch"]
+
+USER 1000:1000

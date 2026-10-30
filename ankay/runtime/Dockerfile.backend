@@ -1,0 +1,36 @@
+ARG GO_BUILDER_IMAGE
+ARG ALPINE_RUNTIME_IMAGE
+FROM ${GO_BUILDER_IMAGE} AS builder
+
+WORKDIR /app
+RUN mkdir -p /app_sdk
+
+COPY backend/go-app/moby-shuffle-shared/ /app/moby-shuffle-shared/
+COPY backend/go-app/go.mod backend/go-app/go.sum ./
+RUN go mod download
+
+COPY backend/go-app/main.go backend/go-app/walkoff.go backend/go-app/docker.go ./
+COPY backend/app_gen /app_gen
+
+ARG APP_SDK_SHA
+ARG APP_SDK_FILE_SHA256
+ADD --checksum=sha256:${APP_SDK_FILE_SHA256} https://raw.githubusercontent.com/Shuffle/app_sdk/${APP_SDK_SHA}/shuffle_sdk/shuffle_sdk.py /app_sdk/app_base.py
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -o /app/shufflebackend .
+
+FROM ${ALPINE_RUNTIME_IMAGE}
+ENV SHUFFLE_CERT_DIR=/run/ankay/opensearch-ca \
+    SHUFFLE_OPENSEARCH_CERTIFICATE_FILE=/run/ankay/opensearch-ca/ca.pem
+COPY --from=builder /app/shufflebackend /app/shufflebackend
+COPY --from=builder /app_sdk/ /app_sdk
+COPY --from=builder /app_gen/ /app_gen
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+WORKDIR /app
+RUN addgroup -S -g 10001 ankay \
+    && adduser -S -D -H -u 10001 -G ankay ankay \
+    && mkdir -p /app/generated \
+    && chown 10001:10001 /app/generated
+USER 10001:10001
+EXPOSE 5001
+CMD ["./shufflebackend"]

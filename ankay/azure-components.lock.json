@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "targetPlatform": "linux/amd64",
+  "sources": {
+    "shuffle": {
+      "repository": "https://github.com/Shuffle/Shuffle.git",
+      "tag": "v2.3.0",
+      "commit": "473cc335e5fcc663006d8e5ca16af5ee71fefa68",
+      "license": "AGPL-3.0"
+    },
+    "shuffleShared": {
+      "module": "github.com/shuffle/shuffle-shared",
+      "version": "v1.3.22",
+      "repository": "https://github.com/Shuffle/shuffle-shared.git",
+      "commit": "f81e48ec7dfdd9fd0b94c207fb6b58535ed52a90",
+      "sum": "h1:Xb9EnYLyrhlP8AiH52Frst6iflIkbxyBmG/bntpRo5o=",
+      "goModSum": "h1:0vOWNn+aXibNcbjROmrgszm3/KirYtwzE5BuVnCzQVE=",
+      "license": "AGPL-3.0",
+      "tlsContract": {
+        "skipVerifyDefault": false,
+        "certificateFileEnv": "SHUFFLE_OPENSEARCH_CERTIFICATE_FILE",
+        "certificateDirectoryEnv": "SHUFFLE_CERT_DIR",
+        "certificateDirectoryAppliedWhenEnvironmentIs": "not-cloud"
+      }
+    },
+    "appSdk": {
+      "repository": "https://github.com/Shuffle/app_sdk.git",
+      "commit": "b504768b30cadc3681ed1e4c900d933f7dac5c42",
+      "license": "MIT",
+      "file": "shuffle_sdk/shuffle_sdk.py",
+      "fileSha256": "f4a0820309df6e2768ffb233ef4848051b62515da0864fca279c6f903bc877a5"
+    },
+    "orborus": {
+      "repository": "https://github.com/Shuffle/orborus.git",
+      "tag": "v2.3.0",
+      "commit": "adcc814cb355b7f4b6cb869e0d8d5eed3c6baa95",
+      "license": "NOASSERTION",
+      "status": "blocked",
+      "reason": "The pinned repository has no LICENSE file or GitHub SPDX license metadata; do not redistribute/build for runtime until licensing is confirmed."
+    },
+    "shuffleSecurity": {
+      "repository": "https://github.com/Shuffle/shuffle-security.git",
+      "commit": "7a4077c1353b3b7da93098acefb199d61894ebbf",
+      "license": "NOASSERTION",
+      "status": "blocked",
+      "reason": "No LICENSE file or GitHub SPDX license metadata, and this repository's current security-console frontend is not proven compatible with Shuffle v2.3.0; do not use as the classic shuffle-security service."
+    },
+    "opensearch": {
+      "repository": "docker.io/opensearchproject/opensearch",
+      "tag": "3.9.0",
+      "indexDigest": "sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c",
+      "amd64Digest": "sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84",
+      "license": "Apache-2.0",
+      "status": "pinned"
+    }
+  },
+  "buildBases": {
+    "amazonLinux2023": "public.ecr.aws/amazonlinux/amazonlinux:2023.12.20261013.0@sha256:1eb8fe7a098746ce0cd385894f4d512f010feb7ca5ef40e0bac731b71a15feb2",
+    "golang1273Alpine323": "docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df",
+    "alpine3226": "docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
+    "node23": "docker.io/library/node:23@sha256:9a25b5a6f9a90218b73a62205f111e71de5e4289aee952b4dd7e86f7498f2544",
+    "nginx1293": "docker.io/library/nginx:1.29.3@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51"
+  },
+  "buildPolicy": {
+    "amazonLinux2023Release": "2023.12.20261013"
+  },
+  "goSecurityUpgrades": {
+    "minimumToolchain": "1.27.3",
+    "golang.org/x/net": "v0.60.0",
+    "golang.org/x/crypto": "v0.57.0",
+    "golang.org/x/text": "v0.42.0",
+    "golang.org/x/sys": "v0.48.0",
+    "golang.org/x/term": "v0.46.0",
+    "google.golang.org/grpc": "v1.83.2"
+  },
+  "componentStatus": {
+    "frontend": "build-from-pinned-shuffle-source",
+    "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
+    "worker": "build-from-pinned-shuffle-source-with-moby-v29-overlay",
+    "opensearch": "pinned-opensearch-3.9.0-rebased-onto-deterministic-al2023",
+    "orborus": "blocked-license-review",
+    "shuffle-security": "blocked-license-and-compatibility-review"
+  },
+  "securityBlockers": {
+    "dockerSdk": {
+      "module": "github.com/docker/docker@v28.3.3+incompatible",
+      "status": "backend-and-worker-migrated-runtime-test-pending",
+      "cves": ["CVE-2026-41567", "CVE-2026-42306"],
+      "requiredEngineVersion": "29.5.1",
+      "reason": "The backend and worker use the official github.com/moby/moby/client and /api modules. The component set remains blocked from publication until CI builds and runtime tests against Engine 29.5.1 or later pass."
+    },
+    "mobyGoArchive": {
+      "module": "github.com/moby/go-archive@v0.1.0",
+      "status": "removed-from-backend-and-worker-module-graphs",
+      "cves": ["CVE-2026-17106"],
+      "fixedVersion": "v0.3.0",
+      "reason": "Neither the backend nor worker module graph imports go-archive after migrating to Moby client/api. The nested shuffle-shared app_upload module remains excluded from the runtime build context and is not built into either image."
+    }
+  }
+}
