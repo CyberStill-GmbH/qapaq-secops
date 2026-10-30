@@ -14,7 +14,7 @@ variables {
   admin_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrSSBU5aLhPsPjvwqHInna41VinFclKO7IxLy6VglY5 test@example.invalid"
   ubuntu_image_version         = "24.04.1"
   data_disk_size_gb            = 128
-  dashboard_ingress_cidrs      = ["198.51.100.25/32"]
+  dashboard_ingress_cidrs      = ["0.0.0.0/0"]
   core_secret_names            = { QAPAQ_ENTRA_CLIENT_SECRET = "entra-client-secret" }
   wazuh_secret_names           = { "wazuh-install-files.tar.b64" = "wazuh-install-files-tar-b64" }
   key_vault_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.KeyVault/vaults/kv-qapaq-test"
@@ -60,6 +60,16 @@ run "accepts_matching_key_vault_reference" {
     )
     error_message = "TCP/9443 must be explicitly denied to the VNet even when the optional KrakenD proxy is disabled."
   }
+}
+
+run "rejects_worldwide_agent_enrollment" {
+  command = plan
+
+  variables {
+    agent_ingress_cidrs = ["0.0.0.0/0"]
+  }
+
+  expect_failures = [var.agent_ingress_cidrs]
 }
 
 run "accepts_postgres_with_matching_key_vault_references" {

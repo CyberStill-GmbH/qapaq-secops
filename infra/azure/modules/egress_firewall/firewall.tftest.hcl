@@ -11,7 +11,7 @@ run "standard_egress_policy_is_restrictive" {
     log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.OperationalInsights/workspaces/law-qapaq"
     source_cidrs               = ["10.80.16.0/27"]
     ingress_lb_private_ip      = "10.80.16.10"
-    dashboard_ingress_cidrs    = ["198.51.100.25/32"]
+    dashboard_ingress_cidrs    = ["0.0.0.0/0"]
     sku_tier                   = "Standard"
     tags                       = { project = "qapaq-secops", environment = "test" }
   }
@@ -46,6 +46,11 @@ run "standard_egress_policy_is_restrictive" {
       contains(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule[*].destination_ports[0], "443")
     )
     error_message = "Public SIEM ingress must DNAT only HTTP ACME and approved-source HTTPS to the internal load balancer."
+  }
+
+  assert {
+    condition     = contains(flatten(azurerm_firewall_policy_rule_collection_group.egress.nat_rule_collection[0].rule[*].source_addresses), "0.0.0.0/0")
+    error_message = "El Dashboard público debe aceptar HTTPS desde todas las direcciones IPv4 cuando el perfil lo solicita."
   }
 
   assert {
@@ -100,4 +105,25 @@ run "basic_egress_keeps_fqdn_allowlist_and_management_plane" {
     )
     error_message = "Los agentes deben publicar solo 1514 y 1515 hacia la IP fija del SIEM."
   }
+}
+
+run "rejects_worldwide_agent_ingress" {
+  command = plan
+
+  variables {
+    resource_group_name        = "rg-qapaq-test"
+    location                   = "eastus2"
+    name_base                  = "qapaqsecops"
+    firewall_subnet_id         = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Network/virtualNetworks/vnet-qapaq/subnets/AzureFirewallSubnet"
+    management_subnet_id       = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.Network/virtualNetworks/vnet-qapaq/subnets/AzureFirewallManagementSubnet"
+    log_analytics_workspace_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-qapaq-test/providers/Microsoft.OperationalInsights/workspaces/law-qapaq"
+    source_cidrs               = ["10.80.16.32/27"]
+    ingress_lb_private_ip      = "10.80.16.42"
+    agent_public_cidrs         = ["0.0.0.0/0"]
+    agent_target_ip            = "10.80.16.36"
+    sku_tier                   = "Basic"
+    tags                       = { project = "qapaq-secops", environment = "test" }
+  }
+
+  expect_failures = [var.agent_public_cidrs]
 }

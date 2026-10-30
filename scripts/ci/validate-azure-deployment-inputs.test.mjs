@@ -260,13 +260,18 @@ test('SIEM subnet must be aligned, inside the EUS2 VNet, and disjoint from reser
   );
 });
 
-test('Dashboard ingress accepts aligned IPv4 /24 or narrower and rejects broad or unaligned ranges', () => {
+test('Dashboard ingress accepts public IPv4 or aligned /24 allowlists and rejects broad or unaligned ranges', () => {
   const allowed = siemHost({ dashboard_ingress_cidrs: ['198.51.100.0/24', '203.0.113.25/32'] });
   assert.doesNotThrow(() =>
     validateDeploymentInputs(baseEnv({ TF_VAR_siem_host: JSON.stringify(allowed) })),
   );
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(
+      baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost({ dashboard_ingress_cidrs: ['0.0.0.0/0'] })) }),
+    ),
+  );
 
-  for (const cidr of ['198.51.0.0/16', '198.51.100.0/23', '198.51.100.25/24', '2001:db8::/64']) {
+  for (const cidr of ['0.0.0.0/1', '198.51.0.0/16', '198.51.100.0/23', '198.51.100.25/24', '2001:db8::/0', '2001:db8::/64']) {
     assert.throws(
       () =>
         validateDeploymentInputs(
@@ -278,6 +283,18 @@ test('Dashboard ingress accepts aligned IPv4 /24 or narrower and rejects broad o
       `expected ${cidr} to be rejected`,
     );
   }
+
+  assert.throws(
+    () =>
+      validateDeploymentInputs(
+        baseEnv({
+          TF_VAR_siem_host: JSON.stringify(
+            siemHost({ dashboard_ingress_cidrs: ['0.0.0.0/0', '198.51.100.25/32'] }),
+          ),
+        }),
+      ),
+    /must use 0\.0\.0\.0\/0 alone/u,
+  );
 });
 
 test('public agent DNAT sources are restricted to aligned IPv4 allowlists no broader than /24', () => {

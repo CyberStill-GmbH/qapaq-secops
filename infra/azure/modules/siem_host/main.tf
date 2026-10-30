@@ -531,11 +531,6 @@ resource "azurerm_linux_virtual_machine" "siem" {
     }
 
     precondition {
-      condition     = !contains(var.dashboard_ingress_cidrs, "0.0.0.0/0")
-      error_message = "No se permite exponer el Dashboard HTTPS a Internet completa."
-    }
-
-    precondition {
       condition     = !contains(var.agent_ingress_cidrs, "0.0.0.0/0")
       error_message = "No se permite exponer puertos de agentes Wazuh a Internet completa."
     }

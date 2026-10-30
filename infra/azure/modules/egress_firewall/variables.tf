@@ -41,13 +41,13 @@ variable "ingress_lb_private_ip" {
   }
 }
 variable "dashboard_ingress_cidrs" {
-  description = "CIDR aprobados para HTTPS público al Dashboard. Vacío no crea regla DNAT HTTPS."
+  description = "CIDR de origen para HTTPS público al Dashboard. 0.0.0.0/0 admite todas las IPs; vacío no crea regla DNAT HTTPS."
   type        = set(string)
   default     = []
 
   validation {
-    condition     = alltrue([for cidr in var.dashboard_ingress_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
-    error_message = "Cada origen de Dashboard debe ser un CIDR válido y no puede abarcar todo Internet."
+    condition     = alltrue([for cidr in var.dashboard_ingress_cidrs : can(cidrhost(cidr, 0)) && cidr != "::/0"])
+    error_message = "Cada origen de Dashboard debe ser un CIDR válido; IPv6 global no está habilitado."
   }
 }
 variable "ingress_http_enabled" {

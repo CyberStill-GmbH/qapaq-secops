@@ -13,7 +13,8 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   hacia un Load Balancer interno. La UDR fuerza `0.0.0.0/0` hacia ese firewall; no depende de un
   firewall de AWS ni de uno preexistente. El DNAT HTTPS evalúa la allowlist original de CIDR.
 - El puerto 80 público solo acepta el DNAT del Firewall para ACME HTTP-01 y redirección a HTTPS.
-  El puerto 443 solo se enruta desde `dashboard_ingress_cidrs`; sin CIDR, el dashboard queda cerrado.
+  El puerto 443 se enruta desde `dashboard_ingress_cidrs`; `0.0.0.0/0` publica el Dashboard a todas
+  las IPs por instrucción del dueño. El edge debe exigir TLS y `auth_request` antes de habilitarlo.
   El Firewall SNATea el DNAT a su IP privada, así que el NSG solo permite 80/443 desde esa IP. El TLS
   termina en el edge Nginx QAPAQ de la VM, no en el Load Balancer. Nginx ve la IP privada del Firewall
   como peer; la IP original se audita en logs NAT del Firewall. Los agentes continúan usando sus CIDR
@@ -28,8 +29,8 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   Azure VM Agent y Custom Script Extension; no se abre TCP/1688. Microsoft indica que este canal
   especial normalmente no está sujeto a NSG/UDR, pero la regla estrecha deja explícito el requisito
   de plataforma y no permite egress general.
-- HTTPS y puertos 1514/1515 solo se permiten cuando se proporcionan CIDR de origen aprobados; los
-  valores vacíos los dejan cerrados. Ninguna regla acepta `0.0.0.0/0` o `::/0`.
+- HTTPS permite `0.0.0.0/0` para publicar el Dashboard cuando así se configura. Los puertos 1514/1515
+  continúan cerrados por defecto y nunca aceptan `0.0.0.0/0` ni `::/0`.
 - Disco administrado de datos con `prevent_destroy`, separado del disco de sistema y montado antes
   de instalar paquetes. Antes de inicializarlo, el bootstrap comprueba el enlace Azure LUN 0,
   dispositivo de bloques, estructura sin particiones, tamaño exacto configurado, ausencia de firmas
@@ -211,7 +212,8 @@ debe verificar:
 
 1. El bundle existe en Blob privado y su digest coincide con el manifiesto de release de CI.
 2. Los roles Key Vault apuntan solo a secretos existentes y los nombres de sus mapas se corresponden.
-3. CIDR de Dashboard y agentes son privados/aprobados y no incluyen `0.0.0.0/0`.
+3. El CIDR del Dashboard puede ser `0.0.0.0/0` para publicación pública; los CIDR de agentes
+   deben ser privados/aprobados y nunca incluir `0.0.0.0/0` ni `::/0`.
    `address_prefix` debe pertenecer al address space de la VNet y no solaparse con las subnets
    determinísticas de Container Apps, Ankay, KrakenD, PostgreSQL, Private Endpoints o Azure Firewall.
    El validador previo al plan calcula estas reservas usando el `address_space` efectivo; no

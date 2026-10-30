@@ -215,13 +215,13 @@ variable "data_disk_storage_account_type" {
 }
 
 variable "dashboard_ingress_cidrs" {
-  description = "CIDR de origen aprobado para HTTPS público. El Firewall DNAT filtra el origen antes del Load Balancer interno."
+  description = "CIDR de origen para HTTPS público; 0.0.0.0/0 publica el Dashboard para todas las IPs. El Firewall DNAT filtra antes del Load Balancer interno."
   type        = set(string)
   default     = []
 
   validation {
-    condition     = alltrue([for cidr in var.dashboard_ingress_cidrs : can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0" && cidr != "::/0"])
-    error_message = "Cada CIDR de ingreso al Dashboard debe ser válido y distinto de cualquier origen de Internet."
+    condition     = alltrue([for cidr in var.dashboard_ingress_cidrs : can(cidrhost(cidr, 0)) && cidr != "::/0"])
+    error_message = "Cada CIDR de ingreso al Dashboard debe ser válido; IPv6 global no está habilitado."
   }
 }
 

@@ -1,10 +1,13 @@
 # EUS2 SIEM profile: readiness and operator inputs
 
-**State: preparation only.** This document records the first SIEM deployment gate for
-`demo-eus2`. It does not change Azure, GitHub, DNS, Terraform inputs, secrets, or the
-Terraform state. The JSON-shaped block below is intentionally **not valid JSON** and is
-not a value to paste into `AZURE_EUS2_SIEM_HOST_JSON`; required operator values are
-identified outside the block so a placeholder cannot accidentally become a deployment.
+**State as of 2026-10-30: partial SIEM apply.** The SIEM Custom Script extension was
+imported into the isolated Terraform state, updated, and then failed with exit code 1
+after 81 seconds. The VM bootstrap log has not yet been retrieved, so Wazuh/Core service
+health is unverified. `app.jappi.net.pe` resolves to Azure, but HTTPS has not been
+reachable from the current network. The owner now requires public HTTPS/443; the next
+reviewed apply will permit all IPv4 sources to the Dashboard while agent ports remain
+restricted. The JSON-shaped block below is intentionally **not valid JSON** and is not
+a value to paste into `AZURE_EUS2_SIEM_HOST_JSON`.
 
 ## Architecture and deployment order
 
@@ -46,16 +49,20 @@ Use this sequence:
    stays unchanged until endpoint, TLS, auth, ingestion, rollback, and owner acceptance
    are evidenced. The Terraform root does not manage public DNS.
 
-## GitHub Environment inventory (metadata only, 2026-10-27)
+## GitHub Environment inventory (metadata only, 2026-10-30)
 
-The read-only inventory found that the current EUS2 GitHub environment is not yet
-configured to plan the SIEM deployment:
+The initial read-only inventory on 2026-10-27 found that the EUS2 GitHub environment
+was not yet configured to plan SIEM. The environment has since been populated with the
+SIEM profile, and the latest apply reached the bootstrap extension. Its current runtime
+settings remain limited:
 
-- `AZURE_EUS2_SIEM_HOST_JSON` and `AZURE_EUS2_KRAKEND_GATEWAY_JSON` are absent.
-- `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}` and
-  `AZURE_EUS2_CONTAINER_IMAGES_JSON={}`; `AZURE_EUS2_ENABLE_RUNTIME=false`.
-- The only environment secret names are `AZURE_EUS2_POSTGRES_ADMIN_PASSWORD` and
-  `AZURE_EUS2_TERRAFORM_CLIENT_ID`. Their values were not read.
+- `AZURE_EUS2_SIEM_HOST_JSON` is set; its `core_environment` currently uses
+  `QAPAQ_SOC_PERSISTENCE=memory` and `QAPAQ_INGESTION_SOURCE=disabled`.
+- `AZURE_EUS2_KEY_VAULT_SECRET_IDS_JSON={}`, `AZURE_EUS2_CONTAINER_IMAGES_JSON={}` and
+  `AZURE_EUS2_ENABLE_RUNTIME=false`.
+- `AZURE_EUS2_ANKAY_HOST_JSON` and `AZURE_EUS2_KRAKEND_GATEWAY_JSON` are absent.
+- The environment has the Terraform admin password and OIDC client-id secret names;
+  their values and the presence of Key Vault runtime secrets were not inspected.
 - The inventory did not inspect Key Vault secret names or values. It therefore does
   not establish that the runtime secrets below exist; seed only rotated values with the
   protected workflow and confirm the required names before filling the SIEM profile.
@@ -81,7 +88,7 @@ substitute an example CIDR, user key, credential, or identifier.
 | `admin_ssh_public_key` | OpenSSH **public** key only; no public SSH NSG rule. Terraform does not currently provision Bastion or another private SSH management path, and the NSG keeps SSH closed. | Provide the public half and separately approve/provision a management path (for example, VPN or Bastion) before relying on SSH for recovery. Retain the private half outside GitHub/Terraform. The key alone does not make the VM reachable. |
 | `ubuntu_image_version` | Canonical Ubuntu 24.04 LTS; `latest` is rejected. | Select and verify an exact currently available `24.04.x` Marketplace version in East US 2. |
 | `data_disk_size_gb` | Minimum is `128`; disk has `prevent_destroy` and is security-sensitive persistent Wazuh data. | Confirm size against event volume, retention, and growth. `128` is a floor, not a retention guarantee. |
-| `dashboard_ingress_cidrs` | Empty means HTTPS stays closed; `/0` is rejected. Firewall DNAT → internal LB → Nginx is the intended path. | Supply approved operator/VPN source CIDRs. Do not use `0.0.0.0/0` or `::/0`. |
+| `dashboard_ingress_cidrs` | `0.0.0.0/0` publishes HTTPS/443 to all IPv4 addresses through Firewall DNAT → internal LB → Nginx, as explicitly requested by the owner. | Verify TLS and QAPAQ `auth_request` on the edge. Keep agent ports 1514/1515 restricted to approved source ranges; never set their CIDRs to `/0`. |
 | `agent_ingress_cidrs` | Empty means agent ports 1514/1515 stay closed; `/0` is rejected. | Supply actual managed endpoint/domain-controller private egress ranges or VPN ranges. Without them, no agent enrollment is enabled. |
 | `core_secret_names` | Map is non-secret `ENV_NAME` → existing Key Vault **name**. The approved seed allowlist names include `qapaq-entra-client-secret` and `qapaq-teams-workflow-url`. | Confirm a rotated QAPAQ Entra secret, Teams Workflow URL, least-privilege PostgreSQL application credential, and the additional Core secret-provider/storage/gateway keys listed below exist. The PostgreSQL admin password in GitHub is not an application account. |
 | `wazuh_secret_names` | Must include exactly these required keys: `office365-client-secret` and `wazuh-install-files.tar.b64`; these are Key Vault names, not values. | Confirm the Office 365 app secret corresponds to the selected Graph app. Generate the separate official Wazuh installer tar with passwords/certificates and load its one-line base64 as `wazuh-install-files.tar.b64` (decoded tar ≤18 KB). The release Blob is not this credential tar. |
