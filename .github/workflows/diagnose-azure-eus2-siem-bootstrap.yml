@@ -24,6 +24,19 @@ jobs:
           tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
 
+      - name: Compare public DNS with the Azure SIEM firewall address
+        shell: bash
+        env:
+          RESOURCE_GROUP: rg-qapaqsecopsdemoeus-3a2405f3
+        run: |
+          set -euo pipefail
+          echo '== public firewall IP metadata =='
+          az network public-ip list --resource-group "$RESOURCE_GROUP" \
+            --query "[?tags.service=='siem-egress'].{name:name,ip:ipAddress,state:provisioningState}" \
+            --output json
+          echo '== public IPv4 DNS for app.jappi.net.pe =='
+          getent ahostsv4 app.jappi.net.pe | awk '{print $1}' | sort -u
+
       - name: Read selected EUS2 Key Vault metadata without secret values
         shell: bash
         env:

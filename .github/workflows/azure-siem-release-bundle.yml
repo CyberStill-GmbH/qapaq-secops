@@ -19,6 +19,21 @@ on:
         description: Successful qapaq-core-azure.yml run on release_sha
         type: string
         required: true
+      edge_hostname:
+        description: Optional public SOC hostname for the QAPAQ edge (TLS via Let's Encrypt); empty keeps the Wazuh dashboard on 443
+        type: string
+        required: false
+        default: ""
+      edge_extra_hostnames:
+        description: Optional extra hostnames for the same certificate, space separated
+        type: string
+        required: false
+        default: ""
+      ankay_private_ip:
+        description: Optional private IP of the Ankay host (e.g. 10.80.0.36) to publish /ankay/ and the Wazuh webhook
+        type: string
+        required: false
+        default: ""
 
 permissions:
   actions: read
@@ -71,6 +86,10 @@ jobs:
             wazuh/azure-release/assemble_release.py wazuh/azure-release/install.sh wazuh/azure-release/check-install-state.sh wazuh/azure-release/install_detection_rules.py \
             wazuh/azure-release/verify_wazuh_credentials_tar.py \
             wazuh/azure-release/normalize_ubuntu_apt_sources.py \
+            wazuh/azure-release/configure_edge_azure.sh wazuh/azure-release/write_edge_config.py \
+            wazuh/edge wazuh/indexer/security wazuh/scripts/indexer-admin.sh \
+            infra/wazuh/shuffle/custom-qapaq-shuffle infra/wazuh/shuffle/ossec-shuffle-webhook.xml \
+            infra/wazuh/shuffle/apply_ankay_webhook.py \
             wazuh/core wazuh/dashboard wazuh/office365 \
             wazuh/provider-ingestion ':!wazuh/provider-ingestion/tests/**' \
             infra/wazuh/endpoint/rules infra/wazuh/launch-detections/rules \
@@ -97,6 +116,9 @@ jobs:
           bash -n wazuh/azure-release/check-install-state.sh
           python3 -m py_compile wazuh/azure-release/assemble_release.py wazuh/azure-release/install_detection_rules.py wazuh/azure-release/verify_wazuh_credentials_tar.py
           python3 -m py_compile infra/wazuh/teams/apply_teams_workflow.py
+          python3 -m unittest discover -s infra/wazuh/shuffle/tests -p 'test_*.py' -v
+          python3 -m py_compile infra/wazuh/shuffle/apply_ankay_webhook.py wazuh/azure-release/write_edge_config.py
+          bash -n wazuh/azure-release/configure_edge_azure.sh wazuh/edge/apply-edge.sh
 
       - name: Validate source workflow run IDs, branch and exact Git SHA
         env:
@@ -225,6 +247,9 @@ jobs:
       - name: Assemble offline Wazuh QAPAQ bundle and verify bootstrap contract
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
+          EDGE_HOSTNAME: ${{ inputs.edge_hostname }}
+          EDGE_EXTRA_HOSTNAMES: ${{ inputs.edge_extra_hostnames }}
+          ANKAY_PRIVATE_IP: ${{ inputs.ankay_private_ip }}
         shell: bash
         run: |
           set -euo pipefail
@@ -235,6 +260,11 @@ jobs:
           core="$(find "$RUNNER_TEMP/core" -maxdepth 1 -type f -name 'qapaq-core-*.tar.gz' -print -quit)"
           module="$(find "$RUNNER_TEMP/prerequisites/azure-siem-filebeat-7.10.2-2-experimental" -maxdepth 1 -name 'wazuh-filebeat-0.5.tar.gz' -print -quit)"
           template="$(find "$RUNNER_TEMP/prerequisites/azure-siem-filebeat-7.10.2-2-experimental" -maxdepth 1 -name 'wazuh-template.json' -print -quit)"
+          edge_args=()
+          if [[ -n "$EDGE_HOSTNAME" ]]; then
+            python3 wazuh/azure-release/write_edge_config.py --output "$RUNNER_TEMP/edge.json"
+            edge_args=(--edge-config "$RUNNER_TEMP/edge.json")
+          fi
           python3 wazuh/azure-release/assemble_release.py \
             --manager-deb "$manager" --indexer-deb "$indexer" --filebeat-deb "$filebeat" \
             --dashboard-deb "$dashboard" --core-archive "$core" \
@@ -246,10 +276,11 @@ jobs:
             --verify-credentials-script "$GITHUB_WORKSPACE/wazuh/azure-release/verify_wazuh_credentials_tar.py" \
             --repo-root "$GITHUB_WORKSPACE" \
             --output-dir "$RUNNER_TEMP/siem-release" --qapaq-commit "$RELEASE_SHA" \
-            --manager-commit "$WAZUH_MANAGER_SHA" --indexer-commit "$WAZUH_INDEXER_SHA"
+            --manager-commit "$WAZUH_MANAGER_SHA" --indexer-commit "$WAZUH_INDEXER_SHA" "${edge_args[@]}"
           bundle="$(find "$RUNNER_TEMP/siem-release" -maxdepth 1 -name 'qapaq-siem-*.tar.gz' -print -quit)"
           python3 - "$GITHUB_WORKSPACE/infra/azure/modules/siem_host/bootstrap-siem.py" "$bundle" "$RELEASE_SHA" <<'PY'
           import hashlib, json, pathlib, sys, tarfile, tempfile
+          import os
           bootstrap = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
           assert '"managerDeb", "indexerDeb", "filebeatDeb", "qapaqDashboardDeb", "qapaqCoreArchive"' in bootstrap
           with tarfile.open(sys.argv[2], "r:gz") as archive:
@@ -265,6 +296,25 @@ jobs:
               assert manifest["qapaqAssistant"]["provider"] == "anthropic"
               assert manifest["qapaqAssistant"]["activation"] == "assistant_secret_name-and-api-egress-required"
               assert manifest["qapaqAssistant"]["secretValueBundled"] is False
+              for edge_file in (
+                  "wazuh/azure-release/configure_edge_azure.sh",
+                  "wazuh/edge/apply-edge.sh",
+                  "wazuh/edge/qapaq-edge.conf",
+                  "wazuh/indexer/security/apply-security.sh",
+                  "wazuh/dashboard/opensearch_dashboards.qapaq.yml",
+              ):
+                  assert edge_file in manifest["files"]
+              if os.environ["EDGE_HOSTNAME"]:
+                  edge_name = f"{root}/edge.json"
+                  assert edge_name in archive.getnames()
+                  edge = json.load(archive.extractfile(edge_name))
+                  assert edge["hostname"] == os.environ["EDGE_HOSTNAME"]
+                  if os.environ["ANKAY_PRIVATE_IP"]:
+                      assert edge["ankayUpstream"] == f"{os.environ['ANKAY_PRIVATE_IP']}:3001"
+                  else:
+                      assert "ankayUpstream" not in edge and "ankayWebhookUrl" not in edge
+              else:
+                  assert f"{root}/edge.json" not in archive.getnames()
               assert manifest["detectionPack"]["activation"] == "baseline-rules-installed-context-packs-require-live-cdb-lists-and-review"
               assert set(manifest["detectionPack"]["rules"]) == {
                   "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
@@ -335,6 +385,8 @@ jobs:
             echo '- Installs the versioned QAPAQ AD, endpoint and provider detection rules by default.'
             echo '- Bundles finance and priority rules plus example CDB files as `candidate-disabled`; they require real owner-approved lists and tenant observation before activation.'
             echo '- Bundles Windows/Linux agent installers and profiles as `candidate-pilot-required`; the installer never enrolls agents or applies profiles.'
+            echo '- When `edge_hostname` is set, installs the public HTTPS QAPAQ edge and routes `/api/assistant` to the private Core API; first-run TLS requires reachable HTTP-01 on TCP/80. This workflow does not change firewall rules.'
+            echo '- The Ankay upstream and webhook are included only when `ankay_private_ip` is supplied; leave it empty for the SIEM-first release.'
             echo '- No Azure login, Key Vault read, Blob publication, Terraform apply, DNS change or deployment occurs in this workflow.'
             echo '- First boot still requires the one-line base64 `wazuh-install-files.tar.b64` Key Vault secret, all QAPAQ core secret refs, private network and firewall allowlist.'
             echo '- The bundle contains optional Sophos Central and Cato eventsFeed collectors in the Wazuh overlay. They remain inactive unless Key Vault references, tenant/account configuration and explicit egress are supplied; CI packaging is not tenant acceptance.'

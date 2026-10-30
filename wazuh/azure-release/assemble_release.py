@@ -226,6 +226,31 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         for name in ("custom-qapaq-teams", "apply_teams_workflow.py", "ossec-teams-workflow.xml"):
             copy_regular(teams / name, root / "wazuh" / "teams" / name)
 
+        # Edge QAPAQ (nginx + proxy auth) y Ankay: siempre empaquetados; install.sh solo los
+        # aplica si el bundle trae edge.json.
+        repo = pathlib.Path(args.repo_root)
+        for relative, source in {
+            "wazuh/azure-release/configure_edge_azure.sh": repo / "wazuh/azure-release/configure_edge_azure.sh",
+            "wazuh/edge/apply-edge.sh": repo / "wazuh/edge/apply-edge.sh",
+            "wazuh/edge/qapaq-edge.conf": repo / "wazuh/edge/qapaq-edge.conf",
+            "wazuh/edge/qapaq-ankay.location.conf": repo / "wazuh/edge/qapaq-ankay.location.conf",
+            "wazuh/dashboard/opensearch_dashboards.qapaq.yml": repo / "wazuh/dashboard/opensearch_dashboards.qapaq.yml",
+            "wazuh/indexer/security/apply-security.sh": repo / "wazuh/indexer/security/apply-security.sh",
+            "wazuh/indexer/security/config.qapaq.yml": repo / "wazuh/indexer/security/config.qapaq.yml",
+            "wazuh/indexer/security/roles.qapaq.yml": repo / "wazuh/indexer/security/roles.qapaq.yml",
+            "wazuh/indexer/security/roles_mapping.qapaq.yml": repo / "wazuh/indexer/security/roles_mapping.qapaq.yml",
+            "wazuh/scripts/indexer-admin.sh": repo / "wazuh/scripts/indexer-admin.sh",
+            "wazuh/shuffle/custom-qapaq-shuffle": repo / "infra/wazuh/shuffle/custom-qapaq-shuffle",
+            "wazuh/shuffle/ossec-shuffle-webhook.xml": repo / "infra/wazuh/shuffle/ossec-shuffle-webhook.xml",
+            "wazuh/shuffle/apply_ankay_webhook.py": repo / "infra/wazuh/shuffle/apply_ankay_webhook.py",
+        }.items():
+            copy_regular(source, root / relative)
+        if getattr(args, "edge_config", ""):
+            edge = json.loads(pathlib.Path(args.edge_config).read_text(encoding="utf-8"))
+            if not isinstance(edge, dict) or edge.get("schemaVersion") != 1 or not edge.get("hostname"):
+                raise ValueError("edge config must be a schemaVersion 1 object with a hostname")
+            (root / "edge.json").write_text(json.dumps(edge, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
         detection_sources = {
             "wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml":
                 pathlib.Path(args.repo_root) / "infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml",
@@ -484,6 +509,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("manager-deb", "indexer-deb", "filebeat-deb", "dashboard-deb", "core-archive", "assistant-dir", "filebeat-config", "wazuh-signing-key", "filebeat-module", "filebeat-template", "install-script", "verify-credentials-script", "repo-root", "output-dir", "qapaq-commit", "manager-commit", "indexer-commit"):
         parser.add_argument(f"--{name}", required=True)
+    parser.add_argument("--edge-config", default="", help="edge.json opcional (hostname, Ankay); sin él el edge no se aplica")
     args = parser.parse_args()
     try:
         bundle = assemble(args)

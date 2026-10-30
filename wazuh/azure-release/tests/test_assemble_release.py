@@ -100,6 +100,14 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertIn("wazuh/teams/custom-qapaq-teams", manifest["files"])
         self.assertIn("wazuh/teams/apply_teams_workflow.py", manifest["files"])
         self.assertIn("wazuh/teams/ossec-teams-workflow.xml", manifest["files"])
+        for edge_file in (
+            "wazuh/azure-release/configure_edge_azure.sh",
+            "wazuh/edge/apply-edge.sh",
+            "wazuh/edge/qapaq-edge.conf",
+            "wazuh/indexer/security/apply-security.sh",
+            "wazuh/dashboard/opensearch_dashboards.qapaq.yml",
+        ):
+            self.assertIn(edge_file, manifest["files"])
         self.assertIn("wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml", manifest["files"])
         self.assertIn("wazuh/endpoint/rules/qapaq_endpoint_rules.xml", manifest["files"])
         self.assertIn("wazuh/active-directory/rules/qapaq_active_directory_rules.xml", manifest["files"])
@@ -207,6 +215,19 @@ class AssembleReleaseTests(unittest.TestCase):
             self.assertEqual(assemble_release.sha256(root / filename), digest)
         self.assertTrue(bundle.is_file())
         self.assertEqual(assemble_release.sha256(bundle), (self.root / "output" / "SHA256SUMS").read_text().split()[0])
+        # El edge y Ankay se empaquetan siempre, pero sin edge.json install.sh no los aplica.
+        for packaged in (
+            "wazuh/azure-release/configure_edge_azure.sh",
+            "wazuh/edge/apply-edge.sh",
+            "wazuh/indexer/security/apply-security.sh",
+            "wazuh/scripts/indexer-admin.sh",
+            "wazuh/shuffle/apply_ankay_webhook.py",
+            "wazuh/shuffle/custom-qapaq-shuffle",
+        ):
+            self.assertIn(packaged, manifest["files"])
+        self.assertNotIn("edge.json", manifest["files"])
+        real_installer = (pathlib.Path(__file__).resolve().parents[1] / "install.sh").read_text(encoding="utf-8")
+        self.assertIn('if [[ -s "$HERE/edge.json" ]]', real_installer)
 
     def test_rejects_dirty_output_directory(self) -> None:
         (self.root / "output" / "keep.txt").write_text("keep", encoding="utf-8")
@@ -218,6 +239,42 @@ class AssembleReleaseTests(unittest.TestCase):
         context_list.write_text("finance-admin@qapaq.pe:admin\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "non-synthetic key"):
             assemble_release.validate_synthetic_context_list(context_list)
+
+    def test_bundles_public_edge_config_when_requested_without_ankay(self) -> None:
+        edge_config = self.root / "edge.json"
+        edge_config.write_text(
+            '{"schemaVersion": 1, "hostname": "app.jappi.net.pe", "extraHostnames": []}\n',
+            encoding="utf-8",
+        )
+        self.args.edge_config = str(edge_config)
+
+        def fake_command(*args: str) -> str:
+            if args[:3] == ("git", "-C", str(self.assistant.resolve())):
+                return assemble_release.ASSISTANT_COMMIT if args[-1] == "HEAD" else assemble_release.ASSISTANT_TAG
+            raise AssertionError(args)
+
+        versions = {
+            "wazuh-manager": "4.14.8-1",
+            "wazuh-indexer": "4.14.8-1",
+            "filebeat": "7.10.2-2",
+            "wazuh-dashboard": "4.14.8-1qapaq1",
+        }
+
+        with patch.object(assemble_release, "command", side_effect=fake_command), patch.object(
+            assemble_release,
+            "validate_package",
+            side_effect=lambda path, name, version=None: versions[name],
+        ):
+            bundle = assemble_release.assemble(self.args)
+
+        root = self.root / "output" / "qapaq-siem-0123456789ab"
+        edge = json.loads((root / "edge.json").read_text(encoding="utf-8"))
+        manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(edge["hostname"], "app.jappi.net.pe")
+        self.assertNotIn("ankayUpstream", edge)
+        self.assertIn("edge.json", manifest["files"])
+        self.assertEqual(manifest["files"]["edge.json"], assemble_release.sha256(root / "edge.json"))
+        self.assertTrue(bundle.is_file())
 
 
 if __name__ == "__main__":

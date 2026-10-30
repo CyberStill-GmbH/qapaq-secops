@@ -22,6 +22,8 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             "wazuh/azure-release/assemble_release.py wazuh/azure-release/install.sh",
             "wazuh/azure-release/verify_wazuh_credentials_tar.py",
             "wazuh/azure-release/install_detection_rules.py",
+            "wazuh/azure-release/configure_edge_azure.sh wazuh/azure-release/write_edge_config.py",
+            "wazuh/edge wazuh/indexer/security wazuh/scripts/indexer-admin.sh",
             "infra/wazuh/endpoint/rules infra/wazuh/launch-detections/rules",
             "infra/wazuh/active-directory/rules",
             "infra/wazuh/active-directory/agent-groups infra/wazuh/active-directory/profile-catalog.json infra/wazuh/active-directory/README.md",
@@ -42,6 +44,10 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             'assert pack["status"] == "candidate-disabled"',
             'assert "agent-profiles" not in installer',
             'assert "agent-deployment" not in installer',
+            'EDGE_HOSTNAME: ${{ inputs.edge_hostname }}',
+            'ANKAY_PRIVATE_IP: ${{ inputs.ankay_private_ip }}',
+            '--edge-config "$RUNNER_TEMP/edge.json"',
+            'edge["hostname"] == os.environ["EDGE_HOSTNAME"]',
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, workflow)
