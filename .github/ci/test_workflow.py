@@ -112,7 +112,11 @@ class WorkflowPolicyTests(unittest.TestCase):
             for index, header in enumerate(headers):
                 end = headers[index + 1].start() if index + 1 < len(headers) else len(job_section)
                 block = job_section[header.start():end]
-                self.assertRegex(block, r"(?m)^    timeout-minutes:\s*\d+\s*$", f"{path.name}: {header.group(1)}")
+                self.assertRegex(
+                    block,
+                    r"(?m)^    timeout-minutes:\s*\d+\s*(?:#.*)?$",
+                    f"{path.name}: {header.group(1)}",
+                )
 
     def test_evidence_runs_only_after_successful_main_push_and_scans_before_upload(self):
         workflow = (WORKFLOWS / "evidence.yml").read_text(encoding="utf-8")

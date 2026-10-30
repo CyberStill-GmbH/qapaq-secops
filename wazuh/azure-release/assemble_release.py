@@ -137,6 +137,10 @@ def assemble(args: argparse.Namespace) -> pathlib.Path:
         copy_regular(assistant / "VERSION.json", root / "official-wazuh" / "VERSION.json")
         copy_regular(pathlib.Path(args.install_script), root / "install.sh")
         copy_regular(
+            pathlib.Path(args.repo_root) / "wazuh" / "azure-release" / "check-install-state.sh",
+            root / "wazuh" / "azure-release" / "check-install-state.sh",
+        )
+        copy_regular(
             pathlib.Path(args.verify_credentials_script),
             root / "wazuh" / "azure-release" / "verify_wazuh_credentials_tar.py",
         )

@@ -68,7 +68,7 @@ jobs:
             exit 1
           }
           git diff --quiet "$RELEASE_SHA" "$GITHUB_SHA" -- \
-            wazuh/azure-release/assemble_release.py wazuh/azure-release/install.sh wazuh/azure-release/install_detection_rules.py \
+            wazuh/azure-release/assemble_release.py wazuh/azure-release/install.sh wazuh/azure-release/check-install-state.sh wazuh/azure-release/install_detection_rules.py \
             wazuh/azure-release/verify_wazuh_credentials_tar.py \
             wazuh/azure-release/normalize_ubuntu_apt_sources.py \
             wazuh/core wazuh/dashboard wazuh/office365 \
@@ -93,6 +93,7 @@ jobs:
           python3 -m unittest discover -s wazuh/provider-ingestion/tests -p 'test_*.py' -v
           python3 -m py_compile wazuh/provider-ingestion/configure.py wazuh/provider-ingestion/cato/events_feed.py wazuh/provider-ingestion/sophos/upstream/*.py
           bash -n wazuh/azure-release/install.sh
+          bash -n wazuh/azure-release/check-install-state.sh
           python3 -m py_compile wazuh/azure-release/assemble_release.py wazuh/azure-release/install_detection_rules.py wazuh/azure-release/verify_wazuh_credentials_tar.py
           python3 -m py_compile infra/wazuh/teams/apply_teams_workflow.py
 

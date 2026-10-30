@@ -31,7 +31,9 @@ class InstallerOutputTests(unittest.TestCase):
             release = pathlib.Path(temporary_directory)
             installer = release / "install.sh"
             installer.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
-            (release / "manifest.json").write_text('{"debianPackages":{}}\n', encoding="utf-8")
+            (release / "manifest.json").write_text(
+                '{"debianPackages":{"wazuh-manager":"4.14.8-1"}}\n', encoding="utf-8"
+            )
             captured_output = io.StringIO()
             completed = SimpleNamespace(
                 returncode=17,
@@ -267,6 +269,46 @@ class ProviderIngestionValidationTests(unittest.TestCase):
 
 
 class InstallerIdempotencyTests(unittest.TestCase):
+    @staticmethod
+    def _prepare_data_root(data_root: pathlib.Path) -> None:
+        data_root.mkdir()
+        for name in ("manager", "indexer", "dashboard"):
+            (data_root / name).mkdir()
+
+    def _check_first_install(
+        self,
+        data_root: pathlib.Path,
+        statuses: dict[str, str] | None = None,
+        versions: dict[str, str] | None = None,
+        services: dict[str, str] | None = None,
+        core_root: pathlib.Path | None = None,
+    ) -> bool:
+        statuses = statuses or {}
+        versions = versions or {}
+        services = services or {}
+        release = data_root.parent / ("c" * 64)
+        release.mkdir()
+        expected_manager_version = "4.14.8-1"
+        (release / "manifest.json").write_text(
+            json.dumps({"debianPackages": {"wazuh-manager": expected_manager_version}}), encoding="utf-8"
+        )
+
+        def fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+            if command[0] == "dpkg-query":
+                package = command[-1]
+                status = statuses.get(package, "")
+                version = versions.get(package, expected_manager_version)
+                output = f"{status}|{version}" if status else ""
+                return SimpleNamespace(returncode=0 if status else 1, stdout=output)
+            if command[0] == "systemctl":
+                return SimpleNamespace(returncode=0, stdout=services.get(command[-1], "inactive"))
+            raise AssertionError(command)
+
+        with patch.object(BOOTSTRAP, "DATA_ROOT", data_root), patch.object(
+            BOOTSTRAP, "CORE_ROOT", core_root or data_root.parent / "qapaq-core"
+        ), patch.object(BOOTSTRAP.subprocess, "run", side_effect=fake_run):
+            return BOOTSTRAP.installer_required(release, expected_manager_version)
+
     def test_same_recorded_release_skips_the_one_shot_installer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             data_root = pathlib.Path(temporary_directory)
@@ -309,35 +351,95 @@ class InstallerIdempotencyTests(unittest.TestCase):
 
         self.assertEqual(failure.exception.code, 1)
 
-    def test_existing_manager_package_blocks_first_boot_reinstall(self) -> None:
+    def test_config_files_only_residual_manager_is_recoverable_on_empty_host(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            data_root = pathlib.Path(temporary_directory)
-            release = data_root / ("c" * 64)
-            release.mkdir()
+            data_root = pathlib.Path(temporary_directory) / "data"
+            self._prepare_data_root(data_root)
 
-            with patch.object(BOOTSTRAP, "DATA_ROOT", data_root):
-                with patch.object(BOOTSTRAP, "package_registered", side_effect=lambda name: name == "wazuh-manager"):
-                    with self.assertRaises(SystemExit) as failure:
-                        BOOTSTRAP.installer_required(release)
+            self.assertTrue(self._check_first_install(data_root, {"wazuh-manager": "config-files"}))
 
-            self.assertEqual(failure.exception.code, 1)
+    def test_installed_wazuh_package_blocks_first_boot_reinstall(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            data_root = pathlib.Path(temporary_directory) / "data"
+            self._prepare_data_root(data_root)
+
+            with self.assertRaises(SystemExit):
+                self._check_first_install(data_root, {"wazuh-manager": "installed"})
+
+    def test_wrong_version_manager_config_files_residue_blocks_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            data_root = pathlib.Path(temporary_directory) / "data"
+            self._prepare_data_root(data_root)
+
+            with self.assertRaises(SystemExit):
+                self._check_first_install(
+                    data_root,
+                    {"wazuh-manager": "config-files"},
+                    {"wazuh-manager": "4.14.7-1"},
+                )
+
+    def test_partial_or_other_package_residue_blocks_first_boot_reinstall(self) -> None:
+        scenarios = (
+            {"wazuh-manager": "half-installed"},
+            {"wazuh-manager": "config-files", "wazuh-indexer": "config-files"},
+            {"wazuh-manager": "config-files", "filebeat": "unpacked"},
+        )
+        for statuses in scenarios:
+            with self.subTest(statuses=statuses), tempfile.TemporaryDirectory() as temporary_directory:
+                data_root = pathlib.Path(temporary_directory) / "data"
+                self._prepare_data_root(data_root)
+
+                with self.assertRaises(SystemExit):
+                    self._check_first_install(data_root, statuses)
 
     def test_unmarked_wazuh_data_blocks_first_boot_reinstall(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            data_root = pathlib.Path(temporary_directory)
-            release = data_root / ("d" * 64)
-            release.mkdir()
+            data_root = pathlib.Path(temporary_directory) / "data"
+            self._prepare_data_root(data_root)
             manager_data = data_root / "manager"
-            manager_data.mkdir()
             (manager_data / "state.db").write_text("preserve", encoding="utf-8")
 
-            with patch.object(BOOTSTRAP, "DATA_ROOT", data_root):
-                with patch.object(BOOTSTRAP, "package_registered", return_value=False):
-                    with self.assertRaises(SystemExit) as failure:
-                        BOOTSTRAP.installer_required(release)
+            with self.assertRaises(SystemExit):
+                self._check_first_install(data_root, {"wazuh-manager": "config-files"})
 
-            self.assertEqual(failure.exception.code, 1)
             self.assertEqual((manager_data / "state.db").read_text(encoding="utf-8"), "preserve")
+
+    def test_durable_secret_or_unknown_file_blocks_without_removing_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            data_root = pathlib.Path(temporary_directory) / "data"
+            self._prepare_data_root(data_root)
+            secret_dir = data_root / "secrets"
+            secret_dir.mkdir()
+            secret_file = secret_dir / "wazuh-install-files.tar"
+            secret_file.write_text("preserve", encoding="utf-8")
+
+            with self.assertRaises(SystemExit):
+                self._check_first_install(data_root, {"wazuh-manager": "config-files"})
+
+            self.assertEqual(secret_file.read_text(encoding="utf-8"), "preserve")
+
+    def test_active_service_blocks_residual_package_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            data_root = pathlib.Path(temporary_directory) / "data"
+            self._prepare_data_root(data_root)
+
+            with self.assertRaises(SystemExit):
+                self._check_first_install(
+                    data_root,
+                    {"wazuh-manager": "config-files"},
+                    services={"wazuh-manager": "active"},
+                )
+
+    def test_existing_core_blocks_residual_package_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = pathlib.Path(temporary_directory)
+            data_root = root / "data"
+            self._prepare_data_root(data_root)
+            core_root = root / "qapaq-core"
+            core_root.mkdir()
+
+            with self.assertRaises(SystemExit):
+                self._check_first_install(data_root, {"wazuh-manager": "config-files"}, core_root=core_root)
 
 
 class DataDiskFormattingTests(unittest.TestCase):

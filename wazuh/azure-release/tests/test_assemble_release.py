@@ -113,6 +113,9 @@ class AssembleReleaseTests(unittest.TestCase):
         self.assertNotIn("agent-profiles", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("install_detection_rules.py", (root / "install.sh").read_text(encoding="utf-8"))
         self.assertIn("qapaq-teams-workflow-url", (root / "install.sh").read_text(encoding="utf-8"))
+        state_check = root / "wazuh/azure-release/check-install-state.sh"
+        self.assertTrue(state_check.is_file())
+        self.assertIn("config-files", state_check.read_text(encoding="utf-8"))
         self.assertIn("wazuh/provider-ingestion/sophos/upstream/LICENSE-2.0.txt", manifest["files"])
         self.assertIn("wazuh/provider-ingestion/sophos/UPSTREAM-SOURCE.json", manifest["files"])
         self.assertEqual(
