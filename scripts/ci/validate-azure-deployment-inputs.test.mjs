@@ -267,11 +267,20 @@ test('Dashboard ingress accepts public IPv4 or aligned /24 allowlists and reject
   );
   assert.doesNotThrow(() =>
     validateDeploymentInputs(
-      baseEnv({ TF_VAR_siem_host: JSON.stringify(siemHost({ dashboard_ingress_cidrs: ['0.0.0.0/0'] })) }),
+      baseEnv({
+        TF_VAR_siem_host: JSON.stringify(siemHost({ dashboard_ingress_cidrs: ['0.0.0.0/0'] })),
+      }),
     ),
   );
 
-  for (const cidr of ['0.0.0.0/1', '198.51.0.0/16', '198.51.100.0/23', '198.51.100.25/24', '2001:db8::/0', '2001:db8::/64']) {
+  for (const cidr of [
+    '0.0.0.0/1',
+    '198.51.0.0/16',
+    '198.51.100.0/23',
+    '198.51.100.25/24',
+    '2001:db8::/0',
+    '2001:db8::/64',
+  ]) {
     assert.throws(
       () =>
         validateDeploymentInputs(

@@ -83,10 +83,14 @@ function validateRestrictedIngressCidrs(cidrs, label) {
 }
 
 function validateDashboardIngressCidrs(cidrs) {
-  if (!Array.isArray(cidrs)) fail('siem_host.dashboard_ingress_cidrs must be an array of CIDRs.');
+  if (!Array.isArray(cidrs)) {
+    fail('siem_host.dashboard_ingress_cidrs must be an array of CIDRs.');
+  }
   if (cidrs.includes('0.0.0.0/0')) {
     if (cidrs.length !== 1) {
-      fail('siem_host.dashboard_ingress_cidrs must use 0.0.0.0/0 alone when publishing to all IPv4 addresses.');
+      fail(
+        'siem_host.dashboard_ingress_cidrs must use 0.0.0.0/0 alone when publishing to all IPv4 addresses.',
+      );
     }
     return;
   }
