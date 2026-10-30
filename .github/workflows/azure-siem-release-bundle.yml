@@ -8,7 +8,7 @@ on:
         type: string
         required: true
       prerequisites_run_id:
-        description: Successful azure-siem-prerequisites-experimental.yml run on release_sha
+        description: Successful main run with identical pinned Wazuh build workflow; package provenance is verified against release pins
         type: string
         required: true
       dashboard_run_id:
@@ -131,19 +131,45 @@ jobs:
         run: |
           set -euo pipefail
           validate_run() {
-            local run_id="$1" workflow="$2" metadata
+            local run_id="$1" workflow="$2" expected_sha="$3" metadata
             [[ "$run_id" =~ ^[0-9]{1,20}$ ]] || { echo 'Invalid source workflow run id.' >&2; return 1; }
             metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
-            jq -e --arg sha "$RELEASE_SHA" --arg workflow "$workflow" \
+            jq -e --arg sha "$expected_sha" --arg workflow "$workflow" \
               '.head_sha == $sha and .head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == $workflow' \
               <<<"$metadata" >/dev/null || {
-                echo "Source run $run_id must be successful on release_sha from main and use the expected workflow ($workflow)." >&2
+                echo "Source run $run_id must be successful on the expected commit from main and use the expected workflow ($workflow)." >&2
                 return 1
               }
           }
-          validate_run "$PREREQUISITES_RUN_ID" '.github/workflows/azure-siem-prerequisites-experimental.yml'
-          validate_run "$DASHBOARD_RUN_ID" '.github/workflows/qapaq-dashboard-azure.yml'
-          validate_run "$CORE_RUN_ID" '.github/workflows/qapaq-core-azure.yml'
+          validate_prerequisites_run() {
+            local run_id="$1" metadata source_sha
+            [[ "$run_id" =~ ^[0-9]{1,20}$ ]] || { echo 'Invalid prerequisites workflow run id.' >&2; return 1; }
+            metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            jq -e \
+              '.head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == ".github/workflows/azure-siem-prerequisites-experimental.yml"' \
+              <<<"$metadata" >/dev/null || {
+                echo "Prerequisites run $run_id must be successful on main and use the expected workflow." >&2
+                return 1
+              }
+            source_sha="$(jq -er '.head_sha' <<<"$metadata")"
+            [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$source_sha^{commit}" || {
+              echo 'Prerequisites run source commit is not present in the fetched main history.' >&2
+              return 1
+            }
+            git merge-base --is-ancestor "$source_sha" "$RELEASE_SHA" || {
+              echo 'Prerequisites run must come from an ancestor of release_sha.' >&2
+              return 1
+            }
+            git diff --quiet "$source_sha" "$RELEASE_SHA" -- .github/workflows/azure-siem-prerequisites-experimental.yml || {
+              echo 'Prerequisites build workflow changed between its source commit and release_sha; rebuild the pinned packages.' >&2
+              return 1
+            }
+            printf 'Verified reusable Wazuh prerequisite run %s from %s; exact upstream package pins are checked below.\n' \
+              "$run_id" "$source_sha" >> "$GITHUB_STEP_SUMMARY"
+          }
+          validate_prerequisites_run "$PREREQUISITES_RUN_ID"
+          validate_run "$DASHBOARD_RUN_ID" '.github/workflows/qapaq-dashboard-azure.yml' "$RELEASE_SHA"
+          validate_run "$CORE_RUN_ID" '.github/workflows/qapaq-core-azure.yml' "$RELEASE_SHA"
 
       - name: Download verified Manager, Indexer and Filebeat prerequisite artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
