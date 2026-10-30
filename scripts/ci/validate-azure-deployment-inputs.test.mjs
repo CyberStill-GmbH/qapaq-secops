@@ -325,6 +325,36 @@ test('public agent DNAT sources are restricted to aligned IPv4 allowlists no bro
   }
 });
 
+test('accepts the Qapaqzito Key Vault secret name without exposing its API key', () => {
+  assert.doesNotThrow(() =>
+    validateDeploymentInputs(
+      baseEnv({
+        TF_VAR_siem_host: JSON.stringify(siemHost({ assistant_secret_name: 'qapaq-anthropic-api-key' })),
+      }),
+    ),
+  );
+});
+
+test('rejects malformed Qapaqzito secret names and clear API-key-shaped values', () => {
+  const invalidValues = [
+    '',
+    'secret_with_underscore',
+    'sk-ant-api03-not-a-real-key',
+    'x'.repeat(128),
+    42,
+  ];
+  for (const assistant_secret_name of invalidValues) {
+    assert.throws(
+      () =>
+        validateDeploymentInputs(
+          baseEnv({
+            TF_VAR_siem_host: JSON.stringify(siemHost({ assistant_secret_name })),
+          }),
+        ),
+      /assistant_secret_name must be a Key Vault secret name, never an API key value/u,
+    );
+  }
+});
 test('SIEM accepts the optional closed provider_ingestion map and valid connector flags', () => {
   const providerIngestion = {
     sophos_enabled: 'true',
