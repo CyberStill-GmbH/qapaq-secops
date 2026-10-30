@@ -1,0 +1,452 @@
+diff --git a/auth0.go b/auth0.go
+index b1acb02..a248d08 100644
+--- a/auth0.go
++++ b/auth0.go
+@@ -5,10 +5,26 @@ import (
+ 	"net/http"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
++// supportedSignatureAlgorithms preserves the previous ParseSigned behavior of
++// parsing any supported JWS algorithm. Validation still enforces configured alg.
++var supportedSignatureAlgorithms = []jose.SignatureAlgorithm{
++	jose.EdDSA,
++	jose.HS256, jose.HS384, jose.HS512,
++	jose.RS256, jose.RS384, jose.RS512,
++	jose.ES256, jose.ES384, jose.ES512,
++	jose.PS256, jose.PS384, jose.PS512,
++}
++
++// ParseSignedToken parses a compact JWT while limiting parsing to supported
++// JOSE signature algorithms. JWTValidator applies configured algorithm policy.
++func ParseSignedToken(raw string) (*jwt.JSONWebToken, error) {
++	return jwt.ParseSigned(raw, supportedSignatureAlgorithms)
++}
++
+ // SecretProvider will provide everything
+ // needed retrieve the secret.
+ type SecretProvider interface {
+@@ -69,7 +85,7 @@ func NewConfiguration(provider SecretProvider, audience []string, issuer string,
+ 	}
+ 	return Configuration{
+ 		secretProvider:      provider,
+-		expectedClaims:      jwt.Expected{Issuer: issuer, Audience: audience},
++		expectedClaims:      jwt.Expected{Issuer: issuer, AnyAudience: audience},
+ 		signIn:              method,
+ 		tokenSecretProvider: tokenSecretProvider,
+ 	}
+@@ -83,7 +99,7 @@ func NewConfigurationTrustProvider(provider SecretProvider, audience []string, i
+ 	}
+ 	return Configuration{
+ 		secretProvider:      provider,
+-		expectedClaims:      jwt.Expected{Issuer: issuer, Audience: audience},
++		expectedClaims:      jwt.Expected{Issuer: issuer, AnyAudience: audience},
+ 		tokenSecretProvider: tokenSecretProvider,
+ 	}
+ }
+@@ -162,7 +178,7 @@ func (v *JWTValidator) ValidateSigned(s string) (*jwt.JSONWebToken, error) {
+ 	if s == "" {
+ 		return nil, ErrTokenNotFound
+ 	}
+-	token, err := jwt.ParseSigned(s)
++	token, err := ParseSignedToken(s)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/auth0_test.go b/auth0_test.go
+index cde20fd..29fdc1f 100644
+--- a/auth0_test.go
++++ b/auth0_test.go
+@@ -8,7 +8,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ func genTestConfiguration(configuration Configuration, token string) (*JWTValidator, *http.Request) {
+@@ -232,7 +232,7 @@ func TestValidateRequestAndClaims(t *testing.T) {
+ 				defaultIssuer,
+ 				time.Now().Add(24*time.Hour),
+ 				jose.HS256,
+-				[]byte("invalid secret"),
++				[]byte("01234567890123456789012345678902"),
+ 			),
+ 			expectedErrorMsg: "error in cryptographic primitive",
+ 		},
+diff --git a/common_test.go b/common_test.go
+index ce88f5a..2e7379e 100644
+--- a/common_test.go
++++ b/common_test.go
+@@ -11,8 +11,8 @@ import (
+ 	"net/http/httptest"
+ 	"time"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	jose "github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ var (
+@@ -23,7 +23,7 @@ var (
+ 	defaultIssuer   = "issuer"
+ 
+ 	// The default generated token by Chrome jwt extension
+-	defaultSecret         = []byte("secret")
++	defaultSecret         = []byte("0123456789012345678901234567890101234567890123456789012345678901")
+ 	defaultSecretProvider = NewKeyProvider(defaultSecret)
+ 
+ 	defaultSecretRS256         = genRSASSAJWK(jose.RS256, "")
+@@ -87,7 +87,7 @@ func getTestToken(audience []string, issuer string, expTime time.Time, alg jose.
+ 		Expiry:   jwt.NewNumericDate(expTime),
+ 	}
+ 
+-	raw, err := jwt.Signed(signer).Claims(cl).CompactSerialize()
++	raw, err := jwt.Signed(signer).Claims(cl).Serialize()
+ 	if err != nil {
+ 		panic(err)
+ 	}
+@@ -107,7 +107,7 @@ func getTestTokenWithKid(audience []string, issuer string, expTime time.Time, al
+ 		Expiry:   jwt.NewNumericDate(expTime),
+ 	}
+ 
+-	raw, err := jwt.Signed(signer).Claims(cl).CompactSerialize()
++	raw, err := jwt.Signed(signer).Claims(cl).Serialize()
+ 	if err != nil {
+ 		panic(err)
+ 	}
+diff --git a/compatibility_v4_test.go b/compatibility_v4_test.go
+new file mode 100644
+index 0000000..13fc558
+--- /dev/null
++++ b/compatibility_v4_test.go
+@@ -0,0 +1,98 @@
++package auth0
++
++import (
++	"encoding/base64"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
++)
++
++func TestV4RS256JWTAndJWKSCompatibility(t *testing.T) {
++	publicKey := defaultSecretRS256.Public()
++	publicKey.KeyID = "compat-rs256"
++	publicKey.Use = "sig"
++	jwks := JWKS{Keys: []jose.JSONWebKey{publicKey}}
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.Header().Set("Content-Type", "application/jwk-set+json")
++		if err := json.NewEncoder(w).Encode(jwks); err != nil {
++			t.Error(err)
++		}
++	}))
++	defer server.Close()
++
++	provider := NewJWKClient(JWKClientOptions{URI: server.URL}, nil)
++	validator := NewValidator(NewConfiguration(provider, defaultAudience, defaultIssuer, jose.RS256), nil)
++
++	validToken := getTestTokenWithKid(defaultAudience, defaultIssuer, time.Now().Add(time.Hour), jose.RS256, defaultSecretRS256, "compat-rs256")
++	request := func(raw string) *http.Request {
++		req := httptest.NewRequest(http.MethodGet, "/", nil)
++		req.Header.Set("Authorization", "Bearer "+raw)
++		return req
++	}
++	if _, err := validator.ValidateRequest(request(validToken)); err != nil {
++		t.Fatalf("valid RS256 JWT from JWKS was rejected: %v", err)
++	}
++
++	wrongAudience := getTestTokenWithKid([]string{"another-api"}, defaultIssuer, time.Now().Add(time.Hour), jose.RS256, defaultSecretRS256, "compat-rs256")
++	if _, err := validator.ValidateRequest(request(wrongAudience)); !errors.Is(err, jwt.ErrInvalidAudience) {
++		t.Fatalf("wrong audience error = %v, want %v", err, jwt.ErrInvalidAudience)
++	}
++
++	wrongIssuer := getTestTokenWithKid(defaultAudience, "another-issuer", time.Now().Add(time.Hour), jose.RS256, defaultSecretRS256, "compat-rs256")
++	if _, err := validator.ValidateRequest(request(wrongIssuer)); !errors.Is(err, jwt.ErrInvalidIssuer) {
++		t.Fatalf("wrong issuer error = %v, want %v", err, jwt.ErrInvalidIssuer)
++	}
++
++	wrongAlgorithm := getTestTokenWithKid(defaultAudience, defaultIssuer, time.Now().Add(time.Hour), jose.HS256, defaultSecret, "compat-rs256")
++	if _, err := validator.ValidateRequest(request(wrongAlgorithm)); !errors.Is(err, ErrInvalidAlgorithm) {
++		t.Fatalf("wrong algorithm error = %v, want %v", err, ErrInvalidAlgorithm)
++	}
++}
++
++func oversizedRSAModulus() []byte {
++	// 513 bytes with the high bit set is exactly a 4097-bit modulus.
++	modulus := make([]byte, 513)
++	modulus[0] = 1
++	return modulus
++}
++
++func TestV4RejectsOversizedRSAJWKInJWKS(t *testing.T) {
++	modulus := base64.RawURLEncoding.EncodeToString(oversizedRSAModulus())
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.Header().Set("Content-Type", "application/jwk-set+json")
++		_, _ = fmt.Fprintf(w, `{"keys":[{"kty":"RSA","n":%q,"e":"AQAB"}]}`, modulus)
++	}))
++	defer server.Close()
++
++	client := NewJWKClient(JWKClientOptions{URI: server.URL}, nil)
++	_, err := client.downloadKeys()
++	if err == nil || !strings.Contains(err.Error(), "modulus too large") {
++		t.Fatalf("oversized JWKS RSA modulus error = %v, want modulus too large", err)
++	}
++}
++
++func TestV4RejectsOversizedRSAJWKInCompactJWTHeader(t *testing.T) {
++	protected, err := json.Marshal(map[string]interface{}{
++		"alg": "RS256",
++		"jwk": map[string]string{
++			"kty": "RSA",
++			"n":   base64.RawURLEncoding.EncodeToString(oversizedRSAModulus()),
++			"e":   "AQAB",
++		},
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	compact := base64.RawURLEncoding.EncodeToString(protected) + ".e30.AA"
++	if _, err := ParseSignedToken(compact); err == nil || !strings.Contains(err.Error(), "modulus too large") {
++		t.Fatalf("oversized compact-JWT RSA modulus error = %v, want modulus too large", err)
++	}
++}
+diff --git a/go.mod b/go.mod
+index c040b1e..ec40d62 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,20 +1,15 @@
+ module github.com/krakend/go-auth0/v2
+ 
+-go 1.21
++go 1.24.0
+ 
+-toolchain go1.22.2
+-
+-require (
+-	github.com/go-jose/go-jose/v3 v3.0.3
+-	github.com/stretchr/testify v1.8.4
+-)
++require github.com/stretchr/testify v1.8.4
+ 
+ require (
+ 	github.com/davecgh/go-spew v1.1.1 // indirect
++	github.com/go-jose/go-jose/v4 v4.1.6
+ 	github.com/kr/pretty v0.3.0 // indirect
+ 	github.com/pmezard/go-difflib v1.0.0 // indirect
+ 	github.com/rogpeppe/go-internal v1.8.0 // indirect
+-	golang.org/x/crypto v0.19.0 // indirect
+ 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+ 	gopkg.in/yaml.v3 v3.0.1 // indirect
+ )
+diff --git a/go.sum b/go.sum
+index f9dca66..1b40d22 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1,11 +1,8 @@
+ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
+-github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+-github.com/go-jose/go-jose/v3 v3.0.3 h1:fFKWeig/irsp7XD2zBxvnmA/XaRWp5V3CBsZXJF7G7k=
+-github.com/go-jose/go-jose/v3 v3.0.3/go.mod h1:5b+7YgP7ZICgJDBdfjZaIt+H/9L9T/YQrVfLAMboGkQ=
+-github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
+-github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
++github.com/go-jose/go-jose/v4 v4.1.6 h1:sNRkftxFJxwsILiQukqp5z83QBSmntVwmgRY7AqBDO4=
++github.com/go-jose/go-jose/v4 v4.1.6/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
+ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
+ github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
+ github.com/kr/pretty v0.3.0 h1:WgNl7dwNpEZ6jJ9k1snq4pZsg7DOEN8hP9Xw0Tsjwk0=
+@@ -20,54 +17,12 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
+ github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
+ github.com/rogpeppe/go-internal v1.8.0 h1:FCbCCtXNOY3UtUuHUYaghJg4y7Fd14rXifAYUAtL9R8=
+ github.com/rogpeppe/go-internal v1.8.0/go.mod h1:WmiCO8CzOY8rg0OYDC4/i/2WRWAB6poM+XZ2dLUbcbE=
+-github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+-github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+ github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
+ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+-github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
+-golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
+-golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
+-golang.org/x/crypto v0.19.0 h1:ENy+Az/9Y1vSrlrvBSyna3PITt4tiZLf7sgCjZBX7Wo=
+-golang.org/x/crypto v0.19.0/go.mod h1:Iy9bg/ha4yyC70EfRS8jz+B6ybOBKMaSxLj6P6oBDfU=
+-golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
+-golang.org/x/mod v0.8.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
+-golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
+-golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
+-golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
+-golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
+-golang.org/x/net v0.10.0/go.mod h1:0qNGK6F8kojg2nk9dLZ2mShWaEBan6FAoqfSigmmuDg=
+-golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+-golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+-golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+-golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+-golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+-golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.17.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+-golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+-golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+-golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=
+-golang.org/x/term v0.8.0/go.mod h1:xPskH00ivmX89bAKVGSKKtLOWNx2+17Eiy94tnKShWo=
+-golang.org/x/term v0.17.0/go.mod h1:lLRBjIVuehSbZlaOtGMbcMncT+aqLLLmKrsjNrUguwk=
+-golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+-golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+-golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
+-golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
+-golang.org/x/text v0.9.0/go.mod h1:e1OnstbJyHTd6l/uOt8jFFHp6TRDWZR/bV3emEE/zU8=
+-golang.org/x/text v0.14.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
+-golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+-golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+-golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc=
+-golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
+-golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+ gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
+ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
+ gopkg.in/errgo.v2 v2.1.0/go.mod h1:hNsd1EY+bozCKY1Ytp96fpM3vjJbqLJn88ws8XvfDNI=
+-gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+ gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+diff --git a/jwk_client.go b/jwk_client.go
+index 6aca439..1f2c7eb 100644
+--- a/jwk_client.go
++++ b/jwk_client.go
+@@ -8,7 +8,7 @@ import (
+ 	"strings"
+ 	"sync"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ var (
+diff --git a/jwk_client_test.go b/jwk_client_test.go
+index ee00e99..71ad3e1 100644
+--- a/jwk_client_test.go
++++ b/jwk_client_test.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ )
+ 
+diff --git a/key_cacher.go b/key_cacher.go
+index c82fa44..a63bf0b 100644
+--- a/key_cacher.go
++++ b/key_cacher.go
+@@ -4,7 +4,7 @@ import (
+ 	"errors"
+ 	"time"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ )
+ 
+ var (
+diff --git a/key_cacher_test.go b/key_cacher_test.go
+index 9a2f161..baf9a28 100644
+--- a/key_cacher_test.go
++++ b/key_cacher_test.go
+@@ -8,7 +8,7 @@ import (
+ 
+ 	"github.com/stretchr/testify/assert"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ func TestGet(t *testing.T) {
+diff --git a/token_extraction.go b/token_extraction.go
+index e32f2f6..7da40e4 100644
+--- a/token_extraction.go
++++ b/token_extraction.go
+@@ -5,7 +5,7 @@ import (
+ 	"net/http"
+ 	"strings"
+ 
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ var (
+@@ -57,7 +57,7 @@ func FromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
+ 	if raw == "" {
+ 		return nil, ErrTokenNotFound
+ 	}
+-	return jwt.ParseSigned(raw)
++	return ParseSignedToken(raw)
+ }
+ 
+ // FromParams returns the JWT when passed as the URL query param "token".
+@@ -66,5 +66,5 @@ func FromParams(r *http.Request) (*jwt.JSONWebToken, error) {
+ 	if raw == "" {
+ 		return nil, ErrTokenNotFound
+ 	}
+-	return jwt.ParseSigned(raw)
++	return ParseSignedToken(raw)
+ }
+diff --git a/token_extraction_test.go b/token_extraction_test.go
+index c154ee5..e969e61 100644
+--- a/token_extraction_test.go
++++ b/token_extraction_test.go
+@@ -7,8 +7,8 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ func TestFromRequestHeaderExtraction(t *testing.T) {
+@@ -25,7 +25,7 @@ func TestFromRequestHeaderExtraction(t *testing.T) {
+ 	}
+ 
+ 	claims := jwt.Claims{}
+-	err = token.Claims([]byte("secret"), &claims)
++	err = token.Claims(defaultSecret, &claims)
+ 	if err != nil {
+ 		t.Errorf("Claims should be decoded correctly with default token: %q \n", err)
+ 		t.FailNow()
+@@ -48,7 +48,7 @@ func TestFromRequestParamsExtraction(t *testing.T) {
+ 	}
+ 
+ 	claims := jwt.Claims{}
+-	err = token.Claims([]byte("secret"), &claims)
++	err = token.Claims(defaultSecret, &claims)
+ 	if err != nil {
+ 		t.Errorf("Claims should be decoded correctly with default token: %q \n", err)
+ 		t.FailNow()
+@@ -81,7 +81,7 @@ func TestFromMultipleExtraction(t *testing.T) {
+ 		}
+ 
+ 		claims := jwt.Claims{}
+-		err = token.Claims([]byte("secret"), &claims)
++		err = token.Claims(defaultSecret, &claims)
+ 		if err != nil {
+ 			t.Errorf("Claims should be decoded correctly with default token: %q \n", err)
+ 			t.FailNow()
