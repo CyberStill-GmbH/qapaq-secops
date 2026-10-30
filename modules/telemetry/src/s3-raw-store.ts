@@ -7,6 +7,7 @@ import {
   type HeadObjectCommandOutput,
 } from '@aws-sdk/client-s3';
 import { RawObjectIntegrityError, type DurableRawStore } from './admission.js';
+import { rawObjectKey } from './raw-object-key.js';
 
 export interface S3RawStoreOptions {
   readonly endpoint: string;
@@ -140,8 +141,6 @@ export class S3RawStore implements DurableRawStore {
   }
 
   #key(ref: string): string {
-    if (!/^raw:[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(ref))
-      throw new Error('Invalid raw reference');
-    return `raw/v1/${ref.slice(4)}`;
+    return rawObjectKey(ref);
   }
 }

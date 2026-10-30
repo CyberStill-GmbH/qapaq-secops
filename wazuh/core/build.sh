@@ -61,6 +61,14 @@ pnpm --filter @qapaq/worker deploy --prod --legacy "$stage/worker"
 node scripts/docker/prune-deploy.mjs "$stage/api"
 node scripts/docker/prune-deploy.mjs "$stage/worker"
 
+# Azure no tiene tarea one-off dentro de la VNet: el migrator viaja en el release y lo invoca
+# postgres-bootstrap-azure.py desde un Run Command. Mismo contenido que Dockerfile.migrator
+# (Prisma CLI incluido); el artefacto AWS no cambia y sigue usando la imagen de ECS.
+if [[ "$CA_MODE" == system ]]; then
+  pnpm --filter @qapaq/database deploy --legacy "$stage/migrator"
+  rm -rf "$stage/migrator/test" "$stage/migrator/src" "$stage/migrator/generated"
+fi
+
 cp "$HERE"/systemd/*.service "$stage/systemd/"
 printf '%s\n' "$SHA" >"$stage/RELEASE"
 

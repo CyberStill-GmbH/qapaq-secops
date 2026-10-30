@@ -1,0 +1,195 @@
+name: Bootstrap EUS2 PostgreSQL roles and schema
+
+# Azure EUS2 — equivalente de `migrate-database.yml` (AWS) para el núcleo en el host SIEM.
+#
+# PostgreSQL Flexible Server es privado y el host SIEM es el único cómputo con ruta a él, así que
+# no hay tarea one-off: una única deployment ARM
+#   1. escribe `qapaq-postgres-app-password` (contraseña nueva del runtime) en Key Vault,
+#   2. crea `qapaq-entity-ref-key` solo si todavía no existe (nunca la rota, D-10b), y
+#   3. ejecuta un Run Command en la VM que aplica `roles.sql`, migra con una contraseña de un
+#      solo uso para `qapaq_migrator` y lo deja sin LOGIN (`wazuh/core/postgres-bootstrap-azure.py`).
+# Las credenciales viajan como `secureString` y parámetros protegidos: no quedan en logs,
+# argumentos de proceso ni en el historial de la deployment. Cada corrida rota la contraseña del
+# runtime; si falla a mitad, repetirla converge. Si el API ya usa `QAPAQ_SOC_PERSISTENCE=postgres`,
+# el host lo reinicia para que tome la contraseña rotada.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_bootstrap:
+        description: Type BOOTSTRAP-EUS2-POSTGRES to rotate the runtime role password and migrate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Nunca dos bootstraps/migraciones a la vez sobre la misma base.
+  group: bootstrap-eus2-postgres
+  cancel-in-progress: false
+
+jobs:
+  validate_request:
+    name: Validate request before resolving Environment secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Validate branch and confirmation phrase
+        env:
+          TARGET_REF: ${{ github.ref }}
+          CONFIRM_BOOTSTRAP: ${{ inputs.confirm_bootstrap }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_REF" == 'refs/heads/main' ]] || {
+            echo '::error::This workflow is restricted to main.'; exit 1;
+          }
+          [[ "$CONFIRM_BOOTSTRAP" == 'BOOTSTRAP-EUS2-POSTGRES' ]] || {
+            echo '::error::Confirmation phrase is incorrect.'; exit 1;
+          }
+
+  bootstrap:
+    needs: validate_request
+    if: needs.validate_request.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: azure-demo-eus2
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_TENANT_ID: ${{ vars.AZURE_EUS2_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      VAULT_NAME: kv-qapaqsecopsd-3a2405f3
+      VM_NAME: vm-qapaqsecopsdemoeus-siem
+      RESOURCE_GROUP: rg-qapaqsecopsdemoeus-3a2405f3
+    steps:
+      - name: Check out protected main revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate Azure target identifiers and administrator login
+        run: |
+          set -euo pipefail
+          for name in AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            [[ -n "${!name}" ]] || {
+              echo "::error::Missing required azure-demo-eus2 variable: $name"; exit 1;
+            }
+          done
+          [[ "$AZURE_SUBSCRIPTION_ID" == 'aaf787f8-5964-4470-9eb6-89d15eacda61' ]] || {
+            echo '::error::Refusing an unexpected subscription.'; exit 1;
+          }
+          grep -Eq '^postgres_admin_login[[:space:]]*=[[:space:]]*"qapaqbootstrap"$' \
+            infra/azure/profiles/demo-eus2.tfvars || {
+              echo '::error::The EUS2 profile administrator login differs from the ARM allowlist.'; exit 1;
+            }
+
+      - name: Sign in with the EUS2 Terraform OIDC identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Verify subscription, VM and private Key Vault
+        shell: bash
+        run: |
+          set -euo pipefail
+          account="$RUNNER_TEMP/eus2-pg-account.json"
+          vault="$RUNNER_TEMP/eus2-pg-vault.json"
+          vm="$RUNNER_TEMP/eus2-pg-vm.json"
+          trap 'rm -f "$account" "$vault" "$vm"' EXIT
+          az account show --query '{id:id,tenantId:tenantId}' -o json > "$account"
+          jq -e --arg s "$AZURE_SUBSCRIPTION_ID" --arg t "$AZURE_TENANT_ID" \
+            '.id == $s and .tenantId == $t' "$account" >/dev/null || {
+              echo '::error::Unexpected OIDC tenant or subscription.'; exit 1;
+            }
+          az keyvault show --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" \
+            --query '{location:location,pna:properties.publicNetworkAccess,action:properties.networkAcls.defaultAction}' \
+            -o json > "$vault"
+          jq -e '.location == "eastus2" and .pna == "Disabled" and .action == "Deny"' "$vault" >/dev/null || {
+            echo '::error::Vault target or network policy differs; refusing to write.'; exit 1;
+          }
+          az vm show --name "$VM_NAME" --resource-group "$RESOURCE_GROUP" -d \
+            --query '{location:location,power:powerState}' -o json > "$vm"
+          jq -e '.location == "eastus2" and .power == "VM running"' "$vm" >/dev/null || {
+            echo '::error::The SIEM VM is not running in eastus2; refusing to bootstrap.'; exit 1;
+          }
+
+      - name: Detect an existing entity reference key (never rotated here)
+        id: entity_key
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${VAULT_NAME}/secrets/qapaq-entity-ref-key"
+          result="$RUNNER_TEMP/eus2-pg-entity.txt"
+          error="$RUNNER_TEMP/eus2-pg-entity.err"
+          trap 'rm -f "$result" "$error"' EXIT
+          set +e
+          az resource show --ids "$secret_id" --api-version 2025-05-01 --query id -o tsv \
+            --only-show-errors > "$result" 2> "$error"
+          status=$?
+          set -e
+          if [[ $status -eq 0 && -s "$result" ]]; then
+            echo 'create=false' >> "$GITHUB_OUTPUT"
+          elif grep -q 'ResourceNotFound' "$error"; then
+            echo 'create=true' >> "$GITHUB_OUTPUT"
+          else
+            echo '::error::Could not determine whether the entity key exists; refusing to continue.'; exit 1;
+          fi
+
+      - name: Create protected ARM parameter file
+        shell: bash
+        env:
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.AZURE_EUS2_POSTGRES_ADMIN_PASSWORD }}
+          CREATE_ENTITY_REF_KEY: ${{ steps.entity_key.outputs.create }}
+        run: |
+          set -euo pipefail
+          python3 .github/ci/prepare-eus2-postgres-bootstrap.py --write "$RUNNER_TEMP/eus2-pg-parameters.json"
+
+      - name: Write Key Vault secrets and run the host bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          parameter_file="$RUNNER_TEMP/eus2-pg-parameters.json"
+          error="$RUNNER_TEMP/eus2-pg-deploy.err"
+          trap 'rm -f "$parameter_file" "$error"' EXIT
+          if ! az deployment group create \
+            --name "qapaq-eus2-postgres-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "$RESOURCE_GROUP" --mode Incremental \
+            --template-file infra/azure/secrets/eus2-postgres-bootstrap.json \
+            --parameters "@${parameter_file}" --output none --only-show-errors 2>"$error"; then
+            echo '::error::ARM deployment or host bootstrap failed; response body withheld.'; exit 1;
+          fi
+
+      - name: Report host bootstrap events
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="qapaq-postgres-bootstrap-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          view="$RUNNER_TEMP/eus2-pg-view.json"
+          trap 'rm -f "$view"' EXIT
+          az vm run-command show --vm-name "$VM_NAME" --resource-group "$RESOURCE_GROUP" \
+            --name "$name" --instance-view \
+            --query '{state:instanceView.executionState,exitCode:instanceView.exitCode,output:instanceView.output}' \
+            -o json --only-show-errors > "$view" 2>/dev/null || { echo 'No Run Command instance view.'; exit 0; }
+          jq -r '"Estado: \(.state) · código de salida: \(.exitCode)"' "$view"
+          # El script del host solo imprime eventos JSON sin secretos; se filtra igual por servicio.
+          jq -r '.output // ""' "$view" | grep -E '"service": ?"qapaq-(postgres-bootstrap-azure|secops-migrator)"' || true
+
+      - name: Remove Run Command and temporary files
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$RUNNER_TEMP/eus2-pg-parameters.json" "$RUNNER_TEMP/eus2-pg-deploy.err" \
+            "$RUNNER_TEMP/eus2-pg-account.json" "$RUNNER_TEMP/eus2-pg-vault.json" \
+            "$RUNNER_TEMP/eus2-pg-vm.json" "$RUNNER_TEMP/eus2-pg-view.json"
+          az vm run-command delete --vm-name "$VM_NAME" --resource-group "$RESOURCE_GROUP" \
+            --name "qapaq-postgres-bootstrap-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --yes --only-show-errors >/dev/null 2>&1 || true

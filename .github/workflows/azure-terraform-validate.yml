@@ -12,6 +12,10 @@ on:
       - "scripts/check-azure-runtime-env.mjs"
       - "scripts/ci/azure-tf-plan-summary.mjs"
       - "scripts/ci/azure-tf-plan-summary.test.mjs"
+      - ".github/workflows/bootstrap-eus2-postgres.yml"
+      - ".github/ci/prepare-eus2-postgres-bootstrap.py"
+      - ".github/ci/test_eus2_postgres_bootstrap.py"
+      - "wazuh/core/postgres-bootstrap-azure.py"
   push:
     branches:
       - main
@@ -62,6 +66,9 @@ jobs:
           python3 infra/azure/modules/siem_host/test_indexer_read_proxy.py
           python3 .github/ci/test_verify_eus2_indexer_secret_metadata.py
           python3 .github/ci/test_eus2_key_vault_seed.py
+
+      - name: Verify EUS2 PostgreSQL bootstrap parameters and workflow
+        run: python3 .github/ci/test_eus2_postgres_bootstrap.py
 
       - name: Verify SIEM and Ankay disk formatting fails closed
         run: python3 infra/azure/modules/ankay_host/test_prepare_data_disk.py

@@ -11,6 +11,10 @@
  *                    pasan por Terraform, logs ni argumentos de proceso.
  *   migrate          Con `qapaq_migrator` ejecuta `prisma migrate deploy` y reaplica el
  *                    endurecimiento de permisos (`bootstrap/post-migrate.sql`).
+ *   azure-bootstrap  Azure EUS2, desde el host SIEM: con el administrador del Flexible Server
+ *                    aplica `roles.sql`, migra con una contraseña de un solo uso para
+ *                    `qapaq_migrator` y lo deja sin LOGIN. La contraseña del runtime ya está en
+ *                    Key Vault (`qapaq-postgres-app-password`); no llama a AWS.
  *
  * Entorno:
  *   QAPAQ_POSTGRES_HOST, QAPAQ_POSTGRES_PORT, QAPAQ_POSTGRES_DATABASE, QAPAQ_POSTGRES_TLS
@@ -19,6 +23,8 @@
  *                    QAPAQ_RUNTIME_SECRET_ID, QAPAQ_ENTITY_REF_SECRET_ID,
  *                    QAPAQ_VAPID_SECRET_ID, AWS_REGION
  *   migrate:         QAPAQ_MIGRATOR_PASSWORD (inyectada por ECS)
+ *   azure-bootstrap: QAPAQ_MASTER_USERNAME, QAPAQ_MASTER_PASSWORD, QAPAQ_RUNTIME_PASSWORD
+ *                    (parámetros protegidos del Run Command; nunca argumentos de proceso)
  *
  * Salida: una línea JSON por fase, sin secretos. Código distinto de cero si algo falla: el
  * pipeline de release no despliega el API sin una migración exitosa.
@@ -31,6 +37,7 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
+import { runAzureBootstrap } from './azure-bootstrap.mjs';
 import { awsSecretsPort, runBootstrapProtocol } from './bootstrap-protocol.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -184,7 +191,7 @@ export function redact(text, secrets) {
   return output;
 }
 
-function runPrisma(databaseUrl) {
+function runPrisma(databaseUrl, password = process.env.QAPAQ_MIGRATOR_PASSWORD ?? '') {
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
@@ -201,7 +208,7 @@ function runPrisma(databaseUrl) {
         stdio: ['ignore', 'pipe', 'pipe'],
       },
     );
-    const sensitive = [databaseUrl, process.env.QAPAQ_MIGRATOR_PASSWORD ?? ''];
+    const sensitive = [databaseUrl, password];
     child.stdout.on('data', (chunk) => process.stdout.write(redact(String(chunk), sensitive)));
     child.stderr.on('data', (chunk) => process.stderr.write(redact(String(chunk), sensitive)));
     child.on('error', reject);
@@ -211,13 +218,51 @@ function runPrisma(databaseUrl) {
   });
 }
 
-async function migrate() {
-  const url = connectionUrl(MIGRATOR_ROLE, required('QAPAQ_MIGRATOR_PASSWORD'));
-  await runPrisma(url);
+async function migrate(password = required('QAPAQ_MIGRATOR_PASSWORD')) {
+  const url = connectionUrl(MIGRATOR_ROLE, password);
+  await runPrisma(url, password);
   log('migrate.applied');
   const sql = await readFile(new URL('../bootstrap/post-migrate.sql', import.meta.url), 'utf8');
   await withClient(url, (client) => client.query(sql));
   log('migrate.hardened');
+}
+
+/**
+ * Azure EUS2 — roles y migración con la credencial de administrador del Flexible Server, que
+ * llega junto con la contraseña del runtime como parámetros protegidos del Run Command. No usa
+ * AWS ni guarda la contraseña de `qapaq_migrator` (ver `azure-bootstrap.mjs`).
+ */
+async function azureBootstrap() {
+  const masterUrl = connectionUrl(
+    required('QAPAQ_MASTER_USERNAME'),
+    required('QAPAQ_MASTER_PASSWORD'),
+  );
+  const sql = await readFile(new URL('../bootstrap/roles.sql', import.meta.url), 'utf8');
+  await runAzureBootstrap({
+    runtimePassword: required('QAPAQ_RUNTIME_PASSWORD'),
+    generatePassword,
+    log,
+    applyRoles: (passwords) =>
+      withClient(masterUrl, async (db) => {
+        await db.query('BEGIN');
+        try {
+          await db.query(
+            "SELECT set_config('qapaq.migrator_password', $1, true), set_config('qapaq.runtime_password', $2, true)",
+            [passwords[MIGRATOR_ROLE], passwords[RUNTIME_ROLE]],
+          );
+          await db.query(sql);
+          await db.query('COMMIT');
+        } catch (error) {
+          await db.query('ROLLBACK').catch(() => undefined);
+          throw error;
+        }
+      }),
+    migrate: (password) => migrate(password),
+    lockMigrator: () =>
+      withClient(masterUrl, (db) =>
+        db.query(`ALTER ROLE ${MIGRATOR_ROLE} WITH NOLOGIN PASSWORD NULL`),
+      ),
+  });
 }
 
 const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
@@ -226,7 +271,8 @@ if (invokedDirectly)
   try {
     if (mode === 'bootstrap-roles') await bootstrapRoles();
     else if (mode === 'migrate') await migrate();
-    else throw new Error('MODE_INVALID: usar bootstrap-roles o migrate');
+    else if (mode === 'azure-bootstrap') await azureBootstrap();
+    else throw new Error('MODE_INVALID: usar bootstrap-roles, migrate o azure-bootstrap');
     log('completed', { mode });
   } catch (error) {
     // Solo el tipo y un código: un mensaje de pg podría citar parámetros de conexión.

@@ -11,6 +11,19 @@ export {
   type TelemetryProviderRecord,
 } from './admission.js';
 export { S3RawStore, type S3RawStoreOptions } from './s3-raw-store.js';
+export {
+  AZURE_BLOB_TOKEN_RESOURCE,
+  AzureBlobRawStore,
+  AzureBlobStorageError,
+  type AzureBlobRawStoreOptions,
+  type AzureBlobStorageErrorCode,
+} from './azure-blob-raw-store.js';
+export {
+  AzureManagedIdentityError,
+  createManagedIdentityTokenSource,
+  type AzureAccessTokenSource,
+  type ManagedIdentityTokenSourceOptions,
+} from './azure-managed-identity-token.js';
 export { deterministicUuid7 } from './deterministic-id.js';
 export {
   normalizeWazuhAlert,
