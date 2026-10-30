@@ -56,6 +56,15 @@ locals {
     install -m 0600 /dev/null /var/log/qapaq-siem-bootstrap.log
     printf '%s' '${base64encode(local.bootstrap_config)}' | base64 --decode > /etc/qapaq-siem/bootstrap.json
     chmod 0600 /etc/qapaq-siem/bootstrap.json
+    # Reintento tras un fallo posterior: el bootstrap exige el disco de datos sin montar. Se
+    # detienen los servicios y se desmontan los bind mounts y el disco; install.sh reanuda
+    # sobre la instalación existente. En el primer arranque no hay nada que detener.
+    for unit in qapaq-core-worker qapaq-core-api wazuh-dashboard filebeat wazuh-manager wazuh-indexer; do
+      systemctl stop "$unit" 2>/dev/null || true
+    done
+    for target in /var/ossec /var/lib/wazuh-indexer /var/lib/wazuh-dashboard /srv/qapaq-siem; do
+      if mountpoint -q "$target"; then umount "$target"; fi
+    done
     exec python3 /usr/local/sbin/qapaq-siem-bootstrap.py >> /var/log/qapaq-siem-bootstrap.log 2>&1
   SCRIPT
 }
