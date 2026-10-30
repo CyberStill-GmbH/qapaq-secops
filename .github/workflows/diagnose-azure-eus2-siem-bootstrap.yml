@@ -57,3 +57,52 @@ jobs:
           fi' \
             --query 'value[0].message' \
             --output tsv
+
+      - name: Read non-secret installation inventory before recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'set -eu
+          echo "== durable disk mount =="
+          findmnt --noheadings --output SOURCE,FSTYPE,TARGET /srv/qapaq-siem || true
+          echo "== Wazuh package status and versions =="
+          for package in wazuh-manager wazuh-indexer wazuh-dashboard filebeat; do
+            dpkg-query --show --showformat="\${db:Status-Status}|\${Version}" "$package" 2>/dev/null || echo "$package=missing"
+            echo
+          done
+          echo "== bootstrap state =="
+          if [ -f /srv/qapaq-siem/bootstrap-install-state.json ]; then
+            cat /srv/qapaq-siem/bootstrap-install-state.json
+          else
+            echo absent
+          fi
+          echo "== retained Wazuh release digests =="
+          find /opt/qapaq-siem/releases -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort || true
+          echo "== durable data counts =="
+          for path in /srv/qapaq-siem/manager /srv/qapaq-siem/indexer /srv/qapaq-siem/dashboard /opt/qapaq-core; do
+            if [ -e "$path" ]; then
+              files=$(find "$path" -xdev -type f 2>/dev/null | wc -l)
+              bytes=$(du -sb "$path" 2>/dev/null | cut -f1 || echo unknown)
+              printf "%s files=%s bytes=%s\n" "$path" "$files" "$bytes"
+            else
+              printf "%s absent\n" "$path"
+            fi
+          done
+          echo "== service states =="
+          for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard qapaq-core-api qapaq-core-worker; do
+            state=$(systemctl is-active "$service" 2>/dev/null || true)
+            printf "%s=%s\n" "$service" "${state:-unknown}"
+          done
+          echo "== Core readiness =="
+          if [ -x /opt/qapaq-core/current/node/bin/node ]; then
+            /opt/qapaq-core/current/node/bin/node --version
+          else
+            echo node-runtime-absent
+          fi
+          curl --silent --output /dev/null --write-out "health_ready_http=%{http_code}\n" --max-time 5 http://127.0.0.1:3000/health/ready || true' \
+            --query 'value[0].message' \
+            --output tsv
