@@ -1,0 +1,59 @@
+name: QAPAQ finance playbooks and detections
+
+on:
+  pull_request:
+    paths:
+      - 'infra/wazuh/finance/**'
+      - 'infra/wazuh/launch-detections/ankay/finance/**'
+      - 'docs/security/ankay-playbooks/finance-catalog.yaml'
+      - 'docs/security/ankay-playbooks/finance/**'
+      - 'wazuh/office365/rules/**'
+      - 'infra/wazuh/active-directory/rules/**'
+      - 'infra/wazuh/launch-detections/rules/**'
+      - '.github/workflows/wazuh-finance-detections.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/wazuh/finance/**'
+      - 'infra/wazuh/launch-detections/ankay/finance/**'
+      - 'docs/security/ankay-playbooks/finance-catalog.yaml'
+      - 'docs/security/ankay-playbooks/finance/**'
+      - 'wazuh/office365/rules/**'
+      - 'infra/wazuh/active-directory/rules/**'
+      - 'infra/wazuh/launch-detections/rules/**'
+      - '.github/workflows/wazuh-finance-detections.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-finance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-logtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start isolated Wazuh Manager 4.14.8 at local night time
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-finance-test
+          --ulimit nofile=458752:458752
+          --env "TZ=$(bash infra/wazuh/finance/tests/prepare-container.sh --tz 23)"
+          wazuh/wazuh-manager:4.14.8
+      - name: Load QAPAQ rules and synthetic CDB lists
+        run: bash infra/wazuh/finance/tests/prepare-container.sh qapaq-wazuh-finance-test 23
+      - name: Run finance positive/negative fixtures
+        run: bash infra/wazuh/finance/tests/run-logtest.sh qapaq-wazuh-finance-test
+      - name: Validate catalog, Shuffle workflows, rule IDs and fixtures
+        if: always()
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet 'PyYAML==6.0.2'
+          python3 infra/wazuh/finance/validate_finance.py
+      - name: Stop test Manager
+        if: always()
+        run: docker rm -f qapaq-wazuh-finance-test || true
