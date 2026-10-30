@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "note": "Plantilla. Copiar a group-mapping.json en el recurso de despliegue y reemplazar cada TO_BE_PROVIDED con las OU y patrones reales (cuestionario, preguntas R2 y R3). El instalador rechaza el archivo mientras quede un TO_BE_PROVIDED. Primera coincidencia gana: ordenar de lo más específico a lo más general.",
+  "defaultGroup": "qapaq-ws-general",
+  "rules": [
+    { "id": "dc-ou", "match": "ou", "pattern": "(?i)OU=Domain Controllers,", "group": "qapaq-dc" },
+    {
+      "id": "core-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_CORE,",
+      "group": "qapaq-srv-core"
+    },
+    {
+      "id": "db-name",
+      "match": "hostname",
+      "pattern": "(?i)^TO_BE_PROVIDED_DB",
+      "group": "qapaq-srv-db"
+    },
+    {
+      "id": "web-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_DMZ,",
+      "group": "qapaq-srv-web"
+    },
+    {
+      "id": "tesoreria-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_TESORERIA,",
+      "group": "qapaq-ws-sensitive"
+    },
+    {
+      "id": "operaciones-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_OPERACIONES,",
+      "group": "qapaq-ws-sensitive"
+    },
+    {
+      "id": "creditos-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_CREDITOS,",
+      "group": "qapaq-ws-sensitive"
+    },
+    {
+      "id": "ti-priv-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_TI_PRIVILEGIADO,",
+      "group": "qapaq-ws-sensitive"
+    },
+    {
+      "id": "laptops-ou",
+      "match": "ou",
+      "pattern": "(?i)OU=TO_BE_PROVIDED_PORTATILES,",
+      "group": "qapaq-laptop-remote"
+    }
+  ]
+}
