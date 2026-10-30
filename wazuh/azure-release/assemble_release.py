@@ -28,14 +28,14 @@ ASSISTANT_TAG = "v4.14.8"
 SOPHOS_SIEM_COMMIT = "4fd97bbc7ec54e507bca9eaf4245f136cc90097d"
 SOPHOS_SIEM_TAG = "v2.1.0"
 SYNTHETIC_CONTEXT_LIST_SHA256 = {
-    "infra/wazuh/finance/lists/qapaq-break-glass-ad.example": "dd97a6b15065bb284040fac0e9d21cd8b0970857601576cdd4f3ac5042068176",
-    "infra/wazuh/finance/lists/qapaq-finance-core-users.example": "159c59f0407d714570d882dfd0fd404d4b6c20d64a6e263e60a541aca998715e",
-    "infra/wazuh/finance/lists/qapaq-lookalike-domains.example": "b914a1517d05039acaf72ab8769fd96ec4dcc3739578a90a075443d6f8580faa",
-    "infra/wazuh/finance/lists/qapaq-sensitive-sites.example": "a88c41cff02ea6ca2aa7d3382e8f4441c90f08306d6e32806166efc2d2a39899",
-    "infra/wazuh/priority/lists/qapaq-critical-assets.example": "d9d7778e172241d6f88ffd9e76957b21359eb72e17fa55bd5ab8ca6a7fe39eb8",
-    "infra/wazuh/priority/lists/qapaq-internet-facing.example": "2f1a558fcbd284c5eb5e5b549112193a48d4d734b0e2ad9c07529a6f9d0d1565",
-    "infra/wazuh/priority/lists/qapaq-privileged-identities.example": "a1141d1b80a5e44bae7279b70dc3d13e48a1d1ead67c8ac7e9c8c44442700c1c",
-    "infra/wazuh/priority/lists/qapaq-sensitive-workstations.example": "2c328abf170c354e47ce72f14cb92a54968a9ecbe2c0c90dc955b5745ff66ffd",
+    "infra/wazuh/finance/lists/qapaq-break-glass-ad.example": "5a9acc0d5c057cede45745f4ff3a5fbd77f36c36a78dbceabbc761182df2fec8",
+    "infra/wazuh/finance/lists/qapaq-finance-core-users.example": "1668c69f2077ffeba0319f66e16856d80b2df8f1e2c0f4e1ddce18d615ca397b",
+    "infra/wazuh/finance/lists/qapaq-lookalike-domains.example": "9ddcfcb36a42b93496ac8d7fcab78371c9e69548060a6d9cd675ef4b9209f6c4",
+    "infra/wazuh/finance/lists/qapaq-sensitive-sites.example": "f0e36ebe41eb8ec7675a06fde03e3aa19dd32c9e95b7f6fd5224cf44322bbd1c",
+    "infra/wazuh/priority/lists/qapaq-critical-assets.example": "84df3844d95de8d27df42532710e185a9726603a29299e1a1634d6e6deaaea2c",
+    "infra/wazuh/priority/lists/qapaq-internet-facing.example": "1e1da24737295a2a8ff6ef5c5159967cebb626c6250c1d221889a5a562bdb602",
+    "infra/wazuh/priority/lists/qapaq-privileged-identities.example": "bbaa0388de8024d3f3e4c9711fb41177545e0638198452b74f4b9a57abbdce67",
+    "infra/wazuh/priority/lists/qapaq-sensitive-workstations.example": "b608cfcaa7533a1b99bbf1f0728b24a1bc0b3c01471c8297adc523e3f1eb0f5c",
 }
 
 
@@ -88,7 +88,7 @@ def validate_synthetic_context_list(repo_root: pathlib.Path, source: pathlib.Pat
     except ValueError as error:
         raise ValueError(f"candidate context list is outside the repository: {source.name}") from error
     expected = SYNTHETIC_CONTEXT_LIST_SHA256.get(relative)
-    if expected is None or sha256(source) != expected:
+    if expected is None or sha256_normalized_text(source) != expected:
         raise ValueError(f"candidate context list does not match the pinned synthetic template: {source.name}")
 
 
