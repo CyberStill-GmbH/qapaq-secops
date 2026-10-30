@@ -46,18 +46,34 @@ jobs:
           vault_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/rg-qapaqsecopsdemoeus-3a2405f3/providers/Microsoft.KeyVault/vaults/kv-qapaqsecopsd-3a2405f3"
           metadata="$RUNNER_TEMP/eus2-key-vault-metadata.json"
           trap 'rm -f "$metadata"' EXIT
-          az rest --method get --url "https://management.azure.com${vault_id}/secrets?api-version=2025-05-01" \
-            --output json > "$metadata"
+          # The ARM list endpoint is paginated; keep only name/status/expiry metadata.
+          page_url="https://management.azure.com${vault_id}/secrets?api-version=2025-05-01"
+          previous_url=""
+          : > "$metadata"
+          while [[ -n "$page_url" ]]; do
+            [[ "$page_url" != "$previous_url" ]] || { echo 'Key Vault returned a repeated nextLink.' >&2; exit 1; }
+            previous_url="$page_url"
+            page="$(az rest --method get --url "$page_url" --output json)"
+            jq -c '
+              .value[]? |
+              {
+                name: (.id | split("/")[-1]),
+                enabled: (.properties.attributes.enabled // false),
+                expires: (.properties.attributes.exp // null)
+              }
+            ' <<< "$page" >> "$metadata"
+            page_url="$(jq -r '.nextLink // empty' <<< "$page")"
+          done
           for name in \
             qapaq-anthropic-api-key qapaq-virustotal-api-key \
             qapaq-entra-client-secret office365-client-secret \
             sophos-client-id sophos-client-secret cato-api-key \
             qapaq-teams-workflow-url qapaq-active-directory-secret \
             wazuh-install-files-tar-b64; do
-            row="$(jq -r --arg name "$name" '
-              .value[]? | select((.id | split("/")[-1]) == $name) |
-              [(.properties.attributes.enabled // false), (.properties.attributes.exp // "not-set")] | @tsv
-            ' "$metadata" | head -n 1)"
+            row="$(jq -sr --arg name "$name" '
+              map(select(.name == $name)) | .[0] // empty |
+              [(.enabled | tostring), (if .expires == null then "not-set" else (.expires | tostring) end)] | @tsv
+            ' "$metadata")"
             if [[ -n "$row" ]]; then
               printf 'KEY_VAULT_METADATA|%s|%s\n' "$name" "$row"
             else
@@ -155,7 +171,7 @@ jobs:
           else
             echo letsencrypt-certificate-directory-absent
           fi
-          ss -lnt | awk 'NR == 1 || /:80[[:space:]]|:443[[:space:]]|:5601[[:space:]]/'
+          ss -lnt
           curl --silent --output /dev/null --write-out "health_ready_http=%{http_code}\n" --max-time 5 http://127.0.0.1:3000/health/ready || true' \
             --query 'value[0].message' \
             --output tsv
