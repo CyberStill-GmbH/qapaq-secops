@@ -300,7 +300,7 @@ function validateSiem(siem, env = process.env) {
   exactKeys(
     siem,
     required,
-    ['provider_ingestion', 'private_ip_address', 'agent_public_cidrs'],
+    ['provider_ingestion', 'private_ip_address', 'agent_public_cidrs', 'assistant_secret_name'],
     'siem_host',
   );
   if (
@@ -328,6 +328,17 @@ function validateSiem(siem, env = process.env) {
   validateDashboardIngressCidrs(siem.dashboard_ingress_cidrs);
   if (siem.agent_public_cidrs !== undefined) {
     validateRestrictedIngressCidrs(siem.agent_public_cidrs, 'siem_host.agent_public_cidrs');
+  }
+  if (
+    siem.assistant_secret_name !== undefined &&
+    siem.assistant_secret_name !== null &&
+    (typeof siem.assistant_secret_name !== 'string' ||
+      !/^[A-Za-z0-9-]{1,127}$/u.test(siem.assistant_secret_name) ||
+      /^sk-ant-/iu.test(siem.assistant_secret_name))
+  ) {
+    fail(
+      'siem_host.assistant_secret_name must be a Key Vault secret name, never an API key value.',
+    );
   }
   if (!Array.isArray(siem.agent_ingress_cidrs) || !siem.agent_ingress_cidrs.every(validCidr))
     fail('siem_host.agent_ingress_cidrs must be an array of valid CIDRs.');
