@@ -98,6 +98,7 @@ jobs:
             infra/wazuh/active-directory/agent-groups infra/wazuh/active-directory/profile-catalog.json infra/wazuh/active-directory/README.md \
             infra/wazuh/launch-detections/agent-groups \
             infra/wazuh/teams \
+            .github/workflows/qapaq-dashboard-azure.yml .github/workflows/qapaq-core-azure.yml \
             docs/security/launch-detection-catalog-2026-10-20.json \
             infra/azure/modules/siem_host/bootstrap-siem.py || {
               echo 'Package, installer, detection rules, or bootstrap sources changed after release_sha; rebuild the candidate on current main.' >&2
@@ -131,15 +132,22 @@ jobs:
         run: |
           set -euo pipefail
           validate_run() {
-            local run_id="$1" workflow="$2" expected_sha="$3" metadata
+            local run_id="$1" workflow="$2" expected_sha="$3" artifact_prefix="$4" build_sha_output="$5"
+            local metadata artifacts artifact_name artifact_sha
             [[ "$run_id" =~ ^[0-9]{1,20}$ ]] || { echo 'Invalid source workflow run id.' >&2; return 1; }
             metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
-            jq -e --arg sha "$expected_sha" --arg workflow "$workflow" \
-              '.head_sha == $sha and .head_branch == "main" and .status == "completed" and .conclusion == "success" and .path == $workflow' \
-              <<<"$metadata" >/dev/null || {
-                echo "Source run $run_id must be successful on the expected commit from main and use the expected workflow ($workflow)." >&2
-                return 1
-              }
+            jq -e --arg sha "$expected_sha" --arg workflow "$workflow" '.head_sha == $sha and (.head_branch == "main" or .event == "pull_request") and .status == "completed" and .conclusion == "success" and .path == $workflow' <<<"$metadata" >/dev/null || {
+              echo "Source run $run_id must be successful for the expected commit (main or an integrated PR) and use the expected workflow ($workflow)." >&2
+              return 1
+            }
+            artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts")"
+            artifact_name="$(jq -er --arg prefix "$artifact_prefix" '[.artifacts[] | select(.expired == false and .size_in_bytes > 0 and (.name | startswith($prefix)))] | if length == 1 then .[0].name else error("expected exactly one live source artifact") end' <<<"$artifacts")"
+            artifact_sha="${artifact_name#"$artifact_prefix"}"
+            [[ "$artifact_sha" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "Source artifact $artifact_name does not identify its immutable build commit." >&2
+              return 1
+            }
+            echo "$build_sha_output=$artifact_sha" >> "$GITHUB_ENV"
           }
           validate_prerequisites_run() {
             local run_id="$1" metadata source_sha
@@ -168,8 +176,8 @@ jobs:
               "$run_id" "$source_sha" >> "$GITHUB_STEP_SUMMARY"
           }
           validate_prerequisites_run "$PREREQUISITES_RUN_ID"
-          validate_run "$DASHBOARD_RUN_ID" '.github/workflows/qapaq-dashboard-azure.yml' "$RELEASE_SHA"
-          validate_run "$CORE_RUN_ID" '.github/workflows/qapaq-core-azure.yml' "$RELEASE_SHA"
+          validate_run "$DASHBOARD_RUN_ID" '.github/workflows/qapaq-dashboard-azure.yml' "$RELEASE_SHA" 'qapaq-dashboard-' 'DASHBOARD_BUILD_SHA'
+          validate_run "$CORE_RUN_ID" '.github/workflows/qapaq-core-azure.yml' "$RELEASE_SHA" 'qapaq-core-azure-' 'CORE_BUILD_SHA'
 
       - name: Download verified Manager, Indexer and Filebeat prerequisite artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -182,7 +190,8 @@ jobs:
       - name: Download QAPAQ dashboard package
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: qapaq-dashboard-${{ inputs.release_sha }}
+          pattern: qapaq-dashboard-*
+          merge-multiple: true
           path: ${{ runner.temp }}/dashboard
           run-id: ${{ inputs.dashboard_run_id }}
           github-token: ${{ github.token }}
@@ -190,7 +199,8 @@ jobs:
       - name: Download QAPAQ core archive
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: qapaq-core-azure-${{ inputs.release_sha }}
+          pattern: qapaq-core-azure-*
+          merge-multiple: true
           path: ${{ runner.temp }}/core
           run-id: ${{ inputs.core_run_id }}
           github-token: ${{ github.token }}
@@ -198,9 +208,20 @@ jobs:
       - name: Verify artifact hashes and exact package revisions
         env:
           QAPAQ_SHA: ${{ inputs.release_sha }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ "$DASHBOARD_BUILD_SHA" == "$CORE_BUILD_SHA" ]] || {
+            echo 'Dashboard and Core artifacts were not built from the same immutable source tree.' >&2
+            exit 1
+          }
+          release_tree="$(git rev-parse "$QAPAQ_SHA^{tree}")"
+          build_tree="$(gh api "repos/$GITHUB_REPOSITORY/git/commits/$DASHBOARD_BUILD_SHA" --jq '.tree.sha')"
+          [[ "$build_tree" =~ ^[0-9a-f]{40}$ && "$build_tree" == "$release_tree" ]] || {
+            echo 'Dashboard/Core artifact source tree differs from the merged release commit.' >&2
+            exit 1
+          }
           manager="$RUNNER_TEMP/prerequisites/azure-siem-manager-4.14.8-experimental"
           indexer="$RUNNER_TEMP/prerequisites/azure-siem-indexer-4.14.8-experimental"
           filebeat="$RUNNER_TEMP/prerequisites/azure-siem-filebeat-7.10.2-2-experimental"
@@ -221,14 +242,14 @@ jobs:
           jq -e --arg sha "$WAZUH_INDEXER_SHA" --arg osd "$OSD_COMPAT_VERSION" --arg actual "$(sha256sum "$indexer_pkg" | cut -d' ' -f1)" '.status == "experimental" and .sourceCommit == $sha and .debVersion == "4.14.8-1" and .openSearchDashboardsCompatibility == $osd and .sha256 == $actual' "$indexer/provenance.json" >/dev/null
           jq -e --arg version "$FILEBEAT_VERSION" --arg sha "$FILEBEAT_SHA256" --arg module "$FILEBEAT_MODULE_SHA256" '.status == "experimental" and .packageVersion == $version and .packageSha256 == $sha and .moduleSha256 == $module and .aptMetadataSignatureVerified == true and .templateSourceCommit == env.WAZUH_MANAGER_SHA' "$filebeat/provenance.json" >/dev/null
           (cd "$RUNNER_TEMP/dashboard" && sha256sum -c SHA256SUMS)
-          grep -Fxq "commit=$QAPAQ_SHA" "$RUNNER_TEMP/dashboard/package-metadata.txt"
+          grep -Fxq "commit=$DASHBOARD_BUILD_SHA" "$RUNNER_TEMP/dashboard/package-metadata.txt"
           dashboard_pkg="$(find "$RUNNER_TEMP/dashboard" -maxdepth 1 -name '*.deb' -print -quit)"
           [[ "$(sha256sum "$dashboard_pkg" | cut -d' ' -f1)" == "$(awk -F= '$1 == "sha256" {print $2}' "$RUNNER_TEMP/dashboard/package-metadata.txt")" ]]
           (cd "$RUNNER_TEMP/core" && sha256sum -c SHA256SUMS)
           core_release="$(find "$RUNNER_TEMP/core" -maxdepth 1 -type f -name 'qapaq-core-*.tar.gz' -print -quit)"
           [[ -n "$core_release" ]]
           core_top="$(tar -tzf "$core_release" | sed -n '1s,/.*,,p')"
-          [[ "$core_top" == "qapaq-core-${QAPAQ_SHA:0:12}" ]]
+          [[ "$core_top" == "qapaq-core-${CORE_BUILD_SHA:0:12}" ]]
 
       - name: Checkout the official Wazuh installation assistant at a verified immutable commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
