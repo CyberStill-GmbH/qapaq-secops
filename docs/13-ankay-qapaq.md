@@ -10,46 +10,45 @@ dueño con Franco.
 
 **Arquitectura de la conexión con QAPAQ SecOps:** [14](14-ankay-conexion-qapaq.md).
 
-### Estado de Ankay para Azure (revisión 26-10-2026)
+### Estado de Ankay para Azure (revisión 29-10-2026)
 
-El workflow `ankay-azure.yml` construye el **frontend** rebrandeado desde Shuffle v2.3.0, pero no el
-resto del runtime. La inspección del upstream identificó estos bloqueos para un build completo:
+Ankay queda preparado para levantarse con el alcance `soc` de `terraform-azure-demo-eus2.yml`. Todavía no está
+desplegado ni probado de punta a punta en Azure.
 
-- `backend/Dockerfile` descarga `app_sdk` desde `main`, sin fijarlo por commit.
-- Orborus tiene una revisión asociada a v2.3.0 (`adcc814cb355b7f4b6cb869e0d8d5eed3c6baa95`), pero
-  aún no se construyó ni probó junto al backend y worker fijados.
-- `shuffle.security` se revisó en un commit de `main` (`89070968ec93f1d4ad37953d72910ec63c5fb9df`),
-  pero su compatibilidad con Shuffle v2.3.0 no está demostrada ni es una versión aprobada.
-- Compose upstream usa tags mutables para Shuffle; el OpenSearch 3.2.0 de Compose aún no está fijado
-  por digest en un Compose QAPAQ revisado.
+| Componente | Origen | Estado |
+| --- | --- | --- |
+| frontend | Shuffle v2.3.0 + overlay `ankay/frontend` (marca, CSP, subruta `/ankay/`) | Build y fuente AGPL en CI |
+| backend | Shuffle v2.3.0 + overlays Moby v29, seguridad Go y go-jose 4.1.6; sin acceso al daemon | Build, usuario 10001 y Trivy en CI |
+| worker | Shuffle v2.3.0 + overlay Moby v29 | Build, usuario 10001 y Trivy en CI |
+| orborus | Monorepo Shuffle **v2.2.0** (`36fad33`), último tag con Orborus bajo AGPL-3.0, portado a Moby v29 | Build y Trivy en CI; compatibilidad con backend 2.3.0 pendiente de la prueba en el host |
+| opensearch | OpenSearch 3.9.0 por digest, derivada sobre AL2023 con dependencias parcheadas | Build, salud autenticada y Trivy en CI |
+| docker-guard | Código QAPAQ (`ankay/runtime/docker-guard`) | Proxy del API Docker y único con el socket; probado contra el daemon real del runner |
+| app `QAPAQ Ankay` 1.0.0 | Código QAPAQ + SDK de apps Shuffle (MIT, fijado por SHA-256) | Triage de solo lectura, verificación HMAC y retención de efectos |
 
-No se añadió un build multiimagen: sin un Compose verificable, construir los seis contenedores por
-separado no demostraría que Ankay arranca ni reduciría el riesgo de integración. El gate Terraform
-actual requiere todas las imágenes con digest ACR, un Compose completo con SHA verificado y health
-checks para los cinco servicios persistentes. Mantener `ankay_host=null` hasta que CI construya los
-componentes desde pins aprobados y una prueba de Compose confirme salud y compatibilidad.
+`shuffle-security` queda fuera: no tiene licencia y no hace falta para ejecutar workflows. Su lugar lo ocupa
+`docker-guard`, que cierra el gate del socket. Backend y frontend no tienen acceso al daemon; Orborus y los
+workers solo hablan con el guard. El guard rechaza privileged, binds, namespaces del host, exec/attach, pull,
+build y swarm, y solo opera sobre contenedores creados por él.
 
-El build [40057658958](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40057658958)
-terminó correctamente desde `main` (`c13d968`): validó branding, subpath protegido e imagen de
-frontend y subió un artefacto temporal del run. `publish_to_acr=false`; no publicó a ACR ni desplegó
-Ankay en Azure.
+- Imágenes: `ankay-azure.yml` construye y verifica las siete imágenes. `ankay-azure-eus2-publish.yml` las
+  publica en el ACR EUS2 por tag direccionado por contenido, junto con los paquetes de fuente AGPL, con una
+  sola aprobación del environment `azure-demo-eus2`.
+- Host: `infra/azure/modules/ankay_host` (VM `Standard_E2bds_v5`, única familia con cuota) y el Compose de
+  `infra/azure/ankay-runtime/`, renderizado desde los digests publicados. OpenSearch usa una PKI propia por
+  host y un usuario admin con hash bcrypt de la contraseña de Key Vault. Los siete secretos se generan al azar
+  con `seed-eus2-key-vault-secret.yml`.
+- Playbooks: `ankay/playbooks/build_workflows.py` genera los workflows desde todos los
+  `docs/security/ankay-playbooks/*catalog*.yaml`, desde `playbooks.json` y desde los `*.workflow.json` revisados.
+  El host los importa de forma idempotente cuando Compose está sano. El triage desde Wazuh es de solo lectura.
+  Toda acción con efecto exige un despacho HMAC de QAPAQ Core con `approvalRef` y termina en
+  `hold_for_outbox`, sin ejecutarse.
+- Exposición: `/ankay/*` en el edge nginx del SIEM detrás de `auth_request` de la sesión QAPAQ, sin iframe y
+  sin IP pública (bundle SIEM con `edge.json`).
 
-`infra/azure/modules/ankay_host/` ya está conectado al root Azure como host opcional, desactivado
-mientras `ankay_host` sea `null`. Exige digests SHA-256 ACR para frontend, backend, Orborus,
-worker dinámico, OpenSearch y `shuffle-security`,
-además del Compose completo con su SHA revisado. Crea VM Linux sin IP pública, NSG restrictiva,
-identidad ACR de solo lectura y disco persistente con `prevent_destroy`; solo deja el Compose
-verificado en disco. No instala ni inicia Shuffle y su salida informa `host_prepared_runtime_not_started`.
-No existen aún imágenes/digests aprobados para todos esos componentes ni prueba de login, ejecución,
-persistencia o recuperación en Azure.
-
-El módulo requiere una subnet dedicada, ruta 0/0 a Azure Firewall con allowlist revisada, IP del edge,
-API, firewall, SKU de VM y versión exacta de Ubuntu. `firewall_policy_reference` documenta una policy
-externa: el módulo no crea ni configura el Firewall ni confirma que esa UDR exista. No se puede
-conectar al root sin añadir subnet, direcciones estables, firewall y revisar costos. La VM, disco,
-NAT/firewall y egreso autorizado agregan cargos mensuales; cotizar la SKU y el volumen antes de
-integrar o aplicar. El workflow `ankay-azure-iac.yml` solo valida formato/esquema Terraform y no tiene
-credenciales cloud ni despliega recursos.
+Pendiente de evidencia en Azure: arranque y salud del Compose, login en Ankay, ejecución de un workflow
+sintético con el worker vía docker-guard, persistencia tras reinicio, entrega del webhook Wazuh y revocación de
+la sesión QAPAQ en el edge. El despacho gobernado desde el outbox de QAPAQ Core sigue sin implementarse en el
+núcleo.
 
 **Reparto:** Claude hace este plan y el rebrand del frontend. Codex despliega el SIEM y continúa la
 integración. El dueño verifica el DevSecOps de Terraform.

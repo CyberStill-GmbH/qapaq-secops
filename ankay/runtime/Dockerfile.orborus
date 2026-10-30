@@ -1,0 +1,26 @@
+ARG GO_BUILDER_IMAGE
+ARG ALPINE_RUNTIME_IMAGE
+FROM ${GO_BUILDER_IMAGE} AS builder
+
+# Contexto: functions/onprem/orborus del monorepo Shuffle v2.2.0 (AGPL-3.0) con
+# ankay/runtime/orborus/orborus-moby-v29.patch aplicado, go.mod/go.sum de Ankay y el
+# overlay moby-shuffle-shared compartido con backend y worker.
+WORKDIR /app
+COPY go.mod go.sum ./
+COPY moby-shuffle-shared/ ./moby-shuffle-shared/
+RUN go mod download
+
+COPY orborus.go ./
+RUN go vet ./... \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -trimpath -o /app/orborus .
+
+FROM ${ALPINE_RUNTIME_IMAGE}
+ENV ENVIRONMENT_NAME=Shuffle \
+    BASE_URL=http://backend:5001
+COPY --from=builder /app/orborus /app/orborus
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+WORKDIR /app
+RUN addgroup -S -g 10001 ankay \
+    && adduser -S -D -H -u 10001 -G ankay ankay
+USER 10001:10001
+CMD ["/app/orborus"]

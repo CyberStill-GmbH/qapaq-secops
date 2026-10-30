@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "bc5a5021-a0ed-5b4f-9a1c-591111fc26df",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "containment.endpoint-isolate"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "b6021037-efff-5b54-90ca-b1ed9eb9e014",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "hold_for_outbox",
+      "name": "hold_for_outbox",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "bc5a5021-a0ed-5b4f-9a1c-591111fc26df",
+      "id": "c890d833-adf5-5740-a64f-6ca5acf478e5",
+      "source_id": "7781cd4b-d7ca-5616-8e36-5376491fab17"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "b6021037-efff-5b54-90ca-b1ed9eb9e014",
+      "id": "210c0907-3b22-5ef7-85df-f7f9f8523aa1",
+      "source_id": "bc5a5021-a0ed-5b4f-9a1c-591111fc26df"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "containment.endpoint-isolate (qapaq-ankay-initial-soc). Efecto declarado: endpoint-isolation. Requiere aprobación dual-control-and-sod en QAPAQ; Ankay solo verifica y retiene: el efecto lo despacha el outbox QAPAQ.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · containment.endpoint-isolate 0.1.0",
+  "start": "bc5a5021-a0ed-5b4f-9a1c-591111fc26df",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:containment.endpoint-isolate@0.1.0",
+    "effects:endpoint-isolation",
+    "ankay-sha256:5caa954c02d2cdbdb8ae3ee9727a29dd"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "7781cd4b-d7ca-5616-8e36-5376491fab17",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_7781cd4b-d7ca-5616-8e36-5376491fab17"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

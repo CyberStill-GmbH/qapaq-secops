@@ -6,6 +6,14 @@ on:
       - "ankay/**"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "ankay/runtime/**"
+      - "ankay/azure-components.lock.json"
+      - "ankay/build-runtime-components.sh"
+      - "ankay/pin-base-images.mjs"
+      - "ankay/*.test.mjs"
+      - "docs/security/ankay-playbooks/**"
+      - "infra/wazuh/launch-detections/ankay/**"
+      - ".github/ci/ankay-publication-plan.py"
       - ".github/workflows/ankay-azure.yml"
   push:
     branches: [main]
@@ -13,6 +21,14 @@ on:
       - "ankay/**"
       - "package.json"
       - "pnpm-lock.yaml"
+      - "ankay/runtime/**"
+      - "ankay/azure-components.lock.json"
+      - "ankay/build-runtime-components.sh"
+      - "ankay/pin-base-images.mjs"
+      - "ankay/*.test.mjs"
+      - "docs/security/ankay-playbooks/**"
+      - "infra/wazuh/launch-detections/ankay/**"
+      - ".github/ci/ankay-publication-plan.py"
       - ".github/workflows/ankay-azure.yml"
   workflow_dispatch:
     inputs:
@@ -54,7 +70,21 @@ jobs:
         run: pnpm install --frozen-lockfile --filter qapaq-secops
 
       - name: Test Ankay branding and protected subpath overlay
-        run: node --test ankay/frontend/rebrand.test.mjs ankay/frontend/subpath.test.mjs
+        run: node --test ankay/frontend/rebrand.test.mjs ankay/frontend/subpath.test.mjs ankay/components-lock.test.mjs ankay/pin-base-images.test.mjs
+
+      - name: Test OpenSearch shadow dependency metadata verification
+        run: |
+          python3 ankay/runtime/test_patch_opensearch_shadow_metadata.py
+          python3 ankay/runtime/test_sync_opensaml_guava_descriptor.py
+
+      - name: Test QAPAQ Ankay app, playbook generator and importer
+        run: |
+          set -euo pipefail
+          python3 -c 'import yaml' 2>/dev/null || python3 -m pip install --user --quiet 'PyYAML==6.0.3'
+          python3 ankay/apps/qapaq-ankay/test_qapaq_ankay_logic.py
+          python3 ankay/playbooks/test_playbooks.py
+          python3 ankay/playbooks/build_workflows.py --check
+          python3 .github/ci/test_ankay_publication_plan.py
 
       - name: Build from the pinned Shuffle source and verify its image
         shell: bash
@@ -76,6 +106,39 @@ jobs:
           cp "${sources[0]}" "$RUNNER_TEMP/ankay-publish/"
           (cd "$RUNNER_TEMP/ankay-publish" && sha256sum image.tar.gz *.tar.gz > SHA256SUMS)
 
+      - name: Build pinned runtime components and verify users, docker-guard and OpenSearch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ankay-runtime"
+          bash ankay/build-runtime-components.sh "$RUNNER_TEMP/ankay-runtime"
+          bash ankay/verify-runtime-users.sh \
+            "ankay-qapaq-backend:${GITHUB_SHA}" \
+            "ankay-qapaq-worker:${GITHUB_SHA}" \
+            "ankay-qapaq-orborus:${GITHUB_SHA}" \
+            "ankay-qapaq-docker-guard:${GITHUB_SHA}" \
+            "ankay-qapaq-app-qapaq-ankay:${GITHUB_SHA}"
+          bash ankay/verify-docker-guard.sh "ankay-qapaq-docker-guard:${GITHUB_SHA}" \
+            "ankay-qapaq-app-qapaq-ankay:${GITHUB_SHA}"
+          bash ankay/verify-opensearch-runtime.sh "ankay-qapaq-opensearch:${GITHUB_SHA}"
+          bash .github/ci/install-scanner.sh trivy
+          export PATH="$RUNNER_TEMP/scanners:$PATH"
+          for image in "ankay-qapaq-backend:${GITHUB_SHA}" "ankay-qapaq-worker:${GITHUB_SHA}" \
+            "ankay-qapaq-opensearch:${GITHUB_SHA}" "ankay-qapaq-orborus:${GITHUB_SHA}" \
+            "ankay-qapaq-docker-guard:${GITHUB_SHA}" "ankay-qapaq-app-qapaq-ankay:${GITHUB_SHA}"; do
+            trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+              --no-progress "$image"
+          done
+
+      - name: Upload runtime component evidence (not an ACR release)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ankay-runtime-components-${{ github.sha }}
+          path: ${{ runner.temp }}/ankay-runtime/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
       - name: Upload the run-scoped, checksummed build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -83,7 +146,7 @@ jobs:
           path: ${{ runner.temp }}/ankay-publish/*
           if-no-files-found: error
           compression-level: 0
-          retention-days: 1
+          retention-days: 7
 
   publish:
     name: Publish verified Ankay image (manual, main only)

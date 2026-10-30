@@ -1,0 +1,85 @@
+app_version: 1.0.0
+name: QAPAQ Ankay
+description: Triage de solo lectura para QAPAQ SecOps. Verifica despachos firmados por QAPAQ Core y retiene toda acción con efecto para el outbox QAPAQ.
+tags:
+  - Testing
+categories:
+  - Other
+contact_info:
+  name: QAPAQ SecOps
+  url: https://github.com/CyberStill-GmbH/qapaq-secops
+  email: soc@qapaq.example
+authentication:
+  required: false
+  parameters:
+    - name: dispatch_hmac_key
+      description: Clave HMAC compartida con QAPAQ Core para verificar despachos gobernados.
+      example: '<key-vault: ankay-dispatch-hmac-key>'
+      required: false
+      schema:
+        type: string
+actions:
+  - name: triage_wazuh_alert
+    description: Valida el payload mínimo de Wazuh, deduplica por alert.id y propone playbooks de solo lectura.
+    parameters:
+      - name: alert
+        description: Cuerpo del webhook Wazuh (custom-qapaq-shuffle, esquema 1.0.0).
+        required: true
+        multiline: true
+        example: '{"schemaVersion":"1.0.0","source":"wazuh","alert":{"id":"1"}}'
+        schema:
+          type: string
+      - name: min_level
+        description: Nivel mínimo de regla; nunca menor que 12.
+        required: false
+        example: '12'
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+  - name: verify_governed_dispatch
+    description: Verifica HMAC, ventana anti-replay, versión fijada, aprobación y campos prohibidos de un despacho QAPAQ.
+    parameters:
+      - name: envelope
+        description: Sobre de despacho firmado por QAPAQ Core.
+        required: true
+        multiline: true
+        example: '{"schemaVersion":"1.0.0","dispatch":{},"signature":{}}'
+        schema:
+          type: string
+      - name: playbook_id
+        description: Playbook que este workflow está autorizado a atender.
+        required: true
+        example: triage.wazuh-high-severity
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+  - name: prepare_read_only_triage
+    description: Arma el checklist de triage de un playbook sin efectos ya verificado.
+    parameters:
+      - name: verified
+        description: Resultado de verify_governed_dispatch.
+        required: true
+        multiline: true
+        example: '{"status":"verified"}'
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+  - name: hold_for_outbox
+    description: Registra que la acción con efecto pertenece al outbox QAPAQ; nunca la ejecuta.
+    parameters:
+      - name: verified
+        description: Resultado de verify_governed_dispatch.
+        required: true
+        multiline: true
+        example: '{"status":"verified"}'
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string

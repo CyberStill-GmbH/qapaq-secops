@@ -1,0 +1,101 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "ccbae4fb-f679-5803-9885-ce1eb5f195b6",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "triage_wazuh_alert",
+      "name": "triage_wazuh_alert",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "alert",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "min_level",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "12"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "ccbae4fb-f679-5803-9885-ce1eb5f195b6",
+      "id": "1017f073-a91b-5f8f-b154-7c259a638e41",
+      "source_id": "d182096e-5305-5016-a069-c65851fdc5fa"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "Entrada Wazuh → Ankay (custom-qapaq-shuffle). Solo lectura: valida, deduplica por alert.id y propone playbooks; no ejecuta acciones.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · wazuh.alert-intake 1.0.0",
+  "start": "ccbae4fb-f679-5803-9885-ce1eb5f195b6",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:wazuh.alert-intake@1.0.0",
+    "effects:none",
+    "ankay-sha256:f30f37a1c9c9b18542f027b27befa0e8"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "d182096e-5305-5016-a069-c65851fdc5fa",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_d182096e-5305-5016-a069-c65851fdc5fa"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

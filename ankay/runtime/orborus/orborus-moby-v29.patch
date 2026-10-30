@@ -1,0 +1,1025 @@
+--- a/functions/onprem/orborus/orborus.go
++++ b/functions/onprem/orborus/orborus.go
+@@ -16,16 +16,15 @@
+ 	"math"
+ 	"net"
+ 	"net/http"
++	"net/netip"
+ 	"os"
+ 	"os/exec"
+-	"os/signal"
+ 	"path/filepath"
+ 	"regexp"
+ 	"runtime"
+ 	"strconv"
+ 	"strings"
+ 	"sync"
+-	"syscall"
+ 	"time"
+ 
+ 	"github.com/shuffle/shuffle-shared"
+@@ -34,17 +33,12 @@
+ 	//"os/signal"
+ 	//"syscall"
+ 
+-	"github.com/docker/docker/api/types"
+-	"github.com/docker/docker/api/types/container"
+-	"github.com/docker/docker/api/types/filters"
+-	"github.com/docker/docker/api/types/image"
+-	"github.com/docker/docker/api/types/mount"
+-	"github.com/docker/docker/api/types/network"
+-	"github.com/docker/docker/api/types/swarm"
+-	"github.com/docker/go-connections/nat"
+-
+-	//"github.com/docker/docker/api/types/filters"
+-	dockerclient "github.com/docker/docker/client"
++	cerrdefs "github.com/containerd/errdefs"
++	"github.com/moby/moby/api/types/container"
++	"github.com/moby/moby/api/types/mount"
++	"github.com/moby/moby/api/types/network"
++	"github.com/moby/moby/api/types/swarm"
++	dockerclient "github.com/moby/moby/client"
+ 	uuid "github.com/satori/go.uuid"
+ 
+ 	//"github.com/mackerelio/go-osstat/disk"
+@@ -144,9 +138,9 @@
+ 
+ 	if os.Getenv("SHUFFLE_EC2_INSTANCE") == "true" {
+ 		log.Printf("[INFO] Detected AWS EC2 instance. Setting up Docker Swarm with AWS optimizations.")
+-		containers, err := dockercli.ContainerList(context.Background(), container.ListOptions{})
++		containers, err := dockercli.ContainerList(context.Background(), dockerclient.ContainerListOptions{})
+ 		if err == nil {
+-			for _, container := range containers {
++			for _, container := range containers.Items {
+ 				if strings.Contains(container.Image, "shuffle-orborus") {
+ 					if len(container.Names) != 0 {
+ 						if strings.Contains(container.Names[0], "shuffle-orborus") {
+@@ -261,7 +255,7 @@
+ 
+ 		clientset, _, err := shuffle.GetKubernetesClient()
+ 		if err != nil {
+-			log.Printf("[ERROR] Error getting kubernetes client:", err)
++			log.Printf("[ERROR] Error getting kubernetes client: %s", err)
+ 			return err
+ 		}
+ 
+@@ -303,7 +297,7 @@
+ 		return nil
+ 	}
+ 
+-	serviceListOptions := types.ServiceListOptions{}
++	serviceListOptions := dockerclient.ServiceListOptions{}
+ 	services, err := dockercli.ServiceList(
+ 		context.Background(),
+ 		serviceListOptions,
+@@ -316,7 +310,7 @@
+ 
+ 	//log.Printf("\n\nFound %d contaienrs", len(services))
+ 
+-	for _, service := range services {
++	for _, service := range services.Items {
+ 
+ 		//portFound := false
+ 		//for _, endpoint := range service.Spec.EndpointSpec.Ports {
+@@ -335,7 +329,7 @@
+ 				!strings.Contains(service.Spec.TaskTemplate.ContainerSpec.Image, "shuffle-backend") &&
+ 				!strings.Contains(service.Spec.TaskTemplate.ContainerSpec.Image, "shuffle-orborus") {
+ 
+-				err = dockercli.ServiceRemove(ctx, service.ID)
++				_, err = dockercli.ServiceRemove(ctx, service.ID, dockerclient.ServiceRemoveOptions{})
+ 				if err != nil {
+ 					log.Printf("[DEBUG] Failed to remove service %s", service.Spec.Annotations.Name)
+ 				} else {
+@@ -408,7 +402,7 @@
+ 	options := make(map[string]string)
+ 	options["com.docker.network.driver.mtu"] = fmt.Sprintf("%d", mtu)
+ 
+-	ingressOptions := network.CreateOptions{
++	ingressOptions := dockerclient.NetworkCreateOptions{
+ 		Driver:     "overlay",
+ 		Attachable: false,
+ 		Ingress:    true,
+@@ -416,8 +410,8 @@
+ 			Driver: "default",
+ 			Config: []network.IPAMConfig{
+ 				network.IPAMConfig{
+-					Subnet:  "10.225.225.0/24",
+-					Gateway: "10.225.225.1",
++					Subnet:  netip.MustParsePrefix("10.225.225.0/24"),
++					Gateway: netip.MustParseAddr("10.225.225.1"),
+ 				},
+ 			},
+ 		},
+@@ -440,7 +434,7 @@
+ 		networkName = swarmNetworkName
+ 	}
+ 
+-	networkCreateOptions := network.CreateOptions{
++	networkCreateOptions := dockerclient.NetworkCreateOptions{
+ 		Driver:     "overlay",
+ 		Options:    options,
+ 		Attachable: true,
+@@ -449,8 +443,8 @@
+ 			Driver: "default",
+ 			Config: []network.IPAMConfig{
+ 				network.IPAMConfig{
+-					Subnet:  "10.224.224.0/24",
+-					Gateway: "10.224.224.1",
++					Subnet:  netip.MustParsePrefix("10.224.224.0/24"),
++					Gateway: netip.MustParseAddr("10.224.224.1"),
+ 				},
+ 			},
+ 		},
+@@ -475,9 +469,9 @@
+ 	networkID := ""
+ 
+ 	// find network ID
+-	networks, err := dockercli.NetworkList(ctx, network.ListOptions{})
++	networks, err := dockercli.NetworkList(ctx, dockerclient.NetworkListOptions{})
+ 	if err == nil {
+-		for _, net := range networks {
++		for _, net := range networks.Items {
+ 			if net.Name == networkName {
+ 				if net.Scope == "swarm" {
+ 					log.Printf("[DEBUG] Found swarm-scoped network: %s (%s)", networkName, net.ID)
+@@ -516,7 +510,7 @@
+ 		log.Printf("[DEBUG] Should connect orborus container to worker network as it's running in Docker with name %#v!", containerId)
+ 		// https://pkg.go.dev/github.com/docker/docker@v20.10.12+incompatible/api/types/network#EndpointSettings
+ 		networkConfig := &network.EndpointSettings{}
+-		err := dockercli.NetworkConnect(ctx, networkID, containerId, networkConfig)
++		_, err := dockercli.NetworkConnect(ctx, networkID, dockerclient.NetworkConnectOptions{Container: containerId, EndpointConfig: networkConfig})
+ 		if err != nil {
+ 			log.Printf("[ERROR] Failed connecting Orborus to docker network %s: %s", networkName, err)
+ 		}
+@@ -530,16 +524,16 @@
+ 	if len(os.Getenv("DOCKER_HOST")) > 0 {
+ 		log.Printf("[DEBUG] Deploying docker socket proxy to the network %s as the DOCKER_HOST variable is set", networkName)
+ 
+-		listOptions := container.ListOptions{
++		listOptions := dockerclient.ContainerListOptions{
+ 			All: true,
+ 		}
+ 		containers, err := dockercli.ContainerList(ctx, listOptions)
+ 
+ 		if err == nil {
+-			for _, container := range containers {
++			for _, container := range containers.Items {
+ 				if strings.Contains(strings.ToLower(container.Image), "docker-socket-proxy") {
+ 					networkConfig := &network.EndpointSettings{}
+-					err := dockercli.NetworkConnect(ctx, networkID, container.ID, networkConfig)
++					_, err := dockercli.NetworkConnect(ctx, networkID, dockerclient.NetworkConnectOptions{Container: container.ID, EndpointConfig: networkConfig})
+ 					if err != nil {
+ 						log.Printf("[ERROR] Failed connecting Docker socket proxy to docker network %s: %s", networkName, err)
+ 					} else {
+@@ -617,19 +611,11 @@
+ 				Replicas: &replicatedJobs,
+ 			},
+ 		},
+-		Networks: []swarm.NetworkAttachmentConfig{
+-			swarm.NetworkAttachmentConfig{
+-				Target: networkID,
+-			},
+-			swarm.NetworkAttachmentConfig{
+-				Target: "ingress",
+-			},
+-		},
+ 		EndpointSpec: &swarm.EndpointSpec{
+ 			Mode: "vip",
+ 			Ports: []swarm.PortConfig{
+ 				swarm.PortConfig{
+-					Protocol:      swarm.PortConfigProtocolTCP,
++					Protocol:      network.TCP,
+ 					PublishMode:   swarm.PortConfigPublishModeIngress,
+ 					Name:          "worker-port",
+ 					PublishedPort: 33333,
+@@ -638,6 +624,14 @@
+ 			},
+ 		},
+ 		TaskTemplate: swarm.TaskSpec{
++			Networks: []swarm.NetworkAttachmentConfig{
++				swarm.NetworkAttachmentConfig{
++					Target: networkID,
++				},
++				swarm.NetworkAttachmentConfig{
++					Target: "ingress",
++				},
++			},
+ 			Resources: &swarm.ResourceRequirements{
+ 				Reservations: &swarm.Resources{},
+ 			},
+@@ -676,9 +670,9 @@
+ 	if defaultNetworkAttach == true || strings.ToLower(os.Getenv("SHUFFLE_DEFAULT_NETWORK_ATTACH")) == "true" {
+ 		targetName := "shuffle_shuffle"
+ 		isAttachable := false
+-		networks, err := dockercli.NetworkList(ctx, network.ListOptions{})
++		networks, err := dockercli.NetworkList(ctx, dockerclient.NetworkListOptions{})
+ 		if err == nil {
+-			for _, net := range networks {
++			for _, net := range networks.Items {
+ 				if net.Name == targetName {
+ 					if net.Scope == "swarm" {
+ 						log.Printf("[DEBUG] Found swarm-scoped network: %s", targetName)
+@@ -693,7 +687,7 @@
+ 
+ 		if isAttachable {
+ 			log.Printf("[DEBUG] Adding network attach for network %s to worker in swarm", targetName)
+-			serviceSpec.Networks = append(serviceSpec.Networks, swarm.NetworkAttachmentConfig{
++			serviceSpec.TaskTemplate.Networks = append(serviceSpec.TaskTemplate.Networks, swarm.NetworkAttachmentConfig{
+ 				Target: targetName,
+ 			})
+ 
+@@ -776,11 +770,9 @@
+ 		serviceSpec.TaskTemplate.ContainerSpec.Env = append(serviceSpec.TaskTemplate.ContainerSpec.Env, fmt.Sprintf("SHUFFLE_INTERNAL_HTTPS_PROXY=%s", overrideHttpsProxy))
+ 	}
+ 
+-	serviceOptions := types.ServiceCreateOptions{}
+ 	_, err = dockercli.ServiceCreate(
+ 		ctx,
+-		serviceSpec,
+-		serviceOptions,
++		dockerclient.ServiceCreateOptions{Spec: serviceSpec},
+ 	)
+ 
+ 	// Force deploy if it's not disabled
+@@ -795,9 +787,9 @@
+ 		// patch service network
+ 		// this is an edgecase that we noticed on docker version 29
+ 		// and API version 1.44
+-		services, serr := dockercli.ServiceList(ctx, types.ServiceListOptions{})
++		services, serr := dockercli.ServiceList(ctx, dockerclient.ServiceListOptions{})
+ 		if serr == nil {
+-			for _, svc := range services {
++			for _, svc := range services.Items {
+ 				if svc.Spec.Annotations.Name == innerContainerName {
+ 					log.Printf("[DEBUG] Found service %s (%s) — patching network attach", innerContainerName, svc.ID)
+ 
+@@ -806,7 +798,7 @@
+ 						Target: networkID,
+ 					})
+ 
+-					_, uerr := dockercli.ServiceUpdate(ctx, svc.ID, svc.Version, spec, types.ServiceUpdateOptions{})
++					_, uerr := dockercli.ServiceUpdate(ctx, svc.ID, dockerclient.ServiceUpdateOptions{Version: svc.Version, Spec: spec})
+ 					if uerr != nil {
+ 						log.Printf("[WARNING] Failed to patch service %s with network %s: %v", innerContainerName, networkID, uerr)
+ 					} else {
+@@ -825,12 +817,12 @@
+ 				log.Printf("[WARNING] Swarm network attachment failed, retrying without shuffle_shuffle")
+ 
+ 				var updatedNetworks []swarm.NetworkAttachmentConfig
+-				for _, net := range serviceSpec.Networks {
++				for _, net := range serviceSpec.TaskTemplate.Networks {
+ 					if net.Target != "shuffle_shuffle" {
+ 						updatedNetworks = append(updatedNetworks, net)
+ 					}
+ 				}
+-				serviceSpec.Networks = updatedNetworks
++				serviceSpec.TaskTemplate.Networks = updatedNetworks
+ 
+ 				var updatedEnv []string
+ 				for _, env := range serviceSpec.TaskTemplate.ContainerSpec.Env {
+@@ -839,11 +831,9 @@
+ 					}
+ 				}
+ 				serviceSpec.TaskTemplate.ContainerSpec.Env = updatedEnv
+-				serviceOptions := types.ServiceCreateOptions{}
+ 				_, err = dockercli.ServiceCreate(
+ 					ctx,
+-					serviceSpec,
+-					serviceOptions,
++					dockerclient.ServiceCreateOptions{Spec: serviceSpec},
+ 				)
+ 				if err != nil {
+ 					log.Printf("[ERROR] Failed to deploy service even without shuffle_shuffle network: %s", err)
+@@ -851,8 +841,8 @@
+ 			}
+ 		} else {
+ 			log.Printf("[WARNING] Failed deploying workers: %s", err)
+-			if len(serviceSpec.Networks) > 1 {
+-				serviceSpec.Networks = []swarm.NetworkAttachmentConfig{
++			if len(serviceSpec.TaskTemplate.Networks) > 1 {
++				serviceSpec.TaskTemplate.Networks = []swarm.NetworkAttachmentConfig{
+ 					swarm.NetworkAttachmentConfig{
+ 						Target: "shuffle_shuffle",
+ 					},
+@@ -860,8 +850,7 @@
+ 
+ 				_, _ = dockercli.ServiceCreate(
+ 					ctx,
+-					serviceSpec,
+-					serviceOptions,
++					dockerclient.ServiceCreateOptions{Spec: serviceSpec},
+ 				)
+ 			}
+ 		}
+@@ -986,7 +975,7 @@
+ 		// 3. Update the service with the new image in a rolling restart
+ 
+ 		// Find the existing service
+-		serviceListOptions := types.ServiceListOptions{}
++		serviceListOptions := dockerclient.ServiceListOptions{}
+ 		services, err := dockercli.ServiceList(
+ 			ctx,
+ 			serviceListOptions,
+@@ -996,7 +985,7 @@
+ 			log.Printf("[ERROR] Failed finding services: %s", err)
+ 		} else {
+ 			found := false
+-			for _, service := range services {
++			for _, service := range services.Items {
+ 				//log.Printf("Service image: %s", service.Spec.TaskTemplate.ContainerSpec.Image)
+ 
+ 				for _, image := range newImages {
+@@ -1008,13 +997,11 @@
+ 
+ 					// Update the service to run with the new image
+ 					//docker service update --image username/imagename:latest servicename --force
+-					serviceUpdateOptions := types.ServiceUpdateOptions{}
+ 					service.Spec.TaskTemplate.ForceUpdate++
++					serviceUpdateOptions := dockerclient.ServiceUpdateOptions{Version: service.Version, Spec: service.Spec}
+ 					resp, err := dockercli.ServiceUpdate(
+ 						ctx,
+ 						service.ID,
+-						service.Version,
+-						service.Spec,
+ 						serviceUpdateOptions,
+ 					)
+ 
+@@ -1239,7 +1226,7 @@
+ 
+ 	clientset, _, err := shuffle.GetKubernetesClient()
+ 	if err != nil {
+-		log.Printf("[ERROR] Error getting kubernetes client:", err)
++		log.Printf("[ERROR] Error getting kubernetes client: %s", err)
+ 		return err
+ 	}
+ 
+@@ -1593,11 +1580,7 @@
+ 	//log.Printf("[INFO] Identifier: %s", identifier)
+ 	cont, err := dockercli.ContainerCreate(
+ 		context.Background(),
+-		config,
+-		hostConfig,
+-		nil,
+-		nil,
+-		identifier,
++		dockerclient.ContainerCreateOptions{Config: config, HostConfig: hostConfig, Name: identifier},
+ 	)
+ 
+ 	if err != nil {
+@@ -1606,11 +1589,7 @@
+ 			//log.Printf("[INFO] 2 - Identifier: %s", identifier)
+ 			cont, err = dockercli.ContainerCreate(
+ 				context.Background(),
+-				config,
+-				hostConfig,
+-				nil,
+-				nil,
+-				identifier,
++				dockerclient.ContainerCreateOptions{Config: config, HostConfig: hostConfig, Name: identifier},
+ 			)
+ 
+ 			if err != nil {
+@@ -1627,8 +1606,8 @@
+ 	//log.Printf("WORKER STARTING WITH ENV: %#v", env)
+ 
+ 	ctx := context.Background()
+-	containerStartOptions := container.StartOptions{}
+-	err = dockercli.ContainerStart(ctx, cont.ID, containerStartOptions)
++	containerStartOptions := dockerclient.ContainerStartOptions{}
++	_, err = dockercli.ContainerStart(ctx, cont.ID, containerStartOptions)
+ 	if err != nil {
+ 		// Trying to recreate and start WITHOUT network if it's possible. No extended checks. Old execution system (<0.9.30)
+ 		if strings.Contains(fmt.Sprintf("%s", err), "cannot join network") || strings.Contains(fmt.Sprintf("%s", err), "No such container") {
+@@ -1636,17 +1615,13 @@
+ 			//container.NetworkMode(fmt.Sprintf("container:%s", containerId))
+ 			cont, err = dockercli.ContainerCreate(
+ 				context.Background(),
+-				config,
+-				hostConfig,
+-				nil,
+-				nil,
+-				identifier+"-2",
++				dockerclient.ContainerCreateOptions{Config: config, HostConfig: hostConfig, Name: identifier + "-2"},
+ 			)
+ 			if err != nil {
+ 				log.Printf("[ERROR][%s] Failed to CREATE container (2): %s", executionRequest.ExecutionId, err)
+ 			}
+ 
+-			err = dockercli.ContainerStart(context.Background(), cont.ID, containerStartOptions)
++			_, err = dockercli.ContainerStart(context.Background(), cont.ID, containerStartOptions)
+ 			if err != nil {
+ 				log.Printf("[ERROR][%s] Failed to start container (2): %s", executionRequest.ExecutionId, err)
+ 			}
+@@ -1661,13 +1636,13 @@
+ 			log.Printf("[INFO][%s] Worker Container created (2). Runtime Location '%s': docker logs -f %s", executionRequest.ExecutionId, environment, cont.ID)
+ 		}
+ 
+-		stats, err := dockercli.ContainerInspect(ctx, cont.ID)
++		stats, err := dockercli.ContainerInspect(ctx, cont.ID, dockerclient.ContainerInspectOptions{})
+ 		if err != nil {
+ 			log.Printf("[WARNING][%s] Failed checking worker '%s': %s", executionRequest.ExecutionId, cont.ID, err)
+ 			return nil
+ 		}
+ 
+-		containerStatus := stats.ContainerJSONBase.State.Status
++		containerStatus := stats.Container.State.Status
+ 		if containerStatus != "running" {
+ 			log.Printf("[ERROR][%s] Status of %s is %s. Should be running. Contact support@shuffler.io if this persists.", executionRequest.ExecutionId, cont.ID, containerStatus)
+ 		}
+@@ -1700,17 +1675,17 @@
+ 	//	})
+ 
+ 	//if err := dockercli.ContainerStop(ctx, containername, nil); err != nil {
+-	var options container.StopOptions
+-	if err := dockercli.ContainerStop(ctx, containername, options); err != nil {
++	var options dockerclient.ContainerStopOptions
++	if _, err := dockercli.ContainerStop(ctx, containername, options); err != nil {
+ 		log.Printf("[ERROR] Unable to stop container %s - running removal anyway, just in case: %s", containername, err)
+ 	}
+ 
+-	removeOptions := container.RemoveOptions{
++	removeOptions := dockerclient.ContainerRemoveOptions{
+ 		RemoveVolumes: true,
+ 		Force:         true,
+ 	}
+ 
+-	if err := dockercli.ContainerRemove(ctx, containername, removeOptions); err != nil {
++	if _, err := dockercli.ContainerRemove(ctx, containername, removeOptions); err != nil {
+ 		log.Printf("[ERROR] Unable to remove container: %s", err)
+ 	}
+ 
+@@ -1783,7 +1758,7 @@
+ 			newWorker,
+ 		}
+ 
+-		pullOptions := image.PullOptions{}
++		pullOptions := dockerclient.ImagePullOptions{}
+ 		for _, image := range images {
+ 			if isKubernetes == "true" {
+ 				log.Printf("[DEBUG] Skipping image pull of '%s' because Kubernetes does it in realtime instead", image)
+@@ -1805,13 +1780,13 @@
+ 
+ func findActiveSwarmNodes() (int64, error) {
+ 	ctx := context.Background()
+-	nodes, err := dockercli.NodeList(ctx, types.NodeListOptions{})
++	nodes, err := dockercli.NodeList(ctx, dockerclient.NodeListOptions{})
+ 	if err != nil {
+ 		return 1, err
+ 	}
+ 
+ 	nodeCount := int64(0)
+-	for _, node := range nodes {
++	for _, node := range nodes.Items {
+ 		//log.Printf("ID: %s - %#v", node.ID, node.Status.State)
+ 		if node.Status.State == "ready" {
+ 			nodeCount += 1
+@@ -1859,18 +1834,18 @@
+ 	ip := getLocalIP()
+ 	log.Printf("[DEBUG] Attempting swarm setup on %s", ip)
+ 
+-	info, err := dockercli.Info(ctx)
++	info, err := dockercli.Info(ctx, dockerclient.InfoOptions{})
+ 	if err != nil {
+ 		log.Printf("[WARNING] Failed to get Docker Info: %s", err)
+ 	}
+ 
+-	if info.Swarm.ControlAvailable {
++	if info.Info.Swarm.ControlAvailable {
+ 		log.Printf("[INFO] Already part of swarm as a manager")
+ 		return
+ 	}
+ 
+ 	listenAddr := "0.0.0.0"
+-	req := swarm.InitRequest{
++	req := dockerclient.SwarmInitOptions{
+ 		ListenAddr:    fmt.Sprintf("%s:2377", listenAddr),
+ 		AdvertiseAddr: fmt.Sprintf("%s:2377", ip),
+ 	}
+@@ -1907,12 +1882,12 @@
+ 		}
+ 	}
+ 
+-	log.Printf("[INFO] Swarm init ID: '%s'. If this is empty, there is most likely an error.", id)
++	log.Printf("[INFO] Swarm init ID: '%s'. If this is empty, there is most likely an error.", id.NodeID)
+ }
+ 
+ func getContainerResourceUsage(ctx context.Context, cli *dockerclient.Client, containerID string) (float64, float64, error) {
+ 	// Get container stats
+-	stats, err := cli.ContainerStats(ctx, containerID, false)
++	stats, err := cli.ContainerStats(ctx, containerID, dockerclient.ContainerStatsOptions{Stream: false, IncludePreviousSample: true})
+ 	if err != nil {
+ 		return 0, 0, err
+ 	}
+@@ -1929,7 +1904,7 @@
+ 
+ func parseResourceUsage(body io.Reader) (float64, float64, error) {
+ 	//var stats types.StatsJSON
+-	var stats container.Stats
++	var stats container.StatsResponse
+ 
+ 	// Decode the stream of stats as JSON
+ 	decoder := json.NewDecoder(body)
+@@ -1958,6 +1933,9 @@
+ 
+ }
+ 
++// Ankay: the loop variable "container" shadows the package inside the loop body.
++type containerSummary = container.Summary
++
+ func getOrborusStats(ctx context.Context) shuffle.OrborusStats {
+ 	newStats := shuffle.OrborusStats{
+ 		OrgId:        org,
+@@ -1988,26 +1966,29 @@
+ 
+ 	// FIXME: Returning for now due to this causing network congestion
+ 	// and database fillup. The backend api also has it disabled.
+-	return newStats
++	// Ankay: wrapped in "if true" only so go vet does not flag the code below as unreachable; behavior unchanged.
++	if true {
++		return newStats
++	}
+ 
+ 	// Use the docker API to get the CPU usage of the docker engine machine
+-	pers, err := dockercli.Info(ctx)
++	pers, err := dockercli.Info(ctx, dockerclient.InfoOptions{})
+ 	if err != nil {
+ 		log.Printf("[ERROR] Failed getting docker info: %s. This is normal IF there are many containers running.", err)
+ 		return newStats
+ 	} else {
+-		newStats.TotalContainers = pers.Containers
+-		newStats.StoppedContainers = pers.ContainersStopped
++		newStats.TotalContainers = pers.Info.Containers
++		newStats.StoppedContainers = pers.Info.ContainersStopped
+ 
+ 		// Calculate the amount of CPU utilization on the host
+-		newStats.CPU = int(pers.NCPU)
+-		newStats.MaxCPU = int(pers.NCPU)
+-		newStats.Memory = int(pers.MemTotal)
+-		newStats.MaxMemory = int(pers.MemTotal)
++		newStats.CPU = int(pers.Info.NCPU)
++		newStats.MaxCPU = int(pers.Info.NCPU)
++		newStats.Memory = int(pers.Info.MemTotal)
++		newStats.MaxMemory = int(pers.Info.MemTotal)
+ 	}
+ 
+ 	// Get list of all running containers
+-	containers, err := dockercli.ContainerList(ctx, container.ListOptions{})
++	containers, err := dockercli.ContainerList(ctx, dockerclient.ContainerListOptions{})
+ 
+ 	if err != nil {
+ 		log.Printf("[ERROR] Failed getting container list: %s", err)
+@@ -2025,14 +2006,14 @@
+ 	})
+ 
+ 	// Iterate through containers and start a goroutine for each container
+-	for _, container := range containers {
++	for _, container := range containers.Items {
+ 		// Check if container is running
+ 		if container.State != "running" {
+ 			continue
+ 		}
+ 
+ 		wg.Add(1)
+-		go func(container types.Container) {
++		go func(container containerSummary) {
+ 			defer wg.Done()
+ 
+ 			// Get CPU and memory usage for the container
+@@ -2220,28 +2201,9 @@
+ 			})
+ 		}
+ 
+-		collector, err := shuffle.NewAuditLogCollector(telemetryConfig)
+-		if err != nil {
+-			log.Printf("[ERROR] Failed to create audit log collector: %v", err)
+-		} else {
+-			ctx := context.Background()
+-			if err := collector.LogCollectorStart(ctx); err != nil {
+-				log.Printf("[ERROR] Failed to start audit log collector: %v", err)
+-			} else {
+-				log.Printf("[INFO] Audit log collector started successfully")
+-
+-				sigChan := make(chan os.Signal, 1)
+-				signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+-
+-				go func() {
+-					<-sigChan
+-					log.Printf("[INFO] Received shutdown signal, stopping audit log collector...")
+-					collector.Stop()
+-
+-					os.Exit(0)
+-				}()
+-			}
+-		}
++		// Ankay: sensor audit collector removed; not present in pinned shuffle-shared v1.3.22.
++		_ = telemetryConfig
++		log.Printf("[ERROR] Failed to create audit log collector: not available in this build")
+ 	} else {
+ 		log.Printf("[INFO] Audit log monitoring is disabled")
+ 	}
+@@ -2315,7 +2277,7 @@
+ 		}()
+ 	}
+ 
+-	log.Println("[INFO] Setting up execution environment for env '%s'", environment)
++	log.Printf("[INFO] Setting up execution environment for env '%s'", environment)
+ 	// //FIXME
+ 	if baseUrl == "" {
+ 		baseUrl = "https://shuffler.io"
+@@ -2869,7 +2831,7 @@
+ 			}
+ 
+ 			if execution.Status == "ABORT" || execution.Status == "FAILED" {
+-				log.Printf("[INFO][%s] Executionstatus issue: ", execution.ExecutionId, execution.Status)
++				log.Printf("[INFO][%s] Executionstatus issue: %s", execution.ExecutionId, execution.Status)
+ 			}
+ 
+ 			if shuffle.ArrayContains(executionIds, execution.ExecutionId) {
+@@ -2975,7 +2937,7 @@
+ 						log.Printf("[DEBUG] Skipping image pull of '%s' because Kubernetes does it in realtime instead", workerImage)
+ 					} else {
+ 						log.Printf("[DEBUG] Re-pulling image %s as it doesn't exist, and is necessary for worker to run (autofix)", workerImage)
+-						pullOptions := image.PullOptions{}
++						pullOptions := dockerclient.ImagePullOptions{}
+ 						_, err = dockercli.ImagePull(ctx, workerImage, pullOptions)
+ 						if err != nil {
+ 							log.Printf("[ERROR] Failed to pull image %s: %s", workerImage, err)
+@@ -3136,11 +3098,11 @@
+ 	}
+ 
+ 	containerName := "tenzir-node"
+-	containerStartOptions := container.StartOptions{}
++	containerStartOptions := dockerclient.ContainerStartOptions{}
+ 
+-	containerInfo, err := dockercli.ContainerInspect(ctx, containerName)
++	containerInfo, err := dockercli.ContainerInspect(ctx, containerName, dockerclient.ContainerInspectOptions{})
+ 	if err != nil {
+-		if dockerclient.IsErrNotFound(err) {
++		if cerrdefs.IsNotFound(err) {
+ 			// Create network if it doesn't exist
+ 			networkName := "tenzir-network"
+ 			networkSubnet := "192.168.102.0/24"
+@@ -3153,16 +3115,16 @@
+ 			}
+ 
+ 			// Trying to connect orborus to the tenzir network as well
+-			err = dockercli.NetworkConnect(ctx, networkName, containerId, nil)
++			_, err = dockercli.NetworkConnect(ctx, networkName, dockerclient.NetworkConnectOptions{Container: containerId})
+ 			if err != nil {
+ 				log.Printf("[ERROR] Error connecting tenzir container to network: %s", err)
+ 			}
+ 
+ 			// Check if image exists
+-			_, _, err := dockercli.ImageInspectWithRaw(ctx, imageName)
+-			if dockerclient.IsErrNotFound(err) {
++			_, err := dockercli.ImageInspect(ctx, imageName)
++			if cerrdefs.IsNotFound(err) {
+ 				log.Printf("[DEBUG] Pulling image %s. This may take a while.", imageName)
+-				pullOptions := image.PullOptions{}
++				pullOptions := dockerclient.ImagePullOptions{}
+ 				out, err := dockercli.ImagePull(ctx, imageName, pullOptions)
+ 				if err != nil {
+ 					log.Printf("[ERROR] Failed to pull the Tenzir image: %s", err)
+@@ -3183,9 +3145,9 @@
+ 			return err
+ 		}
+ 	} else {
+-		if !containerInfo.State.Running {
++		if !containerInfo.Container.State.Running {
+ 			log.Printf("[DEBUG] Tenzir Node exists, but is not running. Restarting it.")
+-			err := dockercli.ContainerStart(ctx, containerName, containerStartOptions)
++			_, err := dockercli.ContainerStart(ctx, containerName, containerStartOptions)
+ 			if err != nil {
+ 				log.Printf("[ERROR] Failed to start Tenzir Node container: %v", err)
+ 				return err
+@@ -3219,7 +3181,7 @@
+ 	return nil
+ }
+ 
+-func createAndStartTenzirNode(ctx context.Context, containerName, imageName string, containerStartOptions container.StartOptions) error {
++func createAndStartTenzirNode(ctx context.Context, containerName, imageName string, containerStartOptions dockerclient.ContainerStartOptions) error {
+ 	healthconfig := &container.HealthConfig{
+ 		Test:     []string{"tenzir --connection-timeout=30s --connection-retry-delay=1s 'api /ping'"},
+ 		Interval: 30 * time.Second,
+@@ -3232,10 +3194,10 @@
+ 		Cmd:         []string{"--commands=web server --mode=dev --bind=0.0.0.0"},
+ 		Image:       imageName,
+ 		Healthcheck: healthconfig,
+-		ExposedPorts: nat.PortSet{
+-			"5160/tcp": struct{}{},
+-			"1514/udp": struct{}{},
+-			"1514/tcp": struct{}{},
++		ExposedPorts: network.PortSet{
++			network.MustParsePort("5160/tcp"): struct{}{},
++			network.MustParsePort("1514/udp"): struct{}{},
++			network.MustParsePort("1514/tcp"): struct{}{},
+ 		},
+ 		Entrypoint: []string{containerName},
+ 		Env:        []string{},
+@@ -3263,8 +3225,6 @@
+ 
+ 	tenzirStorageFolder := os.Getenv("SHUFFLE_STORAGE_FOLDER")
+ 	if len(tenzirStorageFolder) > 0 {
+-		tenzirStorageFolder = tenzirStorageFolder
+-
+ 		if !strings.HasSuffix(tenzirStorageFolder, "/") {
+ 			tenzirStorageFolder = tenzirStorageFolder + "/"
+ 		}
+@@ -3280,10 +3240,10 @@
+ 	}
+ 
+ 	hostConfig := &container.HostConfig{
+-		PortBindings: nat.PortMap{
+-			"1514/tcp": []nat.PortBinding{{HostPort: "1514"}},
+-			"1514/udp": []nat.PortBinding{{HostPort: "1514"}},
+-			"5160/tcp": []nat.PortBinding{{HostPort: "5160"}},
++		PortBindings: network.PortMap{
++			network.MustParsePort("1514/tcp"): []network.PortBinding{{HostPort: "1514"}},
++			network.MustParsePort("1514/udp"): []network.PortBinding{{HostPort: "1514"}},
++			network.MustParsePort("5160/tcp"): []network.PortBinding{{HostPort: "5160"}},
+ 		},
+ 		Mounts: []mount.Mount{
+ 			{
+@@ -3311,8 +3271,8 @@
+ 	}
+ 
+ 	if os.Getenv("SHUFFLE_DISABLE_SYSLOG") == "true" {
+-		hostConfig.PortBindings = nat.PortMap{
+-			"5160/tcp": []nat.PortBinding{{HostPort: "5160"}},
++		hostConfig.PortBindings = network.PortMap{
++			network.MustParsePort("5160/tcp"): []network.PortBinding{{HostPort: "5160"}},
+ 		}
+ 	}
+ 
+@@ -3347,7 +3307,7 @@
+ 		}
+ 	*/
+ 
+-	resp, err := dockercli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
++	resp, err := dockercli.ContainerCreate(ctx, dockerclient.ContainerCreateOptions{Config: config, HostConfig: hostConfig, NetworkingConfig: networkingConfig, Name: containerName})
+ 	if err != nil {
+ 		if strings.Contains(err.Error(), "path does not exist") {
+ 			log.Printf("[ERROR] Not using permanent pipeline storage as storage folder %s does not exist. If you want permanent storage, create the %s folder then restart Orborus (1). Raw: %s", tenzirStorageFolder, tenzirStorageFolder, err)
+@@ -3361,13 +3321,13 @@
+ 
+ 	if os.Getenv("SHUFFLE_SWARM_CONFIG") == "run" {
+ 		networkName := "shuffle_swarm_executions"
+-		err = dockercli.NetworkConnect(ctx, networkName, resp.ID, nil)
++		_, err = dockercli.NetworkConnect(ctx, networkName, dockerclient.NetworkConnectOptions{Container: resp.ID})
+ 		if err != nil {
+ 			log.Printf("[ERROR] Error connecting tenzir container to network: %s", err)
+ 		}
+ 	}
+ 
+-	err = dockercli.ContainerStart(ctx, containerName, containerStartOptions)
++	_, err = dockercli.ContainerStart(ctx, containerName, containerStartOptions)
+ 	if err != nil {
+ 		if strings.Contains(err.Error(), "path does not exist") {
+ 			log.Printf("[ERROR] Not using permanent pipeline storage as storage folder %s does not exist. If you want permanent storage, create the %s folder then restart Orborus (2). Raw: %s", tenzirStorageFolder, tenzirStorageFolder, err)
+@@ -3407,29 +3367,39 @@
+ }
+ 
+ func createNetworkIfNotExists(ctx context.Context, networkName, subnet, gateway string) error {
+-	listOptions := network.ListOptions{}
++	listOptions := dockerclient.NetworkListOptions{}
+ 	networks, err := dockercli.NetworkList(ctx, listOptions)
+ 	if err != nil {
+ 		return err
+ 	}
+ 
+-	for _, network := range networks {
++	for _, network := range networks.Items {
+ 		if network.Name == networkName {
+ 			// Network exists
+ 			return nil
+ 		}
+ 	}
+ 
++	subnetPrefix, err := netip.ParsePrefix(subnet)
++	if err != nil {
++		return err
++	}
++
++	gatewayAddr, err := netip.ParseAddr(gateway)
++	if err != nil {
++		return err
++	}
++
+ 	ipamConfig := &network.IPAM{
+ 		Config: []network.IPAMConfig{
+ 			{
+-				Subnet:  subnet,
+-				Gateway: gateway,
++				Subnet:  subnetPrefix,
++				Gateway: gatewayAddr,
+ 			},
+ 		},
+ 	}
+ 
+-	networkCreate := network.CreateOptions{
++	networkCreate := dockerclient.NetworkCreateOptions{
+ 		//CheckDuplicate: true,
+ 		Driver: "bridge",
+ 		IPAM:   ipamConfig,
+@@ -4099,7 +4069,7 @@
+ 		}
+ 	} else {
+ 
+-		containers, err := dockercli.ContainerList(ctx, container.ListOptions{
++		containers, err := dockercli.ContainerList(ctx, dockerclient.ContainerListOptions{
+ 			All: true,
+ 		})
+ 
+@@ -4118,7 +4088,7 @@
+ 
+ 		currenttime := time.Now().Unix()
+ 
+-		for _, container := range containers {
++		for _, container := range containers.Items {
+ 			// Skip random containers. Only handle things related to Shuffle.
+ 			if !strings.Contains(container.Image, baseimagename) {
+ 				shuffleFound := false
+@@ -4166,7 +4136,7 @@
+ 	}
+ 
+ 	log.Println("[INFO] Looking for old containers to remove")
+-	containers, err := dockercli.ContainerList(ctx, container.ListOptions{
++	containers, err := dockercli.ContainerList(ctx, dockerclient.ContainerListOptions{
+ 		All: true,
+ 	})
+ 
+@@ -4181,7 +4151,7 @@
+ 	log.Printf("[INFO] Baseimage: %s, Workertimeout: %d", baseimagename, int64(workerTimeout))
+ 	//baseString := `/bin/sh -c 'python app.py --log-level DEBUG'`
+ 	baseString := `python app.py`
+-	for _, container := range containers {
++	for _, container := range containers.Items {
+ 		// Skip random containers. Only handle things related to Shuffle.
+ 		if !strings.Contains(container.Image, baseimagename) && !strings.Contains(container.Command, baseString) && !strings.Contains(container.Command, "walkoff") && container.Command != "./worker" {
+ 			shuffleFound := false
+@@ -4230,14 +4200,14 @@
+ 
+ 	// FIXME - add killing of apps with same execution ID too
+ 	log.Printf("[INFO] Should STOP and remove %d containers.", len(stopContainers))
+-	var options container.StopOptions
++	var options dockerclient.ContainerStopOptions
+ 	for _, containername := range stopContainers {
+ 		log.Printf("[INFO] Stopping and removing container %s", containerNames[containername])
+ 		go dockercli.ContainerStop(ctx, containername, options)
+ 		removeContainers = append(removeContainers, containername)
+ 	}
+ 
+-	removeOptions := container.RemoveOptions{
++	removeOptions := dockerclient.ContainerRemoveOptions{
+ 		RemoveVolumes: true,
+ 		Force:         true,
+ 	}
+@@ -4465,7 +4435,8 @@
+ }
+ 
+ func scaleService(ctx context.Context, client *dockerclient.Client, replicas uint64) error {
+-	service, _, err := client.ServiceInspectWithRaw(ctx, "shuffle-workers", types.ServiceInspectOptions{})
++	inspect, err := client.ServiceInspect(ctx, "shuffle-workers", dockerclient.ServiceInspectOptions{})
++	service := inspect.Service
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -4480,7 +4451,7 @@
+ 
+ 	service.Spec.Mode.Replicated.Replicas = &replicas
+ 
+-	_, err = dockercli.ServiceUpdate(ctx, service.ID, service.Version, service.Spec, types.ServiceUpdateOptions{})
++	_, err = dockercli.ServiceUpdate(ctx, service.ID, dockerclient.ServiceUpdateOptions{Version: service.Version, Spec: service.Spec})
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -4490,7 +4461,8 @@
+ }
+ 
+ func currentWokerCount(ctx context.Context, client *dockerclient.Client) int {
+-	service, _, err := client.ServiceInspectWithRaw(ctx, "shuffle-workers", types.ServiceInspectOptions{})
++	inspect, err := client.ServiceInspect(ctx, "shuffle-workers", dockerclient.ServiceInspectOptions{})
++	service := inspect.Service
+ 	if err != nil {
+ 		return 0
+ 	}
+@@ -4513,22 +4485,22 @@
+ 
+ func checkMemcached(ctx context.Context, dockercli *dockerclient.Client) (bool, error) {
+ 	containerName := "shuffle-cache"
+-	continer, err := dockercli.ContainerInspect(context.Background(), containerName)
++	continer, err := dockercli.ContainerInspect(context.Background(), containerName, dockerclient.ContainerInspectOptions{})
+ 	if err != nil {
+-		if dockerclient.IsErrNotFound(err) {
++		if cerrdefs.IsNotFound(err) {
+ 			return false, nil
+ 		}
+ 		return false, err
+ 	}
+ 	networkName := "shuffle_swarm_executions"
+-	err = dockercli.NetworkConnect(ctx, networkName, containerName, nil)
++	_, err = dockercli.NetworkConnect(ctx, networkName, dockerclient.NetworkConnectOptions{Container: containerName})
+ 	if err != nil {
+ 		log.Printf("[WARNING] Failed connecting memcached container to network: %s", err)
+ 	}
+ 
+-	if continer.State.Running == false {
++	if continer.Container.State.Running == false {
+ 		log.Printf("[INFO] Container %s exists but is not running. Attempting to start it.", containerName)
+-		err = dockercli.ContainerStart(ctx, containerName, container.StartOptions{})
++		_, err = dockercli.ContainerStart(ctx, containerName, dockerclient.ContainerStartOptions{})
+ 		if err != nil {
+ 			log.Printf("[ERROR] Failed to start container %s: %v", containerName, err)
+ 			return false, err
+@@ -4537,7 +4509,7 @@
+ 		return true, nil
+ 	}
+ 
+-	return continer.State.Running, nil
++	return continer.Container.State.Running, nil
+ }
+ 
+ func deployMemcached(dockercli *dockerclient.Client) error {
+@@ -4557,15 +4529,15 @@
+ 	}
+ 
+ 	hostConfig := &container.HostConfig{
+-		PortBindings: nat.PortMap{
+-			"11211/tcp": []nat.PortBinding{{HostPort: "11211"}},
++		PortBindings: network.PortMap{
++			network.MustParsePort("11211/tcp"): []network.PortBinding{{HostPort: "11211"}},
+ 		},
+ 	}
+ 
+-	_, _, err := dockercli.ImageInspectWithRaw(ctx, memcachedImage)
+-	if dockerclient.IsErrNotFound(err) {
++	_, err := dockercli.ImageInspect(ctx, memcachedImage)
++	if cerrdefs.IsNotFound(err) {
+ 		log.Printf("[DEBUG] Pulling image %s. This may take a while.", memcachedImage)
+-		pullOptions := image.PullOptions{}
++		pullOptions := dockerclient.ImagePullOptions{}
+ 		out, err := dockercli.ImagePull(ctx, memcachedImage, pullOptions)
+ 		if err != nil {
+ 			log.Printf("[ERROR] Failed to pull the memcached image: %s", err)
+@@ -4579,7 +4551,7 @@
+ 	}
+ 
+ 	containerName := "shuffle-cache"
+-	resp, err := dockercli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
++	resp, err := dockercli.ContainerCreate(ctx, dockerclient.ContainerCreateOptions{Config: containerConfig, HostConfig: hostConfig, Name: containerName})
+ 	if err != nil {
+ 		log.Printf("[ERROR] Error spanning memcached continer: %s", err)
+ 		return err
+@@ -4587,20 +4559,20 @@
+ 
+ 	if os.Getenv("SHUFFLE_SWARM_CONFIG") == "run" {
+ 		networkName := "shuffle_swarm_executions"
+-		err = dockercli.NetworkConnect(ctx, networkName, resp.ID, nil)
++		_, err = dockercli.NetworkConnect(ctx, networkName, dockerclient.NetworkConnectOptions{Container: resp.ID})
+ 		if err != nil {
+ 			log.Printf("[ERROR] Error connecting tenzir container to network: %s", err)
+ 		}
+ 	}
+ 
+-	err = dockercli.ContainerStart(ctx, resp.ID, container.StartOptions{})
++	_, err = dockercli.ContainerStart(ctx, resp.ID, dockerclient.ContainerStartOptions{})
+ 	if err != nil {
+ 		log.Printf("[ERROR] Error starting memcached continer: %s", err)
+ 		return err
+ 	}
+ 
+ 	networkName := "shuffle_swarm_executions"
+-	err = dockercli.NetworkConnect(ctx, networkName, resp.ID, nil)
++	_, err = dockercli.NetworkConnect(ctx, networkName, dockerclient.NetworkConnectOptions{Container: resp.ID})
+ 	if err != nil {
+ 		log.Printf("[ERROR] Error connecting memcached container to network: %s", err)
+ 	}
+@@ -4712,23 +4684,23 @@
+ 
+ func setBackendToSwarmNetwork(ctx context.Context) error {
+ 	containerId := ""
+-	filterArgs := filters.NewArgs()
++	filterArgs := dockerclient.Filters{}
+ 	filterArgs.Add("name", "shuffle-backend")
+ 
+-	containers, err := dockercli.ContainerList(ctx, container.ListOptions{
++	containers, err := dockercli.ContainerList(ctx, dockerclient.ContainerListOptions{
+ 		All:     true,
+ 		Filters: filterArgs,
+ 	})
+ 	if err != nil {
+ 		return err
+ 	}
+-	if len(containers) == 0 {
++	if len(containers.Items) == 0 {
+ 		return errors.New("No containers found with name shuffle-backend")
+ 	}
+ 
+-	containerId = containers[0].ID
++	containerId = containers.Items[0].ID
+ 	networkName := "shuffle_swarm_executions"
+-	err = dockercli.NetworkConnect(ctx, networkName, containerId, nil)
++	_, err = dockercli.NetworkConnect(ctx, networkName, dockerclient.NetworkConnectOptions{Container: containerId})
+ 	if err != nil {
+ 		log.Printf("[ERROR] Error connecting backend container to network: %s", err)
+ 	}

@@ -1,0 +1,21 @@
+ARG GO_BUILDER_IMAGE
+ARG ALPINE_RUNTIME_IMAGE
+FROM ${GO_BUILDER_IMAGE} AS builder
+
+WORKDIR /src
+COPY docker-guard/go.mod ./
+COPY docker-guard/*.go ./
+RUN go vet ./... \
+    && go test ./... \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o /out/docker-guard .
+
+FROM ${ALPINE_RUNTIME_IMAGE}
+COPY --from=builder /out/docker-guard /usr/local/bin/docker-guard
+# El host crea el grupo docker con GID 2375 antes de instalar Docker (install-runtime);
+# Compose añade ese grupo solo a este servicio. El guard no corre como root.
+RUN addgroup -S -g 10002 docker-guard \
+    && adduser -S -D -H -u 10002 -G docker-guard docker-guard
+USER 10002:10002
+EXPOSE 2375
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD ["/usr/local/bin/docker-guard", "-healthcheck"]
+ENTRYPOINT ["/usr/local/bin/docker-guard"]

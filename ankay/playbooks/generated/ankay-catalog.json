@@ -1,0 +1,440 @@
+{
+  "playbooks": {
+    "containment.cato-block-indicator": {
+      "approval": "dual-control-and-sod",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "network-policy-change",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "cato"
+      ],
+      "status": "disabled",
+      "steps": [
+        "block-exact-approved-indicator-with-expiry",
+        "verify",
+        "remove-on-expiry"
+      ],
+      "version": "0.1.0"
+    },
+    "containment.endpoint-isolate": {
+      "approval": "dual-control-and-sod",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "endpoint-isolation",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "sophos"
+      ],
+      "status": "disabled",
+      "steps": [
+        "isolate-approved-endpoint",
+        "verify-state",
+        "compensate-if-approved"
+      ],
+      "version": "0.1.0"
+    },
+    "containment.m365-revoke-sessions": {
+      "approval": "dual-control-and-sod",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "identity-session-revocation",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "microsoft-graph"
+      ],
+      "status": "disabled",
+      "steps": [
+        "revoke-sessions-for-approved-user-reference",
+        "verify-and-record"
+      ],
+      "version": "0.1.0"
+    },
+    "identity.m365-risk-triage": {
+      "approval": "none-for-read-only",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "wazuh-m365",
+        "microsoft-graph-read-only-when-approved"
+      ],
+      "status": "design-only",
+      "steps": [
+        "correlate-signin-audit-and-alert-evidence"
+      ],
+      "version": "1.0.0"
+    },
+    "malware.sophos-correlate": {
+      "approval": "none-for-read-only",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "wazuh",
+        "sophos-siem-read-only"
+      ],
+      "status": "blocked-on-connector-contract-and-tenant-scope",
+      "steps": [
+        "correlate-event-endpoint-hash-time",
+        "summarize-provider-verdict"
+      ],
+      "version": "1.0.0"
+    },
+    "network.cato-correlate": {
+      "approval": "none-for-read-only",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "wazuh",
+        "cato-events-feed-read-only"
+      ],
+      "status": "blocked-on-connector-contract-and-tenant-scope",
+      "steps": [
+        "correlate-marker-event-site-asset-time",
+        "summarize-policy-verdict"
+      ],
+      "version": "1.0.0"
+    },
+    "notification.soc-critical": {
+      "approval": "none",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "notification-only",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "qapaq-outbox",
+        "teams-workflow-via-qapaq-notifier"
+      ],
+      "status": "design-only",
+      "steps": [
+        "deliver-once-per-outbox-event",
+        "record-delivery-result"
+      ],
+      "version": "1.0.0"
+    },
+    "phishing.endpoint-office-child-process": {
+      "approval": "none-for-read-only",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "wazuh-sysmon"
+      ],
+      "status": "design-only",
+      "steps": [
+        "validate-alert-reference",
+        "deduplicate",
+        "prepare-analyst-triage-context"
+      ],
+      "version": "0.1.0"
+    },
+    "phishing.m365-url-triage": {
+      "approval": "none-for-read-only",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "wazuh-m365",
+        "microsoft-graph-read-only-when-approved"
+      ],
+      "status": "design-only",
+      "steps": [
+        "normalize-url-without-opening",
+        "correlate-events",
+        "attach-provenance"
+      ],
+      "version": "1.0.0"
+    },
+    "qapaq.data-movement-triage": {
+      "approval": "required-before-any-containment",
+      "catalog": "qapaq-financial-demo-v1",
+      "effects": "none",
+      "prohibited": [
+        "mailBody",
+        "documentBytes",
+        "providerToken"
+      ],
+      "required": [
+        "tenantRef",
+        "incidentRef",
+        "identityRef",
+        "alertRefs",
+        "executionKey"
+      ],
+      "sources": [
+        "m365",
+        "cato"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate signed dispatch and case access",
+        "deduplicate executionKey",
+        "read M365 share/download/export summaries",
+        "read Cato destination/volume summary",
+        "compare against approved role/site baseline",
+        "attach sensitivity and provenance; request human review"
+      ],
+      "version": "1.0.0"
+    },
+    "qapaq.identity-compromise-triage": {
+      "approval": "not-required-for-read-only",
+      "catalog": "qapaq-financial-demo-v1",
+      "effects": "none",
+      "prohibited": [
+        "password",
+        "accessToken",
+        "refreshToken"
+      ],
+      "required": [
+        "tenantRef",
+        "incidentRef",
+        "identityRef",
+        "alertRefs",
+        "executionKey"
+      ],
+      "sources": [
+        "entra",
+        "active_directory",
+        "cato"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate signed dispatch and identity scope",
+        "deduplicate executionKey",
+        "read Entra sign-in and AD event summaries via QAPAQ",
+        "read Cato site/session context via QAPAQ",
+        "build UTC timeline with source confidence and missing-data flags",
+        "attach analyst questions and evidence references"
+      ],
+      "version": "1.0.0"
+    },
+    "qapaq.malware-network-triage": {
+      "approval": "not-required-for-read-only",
+      "catalog": "qapaq-financial-demo-v1",
+      "effects": "none",
+      "prohibited": [
+        "sampleBytes",
+        "providerToken",
+        "privateFileContent"
+      ],
+      "required": [
+        "tenantRef",
+        "incidentRef",
+        "endpointRef",
+        "alertRefs",
+        "executionKey"
+      ],
+      "sources": [
+        "sophos",
+        "cato",
+        "wazuh"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate endpoint and tenant references",
+        "deduplicate executionKey",
+        "read Sophos detection and remedy status",
+        "read matching Cato threat events and marker provenance",
+        "read Wazuh process/FIM context if available",
+        "summarize hash, destination, action and confidence without uploading samples",
+        "notify through QAPAQ outbox"
+      ],
+      "version": "1.0.0"
+    },
+    "qapaq.password-spray-triage": {
+      "approval": "not-required-for-read-only",
+      "catalog": "qapaq-financial-demo-v1",
+      "effects": "none",
+      "prohibited": [
+        "password",
+        "authHeader",
+        "providerToken"
+      ],
+      "required": [
+        "tenantRef",
+        "incidentRef",
+        "sourceRef",
+        "alertRefs",
+        "executionKey"
+      ],
+      "sources": [
+        "entra",
+        "active_directory",
+        "cato"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate source and tenant scope",
+        "deduplicate executionKey",
+        "read bounded Entra/AD failure and success summaries",
+        "enrich source network with Cato only if available",
+        "count distinct identities and successful follow-on logins",
+        "attach threshold, window and evidence to incident"
+      ],
+      "version": "1.0.0"
+    },
+    "qapaq.phishing-triage": {
+      "approval": "not-required-for-read-only",
+      "catalog": "qapaq-financial-demo-v1",
+      "effects": "none",
+      "prohibited": [
+        "mailBody",
+        "attachmentBytes",
+        "providerToken",
+        "rawUrlWithQuery"
+      ],
+      "required": [
+        "tenantRef",
+        "incidentRef",
+        "alertRefs",
+        "executionKey"
+      ],
+      "sources": [
+        "m365",
+        "entra",
+        "sophos"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate signed QAPAQ dispatch and expiry",
+        "deduplicate executionKey",
+        "read correlated M365/Entra/Sophos summaries through QAPAQ adapters",
+        "normalize URL as text without visiting it",
+        "attach evidence references and provenance to existing incident",
+        "submit notification intent through QAPAQ outbox"
+      ],
+      "version": "1.0.0"
+    },
+    "qapaq.privilege-and-control-change-triage": {
+      "approval": "required-before-any-follow-up-action",
+      "catalog": "qapaq-financial-demo-v1",
+      "effects": "none",
+      "prohibited": [
+        "directoryWriteToken",
+        "providerToken"
+      ],
+      "required": [
+        "tenantRef",
+        "incidentRef",
+        "actorRef",
+        "alertRefs",
+        "executionKey"
+      ],
+      "sources": [
+        "entra",
+        "active_directory",
+        "sophos",
+        "wazuh"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate actor/target references",
+        "deduplicate executionKey",
+        "read role/group change and approved change metadata",
+        "read Sophos/Wazuh protection state when trigger is control tampering",
+        "show owner, time, change request and evidence lineage",
+        "route to human analyst and QAPAQ approval queue if response requested"
+      ],
+      "version": "1.0.0"
+    },
+    "threat-intel.lookup": {
+      "approval": "human-review-before-querying-sensitive-indicators",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "virustotal-enterprise",
+        "approved-internal-feeds"
+      ],
+      "status": "blocked-on-commercial-virustotal-license",
+      "steps": [
+        "lookup-hash-domain-ip-or-reviewed-url",
+        "record-source-and-verdict"
+      ],
+      "version": "1.0.0"
+    },
+    "triage.wazuh-high-severity": {
+      "approval": "none-for-read-only",
+      "catalog": "qapaq-ankay-initial-soc",
+      "effects": "none",
+      "prohibited": [],
+      "required": [],
+      "sources": [
+        "wazuh"
+      ],
+      "status": "prepared-read-only",
+      "steps": [
+        "validate-schema",
+        "deduplicate-alert-id",
+        "classify",
+        "record-execution"
+      ],
+      "version": "1.0.0"
+    }
+  },
+  "schemaVersion": 1,
+  "sources": [
+    "docs/security/ankay-playbooks/catalog.yaml",
+    "infra/wazuh/launch-detections/ankay/playbooks.json"
+  ],
+  "wazuhRoutes": [
+    {
+      "minLevel": 12,
+      "playbookId": "identity.m365-risk-triage",
+      "ruleGroups": [],
+      "ruleIds": []
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "malware.sophos-correlate",
+      "ruleGroups": [],
+      "ruleIds": []
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "network.cato-correlate",
+      "ruleGroups": [],
+      "ruleIds": []
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "phishing.endpoint-office-child-process",
+      "ruleGroups": [],
+      "ruleIds": [
+        "101100"
+      ]
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "phishing.m365-url-triage",
+      "ruleGroups": [],
+      "ruleIds": []
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "qapaq.malware-network-triage",
+      "ruleGroups": [],
+      "ruleIds": []
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "qapaq.privilege-and-control-change-triage",
+      "ruleGroups": [],
+      "ruleIds": []
+    },
+    {
+      "minLevel": 12,
+      "playbookId": "triage.wazuh-high-severity",
+      "ruleGroups": [],
+      "ruleIds": []
+    }
+  ]
+}

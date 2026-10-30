@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "targetPlatform": "linux/amd64",
+  "sources": {
+    "shuffle": {
+      "repository": "https://github.com/Shuffle/Shuffle.git",
+      "tag": "v2.3.0",
+      "commit": "473cc335e5fcc663006d8e5ca16af5ee71fefa68",
+      "license": "AGPL-3.0"
+    },
+    "shuffleShared": {
+      "module": "github.com/shuffle/shuffle-shared",
+      "version": "v1.3.22",
+      "repository": "https://github.com/Shuffle/shuffle-shared.git",
+      "commit": "f81e48ec7dfdd9fd0b94c207fb6b58535ed52a90",
+      "sum": "h1:Xb9EnYLyrhlP8AiH52Frst6iflIkbxyBmG/bntpRo5o=",
+      "goModSum": "h1:0vOWNn+aXibNcbjROmrgszm3/KirYtwzE5BuVnCzQVE=",
+      "license": "AGPL-3.0",
+      "tlsContract": {
+        "skipVerifyDefault": false,
+        "certificateFileEnv": "SHUFFLE_OPENSEARCH_CERTIFICATE_FILE",
+        "certificateDirectoryEnv": "SHUFFLE_CERT_DIR",
+        "certificateDirectoryAppliedWhenEnvironmentIs": "not-cloud"
+      }
+    },
+    "appSdk": {
+      "repository": "https://github.com/Shuffle/app_sdk.git",
+      "commit": "b504768b30cadc3681ed1e4c900d933f7dac5c42",
+      "license": "MIT",
+      "file": "shuffle_sdk/shuffle_sdk.py",
+      "fileSha256": "f4a0820309df6e2768ffb233ef4848051b62515da0864fca279c6f903bc877a5"
+    },
+    "orborus": {
+      "repository": "https://github.com/Shuffle/Shuffle.git",
+      "tag": "v2.2.0",
+      "commit": "36fad33c2e7afb47134d12dc23e6e99948e34b13",
+      "path": "functions/onprem/orborus",
+      "license": "AGPL-3.0",
+      "status": "pinned",
+      "overlay": "ankay/runtime/orborus/orborus-moby-v29.patch",
+      "reason": "Last Shuffle monorepo tag that ships Orborus under the repository AGPL-3.0 LICENSE; the separate Shuffle/orborus repository has no license. Ported to the Moby v29 SDK with the shared moby-shuffle-shared overlay; compatibility with the v2.3.0 backend and worker still requires the Ankay runtime test."
+    },
+    "shuffleSecurity": {
+      "repository": "https://github.com/Shuffle/shuffle-security.git",
+      "commit": "7a4077c1353b3b7da93098acefb199d61894ebbf",
+      "license": "NOASSERTION",
+      "status": "excluded",
+      "replacedBy": "dockerGuard",
+      "reason": "No LICENSE file or SPDX metadata and not required to run Shuffle workflows; Ankay does not build or ship it. Its Compose slot is taken by the QAPAQ docker-guard."
+    },
+    "opensearch": {
+      "repository": "docker.io/opensearchproject/opensearch",
+      "tag": "3.9.0",
+      "indexDigest": "sha256:adfa61f85025d06b4aeb562e7e74fde7e31c437039c93c3862c17e9acebd6c7c",
+      "amd64Digest": "sha256:13487e0953520edf6cc866dfc672fd67a70ab122aa7d84d4a6c97106f84d3f84",
+      "license": "Apache-2.0",
+      "status": "pinned"
+    },
+    "dockerGuard": {
+      "path": "ankay/runtime/docker-guard",
+      "license": "MIT",
+      "status": "built-from-repository-source",
+      "reason": "QAPAQ-owned Docker API filtering proxy: the only container with the daemon socket. Orborus and workers reach it via DOCKER_HOST; it allowlists the non-swarm execution API surface, the reviewed images and Ankay-owned containers only."
+    },
+    "qapaqAnkayApp": {
+      "path": "ankay/apps/qapaq-ankay/1.0.0",
+      "license": "MIT",
+      "sdkLicense": "MIT",
+      "sdkLicenseSha256": "169637a174a1a62dba7566ef39002dbbc1f6a7d2a0009a858a699c7f03d4daa1",
+      "status": "built-from-repository-source",
+      "reason": "Single read-only Shuffle app used by the generated QAPAQ playbooks; replaces upstream python-apps images whose bases fail the HIGH/CRITICAL gate."
+    }
+  },
+  "buildBases": {
+    "amazonLinux2023": "public.ecr.aws/amazonlinux/amazonlinux:2023.12.20261021.0@sha256:d9b4c61f49de68d41e43af1c0ef89c5600b0ad51da024406a15f5d014720c998",
+    "golang1273Alpine323": "docker.io/library/golang:1.27.3-alpine3.23@sha256:7fd63dd7c37f5ddaef15bd8fd3f3e4f90f0d50cd9cae255c7cf73887a494d8df",
+    "alpine3226": "docker.io/library/alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
+    "node23": "docker.io/library/node:23@sha256:9a25b5a6f9a90218b73a62205f111e71de5e4289aee952b4dd7e86f7498f2544",
+    "nginx1293": "docker.io/library/nginx:1.29.3@sha256:2f4e10193b0c4f61472245e9d26cea78e7df7af266c7e7cf5e67353ee2731b51",
+    "python31316Alpine": "docker.io/library/python:3.13.16-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a"
+  },
+  "buildPolicy": {
+    "amazonLinux2023Release": "2023.12.20261028"
+  },
+  "goSecurityUpgrades": {
+    "minimumToolchain": "1.27.3",
+    "golang.org/x/net": "v0.60.0",
+    "golang.org/x/crypto": "v0.57.0",
+    "golang.org/x/text": "v0.42.0",
+    "golang.org/x/sys": "v0.48.0",
+    "golang.org/x/term": "v0.46.0",
+    "google.golang.org/grpc": "v1.83.2"
+  },
+  "componentStatus": {
+    "frontend": "build-from-pinned-shuffle-source",
+    "backend": "build-from-pinned-shuffle-and-shared-source-with-moby-v29-overlay",
+    "worker": "build-from-pinned-shuffle-source-with-moby-v29-overlay",
+    "opensearch": "pinned-opensearch-3.9.0-rebased-onto-deterministic-al2023",
+    "orborus": "build-from-pinned-shuffle-v2.2.0-agpl-source-with-moby-v29-overlay",
+    "docker-guard": "build-from-repository-source",
+    "qapaq-ankay-app": "build-from-repository-source"
+  },
+  "securityBlockers": {
+    "dockerSdk": {
+      "module": "github.com/docker/docker@v28.3.3+incompatible",
+      "status": "backend-worker-and-orborus-migrated-runtime-test-pending",
+      "cves": ["CVE-2026-41567", "CVE-2026-42306"],
+      "requiredEngineVersion": "29.5.1",
+      "reason": "The backend, worker and Orborus use the official github.com/moby/moby/client and /api modules. The component set remains blocked from deployment until the Ankay runtime test against Engine 29.5.1 or later passes."
+    },
+    "mobyGoArchive": {
+      "module": "github.com/moby/go-archive@v0.1.0",
+      "status": "removed-from-backend-and-worker-module-graphs",
+      "cves": ["CVE-2026-17106"],
+      "fixedVersion": "v0.3.0",
+      "reason": "Neither the backend nor worker module graph imports go-archive after migrating to Moby client/api. The nested shuffle-shared app_upload module remains excluded from the runtime build context and is not built into either image."
+    }
+  }
+}

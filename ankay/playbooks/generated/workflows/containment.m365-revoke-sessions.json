@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "530ff0c0-56b7-5429-a62a-360694f9ed47",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "containment.m365-revoke-sessions"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "8ef4ecc4-4070-5da5-a5b2-a5abceb5227b",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "hold_for_outbox",
+      "name": "hold_for_outbox",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "530ff0c0-56b7-5429-a62a-360694f9ed47",
+      "id": "052644ae-e959-58f4-897a-24e3afdfd55b",
+      "source_id": "d035d82f-c7dd-5800-beed-6706a68630af"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "8ef4ecc4-4070-5da5-a5b2-a5abceb5227b",
+      "id": "a3eb8dc8-2321-58a3-83ac-27c1a1f0b2d6",
+      "source_id": "530ff0c0-56b7-5429-a62a-360694f9ed47"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "containment.m365-revoke-sessions (qapaq-ankay-initial-soc). Efecto declarado: identity-session-revocation. Requiere aprobación dual-control-and-sod en QAPAQ; Ankay solo verifica y retiene: el efecto lo despacha el outbox QAPAQ.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · containment.m365-revoke-sessions 0.1.0",
+  "start": "530ff0c0-56b7-5429-a62a-360694f9ed47",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:containment.m365-revoke-sessions@0.1.0",
+    "effects:identity-session-revocation",
+    "ankay-sha256:15efea698c4019a32622c01f91e1ebd2"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "d035d82f-c7dd-5800-beed-6706a68630af",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_d035d82f-c7dd-5800-beed-6706a68630af"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

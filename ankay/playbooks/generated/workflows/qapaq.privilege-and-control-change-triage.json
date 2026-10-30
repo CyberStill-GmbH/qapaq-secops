@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "463c6100-47ac-509d-822d-8bea0bd54d96",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "qapaq.privilege-and-control-change-triage"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "cfd8e9a1-2abf-5776-ad89-27513f9671e9",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "463c6100-47ac-509d-822d-8bea0bd54d96",
+      "id": "87829c0c-7974-5484-a529-649d54bb8711",
+      "source_id": "9b7c47c8-2d4e-586c-afcc-d159e645fb13"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "cfd8e9a1-2abf-5776-ad89-27513f9671e9",
+      "id": "5adc80cf-5bdc-5325-b362-33208bdfd48d",
+      "source_id": "463c6100-47ac-509d-822d-8bea0bd54d96"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "qapaq.privilege-and-control-change-triage (qapaq-financial-demo-v1). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: prepared-read-only.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · qapaq.privilege-and-control-change-triage 1.0.0",
+  "start": "463c6100-47ac-509d-822d-8bea0bd54d96",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:qapaq.privilege-and-control-change-triage@1.0.0",
+    "effects:none",
+    "ankay-sha256:fe7ebbfe622bf3646658ca0082dfbd8b"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "9b7c47c8-2d4e-586c-afcc-d159e645fb13",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_9b7c47c8-2d4e-586c-afcc-d159e645fb13"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

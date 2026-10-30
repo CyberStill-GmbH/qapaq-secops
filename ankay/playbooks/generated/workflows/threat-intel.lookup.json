@@ -1,0 +1,151 @@
+{
+  "actions": [
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "__QAPAQ_ANKAY_DISPATCH_AUTH_ID__",
+      "environment": "Shuffle",
+      "id": "47855b90-eb9d-5a43-86f6-e8a8cae6ed12",
+      "is_start_node": true,
+      "is_valid": true,
+      "label": "verify_dispatch",
+      "name": "verify_governed_dispatch",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "envelope",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$exec"
+        },
+        {
+          "multiline": false,
+          "name": "playbook_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "threat-intel.lookup"
+        }
+      ],
+      "position": {
+        "x": 460,
+        "y": 200
+      }
+    },
+    {
+      "app_id": "__QAPAQ_ANKAY_APP_ID__",
+      "app_name": "QAPAQ Ankay",
+      "app_version": "1.0.0",
+      "authentication_id": "",
+      "environment": "Shuffle",
+      "id": "00063e8b-ae7f-5a87-b064-7711a2742dbb",
+      "is_start_node": false,
+      "is_valid": true,
+      "label": "prepare_read_only_triage",
+      "name": "prepare_read_only_triage",
+      "parameters": [
+        {
+          "multiline": true,
+          "name": "verified",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "value": "$verify_dispatch"
+        }
+      ],
+      "position": {
+        "x": 720,
+        "y": 200
+      }
+    }
+  ],
+  "branches": [
+    {
+      "conditions": [],
+      "destination_id": "47855b90-eb9d-5a43-86f6-e8a8cae6ed12",
+      "id": "0b8beca4-a3d8-5d00-9ab3-644f93533d84",
+      "source_id": "83543fd0-dd39-50ed-9b18-fa4e530d24d1"
+    },
+    {
+      "conditions": [
+        {
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "verified",
+            "variant": "STATIC_VALUE"
+          },
+          "source": {
+            "name": "source",
+            "value": "$verify_dispatch.status",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ],
+      "destination_id": "00063e8b-ae7f-5a87-b064-7711a2742dbb",
+      "id": "83b755e8-4428-528b-9dd2-15cb2595e842",
+      "source_id": "47855b90-eb9d-5a43-86f6-e8a8cae6ed12"
+    }
+  ],
+  "configuration": {
+    "exit_on_error": true,
+    "skip_notifications": true,
+    "start_from_top": false
+  },
+  "description": "threat-intel.lookup (qapaq-ankay-initial-soc). Despacho firmado de QAPAQ Core → triage de solo lectura. Estado de catálogo: blocked-on-commercial-virustotal-license.",
+  "execution_variables": [],
+  "is_valid": true,
+  "name": "QAPAQ · threat-intel.lookup 1.0.0",
+  "start": "47855b90-eb9d-5a43-86f6-e8a8cae6ed12",
+  "status": "production",
+  "tags": [
+    "qapaq",
+    "ankay-playbook:threat-intel.lookup@1.0.0",
+    "effects:none",
+    "ankay-sha256:b77569fc2e175ab2ff8c895bff9d3d4e"
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "environment": "onprem",
+      "id": "83543fd0-dd39-50ed-9b18-fa4e530d24d1",
+      "is_valid": true,
+      "label": "qapaq_webhook",
+      "name": "Webhook",
+      "parameters": [
+        {
+          "name": "url",
+          "value": "/api/v1/hooks/webhook_83543fd0-dd39-50ed-9b18-fa4e530d24d1"
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "__QAPAQ_ANKAY_WEBHOOK_AUTH__"
+        },
+        {
+          "name": "custom_response_body",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 200
+      },
+      "status": "uninitialized",
+      "trigger_type": "WEBHOOK"
+    }
+  ],
+  "workflow_variables": []
+}

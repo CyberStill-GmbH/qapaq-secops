@@ -14,5 +14,29 @@
   {
     "dockerfile": "platform/database/Dockerfile.migrator",
     "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.backend",
+    "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.worker",
+    "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.opensearch",
+    "context": "ankay/runtime"
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.orborus",
+    "context": "."
+  },
+  {
+    "dockerfile": "ankay/runtime/Dockerfile.docker-guard",
+    "context": "ankay/runtime"
+  },
+  {
+    "dockerfile": "ankay/apps/qapaq-ankay/1.0.0/Dockerfile",
+    "context": "ankay"
   }
 ]

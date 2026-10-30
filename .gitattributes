@@ -2,4 +2,8 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 *.patch text eol=lf
+ankay/runtime/*-moby-v29.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 wazuh/provider-ingestion/sophos/upstream/** text eol=lf
+ankay/runtime/orborus/*.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+ankay/runtime/orborus/go.sum text eol=lf
+ankay/playbooks/generated/** text eol=lf
