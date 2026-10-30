@@ -29,6 +29,14 @@ workflow principal hasta revisar este código, el plan y los roles.
   una condición ABAC limita la delegación a `AcrPull`, `AcrPush`, `Key Vault
 Secrets User` y `Storage Blob Data Contributor` para service principals, y
   bloquea la autoasignación de roles a Terraform.
+- `Storage Blob Data Reader` queda fuera de esa lista del grupo. Azure no expone
+  el scope solicitado como atributo en la condición ABAC de
+  `roleAssignments/write`; permitir el rol desde el grupo dejaría asignarlo en
+  cualquier recurso descendiente. Después de crear la fundación, se puede
+  habilitar una delegación independiente de `Role Based Access Control
+Administrator` cuyo propio scope es exclusivamente el contenedor EUS2
+  `siem-release`. Su condición solo permite asignar o quitar `Storage Blob Data
+Reader` a service principals y prohíbe la autoasignación a Terraform.
 - `Storage Blob Data Contributor` solo en el Storage Account de state y
   `Cost Management Contributor` a nivel de suscripción para que el root existente
   pueda gestionar el presupuesto mensual.
@@ -41,6 +49,34 @@ El bootstrap operador necesita permisos para crear grupos/Storage, identidades y
 asignaciones de roles con esos alcances. Si Azure no autoriza una asignación, no
 elevar el scope como atajo: revisar el permiso faltante con el administrador del
 tenant.
+
+### Habilitar la lectura del bundle SIEM, solo después de foundation
+
+El contenedor de releases debe existir antes de crear una delegación a ese scope.
+Tras aplicar el scope `foundation`, revisa el state y habilita
+`enable_siem_release_reader_delegation=true` en una ejecución separada del mismo
+root y state de bootstrap. El root deriva el resource ID del grupo y de la misma
+convención de nombres que `infra/azure`; el valor no acepta una ruta arbitraria.
+El plan esperado es una sola asignación adicional,
+`azurerm_role_assignment.siem_release_reader_delegation[0]`, con scope terminado
+en `/blobServices/default/containers/siem-release`, rol
+`Role Based Access Control Administrator` y condición para `Storage Blob Data
+Reader` únicamente. Revísalo antes de aplicar. Mantén la variable desactivada
+para bootstrap iniciales o entornos sin la fundación desplegada.
+
+La asignación permite a Terraform administrar asignaciones de Blob Reader en ese
+contenedor y sus recursos descendientes, no en el resto del grupo. La condición
+admite cualquier service principal distinto de Terraform en ese scope; el plan
+SIEM crea la asignación del host con su propia identidad. No se añade Blob Reader
+al allowlist del grupo. La condición no permite asignar Contributor, Owner,
+Storage Blob Data Contributor ni RBAC Administrator. La identidad Terraform
+recibe RBAC Administrator adicional solo en el contenedor indicado.
+
+La restricción de alcance usa el scope de la asignación RBAC adicional, porque
+los atributos documentados para las condiciones de delegación de
+`roleAssignments/write` no incluyen el scope de destino. Referencias: [atributos
+de autorización ABAC](https://learn.microsoft.com/en-us/azure/role-based-access-control/conditions-authorization-actions-attributes)
+y [delegación RBAC con condiciones](https://learn.microsoft.com/en-us/azure/role-based-access-control/delegate-role-assignments-overview).
 
 ## Aplicación manual revisable
 

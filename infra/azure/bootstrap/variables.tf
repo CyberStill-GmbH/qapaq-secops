@@ -102,6 +102,12 @@ variable "state_key" {
   default     = "qapaq-secops/demo/terraform.tfstate"
 }
 
+variable "enable_siem_release_reader_delegation" {
+  description = "After foundation creates the siem-release container, delegate only Storage Blob Data Reader assignment at that container scope."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Governance labels for bootstrap resources."
   type        = map(string)

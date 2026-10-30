@@ -4,7 +4,15 @@ locals {
 
   target_resource_group_name = "rg-${local.name_base}-${local.suffix}"
   state_resource_group_name  = "rg-${local.name_base}-state-${local.suffix}"
-  github_repository_parts    = split("/", var.github_repository)
+  compact_project            = replace(lower(var.project), "-", "")
+  compact_environment        = replace(lower(var.environment), "-", "")
+  siem_release_storage_name = substr(
+    "${substr(local.compact_project, 0, min(8, 24 - length(local.compact_environment) - length("rel") - length(local.suffix)))}${local.compact_environment}rel${local.suffix}",
+    0,
+    24,
+  )
+  siem_release_container_scope = "${azurerm_resource_group.demo.id}/providers/Microsoft.Storage/storageAccounts/${local.siem_release_storage_name}/blobServices/default/containers/siem-release"
+  github_repository_parts      = split("/", var.github_repository)
   github_oidc_subject = format(
     "repo:%s@%s/%s@%s:environment:%s",
     local.github_repository_parts[0],
@@ -28,6 +36,7 @@ locals {
     "ba92f5b4-2d11-453d-a403-e96b0029c9fe", # Storage Blob Data Contributor
   ]
   delegated_role_definition_set = join(", ", local.delegated_role_definition_ids)
+  siem_release_reader_role_id   = "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1" # Storage Blob Data Reader
 }
 
 data "azurerm_client_config" "current" {}
@@ -160,6 +169,28 @@ resource "azurerm_role_assignment" "demo_rbac_admin" {
     local.delegated_role_definition_set,
     azurerm_user_assigned_identity.github_terraform.principal_id,
     local.delegated_role_definition_set,
+    azurerm_user_assigned_identity.github_terraform.principal_id,
+  )
+  condition_version = "2.0"
+}
+
+# The resource-group delegation above intentionally does not include Blob Reader:
+# Azure's roleAssignments condition has no target-scope attribute. This optional
+# second delegation therefore scopes RBAC administration to the exact release
+# container and permits only the reader role for service principals.
+resource "azurerm_role_assignment" "siem_release_reader_delegation" {
+  count = var.enable_siem_release_reader_delegation ? 1 : 0
+
+  scope                = local.siem_release_container_scope
+  role_definition_name = "Role Based Access Control Administrator"
+  principal_id         = azurerm_user_assigned_identity.github_terraform.principal_id
+  principal_type       = "ServicePrincipal"
+
+  condition = format(
+    "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {%s} AND @Request[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'ServicePrincipal'} AND @Request[Microsoft.Authorization/roleAssignments:PrincipalId] ForAnyOfAllValues:GuidNotEquals {%s})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {%s} AND @Resource[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'ServicePrincipal'} AND @Resource[Microsoft.Authorization/roleAssignments:PrincipalId] ForAnyOfAllValues:GuidNotEquals {%s}))",
+    local.siem_release_reader_role_id,
+    azurerm_user_assigned_identity.github_terraform.principal_id,
+    local.siem_release_reader_role_id,
     azurerm_user_assigned_identity.github_terraform.principal_id,
   )
   condition_version = "2.0"

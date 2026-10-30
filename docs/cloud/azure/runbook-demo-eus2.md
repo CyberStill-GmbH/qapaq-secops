@@ -102,6 +102,21 @@ No usar placeholders para aparentar disponibilidad. Los scopes `siem` y `soc` no
 cambian DNS; el primero no implica que Ankay ni las integraciones externas estén
 operativas.
 
+### Delegación RBAC para instalar el bundle SIEM
+
+La identidad Terraform conserva el allowlist ABAC del grupo sin
+`Storage Blob Data Reader`. Para que el scope `siem` cree la asignación de
+lectura del bundle, el bootstrap EUS2 debe recibir una actualización separada
+después de `foundation`, cuando existe el contenedor privado `siem-release` del
+Storage de releases. Habilita
+`enable_siem_release_reader_delegation=true` en el mismo state EUS2 de bootstrap;
+el resource ID se deriva de los nombres deterministas del root. Antes de aplicar,
+confirma que el plan solo agregue
+`azurerm_role_assignment.siem_release_reader_delegation[0]` al scope exacto
+`.../blobServices/default/containers/siem-release`. No edites el allowlist RBAC
+del grupo para añadir Reader. La delegación es requisito previo del apply `siem`;
+no se habilita por defecto ni cambia identidades existentes.
+
 ## Ejecución controlada
 
 1. Comprobar de nuevo que el environment usa subject/issuer/audience indicados,
