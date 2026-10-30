@@ -70,12 +70,24 @@ for package in wazuh-manager wazuh-indexer wazuh-dashboard filebeat; do
   [[ -z "$state" ]] || fail "host has pre-existing package $package; refusing an in-place install"
 done
 
+# El bootstrap ya montó los directorios de estado sobre el disco persistente, y el asistente
+# oficial toma su sola existencia como restos de una instalación previa. Con los paquetes
+# ausentes (comprobado arriba) y esos directorios vacíos, pedirle --overwrite es seguro; si
+# alguno tiene datos, se detiene sin tocarlos.
+overwrite_args=()
+for state_dir in /var/ossec /var/lib/wazuh-indexer /var/lib/wazuh-dashboard; do
+  [[ -d "$state_dir" ]] || continue
+  [[ -z "$(find "$state_dir" -mindepth 1 -print -quit)" ]] ||
+    fail "$state_dir ya contiene datos; no se sobrescribe una instalación existente"
+  overwrite_args=(--overwrite)
+done
+
 info 'instalando Wazuh 4.14.8 con el asistente oficial fijado y paquetes offline verificados'
 (
   cd "$OFFLINE_ROOT"
   # The official assistant handles cert installation, Indexer security initialization,
   # Manager/Filebeat configuration, and Dashboard initialization for an all-in-one node.
-  bash ./wazuh-install.sh --all-in-one --offline-installation --tar ./wazuh-install-files.tar
+  bash ./wazuh-install.sh --all-in-one --offline-installation --tar ./wazuh-install-files.tar "${overwrite_args[@]}"
 ) >/dev/null 2>&1 || fail 'el asistente oficial no completó la instalación offline; salida suprimida por seguridad'
 
 expected_manifest="$HERE/manifest.json"
