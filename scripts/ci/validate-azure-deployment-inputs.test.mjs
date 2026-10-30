@@ -329,7 +329,9 @@ test('accepts the Qapaqzito Key Vault secret name without exposing its API key',
   assert.doesNotThrow(() =>
     validateDeploymentInputs(
       baseEnv({
-        TF_VAR_siem_host: JSON.stringify(siemHost({ assistant_secret_name: 'qapaq-anthropic-api-key' })),
+        TF_VAR_siem_host: JSON.stringify(
+          siemHost({ assistant_secret_name: 'qapaq-anthropic-api-key' }),
+        ),
       }),
     ),
   );
