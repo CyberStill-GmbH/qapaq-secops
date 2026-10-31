@@ -108,15 +108,22 @@ operativas.
    que el runner tiene OIDC y que los roles siguen limitados a los scopes
    documentados. Confirmar la key state EUS2 exacta; no apuntar a
    `qapaq-secops/demo-eus/terraform.tfstate` ni a Chile.
-2. Ejecutar manualmente `Terraform Azure demo East US 2 plan and apply` desde
-   `main`, primero con `apply=false`. Revisar el resumen de cada recurso y el
-   costo para la duración prevista. El workflow fija `environment=demo-eus2`,
-   `location=eastus2` y valida el Storage/key EUS2 exactos.
-3. Para `apply=true`, proporcionar un enlace HTTPS al cálculo de costos, habilitar
-   `AZURE_EUS2_APPLY_READY=true` después de la revisión y aprobar el deployment
-   protegido. La ejecución valida y aplica únicamente el artifact planificado en
-   ese run; el resumen rechaza acciones destructivas.
-4. Verificar recursos/health en Azure antes de preparar una migración de datos o
+2. Para inspeccionar Filebeat en la VM, usar `siem_diagnostics_only=true`,
+   `apply=false` y el scope `foundation`. Este modo ejecuta un Run Command
+   acotado de solo lectura y omite los jobs de Terraform.
+3. Ejecutar manualmente `Terraform Azure demo East US 2 plan and apply` desde
+   `main`, con `apply=false` y el scope elegido. Revisar el resumen de cada
+   recurso, exposición de red y costo para la duración prevista. El workflow fija
+   `environment=demo-eus2`, `location=eastus2` y valida el Storage/key EUS2
+   exactos. El plan exitoso se conserva como artifact sensible durante un día.
+4. Para `apply=true`, volver a ejecutar el workflow en el mismo commit y scope,
+   pasar en `approved_plan_run_id` el ID de la ejecución plan-only revisada,
+   proporcionar un enlace HTTPS al cálculo de costos y habilitar
+   `AZURE_EUS2_APPLY_READY=true` después de la revisión. La ejecución valida
+   commit, scope, ID y checksum, y aplica ese mismo plan guardado. El recuperador
+   de Filebeat corre solo después de validar el artifact y vuelve a comprobar que
+   el residuo es huérfano; cualquier servicio, proceso o dato real detiene el apply.
+5. Verificar recursos/health en Azure antes de preparar una migración de datos o
    un cambio DNS. Esta preparación no configura ni cambia DNS.
 
 ## Publicación de artefactos EUS2
