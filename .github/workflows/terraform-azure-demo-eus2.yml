@@ -249,14 +249,21 @@ jobs:
           recovery_script="modules/siem_host/recover-orphaned-filebeat.sh"
           [[ -f "$recovery_script" ]] || { echo '::error::Guarded SIEM recovery script is missing.'; exit 1; }
           script_b64="$(base64 --wrap=0 "$recovery_script")"
-          remote_script="set -eu; trap 'rm -f /run/qapaq-recover-orphaned-filebeat.sh' EXIT; printf '%s' '${script_b64}' | base64 -d > /run/qapaq-recover-orphaned-filebeat.sh; bash /run/qapaq-recover-orphaned-filebeat.sh"
-          az vm run-command invoke \
+          remote_script="set -eu; trap 'rm -f /run/qapaq-recover-orphaned-filebeat.sh' EXIT; printf '%s' '${script_b64}' | base64 -d > /run/qapaq-recover-orphaned-filebeat.sh; bash /run/qapaq-recover-orphaned-filebeat.sh; printf 'QAPAQ_FILEBEAT_RECOVERY_OK\n'"
+          recovery_output="$(az vm run-command invoke \
             --resource-group "$resource_group" \
             --name "$vm_name" \
             --command-id RunShellScript \
             --scripts "$remote_script" \
             --query 'value[0].message' \
-            --output tsv
+            --output tsv \
+            --only-show-errors)"
+          if ! grep -Fq 'QAPAQ_FILEBEAT_RECOVERY_OK' <<<"$recovery_output"; then
+            echo '::error::Azure Run Command did not confirm successful SIEM recovery; stopping before Terraform plan/apply.'
+            printf '%s\n' "$recovery_output"
+            exit 1
+          fi
+          printf '%s\n' "$recovery_output"
 
       - name: Validate
         run: terraform validate -no-color
