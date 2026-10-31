@@ -230,6 +230,34 @@ jobs:
             exit 1
           fi
 
+      - name: Recover only an orphaned Filebeat unit after a failed SIEM first install
+        if: ${{ inputs.apply && inputs.deployment_scope == 'siem' && env.TF_VAR_siem_host != 'null' }}
+        shell: bash
+        working-directory: infra/azure
+        run: |
+          set -euo pipefail
+          project="$(sed -n 's/^project[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          environment="$(sed -n 's/^environment[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          [[ -n "$project" && -n "$environment" ]] || {
+            echo '::error::Could not derive the EUS2 resource names from the committed profile.'
+            exit 1
+          }
+          name_base="$(printf '%s' "${project}-${environment}" | tr '[:upper:]' '[:lower:]' | tr -d '-' | cut -c1-18)"
+          suffix="$(printf '%s' "${ARM_SUBSCRIPTION_ID}:${project}:${environment}" | sha256sum | cut -c1-8)"
+          resource_group="rg-${name_base}-${suffix}"
+          vm_name="vm-${name_base}-siem"
+          recovery_script="modules/siem_host/recover-orphaned-filebeat.sh"
+          [[ -f "$recovery_script" ]] || { echo '::error::Guarded SIEM recovery script is missing.'; exit 1; }
+          script_b64="$(base64 --wrap=0 "$recovery_script")"
+          remote_script="set -eu; trap 'rm -f /run/qapaq-recover-orphaned-filebeat.sh' EXIT; printf '%s' '${script_b64}' | base64 -d > /run/qapaq-recover-orphaned-filebeat.sh; bash /run/qapaq-recover-orphaned-filebeat.sh"
+          az vm run-command invoke \
+            --resource-group "$resource_group" \
+            --name "$vm_name" \
+            --command-id RunShellScript \
+            --scripts "$remote_script" \
+            --query 'value[0].message' \
+            --output tsv
+
       - name: Validate
         run: terraform validate -no-color
 

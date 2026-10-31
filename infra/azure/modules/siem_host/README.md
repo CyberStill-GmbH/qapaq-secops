@@ -139,6 +139,12 @@ puedan usar el material. No se lee el valor del secreto durante plan/build. El m
 referencia ni inventa credenciales; si falta o no cumple el formato, el bootstrap falla antes de
 instalar paquetes.
 
+Antes del plan de un apply `siem`, el workflow puede limpiar el estado huérfano de Filebeat dejado por
+un rollback inicial. La recuperación exige que `dpkg` confirme el paquete ausente, systemd no encuentre
+un unit file, el PID registrado ya no exista, el disco durable siga vacío y no haya registro de
+instalación/Core. Entonces detiene y limpia únicamente ese estado de systemd; cualquier proceso real,
+paquete, dato o estado distinto bloquea la reinstalación. La recuperación no borra archivos ni datos.
+
 `core_secret_names` y `core_environment` también deben estar completos para el perfil y modos elegidos
 por el sistema (Entra, DB, Key Vault/provider, persistencia y conexiones requeridas). El bundle no
 adivina esa configuración ni cambia los modos del API. El servicio Core puede hacer rollback a un
