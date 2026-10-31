@@ -166,7 +166,7 @@ jobs:
               | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
               | tail -n 30 || true
           done
-          for log in /var/log/wazuh-indexer/wazuh-cluster.log /var/ossec/logs/ossec.log /var/log/wazuh-dashboard/wazuh-dashboard.log; do
+          for log in /var/log/wazuh-indexer/*.log* /var/ossec/logs/*.log* /var/log/wazuh-dashboard/*.log*; do
             [ -r "$log" ] || continue
             echo "== $log recent errors (sensitive lines excluded) =="
             grep -Ei "error|fatal|exception|failed|denied|refused|timeout|certificate|SSL|TLS|permission" "$log" \
@@ -215,6 +215,23 @@ jobs:
             state=$(systemctl is-active "$service" 2>/dev/null || true)
             printf "%s=%s\n" "$service" "${state:-unknown}"
           done
+          echo "== Filebeat unit and executable owner =="
+          systemctl show filebeat --no-pager --property=FragmentPath,ActiveState,SubState,MainPID 2>/dev/null || true
+          filebeat_pid=$(systemctl show filebeat --property=MainPID --value 2>/dev/null || echo 0)
+          if [ "${filebeat_pid:-0}" -gt 0 ] && [ -e "/proc/$filebeat_pid/exe" ]; then
+            executable=$(readlink -f "/proc/$filebeat_pid/exe")
+            printf "filebeat_executable=%s\n" "$executable"
+            dpkg-query --search "$executable" 2>/dev/null || echo filebeat-executable-not-owned-by-dpkg
+          else
+            echo filebeat-process-absent
+          fi
+          echo "== Indexer resource prerequisites =="
+          printf "vm.max_map_count=%s\n" "$(sysctl -n vm.max_map_count 2>/dev/null || echo unknown)"
+          free -h
+          journalctl -k --since "45 minutes ago" --no-pager -o cat 2>/dev/null \
+            | grep -Ei "out of memory|killed process|oom|memory map|segfault|I/O error" \
+            | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
+            | tail -n 30 || true
           echo "== Core readiness =="
           if [ -x /opt/qapaq-core/current/node/bin/node ]; then
             /opt/qapaq-core/current/node/bin/node --version
