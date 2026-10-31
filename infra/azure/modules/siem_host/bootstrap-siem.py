@@ -31,7 +31,6 @@ CONFIG_PATH = pathlib.Path("/etc/qapaq-siem/bootstrap.json")
 DATA_DEVICE = pathlib.Path("/dev/disk/azure/scsi1/lun0")
 DATA_ROOT = pathlib.Path("/srv/qapaq-siem")
 CORE_ROOT = pathlib.Path("/opt/qapaq-core")
-PROC_ROOT = pathlib.Path("/proc")
 CORE_ENV_PATH = pathlib.Path("/etc/qapaq-core/core.env")
 WAZUH_SECRET_DIR = pathlib.Path("/etc/qapaq-secrets")
 RELEASE_ROOT = pathlib.Path("/opt/qapaq-siem/releases")
@@ -841,48 +840,6 @@ def package_status(package_name: str) -> tuple[str, str]:
     raise AssertionError("unreachable")
 
 
-def _systemd_property(service: str, property_name: str) -> str:
-    result = subprocess.run(
-        ["systemctl", "show", f"--property={property_name}", "--value", service],
-        check=False,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    )
-    if result.returncode != 0:
-        fail("no se pudo verificar el estado de los servicios Wazuh/Core")
-    return result.stdout.strip()
-
-
-def _recover_orphaned_filebeat(package_statuses: dict[str, tuple[str, str]]) -> None:
-    """Stop only the stale Filebeat unit left after the official installer purged its package."""
-    status, _version = package_statuses.get("filebeat", ("", ""))
-    if status not in ("", "not-installed"):
-        return
-
-    active_state = _systemd_property("filebeat", "ActiveState")
-    if active_state in ("", "inactive"):
-        return
-
-    fragment_path = _systemd_property("filebeat", "FragmentPath")
-    main_pid = _systemd_property("filebeat", "MainPID")
-    if (
-        active_state != "active"
-        or fragment_path
-        or not re.fullmatch(r"[1-9][0-9]*", main_pid)
-        or (PROC_ROOT / main_pid).exists()
-    ):
-        fail("hay un servicio Wazuh/Core activo o no verificable; se preserva el estado existente")
-
-    # The package is absent, systemd has no unit file, and its recorded PID no longer exists.
-    # This is the orphaned unit left by the failed first-install rollback, not a running agent.
-    run("systemctl", "stop", "filebeat")
-    run("systemctl", "reset-failed", "filebeat")
-    if _systemd_property("filebeat", "ActiveState") not in ("", "inactive"):
-        fail("no se pudo detener el estado huérfano de Filebeat; no se inicia la instalación")
-    log("recuperado estado systemd huérfano de Filebeat tras rollback; el paquete no está instalado")
-
-
 def require_clean_first_install_state(
     package_statuses: dict[str, tuple[str, str]], expected_manager_version: str
 ) -> None:
@@ -924,8 +881,6 @@ def require_clean_first_install_state(
     if os.path.lexists(CORE_ROOT):
         fail("QAPAQ Core ya existe; se preserva sin cambios")
 
-    _recover_orphaned_filebeat(package_statuses)
-
     for service in (
         "wazuh-indexer",
         "wazuh-manager",
@@ -934,7 +889,14 @@ def require_clean_first_install_state(
         "qapaq-core-api",
         "qapaq-core-worker",
     ):
-        if _systemd_property(service, "ActiveState") not in ("", "inactive"):
+        result = subprocess.run(
+            ["systemctl", "show", "--property=ActiveState", "--value", service],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode != 0 or result.stdout.strip() not in ("", "inactive"):
             fail("hay un servicio de Wazuh o Core activo/no verificable; se preserva el estado existente")
 
 

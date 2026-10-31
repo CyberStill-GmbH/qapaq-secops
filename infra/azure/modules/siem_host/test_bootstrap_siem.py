@@ -281,13 +281,11 @@ class InstallerIdempotencyTests(unittest.TestCase):
         statuses: dict[str, str] | None = None,
         versions: dict[str, str] | None = None,
         services: dict[str, str] | None = None,
-        service_details: dict[str, dict[str, str]] | None = None,
         core_root: pathlib.Path | None = None,
     ) -> bool:
         statuses = statuses or {}
         versions = versions or {}
         services = services or {}
-        service_details = service_details or {}
         release = data_root.parent / ("c" * 64)
         release.mkdir()
         expected_manager_version = "4.14.8-1"
@@ -302,19 +300,8 @@ class InstallerIdempotencyTests(unittest.TestCase):
                 version = versions.get(package, expected_manager_version)
                 output = f"{status}|{version}" if status else ""
                 return SimpleNamespace(returncode=0 if status else 1, stdout=output)
-            if command[0] == "systemctl" and command[1] == "show":
-                service = command[-1]
-                property_name = command[2].split("=", 1)[1]
-                if property_name == "ActiveState":
-                    output = services.get(service, "inactive")
-                else:
-                    output = service_details.get(service, {}).get(property_name, "")
-                return SimpleNamespace(returncode=0, stdout=output)
-            if command[0] == "systemctl" and command[1] == "stop":
-                services[command[-1]] = "inactive"
-                return SimpleNamespace(returncode=0, stdout="")
-            if command[0] == "systemctl" and command[1] == "reset-failed":
-                return SimpleNamespace(returncode=0, stdout="")
+            if command[0] == "systemctl":
+                return SimpleNamespace(returncode=0, stdout=services.get(command[-1], "inactive"))
             raise AssertionError(command)
 
         with patch.object(BOOTSTRAP, "DATA_ROOT", data_root), patch.object(
@@ -370,58 +357,6 @@ class InstallerIdempotencyTests(unittest.TestCase):
             self._prepare_data_root(data_root)
 
             self.assertTrue(self._check_first_install(data_root, {"wazuh-manager": "config-files"}))
-
-    def test_missing_filebeat_package_with_orphaned_unit_is_recovered_on_empty_host(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            data_root = pathlib.Path(temporary_directory) / "data"
-            self._prepare_data_root(data_root)
-            proc_root = pathlib.Path(temporary_directory) / "proc"
-            proc_root.mkdir()
-
-            with patch.object(BOOTSTRAP, "PROC_ROOT", proc_root):
-                self.assertTrue(
-                    self._check_first_install(
-                        data_root,
-                        {"wazuh-manager": "config-files"},
-                        services={"filebeat": "active"},
-                        service_details={"filebeat": {"FragmentPath": "", "MainPID": "117974"}},
-                    )
-                )
-
-    def test_running_or_installed_filebeat_is_not_stopped_by_recovery(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            data_root = pathlib.Path(temporary_directory) / "data"
-            self._prepare_data_root(data_root)
-            proc_root = pathlib.Path(temporary_directory) / "proc"
-            (proc_root / "4242").mkdir(parents=True)
-
-            with patch.object(BOOTSTRAP, "PROC_ROOT", proc_root):
-                with self.assertRaises(SystemExit) as failure:
-                    self._check_first_install(
-                        data_root,
-                        {"wazuh-manager": "config-files"},
-                        services={"filebeat": "active"},
-                        service_details={"filebeat": {"FragmentPath": "", "MainPID": "4242"}},
-                    )
-
-            self.assertEqual(failure.exception.code, 1)
-
-    def test_filebeat_with_unit_file_is_not_stopped_by_recovery(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            data_root = pathlib.Path(temporary_directory) / "data"
-            self._prepare_data_root(data_root)
-
-            with self.assertRaises(SystemExit) as failure:
-                self._check_first_install(
-                    data_root,
-                    {"wazuh-manager": "config-files"},
-                    services={"filebeat": "active"},
-                    service_details={
-                        "filebeat": {"FragmentPath": "/lib/systemd/system/filebeat.service", "MainPID": "117974"}
-                    },
-                )
-
-            self.assertEqual(failure.exception.code, 1)
 
     def test_installed_wazuh_package_blocks_first_boot_reinstall(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
