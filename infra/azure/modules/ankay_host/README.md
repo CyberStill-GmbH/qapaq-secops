@@ -27,16 +27,23 @@ expose a public endpoint, or change the QAPAQ login.
   Key Vault secret names, and exact apt versions for Docker Engine/Compose and Azure CLI. Secret
   values must never appear in Compose, Terraform inputs/state, or VM `custom_data`; the host identity
   can read only the explicitly named Key Vault secrets. The contract is exactly five services:
-  `shuffle-security`, `frontend`, `backend`, `orborus`, and `opensearch`. The separate worker image
+  `docker-guard`, `frontend`, `backend`, `orborus`, and `opensearch`. The separate worker image
   is launched dynamically by Orborus through `SHUFFLE_WORKER_IMAGE`; it is not a persistent service.
-  Terraform validates the five service image references, the worker reference, and the Compose SHA.
-  Every image must use a full OCI `@sha256:` digest from the configured ACR. `shuffle-security` and
-  OpenSearch must not publish host ports; OpenSearch stays on the Compose network. Do not put actual
-  credentials in Compose; Terraform state and VM `custom_data` retain the Compose content.
-- ACR repositories containing all six images. The current Ankay build workflow covers only the
-  frontend. Backend, Orborus, worker, `shuffle-security`, and OpenSearch digests have not been
-  approved or verified. Upstream Compose uses floating `latest` for Shuffle services; do not use
-  those mutable tags in an Azure deployment.
+  Terraform validates the five service image references, the worker reference, and the Compose SHA,
+  and refuses a Compose where any service other than `docker-guard` mounts the Docker socket or
+  requests privileged mode, host network/PID, `cap_add`, devices or unconfined profiles.
+  `docker-guard` and OpenSearch must not publish host ports. `shuffle-security` is not shipped:
+  it has no license and is not needed to run workflows.
+- ACR repositories containing all six images plus the Shuffle apps in `app_images`
+  (`ankay/apps:<app>_<version>` → digest). The host pre-pulls the worker and apps by digest and
+  tags them; `docker-guard` denies image pulls. `infra/azure/ankay-runtime/` renders the Compose
+  and the full `ankay_host` object from the published digests.
+- Startup also prepares the OpenSearch PKI on the data disk (`prepare-opensearch-tls.py`), writes
+  the OpenSearch `internal_users.yml` with a bcrypt hash of the Key Vault password, fixes the
+  `docker` group GID to 2375 and sets `vm.max_map_count`, and imports the QAPAQ playbooks with the
+  importer embedded in the app image once Compose is healthy.
+- VM size is restricted to `Standard_E2bds_v5`/`Standard_E4bds_v5`, the only family with vCPU
+  quota in the EUS2 subscription.
 - A reachable Key Vault Private Endpoint and private DNS, plus exact Docker/ACR FQDN policy entries.
   The current ACR has no dedicated data endpoint, so image layers require `*.blob.core.windows.net`
   through Azure Firewall and the exact ACR login hostname. This wildcard is a documented constraint;
@@ -62,7 +69,7 @@ Only the edge subnet reaches the frontend port, and only the QAPAQ API subnet re
 webhook port. Network rules cannot distinguish individual Container Apps sharing that subnet, so the
 webhook still needs application authentication/HMAC and replay defense. `/ankay/*` remains behind
 the existing QAPAQ `auth_request`; this module adds no public route and does not provide QAPAQ role
-authorization. `shuffle-security` and OpenSearch have no host port mappings or NSG ingress.
+authorization. `docker-guard` and OpenSearch have no host port mappings or NSG ingress.
 
 At boot, systemd runs Compose only after Docker, network-online and `/mnt/ankay` are ready. Startup
 waits for health checks and restores the last-known-good manifest on a failed upgrade, without
@@ -70,15 +77,16 @@ removing volumes. This does not roll back application data migrations. Missing i
 names, firewall/DNS connectivity or service health leaves Ankay unhealthy and not ready for edge
 routing.
 
-**High-risk Docker boundary:** upstream Compose mounts `/var/run/docker.sock` into both backend and
-Orborus. A process with socket access can control the host Docker daemon, create privileged
-containers, mount host paths, and read host data; this is effectively root authority. Orborus needs
-Docker access to start ephemeral workers. The upstream Compose also sets `seccomp:unconfined` on
-Orborus, weakening syscall isolation. Do not copy that setting automatically. Before runtime approval,
-review whether backend needs direct socket access, evaluate a narrowly filtered socket proxy and
-test Orborus compatibility, remove `seccomp:unconfined` if supported, and keep Ankay on a dedicated
-VM isolated from the SIEM with minimal outbound access. These changes require runtime verification;
-the Terraform module does not implement them.
+**Docker boundary:** upstream Compose mounts `/var/run/docker.sock` into backend and Orborus and
+sets `seccomp:unconfined` on Orborus. This module refuses that: only `docker-guard` (QAPAQ code,
+`ankay/runtime/docker-guard`) mounts the socket, as UID 10002 with only the fixed `docker` group,
+read-only rootfs and no capabilities. Orborus and the workers reach it with `DOCKER_HOST`; it allows
+only the non-swarm execution API surface (create/start/stop/wait/logs/delete), only allowlisted
+images, only containers it created, and rejects privileged, binds, mounts, host namespaces,
+devices, published ports, unconfined profiles, exec/attach, pulls, builds, swarm and volumes. App
+containers share the worker's network namespace and can reach the guard; they are bound by the same
+policy. Backend has no daemon access. `ankay/verify-docker-guard.sh` checks the policy against a real
+Engine in CI; an end-to-end Shuffle execution on the Azure host is still required evidence.
 
 The module only exposes TCP/80/443 internet destinations through the forced route. Azure Firewall
 must deny by default and allow only the exact registry, package, provider/API, and approved threat
@@ -87,8 +95,9 @@ is unavailable, the service must remain offline rather than use direct internet 
 
 ## Validation
 
-`.github/workflows/ankay-azure-iac.yml` checks HCL formatting and provider schema without Azure
-credentials. It does not run a cloud plan. The root wiring is optional and disabled by default. The
+`.github/workflows/ankay-azure-iac.yml` checks HCL formatting and provider schema, runs
+`terraform test` (mock provider), the secret/PKI helpers and `docker compose config` on the rendered
+Compose, all without Azure credentials. It does not run a cloud plan. The root wiring is optional and disabled by default. The
 feature branch's boot automation is not deployment evidence; verify the protected remote plan, inspect
 cost and every resource action, and then verify VM systemd/Compose health and the protected edge route
 after deployment. Do not call Ankay operational from Terraform output alone.

@@ -9,8 +9,10 @@ import io
 import json
 import os
 import re
+import secrets
 import sys
 import tarfile
+import uuid
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
@@ -30,6 +32,28 @@ BOOTSTRAP_SOURCE_TO_SECRET = {
     "QAPAQ_EUS2_WAZUH_INDEXER_PROXY_CA_BOOTSTRAP": "wazuh-proxy-ca",
 }
 BOOTSTRAP_PLACEHOLDER = "bootstrap-pending"
+# Secretos de Ankay que nadie necesita conocer: el job los genera con CSPRNG justo antes
+# del despliegue ARM create-only. Los consumidores (host Ankay, QAPAQ Core, Wazuh) los leen
+# de Key Vault con su identidad; rotarlos es una operación aparte.
+GENERATED_SOURCE_TO_SECRET = {
+    "QAPAQ_EUS2_ANKAY_ENCRYPTION_MODIFIER": "ankay-shuffle-encryption-modifier",
+    "QAPAQ_EUS2_ANKAY_OPENSEARCH_PASSWORD": "ankay-opensearch-admin-password",
+    "QAPAQ_EUS2_ANKAY_ADMIN_PASSWORD": "ankay-admin-password",
+    "QAPAQ_EUS2_ANKAY_ADMIN_API_KEY": "ankay-admin-api-key",
+    "QAPAQ_EUS2_ANKAY_WAZUH_WEBHOOK_TOKEN": "ankay-wazuh-webhook-token",
+    "QAPAQ_EUS2_ANKAY_DISPATCH_WEBHOOK_TOKEN": "ankay-dispatch-webhook-token",
+    "QAPAQ_EUS2_ANKAY_DISPATCH_HMAC_KEY": "ankay-dispatch-hmac-key",
+}
+
+
+def generate_value(source_name: str) -> str:
+    """Valor aleatorio del secreto generado; formato aceptado por Shuffle y el importador."""
+    if source_name not in GENERATED_SOURCE_TO_SECRET:
+        raise SeedInputError("Generated target is not allowlisted.")
+    if source_name == "QAPAQ_EUS2_ANKAY_ADMIN_API_KEY":
+        return str(uuid.UUID(bytes=secrets.token_bytes(16), version=4))
+    # token_urlsafe: [A-Za-z0-9_-], válido como cabecera, en .env de Compose y en curl -u.
+    return secrets.token_urlsafe(48)
 
 MAX_TEXT_BYTES = 24_000
 MAX_ARCHIVE_BYTES = 18_000
@@ -44,7 +68,7 @@ class SeedInputError(ValueError):
 
 def resolve_secret_name(source_name: str) -> str:
     try:
-        return {**SOURCE_TO_SECRET, **BOOTSTRAP_SOURCE_TO_SECRET}[source_name]
+        return {**SOURCE_TO_SECRET, **BOOTSTRAP_SOURCE_TO_SECRET, **GENERATED_SOURCE_TO_SECRET}[source_name]
     except KeyError as exc:
         raise SeedInputError("Source secret name is not allowlisted.") from exc
 
@@ -107,6 +131,8 @@ def _validate_wazuh_archive(encoded: str) -> None:
 def _validate_secret(source_name: str, value: str) -> None:
     if source_name in BOOTSTRAP_SOURCE_TO_SECRET:
         raise SeedInputError("Bootstrap placeholders must use the fixed create-only path.")
+    if source_name in GENERATED_SOURCE_TO_SECRET:
+        raise SeedInputError("Generated Ankay secrets must use the generated create-only path.")
     resolve_secret_name(source_name)
     if not value or "\r" in value or "\n" in value or "\x00" in value:
         raise SeedInputError("Selected secret is empty or not a single-line value.")
@@ -162,16 +188,32 @@ def write_bootstrap_placeholder(destination: Path, source_name: str) -> None:
     _write_parameters(destination, secret_name, BOOTSTRAP_PLACEHOLDER)
 
 
+def write_generated(destination: Path, source_name: str) -> None:
+    secret_name = GENERATED_SOURCE_TO_SECRET.get(source_name)
+    if secret_name is None:
+        raise SeedInputError("Generated target is not allowlisted.")
+    value = generate_value(source_name)
+    try:
+        _write_parameters(destination, secret_name, value)
+    finally:
+        value = ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--resolve-name", metavar="SOURCE_SECRET_NAME")
     group.add_argument("--write", metavar="PARAMETER_FILE")
     group.add_argument("--write-bootstrap-placeholder", metavar="PARAMETER_FILE")
+    group.add_argument("--write-generated", metavar="PARAMETER_FILE")
     args = parser.parse_args()
     try:
         if args.resolve_name is not None:
             print(resolve_secret_name(args.resolve_name))
+            return 0
+        if args.write_generated is not None:
+            write_generated(Path(args.write_generated), os.environ.get("SOURCE_SECRET_NAME", ""))
+            print("Random Ankay secret generated into a protected ARM parameter file; value was not logged.")
             return 0
         if args.write_bootstrap_placeholder is not None:
             source_name = os.environ.get("SOURCE_SECRET_NAME", "")

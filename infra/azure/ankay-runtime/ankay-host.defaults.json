@@ -1,0 +1,23 @@
+{
+  "vm_size": "Standard_E2bds_v5",
+  "data_disk_size_gb": 128,
+  "public_url": "https://app.jappi.net.pe/ankay/",
+  "opensearch_heap": "3g",
+  "secret_names": {
+    "ANKAY_ENCRYPTION_MODIFIER": "ankay-shuffle-encryption-modifier",
+    "ANKAY_OPENSEARCH_PASSWORD": "ankay-opensearch-admin-password",
+    "ANKAY_ADMIN_PASSWORD": "ankay-admin-password",
+    "ANKAY_ADMIN_API_KEY": "ankay-admin-api-key",
+    "ANKAY_WAZUH_WEBHOOK_TOKEN": "ankay-wazuh-webhook-token",
+    "ANKAY_DISPATCH_WEBHOOK_TOKEN": "ankay-dispatch-webhook-token",
+    "ANKAY_DISPATCH_HMAC_KEY": "ankay-dispatch-hmac-key"
+  },
+  "docker_package_versions": {
+    "docker-ce": "5:29.9.2-1~ubuntu.24.04~noble",
+    "docker-ce-cli": "5:29.9.2-1~ubuntu.24.04~noble",
+    "containerd.io": "2.4.2-3~ubuntu.24.04~noble",
+    "docker-buildx-plugin": "0.38.1-1~ubuntu.24.04~noble",
+    "docker-compose-plugin": "5.6.1-1~ubuntu.24.04~noble",
+    "azure-cli": "2.91.0-1~noble"
+  }
+}

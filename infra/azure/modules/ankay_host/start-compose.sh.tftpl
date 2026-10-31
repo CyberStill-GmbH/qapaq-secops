@@ -7,14 +7,50 @@ readonly COMPOSE_SHA_FILE="/etc/ankay/compose.sha256"
 readonly ACTIVE_COMPOSE="/mnt/ankay/compose.last-known-good.yaml"
 readonly ACTIVE_COMPOSE_SHA="/mnt/ankay/compose.last-known-good.sha256"
 readonly RUNTIME_ENV="/etc/ankay/runtime.env"
+readonly IMPORT_ENV="/etc/ankay/import.env"
 readonly IDENTITY_CLIENT_ID="${identity_client_id}"
 readonly KEY_VAULT_URI="${key_vault_uri}"
 readonly SECRET_MAPPING='${secret_mapping_json}'
+readonly IMPORT_MAPPING='${import_env_json}'
+readonly OPENSEARCH_SECRET_ENV="${opensearch_secret_env}"
 readonly EXPECTED_COMPOSE_SHA256="${compose_sha256}"
 readonly HEALTH_TIMEOUT_SECONDS="${health_timeout_seconds}"
+readonly WORKER_IMAGE="${worker_image}"
+readonly APP_IMAGES='${app_images_json}'
+readonly IMPORTER_TAG="${importer_tag}"
 
 log() { printf 'ankay-compose: %s\n' "$1" >&2; }
 compose() { docker compose --project-name ankay --env-file "$RUNTIME_ENV" --file "$COMPOSE_FILE" "$@"; }
+fetch_secrets() {
+  /usr/local/sbin/ankay-fetch-runtime-secrets \
+    --key-vault-uri "$KEY_VAULT_URI" \
+    --identity-client-id "$IDENTITY_CLIENT_ID" \
+    --mapping-json "$SECRET_MAPPING" \
+    --output "$RUNTIME_ENV" \
+    --import-env-json "$IMPORT_MAPPING" \
+    --import-output "$IMPORT_ENV" \
+    --opensearch-admin-secret-env "$OPENSEARCH_SECRET_ENV"
+}
+
+# El worker y las apps no son servicios Compose y docker-guard no permite pull: se
+# descargan aquí por digest (con la sesión ACR de la identidad) y se etiquetan con el
+# nombre que esperan Orborus y el worker.
+pull_execution_images() {
+  docker pull --quiet "$WORKER_IMAGE" >/dev/null
+  python3 -c 'import json,sys; [print(t, i) for t, i in json.loads(sys.argv[1]).items()]' "$APP_IMAGES" |
+    while read -r tag image; do
+      docker pull --quiet "$image" >/dev/null
+      docker tag "$image" "$tag"
+    done
+}
+
+import_playbooks() {
+  [[ -n "$IMPORTER_TAG" ]] || return 0
+  docker run --rm --name ankay-playbook-import \
+    --network ankay_shuffle --env-file "$IMPORT_ENV" \
+    --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+    --entrypoint python "$IMPORTER_TAG" /opt/ankay/import_playbooks.py --api-url http://backend:5001
+}
 
 restore_last_known_good() {
   local failure_code=$?
@@ -24,11 +60,7 @@ restore_last_known_good() {
     log 'candidate failed; restoring the last healthy Compose manifest'
     install -o root -g root -m 0600 "$ACTIVE_COMPOSE" "$COMPOSE_FILE"
     install -o root -g root -m 0600 "$ACTIVE_COMPOSE_SHA" "$COMPOSE_SHA_FILE"
-    if [[ -s "$ACTIVE_COMPOSE_SHA" ]] && /usr/local/sbin/ankay-fetch-runtime-secrets \
-      --key-vault-uri "$KEY_VAULT_URI" \
-      --identity-client-id "$IDENTITY_CLIENT_ID" \
-      --mapping-json "$SECRET_MAPPING" \
-      --output "$RUNTIME_ENV" && /usr/local/sbin/ankay-registry-login; then
+    if [[ -s "$ACTIVE_COMPOSE_SHA" ]] && fetch_secrets && /usr/local/sbin/ankay-registry-login; then
       compose config --quiet && compose up --detach --wait --wait-timeout "$HEALTH_TIMEOUT_SECONDS" || true
     fi
   else
@@ -41,14 +73,12 @@ trap restore_last_known_good ERR
 
 [[ -s "$COMPOSE_FILE" ]]
 printf '%s  %s\n' "$EXPECTED_COMPOSE_SHA256" "$COMPOSE_FILE" | sha256sum --check --status
-/usr/local/sbin/ankay-fetch-runtime-secrets \
-  --key-vault-uri "$KEY_VAULT_URI" \
-  --identity-client-id "$IDENTITY_CLIENT_ID" \
-  --mapping-json "$SECRET_MAPPING" \
-  --output "$RUNTIME_ENV"
+/usr/local/sbin/ankay-prepare-opensearch-tls
+fetch_secrets
 compose config --quiet
 /usr/local/sbin/ankay-registry-login
 compose pull
+pull_execution_images
 compose up --detach --wait --wait-timeout "$HEALTH_TIMEOUT_SECONDS"
 
 install -o root -g root -m 0600 "$COMPOSE_FILE" "$ACTIVE_COMPOSE"
@@ -56,3 +86,8 @@ printf '%s\n' "$EXPECTED_COMPOSE_SHA256" > "$${ACTIVE_COMPOSE_SHA}.tmp"
 chmod 0600 "$${ACTIVE_COMPOSE_SHA}.tmp"
 mv -f -- "$${ACTIVE_COMPOSE_SHA}.tmp" "$ACTIVE_COMPOSE_SHA"
 log 'all Compose services report healthy'
+
+# Los playbooks se importan con el stack sano; un fallo aquí no tumba Ankay, pero deja
+# el servicio en error para que systemd lo reintente y el log lo muestre.
+import_playbooks
+log 'QAPAQ playbooks imported'

@@ -21,6 +21,20 @@ chmod a+r /etc/apt/keyrings/microsoft.gpg
 printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ %s main\n' \
   "$arch" "$codename" > /etc/apt/sources.list.d/azure-cli.list
 
+# El grupo dueño del socket se crea antes que el paquete con un GID fijo: Compose se lo da
+# únicamente a docker-guard (group_add 2375), que así no necesita correr como root.
+if ! getent group docker >/dev/null; then
+  groupadd --system --gid 2375 docker
+fi
+[[ "$(getent group docker | cut -d: -f3)" == 2375 ]] || {
+  echo 'ankay-install: el grupo docker existe con un GID distinto de 2375' >&2
+  exit 1
+}
+
+# OpenSearch exige vm.max_map_count >= 262144 en el host.
+printf 'vm.max_map_count = 262144\n' > /etc/sysctl.d/90-ankay-opensearch.conf
+sysctl --load /etc/sysctl.d/90-ankay-opensearch.conf
+
 apt-get update
 apt-get install -y --no-install-recommends \
   docker-ce=${docker_apt_versions["docker-ce"]} \

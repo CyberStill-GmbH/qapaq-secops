@@ -98,13 +98,20 @@ variable "admin_ssh_public_key" {
 variable "vm_size" {
   description = "SKU aprobada tras revisar costo/uso de memoria de OpenSearch; sin default para evitar un SKU costoso implícito."
   type        = string
+
+  # La suscripción EUS2 solo tiene cuota en standardEBDSv5Family (límite 10 vCPU; el SIEM ya usa 4
+  # con E4bds_v5) y FSv2 no tiene capacidad en eastus2. E2bds_v5 (2 vCPU, 16 GiB) deja margen.
+  validation {
+    condition     = contains(["Standard_E2bds_v5", "Standard_E4bds_v5"], var.vm_size)
+    error_message = "Ankay debe usar Standard_E2bds_v5 o Standard_E4bds_v5 (familia EBDSv5, la única con cuota en EUS2)."
+  }
 }
 
 variable "ubuntu_image_version" {
-  description = "Versión exacta de Canonical Ubuntu 24.04 LTS disponible en la región; no se permite latest."
+  description = "Versión exacta de Canonical Ubuntu 24.04 LTS disponible en la región (p. ej. 24.04.202610210); no se permite latest."
   type        = string
   validation {
-    condition     = can(regex("^[0-9]{8}(\\.[0-9]+)?$", var.ubuntu_image_version))
+    condition     = can(regex("^(24\\.04\\.[0-9]{9}|[0-9]{8}(\\.[0-9]+)?)$", var.ubuntu_image_version))
     error_message = "Fija una versión numérica concreta de la imagen Ubuntu 24.04 LTS; latest no es reproducible."
   }
 }
@@ -138,12 +145,47 @@ variable "container_images" {
   type        = map(string)
   validation {
     condition = length(var.container_images) == 6 && alltrue([
-      for key in ["shuffle-security", "frontend", "backend", "orborus", "opensearch", "worker"] : contains(keys(var.container_images), key)
+      for key in ["docker-guard", "frontend", "backend", "orborus", "opensearch", "worker"] : contains(keys(var.container_images), key)
       ]) && alltrue([
       for image in values(var.container_images) : can(regex("^[a-z0-9]{5,50}\\.azurecr\\.io/[a-zA-Z0-9._/-]+@sha256:[0-9a-f]{64}$", image))
     ])
-    error_message = "Fija shuffle-security, frontend, backend, orborus, opensearch y worker a imágenes ACR por digest SHA-256 completo. Worker es una imagen dinámica, no un servicio Compose."
+    error_message = "Fija docker-guard, frontend, backend, orborus, opensearch y worker a imágenes ACR por digest SHA-256 completo. Worker es una imagen dinámica, no un servicio Compose."
   }
+}
+
+variable "app_images" {
+  description = "Apps Shuffle que ejecuta el worker: etiqueta local esperada (ankay/apps:<app>_<versión>) → digest ACR. El host las descarga por digest y las etiqueta; docker-guard no permite pull."
+  type        = map(string)
+  default     = {}
+  validation {
+    condition = alltrue([
+      for tag, image in var.app_images : can(regex("^ankay/apps:[a-z0-9-]+_[0-9]+\\.[0-9]+\\.[0-9]+$", tag)) && can(regex("^[a-z0-9]{5,50}\\.azurecr\\.io/[a-zA-Z0-9._/-]+@sha256:[0-9a-f]{64}$", image))
+    ])
+    error_message = "Cada app debe mapear ankay/apps:<app>_<x.y.z> a una imagen ACR por digest SHA-256."
+  }
+}
+
+variable "playbook_importer_app" {
+  description = "Etiqueta de app_images cuya imagen contiene el importador de playbooks QAPAQ. Vacío desactiva la importación."
+  type        = string
+  default     = "ankay/apps:qapaq-ankay_1.0.0"
+}
+
+variable "playbook_import_secret_env" {
+  description = "Variable que espera el importador → variable de runtime.env (secret_names) con su valor. Solo nombres."
+  type        = map(string)
+  default = {
+    SHUFFLE_API_KEY              = "ANKAY_ADMIN_API_KEY"
+    ANKAY_WAZUH_WEBHOOK_TOKEN    = "ANKAY_WAZUH_WEBHOOK_TOKEN"
+    ANKAY_DISPATCH_WEBHOOK_TOKEN = "ANKAY_DISPATCH_WEBHOOK_TOKEN"
+    ANKAY_DISPATCH_HMAC_KEY      = "ANKAY_DISPATCH_HMAC_KEY"
+  }
+}
+
+variable "opensearch_admin_secret_env" {
+  description = "Variable de runtime.env con la contraseña admin de OpenSearch; el host guarda solo su hash bcrypt en internal_users.yml."
+  type        = string
+  default     = "ANKAY_OPENSEARCH_PASSWORD"
 }
 
 variable "key_vault_id" {
@@ -202,7 +244,7 @@ variable "compose_health_timeout_seconds" {
 }
 
 variable "compose_yaml" {
-  description = "Compose revisado y sin secretos con exactamente shuffle-security, frontend, backend, orborus y opensearch. El worker va en SHUFFLE_WORKER_IMAGE de Orborus, no como servicio. Se guarda en custom_data/state."
+  description = "Compose revisado y sin secretos con exactamente docker-guard, frontend, backend, orborus y opensearch. El worker va en SHUFFLE_WORKER_IMAGE de Orborus, no como servicio. Se guarda en custom_data/state."
   type        = string
 }
 

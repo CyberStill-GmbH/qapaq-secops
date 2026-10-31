@@ -360,6 +360,7 @@ module "ankay_host" {
   container_registry_id           = module.identity_registry.container_registry_id
   container_registry_login_server = module.identity_registry.container_registry_login_server
   container_images                = try(var.ankay_host.container_images, {})
+  app_images                      = try(var.ankay_host.app_images, {})
   compose_yaml                    = try(var.ankay_host.compose_yaml, "")
   compose_sha256                  = try(var.ankay_host.compose_sha256, "")
   key_vault_id                    = module.data.key_vault_id

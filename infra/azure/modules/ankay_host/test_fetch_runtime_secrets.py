@@ -39,6 +39,29 @@ class RuntimeSecretHelpersTest(unittest.TestCase):
             self.assertEqual(target.stat().st_mode & 0o777, 0o600)
             self.assertFalse(list(pathlib.Path(directory).glob(".runtime.env.*")))
 
+    def test_import_environment_only_maps_existing_secret_variables(self) -> None:
+        mapping = {"ANKAY_ADMIN_API_KEY": "ankay-admin-api-key"}
+        self.assertEqual(
+            MODULE.parse_import_env('{"SHUFFLE_API_KEY":"ANKAY_ADMIN_API_KEY"}', mapping),
+            {"SHUFFLE_API_KEY": "ANKAY_ADMIN_API_KEY"},
+        )
+        for raw in ('{"SHUFFLE_API_KEY":"OTHER"}', '{"bad name":"ANKAY_ADMIN_API_KEY"}', "[]"):
+            with self.assertRaises(MODULE.BootstrapError):
+                MODULE.parse_import_env(raw, mapping)
+
+    def test_docker_env_file_keeps_values_literal(self) -> None:
+        self.assertEqual(MODULE.docker_env_file({"A": "x'y=z"}), b"A=x'y=z\n")
+
+    @unittest.skipUnless(os.name == "posix", "bcrypt via libxcrypt exists only on the Linux guest")
+    def test_opensearch_users_store_only_a_bcrypt_hash(self) -> None:
+        try:
+            content = MODULE.opensearch_internal_users("Synthetic-Passw0rd-For-Tests").decode()
+        except MODULE.BootstrapError:
+            self.skipTest("bcrypt is unavailable in this Python build")
+        self.assertNotIn("Synthetic-Passw0rd-For-Tests", content)
+        self.assertRegex(content, r'hash: "\$2[aby]\$12\$')
+        self.assertIn('    - "admin"', content)
+
 
 if __name__ == "__main__":
     unittest.main()

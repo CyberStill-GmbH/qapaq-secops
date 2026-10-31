@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "infra/azure/modules/ankay_host/**"
+      - "infra/azure/ankay-runtime/**"
       - ".github/workflows/ankay-azure-iac.yml"
   push:
     branches: [main]
     paths:
       - "infra/azure/modules/ankay_host/**"
+      - "infra/azure/ankay-runtime/**"
       - ".github/workflows/ankay-azure-iac.yml"
 
 permissions:
@@ -42,6 +44,33 @@ jobs:
           bash -n infra/azure/modules/ankay_host/install-runtime.sh.tftpl
           bash -n infra/azure/modules/ankay_host/registry-login.sh.tftpl
           bash -n infra/azure/modules/ankay_host/start-compose.sh.tftpl
+          python3 -m py_compile infra/azure/modules/ankay_host/prepare-opensearch-tls.py
+
+      - name: Generate the OpenSearch PKI with real openssl and check permissions
+        run: |
+          set -euo pipefail
+          root="$(mktemp -d)"
+          sudo ANKAY_DATA_ROOT="$root" python3 infra/azure/modules/ankay_host/prepare-opensearch-tls.py
+          sudo ANKAY_DATA_ROOT="$root" python3 infra/azure/modules/ankay_host/prepare-opensearch-tls.py
+          sudo openssl verify -CAfile "$root/opensearch-tls/ca/ca.pem" "$root/opensearch-tls/node/node.pem"
+          sudo openssl x509 -in "$root/opensearch-tls/node/node.pem" -noout -ext subjectAltName | grep -F 'DNS:opensearch'
+          sudo openssl pkey -in "$root/opensearch-tls/node/node-key.pem" -noout
+          [[ "$(sudo stat -c '%u %a' "$root/opensearch-tls/node/node-key.pem")" == '1000 400' ]]
+          [[ "$(sudo stat -c '%u %a' "$root/opensearch-tls/private/ca-key.pem")" == '0 400' ]]
+          [[ "$(sudo stat -c '%u' "$root/files")" == 10001 ]]
+          sudo rm -rf "$root"
+
+      - name: Test the Compose renderer and validate the rendered Compose
+        run: |
+          set -euo pipefail
+          python3 infra/azure/ankay-runtime/tests/test_render_ankay_host.py
+          env_file="$(mktemp)"
+          for name in ANKAY_ENCRYPTION_MODIFIER ANKAY_OPENSEARCH_PASSWORD ANKAY_ADMIN_PASSWORD ANKAY_ADMIN_API_KEY; do
+            printf '%s=synthetic-%s\n' "$name" "$name" >> "$env_file"
+          done
+          docker compose --project-name ankay --env-file "$env_file" \
+            --file infra/azure/modules/ankay_host/tests/fixtures/compose.yaml config --quiet
+          rm -f "$env_file"
 
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive infra/azure/modules/ankay_host
@@ -51,3 +80,6 @@ jobs:
 
       - name: Validate Terraform syntax and provider schema
         run: terraform -chdir=infra/azure/modules/ankay_host validate -no-color
+
+      - name: Run the module contract tests (mock provider, no Azure)
+        run: terraform -chdir=infra/azure/modules/ankay_host test -no-color
