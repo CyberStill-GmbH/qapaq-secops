@@ -512,15 +512,31 @@ jobs:
             printf 'filebeat.%s=%s\n' "$property" "${value:-empty}"
           done
           pid="$(systemctl show --property=MainPID --value filebeat.service 2>/dev/null || true)"
-          if [[ "$pid" =~ ^[1-9][0-9]*$ && -r "/proc/$pid/comm" ]]; then
-            printf 'filebeat.process.present=true\n'
-            printf 'filebeat.process.pid=%s\n' "$pid"
-            printf 'filebeat.process.name='
-            cat "/proc/$pid/comm"
-            printf 'filebeat.process.executable='
-            readlink "/proc/$pid/exe" || true
+          pid_valid=false
+          case "$pid" in
+            ''|0|*[!0-9]*) ;;
+            *) pid_valid=true ;;
+          esac
+          proc_entry_present=false
+          comm_readable=false
+          if [ "$pid_valid" = true ]; then
+            if [ -d "/proc/$pid" ]; then proc_entry_present=true; fi
+            if [ -r "/proc/$pid/comm" ]; then
+              comm_readable=true
+              printf 'filebeat.process.name='
+              cat "/proc/$pid/comm"
+              printf 'filebeat.process.executable='
+              readlink "/proc/$pid/exe" || true
+            fi
+          fi
+          printf 'filebeat.process.pid_valid=%s\n' "$pid_valid"
+          printf 'filebeat.process.proc_entry_present=%s\n' "$proc_entry_present"
+          printf 'filebeat.process.comm_readable=%s\n' "$comm_readable"
+          if [ -z "$(systemctl show --property=FragmentPath --value filebeat.service 2>/dev/null || true)" ] &&
+            [ "$pid_valid" = true ] && [ "$proc_entry_present" = false ]; then
+            printf 'filebeat.recovery_guard=would_allow_orphan_cleanup\n'
           else
-            printf 'filebeat.process.present=false\n'
+            printf 'filebeat.recovery_guard=blocked\n'
           fi
           package_status="$(dpkg-query --show --showformat='${db:Status-Status}|${Version}' filebeat 2>/dev/null || true)"
           printf 'filebeat.package=%s\n' "${package_status:-absent}"
