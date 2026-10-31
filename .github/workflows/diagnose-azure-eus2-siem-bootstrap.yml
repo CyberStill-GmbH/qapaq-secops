@@ -222,6 +222,49 @@ jobs:
             --query 'value[0].message' \
             --output tsv
 
+      - name: Read bounded Wazuh service startup events
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'python3 - <<'"'"'PY'"'"'
+          import re
+          import subprocess
+
+          interesting = re.compile(
+              r"systemd|dashboard|indexer|server|started|listening|bound|ready|status|"
+              r"error|fatal|exception|failed|timeout|refused|certificate|TLS|SSL|401|403|443|5601|9200",
+              re.I,
+          )
+          sensitive = re.compile(
+              r"password|secret|token|credential|authorization|api[_-]?key|bearer|private.?key|"
+              r"user(name)?|email|cookie|session|signed.?url",
+              re.I,
+          )
+          for unit in ("wazuh-indexer", "wazuh-dashboard"):
+              result = subprocess.run(
+                  ["journalctl", "-u", unit, "--since", "2026-10-31 00:03:00 UTC",
+                   "--until", "2026-10-31 00:13:00 UTC", "--no-pager", "-o", "short-iso"],
+                  check=False, capture_output=True, text=True,
+              )
+              rows = []
+              for line in result.stdout.splitlines():
+                  if not interesting.search(line):
+                      continue
+                  if sensitive.search(line):
+                      continue
+                  line = re.sub(r"https?://[^\s]+", "[url-redacted]", line, flags=re.I)
+                  rows.append(line[:320])
+              print("unit=%s matching_startup_events=%d" % (unit, len(rows)))
+              for line in rows[-30:]:
+                  print(line)
+          PY' \
+            --query 'value[0].message' \
+            --output tsv
+
       - name: Read non-secret installation inventory before recovery
         shell: bash
         run: |
