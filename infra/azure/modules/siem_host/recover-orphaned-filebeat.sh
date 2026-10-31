@@ -62,8 +62,28 @@ filebeat_state="$(systemctl show --property=ActiveState --value filebeat 2>/dev/
 if [[ "$filebeat_state" == active ]]; then
   fragment_path="$(systemctl show --property=FragmentPath --value filebeat 2>/dev/null || true)"
   main_pid="$(systemctl show --property=MainPID --value filebeat 2>/dev/null || true)"
-  [[ -z "$fragment_path" && "$main_pid" =~ ^[1-9][0-9]*$ && ! -e "$proc_root/$main_pid" ]] ||
-    fail 'Filebeat aún tiene un unit file o proceso real; se conserva sin cambios'
+  [[ -z "$fragment_path" && "$main_pid" =~ ^[1-9][0-9]*$ ]] ||
+    fail 'Filebeat aún tiene un unit file o un PID no verificable; se conserva sin cambios'
+  if [[ -e "$proc_root/$main_pid" ]]; then
+    [[ "$proc_root" == /proc ]] || fail 'no se puede validar con seguridad el espacio de procesos; se conserva sin cambios'
+    process_name="$(cat "$proc_root/$main_pid/comm" 2>/dev/null || true)"
+    process_executable="$(readlink "$proc_root/$main_pid/exe" 2>/dev/null || true)"
+    [[ "$process_name" == filebeat && "$process_executable" == '/usr/share/filebeat/bin/filebeat (deleted)' ]] ||
+      fail 'el PID registrado no coincide con el binario Filebeat borrado esperado; se conserva sin cambios'
+    echo 'Stopping only the orphaned Filebeat process whose package and executable are absent.'
+    if ! kill -TERM "$main_pid" 2>/dev/null && [[ -e "$proc_root/$main_pid" ]]; then
+      fail 'no se pudo enviar SIGTERM al proceso huérfano verificado; se conserva sin cambios'
+    fi
+    process_stopped=false
+    for attempt in {1..30}; do
+      if [[ ! -e "$proc_root/$main_pid" ]]; then
+        process_stopped=true
+        break
+      fi
+      sleep 1
+    done
+    [[ "$process_stopped" == true ]] || fail 'el proceso Filebeat no salió tras SIGTERM; se conserva sin cambios'
+  fi
   systemctl stop filebeat
   systemctl reset-failed filebeat
   systemctl daemon-reload
