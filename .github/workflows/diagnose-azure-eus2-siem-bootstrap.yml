@@ -115,6 +115,38 @@ jobs:
             --query 'value[0].message' \
             --output tsv
 
+      - name: Read package-manager failure evidence without installer output
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'set -eu
+          echo "== apt transaction summary =="
+          if [ -r /var/log/apt/history.log ]; then
+            grep -E "^(Start-Date:|End-Date:|Commandline:|Error:)" /var/log/apt/history.log | tail -n 40 || true
+          else
+            echo apt-history-absent
+          fi
+          echo "== apt failure lines =="
+          if [ -r /var/log/apt/term.log ]; then
+            grep -Ei "^(Err:|E:|W:|Failed to fetch|Temporary failure resolving|Could not |Unable to |dpkg: error)|No space left|unmet dependencies|returned error" /var/log/apt/term.log | tail -n 80 || true
+          else
+            echo apt-term-log-absent
+          fi
+          echo "== last dpkg package transitions =="
+          if [ -r /var/log/dpkg.log ]; then
+            tail -n 40 /var/log/dpkg.log
+          else
+            echo dpkg-log-absent
+          fi
+          echo "== filesystem capacity =="
+          df -h / /srv/qapaq-siem || true' \
+            --query 'value[0].message' \
+            --output tsv
+
       - name: Read non-secret installation inventory before recovery
         shell: bash
         run: |
