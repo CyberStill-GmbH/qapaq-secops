@@ -78,6 +78,16 @@ class AzureReleaseWorkflowContractTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, installer)
 
+    def test_wazuh_aio_readiness_port_matches_qapaq_dashboard_and_edge(self) -> None:
+        installer = (ROOT / "wazuh/azure-release/install.sh").read_text(encoding="utf-8")
+        dashboard_config = (ROOT / "wazuh/dashboard/opensearch_dashboards.qapaq.yml").read_text(encoding="utf-8")
+        edge_config = (ROOT / "wazuh/edge/qapaq-edge.conf").read_text(encoding="utf-8")
+
+        self.assertIn("readonly QAPAQ_DASHBOARD_PORT=5601", installer)
+        self.assertIn('--port "$QAPAQ_DASHBOARD_PORT"', installer)
+        self.assertIn("server.port: 5601", dashboard_config)
+        self.assertIn("server 127.0.0.1:5601;", edge_config)
+
     def test_publisher_checks_ancestor_and_bundle_manifest_commit(self) -> None:
         workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
 
