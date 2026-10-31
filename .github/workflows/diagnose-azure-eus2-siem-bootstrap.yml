@@ -147,7 +147,7 @@ jobs:
             --query 'value[0].message' \
             --output tsv
 
-      - name: Read only non-sensitive Wazuh installer failures
+      - name: Read redacted Wazuh installer startup context
         shell: bash
         run: |
           set -euo pipefail
@@ -165,6 +165,7 @@ jobs:
               raise SystemExit(0)
 
           failure = re.compile(r"\b(error|warning|fatal|failed|failure|exception)\b", re.I)
+          context = re.compile(r"dashboard|status|indexer|initializ|waiting|port|listener|connection", re.I)
           sensitive = re.compile(
               r"password|secret|token|credential|authorization|api[_-]?key|bearer|private.?key|"
               r"user(name)?|email|cookie|session|signed.?url",
@@ -173,17 +174,19 @@ jobs:
           matches = []
           skipped = 0
           for line in log.read_text(errors="replace").splitlines()[-400:]:
-              if not failure.search(line):
+              if not failure.search(line) and not context.search(line):
                   continue
               if sensitive.search(line):
                   skipped += 1
                   continue
               # Do not emit URL paths or query strings from an installer diagnostic.
               line = re.sub(r"https?://[^\s]+", "[url-redacted]", line, flags=re.I)
-              matches.append(line[:500])
-          print("installer_failure_lines=%d sensitive_lines_suppressed=%d" % (len(matches), skipped))
-          for line in matches[-40:]:
-              print(line)
+              kind = "failure" if failure.search(line) else "context"
+              matches.append((kind, line[:500]))
+          failures = sum(1 for kind, _ in matches if kind == "failure")
+          print("installer_context_lines=%d failures=%d sensitive_lines_suppressed=%d" % (len(matches), failures, skipped))
+          for kind, line in matches[-80:]:
+              print("[%s] %s" % (kind, line))
           if not matches:
               print("no-safe-installer-failure-lines")
           PY' \
