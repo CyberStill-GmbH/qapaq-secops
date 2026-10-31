@@ -270,7 +270,15 @@ jobs:
             --query 'value[0].message' \
             --output tsv
 
-      - name: Read non-secret installation inventory before recovery
+      - name: Probe public HTTPS dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --max-time 12 --output /dev/null \
+            --write-out "app_public_https_http=%{http_code} tls_verify=%{ssl_verify_result} remote_ip=%{remote_ip}\n" \
+            https://app.jappi.net.pe/ || true
+
+      - name: Read non-secret SIEM and QAPAQ runtime inventory
         shell: bash
         run: |
           set -euo pipefail
@@ -279,21 +287,14 @@ jobs:
             --name vm-qapaqsecopsdemoeus-siem \
             --command-id RunShellScript \
             --scripts 'set -eu
-          echo "== durable disk mount =="
+          echo "== durable disk and package inventory =="
           findmnt --noheadings --output SOURCE,FSTYPE,TARGET /srv/qapaq-siem || true
-          echo "== Wazuh package status and versions =="
           for package in wazuh-manager wazuh-indexer wazuh-dashboard filebeat; do
-            dpkg-query --show --showformat="\${db:Status-Status}|\${Version}" "$package" 2>/dev/null || echo "$package=missing"
+            printf "%s=" "$package"
+            dpkg-query --show --showformat="%${db:Status-Status}|%${Version}" "$package" 2>/dev/null || echo missing
             echo
           done
-          echo "== bootstrap state =="
-          if [ -f /srv/qapaq-siem/bootstrap-install-state.json ]; then
-            cat /srv/qapaq-siem/bootstrap-install-state.json
-          else
-            echo absent
-          fi
-          echo "== retained Wazuh release digests =="
-          find /opt/qapaq-siem/releases -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort || true
+          if [ -f /srv/qapaq-siem/bootstrap-install-state.json ]; then cat /srv/qapaq-siem/bootstrap-install-state.json; else echo bootstrap-state-absent; fi
           echo "== durable data counts =="
           for path in /srv/qapaq-siem/manager /srv/qapaq-siem/indexer /srv/qapaq-siem/dashboard /opt/qapaq-core; do
             if [ -e "$path" ]; then
@@ -305,40 +306,53 @@ jobs:
             fi
           done
           echo "== service states =="
-          for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard qapaq-core-api qapaq-core-worker; do
+          for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard qapaq-core-api qapaq-core-worker nginx; do
             state=$(systemctl is-active "$service" 2>/dev/null || true)
-            printf "%s=%s\n" "$service" "${state:-unknown}"
+            if [ -z "$state" ]; then state=unknown; fi
+            printf "%s=%s\n" "$service" "$state"
+            systemctl show "$service" --no-pager --property=Result,ExecMainCode,ExecMainStatus,ExecMainStartTimestamp 2>/dev/null || true
           done
-          echo "== Indexer resource prerequisites =="
-          printf "vm.max_map_count=%s\n" "$(sysctl -n vm.max_map_count 2>/dev/null || echo unknown)"
-          free -h
-          journalctl -k --since "45 minutes ago" --no-pager -o cat 2>/dev/null \
-            | grep -Ei "out of memory|killed process|oom|memory map|segfault|I/O error" \
-            | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
-            | tail -n 30 || true
-          echo "== Filebeat unit and executable owner =="
+          echo "== Core release inventory =="
+          if [ -L /opt/qapaq-core/current ]; then readlink -f /opt/qapaq-core/current; else echo current-release-not-active; fi
+          for release in /opt/qapaq-core/releases/*; do
+            [ -d "$release" ] || continue
+            printf "%s RELEASE=" "$release"
+            cat "$release/RELEASE" 2>/dev/null || true
+            if [ -x "$release/node/bin/node" ]; then "$release/node/bin/node" --version; else echo node-runtime-absent; fi
+          done
+          if [ -x /opt/qapaq-core/current/node/bin/node ]; then /opt/qapaq-core/current/node/bin/node --version; fi
+          echo "== Core service errors with sensitive fields excluded =="
+          for service in qapaq-core-api qapaq-core-worker; do
+            journalctl -u "$service" --since "3 hours ago" --no-pager -o cat 2>/dev/null |
+              grep -Ei "error|fatal|exception|failed|denied|refused|timeout|database|redis|postgres|key vault|anthropic|health|ready" |
+              grep -Eiv "password|secret|token|authorization|api[_-]?key|credential|bearer|private.?key|cookie|session|signed.?url|email|username" |
+              tail -n 50 || true
+          done
+          echo "== local readiness HTTP codes =="
+          for endpoint in http://127.0.0.1:3000/health/ready http://127.0.0.1:5601/ https://127.0.0.1:443/; do
+            curl --insecure --silent --output /dev/null --write-out "%{url_effective} http=%{http_code}\n" --max-time 5 "$endpoint" || true
+          done
+          echo "== listener inventory =="
+          ss -lnt
+          echo "== Filebeat process safety snapshot =="
           systemctl show filebeat --no-pager --property=FragmentPath,ActiveState,SubState,MainPID 2>/dev/null || true
           filebeat_pid=$(systemctl show --property=MainPID --value filebeat 2>/dev/null || true)
-          if [[ "$filebeat_pid" =~ ^[1-9][0-9]*$ ]] && [ -e "/proc/$filebeat_pid/exe" ]; then
-            executable=$(readlink "/proc/$filebeat_pid/exe" 2>/dev/null || true)
-            if [ -n "$executable" ]; then
-              printf "filebeat_executable=%s\n" "$executable"
-              executable="${executable% (deleted)}"
-              dpkg-query --search "$executable" 2>/dev/null || echo filebeat-executable-not-owned-by-dpkg
-            else
-              echo filebeat-executable-link-unavailable
-            fi
-          else
-            echo filebeat-process-absent
-          fi
-          echo "== Core readiness =="
-          if [ -x /opt/qapaq-core/current/node/bin/node ]; then
-            /opt/qapaq-core/current/node/bin/node --version
-          else
-            echo node-runtime-absent
-          fi
-          echo "== public edge TLS metadata and services =="
-          systemctl is-active nginx 2>/dev/null || true
+          case "$filebeat_pid" in
+            ""|*[!0-9]*) echo filebeat-process-absent ;;
+            *)
+              if [ "$filebeat_pid" -gt 0 ] && [ -e "/proc/$filebeat_pid/exe" ]; then
+                executable=$(readlink "/proc/$filebeat_pid/exe" 2>/dev/null || true)
+                printf "filebeat_executable=%s\n" "$executable"
+              else
+                echo filebeat-process-absent
+              fi
+              ;;
+          esac
+          echo "== resource prerequisites =="
+          printf "vm.max_map_count=%s\n" "$(sysctl -n vm.max_map_count 2>/dev/null || echo unknown)"
+          free -h
+          df -h / /srv/qapaq-siem
+          echo "== TLS certificate metadata =="
           if [ -d /etc/letsencrypt/live ]; then
             find /etc/letsencrypt/live -mindepth 2 -maxdepth 2 -type f -name fullchain.pem -print | sort
             for cert in /etc/letsencrypt/live/*/fullchain.pem; do
@@ -347,8 +361,6 @@ jobs:
             done
           else
             echo letsencrypt-certificate-directory-absent
-          fi
-          ss -lnt
-          curl --silent --output /dev/null --write-out "health_ready_http=%{http_code}\n" --max-time 5 http://127.0.0.1:3000/health/ready || true' \
+          fi' \
             --query 'value[0].message' \
             --output tsv
