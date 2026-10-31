@@ -60,9 +60,10 @@ filebeat_package="$(dpkg-query --show --showformat='${db:Status-Status}' filebea
   fail 'Filebeat está instalado; no se recupera automáticamente'
 filebeat_state="$(systemctl show --property=ActiveState --value filebeat 2>/dev/null || true)"
 if [[ "$filebeat_state" == active ]]; then
+  load_state="$(systemctl show --property=LoadState --value filebeat 2>/dev/null || true)"
   fragment_path="$(systemctl show --property=FragmentPath --value filebeat 2>/dev/null || true)"
   main_pid="$(systemctl show --property=MainPID --value filebeat 2>/dev/null || true)"
-  [[ -z "$fragment_path" && "$main_pid" =~ ^[1-9][0-9]*$ ]] ||
+  [[ "$load_state" == not-found && -z "$fragment_path" && "$main_pid" =~ ^[1-9][0-9]*$ ]] ||
     fail 'Filebeat aún tiene un unit file o un PID no verificable; se conserva sin cambios'
   if [[ -e "$proc_root/$main_pid" ]]; then
     [[ "$proc_root" == /proc ]] || fail 'no se puede validar con seguridad el espacio de procesos; se conserva sin cambios'
@@ -84,7 +85,8 @@ if [[ "$filebeat_state" == active ]]; then
     done
     [[ "$process_stopped" == true ]] || fail 'el proceso Filebeat no salió tras SIGTERM; se conserva sin cambios'
   fi
-  systemctl stop filebeat
+  # LoadState=not-found means there is no unit systemd to stop; the exact
+  # orphan process above has exited, so only discard the residual manager state.
   systemctl reset-failed filebeat
   systemctl daemon-reload
   filebeat_state="$(systemctl show --property=ActiveState --value filebeat 2>/dev/null || true)"

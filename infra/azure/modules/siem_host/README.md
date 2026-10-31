@@ -145,7 +145,8 @@ un unit file, el disco durable siga vacío y no haya registro de instalación/Co
 PID huérfano, solo envía `SIGTERM` cuando `/proc` confirma que su nombre es `filebeat` y su ejecutable
 es exactamente `/usr/share/filebeat/bin/filebeat (deleted)`; espera hasta 30 segundos y nunca usa
 `SIGKILL`. Un PID, paquete, dato, ejecutable o estado distinto bloquea la reinstalación. Después limpia
-únicamente el estado systemd. La recuperación no borra archivos ni datos.
+únicamente el estado systemd residual cuando `LoadState=not-found` (no ejecuta `systemctl stop` para
+una unidad inexistente). La recuperación no borra archivos ni datos.
 
 `core_secret_names` y `core_environment` también deben estar completos para el perfil y modos elegidos
 por el sistema (Entra, DB, Key Vault/provider, persistencia y conexiones requeridas). El bundle no
