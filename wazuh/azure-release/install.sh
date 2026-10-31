@@ -13,6 +13,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SECRETS=/etc/qapaq-secrets
 CERT_ARCHIVE_B64="$SECRETS/wazuh-install-files.tar.b64"
 OFFLINE_ROOT="$HERE/official-wazuh"
+readonly QAPAQ_DASHBOARD_PORT=5601
 CORE_ARCHIVE="$(find "$HERE/files/core" -maxdepth 1 -type f -name 'qapaq-core-*.tar.gz' -print -quit)"
 
 for command in apt-get bash dpkg-deb dpkg-query python3 sha256sum tar systemctl; do
@@ -83,7 +84,9 @@ info 'instalando Wazuh 4.14.8 con el asistente oficial fijado y paquetes offline
   cd "$OFFLINE_ROOT"
   # The official assistant handles cert installation, Indexer security initialization,
   # Manager/Filebeat configuration, and Dashboard initialization for an all-in-one node.
-  bash ./wazuh-install.sh --all-in-one --offline-installation --tar ./wazuh-install-files.tar "${overwrite_args[@]}"
+  # The QAPAQ edge owns public 443 and proxies to the dashboard on loopback:5601.
+  # Pass the same port to Wazuh so its AIO readiness check probes the listener we actually configure.
+  bash ./wazuh-install.sh --all-in-one --offline-installation --port "$QAPAQ_DASHBOARD_PORT" --tar ./wazuh-install-files.tar "${overwrite_args[@]}"
 ) >/dev/null 2>&1 || fail 'el asistente oficial no completó la instalación offline; salida suprimida por seguridad'
 
 expected_manifest="$HERE/manifest.json"
