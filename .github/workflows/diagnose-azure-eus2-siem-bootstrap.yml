@@ -147,6 +147,35 @@ jobs:
             --query 'value[0].message' \
             --output tsv
 
+      - name: Read redacted Wazuh service failure summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'set -eu
+          for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard; do
+            echo "== $service state =="
+            systemctl show "$service" --no-pager \
+              --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,ExecMainStartTimestamp 2>/dev/null || true
+            echo "== $service recent errors (sensitive lines excluded) =="
+            journalctl -u "$service" --since "45 minutes ago" --no-pager -o cat 2>/dev/null \
+              | grep -Ei "error|fatal|exception|failed|denied|refused|timeout|certificate|SSL|TLS|permission" \
+              | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
+              | tail -n 30 || true
+          done
+          for log in /var/log/wazuh-indexer/wazuh-cluster.log /var/ossec/logs/ossec.log /var/log/wazuh-dashboard/wazuh-dashboard.log; do
+            [ -r "$log" ] || continue
+            echo "== $log recent errors (sensitive lines excluded) =="
+            grep -Ei "error|fatal|exception|failed|denied|refused|timeout|certificate|SSL|TLS|permission" "$log" \
+              | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
+              | tail -n 30 || true
+          done' \
+            --query 'value[0].message' \
+            --output tsv
+
       - name: Read non-secret installation inventory before recovery
         shell: bash
         run: |
