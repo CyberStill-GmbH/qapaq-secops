@@ -1,6 +1,11 @@
 name: Diagnose Azure EUS2 SIEM bootstrap
 
 on:
+  push:
+    branches:
+      - codex/siem-bootstrap-diagnostic-run-20261031
+    paths:
+      - .github/workflows/diagnose-azure-eus2-siem-bootstrap.yml
   workflow_dispatch:
 
 permissions:
