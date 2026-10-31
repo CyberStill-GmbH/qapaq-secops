@@ -8,6 +8,11 @@ on:
         type: boolean
         required: true
         default: false
+      siem_diagnostics_only:
+        description: Run read-only SIEM VM diagnostics; cannot be combined with apply
+        type: boolean
+        required: true
+        default: false
       deployment_scope:
         description: Select foundation maintenance, Wazuh-first rollout, or Wazuh plus Ankay
         type: choice
@@ -41,6 +46,7 @@ jobs:
       - name: Require main and reviewed costs before apply
         env:
           APPLY: ${{ inputs.apply }}
+          SIEM_DIAGNOSTICS_ONLY: ${{ inputs.siem_diagnostics_only }}
           COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
         shell: bash
         run: |
@@ -49,6 +55,10 @@ jobs:
             echo '::error::East US 2 Terraform can run only from main.'
             exit 1
           }
+          if [[ "$SIEM_DIAGNOSTICS_ONLY" == true && "$APPLY" == true ]]; then
+            echo '::error::Read-only SIEM diagnostics cannot be combined with Terraform apply.'
+            exit 1
+          fi
           if [[ "$APPLY" == true ]]; then
             [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
               echo '::error::Apply requires an HTTPS reference to an East US 2 cost review.'
@@ -57,6 +67,7 @@ jobs:
           fi
 
   plan:
+    if: ${{ !inputs.siem_diagnostics_only }}
     name: Create and summarize isolated East US 2 Terraform plan
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -392,3 +403,98 @@ jobs:
 
       - name: Apply only the reviewed saved plan
         run: terraform apply -input=false -auto-approve -no-color "$RUNNER_TEMP/azure-demo-eus2-plan/azure-demo-eus2.tfplan"
+  diagnose-siem-vm:
+    name: Read-only SIEM VM diagnostics
+    if: ${{ inputs.siem_diagnostics_only }}
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: azure-demo-eus2
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      SIEM_HOST_CONFIGURED: ${{ vars.AZURE_EUS2_SIEM_HOST_JSON != '' && vars.AZURE_EUS2_SIEM_HOST_JSON != 'null' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Authenticate with the protected East US 2 identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Inspect Filebeat service state without changing the VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SIEM_HOST_CONFIGURED" == true ]] || {
+            echo '::error::Read-only diagnostics require the protected SIEM host profile.'
+            exit 1
+          }
+          [[ -n "$ARM_SUBSCRIPTION_ID" ]] || {
+            echo '::error::East US 2 subscription is not configured.'
+            exit 1
+          }
+          project="$(sed -n 's/^project[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          environment="$(sed -n 's/^environment[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          [[ "$project" == qapaq-secops && "$environment" == demo-eus2 ]] || {
+            echo '::error::The committed profile is not the expected East US 2 SIEM target.'
+            exit 1
+          }
+          name_base="$(printf '%s' "${project}-${environment}" | tr '[:upper:]' '[:lower:]' | tr -d '-' | cut -c1-18)"
+          suffix="$(printf '%s' "${ARM_SUBSCRIPTION_ID}:${project}:${environment}" | sha256sum | cut -c1-8)"
+          resource_group="rg-${name_base}-${suffix}"
+          vm_name="vm-${name_base}-siem"
+          actual_subscription="$(az account show --query id --output tsv --only-show-errors)"
+          [[ "$actual_subscription" == "$ARM_SUBSCRIPTION_ID" ]] || {
+            echo '::error::Azure login resolved to a different subscription.'
+            exit 1
+          }
+          printf 'Target: %s/%s (no Terraform operation, no service or data changes).\n' "$resource_group" "$vm_name"
+          remote_script="$(cat <<'QAPAQ_DIAGNOSTICS'
+          set -eu
+          printf 'QAPAQ_SIEM_DIAGNOSTIC_BEGIN\n'
+          for property in LoadState ActiveState SubState FragmentPath MainPID UnitFileState Result; do
+            value="$(systemctl show --property="$property" --value filebeat.service 2>/dev/null || true)"
+            printf 'filebeat.%s=%s\n' "$property" "${value:-empty}"
+          done
+          pid="$(systemctl show --property=MainPID --value filebeat.service 2>/dev/null || true)"
+          if [[ "$pid" =~ ^[1-9][0-9]*$ && -r "/proc/$pid/comm" ]]; then
+            printf 'filebeat.process.present=true\n'
+            printf 'filebeat.process.pid=%s\n' "$pid"
+            printf 'filebeat.process.name='
+            cat "/proc/$pid/comm"
+            printf 'filebeat.process.executable='
+            readlink "/proc/$pid/exe" || true
+          else
+            printf 'filebeat.process.present=false\n'
+          fi
+          package_status="$(dpkg-query --show --showformat='${db:Status-Status}|${Version}' filebeat 2>/dev/null || true)"
+          printf 'filebeat.package=%s\n' "${package_status:-absent}"
+          printf 'QAPAQ_SIEM_DIAGNOSTIC_END\n'
+          QAPAQ_DIAGNOSTICS
+          )"
+          diagnostic_output="$(az vm run-command invoke \
+            --resource-group "$resource_group" \
+            --name "$vm_name" \
+            --command-id RunShellScript \
+            --scripts "$remote_script" \
+            --query 'value[0].message' \
+            --output tsv \
+            --only-show-errors)"
+          if ! grep -Fq 'QAPAQ_SIEM_DIAGNOSTIC_END' <<<"$diagnostic_output"; then
+            echo '::error::Azure Run Command did not confirm the read-only SIEM diagnostic.'
+            printf '%s\n' "$diagnostic_output"
+            exit 1
+          fi
+          printf '%s\n' "$diagnostic_output"
+
