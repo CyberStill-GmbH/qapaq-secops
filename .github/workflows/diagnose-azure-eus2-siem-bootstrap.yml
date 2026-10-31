@@ -147,6 +147,49 @@ jobs:
             --query 'value[0].message' \
             --output tsv
 
+      - name: Read only non-sensitive Wazuh installer failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'python3 - <<'"'"'PY'"'"'
+          from pathlib import Path
+          import re
+
+          log = Path("/var/log/wazuh-install.log")
+          if not log.is_file():
+              print("wazuh-installer-log-absent")
+              raise SystemExit(0)
+
+          failure = re.compile(r"\b(error|warning|fatal|failed|failure|exception)\b", re.I)
+          sensitive = re.compile(
+              r"password|secret|token|credential|authorization|api[_-]?key|bearer|private.?key|"
+              r"user(name)?|email|cookie|session|signed.?url",
+              re.I,
+          )
+          matches = []
+          skipped = 0
+          for line in log.read_text(errors="replace").splitlines()[-400:]:
+              if not failure.search(line):
+                  continue
+              if sensitive.search(line):
+                  skipped += 1
+                  continue
+              # Do not emit URL paths or query strings from an installer diagnostic.
+              line = re.sub(r"https?://[^\s]+", "[url-redacted]", line, flags=re.I)
+              matches.append(line[:500])
+          print("installer_failure_lines=%d sensitive_lines_suppressed=%d" % (len(matches), skipped))
+          for line in matches[-40:]:
+              print(line)
+          if not matches:
+              print("no-safe-installer-failure-lines")
+          PY' \
+            --query 'value[0].message' \
+            --output tsv
+
       - name: Read redacted Wazuh service failure summaries
         shell: bash
         run: |
