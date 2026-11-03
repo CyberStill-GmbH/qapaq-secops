@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,8 @@ OUT = Path("artifacts/c09-evidence")
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAX_FILES = 12
 MAX_BYTES = 256 * 1024
+MAX_JOB_PAGES = 20
+JOB_LIST_RETRY_DELAYS_SECONDS = (1, 2, 4, 8, 16)
 
 
 def github_json(url: str, token: str) -> dict:
@@ -29,6 +32,67 @@ def github_json(url: str, token: str) -> dict:
     )
     with urllib.request.urlopen(request, timeout=20) as response:
         return json.load(response)
+
+
+def source_jobs(repository: str, run_id: str, token: str) -> list[dict]:
+    """Read the complete paginated job list, retrying only an incomplete/transient view."""
+    base_url = f"https://api.github.com/repos/{repository}/actions/runs/{run_id}/jobs"
+    for attempt in range(len(JOB_LIST_RETRY_DELAYS_SECONDS) + 1):
+        jobs_by_id: dict[str, dict] = {}
+        expected_total: int | None = None
+        page = 1
+        inconsistent = False
+
+        while page <= MAX_JOB_PAGES:
+            response = github_json(f"{base_url}?per_page=100&page={page}", token)
+            batch = response.get("jobs", [])
+            if not isinstance(batch, list):
+                raise SystemExit("GitHub returned an invalid source run job list")
+            total = response.get("total_count")
+            if total is not None:
+                if not isinstance(total, int) or total < 0:
+                    raise SystemExit("GitHub returned an invalid source run job count")
+                if expected_total is not None and expected_total != total:
+                    inconsistent = True
+                    break
+                expected_total = total
+            elif expected_total is None:
+                # The API includes total_count; this fallback keeps fixtures/adapters explicit
+                # while still treating the returned list as complete only when no next page exists.
+                expected_total = len(batch)
+
+            for job in batch:
+                if not isinstance(job, dict) or not isinstance(job.get("name"), str):
+                    raise SystemExit("GitHub returned an invalid source run job")
+                key = str(job.get("id", f"{page}:{len(jobs_by_id)}:{job['name']}"))
+                jobs_by_id[key] = {
+                    "name": job["name"],
+                    "status": job.get("status", "completed" if job.get("conclusion") else "unknown"),
+                    "conclusion": job.get("conclusion"),
+                }
+
+            if expected_total is not None and len(jobs_by_id) >= expected_total:
+                break
+            if not batch:
+                break
+            page += 1
+
+        jobs = list(jobs_by_id.values())
+        complete = (
+            not inconsistent
+            and expected_total is not None
+            and expected_total > 0
+            and len(jobs) == expected_total
+            and all(job["status"] == "completed" and job["conclusion"] for job in jobs)
+        )
+        if complete:
+            return jobs
+
+        if attempt == len(JOB_LIST_RETRY_DELAYS_SECONDS):
+            raise SystemExit("Source run jobs remain incomplete after bounded retries")
+        time.sleep(JOB_LIST_RETRY_DELAYS_SECONDS[attempt])
+
+    raise SystemExit("Source run jobs remain incomplete after bounded retries")
 
 
 def main() -> None:
@@ -45,17 +109,16 @@ def main() -> None:
     ):
         raise SystemExit("Evidence may only be generated for a successful main push run")
 
-    jobs_response = github_json(
-        f"https://api.github.com/repos/{repository}/actions/runs/{run_id}/jobs?per_page=100",
-        token,
-    )
-    jobs = [
-        {"name": job["name"], "conclusion": job.get("conclusion", "unknown")}
-        for job in jobs_response.get("jobs", [])
+    jobs = source_jobs(repository, run_id, token)
+    if any(job["conclusion"] not in {"success", "skipped"} for job in jobs):
+        raise SystemExit("Source run contains unsuccessful jobs")
+    evidence_jobs = [
+        {"name": job["name"], "conclusion": job["conclusion"]} for job in jobs
     ]
-    if not jobs or any(job["conclusion"] not in {"success", "skipped"} for job in jobs):
-        raise SystemExit("Source run jobs are incomplete or unsuccessful")
-    if not any(job["name"] == "CI / required" and job["conclusion"] == "success" for job in jobs):
+    if not any(
+        job["name"] == "CI / required" and job["conclusion"] == "success"
+        for job in evidence_jobs
+    ):
         raise SystemExit("Source run does not contain a successful CI / required check")
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -69,7 +132,7 @@ def main() -> None:
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "source_conclusion": "success",
         },
-        "checks.json": {"checks": sorted(jobs, key=lambda job: job["name"])},
+        "checks.json": {"checks": sorted(evidence_jobs, key=lambda job: job["name"])},
         "tool-versions.json": {
             "node": os.environ["NODE_VERSION"],
             "pnpm": os.environ["PNPM_VERSION"],
@@ -94,7 +157,7 @@ def main() -> None:
         f"- Repository: `{repository}`\n"
         f"- Commit: `{workflow_run['head_sha']}`\n"
         f"- Source run: `{run_id}` (successful push to `main`)\n"
-        f"- Checks recorded: {len(jobs)}\n"
+        f"- Checks recorded: {len(evidence_jobs)}\n"
         "- This is operational CI evidence, not an immutable audit archive.\n"
     )
     (OUT / "summary.md").write_text(summary, encoding="utf-8")

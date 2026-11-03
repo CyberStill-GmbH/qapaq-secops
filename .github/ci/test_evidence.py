@@ -84,6 +84,83 @@ class EvidenceGeneratorTests(unittest.TestCase):
         ), self.assertRaises(SystemExit):
             generate_evidence.main()
 
+    def test_transient_partial_job_list_is_retried_then_recorded(self):
+        partial = {
+            "total_count": 2,
+            "jobs": [
+                {"id": 1, "name": "CI / required", "status": "completed", "conclusion": "success"}
+            ],
+        }
+        empty_page = {"total_count": 2, "jobs": []}
+        complete = {
+            "total_count": 2,
+            "jobs": [
+                {"id": 1, "name": "CI / required", "status": "completed", "conclusion": "success"},
+                {"id": 2, "name": "quality", "status": "completed", "conclusion": "success"},
+            ],
+        }
+
+        def response(url, _token):
+            if "page=2" in url:
+                return empty_page
+            response.calls += 1
+            return partial if response.calls == 1 else complete
+
+        response.calls = 0
+        with patch.object(generate_evidence, "github_json", side_effect=response), patch.object(
+            generate_evidence, "time"
+        ) as sleep:
+            generate_evidence.main()
+
+        checks = json.loads((self.output / "checks.json").read_text(encoding="utf-8"))["checks"]
+        self.assertEqual(len(checks), 2)
+        self.assertEqual(response.calls, 2)
+        sleep.sleep.assert_called_once_with(1)
+
+    def test_job_list_paginates_before_evidence_is_written(self):
+        pages = {
+            1: {
+                "total_count": 2,
+                "jobs": [
+                    {"id": 1, "name": "CI / required", "status": "completed", "conclusion": "success"}
+                ],
+            },
+            2: {
+                "total_count": 2,
+                "jobs": [
+                    {"id": 2, "name": "quality", "status": "completed", "conclusion": "success"}
+                ],
+            },
+        }
+
+        def response(url, _token):
+            page = int(url.rsplit("page=", 1)[1])
+            return pages[page]
+
+        with patch.object(generate_evidence, "github_json", side_effect=response):
+            generate_evidence.main()
+
+        checks = json.loads((self.output / "checks.json").read_text(encoding="utf-8"))["checks"]
+        self.assertEqual({check["name"] for check in checks}, {"CI / required", "quality"})
+
+    def test_incomplete_jobs_fail_closed_after_bounded_retries(self):
+        partial = {
+            "total_count": 2,
+            "jobs": [
+                {"id": 1, "name": "CI / required", "status": "completed", "conclusion": "success"}
+            ],
+        }
+        empty_page = {"total_count": 2, "jobs": []}
+        with patch.object(
+            generate_evidence,
+            "github_json",
+            side_effect=lambda url, _token: empty_page if "page=2" in url else partial,
+        ), patch.object(generate_evidence, "time") as sleep, self.assertRaises(SystemExit):
+            generate_evidence.main()
+
+        self.assertEqual(sleep.sleep.call_count, len(generate_evidence.JOB_LIST_RETRY_DELAYS_SECONDS))
+        self.assertFalse(self.output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
