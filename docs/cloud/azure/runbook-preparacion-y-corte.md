@@ -503,6 +503,14 @@ usar una clave compartida como sustituto del control de acceso.
 La autorización general de despliegue no reemplaza las identidades y permisos
 técnicos de Azure, AWS, Microsoft 365 y Route 53. Sin ellos no se puede ejecutar
 el plan ni certificar una integración real.
+
+## Revalidación de Azure — 2026-10-26 16:55 UTC
+
+- En Cloud Shell, autenticado como `cguevara@qapaq.pe`, una consulta de solo lectura a `az resource list` para `rg-qapaqsecopsdemo-66f8c73b` devolvió VNet, DNS privado, PostgreSQL Flexible Server, Storage (evidencia y releases), Key Vault, ACR, Log Analytics, identidades administradas y private endpoints. No devolvió tipos `Microsoft.Compute/virtualMachines`, `Microsoft.Network/azureFirewalls` ni `Microsoft.App/containerApps`: no hay host Wazuh, host Ankay, Firewall ni runtime de Container Apps en ese grupo al momento de la consulta.
+- El workflow Terraform [#40349847512](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40349847512) completó validación y plan; el job `Apply the exact reviewed plan` quedó **skipped** (`apply=false`). El resumen fue “No changes” con `siem_host=null`, `ankay_host=null`, `enable_runtime=false`, `container_images={}` y `key_vault_secret_ids={}`. No desplegó el SOC.
+- El portal muestra el Key Vault con acceso público deshabilitado y la lista de secretos devuelve “You are unauthorized to view these contents”; esta sesión no llegó al private endpoint de datos. No se abrió ni copió ningún valor. El secreto `qapaq-entra-client-secret` tiene evidencia de creación por el workflow #40349532741, pero eso no proporciona el material de instalación de Wazuh/M365 ni habilita el runtime.
+- La región de Azure es Chile Central (`chilecentral`). La estimación documentada para Wazuh + PostgreSQL + Azure Firewall Standard es un piso de lista de **USD 1,155.01/mes**, antes de Ankay, almacenamiento adicional y otros consumos. No es el costo del plan vacío ni una cotización de la suscripción; revisar costo y efectos del plan completo antes de apply.
+- No se cambió Terraform, DNS, red, configuración de Key Vault ni recursos Azure durante esta verificación. Estado probado: **fundación Azure presente; Wazuh, M365, Sophos, Cato, Teams, Ankay y el panel administrativo todavía sin ejecución o verificación de extremo a extremo en Azure**.
 ## Administración de roles: gate de aprobación y SoD
 
 PR [#88](https://github.com/CyberStill-GmbH/qapaq-secops/pull/88) prepara solicitudes de rol
@@ -518,3 +526,43 @@ Azure; su CI debe repetirse tras actualizar la rama.
   posterior y debe verificarse con `remaining = 0` antes de declarar completa la concesión.
 - La existencia del código o sus pruebas no demuestra que permisos estén configurados, que una
   migración se haya ejecutado o que la función esté desplegada.
+
+## Evidencia de preparación de releases — 2026-10-26
+
+- El plan Terraform de `main` [#40349847512](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40349847512)
+  no desplegó el runtime: terminó con cero cambios y `siem_host=null`, `ankay_host=null`,
+  `enable_runtime=false`, `container_images={}` y `key_vault_secret_ids={}`. El job de apply
+  quedó omitido. Esta evidencia reemplaza cualquier interpretación de un plan verde como SOC
+  levantado.
+- El bundle offline Wazuh/QAPAQ se ensambló en [#40162674125](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40162674125)
+  y se publicó al contenedor privado en [#40163193200](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40163193200).
+  SHA-256 del archivo: `be6ea39110b274079cac6b11748cded83be17a5aed90f1381e0212d13570e121`,
+  tamaño 6,959,262,870 bytes. Es un artefacto publicable/instalable, no una instalación ni
+  validación de servicios en una VM.
+- La imagen de Ankay/Shuffle publicada por el workflow [#40091494375](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40091494375)
+  lleva digest `sha256:6bfaa09fe4fcd2a7e86801b921eae0775c85116204d61d257faeab18a1494551`.
+  El plan actual no la referencia y no hay VM/runtime de Ankay desplegado. No declarar playbooks
+  ni acceso desde el Dashboard operativo a partir de la publicación de la imagen.
+- La inspección de metadatos de Key Vault por [#40366129776](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/40366129776)
+  encontró únicamente `qapaq-entra-client-secret` habilitado con fecha de expiración no configurada.
+  No leyó valores. No encontró referencias de los secretos de instalación Wazuh, M365, Sophos,
+  Cato o Teams requeridos por el bundle. El workflow existente de seed solo cubre el secreto Entra;
+  no hay evidencia de un seed Azure para el resto.
+- Se revisaron los nombres de variables de los `.env.local` disponibles sin imprimir valores.
+  El dueño también compartió credenciales de Sophos, Cato, Claude, VirusTotal y Active Directory
+  en esta conversación. Se consideran expuestas: revocarlas/rotarlas antes de cualquier uso y
+  cargar únicamente valores nuevos por un canal de secretos. No se copiaron sus valores a Azure.
+  Siguen sin encontrarse las credenciales identificadoras/configuración de Sophos (Client ID,
+  Tenant ID, región), Cato Account ID ni `TEAMS_WORKFLOW_URL`.
+- Los valores no secretos de tenant, client ID y grupo coinciden con `M365_TENANT_ID`,
+  `WAZUH_O365_CLIENT_ID` y `QAPAQ_DIRECTORY_GROUP_ID` del repo. La lista de GitHub Secrets no
+  contiene `WAZUH_OFFICE365_CLIENT_SECRET`. El dueño indicó que el secreto M365 existente es el
+  mismo usado por AWS, pero la sesión AWS CLI estaba vencida; no se recuperó ni transfirió ningún
+  valor. El nuevo valor de secreto que el dueño compartió en la conversación también se considera
+  expuesto y debe rotarse antes de usarlo. El Key Vault no tiene un secreto
+  `office365-client-secret` confirmado por la lectura de metadatos. `qapaq-entra-client-secret`
+  es para la autenticación de QAPAQ y no se debe reutilizar para la integración Wazuh Office 365.
+- Resultado actual: builds y publicación privada de artefactos comprobados; runtime, instalación,
+  datos M365, conectores Sophos/Cato, notificaciones Teams, agentes y playbooks Ankay pendientes
+  de configuración, despliegue y aceptación real. DNS y Terraform no se modificaron durante esta
+  revisión.
