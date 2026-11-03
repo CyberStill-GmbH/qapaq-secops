@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           report="${RUNNER_TEMP}/gitleaks-report.json"
-          if gitleaks git --redact=100 --report-format json --report-path "$report" --exit-code=1 --log-opts="--all" .; then
+          if gitleaks git --config .gitleaks.toml --redact=100 --report-format json --report-path "$report" --exit-code=1 --log-opts="--all" .; then
             echo "No secret findings in fetched history."
           else
             python3 - "$report" <<'PY'

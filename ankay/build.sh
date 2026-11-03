@@ -46,6 +46,10 @@ done
 
 node "$HERE/frontend/rebrand.mjs" "$FE"
 
+# Shuffle v2.3.0 uses version tags for its builder/runtime images. Resolve those
+# bases to the reviewed multi-architecture digests before Docker consumes them.
+node "$HERE/pin-base-images.mjs" frontend "$FE/Dockerfile"
+
 # AGPL-3.0 §13: el código fuente correspondiente, servido por la propia aplicación.
 src_name="ankay-qapaq-frontend-source-${QAPAQ_SHA}.tar.gz"
 tar -C "$work/shuffle" --exclude=node_modules -czf "$OUT_DIR/$src_name" frontend LICENSE
