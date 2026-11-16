@@ -1,0 +1,60 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
+id: QAPAQ-DET-SP-006
+title: Postura de SharePoint y salud de la fuente
+source: sharepoint
+use_case: posture
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-11'
+hypothesis: La configuración de uso compartido del tenant, los sitios nuevos y los enlaces anónimos existentes definen la
+  superficie de exfiltración; perder un permiso deja ciega la detección.
+data_sources:
+- Microsoft Graph /admin/sharepoint/settings (SharePointTenantSettings.Read.All)
+- Microsoft Graph /sites/getAllSites, /drives, /permissions (Sites.Read.All)
+- Collector qapaq-sharepoint-posture y qapaq-sharepoint-audit (eventos de capacidad)
+rules:
+  file: detections/sharepoint/posture/rule.xml
+  ids:
+  - 101960
+  - 101961
+  - 101962
+  - 101963
+  - 101964
+  - 101965
+  - 101966
+  - 101967
+  - 101968
+  - 101969
+  - 101970
+  - 101971
+  - 101972
+  installed_as: etc/rules/qapaq_soc_sharepoint_posture.xml
+mitre:
+- technique: T1484
+  tactic: defense-evasion
+- technique: T1567
+  tactic: exfiltration
+- technique: T1537
+  tactic: exfiltration
+severity:
+  levels: 2–3 fotos y estado · 5 sitio nuevo o permiso externo · 6 tenant con «Cualquier persona» · 7 enlace anónimo o función
+    perdida · 8 cambio del tenant · 10 enlace anónimo de edición o sitio reciente con enlaces externos · 12 tenant debilitado
+  priority_hint: P1 (12) / P2 (8–10) / P3
+  rationale: Un tenant debilitado equivale a 101936 aunque falte la auditoría.
+false_positives:
+- 'Sitios de proyectos con socios: permisos externos esperados (revisión trimestral de accesos).'
+tuning:
+- Solo hallazgos nuevos (deduplicados por permiso); fotos diarias de nivel 2–3.
+tests:
+  runner: logtest
+  fixtures: detections/sharepoint/posture/fixtures.jsonl
+  expected: detections/sharepoint/posture/expected.txt
+  generator: wazuh/provider-ingestion/sharepoint/tests/make_fixtures.py
+runbook: docs/detection-engineering/runbooks/exfiltracion-sharepoint.md
+notes: 'Sin datos al 2026-11-11: faltan SharePointTenantSettings.Read.All y Sites.Read.All (HTTP 403); el collector emite
+  solo eventos de capacidad (101969). Probado con fixtures sintéticos.'

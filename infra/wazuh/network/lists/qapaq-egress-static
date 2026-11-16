@@ -1,0 +1,23 @@
+# QAPAQ SOC · destinos de salida conocidos además de los rangos AWS de la región (los agrega el timer de
+# reputación a etc/lists/qapaq-egress-known). Formato: <ip o prefijo de octetos con punto final>:<motivo>.
+# Un prefijo IPv4 en CIDR también se acepta (el timer lo expande a octetos). Cambios por PR.
+# Ubuntu / Canonical (apt, snap, livepatch, motd)
+91.189.88.0/21:canonical
+185.125.188.0/22:canonical
+# GitHub (código y paquetes; Docker Hub ya está en los rangos AWS)
+140.82.112.0/20:github
+185.199.108.0/22:github-content
+# Let's Encrypt (certbot)
+23.178.112.0/24:letsencrypt
+# Cloudflare (API de los collectors y DNS)
+104.16.0.0/13:cloudflare
+104.24.0.0/14:cloudflare
+172.64.0.0/13:cloudflare
+162.158.0.0/15:cloudflare
+1.1.1.0/24:cloudflare-dns
+# Microsoft Graph / Entra (collector M365)
+20.0.0.0/8:microsoft
+40.64.0.0/10:microsoft
+52.96.0.0/12:microsoft
+# Anthropic API (Qapaqzito)
+160.79.104.0/23:anthropic

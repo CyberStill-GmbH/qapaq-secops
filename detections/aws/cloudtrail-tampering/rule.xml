@@ -1,0 +1,54 @@
+<!--
+  QAPAQ SOC · detección como código · detections/aws/cloudtrail-tampering (metadata.yaml).
+  Correlación sobre las reglas AWS del receptor EventBridge (wazuh/aws-events, 101600-101699, otro owner).
+  Se enlaza por GRUPO (qapaq_aws_defense_disabled, qapaq_aws_iam, qapaq_aws_root) y no por ID, para que un
+  cambio de numeración del paquete AWS no rompa la carga del manager. La regla base de StopLogging es
+  101620; aquí se agrega el contexto: quién lo hizo y qué hizo antes.
+  Rango QAPAQ: 101710-101719. Se instala como qapaq_soc_aws_cloudtrail_tampering.xml.
+-->
+<group name="qapaq_provider,aws,qapaq_correlation,">
+  <!-- CloudTrail detenido por un principal que cambió IAM en la última hora. -->
+  <rule id="101710" level="15" timeframe="3600">
+    <if_group>qapaq_aws_defense_disabled</if_group>
+    <field name="aws.event_source">^cloudtrail.amazonaws.com$</field>
+    <if_matched_group>qapaq_aws_iam</if_matched_group>
+    <same_field>aws.principal</same_field>
+    <description>QAPAQ AWS: $(aws.principal) detuvo o borró CloudTrail ($(aws.event_name)) después de cambiar IAM en la última hora (escalada y borrado de rastro).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562.008</id>
+      <id>T1098.003</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- CloudTrail detenido por la cuenta root. Wazuh evalúa primero la hija de mayor nivel: la API de
+       root cae en 101620 (13) antes que en 101606 (root genérico, 12), así que se refina 101620. -->
+  <rule id="101711" level="15">
+    <if_group>qapaq_aws_defense_disabled</if_group>
+    <field name="aws.event_source">^cloudtrail.amazonaws.com$</field>
+    <field name="aws.user_type">^Root$</field>
+    <description>QAPAQ AWS: la cuenta ROOT detuvo o borró CloudTrail ($(aws.event_name)) desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562.008</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- Cegamiento múltiple: dos servicios de detección distintos apagados por el mismo principal en 1 h. -->
+  <rule id="101712" level="15" timeframe="3600">
+    <if_group>qapaq_aws_defense_disabled</if_group>
+    <if_matched_group>qapaq_aws_defense_disabled</if_matched_group>
+    <same_field>aws.principal</same_field>
+    <different_field>aws.event_source</different_field>
+    <description>QAPAQ AWS: $(aws.principal) deshabilitó varios controles de detección en una hora (último: $(aws.event_name) en $(aws.event_source)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562.001</id>
+      <id>T1562.008</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_attack_chain,</group>
+  </rule>
+</group>

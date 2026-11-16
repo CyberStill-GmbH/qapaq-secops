@@ -1,0 +1,58 @@
+# QAPAQ SOC · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+id: QAPAQ-TUNE-CF-001
+title: Escáneres autorizados, automatización DNS y corroboración por zona crítica
+source: cloudflare
+use_case: noise-tuning
+kind: tuning
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-08'
+updated: '2026-11-08'
+hypothesis: El WAF que ya bloqueó una IP en una zona no crítica no es un incidente; un ataque sostenido a la zona
+  productiva sí. La automatización aprobada no es un cambio humano.
+data_sources:
+- Cloudflare firewall events y audit logs
+rules:
+  file: detections/cloudflare/noise-tuning/rule.xml
+  ids:
+  - 101741
+  - 101742
+  - 101743
+  - 101744
+  installed_as: etc/rules/qapaq_soc_cloudflare_noise_tuning.xml
+mitre:
+- technique: T1190
+  tactic: initial-access
+- technique: T1595
+  tactic: reconnaissance
+severity:
+  levels: 2 escáner autorizado · 3 DNS por automatización · 7 ataque contenido en zona no crítica · 11 ataque a
+    zona crítica
+  priority_hint: P1/P2 solo en zona crítica
+  rationale: 'Composición: severidad alta exige activo crítico.'
+false_positives:
+- 'Zona crítica no listada: el ataque quedaría en 7 (cola, sin correo). Revisar la lista con cada alta de zona.'
+tuning:
+- Escáneres en qapaq-authorized-scanners dejan de contar para 101513/101740.
+- qapaqservice@qapaq.pe (DNS) baja de 5 a 3; sus cambios de seguridad/identidad (101504–101506) NO se degradan.
+measurement:
+  window: 7 días hasta 2026-11-04
+  before:
+    '101503': 18
+    101503_qapaqservice: 8
+  expected_after:
+    '101503': 10
+    '101744': 8
+lists:
+- detections/lists/qapaq-authorized-scanners
+- detections/lists/qapaq-critical-zones
+- detections/lists/qapaq-service-accounts
+tests:
+  runner: logtest
+  fixtures: detections/cloudflare/noise-tuning/fixtures.jsonl
+  expected: detections/cloudflare/noise-tuning/expected.txt
+runbook: docs/detection-engineering/runbooks/oleada-waf.md
+tuning_log: docs/detection-engineering/07-ajuste-falsos-positivos.md

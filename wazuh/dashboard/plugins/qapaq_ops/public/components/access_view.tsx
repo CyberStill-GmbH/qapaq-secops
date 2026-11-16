@@ -54,6 +54,48 @@ import { EmptyLine, ErrorCallout, HealthMark, Mono, Timestamp, useAsync } from '
 const REASON_MIN = 10;
 const REASON_MAX = 500;
 
+/**
+ * La identidad de servicio no tiene un app role de lectura de grupos concedido en Microsoft Graph.
+ * No es un error: el API reintenta solo y el padrón se activa sin reiniciar al concederse.
+ */
+function PermissionMissingCallout({
+  nextAttemptAt,
+  diagnostic,
+}: {
+  nextAttemptAt: string | null | undefined;
+  diagnostic?: DirectorySync['diagnostic'];
+}) {
+  return (
+    <EuiCallOut
+      size="s"
+      color="warning"
+      iconType="lock"
+      title="La identidad de QAPAQ no tiene permiso de lectura de grupos en Microsoft Graph"
+    >
+      <p>
+        QAPAQ recibió una denegación de Graph al resolver o leer Accesos_SOC. Revisa que la identidad
+        de aplicación configurada en el API tenga GroupMember.Read.All o Group.Read.All como permiso
+        de aplicación de Microsoft Graph, con consentimiento de administrador, en el mismo registro
+        de aplicación que usa QAPAQ. El token se renovará automáticamente y el grupo se volverá a
+        resolver sin reiniciar el servicio.
+      </p>
+      {diagnostic && (
+        <p>
+          Diagnóstico Graph: HTTP {diagnostic.status}
+          {diagnostic.errorCode ? ` · ${diagnostic.errorCode}` : ''}
+          {diagnostic.operation ? ` · ${diagnostic.operation}` : ''}
+          {diagnostic.requestId ? ` · request-id ${diagnostic.requestId}` : ''}
+        </p>
+      )}
+      {nextAttemptAt && (
+        <p>
+          Próximo intento automático: <Timestamp iso={nextAttemptAt} />
+        </p>
+      )}
+    </EuiCallOut>
+  );
+}
+
 function Roles({ roles }: { roles: readonly string[] }) {
   if (roles.length === 0) return <span className="qapaqMuted">Sin rol</span>;
   return (
@@ -190,6 +232,11 @@ function UsersPanel() {
   ];
 
   const sync = users.data?.sync;
+  // Miembros vigentes sin ningún rol: el administrador debe asignarles uno.
+  const pending = (users.data?.items ?? []).filter(
+    (user) =>
+      user.membership === 'member' && user.accountEnabled === true && user.roles.length === 0,
+  );
   return (
     <>
       {sync && sync.mode !== 'graph' && (
@@ -208,27 +255,69 @@ function UsersPanel() {
           <EuiSpacer size="m" />
         </>
       )}
-      {sync && sync.mode === 'graph' && (sync.status !== 'ok' || sync.stale) && (
+      {sync?.permissionMissing && (
+        <>
+          <PermissionMissingCallout
+            nextAttemptAt={sync.nextAttemptAt}
+            diagnostic={sync.diagnostic}
+          />
+          <EuiSpacer size="m" />
+        </>
+      )}
+      {pending.length > 0 && (
         <>
           <EuiCallOut
             size="s"
-            color="warning"
-            iconType="alert"
-            title={
-              sync.status === 'never'
-                ? 'El directorio todavía no se ha sincronizado con Entra ID.'
-                : sync.status === 'failed'
-                  ? `La última sincronización con Entra ID falló${sync.lastErrorClass ? ` (${sync.lastErrorClass})` : ''}.`
-                  : 'La sincronización con Entra ID está desactualizada.'
-            }
+            color="primary"
+            iconType="user"
+            title={`${pending.length} ${pending.length === 1 ? 'miembro pendiente' : 'miembros pendientes'} de rol`}
           >
             <p>
-              Última correcta: <Timestamp iso={sync.lastSuccessAt} />
+              Entraron a Accesos_SOC y todavía no tienen rol en QAPAQ: no pueden operar hasta que se
+              les asigne uno. Abre cada persona y usa «Asignar rol».
             </p>
+            <ul className="qapaqIdList">
+              {pending.map((user) => (
+                <li key={user.oid}>
+                  <EuiButtonEmpty
+                    size="xs"
+                    iconType="plusInCircle"
+                    onClick={() => setSelected(user.oid)}
+                    data-qapaq-no-translate=""
+                  >
+                    {user.displayName ?? user.upn ?? user.oid}
+                  </EuiButtonEmpty>
+                </li>
+              ))}
+            </ul>
           </EuiCallOut>
           <EuiSpacer size="m" />
         </>
       )}
+      {sync &&
+        sync.mode === 'graph' &&
+        !sync.permissionMissing &&
+        (sync.status !== 'ok' || sync.stale) && (
+          <>
+            <EuiCallOut
+              size="s"
+              color="warning"
+              iconType="alert"
+              title={
+                sync.status === 'never'
+                  ? 'El directorio todavía no se ha sincronizado con Entra ID.'
+                  : sync.status === 'failed'
+                    ? `La última sincronización con Entra ID falló${sync.lastErrorClass ? ` (${sync.lastErrorClass})` : ''}.`
+                    : 'La sincronización con Entra ID está desactualizada.'
+              }
+            >
+              <p>
+                Última correcta: <Timestamp iso={sync.lastSuccessAt} />
+              </p>
+            </EuiCallOut>
+            <EuiSpacer size="m" />
+          </>
+        )}
       <EuiBasicTable<DirectoryUser>
         items={users.data?.items ?? []}
         columns={columns}
@@ -322,7 +411,7 @@ function UserFlyout({ oid, onClose }: { oid: string; onClose: () => void }) {
                   isDisabled={user.membership !== 'member' || user.accountEnabled !== true}
                   onClick={() => setRequestingRole(true)}
                 >
-                  Solicitar cambio de rol
+                  {user.roles.length === 0 ? 'Asignar rol' : 'Cambiar rol'}
                 </EuiButton>
                 {user.membership !== 'member' && (
                   <p className="qapaqCellMeta">
@@ -424,6 +513,7 @@ function RoleRequestsPanel({ canReviewRoles }: { canReviewRoles: boolean }) {
   };
 
   if (requests.error) return <ErrorCallout error={requests.error} onRetry={requests.reload} />;
+  const directoryState = requests.data?.directory;
 
   const columns: Array<EuiBasicTableColumn<RoleRequestView>> = [
     {
@@ -489,8 +579,8 @@ function RoleRequestsPanel({ canReviewRoles }: { canReviewRoles: boolean }) {
       <EuiFlexGroup alignItems="center" justifyContent="spaceBetween" responsive wrap>
         <EuiFlexItem grow>
           <p>
-            Los cambios requieren aprobación separada y quedan registrados en auditoría. La UI no
-            concede roles directamente.
+            Asignar un rol crea una solicitud: la aprueba otra persona (Acceso y, para Administrador
+            de plataforma, también Seguridad) y todo queda en auditoría. Nadie aprueba lo que pidió.
           </p>
         </EuiFlexItem>
         <EuiFlexItem grow={false}>
@@ -512,6 +602,30 @@ function RoleRequestsPanel({ canReviewRoles }: { canReviewRoles: boolean }) {
               segunda etapa seguirá fallando de forma segura hasta que el login la proporcione.
             </p>
           </EuiCallOut>
+          <EuiSpacer size="m" />
+        </>
+      )}
+      {directoryState?.permissionMissing && (
+        <>
+          <PermissionMissingCallout
+            nextAttemptAt={directoryState.nextAttemptAt}
+            diagnostic={directoryState.diagnostic}
+          />
+          <EuiSpacer size="m" />
+        </>
+      )}
+      {directoryState && !directoryState.permissionMissing && (
+        <>
+          <EuiCallOut
+            size="s"
+            color="primary"
+            iconType="iInCircle"
+            title={
+              directoryState.status === 'pending'
+                ? `El grupo Accesos_SOC aún no se pudo leer${directoryState.lastErrorClass ? ` (${directoryState.lastErrorClass})` : ''}; se reintenta solo.`
+                : 'Sin sincronización con Microsoft Graph: no hay solicitudes de rol posibles.'
+            }
+          />
           <EuiSpacer size="m" />
         </>
       )}
@@ -611,7 +725,7 @@ function RoleChangeModal({
     <EuiModal onClose={onClose} className="qapaqModal" maxWidth={560}>
       <EuiModalHeader>
         <EuiModalHeaderTitle>
-          <h2>Solicitar cambio de rol</h2>
+          <h2>{user.roles.length === 0 ? 'Asignar rol' : 'Cambiar rol'}</h2>
         </EuiModalHeaderTitle>
       </EuiModalHeader>
       <EuiModalBody>

@@ -1,0 +1,464 @@
+<!--
+  QAPAQ · AWS (cuenta 061098277310) vía EventBridge → SNS → wazuh/aws-events/receiver. IDs reservados: 101600-101699.
+  Campos normalizados por el receptor (aws.event_name, aws.event_source, aws.user_type, aws.region, …).
+  Región habitual: us-east-1 (los eventos de servicios globales — IAM, Organizations, sign-in — también llegan allí).
+  Orden de las reglas hijas: Wazuh elige la PRIMERA hija que coincide; por eso root y región no habitual van primero.
+-->
+<group name="qapaq_provider,aws,">
+  <rule id="101600" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="qapaq.vendor">^aws$</field>
+    <field name="qapaq.source">^eventbridge$</field>
+    <description>QAPAQ AWS: evento de EventBridge.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101601" level="3">
+    <if_sid>101600</if_sid>
+    <field name="qapaq.event_type">^console_signin$</field>
+    <description>QAPAQ AWS: $(aws.event_name) en consola de $(aws.principal) desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_signin,authentication,</group>
+  </rule>
+
+  <rule id="101602" level="3">
+    <if_sid>101600</if_sid>
+    <field name="qapaq.event_type">^cloudtrail_api$</field>
+    <description>QAPAQ AWS: $(aws.event_name) ($(aws.event_source)) por $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_api,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101603" level="3">
+    <if_sid>101600</if_sid>
+    <field name="qapaq.event_type">^other$</field>
+    <description>QAPAQ AWS: evento $(aws.detail_type) de $(aws.source).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ===================================================== consola / root -->
+  <rule id="101605" level="13">
+    <if_sid>101601</if_sid>
+    <field name="aws.user_type">^Root$</field>
+    <description>QAPAQ AWS: inicio de sesión de la cuenta ROOT ($(aws.event_name)) desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>qapaq_aws_root,authentication_success,</group>
+  </rule>
+
+  <rule id="101607" level="5">
+    <if_sid>101601</if_sid>
+    <field name="aws.event_name">^ConsoleLogin$</field>
+    <field name="aws.console_login">^Failure$</field>
+    <description>QAPAQ AWS: inicio de sesión fallido en consola de $(aws.principal) desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110</id></mitre>
+    <group>authentication_failed,</group>
+  </rule>
+
+  <rule id="101608" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>101607</if_matched_sid>
+    <same_field>aws.source_ip</same_field>
+    <description>QAPAQ AWS: posible fuerza bruta en consola: 5+ inicios fallidos desde $(aws.source_ip) en 5 min.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1110.001</id></mitre>
+    <group>authentication_failures,qapaq_aws_bruteforce,</group>
+  </rule>
+
+  <rule id="101609" level="8">
+    <if_sid>101601</if_sid>
+    <field name="aws.event_name">^ConsoleLogin$</field>
+    <field name="aws.console_login">^Success$</field>
+    <field name="aws.user_type">^IAMUser$</field>
+    <field name="aws.mfa_used">^No$</field>
+    <description>QAPAQ AWS: usuario IAM $(aws.principal) entró a la consola SIN MFA desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>authentication_success,qapaq_aws_no_mfa,</group>
+  </rule>
+
+  <rule id="101610" level="3">
+    <if_sid>101601</if_sid>
+    <field name="aws.event_name">^ConsoleLogin$</field>
+    <field name="aws.console_login">^Success$</field>
+    <description>QAPAQ AWS: inicio de sesión en consola de $(aws.principal) desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <group>authentication_success,</group>
+  </rule>
+
+  <!-- ===================================================== API: root y región no habitual -->
+  <rule id="101606" level="12">
+    <if_sid>101602</if_sid>
+    <field name="aws.user_type">^Root$</field>
+    <description>QAPAQ AWS: la cuenta ROOT ejecutó $(aws.event_name) ($(aws.event_source)) desde $(aws.source_ip).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1078.004</id></mitre>
+    <group>qapaq_aws_root,</group>
+  </rule>
+
+  <rule id="101611" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.region" negate="yes">^us-east-1$</field>
+    <description>QAPAQ AWS: actividad en región no habitual $(aws.region): $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1535</id></mitre>
+    <group>qapaq_aws_unusual_region,</group>
+  </rule>
+
+  <rule id="101612" level="12">
+    <if_sid>101611</if_sid>
+    <field name="aws.event_name" type="pcre2">^(RunInstances|CreateFleet|RequestSpotInstances|RequestSpotFleet|CreateVpc|CreateFunction20150331|CreateCluster|CreateNotebookInstance)$</field>
+    <description>QAPAQ AWS: creación de cómputo/red en región no habitual $(aws.region): $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1535</id><id>T1496</id></mitre>
+    <group>qapaq_aws_unusual_region,</group>
+  </rule>
+
+  <rule id="101613" level="4">
+    <if_sid>101611</if_sid>
+    <field name="aws.user_type">^AWSService$</field>
+    <description>QAPAQ AWS: servicio AWS ($(aws.principal)) activo en región no habitual $(aws.region): $(aws.event_name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ===================================================== pipeline de monitoreo QAPAQ (antimanipulación) -->
+  <rule id="101615" level="12">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source" type="pcre2">^(events|sns)\.amazonaws\.com$</field>
+    <field name="aws.event_name" type="pcre2">^(DeleteRule|DisableRule|RemoveTargets|DeleteTopic|Unsubscribe|RemovePermission)$</field>
+    <field name="aws.request_parameters" type="pcre2">qapaq-soc-dev-aws</field>
+    <description>QAPAQ AWS: manipulación del pipeline de monitoreo QAPAQ: $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.008</id></mitre>
+    <group>qapaq_aws_tamper,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101616" level="6">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source" type="pcre2">^(events|sns)\.amazonaws\.com$</field>
+    <field name="aws.request_parameters" type="pcre2">qapaq-soc-dev-aws</field>
+    <description>QAPAQ AWS: cambio en el pipeline de monitoreo QAPAQ: $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_pipeline,qapaq_audit,</group>
+  </rule>
+
+  <!-- ===================================================== CloudTrail y servicios de detección -->
+  <rule id="101620" level="13">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^cloudtrail.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(StopLogging|DeleteTrail|DeleteEventDataStore|StopEventDataStoreIngestion)$</field>
+    <description>QAPAQ AWS: CloudTrail detenido/eliminado ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.008</id></mitre>
+    <group>qapaq_aws_defense_disabled,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101621" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^cloudtrail.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(UpdateTrail|PutEventSelectors|PutInsightSelectors|UpdateEventDataStore|DeleteChannel)$</field>
+    <description>QAPAQ AWS: configuración de CloudTrail modificada ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.008</id></mitre>
+    <group>qapaq_aws_defense_change,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101622" level="12">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^guardduty.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(DeleteDetector|UpdateDetector|DisassociateFromMasterAccount|DisassociateFromAdministratorAccount|DisassociateMembers|DeleteMembers|StopMonitoringMembers|CreateIPSet|UpdateIPSet|CreateFilter|UpdateFilter|DeletePublishingDestination)$</field>
+    <description>QAPAQ AWS: GuardDuty deshabilitado o con supresión ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_aws_defense_disabled,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101623" level="12">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^securityhub.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(DisableSecurityHub|BatchDisableStandards|DisableImportFindingsForProduct|DisassociateFromMasterAccount|DisassociateFromAdministratorAccount|DeleteMembers|UpdateStandardsControl|DeleteFindingAggregator)$</field>
+    <description>QAPAQ AWS: Security Hub deshabilitado/reducido ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_aws_defense_disabled,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101624" level="12">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^config.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(StopConfigurationRecorder|DeleteConfigurationRecorder|DeleteDeliveryChannel|DeleteConfigRule|DeleteConformancePack|DeleteConfigurationAggregator)$</field>
+    <description>QAPAQ AWS: AWS Config detenido/eliminado ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_aws_defense_disabled,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101625" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^access-analyzer.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(DeleteAnalyzer|CreateArchiveRule|UpdateArchiveRule)$</field>
+    <description>QAPAQ AWS: IAM Access Analyzer eliminado o con archivado ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.001</id></mitre>
+    <group>qapaq_aws_defense_change,qapaq_defense_evasion,</group>
+  </rule>
+
+  <!-- ===================================================== IAM / Identity Center / Organizations -->
+  <rule id="101630" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^iam.amazonaws.com$</field>
+    <description>QAPAQ AWS: cambio IAM $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098</id></mitre>
+    <group>qapaq_aws_iam,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101631" level="10">
+    <if_sid>101630</if_sid>
+    <field name="aws.event_name" type="pcre2">^(CreateUser|CreateAccessKey|CreateLoginProfile|UpdateLoginProfile|AttachUserPolicy|AttachGroupPolicy|AttachRolePolicy|PutUserPolicy|PutGroupPolicy|PutRolePolicy|AddUserToGroup|UpdateAssumeRolePolicy|CreatePolicyVersion|SetDefaultPolicyVersion|DeactivateMFADevice|DeleteVirtualMFADevice|CreateRole|CreateSAMLProvider|UpdateSAMLProvider|CreateOpenIDConnectProvider|AddClientIDToOpenIDConnectProvider|UpdateAccessKey)$</field>
+    <description>QAPAQ AWS: cambio IAM de alto riesgo $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098</id><id>T1136.003</id></mitre>
+    <group>qapaq_aws_iam,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101632" level="12">
+    <if_sid>101631</if_sid>
+    <field name="aws.request_parameters" type="pcre2">AdministratorAccess|IAMFullAccess|"Action":"\*"|"Action":\["\*"\]</field>
+    <description>QAPAQ AWS: privilegios administrativos concedidos ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098.003</id></mitre>
+    <group>qapaq_aws_iam,qapaq_privilege_escalation,</group>
+  </rule>
+
+  <rule id="101633" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source" type="pcre2">^(sso|sso-directory|identitystore)\.amazonaws\.com$</field>
+    <description>QAPAQ AWS: cambio en IAM Identity Center $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098</id></mitre>
+    <group>qapaq_aws_iam,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101634" level="10">
+    <if_sid>101633</if_sid>
+    <field name="aws.event_name" type="pcre2">^(CreatePermissionSet|UpdatePermissionSet|AttachManagedPolicyToPermissionSet|AttachCustomerManagedPolicyReferenceToPermissionSet|PutInlinePolicyToPermissionSet|PutPermissionsBoundaryToPermissionSet|CreateAccountAssignment|ProvisionPermissionSet|CreateUser|CreateGroupMembership|AddMemberToGroup)$</field>
+    <description>QAPAQ AWS: Identity Center: permission set o asignación modificada ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098.003</id></mitre>
+    <group>qapaq_aws_iam,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101635" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^organizations.amazonaws.com$</field>
+    <description>QAPAQ AWS: cambio en AWS Organizations $(aws.event_name) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1484</id></mitre>
+    <group>qapaq_aws_org,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101636" level="12">
+    <if_sid>101635</if_sid>
+    <field name="aws.event_name" type="pcre2">^(LeaveOrganization|RemoveAccountFromOrganization|DeleteOrganization|DisablePolicyType|DetachPolicy|DeletePolicy|DisableAWSServiceAccess|DeregisterDelegatedAdministrator)$</field>
+    <description>QAPAQ AWS: Organizations: salida de cuenta o SCP retirada ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1484</id><id>T1562</id></mitre>
+    <group>qapaq_aws_org,qapaq_defense_evasion,</group>
+  </rule>
+
+  <!-- ===================================================== Red: SG, NACL, rutas, flow logs -->
+  <rule id="101640" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^ec2.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(AuthorizeSecurityGroupIngress|AuthorizeSecurityGroupEgress|RevokeSecurityGroupIngress|RevokeSecurityGroupEgress|CreateSecurityGroup|DeleteSecurityGroup|ModifySecurityGroupRules|UpdateSecurityGroupRuleDescriptionsIngress|UpdateSecurityGroupRuleDescriptionsEgress)$</field>
+    <description>QAPAQ AWS: security group modificado ($(aws.event_name)) por $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.007</id></mitre>
+    <group>qapaq_aws_network,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101641" level="10">
+    <if_sid>101640</if_sid>
+    <field name="aws.event_name" type="pcre2">^(AuthorizeSecurityGroupIngress|ModifySecurityGroupRules)$</field>
+    <field name="aws.open_to_world">^true$</field>
+    <description>QAPAQ AWS: security group abierto a Internet (0.0.0.0/0 o ::/0) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.007</id></mitre>
+    <group>qapaq_aws_network,qapaq_exposure,</group>
+  </rule>
+
+  <rule id="101642" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^ec2.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(CreateNetworkAcl|CreateNetworkAclEntry|DeleteNetworkAcl|DeleteNetworkAclEntry|ReplaceNetworkAclEntry|ReplaceNetworkAclAssociation)$</field>
+    <description>QAPAQ AWS: NACL modificada ($(aws.event_name)) por $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.007</id></mitre>
+    <group>qapaq_aws_network,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101643" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^ec2.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(CreateRoute|DeleteRoute|ReplaceRoute|CreateRouteTable|DeleteRouteTable|AssociateRouteTable|DisassociateRouteTable|ReplaceRouteTableAssociation|CreateInternetGateway|AttachInternetGateway|DetachInternetGateway|DeleteInternetGateway|CreateNatGateway|DeleteNatGateway|CreateVpcPeeringConnection|AcceptVpcPeeringConnection|CreateTransitGatewayVpcAttachment|CreateVpnConnection|CreateCustomerGateway)$</field>
+    <description>QAPAQ AWS: rutas/gateways modificados ($(aws.event_name)) por $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1599</id></mitre>
+    <group>qapaq_aws_network,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101644" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^ec2.amazonaws.com$</field>
+    <field name="aws.event_name">^DeleteFlowLogs$</field>
+    <description>QAPAQ AWS: VPC Flow Logs eliminados por $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.008</id></mitre>
+    <group>qapaq_aws_network,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101645" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^ec2.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(ModifySnapshotAttribute|ModifyImageAttribute|SharedSnapshotCopyInitiated)$</field>
+    <description>QAPAQ AWS: snapshot/AMI compartido ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1537</id></mitre>
+    <group>qapaq_aws_exfiltration,</group>
+  </rule>
+
+  <rule id="101646" level="3">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^ec2.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(RunInstances|ImportKeyPair|CreateKeyPair)$</field>
+    <description>QAPAQ AWS: EC2 $(aws.event_name) por $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_ec2,</group>
+  </rule>
+
+  <!-- ===================================================== S3 -->
+  <rule id="101650" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^s3.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(PutBucketPolicy|DeleteBucketPolicy|PutBucketAcl|PutObjectAcl|PutBucketPublicAccessBlock|DeleteBucketPublicAccessBlock|PutAccountPublicAccessBlock|DeleteAccountPublicAccessBlock|PutBucketOwnershipControls|DeleteBucketOwnershipControls|PutBucketEncryption|DeleteBucketEncryption|PutBucketLogging|PutBucketReplication|DeleteBucketReplication|PutBucketWebsite)$</field>
+    <description>QAPAQ AWS: control de acceso S3 modificado ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1530</id></mitre>
+    <group>qapaq_aws_s3,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101651" level="10">
+    <if_sid>101650</if_sid>
+    <field name="aws.event_name" type="pcre2">^(DeleteBucketPublicAccessBlock|DeleteAccountPublicAccessBlock)$</field>
+    <description>QAPAQ AWS: bloqueo de acceso público S3 eliminado ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1530</id></mitre>
+    <group>qapaq_aws_s3,qapaq_exposure,</group>
+  </rule>
+
+  <rule id="101652" level="10">
+    <if_sid>101650</if_sid>
+    <field name="aws.request_parameters" type="pcre2">AllUsers|AuthenticatedUsers|"Principal":"\*"|"AWS":"\*"|"AWS":\["\*"\]|public-read</field>
+    <description>QAPAQ AWS: posible exposición pública de S3 ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1530</id></mitre>
+    <group>qapaq_aws_s3,qapaq_exposure,</group>
+  </rule>
+
+  <!-- ===================================================== KMS -->
+  <rule id="101655" level="8">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^kms.amazonaws.com$</field>
+    <field name="aws.event_name" type="pcre2">^(PutKeyPolicy|DisableKeyRotation|DeleteImportedKeyMaterial|CreateGrant|RetireGrant|RevokeGrant)$</field>
+    <description>QAPAQ AWS: política/rotación KMS modificada ($(aws.event_name)) por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_kms,qapaq_audit,</group>
+  </rule>
+
+  <rule id="101656" level="10">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^kms.amazonaws.com$</field>
+    <field name="aws.event_name">^DisableKey$</field>
+    <description>QAPAQ AWS: clave KMS deshabilitada por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1485</id></mitre>
+    <group>qapaq_aws_kms,qapaq_impact,</group>
+  </rule>
+
+  <rule id="101657" level="12">
+    <if_sid>101602</if_sid>
+    <field name="aws.event_source">^kms.amazonaws.com$</field>
+    <field name="aws.event_name">^ScheduleKeyDeletion$</field>
+    <description>QAPAQ AWS: borrado de clave KMS programado por $(aws.principal).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1485</id></mitre>
+    <group>qapaq_aws_kms,qapaq_impact,</group>
+  </rule>
+
+  <!-- ===================================================== Hallazgos GuardDuty / Security Hub -->
+  <rule id="101660" level="3">
+    <if_sid>101600</if_sid>
+    <field name="qapaq.event_type">^guardduty_finding$</field>
+    <description>QAPAQ AWS GuardDuty: $(aws.finding.type) ($(aws.finding.severity_label)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,guardduty,</group>
+  </rule>
+  <rule id="101661" level="5">
+    <if_sid>101660</if_sid>
+    <field name="aws.finding.severity_label">^LOW$</field>
+    <description>QAPAQ AWS GuardDuty (baja): $(aws.finding.type).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,guardduty,</group>
+  </rule>
+  <rule id="101662" level="8">
+    <if_sid>101660</if_sid>
+    <field name="aws.finding.severity_label">^MEDIUM$</field>
+    <description>QAPAQ AWS GuardDuty (media): $(aws.finding.type).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,guardduty,</group>
+  </rule>
+  <rule id="101663" level="12">
+    <if_sid>101660</if_sid>
+    <field name="aws.finding.severity_label">^HIGH$</field>
+    <description>QAPAQ AWS GuardDuty (alta): $(aws.finding.type).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,guardduty,</group>
+  </rule>
+  <rule id="101664" level="13">
+    <if_sid>101660</if_sid>
+    <field name="aws.finding.severity_label">^CRITICAL$</field>
+    <description>QAPAQ AWS GuardDuty (crítica): $(aws.finding.type).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,guardduty,</group>
+  </rule>
+
+  <rule id="101670" level="3">
+    <if_sid>101600</if_sid>
+    <field name="qapaq.event_type">^securityhub_finding$</field>
+    <description>QAPAQ AWS Security Hub: $(aws.finding.title) ($(aws.finding.severity_label)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,securityhub,</group>
+  </rule>
+  <rule id="101671" level="8">
+    <if_sid>101670</if_sid>
+    <field name="aws.finding.severity_label">^MEDIUM$</field>
+    <description>QAPAQ AWS Security Hub (media): $(aws.finding.title).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,securityhub,</group>
+  </rule>
+  <rule id="101672" level="12">
+    <if_sid>101670</if_sid>
+    <field name="aws.finding.severity_label">^HIGH$</field>
+    <description>QAPAQ AWS Security Hub (alta): $(aws.finding.title).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,securityhub,</group>
+  </rule>
+  <rule id="101673" level="13">
+    <if_sid>101670</if_sid>
+    <field name="aws.finding.severity_label">^CRITICAL$</field>
+    <description>QAPAQ AWS Security Hub (crítica): $(aws.finding.title).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_finding,securityhub,</group>
+  </rule>
+</group>

@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: repair-ingestion
+  group: qapaq-secops-demo-wazuh-host-mutations
   cancel-in-progress: false
 
 jobs:
@@ -24,10 +24,10 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          role-to-assume: arn:aws:iam::123456789012:role/qapaq-secops-github-terraform-demo
           aws-region: us-east-1
           role-session-name: qapaq-secops-repair-ingestion
-          allowed-account-ids: 955200662475
+          allowed-account-ids: 123456789012
 
       - name: Restart filebeat and wazuh-manager, report pipeline
         shell: bash
@@ -43,7 +43,7 @@ jobs:
 
           remote_script="$(cat <<'REMOTE'
           set +e
-          R=us-east-1; T=45f2f938-dbe3-4a3e-8a54-930893f94ef8; C=336d44fe-b99d-4cfd-9c6e-0ed2d7e48998
+          R=us-east-1; T=11111111-1111-4111-8111-111111111111; C=22222222-2222-4222-8222-222222222222
           echo '=== replica API->KrakenD (token v1 de workload) ==='
           SV=$(aws secretsmanager get-secret-value --secret-id qapaq-secops/demo/entra/client-secret --query SecretString --output text --region $R 2>/dev/null)
           CS=$(printf '%s' "$SV" | python3 -c 'import sys,json;v=sys.stdin.read().strip();print(json.loads(v).get("client_secret",v) if v.startswith("{") else v)' 2>/dev/null)

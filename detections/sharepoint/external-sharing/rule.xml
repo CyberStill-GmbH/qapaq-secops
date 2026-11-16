@@ -1,0 +1,78 @@
+<!--
+  QAPAQ SOC · detección como código · detections/sharepoint/external-sharing (metadata.yaml, docs/23).
+  Uso compartido fuera de QAPAQ: enlaces anónimos ("Cualquier persona") y compartición con correos personales o
+  invitados. Refina 100515 (enlace anónimo, nivel 7, wazuh/office365) sin moverla.
+  - Cuentas aprobadas para publicar con enlaces anónimos o compartir con socios (qapaq-m365-sharing-approved)
+    bajan a 3/2: siguen indexadas, no generan cola.
+  - Correo personal (gmail, outlook/hotmail/live, yahoo, icloud, proton, gmx, yandex, …) en el destinatario o
+    en su UPN de invitado (usuario_gmail.com#ext#@…) = nivel 9; 5 en 1 h del mismo usuario = 12.
+  Padre 91544 (RecordType 14, SharePointSharingOperation). TargetUserOrGroupName/Type verificados en registros reales
+  del tenant (2026-11-10: SharingSet y AddedToSecureLink, tipos Member/SharePointGroup); falta un registro real
+  con tipo Guest, por eso sigue qapaq_pending_provider_evidence.
+  Se instala como qapaq_soc_sharepoint_external_sharing.xml (antes que labels_and_dlp, que la referencia).
+-->
+<group name="office365,sharepoint,qapaq_sharepoint,">
+  <!-- ================================================================ enlaces anónimos (hijas de 100515) -->
+  <rule id="101926" level="11" frequency="10" timeframe="3600">
+    <if_matched_sid>100515</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: $(office365.UserId) creó 10 enlaces anónimos en 1 h.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+    <group>qapaq_exfiltration,qapaq_anonymous_link,</group>
+  </rule>
+
+  <rule id="101925" level="3">
+    <if_sid>100515</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-m365-sharing-approved</list>
+    <description>QAPAQ SharePoint: enlace anónimo de la cuenta aprobada para publicar $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_tuning,qapaq_anonymous_link,</group>
+  </rule>
+
+  <!-- ================================================================ compartición con externos -->
+  <rule id="101927" level="9">
+    <if_sid>91544</if_sid>
+    <field name="office365.Operation">^SharingInvitationCreated$|^AddedToSecureLink$|^AddedToSharingLink$|^SharingSet$</field>
+    <field name="office365.TargetUserOrGroupName" type="pcre2">(?i)[@_](gmail\.com|googlemail\.com|outlook\.[a-z.]{2,6}|hotmail\.[a-z.]{2,6}|live\.[a-z.]{2,6}|msn\.com|yahoo\.[a-z.]{2,6}|ymail\.com|icloud\.com|me\.com|mac\.com|aol\.com|proton\.me|protonmail\.com|protonmail\.ch|pm\.me|gmx\.[a-z.]{2,6}|yandex\.[a-z.]{2,6}|mail\.ru|zoho\.com|tutanota\.com|tuta\.io|qq\.com|163\.com|126\.com)(#ext#|$)</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) compartió $(office365.ObjectId) con el correo personal $(office365.TargetUserOrGroupName).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1537</id>
+    </mitre>
+    <group>qapaq_exfiltration,qapaq_external_sharing,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101928" level="4">
+    <if_sid>91544</if_sid>
+    <field name="office365.Operation">^SharingInvitationCreated$|^AddedToSecureLink$|^AddedToSharingLink$|^SharingSet$</field>
+    <field name="office365.TargetUserOrGroupType">^Guest$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) compartió $(office365.ObjectId) con el externo $(office365.TargetUserOrGroupName).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1537</id>
+    </mitre>
+    <group>qapaq_external_sharing,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101929" level="2">
+    <if_sid>101928</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-m365-sharing-approved</list>
+    <description>QAPAQ SharePoint: compartición externa de la cuenta aprobada $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_tuning,qapaq_external_sharing,</group>
+  </rule>
+
+  <rule id="101930" level="12" frequency="5" timeframe="3600">
+    <if_matched_sid>101927</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: $(office365.UserId) compartió 5 elementos con correos personales en 1 h.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1537</id>
+    </mitre>
+    <group>qapaq_exfiltration,qapaq_external_sharing,</group>
+  </rule>
+</group>

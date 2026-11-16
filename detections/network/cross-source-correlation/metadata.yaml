@@ -1,0 +1,54 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-008
+title: Misma IP atacante en Cloudflare WAF, edge del SOC y SSH
+source: network
+use_case: cross-source-correlation
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Quien ataca el perímetro de QAPAQ en Cloudflare y luego la consola o el SSH del SOC es un actor dirigido,
+  no ruido.
+data_sources:
+- Cloudflare firewall events (vía lista diaria qapaq-cf-waf-attackers)
+- edge nginx
+- sshd
+rules:
+  file: detections/network/cross-source-correlation/rule.xml
+  ids:
+  - 101870
+  - 101871
+  - 101872
+  - 101873
+  - 101874
+  - 101875
+  - 101876
+  installed_as: etc/rules/qapaq_soc_network_cross_source_correlation.xml
+mitre:
+- technique: T1190
+  tactic: initial-access
+- technique: T1595
+  tactic: reconnaissance
+- technique: T1078
+  tactic: defense-evasion
+- technique: T1110
+  tactic: credential-access
+- technique: T1078.003
+  tactic: defense-evasion
+severity:
+  levels: 8 fallo SSH de atacante del WAF · 10 ataque web y luego SSH · 12 ataque web de atacante del WAF o login
+    tras fallos SSH · 13-14 éxito tras ataque
+  priority_hint: P1 para 13-14
+  rationale: 'Cadena multi-fuente: muy baja tasa de falso positivo.'
+false_positives:
+- IP compartida (CGNAT, proxy corporativo) entre un atacante y un usuario.
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/network/cross-source-correlation/fixtures.jsonl
+  expected: detections/network/cross-source-correlation/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#correlacion

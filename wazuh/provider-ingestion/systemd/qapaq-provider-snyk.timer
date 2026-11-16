@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll Snyk organization issues for QAPAQ
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+RandomizedDelaySec=30s
+Unit=qapaq-provider-ingest@snyk.service
+
+[Install]
+WantedBy=timers.target

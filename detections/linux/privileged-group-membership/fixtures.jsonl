@@ -1,0 +1,3 @@
+Nov  4 10:05:00 qapaq-soc-dev-node gpasswd[3001]: user eve added by root to group docker
+Nov  4 10:05:01 qapaq-soc-dev-node gpasswd[3002]: user eve added by root to group sudo
+Nov  4 10:05:02 qapaq-soc-dev-node gpasswd[3003]: user eve added by root to group users

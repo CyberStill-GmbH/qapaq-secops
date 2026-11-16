@@ -20,7 +20,7 @@ jobs:
       id-token: write
     env:
       AWS_REGION: us-east-1
-      AWS_ACCOUNT_ID: "955200662475"
+      AWS_ACCOUNT_ID: "123456789012"
       AWS_ECR_PUBLISHER_ROLE_ARN: ${{ vars.AWS_ECR_PUBLISHER_ROLE_ARN }}
       IMAGE_TAG: git-${{ github.sha }}
       COMMIT_SHA: ${{ github.sha }}

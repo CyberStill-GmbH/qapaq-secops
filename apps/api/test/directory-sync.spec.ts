@@ -19,7 +19,7 @@ import {
 import { capabilitiesForRoles, openSession } from '@qapaq/access';
 
 import { buildApi } from '../src/bootstrap.js';
-import { cachedOwnerSource, createDirectorySyncPass } from '../src/runtime/directory-sync.js';
+import { createDirectorySyncPass, directoryOwnerSource } from '../src/runtime/directory-sync.js';
 import type { SecOpsRuntime } from '../src/runtime/secops-runtime.js';
 import { GraphDirectoryReader } from '../src/runtime/graph-directory.js';
 
@@ -209,9 +209,32 @@ describe('sincronización del padrón', () => {
       now: () => NOW,
       reader: scriptedReader([{ changes: [], deltaLink: 'https://graph.microsoft.com/d' }]).reader,
     })();
-    let clock = 0;
-    const source = cachedOwnerSource(store, TENANT, GROUP, 60_000, () => clock);
+    const source = directoryOwnerSource(store, TENANT, GROUP);
     expect((await source.owners()).has(DUENO)).toBe(true);
+  });
+
+  it('reconoce al dueño desde Graph mientras la primera sincronización del padrón sigue pendiente', async () => {
+    const store = new InMemoryDirectoryStore();
+    let reads = 0;
+    const source = directoryOwnerSource(store, TENANT, GROUP, async () => {
+      reads += 1;
+      return [person(DUENO, 'Dueno')];
+    });
+    expect((await source.owners()).has(DUENO)).toBe(true);
+    expect((await source.owners()).has(DUENO)).toBe(true);
+    expect(reads).toBe(2);
+
+    // Una vez vencida la caché, la sincronización durable ya es la fuente autoritativa.
+    await createDirectorySyncPass({
+      tenantId: TENANT,
+      groupId: GROUP,
+      store,
+      now: () => NOW,
+      reader: scriptedReader([{ changes: [], deltaLink: 'https://graph.microsoft.com/delta' }], [])
+        .reader,
+    })();
+    expect((await source.owners()).has(DUENO)).toBe(false);
+    expect(reads).toBe(2);
   });
 });
 
@@ -299,6 +322,30 @@ describe('adapter de Microsoft Graph', () => {
     expect(page.changes[0]).toMatchObject({ kind: 'upsert', person: { accountEnabled: null } });
   });
 
+  it('sin permiso para leer perfiles, conserva la membresía por OID y completa el delta', async () => {
+    const { reader, calls } = graph({
+      '/v1.0/groups/delta': () =>
+        json({
+          value: [
+            { id: GROUP, 'members@delta': [{ '@odata.type': '#microsoft.graph.user', id: ANA }] },
+          ],
+          '@odata.deltaLink': 'https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=x',
+        }),
+      [`/v1.0/users/${ANA}`]: () => json({ error: { code: 'Authorization_RequestDenied' } }, 403),
+    });
+
+    const page = await reader.readMemberDelta(GROUP, null);
+
+    expect(page.changes).toEqual([
+      {
+        kind: 'upsert',
+        person: { oid: ANA, displayName: null, upn: null, accountEnabled: null },
+      },
+    ]);
+    expect(page.deltaLink).toBe('https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=x');
+    expect(calls.filter((url) => url.startsWith(`/v1.0/users/${ANA}`))).toHaveLength(2);
+  });
+
   it('429 con Retry-After, 410 delta vencido y enlaces fuera de Graph rechazados', async () => {
     const throttled = graph({ '/v1.0/groups/delta': () => json({}, 429, { 'retry-after': '20' }) });
     await expect(throttled.reader.readMemberDelta(GROUP, null)).rejects.toMatchObject({
@@ -314,6 +361,59 @@ describe('adapter de Microsoft Graph', () => {
       hostile.reader.readMemberDelta(GROUP, 'https://atacante.example/robar'),
     ).rejects.toMatchObject({ code: 'DIRECTORY_RESPONSE_INVALID' });
     expect(hostile.calls).toEqual([]);
+  });
+
+  it('separa el permiso ausente de otros 403 y conserva solo metadatos Graph seguros', async () => {
+    const denied = new GraphDirectoryReader({
+      accessToken: async () => 'token-sintetico',
+      fetch: (async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'Authorization_RequestDenied',
+              message: 'must never escape',
+              innerError: { user: ANA, delta: 'https://graph.microsoft.com/?$deltatoken=secret' },
+            },
+          }),
+          { status: 403, headers: { 'request-id': 'graph-request-123' } },
+        )) as unknown as typeof fetch,
+    });
+    let caught: unknown;
+    try {
+      await denied.resolveGroupId('Accesos_SOC');
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({
+      code: 'DIRECTORY_PERMISSION_MISSING',
+      diagnostic: {
+        status: 403,
+        errorCode: 'Authorization_RequestDenied',
+        requestId: 'graph-request-123',
+        operation: 'resolveGroupId',
+      },
+    });
+    expect(String(caught)).not.toContain('must never escape');
+    expect(JSON.stringify(caught)).not.toContain('deltatoken');
+    expect(JSON.stringify(caught)).not.toContain(ANA);
+
+    const forbidden = new GraphDirectoryReader({
+      accessToken: async () => 'token-sintetico',
+      fetch: (async () =>
+        new Response(JSON.stringify({ error: { code: 'ConditionalAccessPolicy' } }), {
+          status: 403,
+          headers: { 'request-id': 'graph-request-456' },
+        })) as unknown as typeof fetch,
+    });
+    await expect(forbidden.resolveGroupId('Accesos_SOC')).rejects.toMatchObject({
+      code: 'DIRECTORY_FORBIDDEN',
+      diagnostic: {
+        status: 403,
+        errorCode: 'ConditionalAccessPolicy',
+        requestId: 'graph-request-456',
+        operation: 'resolveGroupId',
+      },
+    });
   });
 
   it('resuelve el grupo por nombre exacto; ninguno o varios es error, nunca elige uno', async () => {
@@ -344,18 +444,29 @@ describe('adapter de Microsoft Graph', () => {
 
   it('lee los dueños paginados', async () => {
     const { reader } = graph({
-      [`/v1.0/groups/${GROUP}/owners/microsoft.graph.user?$select=id,displayName,userPrincipalName&$top=100`]:
-        () =>
-          json({
-            value: [
-              { id: DUENO, displayName: 'Dueno', userPrincipalName: 'dueno@qapaq-lab.example' },
-            ],
-            '@odata.nextLink': `https://graph.microsoft.com/v1.0/groups/${GROUP}/owners/page2`,
-          }),
+      [`/v1.0/groups/${GROUP}/owners/microsoft.graph.user?$select=id&$top=100`]: () =>
+        json({
+          value: [{ id: DUENO, displayName: 'Dueno', userPrincipalName: 'dueno@qapaq-lab.example' }],
+          '@odata.nextLink': `https://graph.microsoft.com/v1.0/groups/${GROUP}/owners/page2`,
+        }),
       [`/v1.0/groups/${GROUP}/owners/page2`]: () =>
         json({ value: [{ id: ANA, displayName: 'Ana' }] }),
     });
     expect((await reader.readOwners(GROUP)).map((owner) => owner.oid)).toEqual([DUENO, ANA]);
+  });
+
+  it('lee solo el OID de dueños para no exigir permiso de perfil de usuario', async () => {
+    const { reader, calls } = graph({
+      [`/v1.0/groups/${GROUP}/owners/microsoft.graph.user?$select=id&$top=100`]: () =>
+        json({ value: [{ id: DUENO }] }),
+    });
+
+    const owners = await reader.readOwners(GROUP);
+
+    expect(owners).toEqual([{ oid: DUENO, displayName: null, upn: null, accountEnabled: null }]);
+    expect(calls).toEqual([
+      `/v1.0/groups/${GROUP}/owners/microsoft.graph.user?$select=id&$top=100`,
+    ]);
   });
 });
 

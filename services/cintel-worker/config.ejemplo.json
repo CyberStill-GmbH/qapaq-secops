@@ -1,0 +1,10 @@
+{
+  "dominios_protegidos": ["qapaq.pe"],
+  "nombres_vip": [
+    "Nombre Apellido (Presidente del Directorio)",
+    "Nombre Apellido (Gerente General)"
+  ],
+  "marcas": ["qapaq"],
+  "carpeta_salida": ""
+}
+

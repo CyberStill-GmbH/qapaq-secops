@@ -11,7 +11,7 @@ import {
   EuiToolTip,
 } from '@elastic/eui';
 import type { CoreStart } from '../../../src/core/public';
-import { Alert, CAPABILITIES, ChangeEvent, DEFAULT_LANDING } from '../common';
+import { ALERTS_PATH, Alert, CAPABILITIES, ChangeEvent } from '../common';
 import type { ChangeFeed } from './api/change_feed';
 import type { QapaqApiClient } from './api/client';
 
@@ -82,9 +82,7 @@ function P1Badge({ core, api, feed }: { core: CoreStart; api: QapaqApiClient; fe
         }
         onClick={() => {
           setCount(0);
-          core.application.navigateToUrl(
-            core.http.basePath.prepend(`${DEFAULT_LANDING}?priority=P1`),
-          );
+          core.application.navigateToUrl(core.http.basePath.prepend(`${ALERTS_PATH}?priority=P1`));
         }}
       >
         <EuiIcon type="bell" size="m" />

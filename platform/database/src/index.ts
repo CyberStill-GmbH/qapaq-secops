@@ -52,10 +52,12 @@ export {
 export {
   PrismaIngestionStateStore,
   type IngestionCursorKeyRow,
+  type IngestionContinuationRow,
   type SourceHealthTransitionRow,
   type StreamActivityRow,
   type SourcePollObservationRow,
 } from './ingestion-stores.js';
+export { PrismaWazuhPushInboxStore } from './wazuh-push-inbox-store.js';
 export {
   DIRECTORY_QUERY_LIMIT,
   PrismaDirectoryStore,

@@ -1,0 +1,6 @@
+Nov  4 10:00:01 qapaq-soc-dev-node sudo[1234]: pam_unix(sudo:session): session opened for user root(uid=0) by ubuntu(uid=1000)
+Nov  4 10:00:02 qapaq-soc-dev-node sudo[1234]: pam_unix(sudo:session): session closed for user root
+Nov  4 10:00:03 qapaq-soc-dev-node sudo[1235]: pam_unix(sudo:session): session opened for user root(uid=0) by eve(uid=1001)
+Nov  4 10:00:04 qapaq-soc-dev-node sudo[1235]: pam_unix(sudo:session): session closed for user eve
+Nov  4 10:01:00 qapaq-soc-dev-node sshd[2100]: Accepted publickey for ubuntu from 38.250.148.107 port 40100 ssh2: ED25519 SHA256:sintetico
+Nov  4 10:02:00 qapaq-soc-dev-node sshd[2200]: Accepted publickey for ubuntu from 198.51.100.77 port 40200 ssh2: ED25519 SHA256:sintetico

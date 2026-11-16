@@ -1,0 +1,22 @@
+[Unit]
+Description=QAPAQ read-only provider collector %i
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+Environment=QAPAQ_PROVIDER_SECRET_DIR=/opt/qapaq/secrets/provider-services
+Environment=QAPAQ_PROVIDER_OUTPUT_DIR=/opt/qapaq/provider-ingestion/logs
+Environment=QAPAQ_PROVIDER_STATE_DIR=/opt/qapaq/provider-ingestion/state
+ExecStart=/usr/bin/python3 /opt/qapaq/src/wazuh/provider-ingestion/third_party.py %i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ReadOnlyPaths=/opt/qapaq/secrets/provider-services.env
+ReadWritePaths=/opt/qapaq/provider-ingestion/logs /opt/qapaq/provider-ingestion/state
+TimeoutStartSec=240

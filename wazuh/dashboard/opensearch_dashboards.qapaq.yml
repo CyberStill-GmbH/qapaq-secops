@@ -13,7 +13,9 @@ opensearch_security.proxycache.user_header: 'x-proxy-user'
 opensearch_security.proxycache.roles_header: 'x-proxy-roles'
 # Logout = página del plugin, que obtiene el CSRF y hace POST /api/auth/logout.
 opensearch_security.auth.logout_url: '/qapaq/logout'
-opensearch_security.multitenancy.enabled: false
+opensearch_security.multitenancy.enabled: true
+opensearch_security.multitenancy.tenants.enable_private: true
+opensearch_security.multitenancy.tenants.preferred: ['Global', 'Private']
 opensearch.requestHeadersAllowlist:
   ['securitytenant', 'x-forwarded-for', 'x-proxy-user', 'x-proxy-roles']
 
@@ -21,7 +23,9 @@ opensearch.requestHeadersAllowlist:
 qapaq_ops.enabled: true
 qapaq_ops.apiPrefix: '/api'
 qapaq_ops.login.enabled: true
-qapaq_ops.login.defaultNextUrl: '/app/qapaq-alerts'
+qapaq_ops.login.defaultNextUrl: '/app/qapaq-overview'
+qapaq_ops.qapaqzito.enabled: true
+qapaq_ops.login.passwordEnabled: true
 qapaq_ops.login.destinationLabel: 'QAPAQ'
 
 # --- Marca QAPAQ (assets reemplazados en el paquete; el menú de ayuda lo cambia el parche 0002) ---
@@ -34,7 +38,7 @@ uiSettings:
   overrides:
     'theme:version': 'v7' # v9 es preview en OSD 2.19
     'theme:darkMode': true
-    defaultRoute: '/app/qapaq-alerts'
+    defaultRoute: '/app/qapaq-overview'
     # D-10b: el estado de las apps (consultas de Discover con UPN/IP) va a sessionStorage y la URL
     # solo lleva un hash, así ningún dato personal queda en URLs, historial ni Referer.
     'state:storeInSessionStorage': true

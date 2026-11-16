@@ -1,0 +1,406 @@
+{
+ "items": [
+  {
+   "entityKeys": [
+    "ip:192.0.2.200"
+   ],
+   "id": "00000000-0000-4000-8000-000000000001",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T00:00:00.000Z",
+   "priority": "P3",
+   "ruleId": "101501",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 101501",
+   "updatedAt": "2026-11-03T00:30:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:192.0.2.200"
+   ],
+   "id": "00000000-0000-4000-8000-000000000002",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T01:00:00.000Z",
+   "priority": "P3",
+   "ruleId": "101501",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 101501",
+   "updatedAt": "2026-11-03T01:30:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:192.0.2.200"
+   ],
+   "id": "00000000-0000-4000-8000-000000000003",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T02:00:00.000Z",
+   "priority": "P3",
+   "ruleId": "101501",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 101501",
+   "updatedAt": "2026-11-03T02:30:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:192.0.2.200"
+   ],
+   "id": "00000000-0000-4000-8000-000000000004",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T03:00:00.000Z",
+   "priority": "P3",
+   "ruleId": "101501",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 101501",
+   "updatedAt": "2026-11-03T03:30:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "user:breakglass@qapaq.pe"
+   ],
+   "id": "00000000-0000-4000-8000-000000000005",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T10:00:00.000Z",
+   "priority": "P1",
+   "ruleId": "100502",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 100502",
+   "updatedAt": "2026-11-03T10:20:00.000Z",
+   "verdict": "benign"
+  },
+  {
+   "entityKeys": [
+    "user:breakglass@qapaq.pe"
+   ],
+   "id": "00000000-0000-4000-8000-000000000006",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T11:00:00.000Z",
+   "priority": "P1",
+   "ruleId": "100502",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 100502",
+   "updatedAt": "2026-11-03T11:20:00.000Z",
+   "verdict": "benign"
+  },
+  {
+   "entityKeys": [
+    "user:breakglass@qapaq.pe"
+   ],
+   "id": "00000000-0000-4000-8000-000000000007",
+   "incidentId": "",
+   "occurredAt": "2026-11-03T12:00:00.000Z",
+   "priority": "P1",
+   "ruleId": "100502",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 100502",
+   "updatedAt": "2026-11-03T12:20:00.000Z",
+   "verdict": "benign"
+  },
+  {
+   "entityKeys": [
+    "ip:198.51.100.50"
+   ],
+   "id": "00000000-0000-4000-8000-000000000008",
+   "incidentId": "",
+   "occurredAt": "2026-11-02T00:00:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-02T00:10:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:198.51.100.50"
+   ],
+   "id": "00000000-0000-4000-8000-000000000009",
+   "incidentId": "",
+   "occurredAt": "2026-11-02T01:00:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-02T01:10:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:198.51.100.50"
+   ],
+   "id": "00000000-0000-4000-8000-000000000010",
+   "incidentId": "",
+   "occurredAt": "2026-11-02T02:00:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-02T02:10:00.000Z",
+   "verdict": "false_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:198.51.100.50"
+   ],
+   "id": "00000000-0000-4000-8000-000000000011",
+   "incidentId": "",
+   "occurredAt": "2026-11-02T03:00:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-02T03:10:00.000Z",
+   "verdict": "true_positive"
+  },
+  {
+   "entityKeys": [
+    "ip:198.51.100.50"
+   ],
+   "id": "00000000-0000-4000-8000-000000000012",
+   "incidentId": "",
+   "occurredAt": "2026-11-02T04:00:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "closed",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-02T04:10:00.000Z",
+   "verdict": "true_positive"
+  },
+  {
+   "entityKeys": [
+    "user:victima@qapaq.pe",
+    "ip:198.51.100.7"
+   ],
+   "id": "00000000-0000-4000-8000-000000000013",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T12:00:00.000Z",
+   "priority": "P2",
+   "ruleId": "101710",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 101710",
+   "updatedAt": "2026-11-04T12:00:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "user:victima@qapaq.pe",
+    "ip:198.51.100.7"
+   ],
+   "id": "00000000-0000-4000-8000-000000000014",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T12:05:00.000Z",
+   "priority": "P2",
+   "ruleId": "101710",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 101710",
+   "updatedAt": "2026-11-04T12:05:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "user:victima@qapaq.pe",
+    "ip:198.51.100.7"
+   ],
+   "id": "00000000-0000-4000-8000-000000000015",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T12:10:00.000Z",
+   "priority": "P2",
+   "ruleId": "101710",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 101710",
+   "updatedAt": "2026-11-04T12:10:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "user:victima@qapaq.pe",
+    "ip:198.51.100.7"
+   ],
+   "id": "00000000-0000-4000-8000-000000000016",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T12:15:00.000Z",
+   "priority": "P2",
+   "ruleId": "101711",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 101711",
+   "updatedAt": "2026-11-04T12:15:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "user:victima@qapaq.pe",
+    "ip:198.51.100.7"
+   ],
+   "id": "00000000-0000-4000-8000-000000000017",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T12:20:00.000Z",
+   "priority": "P2",
+   "ruleId": "101640",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 101640",
+   "updatedAt": "2026-11-04T12:20:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "user:victima@qapaq.pe",
+    "ip:198.51.100.7"
+   ],
+   "id": "00000000-0000-4000-8000-000000000018",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T12:25:00.000Z",
+   "priority": "P2",
+   "ruleId": "91545",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 91545",
+   "updatedAt": "2026-11-04T12:25:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "ip:203.0.113.77"
+   ],
+   "id": "00000000-0000-4000-8000-000000000019",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T10:40:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-04T10:40:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "ip:203.0.113.77"
+   ],
+   "id": "00000000-0000-4000-8000-000000000020",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T10:41:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-04T10:41:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "ip:203.0.113.77"
+   ],
+   "id": "00000000-0000-4000-8000-000000000021",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T10:42:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-04T10:42:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [
+    "ip:203.0.113.77"
+   ],
+   "id": "00000000-0000-4000-8000-000000000022",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T10:43:00.000Z",
+   "priority": "P2",
+   "ruleId": "5712",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 5712",
+   "updatedAt": "2026-11-04T10:43:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [],
+   "id": "00000000-0000-4000-8000-000000000023",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T15:00:00.000Z",
+   "priority": "P3",
+   "ruleId": "510",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 510",
+   "updatedAt": "2026-11-04T15:00:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [],
+   "id": "00000000-0000-4000-8000-000000000024",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T15:10:00.000Z",
+   "priority": "P3",
+   "ruleId": "510",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 510",
+   "updatedAt": "2026-11-04T15:10:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [],
+   "id": "00000000-0000-4000-8000-000000000025",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T15:20:00.000Z",
+   "priority": "P3",
+   "ruleId": "510",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 510",
+   "updatedAt": "2026-11-04T15:20:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [],
+   "id": "00000000-0000-4000-8000-000000000026",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T16:00:00.000Z",
+   "priority": "P3",
+   "ruleId": "510",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 510",
+   "updatedAt": "2026-11-04T16:00:00.000Z",
+   "verdict": ""
+  },
+  {
+   "entityKeys": [],
+   "id": "00000000-0000-4000-8000-000000000027",
+   "incidentId": "",
+   "occurredAt": "2026-11-04T16:10:00.000Z",
+   "priority": "P3",
+   "ruleId": "510",
+   "signal": "other",
+   "status": "new",
+   "title": "alert 510",
+   "updatedAt": "2026-11-04T16:10:00.000Z",
+   "verdict": ""
+  }
+ ],
+ "truncated": false
+}

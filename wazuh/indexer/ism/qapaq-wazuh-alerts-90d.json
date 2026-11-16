@@ -1,0 +1,19 @@
+{
+  "policy": {
+    "description": "QAPAQ (nodo único sin repositorio de snapshots): wazuh-alerts-* en hot 90 días y borrado local al vencer. docs/16-politicas.md. Producción: gate N7 (Legal) y snapshot previo con qapaq-wazuh-retention.",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [{ "state_name": "delete", "conditions": { "min_index_age": "90d" } }]
+      },
+      {
+        "name": "delete",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ],
+    "ism_template": [{ "index_patterns": ["wazuh-alerts-*"], "priority": 150 }]
+  }
+}

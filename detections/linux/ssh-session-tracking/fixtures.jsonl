@@ -1,0 +1,5 @@
+Nov  8 10:01:00 qapaq-soc-dev-node sshd[5001]: Accepted publickey for deploy from 198.51.100.21 port 41001 ssh2: ED25519 SHA256:sintetico
+Nov  8 10:02:00 qapaq-soc-dev-node sshd[5002]: Accepted publickey for deploy from 198.51.100.22 port 41002 ssh2: ED25519 SHA256:sintetico
+Nov  8 10:03:00 qapaq-soc-dev-node sshd[5003]: Accepted publickey for deploy from 198.51.100.23 port 41003 ssh2: ED25519 SHA256:sintetico
+Nov  8 10:04:00 qapaq-soc-dev-node sshd[5004]: Accepted password for root from 198.51.100.24 port 41004 ssh2
+Nov  8 10:05:00 qapaq-soc-dev-node sshd[5005]: Accepted publickey for ubuntu from 198.51.100.25 port 41005 ssh2: ED25519 SHA256:sintetico

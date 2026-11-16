@@ -26,6 +26,10 @@ export interface NotificationDispatcherOptions {
   /** Una pasada: reclama un lote y lo despacha. Devuelve cuántos mensajes procesó. */
   readonly drain: () => Promise<number>;
   readonly intervalMs: number;
+  /** Optional slower retry after a storage/provider failure; success cadence stays unchanged. */
+  readonly errorIntervalMs?: number;
+  /** Hook invoked for every kick, including kicks coalesced behind a slow normal drain. */
+  readonly onKick?: () => void;
   readonly onError: (error: unknown) => void;
 }
 
@@ -50,6 +54,7 @@ export class NotificationDispatcher {
   /** Pide una pasada pronto. Sin bucle iniciado (specs, arranque) no hace nada. */
   public kick(): void {
     if (!this.running) return;
+    this.options.onKick?.();
     if (this.inFlight) {
       this.pendingKick = true;
       return;
@@ -77,6 +82,7 @@ export class NotificationDispatcher {
 
   private async tick(): Promise<void> {
     if (this.inFlight || !this.running) return;
+    let failed = false;
     this.inFlight = (async () => {
       try {
         // Lotes completos se encadenan sin esperar el intervalo: vacía la cola en ráfagas.
@@ -85,6 +91,7 @@ export class NotificationDispatcher {
           processed = await this.options.drain();
         } while (processed > 0 && this.running);
       } catch (error) {
+        failed = true;
         this.options.onError(error);
       }
     })();
@@ -92,6 +99,12 @@ export class NotificationDispatcher {
     this.inFlight = undefined;
     const again = this.pendingKick;
     this.pendingKick = false;
-    this.schedule(again ? 0 : this.options.intervalMs);
+    this.schedule(
+      again
+        ? 0
+        : failed
+          ? (this.options.errorIntervalMs ?? this.options.intervalMs)
+          : this.options.intervalMs,
+    );
   }
 }

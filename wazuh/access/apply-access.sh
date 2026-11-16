@@ -202,10 +202,9 @@ copy_dashboard_role() { # source managed-name
 copy_dashboard_role all_access qapaq_dashboard_admin
 copy_dashboard_role kibana_user qapaq_dashboard_user
 
-# Wazuh creates its built-in index patterns (alerts, statistics, monitoring) as shared saved
-# objects. The analyst may write only dashboard objects in global_tenant; event indexes remain
-# read-only under qapaq_wazuh_readonly.
-grant_dashboard_saved_object_write() {
+# Preserve read-only access to shared/global dashboards. Authenticated users get an isolated
+# private tenant from OpenSearch Dashboards multi-tenancy for their personal layouts.
+enforce_dashboard_global_read() {
   indexer GET /_plugins/_security/api/roles/qapaq_dashboard_user
   local body
   body="$(jq -e '
@@ -215,12 +214,12 @@ grant_dashboard_saved_object_write() {
         index_permissions: ($role.index_permissions // []),
         tenant_permissions:
           ((($role.tenant_permissions // []) | map(select(.tenant_patterns != ["global_tenant"])))
-           + [{"tenant_patterns":["global_tenant"],"allowed_actions":["kibana_all_write"]}])
+           + [{"tenant_patterns":["global_tenant"],"allowed_actions":["kibana_all_read"]}])
       }
   ' "$work/response.json")" || fail 'no se pudo preparar el permiso del tenant de Dashboard'
   indexer PUT /_plugins/_security/api/roles/qapaq_dashboard_user "$(json_file <<<"$body")"
 }
-grant_dashboard_saved_object_write
+enforce_dashboard_global_read
 
 upsert_user() { # usuario contraseña descripción
   indexer PUT "/_plugins/_security/api/internalusers/$1" "$(jq -n \

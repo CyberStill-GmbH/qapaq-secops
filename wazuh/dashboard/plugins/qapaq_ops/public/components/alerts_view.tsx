@@ -43,8 +43,12 @@ import {
   Priority,
   SEVERITY_LABEL,
   VERDICT_LABEL,
+  vendorOfTitle,
 } from '../../common';
+import { openIncidentForAlert } from '../api/alert_review';
 import { QapaqApiError } from '../api/client';
+import { alertInvestigationHref } from './investigation_links';
+import { VendorLogo } from './vendor_logo';
 import { QapaqPage, useChanges, useConsole } from './console_context';
 import {
   DataZone,
@@ -86,19 +90,22 @@ export function AlertsView({
   onSelect,
   basePath,
   initialPriority = null,
+  initialQuery = null,
 }: {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   basePath: string;
   initialPriority?: string | null;
+  /** `?q=` (pivote desde una entidad de la investigación). */
+  initialQuery?: string | null;
 }) {
   const { api } = useConsole();
   const [status, setStatus] = useState<StatusFilter>('open');
   const [priority, setPriority] = useState<Priority | ''>(
     isPriority(initialPriority) ? initialPriority : '',
   );
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState((initialQuery ?? '').slice(0, 120));
+  const [query, setQuery] = useState((initialQuery ?? '').trim().slice(0, 120));
   const [items, setItems] = useState<readonly Alert[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [extraPages, setExtraPages] = useState(0);
@@ -153,7 +160,10 @@ export function AlertsView({
       truncateText: false,
       render: (value: string, alert: Alert) => (
         <span className="qapaqCellTitle">
-          <span>{value}</span>
+          <span className="qapaqCellTitle__main">
+            <VendorLogo id={vendorOfTitle(value)} basePath={basePath} size="s" />
+            <span>{value}</span>
+          </span>
           {alert.entities.length > 0 && (
             <span className="qapaqCellMeta">
               {alert.entities
@@ -365,6 +375,29 @@ function AlertFlyout({
               <span className="qapaqTabular">{alert.score}</span>
             </p>
           </EuiText>
+        )}
+        {alert && (
+          <>
+            <EuiSpacer size="s" />
+            <EuiButton
+              size="s"
+              fill
+              iconType="inspect"
+              href={alertInvestigationHref(basePath, alert.id)}
+              data-test-subj="qapaqInvestigateAlert"
+            >
+              Investigar: línea de tiempo, entidades y evento
+            </EuiButton>
+            {can(CAPABILITIES.investigationsRun) && (
+              <EuiButtonEmpty
+                size="s"
+                href={`${basePath}/app/qapaq-ai-analyst?alertId=${encodeURIComponent(alert.id)}`}
+                data-test-subj="qapaqInvestigateWithAnalyst"
+              >
+                Investigar con Analista IA
+              </EuiButtonEmpty>
+            )}
+          </>
         )}
       </EuiFlyoutHeader>
       <EuiFlyoutBody>
@@ -619,14 +652,19 @@ function NoteField({
   );
 }
 
-function OpenIncidentForm({
+export function OpenIncidentForm({
   alert,
   onCancel,
   onOpened,
+  initialSummary = '',
+  heading = 'Abrir incidente desde esta alerta',
 }: {
   alert: Alert;
   onCancel: () => void;
   onOpened: (incidentId: string) => void;
+  /** Resumen precargado y editable (p. ej. la conclusión del Analista IA). */
+  initialSummary?: string;
+  heading?: string;
 }) {
   const { api } = useConsole();
   const defaultSeverity = useMemo<IncidentSeverity>(
@@ -635,7 +673,7 @@ function OpenIncidentForm({
   );
   const [title, setTitle] = useState(alert.title);
   const [severity, setSeverity] = useState<IncidentSeverity>(defaultSeverity);
-  const [summary, setSummary] = useState('');
+  const [summary, setSummary] = useState(initialSummary);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -643,14 +681,7 @@ function OpenIncidentForm({
     setBusy(true);
     setError(null);
     try {
-      const result = await api.post<{ incident: { id: string } }>('/incidents', {
-        alertId: alert.id,
-        title: title.trim(),
-        severity,
-        summary: summary.trim(),
-        expectedAlertRevision: alert.revision,
-      });
-      onOpened(result.incident.id);
+      onOpened(await openIncidentForAlert(api, alert, { title, severity, summary }));
     } catch (failure) {
       setError(failure);
     } finally {
@@ -662,7 +693,7 @@ function OpenIncidentForm({
     <>
       <EuiSpacer size="l" />
       <EuiTitle size="xxs">
-        <h3>Abrir incidente desde esta alerta</h3>
+        <h3>{heading}</h3>
       </EuiTitle>
       <EuiSpacer size="s" />
       {error != null && <ErrorCallout error={error} />}

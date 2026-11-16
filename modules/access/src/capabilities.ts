@@ -28,6 +28,11 @@ export const CAPABILITIES = [
    * no basta con poder leer la bandeja: el despacho normal lo hace el bucle del runtime.
    */
   'notifications.dispatch',
+  /**
+   * Administrar los canales de aviso (webhook de Teams, encender/apagar canales, probarlos).
+   * Cambiar el webhook redirige los avisos del SOC: solo administración de plataforma.
+   */
+  'notifications.manage',
   /** Salud del pipeline SOC (ingesta, cola de notificaciones, despacho). Agregado, sin PII. */
   'observability.read_soc',
   /** Salud por fuente de telemetría (Sprint 5 · fase 2): estado, motivo y transiciones. */
@@ -53,6 +58,15 @@ export const CAPABILITIES = [
   'audit.read_sensitive',
   'audit.verify',
   'secrets.write',
+  /** Ver investigaciones del Analista IA, su presupuesto, informes y resumen (docs/27). */
+  'investigations.read',
+  /** Pedir o reintentar/cancelar una investigación del Analista IA sobre una alerta. */
+  'investigations.run',
+  /**
+   * Configurar el Analista IA (modo, acciones autónomas, presupuesto). Concede autonomía sobre la
+   * cola de alertas: solo administración de plataforma, con sesión reciente (step-up).
+   */
+  'investigations.configure',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
@@ -86,6 +100,8 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.tasks.write',
     'incidents.notes.write',
     'notifications.read',
+    'investigations.read',
+    'investigations.run',
   ],
   'qapaq.soc.lead': [
     'events.read',
@@ -103,6 +119,8 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'observability.read_soc',
     'sources.health.read',
     'audit.read',
+    'investigations.read',
+    'investigations.run',
   ],
   'qapaq.auditor': [
     'audit.read',
@@ -127,6 +145,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'incidents.close',
     'notifications.read',
     'notifications.dispatch',
+    'notifications.manage',
     'observability.read_soc',
     'sources.health.read',
     'observability.read_platform',
@@ -139,6 +158,11 @@ export const ROLE_CAPABILITIES: Readonly<Record<string, readonly Capability[]>> 
     'audit.read_sensitive',
     'audit.verify',
     'secrets.write',
+    'investigations.read',
+    'investigations.run',
+    // Configurar el analista concede autonomía sobre la cola: solo este rol (no aprueba roles,
+    // así que no se autoconcede nada por esta vía).
+    'investigations.configure',
   ],
   // Aprobadores de cambios de rol. No son asignables desde la consola ni por `QAPAQ_ROLE_BINDINGS`:
   // solo los reciben los OID declarados en `QAPAQ_ACCESS_APPROVER_OIDS` y
@@ -163,6 +187,7 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'observability.read_platform',
     'users.read',
     'sessions.read',
+    'investigations.read',
   ],
   'soc.write': [
     'alerts.triage',
@@ -172,10 +197,13 @@ const SCOPE_CAPABILITIES: Readonly<Record<Scope, readonly Capability[]>> = Objec
     'incidents.tasks.write',
     'incidents.notes.write',
     'notifications.dispatch',
+    'notifications.manage',
     'sessions.revoke',
     'roles.request',
     'roles.approve',
     'roles.approve.privileged',
+    'investigations.run',
+    'investigations.configure',
   ],
   'audit.read': ['audit.read', 'audit.read_sensitive', 'audit.verify'],
 });

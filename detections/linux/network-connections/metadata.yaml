@@ -1,0 +1,56 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-001
+title: Puertos en escucha y conexiones TCP nuevas del host
+source: linux
+use_case: network-connections
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Un puerto nuevo, una escucha de shell/netcat o una conexión saliente a un destino que el host nunca
+  usa son la huella de un backdoor, un túnel o un C2; Wazuh solo ve conexiones si se le muestran.
+data_sources:
+- 'command monitoring del grupo linux-servers: qapaq-netconn.sh (ss) cada 2 min (eventos) y 5 min (foto)'
+- agente 001 (qapaq-soc-dev-node)
+rules:
+  file: detections/linux/network-connections/rule.xml
+  ids:
+  - 101800
+  - 101801
+  - 101802
+  - 101803
+  - 101804
+  - 101805
+  - 101806
+  - 101807
+  - 101808
+  - 101809
+  installed_as: etc/rules/qapaq_soc_linux_network_connections.xml
+mitre:
+- technique: T1571
+  tactic: command-and-control
+- technique: T1059.004
+  tactic: execution
+- technique: T1071
+  tactic: command-and-control
+- technique: T1133
+  tactic: persistence
+severity:
+  levels: 0 interno/loopback/esperado · 3 entrante público · 5 destino poco común · 7 cambio de escuchas · 8 escucha
+    no esperada · 10 reverse shell · 12 bind shell
+  priority_hint: P2 para 10-12; P4 para 3-5 (caza)
+  rationale: Un nodo del SOC no abre escuchas ni conexiones salientes nuevas sin un cambio aprobado.
+false_positives:
+- 'Despliegue o actualización que publica un puerto nuevo: agregarlo por PR a infra/wazuh/network/lists/qapaq-expected-listeners.'
+- 'Un servicio SaaS nuevo (destino poco común): agregar el prefijo a infra/wazuh/network/lists/qapaq-egress-static.'
+- 'Conexiones cortas (< 2 min) no se ven en la foto de ss: las cubre auditd (network-auditd) para sesiones interactivas.'
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/linux/network-connections/fixtures.jsonl
+  expected: detections/linux/network-connections/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#conexiones-y-puertos

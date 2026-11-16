@@ -1,0 +1,121 @@
+# Ankay LOCAL (Shuffle v2.3.0 rebrandeado) en el mismo proyecto que wazuh-docker single-node,
+# servido por el edge local en https://localhost/ankay/ (solo con sesión QAPAQ).
+# Adaptado de infra/aws-poweruser/host/compose.respond.yaml: volúmenes con nombre, heap de
+# OpenSearch reducido para Docker Desktop y secretos locales en edge/respond.local.env (gitignored).
+#
+#   bash ankay/build.sh <out> qapaq/respond-frontend:2.3.0     # imagen del frontend
+#   docker compose -f docker-compose.yml -f <memoria> \
+#     -f $QAPAQ_REPO/infra/local/compose.wazuh-dashboard-qapaq.yaml \
+#     -f $QAPAQ_REPO/infra/local/compose.ankay.yaml up -d
+services:
+  ankay-qapaq-frontend:
+    image: qapaq/respond-frontend:2.3.0
+    hostname: ankay-qapaq-frontend
+    environment:
+      - BACKEND_HOSTNAME=shuffle-backend
+    depends_on:
+      - shuffle-backend
+    restart: unless-stopped
+
+  # Puente SSO sesión QAPAQ → sesión Shuffle (decisión B11, docs/14 §8.1). Solo lo alcanza
+  # el edge (red interna, sin puertos). Secretos en edge/respond-sso/ (gitignored), generados con:
+  #   docker compose … run --rm --no-deps -v $QAPAQ_REPO/infra/local/edge/respond-sso:/out   #     --env-file $QAPAQ_REPO/infra/local/edge/respond.local.env ankay-sso node bootstrap.mjs
+  ankay-sso:
+    image: qapaq/respond-sso:dev
+    build:
+      context: ${QAPAQ_REPO:-../../../../qapaq-secops}/ankay/sso
+    hostname: ankay-sso
+    environment:
+      - SHUFFLE_URL=http://shuffle-backend:5001
+      - RESPOND_SSO_SECRETS=/run/ankay-sso
+    # Solo se usan SHUFFLE_ADMIN_USERNAME/PASSWORD (admin inicial, que el puente no rota).
+    env_file:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/respond.local.env
+    volumes:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/respond-sso:/run/ankay-sso:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - shuffle-backend
+    mem_limit: 96m
+    restart: unless-stopped
+
+  # El edge (definido en compose.wazuh-dashboard-qapaq.yaml) lee el token compartido del puente.
+  qapaq-edge:
+    volumes:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/respond-sso:/etc/nginx/ankay-sso:ro
+
+  shuffle-backend:
+    image: ghcr.io/shuffle/shuffle-backend:2.3.0
+    hostname: shuffle-backend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - shuffle-apps:/shuffle-apps
+      - shuffle-files:/shuffle-files
+    env_file:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/aws-poweruser/host/shuffle.env
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/respond.local.env
+    environment:
+      - SHUFFLE_APP_HOTLOAD_FOLDER=/shuffle-apps
+      - SHUFFLE_FILE_LOCATION=/shuffle-files
+    depends_on:
+      - shuffle-opensearch
+    mem_limit: 768m
+    restart: unless-stopped
+
+  shuffle-orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:2.3.0
+    hostname: shuffle-orborus
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/aws-poweruser/host/shuffle.env
+    environment:
+      - SHUFFLE_APP_SDK_TIMEOUT=300
+      - ENVIRONMENT_NAME=Shuffle
+      - ORG_ID=Shuffle
+      - BASE_URL=http://shuffle-backend:5001
+      - DOCKER_API_VERSION=1.44
+      - SHUFFLE_STATS_DISABLED=true
+      - SHUFFLE_LOGS_DISABLED=true
+      - SHUFFLE_SWARM_CONFIG=run
+      - CLEANUP=false
+      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:2.3.0
+    security_opt:
+      - seccomp:unconfined
+    mem_limit: 256m
+    restart: unless-stopped
+
+  shuffle-opensearch:
+    image: opensearchproject/opensearch:3.2.0
+    hostname: shuffle-opensearch
+    env_file:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/respond.local.env
+    environment:
+      - 'OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m'
+      - bootstrap.memory_lock=true
+      - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
+      - cluster.initial_master_nodes=shuffle-opensearch
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - cluster.name=shuffle-cluster
+      - node.name=shuffle-opensearch
+      - node.store.allow_mmap=false
+      - discovery.seed_hosts=shuffle-opensearch
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - shuffle-db:/usr/share/opensearch/data
+    mem_limit: 1536m
+    restart: unless-stopped
+
+volumes:
+  shuffle-apps:
+  shuffle-files:
+  shuffle-db:

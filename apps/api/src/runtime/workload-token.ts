@@ -36,8 +36,20 @@ export interface EntraClientCredentialsOptions {
 export class EntraClientCredentialsTokenSource {
   #cached: { readonly token: string; readonly expiresAt: number } | undefined;
   #inFlight: Promise<string> | undefined;
+  #lastRejectedRefreshAt = Number.NEGATIVE_INFINITY;
 
   public constructor(private readonly options: EntraClientCredentialsOptions) {}
+
+  /** Refresh rejected credentials once per minute; old parallel failures cannot evict a newer token. */
+  public refreshRejected = async (rejectedToken: string): Promise<string | null> => {
+    if (this.#cached && this.#cached.token !== rejectedToken) return this.token();
+    if (this.#inFlight) return this.#inFlight;
+    const now = (this.options.now ?? Date.now)();
+    if (now - this.#lastRejectedRefreshAt < REFRESH_MARGIN_MS) return null;
+    this.#lastRejectedRefreshAt = now;
+    this.#cached = undefined;
+    return this.token();
+  };
 
   /** Token vigente; renueva si falta menos del margen para vencer. */
   public token = (): Promise<string> => {
@@ -94,5 +106,34 @@ export class EntraClientCredentialsTokenSource {
     const now = (this.options.now ?? Date.now)();
     this.#cached = { token: record.access_token, expiresAt: now + expiresIn * 1_000 };
     return record.access_token;
+  }
+}
+
+/**
+ * Token estático del gateway (`QAPAQ_WAZUH_GATEWAY_AUTH=static-token`): para un solo nodo sin
+ * Entra. Misma forma que `EntraClientCredentialsTokenSource.token`, así el cliente C-28 no
+ * cambia. El valor queda en un campo privado y solo sale por `token()`; la instancia se
+ * serializa e inspecciona como `[REDACTED]`.
+ */
+export class StaticGatewayTokenSource {
+  readonly #secret: { reveal(): string };
+
+  public constructor(secret: { reveal(): string }) {
+    if (!secret.reveal().trim()) throw new WorkloadTokenError('TOKEN_RESPONSE_INVALID');
+    this.#secret = secret;
+  }
+
+  public token = (): Promise<string> => Promise.resolve(this.#secret.reveal());
+
+  public toJSON(): string {
+    return '[REDACTED]';
+  }
+
+  public toString(): string {
+    return '[REDACTED]';
+  }
+
+  public [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return 'StaticGatewayTokenSource [REDACTED]';
   }
 }

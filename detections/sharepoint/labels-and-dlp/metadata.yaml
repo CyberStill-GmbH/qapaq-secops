@@ -1,0 +1,55 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
+id: QAPAQ-DET-SP-005
+title: Etiquetas de confidencialidad quitadas o rebajadas y coincidencias DLP
+source: sharepoint
+use_case: labels-and-dlp
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-11'
+hypothesis: Quitar o rebajar la etiqueta evita el cifrado y el DLP; compartir el mismo archivo justo después es exfiltración
+  preparada.
+data_sources:
+- Office 365 Management Activity API, Audit.SharePoint (módulo office365 de Wazuh; ActivityFeed.Read)
+- Microsoft Graph Purview Audit Search /security/auditLog/queries (collector qapaq-sharepoint-audit; AuditLogsQuery-SharePoint.Read.All
+  / AuditLogsQuery-OneDrive.Read.All)
+rules:
+  file: detections/sharepoint/labels-and-dlp/rule.xml
+  ids:
+  - 101945
+  - 101946
+  - 101947
+  - 101948
+  - 101949
+  - 101950
+  - 101951
+  installed_as: etc/rules/qapaq_soc_sharepoint_labels_and_dlp.xml
+mitre:
+- technique: T1562
+  tactic: defense-evasion
+- technique: T1567
+  tactic: exfiltration
+- technique: T1213.002
+  tactic: collection
+severity:
+  levels: 7 DLP · 8 etiqueta quitada o rebajada · 9 anulación de DLP · 11 DLP alta · 12 diez etiquetas quitadas en 1 h ·
+    13 compartido fuera tras quitar la etiqueta
+  priority_hint: P1 (12–13) / P2 (8–11) / P3 (7)
+  rationale: La secuencia etiqueta → compartir sobre el mismo ObjectId es de alta confianza.
+false_positives:
+- Reclasificación aprobada con justificación (JustificationText).
+- Políticas DLP en modo prueba (revisar la severidad en Purview).
+tuning:
+- Correlación por office365.ObjectId en 1 h; la DLP depende de la severidad declarada en Purview.
+tests:
+  runner: logtest
+  fixtures: detections/sharepoint/labels-and-dlp/fixtures.jsonl
+  expected: detections/sharepoint/labels-and-dlp/expected.txt
+  generator: wazuh/provider-ingestion/sharepoint/tests/make_fixtures.py
+runbook: docs/detection-engineering/runbooks/exfiltracion-sharepoint.md
+notes: Activa desde 2026-11-10 en AWS con datos reales (módulo office365, Audit.SharePoint, ActivityFeed.Read). Operaciones
+  sin registro real todavía siguen en el grupo qapaq_pending_provider_evidence (docs/23).

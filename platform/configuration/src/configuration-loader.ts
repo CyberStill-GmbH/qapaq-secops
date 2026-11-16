@@ -12,12 +12,17 @@ import {
 } from './configuration.types.js';
 import { selectProfile } from './profiles/index.js';
 import { rejectUnknownQapaqVariables } from './schema/environment.schema.js';
+import { validateAssistantEnvironment } from './schema/assistant.schema.js';
 import { parseAccess, type AccessConfig } from './schema/access.schema.js';
 import { parseDetectionContext, type DetectionContextConfig } from './schema/detection.schema.js';
 import { parseIngestionConfig, type IngestionConfig } from './schema/ingestion.schema.js';
 import { parseRoleGrants, type RoleGrantsConfig } from './schema/role-grants.schema.js';
 import { parseDirectoryConfig, type DirectoryConfig } from './schema/directory.schema.js';
 import { parseAlertMailSender, parseTeamsWorkflowUrl } from './schema/notifications.schema.js';
+import {
+  parseDemoAdminLogin,
+  type DemoAdminLoginConfig,
+} from './schema/demo-admin-login.schema.js';
 import {
   parseApi,
   parseControlPlaneSecretConfig,
@@ -43,7 +48,9 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
 
 function profileFrom(environment: EnvironmentInput) {
   rejectUnknownQapaqVariables(environment);
-  return selectProfile(environment['QAPAQ_PROFILE']);
+  const profile = selectProfile(environment['QAPAQ_PROFILE']);
+  validateAssistantEnvironment(environment, profile);
+  return profile;
 }
 
 function createResolver(provider: SecretProvider, profile: ReturnType<typeof selectProfile>) {
@@ -97,6 +104,19 @@ export function loadAccessConfig(environment: EnvironmentInput): AccessConfig {
 }
 
 /**
+ * Excepción demo de contraseña del administrador (temporal, apagada por defecto). `now` es el
+ * instante de arranque: el vencimiento no puede quedar a más de 30 días de él.
+ */
+export function loadDemoAdminLoginConfig(
+  environment: EnvironmentInput,
+  now: Date,
+): DemoAdminLoginConfig {
+  const profile = profileFrom(environment);
+  const access = parseAccess(environment, profile);
+  return deepFreeze(parseDemoAdminLogin(environment, profile, access, now));
+}
+
+/**
  * C-17 — persistencia del estado SOC del BFF. En modo `postgres` exige la contraseña
  * inyectada por el orquestador; nunca se acepta vacía ni se registra.
  */
@@ -134,15 +154,10 @@ const ENTITY_REF_KEY_MINIMUM_LENGTH = 32;
 export function loadEntityRefKey(environment: EnvironmentInput): SecretValue | undefined {
   const profile = profileFrom(environment);
   const value = environment['QAPAQ_ENTITY_REF_KEY'] ?? profile.defaults['QAPAQ_ENTITY_REF_KEY'];
-  const persistence =
-    environment['QAPAQ_SOC_PERSISTENCE'] ?? profile.defaults['QAPAQ_SOC_PERSISTENCE'];
+  const persistence = environment['QAPAQ_SOC_PERSISTENCE'] ?? profile.defaults['QAPAQ_SOC_PERSISTENCE'];
   if (value === undefined || value === '') {
     if (persistence === 'postgres') {
-      throw configurationError(
-        'CONFIG_REQUIRED_VALUE_MISSING',
-        'QAPAQ_ENTITY_REF_KEY',
-        profile.name,
-      );
+      throw configurationError('CONFIG_REQUIRED_VALUE_MISSING', 'QAPAQ_ENTITY_REF_KEY', profile.name);
     }
     return undefined;
   }
@@ -179,6 +194,54 @@ export function loadDirectoryConfig(environment: EnvironmentInput): DirectoryCon
 /** Sprint 5 — URL del Teams Workflow (secreto); `undefined` si el ambiente no la declara. */
 export function loadTeamsWorkflowUrl(environment: EnvironmentInput): string | undefined {
   return parseTeamsWorkflowUrl(environment, profileFrom(environment));
+}
+
+/**
+ * Política de ruido de los avisos (`QAPAQ_NOTIFY_*`, minutos enteros). Todas opcionales: sin ellas
+ * rigen los valores por defecto de `@qapaq/soar` (P1 30 min, P2 120 min, atraso 60 min, 12/h,
+ * resumen P3/P4 cada 360 min). Un valor fuera de rango detiene el arranque con su ruta.
+ */
+export interface NotificationPolicyEnvironment {
+  readonly quietP1Minutes?: number;
+  readonly quietP2Minutes?: number;
+  readonly staleMinutes?: number;
+  readonly maxPerHour?: number;
+  readonly digestMinutes?: number;
+  readonly timeZone?: string;
+}
+
+const NOTIFY_INTEGERS: readonly (readonly [keyof NotificationPolicyEnvironment, string, number, number])[] = [
+  ['quietP1Minutes', 'QAPAQ_NOTIFY_QUIET_P1_MINUTES', 1, 1_440],
+  ['quietP2Minutes', 'QAPAQ_NOTIFY_QUIET_P2_MINUTES', 1, 1_440],
+  ['staleMinutes', 'QAPAQ_NOTIFY_STALE_MINUTES', 5, 10_080],
+  ['maxPerHour', 'QAPAQ_NOTIFY_MAX_PER_HOUR', 1, 120],
+  ['digestMinutes', 'QAPAQ_NOTIFY_DIGEST_MINUTES', 0, 10_080],
+];
+
+export function loadNotificationPolicy(environment: EnvironmentInput): NotificationPolicyEnvironment {
+  const profile = profileFrom(environment);
+  const result: Record<string, number | string> = {};
+  for (const [field, name, minimum, maximum] of NOTIFY_INTEGERS) {
+    const raw = environment[name];
+    if (raw === undefined || raw === '') continue;
+    const value = Number(raw);
+    if (!/^\d+$/u.test(raw) || value < minimum || value > maximum) {
+      throw configurationError('CONFIG_VALUE_INVALID', name, profile.name);
+    }
+    result[field] = value;
+  }
+  const timeZone = environment['QAPAQ_NOTIFY_TIME_ZONE'];
+  if (timeZone !== undefined && timeZone !== '') {
+    let valid = /^[A-Za-z_]+(?:\/[A-Za-z_+-]+){0,2}$/u.test(timeZone);
+    try {
+      new Intl.DateTimeFormat('es', { timeZone });
+    } catch {
+      valid = false;
+    }
+    if (!valid) throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_NOTIFY_TIME_ZONE', profile.name);
+    result['timeZone'] = timeZone;
+  }
+  return deepFreeze(result) as NotificationPolicyEnvironment;
 }
 
 /** Sprint 5 — buzón remitente del respaldo por correo; `undefined` = solo consola. */

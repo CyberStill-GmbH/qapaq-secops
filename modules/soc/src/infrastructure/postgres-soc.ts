@@ -23,6 +23,7 @@ import {
   PrismaAuditStore,
   PrismaIncidentWorkQueries,
   PrismaIngestionStateStore,
+  PrismaWazuhPushInboxStore,
   PrismaSocQueries,
   PrismaSocUnitOfWork,
   PrismaStandaloneAuditStore,
@@ -47,6 +48,12 @@ import {
 } from '@qapaq/detection';
 
 import { ALERT_STATUSES, TRIAGE_VERDICTS, type Alert } from '../alert.js';
+import type {
+  ClaimedWazuhPushHint,
+  WazuhPushHint,
+  WazuhPushInboxMetrics,
+  WazuhPushInboxStore,
+} from '../wazuh-push-inbox.js';
 import { INCIDENT_SEVERITIES, INCIDENT_STATUSES, type Incident } from '../incident.js';
 import {
   POLL_OUTCOMES,
@@ -64,6 +71,8 @@ import { TASK_STATUSES, type IncidentNote, type IncidentTask } from '../incident
 import type { OutboxMessageDraft, SocEventType } from '../events.js';
 import type {
   AlertQuery,
+  AlertStats,
+  AlertStatsQuery,
   AlertStore,
   ClaimedOutboxMessage,
   OutboxHealth,
@@ -71,6 +80,7 @@ import type {
   IncidentQuery,
   IncidentStore,
   IncidentTaskStore,
+  OutboxLane,
   OutboxStore,
   QueryResult,
   SocPersistence,
@@ -234,10 +244,19 @@ function ingestionPort(store: PrismaIngestionStateStore): IngestionStateStore {
   return {
     claimCursor: async (key: IngestionCursorKey, at: Date, leaseMs: number) => {
       const claim = await store.claimCursor(key, at, leaseMs);
-      return claim ? { key, watermark: claim.watermark, claimId: claim.claimId } : undefined;
+      return claim
+        ? {
+            key,
+            watermark: claim.watermark,
+            continuation: claim.continuation,
+            claimId: claim.claimId,
+          }
+        : undefined;
     },
     advanceCursor: (claim: ClaimedIngestionCursor, watermark: Date, at: Date) =>
       store.advanceCursor(claim.key, claim.claimId, watermark, at),
+    saveContinuation: (claim: ClaimedIngestionCursor, continuation, at: Date) =>
+      store.saveContinuation(claim.key, claim.claimId, continuation, at),
     releaseCursor: (claim: ClaimedIngestionCursor) => store.releaseCursor(claim.key, claim.claimId),
     recordObservation: (observation: SourcePollObservation) => store.recordObservation(observation),
     recentTransitions: async (key: IngestionCursorKey, limit: number) =>
@@ -370,6 +389,10 @@ export class PostgresSocPersistence implements SocPersistence {
     return { items: result.rows.map(toAlert), total: result.total };
   }
 
+  public alertStats(query: AlertStatsQuery): Promise<AlertStats> {
+    return this.queries.alertStats(query);
+  }
+
   public async incidentById(tenantId: string, incidentId: string): Promise<Incident | undefined> {
     const row = await this.queries.incidentById(tenantId, incidentId);
     return row ? toIncident(row) : undefined;
@@ -427,8 +450,9 @@ export class PostgresSocPersistence implements SocPersistence {
     at: Date,
     limit: number,
     leaseMs: number,
+    lane: OutboxLane = 'all',
   ): Promise<readonly ClaimedOutboxMessage[]> {
-    return (await this.queries.claimOutbox(at, limit, leaseMs)).map((row) => ({
+    return (await this.queries.claimOutbox(at, limit, leaseMs, lane)).map((row) => ({
       ...toOutboxDraft(row),
       claimToken: row.claimToken,
     }));
@@ -451,8 +475,8 @@ export class PostgresSocPersistence implements SocPersistence {
     return this.queries.lastAlertAt(tenantId);
   }
 
-  public outboxHealth(tenantId: string): Promise<OutboxHealth> {
-    return this.queries.outboxHealth(tenantId);
+  public outboxHealth(tenantId: string, at: Date): Promise<OutboxHealth> {
+    return this.queries.outboxHealth(tenantId, at);
   }
 
   /**
@@ -476,5 +500,54 @@ export class PostgresSocPersistence implements SocPersistence {
 
   public close(): Promise<void> {
     return closeDatabaseClient(this.client);
+  }
+}
+
+/** PostgreSQL adapter for the durable Wazuh push hint port. */
+export class PostgresWazuhPushInboxStore implements WazuhPushInboxStore {
+  private constructor(private readonly store: PrismaWazuhPushInboxStore) {}
+
+  public static connect(options: DatabaseConnectionOptions): PostgresWazuhPushInboxStore {
+    return new PostgresWazuhPushInboxStore(PrismaWazuhPushInboxStore.connect(options));
+  }
+
+  public ready(): Promise<void> {
+    return this.store.ready();
+  }
+
+  public close(): Promise<void> {
+    return this.store.close();
+  }
+
+  public enqueue(hint: WazuhPushHint): Promise<'inserted' | 'duplicate' | 'reopened-terminal'> {
+    return this.store.enqueue(hint);
+  }
+
+  public claimBatch(
+    at: Date,
+    limit: number,
+    leaseMs: number,
+  ): Promise<readonly ClaimedWazuhPushHint[]> {
+    return this.store.claimBatch(at, limit, leaseMs);
+  }
+
+  public complete(claim: ClaimedWazuhPushHint): Promise<boolean> {
+    return this.store.complete(claim);
+  }
+
+  public scheduleRetry(
+    claim: ClaimedWazuhPushHint,
+    availableAt: Date,
+    safeCode: string,
+  ): Promise<boolean> {
+    return this.store.scheduleRetry(claim, availableAt, safeCode);
+  }
+
+  public failTerminal(claim: ClaimedWazuhPushHint, safeCode: string): Promise<boolean> {
+    return this.store.failTerminal(claim, safeCode);
+  }
+
+  public metrics(at?: Date): Promise<WazuhPushInboxMetrics> {
+    return this.store.metrics(at);
   }
 }

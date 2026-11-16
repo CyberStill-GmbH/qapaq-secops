@@ -8,7 +8,7 @@
  */
 
 import { sealAuditEvent, type AuditEventDraft, type SealedAuditEvent } from './audit-event.js';
-import type { AuditStore } from './ports.js';
+import type { AuditAppender } from './ports.js';
 
 export const AUDIT_APPEND_MAX_ATTEMPTS = 8;
 
@@ -20,7 +20,7 @@ export class AuditAppendExhaustedError extends Error {
 }
 
 export async function recordAudit(
-  store: AuditStore,
+  store: AuditAppender,
   draft: AuditEventDraft,
 ): Promise<SealedAuditEvent> {
   for (let attempt = 1; attempt <= AUDIT_APPEND_MAX_ATTEMPTS; attempt += 1) {

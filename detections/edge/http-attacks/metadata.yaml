@@ -1,0 +1,59 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-005
+title: Ataques web contra la consola del SOC (edge nginx)
+source: edge
+use_case: http-attacks
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: 'La consola del SOC está en Internet detrás del ALB: escáneres, inyecciones y sondeos contra ella son
+  reconocimiento dirigido al SOC.'
+data_sources:
+- bitácora JSON del edge nginx (qapaq-collectors/edge/access.json), IP real vía X-Forwarded-For del ALB
+rules:
+  file: detections/edge/http-attacks/rule.xml
+  ids:
+  - 101830
+  - 101831
+  - 101832
+  - 101833
+  - 101834
+  - 101835
+  - 101836
+  - 101837
+  - 101838
+  - 101839
+  - 101840
+  - 101841
+  installed_as: etc/rules/qapaq_soc_edge_http_attacks.xml
+mitre:
+- technique: T1190
+  tactic: initial-access
+- technique: T1595.002
+  tactic: reconnaissance
+- technique: T1595.003
+  tactic: reconnaissance
+- technique: T1595
+  tactic: reconnaissance
+- technique: T1499
+  tactic: impact
+severity:
+  levels: 0 tráfico normal y 4xx/5xx sueltos · 5 sondeo · 6 escáner · 7 pico 4xx · 8 SQLi/XSS/traversal · 9 pico
+    5xx · 10 RCE o campaña
+  priority_hint: P3; P2 si hay campaña o correlación
+  rationale: 'El SOC no tiene PHP, WordPress ni rutas de administración genéricas: todo sondeo es ruido de Internet
+    o reconocimiento.'
+false_positives:
+- URLs del dashboard con rison/KQL que contienen comillas y operadores (se probó el caso de Discover).
+- 'Herramientas de monitoreo sintético propias: usar un User-Agent sin nombres de escáner.'
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/edge/http-attacks/fixtures.jsonl
+  expected: detections/edge/http-attacks/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#edge

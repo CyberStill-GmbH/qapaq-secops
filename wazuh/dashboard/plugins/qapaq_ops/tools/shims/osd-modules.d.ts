@@ -19,8 +19,20 @@ declare module '@osd/config-schema' {
     boolean(options?: { defaultValue?: boolean }): Type<boolean>;
     string(options?: {
       defaultValue?: string;
+      minLength?: number;
+      maxLength?: number;
       validate?: (value: string) => string | void | undefined;
     }): Type<string>;
+    maybe<V>(type: Type<V>): Type<V | undefined>;
+    literal<V extends string | number | boolean>(value: V): Type<V>;
+    oneOf<A extends readonly Type<unknown>[]>(
+      types: A,
+      options?: { defaultValue?: TypeOf<A[number]> },
+    ): Type<TypeOf<A[number]>>;
+    arrayOf<T>(
+      itemType: Type<T>,
+      options?: { defaultValue?: T[]; minSize?: number; maxSize?: number },
+    ): Type<T[]>;
   };
 }
 

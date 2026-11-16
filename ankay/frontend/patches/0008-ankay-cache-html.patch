@@ -1,0 +1,66 @@
+diff --git a/frontend/confd/templates/nginx.conf b/frontend/confd/templates/nginx.conf
+index 2c9df91..636ff5f 100644
+--- a/frontend/confd/templates/nginx.conf
++++ b/frontend/confd/templates/nginx.conf
+@@ -50,6 +50,16 @@ http {
+ 		#	try_files $uri /index.html;
+ 		#}
+ 
++		# Vite names these assets by content hash; only this directory is immutable.
++		location ^~ /assets/ {
++			root /usr/share/nginx/html;
++			gzip_static on;
++			expires off;
++			add_header Cache-Control "public, max-age=31536000, immutable";
++			add_header X-Content-Type-Options nosniff;
++			try_files $uri =404;
++		}
++
+ 		location / {
+ 			# avoid clickjacking
+ 			add_header X-Frame-Options DENY;
+@@ -64,9 +74,10 @@ http {
+ 
+ 			root /usr/share/nginx/html;
+ 			gzip_static on;
+-			expires 1y;
+-			add_header Cache-Control public;
+-			add_header ETag "";
++			# HTML routes must revalidate after a new frontend release.
++			expires off;
++			add_header Cache-Control "no-cache, no-store, must-revalidate" always;
++			etag on;
+ 			try_files $uri /index.html;
+ 		}
+ 
+@@ -91,6 +102,16 @@ http {
+ 		ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
+ 		ssl_ciphers         HIGH:!aNULL:!MD5;
+ 
++		# Vite names these assets by content hash; only this directory is immutable.
++		location ^~ /assets/ {
++			root /usr/share/nginx/html;
++			gzip_static on;
++			expires off;
++			add_header Cache-Control "public, max-age=31536000, immutable";
++			add_header X-Content-Type-Options nosniff;
++			try_files $uri =404;
++		}
++
+ 		location / {
+ 			# avoid clickjacking
+ 			add_header X-Frame-Options DENY;
+@@ -105,9 +126,10 @@ http {
+ 
+ 			root /usr/share/nginx/html;
+ 			gzip_static on;
+-			expires 1y;
+-			add_header Cache-Control public;
+-			add_header ETag "";
++			# HTML routes must revalidate after a new frontend release.
++			expires off;
++			add_header Cache-Control "no-cache, no-store, must-revalidate" always;
++			etag on;
+ 			try_files $uri /index.html;
+ 		}
+ 

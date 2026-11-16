@@ -1,0 +1,6 @@
+{"integration":"docker","docker":{"Type":"container","Action":"exec_start: bash ","Actor":{"ID":"0123456789ab","Attributes":{"name":"qapaq-wazuh.manager-1","image":"wazuh/wazuh-manager:4.14.8"}},"scope":"local","time":1762600000}}
+{"integration":"docker","docker":{"Type":"container","Action":"exec_start: /var/ossec/bin/agent_control -l","Actor":{"ID":"0123456789ab","Attributes":{"name":"qapaq-wazuh.manager-1","image":"wazuh/wazuh-manager:4.14.8"}},"scope":"local","time":1762600000}}
+{"integration":"docker","docker":{"Type":"container","Action":"exec_start: bash ","Actor":{"ID":"0123456789ab","Attributes":{"name":"shuffle-tools_1-2-0.1.abc","image":"frikky/shuffle:tools"}},"scope":"local","time":1762600000}}
+{"integration":"docker","docker":{"Type":"container","Action":"create","Actor":{"ID":"0123456789ab","Attributes":{"name":"tmp-debug","image":"alpine:3.20"}},"scope":"local","time":1762600000}}
+{"integration":"docker","docker":{"Type":"container","Action":"create","Actor":{"ID":"0123456789ab","Attributes":{"name":"qapaq-api-1","image":"qapaq/api:local"}},"scope":"local","time":1762600000}}
+{"integration":"docker","docker":{"Type":"container","Action":"start","Actor":{"ID":"0123456789ab","Attributes":{"name":"qapaq-api-1","image":"qapaq/api:local"}},"scope":"local","time":1762600000}}

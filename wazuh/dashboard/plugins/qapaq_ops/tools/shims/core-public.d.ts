@@ -7,6 +7,7 @@
  */
 
 import type { ComponentType, ReactNode } from 'react';
+import type { Observable } from 'rxjs';
 
 export type MountPoint<T extends HTMLElement = HTMLElement> = (element: T) => UnmountCallback;
 export type UnmountCallback = () => void;
@@ -69,8 +70,15 @@ export interface App<HistoryLocationState = unknown> {
   mount: AppMount<HistoryLocationState>;
 }
 
+export type AppUpdatableFields = Pick<App, 'navLinkStatus' | 'defaultPath'> & {
+  status?: number;
+  tooltip?: string;
+};
+export type AppUpdater = (app: App) => Partial<AppUpdatableFields> | undefined;
+
 export interface ApplicationSetup {
   register<HistoryLocationState = unknown>(app: App<HistoryLocationState>): void;
+  registerAppUpdater(appUpdater$: Observable<AppUpdater>): void;
 }
 
 export interface ApplicationStart {
@@ -122,7 +130,14 @@ export interface ChromeNavControl {
   mount: MountPoint;
 }
 
+export interface ChromeBreadcrumb {
+  text: ReactNode;
+  href?: string;
+  onClick?: (event: unknown) => void;
+}
+
 export interface ChromeStart {
+  setBreadcrumbs(newBreadcrumbs: ChromeBreadcrumb[]): void;
   docTitle: {
     change(newTitle: string | string[]): void;
     reset(): void;

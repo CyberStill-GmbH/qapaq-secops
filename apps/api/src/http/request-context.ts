@@ -79,7 +79,9 @@ function oidcFlowCookie(
     `${oidcFlowCookieName(state)}=${encodeURIComponent(binding)}`,
     'Path=/api/auth/callback',
     'HttpOnly',
-    'SameSite=Lax',
+    // Entra responde con un POST cross-site cuando usamos response_mode=form_post.
+    // `None` exige Secure; el modo local HTTP conserva Lax y response_mode=query.
+    secure ? 'SameSite=None' : 'SameSite=Lax',
     `Max-Age=${maxAgeSeconds}`,
     ...(secure ? ['Secure'] : []),
   ].join('; ');
@@ -105,13 +107,18 @@ export function setSessionCookie(
   secure: boolean,
   maxAgeSeconds: number,
   additionalCookies: readonly string[] = [],
+  /**
+   * `Strict` para la sesión de la excepción demo de contraseña: el formulario es del mismo
+   * origen y no hay redirect entre sitios que la necesite en `Lax` (ver docs/04).
+   */
+  sameSite: 'Lax' | 'Strict' = 'Lax',
 ): void {
   reply.header('set-cookie', [
     [
       `${SESSION_COOKIE}=${encodeURIComponent(sessionId)}`,
       'Path=/',
       'HttpOnly',
-      'SameSite=Lax',
+      `SameSite=${sameSite}`,
       `Max-Age=${maxAgeSeconds}`,
       ...(secure ? ['Secure'] : []),
     ].join('; '),

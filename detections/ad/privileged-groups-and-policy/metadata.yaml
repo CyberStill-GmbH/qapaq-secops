@@ -1,0 +1,47 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-AD-001
+title: Grupos privilegiados, política de auditoría, GPO y borrado de Security
+source: ad
+use_case: privileged-groups-and-policy
+status: experimental
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: En AD, el atacante se agrega a grupos integrados, toca AdminSDHolder/GPO o borra el log de Security.
+data_sources:
+- Windows Security de controladores de dominio (4728/4732/4756, 4719, 1102, 5136)
+rules:
+  file: infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml
+  ids:
+  - 101300
+  - 101301
+  - 101302
+  - 101303
+mitre:
+- technique: T1098.007
+  tactic: persistence
+- technique: T1562.002
+  tactic: defense-evasion
+- technique: T1070.001
+  tactic: defense-evasion
+- technique: T1484.001
+  tactic: privilege-escalation
+severity:
+  levels: 10-13
+  priority_hint: P1 borrado de Security y grupos tier 0
+  rationale: 'Tier 0 de AD: compromiso del dominio entero.'
+false_positives:
+- Cambios de GPO del equipo de plataforma con ticket.
+tuning: []
+tests:
+  runner: logtest
+  suite: active-directory
+  fixtures: infra/wazuh/active-directory/tests/ad-cases.jsonl
+  expected: infra/wazuh/active-directory/tests/expected-rules.txt
+  script: infra/wazuh/active-directory/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/escalada-de-privilegios.md#active-directory
+notes: 'Sin datos: no hay DC con agente (backlog BL-E02).'

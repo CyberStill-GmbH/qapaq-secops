@@ -100,8 +100,35 @@ export interface QueryResult<T> {
   readonly total: number;
 }
 
+/** Conteo exacto (sin tope de filas) de las alertas de una entidad para el Analista IA. */
+export interface AlertStatsQuery {
+  readonly tenantId: string;
+  readonly entityRef: string;
+  /** Solo alertas de esta regla; sin el campo, todas las reglas. */
+  readonly ruleId?: string;
+  /** Creadas desde este instante (incluido). */
+  readonly since?: Date;
+  /** Alertas que no cuentan (las del propio trabajo). */
+  readonly excludeIds?: readonly string[];
+}
+
+export interface AlertStats {
+  readonly total: number;
+  readonly falsePositive: number;
+  readonly truePositive: number;
+  /** No cerradas. */
+  readonly open: number;
+  /** IDs de incidentes vinculados (distintos), sin tope del listado. */
+  readonly incidentIds: readonly string[];
+}
+
 export interface SocReadModel {
   alertById(tenantId: string, alertId: string): Promise<Alert | undefined>;
+  /**
+   * Conteos exactos por veredicto y estado; opcional (los adapters que no lo implementan
+   * obligan a quien llama a usar `listAlerts` y declarar el tope).
+   */
+  alertStats?(query: AlertStatsQuery): Promise<AlertStats>;
   /** Una alerta por evento: base de la idempotencia de la promoción en el runtime. */
   alertByEventRecordId(tenantId: string, eventRecordId: string): Promise<Alert | undefined>;
   listAlerts(query: AlertQuery): Promise<QueryResult<Alert>>;
@@ -130,7 +157,12 @@ export interface SocReadModel {
  * reprogramar solo actúa sobre mensajes en `processing`.
  */
 export interface SocOutboxQueue {
-  claimOutbox(at: Date, limit: number, leaseMs: number): Promise<readonly ClaimedOutboxMessage[]>;
+  claimOutbox(
+    at: Date,
+    limit: number,
+    leaseMs: number,
+    lane?: OutboxLane,
+  ): Promise<readonly ClaimedOutboxMessage[]>;
   /** `false` si el claim ya no es el vigente (lease vencido y reclamado por otro). */
   markOutboxPublished(messageId: string, claimToken: string, at: Date): Promise<boolean>;
   scheduleOutboxRetry(
@@ -140,6 +172,9 @@ export interface SocOutboxQueue {
     errorCode: string,
   ): Promise<boolean>;
 }
+
+/** Carril SQL del outbox. `all` conserva el contrato para consumidores/manual drain antiguos. */
+export type OutboxLane = 'all' | 'urgent' | 'normal';
 
 /**
  * Mensaje reclamado. `claimToken` es el fencing token del claim: solo quien lo tiene puede
@@ -157,12 +192,16 @@ export interface OutboxHealth {
   readonly processing: number;
   /** Disponibilidad del pendiente más antiguo; `null` si no hay pendientes. */
   readonly oldestPendingAt: Date | null;
+  /** Claims en proceso cuyo lease ya venció al instante de la consulta. */
+  readonly expiredProcessing: number;
+  /** Vencimiento más antiguo entre leases expirados; `null` si todos siguen vigentes. */
+  readonly oldestExpiredProcessingLeaseUntil: Date | null;
 }
 
 export interface SocHealthQuery {
   /** Instante de la alerta más reciente del tenant; `null` si nunca hubo. */
   lastAlertAt(tenantId: string): Promise<Date | null>;
-  outboxHealth(tenantId: string): Promise<OutboxHealth>;
+  outboxHealth(tenantId: string, at: Date): Promise<OutboxHealth>;
 }
 
 /* ---------------------------------------------------------------- Agregado */

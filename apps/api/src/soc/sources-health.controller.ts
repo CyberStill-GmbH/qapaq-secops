@@ -15,7 +15,7 @@ import { Controller, Get, Inject, Req } from '@nestjs/common';
 
 import { ApiError } from '../http/api-error.js';
 import type { IncomingRequest } from '../http/http-contracts.js';
-import { evaluateMonitor } from '../runtime/source-health.js';
+import { evaluateMonitor, sourceEventLagSummary } from '../runtime/source-health.js';
 import { readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
@@ -42,11 +42,14 @@ export class SourcesHealthController {
     }
     const now = this.runtime.now();
     const state = this.runtime.soc.ingestion;
-    const [evaluation, transitions, activity] = await Promise.all([
+    const [evaluation, transitions, activity, observations] = await Promise.all([
       evaluateMonitor(monitor, state, now),
       state.recentTransitions(monitor.key, TRANSITIONS_SHOWN),
       monitor.enabled ? state.activity(monitor.key) : Promise.resolve([]),
+      state.recentObservations(monitor.key, 50),
     ]);
+    const eventLag = sourceEventLagSummary(observations);
+    const latestPoll = observations[0] ?? null;
     const measuredAt = activity.reduce<Date | null>(
       (latest, record) => (!latest || record.measuredAt > latest ? record.measuredAt : latest),
       null,
@@ -65,6 +68,31 @@ export class SourcesHealthController {
           lastAttemptAt: iso(evaluation.lastAttemptAt),
           lastSuccessAt: iso(evaluation.lastSuccessAt),
           lastEventAt: iso(evaluation.lastEventAt),
+          eventLag: {
+            sampleWindow: eventLag.sampleWindow,
+            sampleCount: eventLag.sampleCount,
+            clockSkewSamples: eventLag.clockSkewSamples,
+            measuredAt: iso(eventLag.measuredAt),
+            p50Ms: eventLag.p50Ms,
+            p95Ms: eventLag.p95Ms,
+            p99Ms: eventLag.p99Ms,
+          },
+          processing: latestPoll
+            ? {
+                attemptedAt: latestPoll.attemptedAt.toISOString(),
+                completedAt: latestPoll.completedAt.toISOString(),
+                outcome: latestPoll.outcome,
+                recordsSeen: latestPoll.recordsSeen,
+                normalized: latestPoll.normalized,
+                quarantined: latestPoll.quarantined,
+                promoted: latestPoll.promoted,
+                duplicates: latestPoll.duplicates,
+                notPromoted: latestPoll.notPromoted,
+                belowThreshold: latestPoll.belowThreshold,
+                suppressed: latestPoll.suppressed,
+                errorClass: latestPoll.errorClass,
+              }
+            : null,
           consecutiveFailures: evaluation.consecutiveFailures,
           lastErrorClass: evaluation.lastErrorClass,
           policy: {

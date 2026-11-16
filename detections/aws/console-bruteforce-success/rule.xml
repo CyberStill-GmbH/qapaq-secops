@@ -1,0 +1,21 @@
+<!--
+  QAPAQ SOC · detección como código · detections/aws/console-bruteforce-success (metadata.yaml).
+  Inicio de sesión exitoso en la consola AWS desde una IP que hizo fuerza bruta (grupo qapaq_aws_bruteforce,
+  regla 101608 del paquete AWS). La 40112 oficial no aplica: compara srcip y el receptor usa aws.source_ip.
+  Rango QAPAQ: 101713. Se instala como qapaq_soc_aws_console_bruteforce_success.xml.
+-->
+<group name="qapaq_provider,aws,qapaq_correlation,">
+  <rule id="101713" level="13" timeframe="1800">
+    <if_group>authentication_success</if_group>
+    <field name="qapaq.vendor">^aws$</field>
+    <if_matched_group>qapaq_aws_bruteforce</if_matched_group>
+    <same_field>aws.source_ip</same_field>
+    <description>QAPAQ AWS: inicio de sesión exitoso en consola de $(aws.principal) desde $(aws.source_ip) tras fuerza bruta desde la misma IP (30 min).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1110.001</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_attack_chain,</group>
+  </rule>
+</group>

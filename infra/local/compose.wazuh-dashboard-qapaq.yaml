@@ -1,0 +1,72 @@
+# Override LOCAL de wazuh-docker single-node: stack en la versión del overlay (Wazuh 4.14.8 /
+# OSD 2.19.6, wazuh/dashboard/upstream.lock) y dashboard con la marca QAPAQ.
+#
+# Las rutas relativas de un override se resuelven contra el directorio del PRIMER compose
+# (…/wazuh-docker/single-node), por eso se usa QAPAQ_REPO (por defecto, qapaq-secops junto al repo
+# que contiene .local/wazuh-docker). Uso, desde single-node:
+#
+#   $env:QAPAQ_REPO = 'C:/Users/<yo>/Documents/GitHub/qapaq-secops'
+#   docker compose -f docker-compose.yml -f <override de memoria> `
+#     -f $env:QAPAQ_REPO/infra/local/compose.wazuh-dashboard-qapaq.yaml up -d --build
+#
+# Plugins QAPAQ: compilarlos antes con `bash infra/local/wazuh-dashboard/build-plugins.sh`
+# (deja los zip en infra/local/wazuh-dashboard/plugins-dist/, que el Dockerfile instala).
+services:
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.14.8
+
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.14.8
+    # Solo desde este equipo: el indexer confía en x-proxy-user/x-proxy-roles del dashboard.
+    ports: !override
+      - '127.0.0.1:9200:9200'
+
+  wazuh.dashboard:
+    image: qapaq/wazuh-dashboard-local:4.14.8
+    build:
+      context: ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/wazuh-dashboard
+      additional_contexts:
+        brand: ${QAPAQ_REPO:-../../../../qapaq-secops}/wazuh/dashboard
+      args:
+        WAZUH_VERSION: 4.14.8
+    # Sin puerto en el host: la única entrada es el edge (https://localhost).
+    ports: !reset []
+    # IP fija: es el ÚNICO origen al que el indexer acepta proxy auth (xff.internalProxies,
+    # infra/local/edge/apply-indexer-security.sh). Cambiarla obliga a reaplicar ese script.
+    networks:
+      default:
+        ipv4_address: 172.30.89.10
+    volumes:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/wazuh-dashboard/opensearch_dashboards.qapaq.local.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/wazuh-dashboard/wazuh.local.yml:/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fs -o /dev/null http://localhost:5601/qapaq/login || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  # Edge QAPAQ (copia local de wazuh/edge/qapaq-edge.conf). La API QAPAQ corre en el host (puerto 3089, edge/api.local.env).
+  qapaq-edge:
+    image: nginx:1.27-alpine
+    restart: always
+    ports:
+      - '443:443'
+    volumes:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/qapaq-edge.local.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/certs:/etc/nginx/certs:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+      - 'qapaq-api-host:192.168.65.254'  # IPv4 del host en Docker Desktop; host-gateway también añade IPv6 inalcanzable
+    depends_on:
+      - wazuh.dashboard
+    networks:
+      default:
+        ipv4_address: 172.30.89.20
+
+# Subred fija para poder fijar la IP del dashboard (cambiarla exige `docker compose down`).
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.89.0/24

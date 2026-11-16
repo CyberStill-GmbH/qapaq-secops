@@ -25,6 +25,12 @@ export interface CriticalNotificationInput {
   readonly aggregateId: string;
   readonly title: string;
   readonly severity: string;
+  readonly status?: string;
+  readonly score?: number | null;
+  readonly signal?: string | null;
+  readonly ruleId?: string | null;
+  readonly reasonCodes?: string;
+  readonly relatedAlertCount?: number;
   readonly occurredAt: Date;
   readonly consoleBaseUrl: string;
   readonly clientRequestId: string;
@@ -37,6 +43,7 @@ export interface TeamsMessage {
   readonly attachments: readonly [
     {
       readonly contentType: 'application/vnd.microsoft.card.adaptive';
+      readonly contentUrl: null;
       readonly content: Readonly<Record<string, unknown>>;
     },
   ];
@@ -58,6 +65,21 @@ export const FORBIDDEN_PAYLOAD_KEYS = [
   'secret',
 ] as const;
 
+const REASON_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  BASE_SEVERITY: 'severidad base',
+  BREAK_GLASS_IDENTITY: 'cuenta de emergencia',
+  PRIVILEGED_IDENTITY: 'identidad privilegiada',
+  CRITICAL_ASSET: 'activo crítico',
+  SUCCESSFUL_INTRUSION: 'intrusión exitosa',
+  REPEATED_ACTIVITY: 'actividad repetida',
+  CORRELATED_ENTITY: 'entidad correlacionada',
+  ATTACK_CHAIN: 'cadena de ataque',
+  EXTERNAL_EXPOSURE: 'exposición externa',
+  MAINTENANCE_WINDOW: 'ventana de mantenimiento',
+  KNOWN_BENIGN: 'regla benigna conocida',
+  INFORMATIONAL_ONLY: 'solo informativo',
+});
+
 function deepLink(input: CriticalNotificationInput): string {
   const base = input.consoleBaseUrl.replace(/\/+$/u, '');
   return `${base}/${input.aggregateType === 'incident' ? 'incidents' : 'alerts'}/${encodeURIComponent(input.aggregateId)}`;
@@ -72,14 +94,40 @@ function mentionText(recipient: NotificationRecipient): string {
 export function buildTeamsMessage(input: CriticalNotificationInput): TeamsMessage {
   const link = deepLink(input);
   const mentions = input.mentions ?? [];
+  const clean = (value: string | null | undefined, maximum: number): string =>
+    (value ?? '').replace(/[\u0000-\u001f\u007f]/gu, ' ').trim().slice(0, maximum) || 'Sin dato';
+  const reasons = (input.reasonCodes ?? '')
+    .split(',')
+    .map((code) => REASON_LABELS[code.trim()])
+    .filter((label): label is string => label !== undefined)
+    .join('; ');
+  const facts = [
+    { title: 'Tipo', value: input.messageType },
+    { title: 'Prioridad', value: clean(input.severity, 24) },
+    { title: 'Estado', value: clean(input.status, 32) },
+    ...(input.score === undefined || input.score === null
+      ? []
+      : [{ title: 'Puntaje', value: String(input.score) }]),
+    ...(input.signal ? [{ title: 'Señal', value: clean(input.signal, 48) }] : []),
+    ...(input.ruleId ? [{ title: 'Regla', value: clean(input.ruleId, 80) }] : []),
+    ...(reasons
+      ? [{ title: 'Motivos de prioridad', value: clean(reasons, 240) }]
+      : []),
+    ...(input.relatedAlertCount === undefined
+      ? []
+      : [{ title: 'Alertas relacionadas', value: String(input.relatedAlertCount) }]),
+    { title: 'Identificador', value: input.aggregateId },
+    { title: 'Ocurrido', value: input.occurredAt.toISOString() },
+  ];
   return {
     type: 'message',
     attachments: [
       {
         contentType: 'application/vnd.microsoft.card.adaptive',
+        contentUrl: null,
         content: {
           type: 'AdaptiveCard',
-          version: '1.5',
+          version: '1.2',
           $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
           body: [
             {
@@ -87,9 +135,10 @@ export function buildTeamsMessage(input: CriticalNotificationInput): TeamsMessag
               size: 'Medium',
               weight: 'Bolder',
               wrap: true,
-              text: `QAPAQ SecOps · ${input.severity.toUpperCase()}`,
+              text: `QAPAQ SecOps · ${clean(input.severity, 24).toUpperCase()} · Requiere revisión`,
             },
-            { type: 'TextBlock', wrap: true, text: input.title },
+            { type: 'TextBlock', wrap: true, text: clean(input.title, 300) },
+            { type: 'TextBlock', wrap: true, text: 'Revisa el contexto y registra el triaje en QAPAQ.' },
             ...(mentions.length > 0
               ? [
                   {
@@ -101,11 +150,7 @@ export function buildTeamsMessage(input: CriticalNotificationInput): TeamsMessag
               : []),
             {
               type: 'FactSet',
-              facts: [
-                { title: 'Tipo', value: input.messageType },
-                { title: 'Identificador', value: input.aggregateId },
-                { title: 'Ocurrido', value: input.occurredAt.toISOString() },
-              ],
+              facts,
             },
           ],
           actions: [{ type: 'Action.OpenUrl', title: 'Abrir en QAPAQ', url: link }],

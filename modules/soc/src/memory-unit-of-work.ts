@@ -24,8 +24,11 @@ import type { Incident } from './incident.js';
 import type { IncidentNote, IncidentTask } from './incident-work.js';
 import { InMemoryIngestionState } from './memory-ingestion.js';
 import type { OutboxMessageDraft } from './events.js';
+import type { OutboxLane } from './ports.js';
 import type {
   AlertQuery,
+  AlertStats,
+  AlertStatsQuery,
   AlertStore,
   ClaimedOutboxMessage,
   OutboxHealth,
@@ -285,6 +288,31 @@ export class InMemorySoc implements SocPersistence {
     return Promise.resolve({ items, total: items.length });
   }
 
+  public alertStats(query: AlertStatsQuery): Promise<AlertStats> {
+    const excluded = new Set(query.excludeIds ?? []);
+    const rows = [...this.alertRows.values()].filter(
+      (alert) =>
+        alert.tenantId === query.tenantId &&
+        alert.entityRefs.includes(query.entityRef) &&
+        (!query.ruleId || alert.ruleId === query.ruleId) &&
+        (!query.since || alert.createdAt.getTime() >= query.since.getTime()) &&
+        !excluded.has(alert.id),
+    );
+    return Promise.resolve({
+      total: rows.length,
+      falsePositive: rows.filter((alert) => alert.verdict === 'false_positive').length,
+      truePositive: rows.filter((alert) => alert.verdict === 'true_positive').length,
+      open: rows.filter((alert) => alert.status !== 'closed').length,
+      incidentIds: [
+        ...new Set(
+          rows
+            .map((alert) => alert.incidentId)
+            .filter((id): id is string => typeof id === 'string'),
+        ),
+      ],
+    });
+  }
+
   public incidentById(tenantId: string, incidentId: string): Promise<Incident | undefined> {
     return Promise.resolve(this.incidentRows.get(`${tenantId}|${incidentId}`));
   }
@@ -399,10 +427,14 @@ export class InMemorySoc implements SocPersistence {
     at: Date,
     limit: number,
     leaseMs: number,
+    lane: OutboxLane = 'all',
   ): Promise<readonly ClaimedOutboxMessage[]> {
     const now = at.getTime();
     const claimable = [...this.outboxRows.values()]
       .filter((message) => {
+        const urgent = isUrgentOutboxMessage(message);
+        if (lane === 'urgent' && !urgent) return false;
+        if (lane === 'normal' && urgent) return false;
         const state = this.stateOf(message);
         if (state.status === 'pending') return state.availableAt.getTime() <= now;
         return state.status === 'processing' && (state.leaseUntil?.getTime() ?? 0) < now;
@@ -470,21 +502,40 @@ export class InMemorySoc implements SocPersistence {
     return Promise.resolve(latest);
   }
 
-  public outboxHealth(tenantId: string): Promise<OutboxHealth> {
+  public outboxHealth(tenantId: string, at: Date): Promise<OutboxHealth> {
     let pending = 0;
     let processing = 0;
     let oldestPendingAt: Date | null = null;
+    let expiredProcessing = 0;
+    let oldestExpiredProcessingLeaseUntil: Date | null = null;
     for (const message of this.outboxRows.values()) {
       if (message.tenantId !== tenantId) continue;
       const state = this.stateOf(message);
-      if (state.status === 'processing') processing += 1;
+      if (state.status === 'processing') {
+        processing += 1;
+        if (state.leaseUntil && state.leaseUntil.getTime() < at.getTime()) {
+          expiredProcessing += 1;
+          if (
+            !oldestExpiredProcessingLeaseUntil ||
+            state.leaseUntil.getTime() < oldestExpiredProcessingLeaseUntil.getTime()
+          ) {
+            oldestExpiredProcessingLeaseUntil = state.leaseUntil;
+          }
+        }
+      }
       if (state.status !== 'pending') continue;
       pending += 1;
       if (!oldestPendingAt || state.availableAt.getTime() < oldestPendingAt.getTime()) {
         oldestPendingAt = state.availableAt;
       }
     }
-    return Promise.resolve({ pending, processing, oldestPendingAt });
+    return Promise.resolve({
+      pending,
+      processing,
+      oldestPendingAt,
+      expiredProcessing,
+      oldestExpiredProcessingLeaseUntil,
+    });
   }
 
   public ready(): Promise<void> {
@@ -494,4 +545,18 @@ export class InMemorySoc implements SocPersistence {
   public close(): Promise<void> {
     return Promise.resolve();
   }
+}
+
+function isUrgentOutboxMessage(message: OutboxMessageDraft): boolean {
+  if (
+    message.aggregateType === 'alert' &&
+    (message.messageType === 'soc.alert.created' || message.messageType === 'soc.alert.escalated')
+  ) {
+    return message.payload['priority'] === 'P1';
+  }
+  return (
+    message.aggregateType === 'incident' &&
+    message.messageType === 'soc.incident.opened' &&
+    message.payload['severity'] === 'critical'
+  );
 }

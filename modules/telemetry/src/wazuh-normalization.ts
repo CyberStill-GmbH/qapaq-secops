@@ -3,6 +3,7 @@ import {
   SECURITY_EVENT_SCHEMA_VERSION,
   validateSecurityEvent,
   type Identity,
+  type IngestionHop,
   type Raw,
   type Resource,
   type SecurityEvent,
@@ -40,11 +41,17 @@ import {
  *   workload, objeto, resultado y extensión `microsoft.office365`; además `data.srcip`
  *   como recurso IP para cualquier alerta. Un evento 1.0.0 almacenado sigue siendo válido:
  *   el cambio es aditivo dentro del contrato 1.0.0.
+ * - 1.2.0: proveedores integrados por los collectors QAPAQ (wazuh/provider-ingestion):
+ *   Bitdefender GravityZone, Snyk, Cloudflare y AWS. Sus grupos (`bitdefender`, `snyk`,
+ *   `cloudflare`, `qapaq_*`) tienen categoría, y el proveedor de origen viaja como primer salto
+ *   `origin` de `provenance.ingestionPath`. Aditivo, como 1.1.0.
+ * - 1.3.0: Office 365 proyecta metadatos opcionales de correo bajo allowlist, con tope de
+ *   50 destinatarios y sin Parameters, ModifiedProperties, cuerpo o adjuntos.
  */
 
 export const WAZUH_MAPPING_ID = 'wazuh.alerts' as const;
-export const WAZUH_MAPPING_VERSION = '1.1.0' as const;
-export const WAZUH_PARSER_VERSION = '1.1.0' as const;
+export const WAZUH_MAPPING_VERSION = '1.3.0' as const;
+export const WAZUH_PARSER_VERSION = '1.3.0' as const;
 export const WAZUH_SEVERITY_MAPPING_ID = 'wazuh.alerts.severity' as const;
 export const WAZUH_SEVERITY_SCALE = 'provider-level-0-15' as const;
 
@@ -109,6 +116,15 @@ export interface PageNormalizationResult {
 
 const RFC3339_WITH_ZONE =
   /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/u;
+
+/**
+ * Wazuh indexa `timestamp` con la zona sin dos puntos (`2026-11-03T18:52:19.984+0000`), que
+ * no es RFC3339 estricto. Se canoniza a `±HH:MM` antes de validar; cualquier otra forma sigue
+ * rechazándose.
+ */
+function canonicalWazuhTimestamp(value: string): string {
+  return value.replace(/([+-])(\d{2})(\d{2})$/u, '$1$2:$3');
+}
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
@@ -208,7 +224,55 @@ const CATEGORY_BY_GROUP: Readonly<Record<string, SecurityEventCategory>> = Objec
   mssql: 'database',
   mysql: 'database',
   postgresql: 'database',
+  // Collectors QAPAQ (wazuh/provider-ingestion/rules): grupo del proveedor + grupo `qapaq_*`.
+  bitdefender: 'host',
+  qapaq_endpoint_status: 'host',
+  qapaq_containment: 'host',
+  qapaq_malware: 'malware',
+  qapaq_hygiene: 'configuration',
+  qapaq_defense_evasion: 'configuration',
+  snyk: 'vulnerability',
+  qapaq_vulnerability: 'vulnerability',
+  cloudflare: 'network',
+  qapaq_waf: 'web',
+  qapaq_attack: 'intrusion_detection',
+  qapaq_audit: 'configuration',
+  qapaq_dns_change: 'configuration',
+  qapaq_persistence: 'iam',
+  qapaq_impact: 'configuration',
+  aws: 'api',
+  amazon: 'api',
 });
+
+/**
+ * Proveedor de origen de las alertas que no nacen en un agente Wazuh, por grupo de la regla.
+ * El primero que coincide gana; el orden no importa porque los grupos son disjuntos.
+ */
+export const WAZUH_PROVIDER_ORIGINS: readonly {
+  readonly group: string;
+  readonly vendor: string;
+  readonly product: string;
+}[] = Object.freeze([
+  { group: 'office365', vendor: 'Microsoft', product: 'Microsoft 365' },
+  { group: 'bitdefender', vendor: 'Bitdefender', product: 'GravityZone' },
+  { group: 'snyk', vendor: 'Snyk', product: 'Snyk' },
+  { group: 'cloudflare', vendor: 'Cloudflare', product: 'Cloudflare' },
+  { group: 'aws', vendor: 'Amazon Web Services', product: 'AWS' },
+  { group: 'amazon', vendor: 'Amazon Web Services', product: 'AWS' },
+]);
+
+function withOrigin(
+  origin: IngestionHop | undefined,
+  path: [IngestionHop, ...IngestionHop[]],
+): [IngestionHop, ...IngestionHop[]] {
+  return origin ? [origin, ...path] : path;
+}
+
+function originHop(groups: readonly string[]): IngestionHop | undefined {
+  const lowered = new Set(groups.map((group) => group.toLowerCase()));
+  const origin = WAZUH_PROVIDER_ORIGINS.find((candidate) => lowered.has(candidate.group));
+  return origin ? { kind: 'origin', vendor: origin.vendor, product: origin.product } : undefined;
+}
 
 const SUCCESS_GROUPS = new Set(['authentication_success']);
 const FAILURE_GROUPS = new Set([
@@ -388,12 +452,14 @@ export function normalizeWazuhAlert(
     );
   }
 
-  const timestamp = source['timestamp'];
-  if (timestamp === undefined) {
+  const rawTimestamp = source['timestamp'];
+  if (rawTimestamp === undefined) {
     return quarantine(
       reason('MISSING_TIMESTAMP', 'La alerta no declara instante de ocurrencia.', '/timestamp'),
     );
   }
+  const timestamp =
+    typeof rawTimestamp === 'string' ? canonicalWazuhTimestamp(rawTimestamp) : rawTimestamp;
   if (
     typeof timestamp !== 'string' ||
     !isRealCalendarInstant(timestamp) ||
@@ -443,6 +509,7 @@ export function normalizeWazuhAlert(
     : [];
 
   const severity = mapSeverity(level);
+  const origin = originHop(groups);
   const office365 = projectOffice365(readObject(source['data']));
   const occurredAt = new Date(timestamp).toISOString();
   const observedAt = new Date(record.collectedAt).toISOString();
@@ -450,7 +517,13 @@ export function normalizeWazuhAlert(
 
   const event: SecurityEvent = {
     schemaVersion: SECURITY_EVENT_SCHEMA_VERSION,
-    recordId: deterministicUuid7(raw.sha256, `event:${record.sourceRecordId}`, context.receivedAt),
+    // Keep identity and UUIDv7 ordering tied to source occurrence time. The true ingestion
+    // timestamp can differ across push, pull and replay without changing event idempotency.
+    recordId: deterministicUuid7(
+      raw.sha256,
+      `event:${record.sourceRecordId}`,
+      new Date(occurredAt),
+    ),
     eventUid: `${context.instanceId}:${record.dataset}:${record.sourceRecordId}`,
     eventUidType: 'native',
     kind: 'alert',
@@ -495,7 +568,7 @@ export function normalizeWazuhAlert(
       parserVersion: WAZUH_PARSER_VERSION,
       mappingVersion: WAZUH_MAPPING_VERSION,
       timestampQuality: 'source',
-      ingestionPath: [
+      ingestionPath: withOrigin(origin, [
         {
           kind: 'collector',
           vendor: 'Wazuh, Inc.',
@@ -503,7 +576,7 @@ export function normalizeWazuhAlert(
           instanceId: context.instanceId,
         },
         { kind: 'adapter', vendor: 'QAPAQ', product: 'QAPAQ SecOps' },
-      ],
+      ]),
     },
     ...(office365 && Object.keys(office365.extension).length > 0
       ? { extensions: { [OFFICE365_EXTENSION_NAMESPACE]: office365.extension } }

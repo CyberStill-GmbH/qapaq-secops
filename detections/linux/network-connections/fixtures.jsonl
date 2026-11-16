@@ -1,0 +1,12 @@
+ossec: output: 'qapaq listening ports': tcp 0.0.0.0:22 sshd tcp 0.0.0.0:443 docker-proxy
+ossec: output: 'qapaq listening ports': tcp 0.0.0.0:22 sshd tcp 0.0.0.0:443 docker-proxy tcp 0.0.0.0:4444 nc
+ossec: output: 'qapaq-netconn': type=listen dir=listen proto=tcp src=0.0.0.0 sport=0 dst=127.0.0.1 dport=6010 proc=sshd uid=0
+ossec: output: 'qapaq-netconn': type=listen dir=listen proto=tcp src=0.0.0.0 sport=0 dst=0.0.0.0 dport=4444 proc=nc uid=1000
+ossec: output: 'qapaq-netconn': type=listen dir=listen proto=tcp src=0.0.0.0 sport=0 dst=0.0.0.0 dport=22 proc=sshd uid=0
+ossec: output: 'qapaq-netconn': type=listen dir=listen proto=tcp src=0.0.0.0 sport=0 dst=0.0.0.0 dport=8081 proc=node uid=1000
+ossec: output: 'qapaq-netconn': type=conn dir=out proto=tcp src=10.89.0.12 sport=40000 dst=10.89.0.20 dport=5432 proc=psql uid=1000
+ossec: output: 'qapaq-netconn': type=conn dir=out proto=tcp src=10.89.0.12 sport=40001 dst=198.51.100.9 dport=4444 proc=bash uid=1000
+ossec: output: 'qapaq-netconn': type=conn dir=out proto=tcp src=10.89.0.12 sport=40002 dst=198.51.100.9 dport=443 proc=curl uid=1000
+ossec: output: 'qapaq-netconn': type=conn dir=out proto=tcp src=10.89.0.12 sport=40003 dst=192.0.2.10 dport=443 proc=amazon-ssm-agent uid=0
+ossec: output: 'qapaq-netconn': type=conn dir=in proto=tcp src=198.51.100.50 sport=51000 dst=10.89.0.12 dport=22 proc=sshd uid=0
+ossec: output: 'qapaq-netconn': type=conn dir=in proto=tcp src=10.89.0.200 sport=51001 dst=10.89.0.12 dport=443 proc=docker-proxy uid=0

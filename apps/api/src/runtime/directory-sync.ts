@@ -13,8 +13,8 @@
  * sea una lectura completa. Un 429 cierra el ciclo; el siguiente llega por intervalo, que es
  * mayor que cualquier `Retry-After` razonable del proveedor.
  *
- * Además, `cachedOwnerSource` expone los dueños persistidos al inicio de sesión con una caché
- * corta (cache-aside): iniciar sesión nunca llama al directorio.
+ * Además, `directoryOwnerSource` consulta el roster durable al autenticar; solo usa Graph como
+ * fallback mientras no existe un ciclo completo confirmado.
  */
 
 import {
@@ -106,28 +106,57 @@ export function createDirectorySyncPass(options: DirectorySyncOptions): () => Pr
   };
 }
 
-/** Dueños persistidos con caché corta para el inicio de sesión. */
-export function cachedOwnerSource(
+/** Lee dueños del padrón durable; Graph solo sirve de fallback antes del primer sync completo. */
+export function directoryOwnerSource(
   store: DirectoryStore,
   tenantId: string,
   groupId: string,
-  ttlMs = 60_000,
-  now: () => number = Date.now,
+  fallbackOwners?: () => Promise<readonly DirectoryPerson[]>,
 ): GroupOwnerSource {
-  let cached: { readonly owners: ReadonlySet<string>; readonly until: number } | undefined;
   return {
     groupId: groupId.toLowerCase(),
     async isMember(oid) {
       return (await store.member(tenantId, groupId, oid))?.membership === 'member';
     },
     async owners() {
-      if (cached && cached.until > now()) return cached.owners;
-      const owners: readonly DirectoryPerson[] = await store.owners(tenantId, groupId);
-      cached = {
-        owners: new Set(owners.map((owner) => owner.oid.toLowerCase())),
-        until: now() + ttlMs,
-      };
-      return cached.owners;
+      let owners: readonly DirectoryPerson[] = await store.owners(tenantId, groupId);
+      // Login can race the first roster delta, or that delta can fail while the narrower
+      // owners endpoint still works. Read owners directly in that bootstrap-only state so
+      // a real group owner is not locked out. Once one complete sync succeeds, the durable
+      // roster is the authority and we never fall back around a confirmed empty owner list.
+      const sync = await store.syncState(tenantId, groupId);
+      if (!sync?.lastSuccessAt && fallbackOwners) owners = await fallbackOwners();
+      return new Set(owners.map((owner) => owner.oid.toLowerCase()));
+    },
+  };
+}
+
+/**
+ * Dueños del grupo cuando el grupo puede resolverse después del arranque: sin grupo resuelto no
+ * hay dueños leídos de Graph (solo los declarados en el deploy, que suma el resolvedor de roles);
+ * en cuanto se resuelve, delega en la fuente con caché del grupo. Los dueños leídos reciben
+ * `qapaq.platform.admin` por `createRoleGrantResolver`, igual que con el ID configurado.
+ */
+export function lazyOwnerSource(
+  groupId: () => string | undefined,
+  sourceFor: (groupId: string) => GroupOwnerSource,
+): GroupOwnerSource {
+  let current: GroupOwnerSource | undefined;
+  const source = (): GroupOwnerSource | undefined => {
+    const id = groupId();
+    if (!id) return undefined;
+    if (current?.groupId !== id.toLowerCase()) current = sourceFor(id);
+    return current;
+  };
+  return {
+    get groupId() {
+      return groupId()?.toLowerCase();
+    },
+    async isMember(oid) {
+      return (await source()?.isMember?.(oid)) ?? false;
+    },
+    async owners() {
+      return (await source()?.owners()) ?? new Set<string>();
     },
   };
 }

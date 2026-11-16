@@ -1,0 +1,7 @@
+# Se añade a opensearch_dashboards.local.yml SOLO si la imagen lleva los plugins QAPAQ
+# (las claves qapaq_* hacen fallar el arranque si el plugin no está instalado).
+qapaq_ops.enabled: true
+qapaq_ops.apiPrefix: '/api'
+qapaq_ops.p1Watch: false
+qapaq_ops.qapaqzito.enabled: false
+qapaq_ops.login.enabled: false

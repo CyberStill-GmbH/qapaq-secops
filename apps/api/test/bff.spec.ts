@@ -7,18 +7,24 @@
  * la frontera HTTP no relaje ninguna decisión.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SecurityEventProviderError } from '@qapaq/connectors';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 import { buildApi } from '../src/bootstrap.js';
+import { expiredOidcFlowCookie } from '../src/http/request-context.js';
+import { SlidingWindowLimiter } from '../src/assistant/assistant-service.js';
 import type { EventsReader } from '../src/runtime/events-reader.js';
 import { wazuhRecordToEvent } from '../src/runtime/wazuh-ingestion.js';
-import type { InMemoryAttemptStore } from '@qapaq/soar';
+import { createAttempt, type InMemoryAttemptStore } from '@qapaq/soar';
 import type { InMemorySoc } from '@qapaq/soc';
 
-import type { SecOpsRuntime } from '../src/runtime/secops-runtime.js';
+import type {
+  RuntimeDirectory,
+  SecOpsRuntime,
+  SignInDiagnostic,
+} from '../src/runtime/secops-runtime.js';
 
 const ENVIRONMENT = { QAPAQ_PROFILE: 'test' } as const;
 
@@ -35,6 +41,7 @@ let officeSequence = 0;
 
 let application: NestFastifyApplication;
 let runtime: SecOpsRuntime;
+const signInDiagnostics: SignInDiagnostic[] = [];
 /** El harness usa el adapter en memoria; sus filas se inspeccionan directamente. */
 const memorySoc = () => runtime.soc as InMemorySoc;
 let stop: () => Promise<void>;
@@ -84,10 +91,11 @@ async function signIn(
   // El emisor local devuelve una ruta relativa: la API y la consola comparten origen.
   const callbackUrl = new URL(authorize.headers.location as string, 'http://local');
   const response = await server().inject({
-    method: 'GET',
-    url: `/api/auth/callback${callbackUrl.search}`,
+    method: 'POST',
+    url: '/api/auth/callback',
+    headers: { ...flowHeaders, 'content-type': 'application/x-www-form-urlencoded' },
+    payload: callbackUrl.searchParams.toString(),
     remoteAddress,
-    headers: flowHeaders,
   });
   const responseCookies = Array.isArray(response.headers['set-cookie'])
     ? (response.headers['set-cookie'] as string[])
@@ -196,7 +204,16 @@ async function ingest(recordId: string, severity: 'critical' | 'low' = 'critical
 }
 
 beforeAll(async () => {
-  const built = await buildApi(ENVIRONMENT, () => {});
+  const built = await buildApi(
+    ENVIRONMENT,
+    () => {},
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    (diagnostic) => signInDiagnostics.push(diagnostic),
+  );
   application = built.application;
   runtime = built.runtime;
   stop = built.stop;
@@ -209,6 +226,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
+  signInDiagnostics.length = 0;
   officeSequence += 1;
   officeIp = `10.20.${100 + Math.floor(officeSequence / 250)}.${(officeSequence % 250) + 1}`;
   memorySoc().alertRows.clear();
@@ -223,6 +241,17 @@ beforeEach(() => {
 });
 
 describe('C-18 · inicio de sesión por el BFF', () => {
+  it('habilita la cookie cross-site segura requerida por form_post y mantiene Lax en local', () => {
+    const state = 'a'.repeat(43);
+    const secureCookie = expiredOidcFlowCookie(state, true);
+    const localCookie = expiredOidcFlowCookie(state, false);
+
+    expect(secureCookie).toContain('SameSite=None');
+    expect(secureCookie).toContain('Secure');
+    expect(localCookie).toContain('SameSite=Lax');
+    expect(localCookie).not.toContain('Secure');
+  });
+
   it('redirige al emisor con un state opaco y sin tokens en el cliente', async () => {
     const response = await server().inject({
       method: 'GET',
@@ -268,6 +297,43 @@ describe('C-18 · inicio de sesión por el BFF', () => {
     expect(session.statusCode).toBe(200);
     expect(body.capabilities).toContain('incidents.close');
     expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/u);
+  });
+
+  it('registra solo el AADSTS de un error OAuth y mantiene la respuesta pÃºblica genÃ©rica', async () => {
+    const start = await server().inject({
+      method: 'GET',
+      url: '/api/auth/start',
+      remoteAddress: OFFICE_IP,
+    });
+    const state = new URL(start.headers.location as string, 'http://local').searchParams.get(
+      'state',
+    );
+    const flowCookie = cookiePair(start, 'qapaq_oidc_flow_');
+    const description = 'AADSTS50011: redirect mismatch for analyst@example.test';
+    const callback = await server().inject({
+      method: 'POST',
+      url: '/api/auth/callback',
+      headers: {
+        cookie: flowCookie,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      payload: new URLSearchParams({
+        state: state ?? '',
+        error: 'access_denied',
+        error_description: description,
+      }).toString(),
+      remoteAddress: OFFICE_IP,
+    });
+
+    expect(callback.statusCode).toBe(303);
+    expect(authErrorOf(callback)).toBe('AUTH_FAILED');
+    expect(String(callback.headers.location)).not.toContain('AADSTS50011');
+    expect(String(callback.headers.location)).not.toContain('analyst@example.test');
+    expect(signInDiagnostics.at(-1)).toMatchObject({
+      stage: 'callback',
+      code: 'PROVIDER_ERROR:AADSTS50011',
+    });
+    expect(JSON.stringify(signInDiagnostics)).not.toContain(description);
   });
 
   it('introspect entrega persona y roles al proxy del dashboard sin cuerpo', async () => {
@@ -513,6 +579,7 @@ describe('C-16/C-17 · recorrido operativo sobre HTTP', () => {
     const ingested = await ingest('01890f47-7abc-7def-8abc-00000000a002', 'low');
 
     expect(JSON.parse(ingested.body).outcome).toBe('not_promoted');
+    expect(JSON.parse(ingested.body).reason).toBe('BELOW_THRESHOLD');
     expect(memorySoc().alertRows.size).toBe(0);
   });
 
@@ -1299,7 +1366,131 @@ describe('C-16 · correlación por entidad expuesta por la API', () => {
   });
 });
 
+describe('C-20 · acuse atómico de notificación', () => {
+  async function deliveredAttempt(id: string) {
+    const at = new Date('2026-11-12T10:00:00.000Z');
+    const created = createAttempt({
+      id,
+      tenantId: runtime.tenantId,
+      messageId: `message-${id}`,
+      idempotencyKey: `key-${id}`,
+      at,
+    });
+    const attempt = { ...created, status: 'sent' as const, sentAt: at };
+    await runtime.notifications.save(attempt);
+    return attempt;
+  }
+
+  async function acknowledge(id: string, mutation: Record<string, string>) {
+    return server().inject({
+      method: 'POST',
+      url: `/api/notifications/${id}/acknowledge`,
+      headers: mutation,
+      remoteAddress: OFFICE_IP,
+    });
+  }
+
+  it('cambia el estado y agrega el evento con actor, correlación y metadata mínima', async () => {
+    const id = '0199bf33-0000-7000-8000-000000000101';
+    const stale = await deliveredAttempt(id);
+    const before = await runtime.soc.audit.head(runtime.tenantId);
+    const analyst = await signIn('analista@qapaq.pe');
+    const response = await acknowledge(id, analyst.mutation);
+    const body = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(201);
+    expect(body).toMatchObject({ status: 'acknowledged', acknowledgedBy: 'local-analyst-1' });
+    expect(body.acknowledgedAt).toBeTruthy();
+    const events = await runtime.soc.audit.range(
+      runtime.tenantId,
+      (before?.sequence ?? 0n) + 1n,
+      10,
+    );
+    const acknowledgements = events.filter(
+      (event) => event.action === 'soar.notification.acknowledged',
+    );
+    expect(acknowledgements).toHaveLength(1);
+    expect(acknowledgements[0]).toMatchObject({
+      action: 'soar.notification.acknowledged',
+      actor: { id: 'local-analyst-1', type: 'user' },
+      resource: { type: 'notification', id },
+      outcome: 'succeeded',
+      correlationId: body.correlationId,
+      metadata: { previousStatus: 'sent' },
+    });
+
+    // El dispatcher puede terminar después de la respuesta humana con una copia vieja.
+    await runtime.notifications.save(stale);
+    await expect(runtime.notifications.byId(runtime.tenantId, id)).resolves.toMatchObject({
+      status: 'acknowledged',
+      acknowledgedBy: 'local-analyst-1',
+    });
+  });
+
+  it('serializa dos solicitudes concurrentes y registra un solo acuse', async () => {
+    const id = '0199bf33-0000-7000-8000-000000000102';
+    await deliveredAttempt(id);
+    const before = await runtime.soc.audit.head(runtime.tenantId);
+    const analyst = await signIn('analista@qapaq.pe');
+    const results = await Promise.all([
+      acknowledge(id, analyst.mutation),
+      acknowledge(id, analyst.mutation),
+    ]);
+
+    expect(results.map((response) => response.statusCode).sort()).toEqual([201, 409]);
+    const events = await runtime.soc.audit.range(
+      runtime.tenantId,
+      (before?.sequence ?? 0n) + 1n,
+      10,
+    );
+    expect(
+      events.filter((event) => event.action === 'soar.notification.acknowledged'),
+    ).toHaveLength(1);
+  });
+
+  it('revierte el estado si el append de auditoría falla', async () => {
+    const id = '0199bf33-0000-7000-8000-000000000103';
+    await deliveredAttempt(id);
+    const analyst = await signIn('analista@qapaq.pe');
+    vi.spyOn(runtime.soc.audit, 'head').mockRejectedValueOnce(new Error('AUDIT_STORE_UNAVAILABLE'));
+
+    const response = await acknowledge(id, analyst.mutation);
+    expect(response.statusCode).toBe(500);
+    await expect(runtime.notifications.byId(runtime.tenantId, id)).resolves.toMatchObject({
+      status: 'sent',
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+    });
+  });
+});
+
 describe('Observabilidad · GET /api/operations/health por rol', () => {
+  async function withCorrelatorResponse(
+    response: { readonly status: number; readonly body: unknown } | Error,
+    run: (fetchSpy: ReturnType<typeof vi.spyOn>) => Promise<void>,
+  ) {
+    const original = runtime.correlatorRead;
+    Object.defineProperty(runtime, 'correlatorRead', {
+      configurable: true,
+      writable: true,
+      value: { baseUrl: 'http://correlator.internal:8080', token: 'test-correlator-read-token' },
+    });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      if (response instanceof Error) throw response;
+      return new Response(JSON.stringify(response.body), { status: response.status });
+    });
+    try {
+      await run(fetchSpy);
+    } finally {
+      fetchSpy.mockRestore();
+      Object.defineProperty(runtime, 'correlatorRead', {
+        configurable: true,
+        writable: true,
+        value: original,
+      });
+    }
+  }
+
   async function health(cookie: string) {
     return server().inject({
       method: 'GET',
@@ -1324,11 +1515,232 @@ describe('Observabilidad · GET /api/operations/health por rol', () => {
 
     expect(Object.keys(body.sections).sort()).toEqual(['soc', 'summary']);
     expect(body.sections.soc).toMatchObject({ persistence: 'memory', dispatcherRunning: false });
+    expect(body.sections.soc.correlator).toEqual({
+      status: 'NO_DATA',
+      ready: null,
+      feedbackStatus: 'unconfigured',
+      feedbackAgeSeconds: null,
+      lastFeedbackSuccess: null,
+    });
+    expect(body.sections.soc.outboxToProviderAcceptanceMs).toMatchObject({
+      status: 'NO_DATA',
+      sampleCount: 0,
+      p50: null,
+      p95: null,
+      p99: null,
+    });
     expect(body.sections.soc.outbox.pending).toBeGreaterThan(0);
+    expect(body.sections.soc.outbox).toMatchObject({
+      expiredProcessing: 0,
+      oldestExpiredLeaseAgeSeconds: null,
+    });
     // El harness no arranca el bucle y usa memoria: se reporta, no se oculta.
     expect(body.sections.soc.degradedReasons).toEqual(
       expect.arrayContaining(['DISPATCHER_STOPPED', 'PERSISTENCE_EPHEMERAL']),
     );
+  });
+
+  it('proyecta solo los campos permitidos de /readyz para operadores SOC', async () => {
+    const lead = await signIn('lider@qapaq.pe');
+    const readyz = {
+      ready: true,
+      status: 'ready',
+      feedbackReady: true,
+      feedbackStatus: 'ready',
+      feedbackAgeSeconds: 12.5,
+      lastFeedbackSuccess: '2026-11-12T11:59:47.500Z',
+      reason: 'must not be forwarded',
+      debug: { token: 'must not be forwarded' },
+    };
+
+    await withCorrelatorResponse({ status: 200, body: readyz }, async () => {
+      const response = await health(lead.cookie);
+      const body = JSON.parse(response.body);
+      expect(response.statusCode).toBe(200);
+      expect(body.sections.soc.correlator).toEqual({
+        status: 'OK',
+        ready: true,
+        feedbackStatus: 'ready',
+        feedbackAgeSeconds: 12.5,
+        lastFeedbackSuccess: '2026-11-12T11:59:47.500Z',
+      });
+      expect(body.sections.soc.degradedReasons).not.toContain('CORRELATOR_NOT_READY');
+      expect(response.body).not.toContain('must not be forwarded');
+      expect(response.body).not.toContain('test-correlator-read-token');
+    });
+  });
+
+  it('degrada solo SOC si /readyz falla o informa que el correlador no está listo', async () => {
+    const lead = await signIn('lider@qapaq.pe');
+    await withCorrelatorResponse(new Error('private transport detail'), async () => {
+      const response = await health(lead.cookie);
+      const body = JSON.parse(response.body);
+      expect(response.statusCode).toBe(200);
+      expect(body.status).toBe('DEGRADED');
+      expect(body.sections.soc.correlator).toEqual({
+        status: 'DEGRADED',
+        ready: null,
+        feedbackStatus: 'unavailable',
+        feedbackAgeSeconds: null,
+        lastFeedbackSuccess: null,
+      });
+      expect(body.sections.soc.degradedReasons).toContain('CORRELATOR_UNREACHABLE');
+      expect(response.body).not.toContain('private transport detail');
+    });
+
+    const leadAfter = await signIn('lider@qapaq.pe');
+    await withCorrelatorResponse(
+      {
+        status: 503,
+        body: {
+          ready: false,
+          status: 'degraded',
+          feedbackReady: false,
+          feedbackStatus: 'failed',
+          feedbackAgeSeconds: 3,
+          lastFeedbackSuccess: '2026-11-12T11:59:57.000Z',
+        },
+      },
+      async () => {
+        const response = await health(leadAfter.cookie);
+        const body = JSON.parse(response.body);
+        expect(response.statusCode).toBe(200);
+        expect(body.sections.soc.correlator).toMatchObject({
+          status: 'DEGRADED',
+          ready: false,
+          feedbackStatus: 'failed',
+        });
+        expect(body.sections.soc.degradedReasons).toContain('CORRELATOR_NOT_READY');
+      },
+    );
+
+    await withCorrelatorResponse(
+      { status: 200, body: { ready: 'yes', reason: 'bad body' } },
+      async () => {
+        const response = await health(leadAfter.cookie);
+        const body = JSON.parse(response.body);
+        expect(response.statusCode).toBe(200);
+        expect(body.sections.soc.correlator.feedbackStatus).toBe('unavailable');
+        expect(body.sections.soc.degradedReasons).toContain('CORRELATOR_UNREACHABLE');
+        expect(response.body).not.toContain('bad body');
+      },
+    );
+  });
+
+  it('no expone métricas de la inbox Wazuh a un actor de otro tenant', async () => {
+    const lead = await signIn('lider@qapaq.pe');
+    const sessionId = decodeURIComponent(lead.cookie.slice('qapaq_session='.length));
+    const session = await runtime.sessions.byId(sessionId);
+    expect(session).toBeDefined();
+    expect(session?.tenantId).toBe(runtime.sourceHealth?.key.tenantId);
+
+    const metrics = {
+      counts: { pending: 1, processing: 0, processed: 2, 'failed-terminal': 0 },
+      oldestPendingAt: new Date('2026-11-12T09:00:00.000Z'),
+      oldestProcessingAt: null,
+      oldestUnresolvedAt: new Date('2026-11-12T09:00:00.000Z'),
+      oldestTerminalAt: null,
+      lastProcessedAt: new Date('2026-11-12T09:00:01.000Z'),
+      expiredProcessing: 0,
+      terminalFailuresRecent: 0,
+      terminalWindowHours: 24 as const,
+      sourceToReceiptMs: {
+        windowHours: 24 as const,
+        sampleCount: 2,
+        clockSkewSamples: 0,
+        sampleCapReached: false,
+        p50: 10,
+        p95: 20,
+        p99: 20,
+      },
+      receiptToHandlerMs: {
+        windowHours: 24 as const,
+        sampleCount: 1,
+        p50: 5,
+        p95: 5,
+        p99: 5,
+      },
+    };
+    const readMetrics = vi.spyOn(runtime, 'wazuhPushInboxMetrics').mockResolvedValue(metrics);
+
+    try {
+      const ownTenantResponse = await health(lead.cookie);
+      expect(JSON.parse(ownTenantResponse.body).sections.soc.wazuhPushInbox.counts.pending).toBe(1);
+
+      readMetrics.mockClear();
+      const currentBeforeTenantChange = await runtime.sessions.byId(sessionId);
+      expect(currentBeforeTenantChange).toBeDefined();
+      expect(
+        await runtime.sessions.update(
+          { ...currentBeforeTenantChange!, tenantId: 'tenant-outside-wazuh-source' },
+          currentBeforeTenantChange!.revision,
+        ),
+      ).toBe(true);
+
+      const otherTenantResponse = await health(lead.cookie);
+      expect(JSON.parse(otherTenantResponse.body).sections.soc.wazuhPushInbox).toBeNull();
+      expect(readMetrics).not.toHaveBeenCalled();
+    } finally {
+      const current = await runtime.sessions.byId(sessionId);
+      if (current && current.tenantId !== session!.tenantId) {
+        await runtime.sessions.update(
+          { ...current, tenantId: session!.tenantId },
+          current.revision,
+        );
+      }
+      readMetrics.mockRestore();
+    }
+  });
+
+  it('no consulta ni expone la salud del correlador a un actor de otro tenant', async () => {
+    const lead = await signIn('lider@qapaq.pe');
+    const sessionId = decodeURIComponent(lead.cookie.slice('qapaq_session='.length));
+    const originalSession = await runtime.sessions.byId(sessionId);
+    expect(originalSession?.tenantId).toBe(runtime.tenantId);
+    expect(originalSession).toBeDefined();
+    expect(
+      await runtime.sessions.update(
+        { ...originalSession!, tenantId: 'tenant-outside-correlator' },
+        originalSession!.revision,
+      ),
+    ).toBe(true);
+
+    try {
+      await withCorrelatorResponse(
+        {
+          status: 200,
+          body: {
+            ready: true,
+            status: 'ready',
+            feedbackReady: true,
+            feedbackStatus: 'ready',
+            feedbackAgeSeconds: 1,
+            lastFeedbackSuccess: '2026-11-12T12:00:00.000Z',
+          },
+        },
+        async (fetchSpy) => {
+          const response = await health(lead.cookie);
+          const body = JSON.parse(response.body);
+          expect(response.statusCode).toBe(200);
+          expect(body.sections.soc.correlator).toEqual({
+            status: 'NO_DATA',
+            ready: null,
+            feedbackStatus: 'unconfigured',
+            feedbackAgeSeconds: null,
+            lastFeedbackSuccess: null,
+          });
+          expect(fetchSpy).not.toHaveBeenCalled();
+        },
+      );
+    } finally {
+      const currentSession = await runtime.sessions.byId(sessionId);
+      if (currentSession && currentSession.tenantId !== originalSession!.tenantId) {
+        await runtime.sessions.update(
+          { ...currentSession, tenantId: originalSession!.tenantId },
+          currentSession.revision,
+        );
+      }
+    }
   });
 
   it('el administrador de plataforma ve las tres secciones', async () => {
@@ -1337,6 +1749,9 @@ describe('Observabilidad · GET /api/operations/health por rol', () => {
 
     expect(Object.keys(body.sections).sort()).toEqual(['platform', 'soc', 'summary']);
     expect(body.sections.platform.databaseLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(body.sections.soc.outboxToProviderAcceptanceMs.acceptanceMeans).toContain(
+      'does not mean a person read it',
+    );
   });
 
   it('el auditor no tiene acceso y no se revela la existencia de la ruta', async () => {
@@ -1879,6 +2294,40 @@ describe('Sprint 5 · fase 2 · GET /api/sources/health', () => {
     expect((await health((await signIn('auditor@qapaq.pe')).cookie)).status).toBe(200);
     expect((await health((await signIn('analista@qapaq.pe')).cookie)).status).toBe(404);
   });
+
+  it('expone el desglose del último sondeo y conserva null en métricas históricas', async () => {
+    const key = runtime.sourceHealth!.key;
+    const attemptedAt = runtime.now();
+    await runtime.soc.ingestion.recordObservation({
+      id: '11111111-1111-4111-8111-111111111111',
+      ...key,
+      attemptedAt,
+      completedAt: attemptedAt,
+      outcome: 'success',
+      recordsSeen: 4,
+      normalized: 2,
+      promoted: 1,
+      quarantined: 1,
+      duplicates: null,
+      notPromoted: null,
+      belowThreshold: 1,
+      suppressed: 2,
+      newestEventAt: null,
+      errorClass: null,
+    });
+    const response = await health((await signIn('lider@qapaq.pe')).cookie);
+    expect(response.body.sources[0].processing).toMatchObject({
+      outcome: 'success',
+      recordsSeen: 4,
+      normalized: 2,
+      promoted: 1,
+      quarantined: 1,
+      duplicates: null,
+      notPromoted: null,
+      belowThreshold: 1,
+      suppressed: 2,
+    });
+  });
 });
 
 describe('Sprint 5 · fase 3 · GET /api/admin/users', () => {
@@ -1896,6 +2345,67 @@ describe('Sprint 5 · fase 3 · GET /api/admin/users', () => {
       items: [],
       totalCount: 0,
     });
+  });
+
+  it('Graph configurado sin permiso: «permiso faltante» en Miembros y Solicitudes, no un error', async () => {
+    const pending: RuntimeDirectory = {
+      mode: 'pending',
+      intervalMs: 900_000,
+      lastErrorCode: 'DIRECTORY_PERMISSION_MISSING',
+      diagnostic: {
+        status: 403,
+        errorCode: 'Authorization_RequestDenied',
+        requestId: 'graph-request-123',
+        operation: 'resolveGroupId',
+      },
+      lastAttemptAt: new Date(),
+      nextAttemptAt: new Date(Date.now() + 60_000),
+    };
+    Object.defineProperty(runtime, 'directory', { value: pending, configurable: true });
+    try {
+      const admin = await signIn('admin@qapaq.pe');
+      const call = (url: string) =>
+        server().inject({
+          method: 'GET',
+          url,
+          headers: { cookie: admin.cookie },
+          remoteAddress: OFFICE_IP,
+        });
+      const users = await call('/api/admin/users');
+      expect(users.statusCode).toBe(200);
+      expect(JSON.parse(users.body).sync).toMatchObject({
+        mode: 'graph',
+        status: 'failed',
+        lastErrorClass: 'DIRECTORY_PERMISSION_MISSING',
+        groupResolved: false,
+        permissionMissing: true,
+        diagnostic: {
+          status: 403,
+          errorCode: 'Authorization_RequestDenied',
+          requestId: 'graph-request-123',
+          operation: 'resolveGroupId',
+        },
+        stale: true,
+      });
+      const requests = await call('/api/admin/role-requests');
+      expect(requests.statusCode).toBe(200);
+      expect(JSON.parse(requests.body)).toMatchObject({
+        items: [],
+        nextCursor: null,
+        directory: { status: 'pending', permissionMissing: true },
+      });
+      // Sin capability de roles sigue siendo indistinguible de un recurso inexistente.
+      const lead = await signIn('lider@qapaq.pe');
+      const hidden = await server().inject({
+        method: 'GET',
+        url: '/api/admin/role-requests',
+        headers: { cookie: lead.cookie },
+        remoteAddress: OFFICE_IP,
+      });
+      expect(hidden.statusCode).toBe(404);
+    } finally {
+      delete (runtime as unknown as { directory?: unknown }).directory;
+    }
   });
 
   it('sin users.read responde igual que un recurso inexistente', async () => {
@@ -1997,5 +2507,261 @@ describe('Sprint 5 · avisos al dispositivo · /api/me/push', () => {
     expect(Array.isArray(pending.items)).toBe(true);
     for (const item of pending.items)
       expect(item.url).toMatch(/^https:\/\/.+\/(alerts|incidents)\//u);
+  });
+});
+
+describe('acceso con usuario y contraseña', () => {
+  const PASSWORD = 'qapaq-dev-password';
+
+  function submit(
+    fields: Record<string, string>,
+    headers: Record<string, string> = {},
+    remoteAddress = officeIp,
+  ) {
+    return server().inject({
+      method: 'POST',
+      url: '/api/auth/password',
+      remoteAddress,
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+      payload: new URLSearchParams(fields).toString(),
+    });
+  }
+
+  it('con credenciales válidas abre sesión y vuelve al destino pedido', async () => {
+    const response = await submit({
+      username: 'analista@qapaq.pe',
+      password: PASSWORD,
+      returnTo: '/app/qapaq-alerts',
+    });
+    expect(response.statusCode).toBe(303);
+    // Puede añadir el aviso de sesión reemplazada si otra prueba abrió una antes.
+    expect(new URL(response.headers.location as string, 'http://local').pathname).toBe(
+      '/app/qapaq-alerts',
+    );
+    const cookie = cookiePair(response, 'qapaq_session=');
+    expect(cookie).not.toBe('');
+    const session = await server().inject({
+      method: 'GET',
+      url: '/api/auth/session',
+      headers: { cookie },
+      remoteAddress: officeIp,
+    });
+    expect(session.statusCode).toBe(200);
+    expect(JSON.parse(session.body).roles).toEqual(['qapaq.soc.analyst']);
+  });
+
+  it('también acepta JSON', async () => {
+    const response = await server().inject({
+      method: 'POST',
+      url: '/api/auth/password',
+      remoteAddress: officeIp,
+      payload: { username: 'Analista@QAPAQ.pe', password: PASSWORD },
+    });
+    expect(response.statusCode).toBe(303);
+    expect(cookiePair(response, 'qapaq_session=')).not.toBe('');
+  });
+
+  it('una contraseña errónea y un usuario inexistente son indistinguibles', async () => {
+    const wrong = await submit({ username: 'analista@qapaq.pe', password: 'no-es' });
+    const unknown = await submit({ username: 'nadie@qapaq.pe', password: PASSWORD });
+    for (const response of [wrong, unknown]) {
+      expect(response.statusCode).toBe(303);
+      expect(cookiePair(response, 'qapaq_session=')).toBe('');
+      expect(authErrorOf(response)).toBe('AUTH_FAILED');
+    }
+  });
+
+  it('sin rol asignado no entra aunque la contraseña sea correcta', async () => {
+    const response = await submit({ username: 'sinrol@qapaq.pe', password: PASSWORD });
+    expect(cookiePair(response, 'qapaq_session=')).toBe('');
+    expect(authErrorOf(response)).toBe('AUTH_FAILED');
+  });
+
+  it('fuera de la red exige passkey: la contraseña sola no basta', async () => {
+    const response = await submit(
+      { username: 'analista@qapaq.pe', password: PASSWORD },
+      {},
+      REMOTE_IP,
+    );
+    expect(cookiePair(response, 'qapaq_session=')).toBe('');
+    expect(authErrorOf(response)).not.toBeNull();
+  });
+
+  it('bloquea tras varios intentos fallidos aunque luego llegue la contraseña correcta', async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await submit({ username: 'auditor@qapaq.pe', password: 'incorrecta' });
+    }
+    const response = await submit({ username: 'auditor@qapaq.pe', password: PASSWORD });
+    expect(cookiePair(response, 'qapaq_session=')).toBe('');
+    expect(authErrorOf(response)).toBe('AUTH_FAILED');
+  });
+
+  it('rechaza peticiones de otro sitio (login CSRF)', async () => {
+    const crossSite = await submit(
+      { username: 'analista@qapaq.pe', password: PASSWORD },
+      { 'sec-fetch-site': 'cross-site' },
+    );
+    const foreignOrigin = await submit(
+      { username: 'analista@qapaq.pe', password: PASSWORD },
+      { origin: 'https://evil.example', host: 'soc.qapaq.pe' },
+    );
+    for (const response of [crossSite, foreignOrigin]) {
+      expect(cookiePair(response, 'qapaq_session=')).toBe('');
+      expect(authErrorOf(response)).toBe('REQUEST_NOT_VERIFIED');
+    }
+  });
+
+  it('no permite un destino fuera del origen', async () => {
+    const response = await submit({
+      username: 'analista@qapaq.pe',
+      password: PASSWORD,
+      returnTo: 'https://evil.example/',
+    });
+    expect(new URL(response.headers.location as string, 'http://local').pathname).toBe('/');
+  });
+});
+
+describe('Qapaqzito · asistente de IA', () => {
+  const usage = { inputTokens: 10, outputTokens: 5 };
+
+  /** Modelo falso: pide una herramienta y responde con lo que esa herramienta devolvió. */
+  function fakeAssistant(toolName: string, input: Record<string, unknown> = {}) {
+    const seen: string[] = [];
+    runtime.assistant = {
+      config: {
+        enabled: true,
+        provider: 'anthropic',
+        model: 'claude-opus-5-5',
+        effort: 'medium',
+        redactPii: true,
+        apiKey: 'test',
+        rateLimit: { max: 3, windowMs: 60_000 },
+      },
+      limiter: new SlidingWindowLimiter(3, 60_000),
+      model: {
+        async complete(request) {
+          const last = request.messages[request.messages.length - 1];
+          const resultBlock = Array.isArray(last?.content)
+            ? last.content.find((block) => block.type === 'tool_result')
+            : undefined;
+          if (!resultBlock || resultBlock.type !== 'tool_result') {
+            seen.push(...request.tools.map((tool) => tool.name));
+            return {
+              content: [{ type: 'tool_use', id: 'tu_1', name: toolName, input }],
+              stopReason: 'tool_use',
+              usage,
+            };
+          }
+          return {
+            content: [{ type: 'text', text: `Resultado: ${resultBlock.content.slice(0, 400)}` }],
+            stopReason: 'end_turn',
+            usage,
+          };
+        },
+      },
+    };
+    return seen;
+  }
+
+  async function ask(
+    session: { cookie: string; csrf: string },
+    message: string,
+    extra: Record<string, string> = {},
+  ) {
+    return server().inject({
+      method: 'POST',
+      url: '/api/assistant/chat',
+      remoteAddress: officeIp,
+      headers: { cookie: session.cookie, 'x-csrf-token': session.csrf, ...extra },
+      payload: { message, page: '/app/qapaq-alerts' },
+    });
+  }
+
+  it('sin QAPAQ_QAPAQZITO_ENABLED no existe', async () => {
+    runtime.assistant = undefined;
+    const analyst = await signIn('analista@qapaq.pe');
+    expect((await ask(analyst, 'hola')).statusCode).toBe(404);
+    const config = await server().inject({
+      method: 'GET',
+      url: '/api/assistant/config',
+      headers: { cookie: analyst.cookie },
+      remoteAddress: officeIp,
+    });
+    expect(JSON.parse(config.body).enabled).toBe(false);
+  });
+
+  it('lee el SOC con la sesión de la persona y ve solo las herramientas de su rol', async () => {
+    await ingest('01890f47-7abc-7def-8abc-00000000b001');
+    const seen = fakeAssistant('find_alerts', { priority: 'P1' });
+    const analyst = await signIn('analista@qapaq.pe');
+    const response = await ask(analyst, '¿Qué alertas P1 hay?');
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.reply).toContain('DATOS DEL SOC');
+    expect(body.steps).toEqual([{ tool: 'find_alerts', label: 'Buscando alertas', ok: true }]);
+    expect(body.citations).toEqual([]);
+    // Un analista no tiene permisos de auditoría ni de administración de usuarios.
+    expect(seen).toContain('find_alerts');
+    expect(seen).not.toContain('audit_events');
+    expect(seen).not.toContain('list_users');
+  });
+
+  it('una herramienta fuera del rol sigue bloqueada por la API', async () => {
+    fakeAssistant('audit_events');
+    const analyst = await signIn('analista@qapaq.pe');
+    const body = JSON.parse((await ask(analyst, 'auditoría')).body);
+    // El modelo la pidió aunque no se le ofreció: se rechaza como herramienta desconocida.
+    expect(body.steps).toEqual([
+      { tool: 'audit_events', label: 'Herramienta desconocida', ok: false },
+    ]);
+  });
+
+  it('exige el token CSRF y valida el cuerpo', async () => {
+    fakeAssistant('find_alerts');
+    const analyst = await signIn('analista@qapaq.pe');
+    const noCsrf = await server().inject({
+      method: 'POST',
+      url: '/api/assistant/chat',
+      remoteAddress: officeIp,
+      headers: { cookie: analyst.cookie },
+      payload: { message: 'hola' },
+    });
+    expect(noCsrf.statusCode).toBe(403);
+    const invalid = await server().inject({
+      method: 'POST',
+      url: '/api/assistant/chat',
+      remoteAddress: officeIp,
+      headers: { cookie: analyst.cookie, 'x-csrf-token': analyst.csrf },
+      payload: { message: 12 },
+    });
+    expect(invalid.statusCode).toBe(422);
+  });
+
+  it('limita las preguntas por persona y audita cada una sin guardar el texto', async () => {
+    fakeAssistant('whoami');
+    const analyst = await signIn('analista@qapaq.pe');
+    for (let index = 0; index < 3; index += 1) {
+      expect((await ask(analyst, `pregunta ${index}`)).statusCode).toBe(200);
+    }
+    expect((await ask(analyst, 'una más')).statusCode).toBe(429);
+    const events = await runtime.audit.read({
+      tenantId: runtime.tenantId,
+      from: new Date(Date.now() - 3_600_000),
+      to: new Date(Date.now() + 3_600_000),
+      pageSize: 200,
+      cursor: null,
+      action: 'assistant.ask',
+      actorId: null,
+      resourceType: null,
+      resourceId: null,
+      outcome: [],
+      includeSensitive: false,
+    });
+    const asks = events.events;
+    // La auditoría es compartida entre pruebas: al menos las 3 de esta persona.
+    expect(asks.length).toBeGreaterThanOrEqual(3);
+    expect(
+      JSON.stringify(asks, (_key, value) => (typeof value === 'bigint' ? String(value) : value)),
+    ).not.toContain('pregunta');
   });
 });

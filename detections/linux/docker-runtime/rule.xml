@@ -1,0 +1,45 @@
+<!--
+  QAPAQ SOC · detección como código · detections/linux/docker-runtime (metadata.yaml).
+  Eventos del daemon Docker del nodo del SOC (wodle docker-listener del grupo linux-docker-hosts).
+  Las reglas oficiales 87900-87999 cubren el ciclo de vida; estas suben la severidad cuando la acción toca
+  los contenedores que guardan las alertas, las credenciales o el tráfico del SOC.
+  Se instala como qapaq_soc_linux_docker_runtime.xml.
+-->
+<group name="docker,qapaq_linux,">
+
+  <rule id="101850" level="10">
+    <if_sid>87907, 87908</if_sid>
+    <field name="docker.Action" type="pcre2">^exec_start: (/bin/|/usr/bin/)?(bash|sh|dash|zsh|ash) $</field>
+    <field name="docker.Actor.Attributes.name" type="pcre2">(?i)(wazuh\.manager|wazuh\.indexer|wazuh\.dashboard|postgres|qapaq-api|qapaq-edge|shuffle-backend|shuffle-opensearch|respond-sso)</field>
+    <description>QAPAQ Linux: shell interactiva abierta dentro del contenedor crítico del SOC $(docker.Actor.Attributes.name).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1609</id>
+    </mitre>
+    <group>qapaq_container,</group>
+  </rule>
+
+  <rule id="101851" level="6">
+    <if_sid>87907</if_sid>
+    <field name="docker.Actor.Attributes.name" type="pcre2">(?i)(wazuh\.manager|wazuh\.indexer|wazuh\.dashboard|postgres|qapaq-api|qapaq-edge|shuffle-backend|shuffle-opensearch|respond-sso)</field>
+    <description>QAPAQ Linux: comando ejecutado dentro del contenedor crítico del SOC $(docker.Actor.Attributes.name): $(docker.Action).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1609</id>
+    </mitre>
+    <group>qapaq_container,</group>
+  </rule>
+
+  <rule id="101852" level="8">
+    <if_sid>87901</if_sid>
+    <field name="docker.Type">^container$</field>
+    <field name="docker.Actor.Attributes.image" type="pcre2">(?i)(^|/)(alpine|busybox|ubuntu|debian|kalilinux/kali|parrotsec|nicolaka/netshoot|instrumentisto/nmap)(:|$)</field>
+    <description>QAPAQ Linux: se creó un contenedor de propósito general o de herramientas ($(docker.Actor.Attributes.image)) en el nodo del SOC: $(docker.Actor.Attributes.name).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1610</id>
+    </mitre>
+    <group>qapaq_container,</group>
+  </rule>
+
+</group>

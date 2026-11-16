@@ -1,0 +1,619 @@
+{
+  "id": "e81e0bcd-7d47-5032-bddb-a86961ad1e45",
+  "name": "QAPAQ · Triage y enriquecimiento de alertas",
+  "description": "Triage de solo lectura para alertas Wazuh de nivel ≥ 12: valida y deduplica, lee la prioridad QAPAQ y el contexto del agente, deja una nota auditada en el incidente y avisa por el servicio de correo QAPAQ. Sin acciones con efectos (no requiere aprobación).",
+  "start": "7ca91096-a20d-5840-be4c-dfcf03fdb04a",
+  "actions": [
+    {
+      "id": "7ca91096-a20d-5840-be4c-dfcf03fdb04a",
+      "label": "validar_y_deduplicar",
+      "name": "execute_python",
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": true,
+      "description": "Valida el contrato v1, deduplica por alert.id (executionKey) y clasifica la fuente.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "code",
+          "value": "import json\n# QAPAQ · validar y deduplicar (contrato custom-qapaq-shuffle v1: sin usuario, IP ni full_log).\ndata = json.loads(r\"\"\"$exec\"\"\") if isinstance(r\"\"\"$exec\"\"\", str) else $exec\nalert = data.get(\"alert\", {})\nrule = alert.get(\"rule\", {})\ngroups = set(rule.get(\"groups\", []))\nif data.get(\"schemaVersion\") != \"1.0.0\" or data.get(\"source\") != \"wazuh\" or int(rule.get(\"level\", 0)) < 12:\n    print(json.dumps({\"valid\": \"false\", \"reason\": \"fuera de contrato\"}))\nelse:\n    source = next((s for g, s in [(\"office365\", \"m365\"), (\"aws\", \"aws\"), (\"bitdefender\", \"bitdefender\"),\n                                   (\"snyk\", \"snyk\"), (\"cloudflare\", \"cloudflare\"), (\"sshd\", \"linux\"),\n                                   (\"syscheck\", \"linux\")] if g in groups), \"otro\")\n    runbooks = {\"m365\": \"credenciales.md\", \"aws\": \"cloudtrail-y-auditoria.md\", \"bitdefender\": \"malware-edr.md\",\n                \"snyk\": \"vulnerabilidad-expuesta.md\", \"cloudflare\": \"oleada-waf.md\", \"linux\": \"credenciales.md#ssh\"}\n    print(json.dumps({\"valid\": \"true\", \"executionKey\": alert.get(\"id\"), \"source\": source,\n                      \"rule_id\": rule.get(\"id\"), \"level\": rule.get(\"level\"), \"description\": rule.get(\"description\"),\n                      \"chain\": \"true\" if \"qapaq_attack_chain\" in groups else \"false\",\n                      \"agent_id\": alert.get(\"agent\", {}).get(\"id\"),\n                      \"runbook\": \"docs/detection-engineering/runbooks/\" + runbooks.get(source, \"README.md\")}))\n",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "13d4c732-53f9-58fd-8c83-0d94651f97e9",
+      "label": "buscar_alerta_qapaq",
+      "name": "GET",
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Lee la alerta priorizada en QAPAQ (P1–P4 y razones). Solo lectura.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "url",
+          "value": "$qapaq_api/api/alerts?q=$validar_y_deduplicar.message.rule_id&status=active&limit=1",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "headers",
+          "value": "Accept: application/json\nAuthorization: <autenticación Shuffle «qapaq-api-lectura» (rol qapaq.soc.analyst), nunca en el JSON>",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "verify",
+          "value": "true",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "timeout",
+          "value": "15",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "to_file",
+          "value": "false",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "ddc7b58a-80ea-5047-9e63-0fb90ab694d2",
+      "label": "contexto_agente_wazuh",
+      "name": "GET",
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Contexto del agente (estado, SO, grupo). Usuario de la API de Wazuh de solo lectura.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "url",
+          "value": "$wazuh_api/agents?agents_list=$validar_y_deduplicar.message.agent_id&select=name,status,os.name,group,lastKeepAlive",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "headers",
+          "value": "Accept: application/json\nAuthorization: <autenticación Shuffle «wazuh-api-lectura»>",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "verify",
+          "value": "true",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "timeout",
+          "value": "15",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "to_file",
+          "value": "false",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 400,
+        "y": 150
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "97662a14-be80-570d-af5b-031b83b8de20",
+      "label": "resumen_triage",
+      "name": "execute_python",
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Arma la nota y el aviso en español con prioridad, runbook y cadena.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "code",
+          "value": "import json\n# QAPAQ · resumen de triage en español (sin datos personales: solo referencias).\nv = $validar_y_deduplicar.message\nqapaq = $buscar_alerta_qapaq.body if \"$buscar_alerta_qapaq.status\" == \"200\" else {}\nitem = (qapaq.get(\"items\") or [{}])[0] if isinstance(qapaq, dict) else {}\nlevel = int(v.get(\"level\", 0))\nsev = \"CRÍTICA\" if level >= 12 else \"ALTA\"\nlines = [\n    f\"Regla {v['rule_id']} (nivel {level}): {v['description']}\",\n    f\"Fuente: {v['source']} · cadena de ataque: {'sí' if v['chain'] == 'true' else 'no'}\",\n    f\"Prioridad QAPAQ: {item.get('priority', 'pendiente de ingesta')} · alerta QAPAQ: {item.get('id', 'sin enlazar')}\",\n    f\"Runbook: {v['runbook']}\",\n    \"Siguiente paso: el analista de guardia acusa en QAPAQ (SLA según prioridad) y sigue el runbook.\",\n    \"Ankay no ejecutó ninguna acción con efectos.\",\n]\nrecipients = [{\"emailAddress\": {\"address\": a.strip()}} for a in \"$qapaq_mail_to\".split(\",\") if \"@\" in a]\nprint(json.dumps({\"title\": v[\"description\"][:120], \"severity_label\": sev, \"incident_id\": item.get(\"incidentId\", \"\"),\n                  \"alert_id\": item.get(\"id\", \"\"), \"note\": \"\\n\".join(lines),\n                  \"mail_text\": \"\\n\".join(lines) + \"\\n\\nConsola: $qapaq_console\", \"recipients\": recipients}))\n",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "bf59e777-dcc3-57b5-b01a-2369ad9a5b60",
+      "label": "nota_en_incidente_qapaq",
+      "name": "POST",
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Nota auditada en el incidente QAPAQ (si la alerta ya está en un incidente).",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "url",
+          "value": "$qapaq_api/api/incidents/$resumen_triage.message.incident_id/notes",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "body",
+          "value": "{\"body\":\"Ankay · triage automático\\n$resumen_triage.message.note\"}",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "headers",
+          "value": "Content-Type: application/json\nAuthorization: <autenticación Shuffle «qapaq-api-notas» (capacidad incidents.note)>",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "verify",
+          "value": "true",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "timeout",
+          "value": "15",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "to_file",
+          "value": "false",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "c96b42dd-d962-5256-af56-b1b2bc06190a",
+      "label": "aviso_correo_qapaq",
+      "name": "POST",
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Servicio de correo QAPAQ (mismo contrato que wazuh/alert-mail: Graph sendMail desde el buzón SOC).",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "url",
+          "value": "https://graph.microsoft.com/v1.0/users/$qapaq_mail_from/sendMail",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "body",
+          "value": "{\"message\":{\"subject\":\"QAPAQ SOC · $resumen_triage.message.severity_label · $resumen_triage.message.title\",\"body\":{\"contentType\":\"Text\",\"content\":\"$resumen_triage.message.mail_text\"},\"toRecipients\":$resumen_triage.message.recipients},\"saveToSentItems\":false}",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "headers",
+          "value": "Content-Type: application/json\nAuthorization: <autenticación Shuffle «qapaq-correo-graph» (Mail.Send acotado al buzón SOC por Application Access Policy)>",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "verify",
+          "value": "true",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "timeout",
+          "value": "15",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "to_file",
+          "value": "false",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 800,
+        "y": 150
+      },
+      "priority": 0,
+      "execution_delay": 0
+    }
+  ],
+  "triggers": [
+    {
+      "id": "e93bee2a-6b42-5fd3-afc8-90984798da1b",
+      "label": "alerta_wazuh_nivel_12",
+      "name": "Webhook",
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "trigger_type": "WEBHOOK",
+      "status": "stopped",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "description": "Webhook del adaptador infra/wazuh/shuffle (alertas nivel ≥ 12, payload v1 mínimo).",
+      "parameters": [
+        {
+          "name": "url",
+          "value": ""
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "X-Qapaq-Integration=<referencia, no el secreto>"
+        }
+      ],
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "large_image": ""
+    }
+  ],
+  "branches": [
+    {
+      "id": "67b17406-d5d3-5dad-96b4-f965d78a84c0",
+      "source_id": "e93bee2a-6b42-5fd3-afc8-90984798da1b",
+      "destination_id": "7ca91096-a20d-5840-be4c-dfcf03fdb04a",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    },
+    {
+      "id": "eba368ed-4779-58ec-ba49-d669843568cd",
+      "source_id": "7ca91096-a20d-5840-be4c-dfcf03fdb04a",
+      "destination_id": "13d4c732-53f9-58fd-8c83-0d94651f97e9",
+      "label": "",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "name": "source",
+            "value": "$validar_y_deduplicar.message.valid",
+            "variant": "STATIC_VALUE"
+          },
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "true",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "581e0a4e-d40c-50d5-945c-4720fed32bf3",
+      "source_id": "7ca91096-a20d-5840-be4c-dfcf03fdb04a",
+      "destination_id": "ddc7b58a-80ea-5047-9e63-0fb90ab694d2",
+      "label": "",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "name": "source",
+            "value": "$validar_y_deduplicar.message.valid",
+            "variant": "STATIC_VALUE"
+          },
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "true",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "65e6891e-8b2e-52b3-8e8e-d983ca96817d",
+      "source_id": "13d4c732-53f9-58fd-8c83-0d94651f97e9",
+      "destination_id": "97662a14-be80-570d-af5b-031b83b8de20",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    },
+    {
+      "id": "525aed94-ca49-5ea4-a62a-953a86da3741",
+      "source_id": "97662a14-be80-570d-af5b-031b83b8de20",
+      "destination_id": "bf59e777-dcc3-57b5-b01a-2369ad9a5b60",
+      "label": "",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "name": "source",
+            "value": "$resumen_triage.message.incident_id",
+            "variant": "STATIC_VALUE"
+          },
+          "condition": {
+            "name": "condition",
+            "value": "does not equal"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "2375fb8d-e91d-5242-8a70-c804df495809",
+      "source_id": "97662a14-be80-570d-af5b-031b83b8de20",
+      "destination_id": "c96b42dd-d962-5256-af56-b1b2bc06190a",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    }
+  ],
+  "workflow_variables": [
+    {
+      "id": "469a75d9-2173-5d26-bbdc-1b597e3f31a3",
+      "name": "qapaq_api",
+      "value": "https://dev.security.qapaq.pe",
+      "description": "Base de la API QAPAQ (misma sesión de servicio de solo lectura)"
+    },
+    {
+      "id": "28e2665f-dce1-5892-ad57-8a9cba752fcb",
+      "name": "qapaq_console",
+      "value": "https://dev.security.qapaq.pe/app/qapaq-alerts",
+      "description": "Enlace de consola en avisos"
+    },
+    {
+      "id": "82e6f92f-ecf5-5530-be8f-924c144ee174",
+      "name": "qapaq_mail_from",
+      "value": "<buzón SOC: ALERT_EMAIL_FROM de wazuh/alert-mail>",
+      "description": "Remitente del servicio de correo QAPAQ"
+    },
+    {
+      "id": "60d67ad7-3f21-5fa0-b8fc-66d51a7db055",
+      "name": "qapaq_mail_to",
+      "value": "<lista SOC (Líder SOC y guardia)>",
+      "description": "Destinatarios del aviso"
+    },
+    {
+      "id": "48e1c5d6-0921-52a8-8fba-36a471aa8ffa",
+      "name": "wazuh_api",
+      "value": "https://wazuh.manager:55000",
+      "description": "API del manager (red interna del host)"
+    }
+  ],
+  "execution_variables": [],
+  "tags": [
+    "qapaq",
+    "ankay",
+    "triage",
+    "solo-lectura"
+  ],
+  "configuration": {
+    "exit_on_error": false,
+    "start_from_top": false,
+    "skip_notifications": true
+  },
+  "sharing": "private",
+  "status": "test",
+  "is_valid": true,
+  "previously_saved": true,
+  "org_id": "",
+  "workflow_type": "",
+  "qapaq": {
+    "catalog_id": "qapaq.triage-enrichment",
+    "version": "1.0.0",
+    "risk": "low",
+    "approval": "not-required-read-only",
+    "external_effects": [
+      "nota en incidente QAPAQ",
+      "correo al SOC"
+    ],
+    "containment": false,
+    "status": "exportable-no-importado",
+    "docs": "docs/detection-engineering/04-playbooks-ankay.md"
+  }
+}

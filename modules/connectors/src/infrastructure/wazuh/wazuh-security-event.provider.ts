@@ -23,6 +23,22 @@ export interface WazuhSearchResponse {
   readonly hits?: { readonly hits?: readonly WazuhSearchHit[]; readonly total?: unknown };
   readonly aggregations?: unknown;
 }
+
+/** Minimal QAPAQ hint used to resolve an alert back to its complete Indexer document. */
+export interface WazuhAlertHint {
+  readonly managerName: string;
+  readonly alertId: string;
+  readonly occurredAt: string;
+}
+
+export type WazuhAlertHintLookup =
+  | { readonly status: 'found'; readonly record: ProviderRecord }
+  | { readonly status: 'missing' | 'ambiguous' };
+
+/** Wazuh-specific extension to the provider port; generic providers do not have this lookup. */
+export interface WazuhAlertHintLookupProvider {
+  findByAlertHint(hint: WazuhAlertHint, signal?: AbortSignal): Promise<WazuhAlertHintLookup>;
+}
 export interface WazuhReadClient {
   health(signal?: AbortSignal): Promise<{ readonly status: string }>;
   search(
@@ -34,7 +50,7 @@ export interface WazuhReadClient {
 
 export interface WazuhConnectorTelemetryEvent {
   readonly connector: 'wazuh';
-  readonly operation: 'health' | 'search_security_events';
+  readonly operation: 'health' | 'search_security_events' | 'lookup_alert_hint';
   readonly result: 'success' | 'failure';
   readonly errorClass?: string;
   readonly durationMs: number;
@@ -68,7 +84,16 @@ export interface WazuhSecurityEventProviderOptions {
    * root, que conoce la fuente). Sin él, la actividad no está disponible.
    */
   readonly activityField?: string;
+  /**
+   * Grupos de regla (`rule.groups`) que identifican a un proveedor integrado por un collector
+   * (p. ej. `snyk`, `bitdefender`). Cada grupo se mide como stream `provider.<grupo>` en la
+   * misma consulta de `readActivity`.
+   */
+  readonly activityGroups?: readonly string[];
 }
+
+/** Prefijo de los streams por proveedor en `readActivity`. */
+export const PROVIDER_STREAM_PREFIX = 'provider.';
 
 interface CursorPayload {
   readonly v: 1;
@@ -88,6 +113,10 @@ const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
 /** Streams como máximo en una medición de actividad (Office 365 publica cinco). */
 const ACTIVITY_STREAMS = 10;
 const DATASET = 'wazuh-alerts';
+/** Window around the alert timestamp to tolerate ingestion/serialization clock precision. */
+const ALERT_HINT_TIME_TOLERANCE_MS = 2 * 60_000;
+const ALERT_HINT_MAX_ID_LENGTH = 128;
+const ALERT_HINT_MAX_MANAGER_LENGTH = 256;
 const RFC3339_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
 
 /**
@@ -200,10 +229,25 @@ function canonicalFilters(filters: EventFilters | undefined): EventFilters | und
   if (!filters) return undefined;
   const severity = [...new Set(filters.severity ?? [])].sort();
   const category = [...new Set(filters.category ?? [])].sort();
-  const result: { severity?: string[]; category?: string[]; outcome?: string } = {};
+  const entities = [
+    ...new Map(
+      (filters.entities ?? []).map((entity) => [`${entity.kind}:${entity.value}`, entity]),
+    ).values(),
+  ]
+    .map((entity) => ({ kind: entity.kind, value: entity.value }))
+    .sort((left, right) =>
+      `${left.kind}:${left.value}`.localeCompare(`${right.kind}:${right.value}`),
+    );
+  const result: {
+    severity?: string[];
+    category?: string[];
+    outcome?: string;
+    entities?: { kind: 'user' | 'ip'; value: string }[];
+  } = {};
   if (severity.length > 0) result.severity = severity;
   if (category.length > 0) result.category = category;
   if (filters.outcome) result.outcome = filters.outcome;
+  if (entities.length > 0) result.entities = entities;
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
@@ -222,6 +266,28 @@ function jsonObject(value: unknown): JsonObject | undefined {
   } catch {
     return undefined;
   }
+}
+
+function totalHitsValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value;
+  if (!isObject(value)) return undefined;
+  const count = value['value'];
+  return typeof count === 'number' && Number.isSafeInteger(count) && count >= 0 ? count : undefined;
+}
+
+function alertIdFromSource(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return String(value);
+  return undefined;
+}
+
+function matchesAlertHint(raw: JsonObject, hint: WazuhAlertHint, occurredAtMs: number): boolean {
+  const manager = raw['manager'];
+  if (!isObject(manager) || manager['name'] !== hint.managerName) return false;
+  if (alertIdFromSource(raw['id']) !== hint.alertId) return false;
+  const timestamp = normalizeWazuhTimestamp(raw['timestamp']);
+  if (!timestamp) return false;
+  return Math.abs(Date.parse(timestamp) - occurredAtMs) <= ALERT_HINT_TIME_TOLERANCE_MS;
 }
 
 function parseCursor(
@@ -286,6 +352,34 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
     this.#now = options.now ?? Date.now;
   }
 
+  private async searchWithRetries(
+    body: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
+  ): Promise<WazuhSearchResponse> {
+    let response: WazuhSearchResponse | undefined;
+    for (let attempt = 0; attempt <= (this.options.retryLimit ?? 0); attempt += 1) {
+      try {
+        response = await this.options.client.search(body, signal);
+        break;
+      } catch (error) {
+        if (!transient(error) || attempt >= (this.options.retryLimit ?? 0)) throw error;
+        const cap = Math.min(this.options.maximumBackoffMs ?? 5_000, 100 * 2 ** attempt);
+        const wait = retryAfterMs(error) ?? Math.floor(Math.random() * cap);
+        await delay(wait, signal);
+      }
+    }
+    if (!response) throw new SecurityEventProviderError('PROVIDER_UNAVAILABLE', 'readPage', true);
+    let encoded: string;
+    try {
+      encoded = JSON.stringify(response);
+    } catch {
+      throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+    }
+    if (Buffer.byteLength(encoded) > this.options.maximumResponseBytes)
+      throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+    return response;
+  }
+
   public async capabilities(): Promise<SourceCapabilities> {
     return {
       providerType: 'wazuh',
@@ -297,6 +391,155 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
       maxPageSize: this.options.maximumPageSize,
       ordering: { primaryField: 'timestamp', tieBreaker: 'id' },
     };
+  }
+
+  /**
+   * Resolves a minimized alert hint to the complete source document. This method only reads;
+   * it never promotes an event. The manager/id field paths are constrained constants, and the
+   * returned source is checked again because Indexer mappings or fixtures may not match them.
+   */
+  public async findByAlertHint(
+    hint: WazuhAlertHint,
+    signal?: AbortSignal,
+  ): Promise<WazuhAlertHintLookup> {
+    const started = this.#now();
+    if (signal?.aborted)
+      throw new SecurityEventProviderError('PROVIDER_TIMEOUT', 'readPage', false);
+    const managerName = hint.managerName;
+    const alertId = hint.alertId;
+    const normalizedOccurredAt = normalizeWazuhTimestamp(hint.occurredAt);
+    if (
+      !this.options.allowedDatasets.includes(DATASET) ||
+      typeof managerName !== 'string' ||
+      managerName.length < 1 ||
+      managerName.length > ALERT_HINT_MAX_MANAGER_LENGTH ||
+      managerName.trim() !== managerName ||
+      /[\u0000-\u001f\u007f]/u.test(managerName) ||
+      typeof alertId !== 'string' ||
+      alertId.length < 1 ||
+      alertId.length > ALERT_HINT_MAX_ID_LENGTH ||
+      !/^[A-Za-z0-9._:-]+$/u.test(alertId) ||
+      !normalizedOccurredAt
+    ) {
+      throw new SecurityEventProviderError('PROVIDER_QUERY_REJECTED', 'readPage', false);
+    }
+
+    try {
+      const occurredAtMs = Date.parse(normalizedOccurredAt);
+      const query = {
+        bool: {
+          filter: [
+            { term: { 'manager.name': managerName } },
+            { term: { id: alertId } },
+            {
+              range: {
+                timestamp: {
+                  gte: new Date(occurredAtMs - ALERT_HINT_TIME_TOLERANCE_MS).toISOString(),
+                  lte: new Date(occurredAtMs + ALERT_HINT_TIME_TOLERANCE_MS).toISOString(),
+                },
+              },
+            },
+          ],
+        },
+      };
+      const response = await this.searchWithRetries(
+        { size: 2, track_total_hits: 3, query },
+        signal,
+      );
+      const hits = response.hits?.hits;
+      if (!Array.isArray(hits) || hits.length > 2)
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      const total = response.hits?.total;
+      const totalCount = total === undefined ? undefined : totalHitsValue(total);
+      if (total !== undefined && totalCount === undefined)
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      if (isObject(total) && total['relation'] !== undefined) {
+        if (total['relation'] !== 'eq' && total['relation'] !== 'gte')
+          throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+        if (total['relation'] === 'gte') {
+          this.options.telemetry?.record({
+            connector: 'wazuh',
+            operation: 'lookup_alert_hint',
+            result: 'success',
+            durationMs: Math.max(0, this.#now() - started),
+          });
+          return { status: 'ambiguous' };
+        }
+      }
+      if (totalCount !== undefined && totalCount < hits.length)
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      if (hits.length === 0) {
+        if (totalCount !== undefined && totalCount > 0)
+          throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+        this.options.telemetry?.record({
+          connector: 'wazuh',
+          operation: 'lookup_alert_hint',
+          result: 'success',
+          durationMs: Math.max(0, this.#now() - started),
+        });
+        return { status: 'missing' };
+      }
+
+      // A truncated candidate set or multiple hits is ambiguous. Do not pick one by recency.
+      if (hits.length !== 1 || (totalCount !== undefined && totalCount !== 1)) {
+        this.options.telemetry?.record({
+          connector: 'wazuh',
+          operation: 'lookup_alert_hint',
+          result: 'success',
+          durationMs: Math.max(0, this.#now() - started),
+        });
+        return { status: 'ambiguous' };
+      }
+
+      const hit = hits[0]!;
+      const raw = jsonObject(hit._source);
+      if (typeof hit._id !== 'string' || hit._id.length < 1 || !raw)
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      if (
+        !matchesAlertHint(
+          raw,
+          { managerName, alertId, occurredAt: normalizedOccurredAt },
+          occurredAtMs,
+        )
+      ) {
+        this.options.telemetry?.record({
+          connector: 'wazuh',
+          operation: 'lookup_alert_hint',
+          result: 'success',
+          durationMs: Math.max(0, this.#now() - started),
+        });
+        return { status: 'ambiguous' };
+      }
+      const occurredAt = normalizeWazuhTimestamp(raw['timestamp']);
+      if (!occurredAt)
+        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      const record: ProviderRecord = {
+        sourceRecordId: hit._id,
+        dataset: DATASET,
+        occurredAt,
+        collectedAt: new Date(this.#now()).toISOString(),
+        raw,
+        metadata: {},
+      };
+      this.options.telemetry?.record({
+        connector: 'wazuh',
+        operation: 'lookup_alert_hint',
+        result: 'success',
+        durationMs: Math.max(0, this.#now() - started),
+      });
+      return { status: 'found', record };
+    } catch (error) {
+      const mapped =
+        error instanceof SecurityEventProviderError ? error : errorFrom(error, 'readPage');
+      this.options.telemetry?.record({
+        connector: 'wazuh',
+        operation: 'lookup_alert_hint',
+        result: 'failure',
+        errorClass: mapped.code,
+        durationMs: Math.max(0, this.#now() - started),
+      });
+      throw mapped;
+    }
   }
 
   public async health(): Promise<ProviderHealth> {
@@ -402,30 +645,15 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
       searchAfter = payload.sort;
     }
     try {
-      let response: WazuhSearchResponse | undefined;
-      for (let attempt = 0; attempt <= (this.options.retryLimit ?? 0); attempt += 1) {
-        try {
-          response = await this.options.client.search(
-            {
-              size: query.pageSize + 1,
-              query:
-                compiled.length === 0 ? timeRange : { bool: { filter: [timeRange, ...compiled] } },
-              sort: [{ timestamp: { order } }, { id: { order } }],
-              ...(searchAfter ? { search_after: searchAfter } : {}),
-            },
-            query.signal,
-          );
-          break;
-        } catch (error) {
-          if (!transient(error) || attempt >= (this.options.retryLimit ?? 0)) throw error;
-          const cap = Math.min(this.options.maximumBackoffMs ?? 5_000, 100 * 2 ** attempt);
-          const wait = retryAfterMs(error) ?? Math.floor(Math.random() * cap);
-          await delay(wait, query.signal);
-        }
-      }
-      if (!response) throw new SecurityEventProviderError('PROVIDER_UNAVAILABLE', 'readPage', true);
-      if (Buffer.byteLength(JSON.stringify(response)) > this.options.maximumResponseBytes)
-        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+      const response = await this.searchWithRetries(
+        {
+          size: query.pageSize + 1,
+          query: compiled.length === 0 ? timeRange : { bool: { filter: [timeRange, ...compiled] } },
+          sort: [{ timestamp: { order } }, { id: { order } }],
+          ...(searchAfter ? { search_after: searchAfter } : {}),
+        },
+        query.signal,
+      );
       const hits = response.hits?.hits;
       if (!Array.isArray(hits) || hits.length > query.pageSize + 1)
         throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
@@ -506,6 +734,7 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
    */
   public async readActivity(query: ActivityQuery): Promise<readonly StreamActivity[]> {
     const field = this.options.activityField;
+    const groups = (this.options.activityGroups ?? []).slice(0, ACTIVITY_STREAMS);
     const from = Date.parse(query.from);
     const to = Date.parse(query.to);
     if (
@@ -529,6 +758,14 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
               terms: { field, size: ACTIVITY_STREAMS },
               aggs: { last: { max: { field: 'timestamp' } } },
             },
+            ...(groups.length > 0
+              ? {
+                  providers: {
+                    terms: { field: 'rule.groups', include: [...groups], size: groups.length },
+                    aggs: { last: { max: { field: 'timestamp' } } },
+                  },
+                }
+              : {}),
           },
         },
         query.signal,
@@ -536,31 +773,36 @@ export class WazuhSecurityEventProvider implements SecurityEventProvider {
     } catch (error) {
       throw error instanceof SecurityEventProviderError ? error : errorFrom(error, 'readPage');
     }
-    const buckets = (response.aggregations as { streams?: { buckets?: unknown } } | undefined)
-      ?.streams?.buckets;
+    const aggregations = response.aggregations as
+      { streams?: { buckets?: unknown }; providers?: { buckets?: unknown } } | undefined;
+    const buckets = aggregations?.streams?.buckets;
     if (!Array.isArray(buckets) || buckets.length > ACTIVITY_STREAMS)
       throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
-    return buckets.map((bucket: unknown) => {
-      const item = bucket as {
-        key?: unknown;
-        doc_count?: unknown;
-        last?: { value?: unknown; value_as_string?: unknown };
-      };
-      if (
-        typeof item.key !== 'string' ||
-        item.key.length > 128 ||
-        !Number.isInteger(item.doc_count)
-      )
-        throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
-      const last =
-        typeof item.last?.value === 'number' && Number.isFinite(item.last.value)
-          ? new Date(item.last.value).toISOString()
-          : null;
-      return { stream: item.key, count: item.doc_count as number, lastEventAt: last };
-    });
+    const providerBuckets = groups.length > 0 ? aggregations?.providers?.buckets : [];
+    if (!Array.isArray(providerBuckets) || providerBuckets.length > groups.length)
+      throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+    return [
+      ...buckets.map((bucket: unknown) => streamActivityOf(bucket, '')),
+      ...providerBuckets.map((bucket: unknown) => streamActivityOf(bucket, PROVIDER_STREAM_PREFIX)),
+    ];
   }
 
   public async close(): Promise<void> {
     await this.options.client.close();
   }
+}
+
+function streamActivityOf(bucket: unknown, prefix: string): StreamActivity {
+  const item = bucket as {
+    key?: unknown;
+    doc_count?: unknown;
+    last?: { value?: unknown; value_as_string?: unknown };
+  };
+  if (typeof item.key !== 'string' || item.key.length > 128 || !Number.isInteger(item.doc_count))
+    throw new SecurityEventProviderError('PROVIDER_RESPONSE_INVALID', 'readPage', false);
+  const last =
+    typeof item.last?.value === 'number' && Number.isFinite(item.last.value)
+      ? new Date(item.last.value).toISOString()
+      : null;
+  return { stream: `${prefix}${item.key}`, count: item.doc_count as number, lastEventAt: last };
 }

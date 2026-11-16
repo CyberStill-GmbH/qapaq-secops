@@ -1,0 +1,54 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
+id: QAPAQ-DET-SP-003
+title: 'Uso compartido externo: enlaces anónimos en volumen y correos personales'
+source: sharepoint
+use_case: external-sharing
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-11'
+hypothesis: La salida más simple de un documento es un enlace «Cualquier persona» o una invitación a un correo personal.
+data_sources:
+- Office 365 Management Activity API, Audit.SharePoint (módulo office365 de Wazuh; ActivityFeed.Read)
+- Microsoft Graph Purview Audit Search /security/auditLog/queries (collector qapaq-sharepoint-audit; AuditLogsQuery-SharePoint.Read.All
+  / AuditLogsQuery-OneDrive.Read.All)
+rules:
+  file: detections/sharepoint/external-sharing/rule.xml
+  ids:
+  - 101925
+  - 101926
+  - 101927
+  - 101928
+  - 101929
+  - 101930
+  installed_as: etc/rules/qapaq_soc_sharepoint_external_sharing.xml
+mitre:
+- technique: T1567
+  tactic: exfiltration
+- technique: T1537
+  tactic: exfiltration
+severity:
+  levels: 2–3 cuentas aprobadas · 4 invitado externo · 9 correo personal · 11 diez enlaces anónimos en 1 h · 12 cinco correos
+    personales en 1 h
+  priority_hint: P1 (12) / P2 (9–11) / P3 (4)
+  rationale: Compartir con socios es normal; con correos personales y en volumen, no.
+false_positives:
+- Marketing y comunicaciones publican con enlaces anónimos (qapaq-m365-sharing-approved).
+- Proveedores con correo gratuito (documentar y aprobar por PR).
+tuning:
+- 'Allowlist qapaq-m365-sharing-approved (CDB versionada): baja a 2–3 y sigue indexado.'
+- El patrón exige el dominio completo (gmail.com, no gmail.com.socio.example).
+lists:
+- detections/lists/qapaq-m365-sharing-approved
+tests:
+  runner: logtest
+  fixtures: detections/sharepoint/external-sharing/fixtures.jsonl
+  expected: detections/sharepoint/external-sharing/expected.txt
+  generator: wazuh/provider-ingestion/sharepoint/tests/make_fixtures.py
+runbook: docs/detection-engineering/runbooks/exfiltracion-sharepoint.md
+notes: Activa desde 2026-11-10 en AWS con datos reales (módulo office365, Audit.SharePoint, ActivityFeed.Read). Operaciones
+  sin registro real todavía siguen en el grupo qapaq_pending_provider_evidence (docs/23).

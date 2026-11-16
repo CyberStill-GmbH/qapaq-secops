@@ -1,12 +1,23 @@
 # AWS Terraform demo — fases 1, 2B y 2C
 
+> **Nota (legado):** los servicios ECS, RDS, ALB, NAT, Valkey y KrakenD de este documento son el diseño AWS anterior.
+> La arquitectura vigente reemplaza ECS por Lambda + API Gateway, RDS por Aurora Serverless v2 y quita NAT y
+> KrakenD ([02](../../docs/02-arquitectura.md)).
+> Este directorio no implementa Ankay/Step Functions ni la arquitectura serverless objetivo; no declarar
+> el producto listo para producción basándose en un plan o apply exitoso de este stack legado.
+>
+> **Stack vigente:** [`infra/aws-serverless/`](../aws-serverless/README.md) implementa la arquitectura
+> serverless (Lambda, HTTP API, Aurora Serverless v2, Step Functions, CloudFront/WAF, nodo Wazuh con
+> auto-recovery y agentes que se enrolan solos). Los cambios nuevos van allí; este directorio queda
+> solo como referencia histórica.
+
 **Contexto histórico:** las fases 1, 2B y 2C documentadas aquí pasaron sus gates; ese snapshot
 ya no describe por sí solo el state actual. Terraform Demo #50 aplicó parcialmente RDS, Valkey,
 ALB, NAT, EC2 Wazuh y servicios ECS antes de fallar. Antes de cualquier apply, reconciliar los
 recursos AWS y el state conforme a
 `terraform-apply-recovery.md` (histórico en git `050f9fa`). La migración
 posterior de producto está en
-[`qapaq-wazuh-terraform-rollout.md`](../../docs/reference/qapaq-wazuh-terraform-rollout.md).
+[`qapaq-wazuh-terraform-rollout.md`](../../docs/archive/legacy/qapaq-wazuh-terraform-rollout.md).
 
 ## Arquitectura de esta fase
 
@@ -44,7 +55,13 @@ con `availability_zones` y reemplazar los CIDRs generados en `demo.tfvars`.
 - **RDS:** ingress TCP/5432 solo desde API y Worker; sin egress iniciado.
 - **Redis/Valkey:** ingress TCP/6379 solo desde API y Worker; sin egress iniciado.
 - **Wazuh:** Indexer TCP/9200 solo desde KrakenD. Dashboard TCP/443 desde
-  `allowed_admin_cidrs`, que por defecto es `[]`; no abre acceso administrativo.
+  `allowed_admin_cidrs`, que debe contener las redes cliente de AWS Client VPN. La misma lista limita
+  HTTPS al edge público del host. Una lista vacía bloquea plan/apply y no abre acceso administrativo.
+  Terraform no crea el endpoint Client VPN ni configura identidad, rutas o autorización de usuarios;
+  esos gates son externos y deben completarse antes del despliegue. El endpoint debe tener una ruta
+  hacia el host y DNS que resuelva el nombre del Dashboard a una dirección alcanzable por el túnel;
+  configurar solo el CIDR no prueba conectividad. TCP/80 sigue público solo para ACME HTTP-01 y
+  redirección; no sirve el Dashboard por HTTP.
   Ningún puerto de manager/agentes ni SSH queda expuesto en esta fase.
 
 Las reglas de respuesta se permiten por el seguimiento stateful de Security
@@ -55,13 +72,22 @@ rutas no se resuelven aquí con NAT ni reglas amplias.
 ## Bootstrap, OIDC y state
 
 El backend existente usa el bucket bootstrap
-`qapaq-secops-terraform-state-955200662475`, key `demo/terraform.tfstate`,
+`qapaq-secops-terraform-state-123456789012`, key `demo/terraform.tfstate`,
 `us-east-1`, cifrado y lockfile S3. El stack no declara ni destruye ese bucket.
 GitHub Actions usa OIDC con el role existente
-`arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo`; no se usan
+`arn:aws:iam::123456789012:role/qapaq-secops-github-terraform-demo`; no se usan
 access keys permanentes. Los cambios en `infra/aws/**` en `main` ejecutan
 automáticamente fmt, init, validate y plan con `environments/demo.tfvars`. Apply
 y auditoría solo se ejecutan mediante despacho manual con la opción explícita.
+
+El despacho `apply` encadena Terraform, bootstrap de roles PostgreSQL, migraciones,
+bootstrap de Wazuh, renovación de tareas ECS y comprobaciones de readiness. Si las
+task definitions de migración no existen o cualquier tarea falla, el workflow termina
+antes de reportar la aplicación lista. Esto no elimina prerequisitos externos ni hace
+que la instalación sea un apply único desde cero: hay que reconciliar el state, preparar
+el bucket/rol OIDC, definir dominios reales, delegar DNS, provisionar y configurar AWS
+Client VPN, proporcionar los CIDR asignados, poblar Entra/secretos y publicar imágenes
+verificadas. El workflow sigue desplegando la arquitectura ECS/RDS/Valkey/KrakenD heredada.
 
 ## Ejecutar verificaciones
 
@@ -84,7 +110,7 @@ esta lista. No ejecutar `apply` todavía.
 
 El workflow manual **Terraform Demo #2** terminó correctamente el 5 de octubre de
 2026 sobre `main` (commit `def9f03`). OIDC autenticó en la cuenta AWS
-`955200662475`, región `us-east-1`; Terraform resolvió las AZ
+`123456789012`, región `us-east-1`; Terraform resolvió las AZ
 `us-east-1a` y `us-east-1b`. `fmt`, `validate` y `plan` pasaron. El plan mostró
 **44 para crear, 0 para cambiar y 0 para destruir**: 18 recursos de red y 26 de
 security groups/reglas. No incluyó API, Worker, KrakenD, ALB, RDS, Redis, Wazuh,
@@ -206,7 +232,7 @@ mismo SHA antes de pedir credenciales OIDC. Hace checkout del SHA exacto que pas
 CI. Usa GitHub OIDC con el rol
 `github_ecr_publisher_role_arn`; el ARN se configura como variable no secreta del
 repositorio `AWS_ECR_PUBLISHER_ROLE_ARN`, copiada del output de Terraform. La
-cuenta se fija en `955200662475` y se valida contra STS; la región es `us-east-1`,
+cuenta se fija en `123456789012` y se valida contra STS; la región es `us-east-1`,
 igual a `environments/demo.tfvars`. No hay access keys estáticas.
 
 El rol verifica el `sub` inmutable de este repositorio:
@@ -242,11 +268,11 @@ Trivy HIGH/CRITICAL dio código de salida 0 para API, Worker y KrakenD. El artif
 El worker sigue siendo una imagen que inicia correctamente pero permanece en
 espera; todavía no consume BullMQ.
 
-| Imagen  | URI ECR                                                             | Tag                                            | Digest                                                                    |
-| ------- | ------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
-| API     | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-api`     | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068` |
-| Worker  | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-worker`  | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624` |
-| KrakenD | `955200662475.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-krakend` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460` |
+| Imagen  | URI ECR                                                           | Tag                                            | Digest                                                                    |
+| ------- | ----------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| API     | `123456789012.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-api`     | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5183b8dbc8a01f0870429837db0b4bfc7dc2867cc5e8a4b6b36f32d1e7c81068` |
+| Worker  | `123456789012.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-worker`  | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:5b9bfd85b87f14ce0e4bad4d5ba784c9a8b5bb530e1963411fa846784d941624` |
+| KrakenD | `123456789012.dkr.ecr.us-east-1.amazonaws.com/qapaq-secops-krakend` | `git-5ea083bd6dccf12580d00b43ee66d1086c0e06ea` | `sha256:7223fd58694264dec9c2630314ab3234b45af70a7cb8c3c4f5ab3573af7a5460` |
 
 El job recuperó cada digest por `ecr:BatchGetImage`, confirmó que el tag
 correspondiera al commit y validó el patrón SHA-256 antes de crear el manifest.

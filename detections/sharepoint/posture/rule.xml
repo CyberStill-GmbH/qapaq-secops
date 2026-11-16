@@ -1,0 +1,147 @@
+<!--
+  QAPAQ SOC · detección como código · detections/sharepoint/posture (metadata.yaml, docs/23).
+  Eventos propios del collector wazuh/provider-ingestion/sharepoint (qapaq.vendor=m365):
+  - capability (audit y posture): estado de cada función según los permisos de la app de Entra. Es la salud
+    de la fuente: "bloqueada" informa (3); una función que funcionaba y deja de hacerlo (permiso revocado o
+    secreto vencido) = 7.
+  - postura periódica (sharepoint_posture): foto diaria del tenant e inventario, cambios de configuración de
+    uso compartido (diff contra la foto anterior: weakened = 12), sitios nuevos, enlaces anónimos y permisos
+    externos encontrados en las bibliotecas, sitio reciente con enlaces externos.
+  Los eventos de auditoría del collector (qapaq.event_type=audit) NO pasan por aquí: llevan integration=office365
+  y siguen la cadena oficial 91531/91532.
+  Se instala como qapaq_soc_sharepoint_posture.xml.
+-->
+<group name="qapaq_provider,m365,qapaq_sharepoint,">
+  <rule id="101960" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="qapaq.vendor">^m365$</field>
+    <field name="qapaq.source">^sharepoint_audit$|^sharepoint_posture$</field>
+    <field name="qapaq.event_type">^capability$|^tenant_settings_snapshot$|^tenant_setting_changed$|^site_created$|^sharing_finding$|^recent_site_external_sharing$|^inventory_snapshot$</field>
+    <description>QAPAQ SharePoint: evento del collector de postura y salud.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- ================================================================ salud de la fuente -->
+  <rule id="101969" level="3">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^capability$</field>
+    <description>QAPAQ SharePoint: función $(qapaq.capability.feature) $(qapaq.capability.status) (falta: $(qapaq.capability.missing)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_health,</group>
+  </rule>
+
+  <rule id="101970" level="7">
+    <if_sid>101969</if_sid>
+    <field name="qapaq.capability.status">^blocked$</field>
+    <field name="qapaq.capability.changed">^true$</field>
+    <description>QAPAQ SharePoint: la función $(qapaq.capability.feature) dejó de estar disponible (permiso revocado o credencial vencida; falta $(qapaq.capability.missing)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_health,</group>
+  </rule>
+
+  <!-- ================================================================ configuración del tenant -->
+  <rule id="101961" level="3">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^tenant_settings_snapshot$</field>
+    <description>QAPAQ SharePoint: foto de la configuración de uso compartido del tenant ($(sharepoint.tenant.sharing_capability)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_posture,</group>
+  </rule>
+
+  <rule id="101972" level="6">
+    <if_sid>101961</if_sid>
+    <field name="sharepoint.tenant.anyone_links_enabled">^true$</field>
+    <description>QAPAQ SharePoint: el tenant permite enlaces "Cualquier persona" (sharingCapability=externalUserAndGuestSharing).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+    <group>qapaq_posture,</group>
+  </rule>
+
+  <rule id="101962" level="8">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^tenant_setting_changed$</field>
+    <description>QAPAQ SharePoint: cambió $(sharepoint.change.setting) del tenant: $(sharepoint.change.old) → $(sharepoint.change.new).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1484</id>
+    </mitre>
+    <group>qapaq_posture,qapaq_sharing_policy,</group>
+  </rule>
+
+  <rule id="101963" level="12">
+    <if_sid>101962</if_sid>
+    <field name="sharepoint.change.direction">^weakened$</field>
+    <description>QAPAQ SharePoint: se debilitó $(sharepoint.change.setting) del tenant: $(sharepoint.change.old) → $(sharepoint.change.new).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1484</id>
+    </mitre>
+    <group>qapaq_posture,qapaq_sharing_policy,qapaq_defense_evasion,</group>
+  </rule>
+
+  <!-- ================================================================ inventario y enlaces -->
+  <rule id="101971" level="2">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^inventory_snapshot$</field>
+    <description>QAPAQ SharePoint: inventario de sitios ($(sharepoint.inventory.sites) sitios, $(sharepoint.inventory.known_findings) hallazgos de uso compartido).</description>
+    <options>no_full_log</options>
+    <group>qapaq_posture,</group>
+  </rule>
+
+  <rule id="101964" level="5">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^site_created$</field>
+    <description>QAPAQ SharePoint: sitio nuevo $(sharepoint.site.url) (creado $(sharepoint.site.created)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_posture,</group>
+  </rule>
+
+  <rule id="101965" level="10">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^recent_site_external_sharing$</field>
+    <description>QAPAQ SharePoint: el sitio reciente $(sharepoint.site.url) ya tiene enlaces anónimos o permisos externos.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1567</id>
+      <id>T1537</id>
+    </mitre>
+    <group>qapaq_posture,qapaq_external_sharing,</group>
+  </rule>
+
+  <rule id="101966" level="7">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^sharing_finding$</field>
+    <field name="sharepoint.finding.kind">^anonymous_link$</field>
+    <description>QAPAQ SharePoint: enlace anónimo ($(sharepoint.link.type)) sobre $(sharepoint.item.url).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+    <group>qapaq_posture,qapaq_anonymous_link,</group>
+  </rule>
+
+  <rule id="101967" level="10">
+    <if_sid>101966</if_sid>
+    <field name="sharepoint.link.roles">write</field>
+    <description>QAPAQ SharePoint: enlace anónimo con edición sobre $(sharepoint.item.url) (cualquiera puede modificar o reemplazar el contenido).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+    <group>qapaq_posture,qapaq_anonymous_link,</group>
+  </rule>
+
+  <rule id="101968" level="5">
+    <if_sid>101960</if_sid>
+    <field name="qapaq.event_type">^sharing_finding$</field>
+    <field name="sharepoint.finding.kind">^external_permission$</field>
+    <description>QAPAQ SharePoint: $(sharepoint.grantee.email) (externo) tiene acceso a $(sharepoint.item.url).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1537</id>
+    </mitre>
+    <group>qapaq_posture,qapaq_external_sharing,</group>
+  </rule>
+</group>

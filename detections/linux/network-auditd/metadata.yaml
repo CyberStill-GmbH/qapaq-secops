@@ -1,0 +1,57 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-002
+title: Llamadas de red auditadas (connect/bind/accept) de sesiones interactivas
+source: linux
+use_case: network-auditd
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Un reverse shell, un escaneo o un webshell hacen connect()/accept() desde un shell, netcat o la cuenta
+  web; auditd lo ve aunque la conexión dure milisegundos.
+data_sources:
+- auditd del host con qapaq-audit-network.rules (distribuido por el grupo linux-servers), log_format audit
+rules:
+  file: detections/linux/network-auditd/rule.xml
+  ids:
+  - 101810
+  - 101812
+  - 101813
+  - 101814
+  - 101815
+  - 101816
+  - 101818
+  - 101811
+  - 101817
+  installed_as: etc/rules/qapaq_soc_linux_network_auditd.xml
+mitre:
+- technique: T1059.004
+  tactic: execution
+- technique: T1571
+  tactic: command-and-control
+- technique: T1046
+  tactic: discovery
+- technique: T1040
+  tactic: credential-access
+- technique: T1071
+  tactic: command-and-control
+- technique: T1505.003
+  tactic: persistence
+severity:
+  levels: 0 destino interno · 3 conexión de sesión interactiva · 5 escucha de sesión interactiva · 10 escáner/herramienta/webshell
+    · 12 reverse o bind shell
+  priority_hint: P2 para 10-12
+  rationale: Las sesiones humanas en un nodo del SOC son pocas y auditables.
+false_positives:
+- 'Administrador que usa nc/nmap/tcpdump para diagnosticar: confirmar con el ticket de cambio; no se suprime.'
+- 'IPv6 o claves no enriquecidas (auditd sin log_format ENRICHED): la regla cae a 101810 sin IP.'
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/linux/network-auditd/fixtures.jsonl
+  expected: detections/linux/network-auditd/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#auditd

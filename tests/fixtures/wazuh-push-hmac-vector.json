@@ -1,0 +1,11 @@
+{
+  "secret": "synthetic-hmac-secret-with-at-least-32-bytes",
+  "timestamp": "1794398400",
+  "body": {
+    "alertId": "1760000000.123",
+    "managerName": "gerente-área-🛡",
+    "occurredAt": "2026-11-11T12:00:00.000+0000"
+  },
+  "canonicalBody": "{\"alertId\":\"1760000000.123\",\"managerName\":\"gerente-área-🛡\",\"occurredAt\":\"2026-11-11T12:00:00.000+0000\"}",
+  "signature": "53eeb069a7769ff88dc94210b0c693b1a621ffa764ec386338ca6bebeefe884e"
+}

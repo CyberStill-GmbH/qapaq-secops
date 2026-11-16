@@ -104,4 +104,18 @@ describe('QapaqApiClient', () => {
     const client = new QapaqApiClient({ apiPrefix: '/api', basePath: '', fetchImpl });
     await expect(client.get('/alerts')).rejects.toMatchObject({ code: 'DEPENDENCY_DEGRADED' });
   });
+
+  it('preserva AbortError en postStream para que cancelar no parezca una falla del servicio', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = (async (url: string) => {
+      if (url.endsWith('/auth/session')) return jsonResponse(200, SESSION);
+      throw new DOMException('Aborted', 'AbortError');
+    }) as unknown as typeof fetch;
+    const client = new QapaqApiClient({ apiPrefix: '/api', basePath: '', fetchImpl });
+
+    await expect(client.postStream('/assistant/chat/stream', {}, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
 });

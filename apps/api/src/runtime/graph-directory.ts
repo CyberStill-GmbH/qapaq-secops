@@ -3,12 +3,14 @@
  *
  * Único lugar del API que conoce las URLs y formatos de Graph (C-23). Lectura solamente, con
  * token de aplicación (client credentials sobre `https://graph.microsoft.com/.default`) y
- * permiso mínimo `GroupMember.Read.All`; `accountEnabled` exige además `User.Read.All` y, si no
- * está concedido, se informa como desconocido en vez de fallar.
+ * permiso mínimo `GroupMember.Read.All` (el permiso más amplio `Group.Read.All` también lo
+ * satisface). La lectura de perfiles de usuario puede requerir `User.Read.All`; si el tenant no
+ * la autoriza, se conserva la membresía por OID y los campos de perfil quedan desconocidos.
  *
  * - Miembros: `GET /groups/delta?$filter=id eq '<grupo>'&$select=members`. Graph entrega solo
- *   los ids en `members@delta`; los datos de cada alta se leen con `GET /users/<id>` (con
- *   concurrencia acotada). Una baja llega marcada con `@removed`. Miembros que no son usuarios
+ *   los ids en `members@delta`; se intenta enriquecer cada alta con `GET /users/<id>` (con
+ *   concurrencia acotada). Una denegación de perfil no invalida el OID de membresía. Una baja
+ *   llega marcada con `@removed`. Miembros que no son usuarios
  *   (grupos anidados, dispositivos) se ignoran.
  * - Dueños: `GET /groups/<grupo>/owners/microsoft.graph.user`, paginado.
  * - Seguridad: los `nextLink` y `deltaLink` que se guardan y se reutilizan deben apuntar a
@@ -21,6 +23,7 @@
 import {
   DirectoryError,
   type DirectoryPerson,
+  type DirectoryOperation,
   type DirectoryReader,
   type MemberChange,
   type MemberDeltaPage,
@@ -28,6 +31,7 @@ import {
 
 const GRAPH = 'https://graph.microsoft.com';
 const MAXIMUM_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAXIMUM_ERROR_BYTES = 8 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 const USER_LOOKUP_CONCURRENCY = 4;
 const MAXIMUM_OWNER_PAGES = 20;
@@ -35,10 +39,54 @@ const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
 export interface GraphDirectoryOptions {
   readonly accessToken: () => Promise<string>;
+  readonly refreshRejectedToken?: (token: string) => Promise<string | null>;
   readonly fetch?: typeof globalThis.fetch;
 }
 
 type Json = Record<string, unknown>;
+
+async function graphErrorCode(response: Response): Promise<string | null> {
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAXIMUM_ERROR_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+  try {
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const body: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    const error =
+      typeof body === 'object' && body !== null && !Array.isArray(body)
+        ? (body as Json)['error']
+        : undefined;
+    const code =
+      typeof error === 'object' && error !== null && !Array.isArray(error)
+        ? (error as Json)['code']
+        : undefined;
+    return typeof code === 'string' && /^[A-Za-z0-9_.-]{1,100}$/u.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
 
 function trustedGraphUrl(raw: string): URL {
   let url: URL;
@@ -67,18 +115,19 @@ function person(value: Json, includeEnabled: boolean): DirectoryPerson | undefin
 }
 
 export class GraphDirectoryReader implements DirectoryReader {
-  /** `false` tras un 403 en `accountEnabled`: no se vuelve a pedir en este proceso. */
+  /** `false` tras un 403 con `accountEnabled`: se omite el campo en este proceso. */
   #canReadAccountEnabled = true;
 
   public constructor(private readonly options: GraphDirectoryOptions) {}
 
-  async #get(url: URL): Promise<Json> {
-    const token = await this.options.accessToken();
+  async #get(url: URL, operation: DirectoryOperation, refreshedToken?: string): Promise<Json> {
+    const token = refreshedToken ?? (await this.options.accessToken());
     let response: Response;
     try {
       response = await (this.options.fetch ?? globalThis.fetch)(url, {
         headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        redirect: 'error',
       });
     } catch {
       throw new DirectoryError('DIRECTORY_UNAVAILABLE');
@@ -92,7 +141,32 @@ export class GraphDirectoryReader implements DirectoryReader {
     }
     if (response.status === 410) throw new DirectoryError('DIRECTORY_DELTA_EXPIRED');
     if (response.status === 401 || response.status === 403) {
-      throw new DirectoryError('DIRECTORY_FORBIDDEN');
+      // Consent changes do not change an already issued access token. Refresh once, never
+      // convert an authorization failure into successful membership or bypass group checks.
+      if (refreshedToken === undefined && this.options.refreshRejectedToken) {
+        const fresh = await this.options.refreshRejectedToken(token);
+        if (fresh !== null) {
+          await response.body?.cancel();
+          return this.#get(url, operation, fresh);
+        }
+      }
+      const errorCode = await graphErrorCode(response);
+      const rawRequestId = response.headers.get('request-id');
+      const requestId =
+        rawRequestId && /^[A-Za-z0-9-]{1,80}$/u.test(rawRequestId) ? rawRequestId : null;
+      const diagnostic = {
+        status: response.status,
+        errorCode,
+        requestId,
+        operation,
+      } as const;
+      throw new DirectoryError(
+        response.status === 403 && errorCode === 'Authorization_RequestDenied'
+          ? 'DIRECTORY_PERMISSION_MISSING'
+          : 'DIRECTORY_FORBIDDEN',
+        undefined,
+        diagnostic,
+      );
     }
     if (!response.ok) throw new DirectoryError('DIRECTORY_UNAVAILABLE');
     const text = await response.text();
@@ -113,16 +187,26 @@ export class GraphDirectoryReader implements DirectoryReader {
       : 'id,displayName,userPrincipalName';
     const url = trustedGraphUrl(`/v1.0/users/${encodeURIComponent(oid)}?$select=${select}`);
     try {
-      return person(await this.#get(url), this.#canReadAccountEnabled);
+      return person(await this.#get(url, 'userProfile'), this.#canReadAccountEnabled);
     } catch (error) {
       // Sin User.Read.All, pedir `accountEnabled` da 403: se reintenta sin ese campo.
       if (
         error instanceof DirectoryError &&
-        error.code === 'DIRECTORY_FORBIDDEN' &&
+        (error.code === 'DIRECTORY_FORBIDDEN' || error.code === 'DIRECTORY_PERMISSION_MISSING') &&
         this.#canReadAccountEnabled
       ) {
         this.#canReadAccountEnabled = false;
         return this.#user(oid);
+      }
+      // Reading group membership/owners does not imply permission to read each user's profile.
+      // The member delta already proves the relationship and supplies the stable OID needed by
+      // QAPAQ's admission check, so a profile-only 403 degrades optional labels instead of failing
+      // the complete directory sync. Authentication never depends on displayName or UPN.
+      if (
+        error instanceof DirectoryError &&
+        (error.code === 'DIRECTORY_FORBIDDEN' || error.code === 'DIRECTORY_PERMISSION_MISSING')
+      ) {
+        return person({ id: oid }, false);
       }
       throw error;
     }
@@ -135,7 +219,7 @@ export class GraphDirectoryReader implements DirectoryReader {
       : trustedGraphUrl(
           `/v1.0/groups/delta?$filter=${encodeURIComponent(`id eq '${groupId}'`)}&$select=members`,
         );
-    const body = await this.#get(url);
+    const body = await this.#get(url, 'memberDelta');
     const groups = Array.isArray(body['value']) ? (body['value'] as Json[]) : undefined;
     if (!groups) throw new DirectoryError('DIRECTORY_RESPONSE_INVALID');
 
@@ -181,6 +265,7 @@ export class GraphDirectoryReader implements DirectoryReader {
     const filter = `displayName eq '${displayName.replaceAll("'", "''")}'`;
     const body = await this.#get(
       trustedGraphUrl(`/v1.0/groups?$filter=${encodeURIComponent(filter)}&$select=id&$top=2`),
+      'resolveGroupId',
     );
     const groups = Array.isArray(body['value']) ? (body['value'] as Json[]) : [];
     const id = groups[0]?.['id'];
@@ -193,11 +278,14 @@ export class GraphDirectoryReader implements DirectoryReader {
   public async readOwners(groupId: string): Promise<readonly DirectoryPerson[]> {
     if (!GUID.test(groupId)) throw new DirectoryError('DIRECTORY_RESPONSE_INVALID');
     const owners: DirectoryPerson[] = [];
+    // Role grants need the stable object ID only. Requesting displayName/UPN here can turn an
+    // otherwise-authorized Group.Read.All owner lookup into a 403 when the app lacks the separate
+    // user-profile permission. Keep profile enrichment out of the admission path.
     let url: URL | undefined = trustedGraphUrl(
-      `/v1.0/groups/${groupId}/owners/microsoft.graph.user?$select=id,displayName,userPrincipalName&$top=100`,
+      `/v1.0/groups/${groupId}/owners/microsoft.graph.user?$select=id&$top=100`,
     );
     for (let page = 0; url && page < MAXIMUM_OWNER_PAGES; page += 1) {
-      const body = await this.#get(url);
+      const body = await this.#get(url, 'owners');
       if (!Array.isArray(body['value'])) throw new DirectoryError('DIRECTORY_RESPONSE_INVALID');
       for (const value of body['value'] as Json[]) {
         const found = person(value, false);

@@ -1,0 +1,47 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-006
+title: Inicios de sesión en la consola del SOC por IP
+source: edge
+use_case: soc-authentication
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Fuerza bruta o spraying contra el login con contraseña de la consola, y un éxito tras fallos, son compromiso
+  de una cuenta del SOC.
+data_sources:
+- 'bitácora JSON del edge: POST /api/auth/password con resultado derivado de Location (authError=)'
+rules:
+  file: detections/edge/soc-authentication/rule.xml
+  ids:
+  - 101842
+  - 101843
+  - 101844
+  - 101845
+  - 101846
+  installed_as: etc/rules/qapaq_soc_edge_soc_authentication.xml
+mitre:
+- technique: T1110
+  tactic: credential-access
+- technique: T1110.001
+  tactic: credential-access
+- technique: T1078
+  tactic: defense-evasion
+- technique: T1110.003
+  tactic: credential-access
+severity:
+  levels: 3 éxito · 5 fallo · 9 spraying distribuido · 10 fuerza bruta por IP · 13 éxito tras fuerza bruta
+  priority_hint: P1 para 13; P2 para 9-10
+  rationale: Las cuentas del SOC tienen acceso a todas las alertas.
+false_positives:
+- Usuario que olvidó la contraseña y reintenta (bajo el umbral de 6 en 5 min).
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/edge/soc-authentication/fixtures.jsonl
+  expected: detections/edge/soc-authentication/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#login-consola

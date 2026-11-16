@@ -1,0 +1,191 @@
+<!--
+  QAPAQ SOC · detección como código · detections/sharepoint/exfiltration (metadata.yaml, docs/23).
+  Exfiltración desde SharePoint/OneDrive sobre la forma del módulo office365 de Wazuh. Sirven las dos vías:
+  módulo nativo (Audit.SharePoint, ActivityFeed.Read) y collector Purview Audit Search
+  (wazuh/provider-ingestion/sharepoint, mismo office365.* + contexto qapaq.*).
+  Padres oficiales (0755-office365_rules.xml): 91532 genérica, 91536 SharePoint (RT 4), 91537 operación de
+  archivo (RT 6), 91538 OneDrive (RT 7), 91544 uso compartido (RT 14), 91702 FileDownloaded; QAPAQ 100515.
+  Wazuh evalúa los hijos de mayor nivel primero (a igual nivel, el que se cargó antes): las reglas de contexto
+  (IP maliciosa, cuenta deshabilitada) ganan a las marcas; la marca de invitado va antes que la de descarga.
+  Las marcas (nivel 3, por debajo del 4 oficial de 91702: menos ruido) alimentan las de frecuencia; una descarga de una
+  cuenta de servicio/sincronización aprobada baja a 2 y NO cuenta para el volumen (qapaq-m365-service-accounts).
+  Contexto qapaq.* solo existe en la vía Purview (fuera de horario, red nueva, cuenta deshabilitada).
+  Rango QAPAQ SharePoint 101900–101979 (detections/catalog.yaml). Se instala como
+  qapaq_soc_sharepoint_exfiltration.xml. Escala QAPAQ: 12–15 P1, 8–11 P2, 4–7 P3, 0–3 P4.
+-->
+<group name="office365,sharepoint,qapaq_sharepoint,">
+  <!-- ================================================================ contexto de origen -->
+  <rule id="101908" level="12">
+    <if_sid>91536, 91537, 91538, 91544, 91702, 100515</if_sid>
+    <list field="office365.ClientIP" lookup="address_match_key">etc/lists/qapaq-ti-blocklist</list>
+    <description>QAPAQ SharePoint: $(office365.UserId) hizo $(office365.Operation) desde $(office365.ClientIP), IP en listas de amenazas (Spamhaus DROP/Feodo).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1078.004</id>
+      <id>T1213.002</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_threat_intel,</group>
+  </rule>
+
+  <rule id="101909" level="11">
+    <if_sid>91536, 91537, 91538, 91544, 91702, 100515</if_sid>
+    <list field="office365.ClientIP" lookup="address_match_key">etc/lists/qapaq-ti-tor</list>
+    <description>QAPAQ SharePoint: $(office365.UserId) hizo $(office365.Operation) desde $(office365.ClientIP), nodo de salida de Tor.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1090.003</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_threat_intel,</group>
+  </rule>
+
+  <!-- Cuenta deshabilitada en Entra (enriquecimiento del collector con User.Read.All). Puede ser actividad
+       registrada antes del bloqueo (salida de un empleado): igual se revisa. -->
+  <rule id="101907" level="10">
+    <if_sid>91536, 91537, 91538, 91544, 91702, 100515</if_sid>
+    <field name="qapaq.user_disabled">^true$</field>
+    <description>QAPAQ SharePoint: actividad de archivos de la cuenta deshabilitada $(office365.UserId) ($(office365.Operation) en $(office365.ObjectId)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_initial_access,</group>
+  </rule>
+
+  <!-- ================================================================ invitados -->
+  <rule id="101905" level="3">
+    <if_sid>91537, 91538, 91702</if_sid>
+    <field name="office365.Operation">^FileAccessed$|^FileAccessedExtended$|^FileDownloaded$|^FilePreviewed$|^FileSyncDownloadedFull$</field>
+    <field name="office365.UserId" type="pcre2">(?i)#ext#|^urn:spo:guest</field>
+    <description>QAPAQ SharePoint: el invitado $(office365.UserId) accedió a $(office365.SourceFileName).</description>
+    <options>no_full_log</options>
+    <group>qapaq_guest_access,</group>
+  </rule>
+
+  <rule id="101906" level="10" frequency="30" timeframe="600">
+    <if_matched_sid>101905</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: el invitado $(office365.UserId) accedió o descargó 30 archivos en 10 min.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_guest_access,</group>
+  </rule>
+
+  <!-- ================================================================ descargas y sincronización -->
+  <!-- Calibración con datos reales (2026-11-10/11, 25 h): 97 % de las descargas son del cliente de sincronización
+       (FileSyncDownloadedFull, "OneDrive SyncEngine"); un solo equipo resincronizó 6449 archivos y disparó 41 veces
+       la regla de 150/10 min. La sincronización va a su propia marca y umbral (500/10 min, P3); la descarga web o
+       por API (FileDownloaded) conserva 150/10 min (P2) y 40/30 min fuera de horario (P1). -->
+  <rule id="101912" level="3">
+    <if_sid>91537, 91538</if_sid>
+    <field name="office365.Operation">^FileSyncDownloadedFull$</field>
+    <description>QAPAQ SharePoint: el cliente de sincronización de $(office365.UserId) descargó $(office365.SourceFileName).</description>
+    <options>no_full_log</options>
+    <group>qapaq_sync,</group>
+  </rule>
+
+  <rule id="101900" level="3">
+    <if_sid>91537, 91538, 91702</if_sid>
+    <field name="office365.Operation">^FileDownloaded$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) descargó $(office365.SourceFileName).</description>
+    <options>no_full_log</options>
+    <group>qapaq_download,</group>
+  </rule>
+
+  <rule id="101901" level="2">
+    <if_sid>101900, 101912</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-m365-service-accounts</list>
+    <description>QAPAQ SharePoint: descarga de la cuenta de servicio/sincronización aprobada $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_tuning,</group>
+  </rule>
+
+  <!-- Fuera del horario QAPAQ (vía Purview: qapaq.after_hours, Lima 20:00–08:00 y fin de semana) el umbral baja a
+       40 en 30 min. La regla cuenta las descargas anteriores del mismo usuario y exige que la actual sea fuera
+       de horario. -->
+  <rule id="101903" level="12" frequency="40" timeframe="1800">
+    <if_matched_sid>101900</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <field name="qapaq.after_hours">^true$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) descargó 40 archivos en 30 min fuera del horario QAPAQ (hora local $(qapaq.local_hour)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+      <id>T1213.002</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_exfiltration,qapaq_off_hours,</group>
+  </rule>
+
+  <rule id="101902" level="10" frequency="150" timeframe="600">
+    <if_matched_sid>101900</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: descarga masiva de $(office365.UserId) (150 archivos en 10 min por web o API).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+      <id>T1213.002</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_exfiltration,</group>
+  </rule>
+
+  <!-- Línea base del collector: red (/24 IPv4, /48 IPv6) no vista para el usuario en 30 días. -->
+  <rule id="101904" level="12">
+    <if_sid>101902</if_sid>
+    <field name="qapaq.ip_first_seen">^true$</field>
+    <description>QAPAQ SharePoint: descarga masiva de $(office365.UserId) desde una red nueva para el usuario ($(office365.ClientIP)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_exfiltration,</group>
+  </rule>
+
+  <!-- Sincronización masiva: equipo nuevo o resincronización de una biblioteca completa es habitual (P3, sin correo);
+       desde una red nueva para el usuario (vía Purview) sube a P2. -->
+  <rule id="101913" level="7" frequency="500" timeframe="600">
+    <if_matched_sid>101912</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: sincronización masiva de $(office365.UserId) (500 archivos en 10 min, cliente OneDrive).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_sync,</group>
+  </rule>
+
+  <rule id="101914" level="11">
+    <if_sid>101913</if_sid>
+    <field name="qapaq.ip_first_seen">^true$</field>
+    <description>QAPAQ SharePoint: sincronización masiva de $(office365.UserId) desde una red nueva para el usuario ($(office365.ClientIP)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_sync,</group>
+  </rule>
+
+  <!-- ================================================================ enlaces anónimos usados -->
+  <rule id="101910" level="3">
+    <if_sid>91544</if_sid>
+    <field name="office365.Operation">^AnonymousLinkUsed$</field>
+    <description>QAPAQ SharePoint: enlace anónimo usado desde $(office365.ClientIP) sobre $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_anonymous_link,</group>
+  </rule>
+
+  <rule id="101911" level="10" frequency="50" timeframe="600">
+    <if_matched_sid>101910</if_matched_sid>
+    <same_field>office365.ClientIP</same_field>
+    <description>QAPAQ SharePoint: 50 usos de enlaces anónimos desde $(office365.ClientIP) en 10 min (descarga masiva sin identidad).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+    <group>qapaq_collection,qapaq_anonymous_link,</group>
+  </rule>
+</group>

@@ -412,3 +412,101 @@ $qapaqBreakpointTablet: 1023px;
     border-radius: 0 !important;
   }
 }
+
+// Ankay (SOAR) embebido: ocupa todo el alto disponible bajo la cabecera del dashboard.
+.ankayApp {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - #{$ouiHeaderHeightCompensation});
+}
+
+.ankay {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ankayBar {
+  display: flex;
+  align-items: center;
+  gap: $ouiSizeM;
+  padding: $ouiSizeS $ouiSizeL;
+  border-bottom: $ouiBorderThin;
+}
+
+.ankayTitle {
+  font-weight: 700;
+}
+
+.ankayHint {
+  color: $ouiTextSubduedColor;
+  flex: 1 1 auto;
+}
+
+.ankayLink,
+.ankayRetry {
+  color: $ouiLinkColor;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.ankayFrame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #080808;
+}
+
+.ankayNotice {
+  padding: $ouiSizeXL $ouiSizeL;
+  text-align: center;
+
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: $ouiSizeS;
+  }
+}
+
+.ankaySpinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid $ouiColorLightShade;
+  border-top-color: #ff5841;
+  border-radius: 50%;
+  animation: ankaySpin 0.8s linear infinite;
+}
+
+@keyframes ankaySpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.qapaqRenderFailure {
+  padding: 24px;
+  margin: 16px;
+  border: 1px solid #555560;
+  border-radius: 8px;
+  background: #202027;
+  color: #f7f5fb;
+}
+.qapaqRenderFailure h2 {
+  margin: 0 0 8px;
+}
+.qapaqRenderFailure p {
+  margin: 0 0 16px;
+}
+.qapaqRenderFailure button {
+  padding: 8px 16px;
+  color: #f7f5fb;
+  background: #17171d;
+  border: 1px solid #119cff;
+  border-radius: 6px;
+  cursor: pointer;
+}

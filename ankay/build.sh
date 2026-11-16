@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ankay Qapaq — build del frontend de Shuffle rebrandeado (docs/13).
+# Ankay — build del frontend de Shuffle rebrandeado (docs/13).
 #
 #   bash ankay/build.sh <OUT_DIR> [IMAGE_REF]
 #
@@ -36,13 +36,22 @@ done
 
 # Shuffle v2.3.0 provides this supported source-level subpathing pattern for reverse proxies.
 # Keep the frontend deployable under the QAPAQ edge's protected /ankay/ prefix.
+# SSO QAPAQ (decisión B11): sin cookie de sesión legible por JS, «Volver al SIEM» y capa de español.
+node "$HERE/frontend/sso-overlay.mjs" "$FE"
 node "$HERE/frontend/subpath.mjs" "$FE"
 
 grep -v '^#' "$HERE/frontend/assets/targets.tsv" | while IFS=$'\t' read -r src dst _; do
   [[ -n "$src" ]] || continue
-  [[ -f "$FE/$dst" ]] || { echo "destino de arte inexistente en upstream: $dst" >&2; exit 1; }
+  mkdir -p "$(dirname "$FE/$dst")"
   cp "$HERE/frontend/assets/$src" "$FE/$dst"
 done
+
+# Tipografía oficial (Satoshi Medium/Bold, licencia ITF FFL): el patch 0004 declara el @font-face.
+mkdir -p "$FE/public/fonts"
+cp "$HERE"/frontend/assets/fonts/* "$FE/public/fonts/"
+
+# Capa de español y marca en el DOM (sso-overlay.mjs la carga desde index.html).
+cp "$HERE/frontend/i18n/qapaq-i18n.js" "$FE/public/qapaq-i18n.js"
 
 node "$HERE/frontend/rebrand.mjs" "$FE"
 
@@ -52,12 +61,12 @@ tar -C "$work/shuffle" --exclude=node_modules -czf "$OUT_DIR/$src_name" frontend
 mkdir -p "$FE/public/source"
 cp "$OUT_DIR/$src_name" "$work/shuffle/LICENSE" "$FE/public/source/"
 cat >"$FE/public/source/index.html" <<HTML
-<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Ankay Qapaq · código fuente</title></head>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Ankay · código fuente</title></head>
 <body style="background:#080808;color:#f4f4f5;font-family:system-ui;max-width:640px;margin:48px auto;line-height:1.6">
-<h1>Ankay Qapaq · código fuente</h1>
-<p>Ankay Qapaq es una versión modificada de Shuffle ${SHUFFLE_TAG} (commit ${SHUFFLE_SHA}), distribuida bajo la
-<a style="color:#c49a5a" href="LICENSE">GNU Affero General Public License v3.0</a>.</p>
-<p>Código fuente correspondiente de esta versión: <a style="color:#c49a5a" href="${src_name}">${src_name}</a>.</p>
+<h1>Ankay · código fuente</h1>
+<p>Ankay es una versión modificada de Shuffle ${SHUFFLE_TAG} (commit ${SHUFFLE_SHA}), distribuida bajo la
+<a style="color:#ff5841" href="LICENSE">GNU Affero General Public License v3.0</a>.</p>
+<p>Código fuente correspondiente de esta versión: <a style="color:#ff5841" href="${src_name}">${src_name}</a>.</p>
 <p>Modificaciones de QAPAQ: tema, marca y textos (overlay <code>ankay/</code> de qapaq-secops, ${QAPAQ_SHA}).</p>
 </body></html>
 HTML

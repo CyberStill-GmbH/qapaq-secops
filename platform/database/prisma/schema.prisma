@@ -312,19 +312,19 @@ model AuditEvent {
 // C-16 — candidato de detección. La unicidad por clave de idempotencia es lo que
 // hace que repetir la promoción no cree un segundo candidato.
 model DetectionCandidate {
-  id             String   @id @db.Uuid
-  tenantId       String   @map("tenant_id") @db.Text
-  eventRecordId  String   @map("event_record_id") @db.Uuid
-  eventUid       String   @map("event_uid") @db.Text
-  idempotencyKey String   @map("idempotency_key") @db.Text
-  priority       String   @db.Text
-  score          Int
-  reasons        Json     @db.JsonB
-  rulesetId      String   @map("ruleset_id") @db.Text
-  rulesetVersion String   @map("ruleset_version") @db.Text
-  title          String   @db.Text
-  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Text
+  eventRecordId   String   @map("event_record_id") @db.Uuid
+  eventUid        String   @map("event_uid") @db.Text
+  idempotencyKey  String   @map("idempotency_key") @db.Text
+  priority        String   @db.Text
+  score           Int
+  reasons         Json     @db.JsonB
+  rulesetId       String   @map("ruleset_id") @db.Text
+  rulesetVersion  String   @map("ruleset_version") @db.Text
+  title           String   @db.Text
+  occurredAt      DateTime @map("occurred_at") @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   // C-16 1.1.0 — índice de correlación por entidad.
   entityKeys      String[] @default([]) @map("entity_keys") @db.Text
   signal          String?  @db.Text
@@ -340,23 +340,23 @@ model DetectionCandidate {
 
 // C-17 — alerta SOC. `revision` sostiene el compare-and-set del dominio.
 model SocAlert {
-  id            String    @id @db.Uuid
-  tenantId      String    @map("tenant_id") @db.Text
-  candidateId   String    @unique(map: "soc_alerts_candidate_key") @map("candidate_id") @db.Uuid
-  eventRecordId String    @map("event_record_id") @db.Uuid
-  title         String    @db.Text
-  priority      String    @db.Text
-  score         Int
-  reasons       Json      @db.JsonB
-  status        String    @db.Text
-  assigneeId    String?   @map("assignee_id") @db.Text
-  verdict       String?   @db.Text
-  triageNote    String?   @map("triage_note") @db.Text
-  incidentId    String?   @map("incident_id") @db.Uuid
-  occurredAt    DateTime  @map("occurred_at") @db.Timestamptz(3)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @map("updated_at") @db.Timestamptz(3)
-  revision      Int
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Text
+  candidateId     String   @unique(map: "soc_alerts_candidate_key") @map("candidate_id") @db.Uuid
+  eventRecordId   String   @map("event_record_id") @db.Uuid
+  title           String   @db.Text
+  priority        String   @db.Text
+  score           Int
+  reasons         Json     @db.JsonB
+  status          String   @db.Text
+  assigneeId      String?  @map("assignee_id") @db.Text
+  verdict         String?  @db.Text
+  triageNote      String?  @map("triage_note") @db.Text
+  incidentId      String?  @map("incident_id") @db.Uuid
+  occurredAt      DateTime @map("occurred_at") @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @map("updated_at") @db.Timestamptz(3)
+  revision        Int
   // C-16 1.1.0 — copia de la correlación del candidato para consultar sin join.
   entityKeys      String[] @default([]) @map("entity_keys") @db.Text
   // D-10b — referencias opacas de las mismas entidades: lo único que viaja en URLs.
@@ -397,6 +397,7 @@ model SocOutboxMessage {
   lastErrorCode  String?   @map("last_error_code") @db.Text
   publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)
 
+  @@index([tenantId, createdAt(sort: Desc), messageId(sort: Desc)], map: "soc_outbox_tenant_created_message_idx")
   @@map("soc_outbox_messages")
 }
 
@@ -441,7 +442,7 @@ model IncidentTask {
   cancellationReason String?   @map("cancellation_reason") @db.Text
   revision           Int
 
-  incident SocIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict, map: "incident_tasks_incident_fk")
+  incident SocIncident @relation(fields: [incidentId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "incident_tasks_incident_fk")
 
   @@index([tenantId, incidentId, createdAt(sort: Desc)], map: "incident_tasks_incident_idx")
   @@map("incident_tasks")
@@ -457,8 +458,8 @@ model IncidentNote {
   createdAt      DateTime @map("created_at") @db.Timestamptz(3)
   correctsNoteId String?  @map("corrects_note_id") @db.Uuid
 
-  incident    SocIncident    @relation(fields: [incidentId], references: [id], onDelete: Restrict, map: "incident_notes_incident_fk")
-  corrects    IncidentNote?  @relation("NoteCorrections", fields: [correctsNoteId], references: [id], onDelete: Restrict, map: "incident_notes_corrects_fk")
+  incident    SocIncident    @relation(fields: [incidentId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "incident_notes_incident_fk")
+  corrects    IncidentNote?  @relation("NoteCorrections", fields: [correctsNoteId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "incident_notes_corrects_fk")
   correctedBy IncidentNote[] @relation("NoteCorrections")
 
   @@index([tenantId, incidentId, createdAt(sort: Desc)], map: "incident_notes_incident_idx")
@@ -468,26 +469,90 @@ model IncidentNote {
 // C-20 — intento de notificación. `client_request_id` es estable entre reintentos
 // para que el destino pueda deduplicar un envío ambiguo.
 model NotificationAttempt {
-  id              String    @id @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Text
-  messageId       String    @map("message_id") @db.Uuid
-  idempotencyKey  String    @map("idempotency_key") @db.Text
-  clientRequestId String    @map("client_request_id") @db.Text
-  channel         String    @db.Text
-  status          String    @db.Text
-  attemptCount    Int       @map("attempt_count")
-  availableAt     DateTime  @map("available_at") @db.Timestamptz(3)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime  @map("updated_at") @db.Timestamptz(3)
-  lastFailureCode String?   @map("last_failure_code") @db.Text
-  lastFailureClass String?  @map("last_failure_class") @db.Text
-  sentAt          DateTime? @map("sent_at") @db.Timestamptz(3)
-  acknowledgedAt  DateTime? @map("acknowledged_at") @db.Timestamptz(3)
-  acknowledgedBy  String?   @map("acknowledged_by") @db.Text
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Text
+  messageId        String    @map("message_id") @db.Uuid
+  idempotencyKey   String    @map("idempotency_key") @db.Text
+  clientRequestId  String    @map("client_request_id") @db.Text
+  channel          String    @db.Text
+  status           String    @db.Text
+  attemptCount     Int       @map("attempt_count")
+  availableAt      DateTime  @map("available_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz(3)
+  lastFailureCode  String?   @map("last_failure_code") @db.Text
+  lastFailureClass String?   @map("last_failure_class") @db.Text
+  sentAt           DateTime? @map("sent_at") @db.Timestamptz(3)
+  acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  acknowledgedBy   String?   @map("acknowledged_by") @db.Text
+  groupKey          String?   @map("group_key") @db.Text
+  context           Json?     @db.JsonB
+  delivery          Json      @default("[]") @db.JsonB
+  suppressionReason String?   @map("suppression_reason") @db.Text
+  supersededBy      String?   @map("superseded_by") @db.Uuid
+  digestId          String?   @map("digest_id") @db.Uuid
 
   @@unique([tenantId, idempotencyKey], map: "notification_attempts_idempotency_key")
   @@index([status, availableAt, id], map: "notification_attempts_pending_idx")
+  @@index([tenantId, groupKey, sentAt], map: "notification_attempts_group_idx")
+  @@index([tenantId, messageId], map: "notification_attempts_tenant_message_idx")
   @@map("notification_attempts")
+}
+
+// Reserva idempotente del cupo P2 por tenant; las filas vencidas se limpian al reservar.
+model NotificationP2RateReservation {
+  tenantId       String   @map("tenant_id") @db.Text
+  idempotencyKey String   @map("idempotency_key") @db.Text
+  reservedAt     DateTime @map("reserved_at") @db.Timestamptz(3)
+  leaseUntil     DateTime @map("lease_until") @db.Timestamptz(3)
+  confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz(3)
+
+  @@id([tenantId, idempotencyKey], map: "notification_p2_rate_reservations_pkey")
+  @@index([tenantId, reservedAt], map: "notification_p2_rate_reservations_window_idx")
+  @@map("notification_p2_rate_reservations")
+}
+
+// Quiet-window lease for notification groups; a single row serializes active dispatch per group.
+model NotificationGroupDispatchReservation {
+  tenantId       String   @map("tenant_id") @db.Text
+  groupKey       String   @map("group_key") @db.Text
+  idempotencyKey String   @map("idempotency_key") @db.Text
+  attemptId      String   @map("attempt_id") @db.Text
+  fencingToken   String   @map("fencing_token") @db.Text
+  state          String   @db.Text
+  reservedAt     DateTime @map("reserved_at") @db.Timestamptz(3)
+  leaseUntil     DateTime @map("lease_until") @db.Timestamptz(3)
+  confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  quietUntil     DateTime @map("quiet_until") @db.Timestamptz(3)
+
+  @@id([tenantId, groupKey], map: "notification_group_dispatch_reservations_pkey")
+  @@index([tenantId, leaseUntil], map: "notification_group_dispatch_reservations_lease_idx")
+  @@map("notification_group_dispatch_reservations")
+}
+
+// Canales de aviso administrables (Teams, correo, push). El webhook de Teams se guarda cifrado
+// (AES-256-GCM, clave derivada en el API); la API nunca lo devuelve.
+model NotificationChannel {
+  tenantId           String    @map("tenant_id") @db.Text
+  channelId          String    @map("channel_id") @db.Text
+  enabled            Boolean   @default(true)
+  secretCiphertext   String?   @map("secret_ciphertext") @db.Text
+  secretHint         String?   @map("secret_hint") @db.Text
+  updatedAt          DateTime  @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String?   @map("updated_by") @db.Text
+  lastSuccessAt      DateTime? @map("last_success_at") @db.Timestamptz(3)
+  lastFailureAt      DateTime? @map("last_failure_at") @db.Timestamptz(3)
+  lastHttpStatus     Int?      @map("last_http_status")
+  lastFailureReason  String?   @map("last_failure_reason") @db.Text
+  lastTestAt         DateTime? @map("last_test_at") @db.Timestamptz(3)
+  lastTestOutcome    String?   @map("last_test_outcome") @db.Text
+  lastTestHttpStatus Int?      @map("last_test_http_status")
+  lastTestProviderId String?   @map("last_test_provider_id") @db.Text
+  // Revisión de la configuración (CAS de la consola); la salud no la mueve.
+  revision           Int       @default(1)
+
+  @@id([tenantId, channelId], map: "notification_channels_pkey")
+  @@map("notification_channels")
 }
 
 // C-18/C-25 — sesiones del BFF. `idHash` es el SHA-256 del identificador de la cookie: el
@@ -514,19 +579,23 @@ model AccessSession {
   revision          Int
 
   @@index([tenantId, subjectId, state], map: "access_sessions_subject_idx")
+  @@index([tenantId, subjectOid, state], map: "access_sessions_oid_idx")
   @@index([tenantId, lastSeenAt(sort: Desc)], map: "access_sessions_tenant_seen_idx")
   @@map("access_sessions")
 }
 
 // Sprint 5 · fase 0 — cursor de ingesta por fuente, con lease y fencing (`claimId`).
 model SocIngestionCursor {
-  tenantId   String    @map("tenant_id") @db.Text
-  sourceId   String    @map("source_id") @db.Text
-  dataset    String    @db.Text
-  watermark  DateTime? @db.Timestamptz(3)
-  leaseUntil DateTime? @map("lease_until") @db.Timestamptz(3)
-  claimId    String?   @map("claim_id") @db.Uuid
-  updatedAt  DateTime  @map("updated_at") @db.Timestamptz(3)
+  tenantId           String    @map("tenant_id") @db.Text
+  sourceId           String    @map("source_id") @db.Text
+  dataset            String    @db.Text
+  watermark          DateTime? @db.Timestamptz(3)
+  continuationFrom   DateTime? @map("continuation_from") @db.Timestamptz(3)
+  continuationTo     DateTime? @map("continuation_to") @db.Timestamptz(3)
+  continuationCursor String?   @map("continuation_cursor") @db.Text
+  leaseUntil         DateTime? @map("lease_until") @db.Timestamptz(3)
+  claimId            String?   @map("claim_id") @db.Uuid
+  updatedAt          DateTime  @map("updated_at") @db.Timestamptz(3)
 
   @@id([tenantId, sourceId, dataset], map: "soc_ingestion_cursors_pkey")
   @@map("soc_ingestion_cursors")
@@ -542,8 +611,13 @@ model SourcePollObservation {
   completedAt   DateTime  @map("completed_at") @db.Timestamptz(3)
   outcome       String    @db.Text
   recordsSeen   Int       @map("records_seen")
+  normalized    Int?
   promoted      Int
   quarantined   Int
+  duplicates    Int?
+  notPromoted   Int?      @map("not_promoted")
+  belowThreshold Int?     @map("below_threshold")
+  suppressed    Int?
   newestEventAt DateTime? @map("newest_event_at") @db.Timestamptz(3)
   errorClass    String?   @map("error_class") @db.Text
 
@@ -695,3 +769,199 @@ model AccessRoleRequest {
   @@map("access_role_requests")
 }
 
+// Historial de conversaciones de Qapaqzito (asistente de IA). Una fila por conversación con sus
+// mensajes en `jsonb`: un turno se agrega con una sola escritura (compare-and-set sobre
+// `message_count`). Aislamiento por (tenant, dueño) en cada consulta; borrado real (el runtime
+// recibe DELETE solo sobre esta tabla en `post-migrate.sql`). Topes y CHECK en la migración.
+model AssistantConversation {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Text
+  ownerId      String   @map("owner_id") @db.Text
+  title        String   @db.Text
+  createdAt    DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @map("updated_at") @db.Timestamptz(3)
+  messageCount Int      @map("message_count")
+  messages     Json     @db.JsonB
+
+  @@index([tenantId, ownerId, updatedAt(sort: Desc), id(sort: Desc)], map: "assistant_conversations_owner_idx")
+  @@index([tenantId, updatedAt], map: "assistant_conversations_retention_idx")
+  @@map("assistant_conversations")
+}
+
+// Archivos generados por Qapaqzito (informes PDF/XLSX/CSV). Efimeros (`expires_at`), contenido en bytea,
+// aislados por (tenant, dueno). Borrado real: el runtime recibe DELETE solo sobre esta tabla y
+// `assistant_conversations` (`post-migrate.sql`).
+model AssistantArtifact {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Text
+  ownerId        String   @map("owner_id") @db.Text
+  conversationId String?  @map("conversation_id") @db.Uuid
+  filename       String   @db.Text
+  contentType    String   @map("content_type") @db.Text
+  format         String   @db.Text
+  title          String   @db.Text
+  size           Int
+  sha256         String   @db.Text
+  content        Bytes    @db.ByteA
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([tenantId, ownerId, expiresAt], map: "assistant_artifacts_owner_expiry_idx")
+  @@index([expiresAt], map: "assistant_artifacts_expiry_idx")
+  @@map("assistant_artifacts")
+}
+
+// Receipt-only queue for minimized Wazuh push hints. Never stores full alert bodies or full_log.
+model WazuhPushInboxHint {
+  id             String    @id @db.Uuid
+  managerName    String    @map("manager_name") @db.Text
+  alertId        String    @map("alert_id") @db.Text
+  occurredAt     String    @map("occurred_at") @db.Text
+  idempotencyKey String    @unique(map: "wazuh_push_inbox_hints_idempotency_key") @map("idempotency_key") @db.Text
+  status         String    @default("pending") @db.Text
+  attemptCount   Int       @default(0) @map("attempt_count")
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  availableAt    DateTime  @default(now()) @map("available_at") @db.Timestamptz(3)
+  leaseUntil     DateTime? @map("lease_until") @db.Timestamptz(3)
+  claimId        String?   @map("claim_id") @db.Uuid
+  lastErrorCode  String?   @map("last_error_code") @db.Text
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  @@index([status, availableAt, receivedAt, id], map: "wazuh_push_inbox_hints_pending_idx")
+  @@index([status, leaseUntil, receivedAt, id], map: "wazuh_push_inbox_hints_processing_idx")
+  @@index([receivedAt(sort: Desc), id(sort: Desc)], map: "wazuh_push_inbox_hints_received_idx")
+  @@map("wazuh_push_inbox_hints")
+}
+
+// Analista IA (docs/27): cola durable de investigaciones con lease/fencing. El expediente y el
+// resumen de evidencia son JSON validados por modules/assistant; nunca prompts ni evidencia cruda.
+model AiInvestigationJob {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Text
+  subjectKind     String    @map("subject_kind") @db.Text
+  subjectId       String    @map("subject_id") @db.Text
+  subjectTitle    String    @map("subject_title") @db.Text
+  subjectRuleId   String?   @map("subject_rule_id") @db.Text
+  alertIds        Json      @map("alert_ids") @db.JsonB
+  priority        String    @db.Text
+  trigger         String    @db.Text
+  source          String    @db.Text
+  initiatedBy     String?   @map("initiated_by") @db.Text
+  idempotencyKey  String    @map("idempotency_key") @db.Text
+  fingerprint     String    @db.Text
+  policyVersion   String    @map("policy_version") @db.Text
+  status          String    @default("queued") @db.Text
+  stage           String?   @db.Text
+  inference       String?   @db.Text
+  attempt         Int       @default(0)
+  availableAt     DateTime  @map("available_at") @db.Timestamptz(3)
+  leaseUntil      DateTime? @map("lease_until") @db.Timestamptz(3)
+  fencingToken    Int       @default(0) @map("fencing_token")
+  cancelRequested Boolean   @default(false) @map("cancel_requested")
+  lastErrorCode   String?   @map("last_error_code") @db.Text
+  result          Json?     @db.JsonB
+  plannedStatus   String?   @map("planned_status") @db.Text
+  evidence        Json?     @db.JsonB
+  eventSequence   Int       @default(0) @map("event_sequence")
+  createdAt       DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @map("updated_at") @db.Timestamptz(3)
+  startedAt       DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(3)
+  revision        Int       @default(1)
+
+  events      AiInvestigationEvent[]
+  invocations AiInvestigationInvocation[]
+  actions     AiInvestigationAction[]
+
+  @@unique([tenantId, idempotencyKey], map: "ai_investigation_jobs_idempotency_key")
+  @@index([status, priority, availableAt, createdAt, id], map: "ai_investigation_jobs_claim_idx")
+  @@index([status, leaseUntil], map: "ai_investigation_jobs_lease_idx")
+  @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)], map: "ai_investigation_jobs_tenant_idx")
+  @@index([tenantId, status, createdAt(sort: Desc), id(sort: Desc)], map: "ai_investigation_jobs_tenant_status_idx")
+  @@index([tenantId, finishedAt], map: "ai_investigation_jobs_tenant_finished_idx")
+  @@map("ai_investigation_jobs")
+}
+
+// Bitácora append-only de progreso (el runtime no tiene UPDATE ni DELETE; ver post-migrate.sql).
+model AiInvestigationEvent {
+  jobId    String   @map("job_id") @db.Uuid
+  sequence Int
+  tenantId String   @map("tenant_id") @db.Text
+  at       DateTime @db.Timestamptz(3)
+  stage    String   @db.Text
+  kind     String   @db.Text
+  detail   Json     @default("{}") @db.JsonB
+
+  job AiInvestigationJob @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ai_investigation_events_job_fkey")
+
+  @@id([jobId, sequence], map: "ai_investigation_events_pkey")
+  @@index([tenantId, at], map: "ai_investigation_events_tenant_idx")
+  @@map("ai_investigation_events")
+}
+
+// Libro de invocaciones al modelo: reserva del peor caso, uso reportado y costo ESTIMADO.
+model AiInvestigationInvocation {
+  id                   String    @id @db.Uuid
+  jobId                String    @map("job_id") @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Text
+  phase                String    @db.Text
+  fingerprint          String    @db.Text
+  tier                 String    @db.Text
+  model                String    @db.Text
+  state                String    @db.Text
+  reservedInputTokens  Int       @map("reserved_input_tokens")
+  reservedOutputTokens Int       @map("reserved_output_tokens")
+  reservedMicroUsd     BigInt    @map("reserved_micro_usd")
+  inputTokens          Int?      @map("input_tokens")
+  outputTokens         Int?      @map("output_tokens")
+  cacheReadTokens      Int?      @map("cache_read_tokens")
+  cacheWriteTokens     Int?      @map("cache_write_tokens")
+  estimatedMicroUsd    BigInt?   @map("estimated_micro_usd")
+  rateCardVersion      String    @map("rate_card_version") @db.Text
+  createdAt            DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime  @map("updated_at") @db.Timestamptz(3)
+  settledAt            DateTime? @map("settled_at") @db.Timestamptz(3)
+
+  job AiInvestigationJob @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ai_investigation_invocations_job_fkey")
+
+  @@unique([jobId, phase, fingerprint], map: "ai_investigation_invocations_job_phase_fingerprint")
+  @@index([tenantId, createdAt], map: "ai_investigation_invocations_tenant_day_idx")
+  @@index([tenantId, fingerprint, state], map: "ai_investigation_invocations_tenant_fingerprint_idx")
+  @@map("ai_investigation_invocations")
+}
+
+// Libro de acciones del analista sobre el SOC: una por (trabajo, tipo). Sin contención.
+model AiInvestigationAction {
+  id         String    @id @db.Uuid
+  jobId      String    @map("job_id") @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Text
+  kind       String    @db.Text
+  state      String    @db.Text
+  reason     String    @db.Text
+  urgency    String?   @db.Text
+  groupKey   String?   @map("group_key") @db.Text
+  at         DateTime  @db.Timestamptz(3)
+  executedAt DateTime? @map("executed_at") @db.Timestamptz(3)
+  refKind    String?   @map("ref_kind") @db.Text
+  refId      String?   @map("ref_id") @db.Text
+  errorCode  String?   @map("error_code") @db.Text
+
+  job AiInvestigationJob @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "ai_investigation_actions_job_fkey")
+
+  @@unique([jobId, kind], map: "ai_investigation_actions_job_kind")
+  @@index([tenantId, at], map: "ai_investigation_actions_tenant_idx")
+  @@map("ai_investigation_actions")
+}
+
+// Ajustes del Analista IA por tenant (documento validado por modules/assistant) con CAS.
+model AiAnalystSettings {
+  tenantId  String   @id @map("tenant_id") @db.Text
+  document  Json     @db.JsonB
+  revision  Int      @default(1)
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(3)
+  updatedBy String   @map("updated_by") @db.Text
+
+  @@map("ai_analyst_settings")
+}

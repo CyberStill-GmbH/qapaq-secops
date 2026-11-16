@@ -1,0 +1,51 @@
+# QAPAQ SOC · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+id: QAPAQ-TUNE-AWS-001
+title: Cambios del propio SOC en el pipeline de monitoreo AWS
+source: aws
+use_case: trusted-principals
+kind: tuning
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-08'
+updated: '2026-11-08'
+hypothesis: TagResource y ajustes del pipeline hechos por el rol SSO del SOC son mantenimiento; el mismo cambio
+  por otro principal sigue siendo sospechoso.
+data_sources:
+- CloudTrail vía EventBridge → SNS → receptor QAPAQ (trail de la cuenta, 598294a)
+rules:
+  file: detections/aws/trusted-principals/rule.xml
+  ids:
+  - 101714
+  - 101715
+  - 101716
+  installed_as: etc/rules/qapaq_soc_aws_trusted_principals.xml
+mitre:
+- technique: T1562.008
+  tactic: defense-evasion
+severity:
+  levels: 3 cambio no destructivo por principal de confianza · 9 cambio destructivo por principal de confianza
+  priority_hint: P4 / P2
+  rationale: 'Degradación, nunca supresión: queda indexado y lo destructivo sigue en correo.'
+false_positives:
+- 'Credenciales del SOC robadas: por eso lo destructivo no baja de 9 y 101710–101712 siguen evaluando la cadena.'
+tuning:
+- Allowlist exacta por aws.principal (rol SSO + sesión). Altas por PR con aprobación del Líder SOC.
+measurement:
+  window: desde la activación del trail (598294a)
+  before:
+    '101616': 2 (nivel 6, soc@qapaq.pe)
+    '101640': 3 (nivel 8, soc@qapaq.pe)
+  expected_after:
+    '101616': solo principales no confiables
+    '101714': cambios del SOC, nivel 3
+lists:
+- detections/lists/qapaq-aws-trusted-principals
+tests:
+  runner: logtest
+  fixtures: detections/aws/trusted-principals/fixtures.jsonl
+  expected: detections/aws/trusted-principals/expected.txt
+runbook: docs/detection-engineering/runbooks/cloudtrail-y-auditoria.md
+tuning_log: docs/detection-engineering/07-ajuste-falsos-positivos.md

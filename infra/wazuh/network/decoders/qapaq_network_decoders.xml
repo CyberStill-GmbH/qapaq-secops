@@ -1,0 +1,20 @@
+<!--
+  QAPAQ SOC · decoders de visibilidad de red (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
+  Se instala como etc/decoders/qapaq_network_decoders.xml con infra/wazuh/network/deploy-network.sh.
+
+  1. qapaq-netconn  · salida de infra/wazuh/network/agent/qapaq-netconn.sh (command monitoring, una línea
+                    por puerto en escucha o conexión TCP establecida NUEVA desde la ejecución anterior):
+                    ossec: output: 'qapaq-netconn': type=conn dir=out proto=tcp src=10.89.0.12 sport=51234
+                    dst=198.51.100.9 dport=443 proc=curl uid=1000
+  La IP de los eventos de auditd (registro SOCKADDR enriquecido) la agrega un hermano de auditd-syscall
+  que solo funciona dentro del archivo oficial: ver build_auditd_override.py (qapaq_auditd_decoders.xml).
+-->
+
+<!-- 1. Conexiones y puertos (command monitoring) -->
+<decoder name="qapaq-netconn">
+  <parent>ossec</parent>
+  <type>ossec</type>
+  <prematch offset="after_parent">^output: 'qapaq-netconn': </prematch>
+  <regex offset="after_prematch">^type=(\S+) dir=(\S+) proto=(\S+) src=(\S+) sport=(\S+) dst=(\S+) dport=(\S+) proc=(\S+) uid=(\S+)</regex>
+  <order>qapaq.net.type,qapaq.net.direction,protocol,srcip,srcport,dstip,dstport,qapaq.net.process,qapaq.net.uid</order>
+</decoder>

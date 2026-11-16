@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   ClaimedIngestionCursor,
+  IngestionContinuation,
   IngestionCursorKey,
   IngestionStateStore,
   SourcePollObservation,
@@ -16,6 +17,7 @@ import type { SourceHealthTransition } from './source-health.js';
 
 interface CursorRow {
   watermark: Date | null;
+  continuation: IngestionContinuation | null;
   leaseUntil: Date | null;
   claimId: string | null;
 }
@@ -35,6 +37,7 @@ export class InMemoryIngestionState implements IngestionStateStore {
   ): Promise<ClaimedIngestionCursor | undefined> {
     const row = this.cursors.get(keyOf(key)) ?? {
       watermark: null,
+      continuation: null,
       leaseUntil: null,
       claimId: null,
     };
@@ -46,13 +49,43 @@ export class InMemoryIngestionState implements IngestionStateStore {
       leaseUntil: new Date(at.getTime() + leaseMs),
       claimId,
     });
-    return Promise.resolve({ key, watermark: row.watermark, claimId });
+    return Promise.resolve({
+      key,
+      watermark: row.watermark,
+      continuation: row.continuation
+        ? {
+            ...row.continuation,
+            from: new Date(row.continuation.from),
+            to: new Date(row.continuation.to),
+          }
+        : null,
+      claimId,
+    });
   }
 
   public advanceCursor(claim: ClaimedIngestionCursor, watermark: Date): Promise<boolean> {
     const row = this.cursors.get(keyOf(claim.key));
     if (!row || row.claimId !== claim.claimId) return Promise.resolve(false);
     if (!row.watermark || watermark.getTime() > row.watermark.getTime()) row.watermark = watermark;
+    return Promise.resolve(true);
+  }
+
+  public saveContinuation(
+    claim: ClaimedIngestionCursor,
+    continuation: IngestionContinuation | null,
+    _at: Date,
+  ): Promise<boolean> {
+    const row = this.cursors.get(keyOf(claim.key));
+    if (!row || row.claimId !== claim.claimId) return Promise.resolve(false);
+    if (
+      continuation &&
+      (continuation.from.getTime() >= continuation.to.getTime() || continuation.cursor.length === 0)
+    ) {
+      return Promise.reject(new Error('INGESTION_CURSOR_CONTINUATION_INVALID'));
+    }
+    row.continuation = continuation
+      ? { ...continuation, from: new Date(continuation.from), to: new Date(continuation.to) }
+      : null;
     return Promise.resolve(true);
   }
 

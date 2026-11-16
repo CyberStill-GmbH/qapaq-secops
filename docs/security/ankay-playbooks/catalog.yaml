@@ -1,8 +1,13 @@
+# Catálogo de playbooks de Ankay (diseño; no importado en ninguna instancia).
+# Destino: cada playbook es una máquina de estados de AWS Step Functions invocada por la QAPAQ API con
+# nombre de ejecución = executionKey y aprobación humana por waitForTaskToken (docs/13 y docs/14).
+# Los bloques engine y webhook describen el estado HEREDADO basado en Shuffle v2.3.0, que se reemplaza.
+# Las claves e IDs de este archivo no cambian en la migración.
 schemaVersion: 1
 catalogId: qapaq-ankay-initial-soc
 status: design-only
 engine:
-  product: Ankay Qapaq
+  product: Ankay
   upstream: Shuffle
   upstreamVersion: 2.3.0
   overlay: frontend-branding-csp

@@ -1,0 +1,5 @@
+# Expose read-only host collector JSONL files to Wazuh. No service other than the manager changes.
+services:
+  wazuh.manager:
+    volumes:
+      - /opt/qapaq/provider-ingestion/logs:/var/ossec/logs/qapaq-providers:ro

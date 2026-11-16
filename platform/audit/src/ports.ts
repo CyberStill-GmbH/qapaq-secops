@@ -26,6 +26,9 @@ export interface AuditStore {
   ): Promise<readonly SealedAuditEvent[]>;
 }
 
+/** Escritura mínima que requiere `recordAudit`; permite reutilizar un tx-bound store. */
+export type AuditAppender = Pick<AuditStore, 'head' | 'append'>;
+
 export interface AuditArchiveSegmentRef {
   readonly tenantId: string;
   readonly fromSequence: bigint;

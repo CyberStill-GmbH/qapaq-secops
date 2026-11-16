@@ -1,0 +1,43 @@
+{
+  "name": "@qapaq/assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./postgres": {
+      "types": "./src/infrastructure/postgres-conversation-store.ts",
+      "development": "./src/infrastructure/postgres-conversation-store.ts",
+      "default": "./dist/infrastructure/postgres-conversation-store.js"
+    },
+    "./postgres-artifacts": {
+      "types": "./src/infrastructure/postgres-artifact-store.ts",
+      "development": "./src/infrastructure/postgres-artifact-store.ts",
+      "default": "./dist/infrastructure/postgres-artifact-store.js"
+    },
+    "./postgres-investigations": {
+      "types": "./src/infrastructure/postgres-investigation-store.ts",
+      "development": "./src/infrastructure/postgres-investigation-store.ts",
+      "default": "./dist/infrastructure/postgres-investigation-store.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm --dir ../.. exec vitest run --config vitest.config.ts modules/assistant/test"
+  },
+  "dependencies": {
+    "@qapaq/database": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
+  }
+}

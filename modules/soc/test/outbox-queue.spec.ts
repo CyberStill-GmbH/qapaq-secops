@@ -65,6 +65,25 @@ describe('C-20 · cola del outbox con lease', () => {
     expect(soc.outboxState.get('1')?.status).toBe('published');
   });
 
+  it('health cuenta leases vencidos del tenant y mide la expiración más antigua', async () => {
+    const soc = queueWith(message('1'), { ...message('2', after(15_000)), tenantId: 'tenant-2' });
+    await soc.claimOutbox(AT, 10, LEASE_MS);
+    const at = after(LEASE_MS + 10_000);
+
+    await expect(soc.outboxHealth('tenant-1', at)).resolves.toMatchObject({
+      pending: 0,
+      processing: 1,
+      expiredProcessing: 1,
+      oldestExpiredProcessingLeaseUntil: after(LEASE_MS),
+    });
+    await expect(soc.outboxHealth('tenant-2', AT)).resolves.toMatchObject({
+      pending: 1,
+      processing: 0,
+      expiredProcessing: 0,
+      oldestExpiredProcessingLeaseUntil: null,
+    });
+  });
+
   it('publicado es definitivo: no se vuelve a reclamar ni a cerrar', async () => {
     const soc = queueWith(message('1'));
     const [claimed] = await soc.claimOutbox(AT, 10, LEASE_MS);
@@ -92,5 +111,30 @@ describe('C-20 · cola del outbox con lease', () => {
     const batch = await soc.claimOutbox(after(10), 2, LEASE_MS);
 
     expect(batch.map((claimed) => claimed.messageId)).toEqual(['1', '2']);
+  });
+
+  it('separa P1 y crÃ­ticos del carril normal y ordena cada carril por disponibilidad', async () => {
+    const p2 = { ...message('1', after(1)), payload: { priority: 'P2' } };
+    const p1 = message('2', after(2));
+    const critical = {
+      ...message('3', after(3)),
+      aggregateType: 'incident' as const,
+      messageType: 'soc.incident.opened' as const,
+      payload: { severity: 'critical' },
+    };
+    const highIncident = {
+      ...message('4', after(0)),
+      aggregateType: 'incident' as const,
+      messageType: 'soc.incident.opened' as const,
+      payload: { severity: 'high' },
+    };
+    const soc = queueWith(p2, p1, critical, highIncident);
+
+    const urgent = await soc.claimOutbox(after(10), 10, LEASE_MS, 'urgent');
+    const normal = await soc.claimOutbox(after(10), 10, LEASE_MS, 'normal');
+
+    expect(urgent.map((claimed) => claimed.messageId)).toEqual(['2', '3']);
+    expect(normal.map((claimed) => claimed.messageId)).toEqual(['4', '1']);
+    expect(new Set([...urgent, ...normal].map((claimed) => claimed.claimToken)).size).toBe(4);
   });
 });

@@ -1,0 +1,83 @@
+<!--
+  QAPAQ · Snyk issues (wazuh/provider-ingestion/snyk/issues.py). IDs reservados: 101450-101499.
+  Un evento por (issue, updated_at). Severidad Snyk → nivel Wazuh (modules/telemetry):
+  critical 12 (13 con exploit maduro), high 10 (11 con exploit maduro), medium 5, low 3.
+  Issues resueltos o ignorados quedan en nivel 2. Monitor-only.
+-->
+<group name="qapaq_provider,snyk,qapaq_vulnerability,">
+  <rule id="101450" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="qapaq.vendor">^snyk$</field>
+    <description>QAPAQ Snyk: evento del collector de issues.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101451" level="2">
+    <if_sid>101450</if_sid>
+    <field name="snyk.issue.status">^resolved$</field>
+    <description>QAPAQ Snyk: issue resuelto $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101452" level="2">
+    <if_sid>101450</if_sid>
+    <field name="snyk.issue.status">^open$</field>
+    <field name="snyk.issue.ignored">^true$</field>
+    <description>QAPAQ Snyk: issue ignorado $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101453" level="3">
+    <if_sid>101450</if_sid>
+    <field name="snyk.issue.status">^open$</field>
+    <field name="snyk.issue.ignored">^false$</field>
+    <field name="snyk.issue.severity">^low$</field>
+    <description>QAPAQ Snyk: vulnerabilidad baja $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101454" level="5">
+    <if_sid>101450</if_sid>
+    <field name="snyk.issue.status">^open$</field>
+    <field name="snyk.issue.ignored">^false$</field>
+    <field name="snyk.issue.severity">^medium$</field>
+    <description>QAPAQ Snyk: vulnerabilidad media $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101455" level="10">
+    <if_sid>101450</if_sid>
+    <field name="snyk.issue.status">^open$</field>
+    <field name="snyk.issue.ignored">^false$</field>
+    <field name="snyk.issue.severity">^high$</field>
+    <description>QAPAQ Snyk: vulnerabilidad ALTA $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101456" level="12">
+    <if_sid>101450</if_sid>
+    <field name="snyk.issue.status">^open$</field>
+    <field name="snyk.issue.ignored">^false$</field>
+    <field name="snyk.issue.severity">^critical$</field>
+    <description>QAPAQ Snyk: vulnerabilidad CRÍTICA $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101457" level="13">
+    <if_sid>101456</if_sid>
+    <field name="snyk.issue.exploit_maturity">^Mature$</field>
+    <description>QAPAQ Snyk: vulnerabilidad CRÍTICA con exploit maduro $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101458" level="11">
+    <if_sid>101455</if_sid>
+    <field name="snyk.issue.exploit_maturity">^Mature$</field>
+    <description>QAPAQ Snyk: vulnerabilidad ALTA con exploit maduro $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+</group>

@@ -1,0 +1,67 @@
+<!--
+  QAPAQ SOC · detección como código · detections/m365/compromise-chain (metadata.yaml).
+  Cadena de compromiso de cuenta Microsoft 365 dentro de Wazuh (capa 1b de docs/07): la MISMA
+  cuenta que acaba de entrar tras fuerza bruta (100505), o un inicio exitoso desde la IP que hizo
+  password spray (100504), seguido de privilegio, MFA o reenvío de correo.
+  Rango QAPAQ: 101700-101709 (detections/catalog.yaml). Se instala como qapaq_soc_m365_compromise_chain.xml,
+  después de qapaq_office365_rules.xml y qapaq_soc_entra_*.xml (orden alfabético de etc/rules).
+  Escala QAPAQ (modules/telemetry): 12-15 crítica. Todas exigen revisión inmediata (P1 esperado).
+-->
+<group name="office365,qapaq_m365,qapaq_correlation,">
+  <!-- Rol privilegiado concedido por una cuenta que entró tras fuerza bruta. También es hija de
+       101704 (tier 0) para que la cadena prevalezca sobre el refinamiento por rol. -->
+  <rule id="101700" level="15" timeframe="86400">
+    <if_sid>100520, 101704</if_sid>
+    <if_matched_sid>100505</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ M365: $(office365.UserId) concedió un rol privilegiado de Entra después de entrar tras fuerza bruta (cadena de compromiso).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1098.003</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>azure_ad,qapaq_privilege_escalation,qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- Métodos MFA cambiados por la cuenta comprometida: el atacante registra su propio factor. -->
+  <rule id="101701" level="14" timeframe="86400">
+    <if_sid>100526</if_sid>
+    <if_matched_sid>100505</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ M365: $(office365.UserId) cambió sus métodos de autenticación después de entrar tras fuerza bruta (persistencia en MFA).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1556.006</id>
+      <id>T1098.005</id>
+    </mitre>
+    <group>azure_ad,qapaq_persistence,qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- Reenvío u ocultación de correo tras el compromiso: patrón BEC. -->
+  <rule id="101702" level="14" timeframe="86400">
+    <if_sid>100510, 100512</if_sid>
+    <if_matched_sid>100505</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ M365: $(office365.UserId) creó reenvío u ocultación de correo después de entrar tras fuerza bruta (patrón BEC).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1114.003</id>
+      <id>T1564.008</id>
+    </mitre>
+    <group>exchange,qapaq_persistence,qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- Inicio exitoso desde la IP que acaba de hacer password spray. -->
+  <rule id="101703" level="13" timeframe="3600">
+    <if_sid>100506</if_sid>
+    <if_matched_sid>100504</if_matched_sid>
+    <same_field>office365.ClientIP</same_field>
+    <description>QAPAQ M365: inicio de sesión exitoso de $(office365.UserId) desde $(office365.ClientIP), origen de un password spray en la última hora.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1110.003</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_attack_chain,</group>
+  </rule>
+</group>

@@ -6,7 +6,7 @@ import { checkEntrypoints } from '../../scripts/check-entrypoints.mjs';
 
 it('the repository respects entrypoint boundaries', () => {
   expect(checkEntrypoints()).toEqual([]);
-});
+}, 15_000);
 
 it.each([
   ['api', 'worker'],

@@ -11,6 +11,7 @@
  * | `soc.alert.created` P1                | analista, lead              | triage inmediato    |
  * | `soc.alert.escalated` P1              | lead, admin de plataforma   | decisión de caso    |
  * | `soc.incident.opened` crítico         | lead, admin de plataforma   | conducción del caso |
+ * | `soc.alert.review_requested`          | analista, lead              | revisión pedida (IA) |
  *
  * Cualquier otro evento no se notifica. El canal sigue siendo uno solo (el Teams Workflow del
  * SOC): los destinatarios llegan como menciones y Teams avisa a cada uno.
@@ -18,11 +19,7 @@
 
 import type { OutboxMessageDraft } from '@qapaq/soc';
 
-export const NOTIFIED_ROLES = [
-  'qapaq.soc.analyst',
-  'qapaq.soc.lead',
-  'qapaq.platform.admin',
-] as const;
+export const NOTIFIED_ROLES = ['qapaq.soc.analyst', 'qapaq.soc.lead', 'qapaq.platform.admin'] as const;
 export type NotifiedRole = (typeof NOTIFIED_ROLES)[number];
 
 interface Route {
@@ -34,18 +31,24 @@ interface Route {
 export const NOTIFICATION_ROUTES: readonly Route[] = Object.freeze([
   {
     messageType: 'soc.alert.created',
-    matches: (payload) => payload['priority'] === 'P1',
+    matches: (payload) => payload['priority'] === 'P1' || payload['priority'] === 'P2',
     roles: ['qapaq.soc.analyst', 'qapaq.soc.lead'],
   },
   {
     messageType: 'soc.alert.escalated',
-    matches: (payload) => payload['priority'] === 'P1',
+    matches: (payload) => payload['priority'] === 'P1' || payload['priority'] === 'P2',
     roles: ['qapaq.soc.lead', 'qapaq.platform.admin'],
   },
   {
     messageType: 'soc.incident.opened',
     matches: (payload) => payload['severity'] === 'critical',
     roles: ['qapaq.soc.lead', 'qapaq.platform.admin'],
+  },
+  {
+    // Analista IA: pide a una persona que revise (inmediato o en el resumen, según `urgency`).
+    messageType: 'soc.alert.review_requested',
+    matches: () => true,
+    roles: ['qapaq.soc.analyst', 'qapaq.soc.lead'],
   },
 ]);
 

@@ -148,6 +148,111 @@ describe.skipIf(!databaseUrl)('C-20 · intentos SOAR durables', () => {
     expect(future).toEqual({});
   });
 
+  it('mide primera aceptación 2xx en 24 h, excluye skew y aísla el tenant', async () => {
+    const through = new Date('2026-11-12T12:00:00.000Z');
+    const since = new Date(through.getTime() - 24 * 60 * 60 * 1_000);
+    const cases = [
+      { messageId: '0199c200-0000-7000-8000-000000000101', latencyMs: 1_000 },
+      { messageId: '0199c200-0000-7000-8000-000000000102', latencyMs: 2_000 },
+      { messageId: '0199c200-0000-7000-8000-000000000103', latencyMs: 3_000 },
+      { messageId: '0199c200-0000-7000-8000-000000000104', latencyMs: -500 },
+    ];
+
+    for (let index = 0; index < cases.length; index += 1) {
+      const sample = cases[index]!;
+      const createdAt = new Date(through.getTime() - 60_000 - index * 1_000);
+      await client.$executeRaw`
+        INSERT INTO soc_outbox_messages (
+          message_id, tenant_id, aggregate_type, aggregate_id, message_type,
+          schema_version, idempotency_key, payload, available_at, created_at
+        ) VALUES (
+          ${sample.messageId}::uuid, ${TENANT}, 'alert', ${ATTEMPT_ID}::uuid,
+          'notification.requested', '1.0.0', ${`latency:${sample.messageId}`},
+          '{}'::jsonb, ${createdAt}, ${createdAt}
+        )
+      `;
+      const acceptedAt = new Date(createdAt.getTime() + sample.latencyMs);
+      await store.save({
+        ...attempt,
+        id: `0199c200-0000-7000-8000-0000000001${index + 1}0`,
+        messageId: sample.messageId,
+        idempotencyKey: `latency:${sample.messageId}`,
+        createdAt,
+        updatedAt: createdAt,
+        delivery: [
+          ...(index === 0
+            ? [
+                {
+                  channel: 'email' as const,
+                  outcome: 'accepted' as const,
+                  at: new Date(createdAt.getTime() - 500).toISOString(),
+                  responseAt: new Date(createdAt.getTime() - 500).toISOString(),
+                  httpStatus: 202,
+                  providerMessageId: null,
+                  providerLink: null,
+                  reason: null,
+                },
+              ]
+            : []),
+          {
+            channel: 'teams',
+            outcome: 'accepted',
+            at: acceptedAt.toISOString(),
+            responseAt: acceptedAt.toISOString(),
+            httpStatus: 202,
+            providerMessageId: null,
+            providerLink: null,
+            reason: null,
+          },
+        ],
+      });
+    }
+
+    const otherTenantMessage = '0199c200-0000-7000-8000-000000000105';
+    const otherCreatedAt = new Date(through.getTime() - 50_000);
+    await client.$executeRaw`
+      INSERT INTO soc_outbox_messages (
+        message_id, tenant_id, aggregate_type, aggregate_id, message_type,
+        schema_version, idempotency_key, payload, available_at, created_at
+      ) VALUES (
+        ${otherTenantMessage}::uuid, 'another-tenant', 'alert', ${ATTEMPT_ID}::uuid,
+        'notification.requested', '1.0.0', 'latency:other', '{}'::jsonb,
+        ${otherCreatedAt}, ${otherCreatedAt}
+      )
+    `;
+    await store.save({
+      ...attempt,
+      id: '0199c200-0000-7000-8000-000000000150',
+      tenantId: 'another-tenant',
+      messageId: otherTenantMessage,
+      idempotencyKey: 'latency:other',
+      createdAt: otherCreatedAt,
+      updatedAt: otherCreatedAt,
+      delivery: [
+        {
+          channel: 'teams',
+          outcome: 'accepted',
+          at: new Date(otherCreatedAt.getTime() + 100).toISOString(),
+          responseAt: new Date(otherCreatedAt.getTime() + 100).toISOString(),
+          httpStatus: 202,
+          providerMessageId: null,
+          providerLink: null,
+          reason: null,
+        },
+      ],
+    });
+
+    const metric = await store.providerAcceptanceLatencySince(TENANT, since, through);
+    expect(metric).toEqual({
+      sampleCount: 3n,
+      excludedClockSkewCount: 1n,
+      sampleCapReached: false,
+      p50: 2_000,
+      p95: 2_900,
+      p99: 2_980,
+    });
+  });
+
   it('no revela un intento de otro tenant por su ID', async () => {
     await store.save(attempt);
     await expect(store.byId('otro-tenant', ATTEMPT_ID)).resolves.toBeUndefined();

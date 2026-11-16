@@ -1,0 +1,19 @@
+{
+  "policy": {
+    "description": "QAPAQ: índices operativos de Wazuh (estado de agentes y estadísticas del manager) con retención corta de 15 días. docs/16-politicas.md",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [],
+        "transitions": [{ "state_name": "delete", "conditions": { "min_index_age": "15d" } }]
+      },
+      {
+        "name": "delete",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ],
+    "ism_template": [{ "index_patterns": ["wazuh-monitoring-*", "wazuh-statistics-*"], "priority": 150 }]
+  }
+}

@@ -1,146 +1,111 @@
-# 11 · Redis/Valkey: caché y colas para resiliencia
+# 11 · Colas y caché (SQS, Scheduler, DynamoDB TTL)
 
-Decisión del dueño (2026-10-14): Valkey vuelve a la arquitectura (ADR-030), con un rol definido. Este
-documento fija **dónde** es fundamental, **qué técnica** usa cada punto y **qué pasa si Valkey cae**.
+> Leyenda: **[verificado]**, **[sin verificar]** (código existente) y **[propuesto]**. Todo lo de
+> AWS aquí es propuesto. Arquitectura: [02](02-arquitectura.md).
 
-## Principios
+## Qué hay realmente en el código
 
-1. **Postgres es la verdad; Valkey acelera y transporta.** Perder Valkey nunca pierde un caso, una
-   auditoría, una notificación ni una decisión de acceso. Las lecturas vuelven a Postgres (*fail-open*
-   hacia la fuente) y las colas se reconstruyen desde el outbox.
-2. **La seguridad no depende de una caché vieja.** Ninguna decisión de acceso se sirve desde caché más
-   de 5 s, y toda revocación borra su entrada al instante (invalidación explícita, no solo TTL).
-3. **Solo referencias en las colas.** Un job lleva IDs (`outboxId`, `sourceId`), nunca raw, PII ni
-   secretos (N2).
-4. **Toda clave de caché tiene TTL.** Valkey usa `maxmemory-policy noeviction`, que BullMQ exige para no
-   perder jobs. Por eso la caché nunca crece sin límite.
-5. **Sin Valkey, el sistema funciona** con el comportamiento actual (una réplica, loops en proceso). Se
-   activa solo si `QAPAQ_REDIS_HOST` está definido.
+Antes de decidir qué cambia, el estado real del repositorio:
 
-## Dónde es fundamental
-
-| # | Punto | Por qué Valkey | Técnica | TTL e invalidación | Si Valkey cae |
-| - | --- | --- | --- | --- | --- |
-| 1 | **Handshake OIDC** (state, nonce, code_verifier) | Hoy vive en memoria: con 2 réplicas, un callback que cae en la otra réplica rompe el login | Estado efímero compartido; `GETDEL` lo hace de un solo uso | 10 min | Con 1 réplica, memoria. Con más, el login responde 503 `DEPENDENCY_DEGRADED` (no se arriesga un replay) |
-| 2 | **Lockout y rate limit de login** | Los contadores en memoria se reinician por réplica y un atacante los evade repartiendo intentos | `INCR` + `EXPIRE` en ventana deslizante | Ventana de la política | Contador local por réplica, con el umbral dividido entre las réplicas |
-| 3 | **Sesión → actor** (cada request y cada `introspect` del dashboard) | Ruta más caliente del sistema: cada pantalla del dashboard consulta la sesión | **Cache-aside (lazy loading):** se busca en Valkey y, si falta, se lee de Postgres y se guarda. Single-flight para que N requests simultáneos hagan 1 sola lectura | 5 s ± 1 s de jitter. **DEL** en revoke, supersede, cambio de rol, baja del grupo o cuenta deshabilitada, más publicación en `sess:revoked` | Postgres directo, más lento pero correcto |
-| 4 | **Cambios en vivo** (`/api/changes`, el long-poll se mantiene) | Hoy cada cliente consulta Postgres cada 400 ms mientras espera: N clientes multiplican la carga | Pub/sub: cada commit de auditoría publica `chg:{tenant}` con la secuencia y los long-polls despiertan con esa señal | — | Vuelve al sondeo de 400 ms actual |
-| 5 | **Lecturas caras y estables**: padrón de usuarios (sincronizado de Graph), salud de fuentes, salud operativa | Consultas agregadas que repiten muchas personas a la vez | Lazy loading más *stale-while-revalidate*: se sirve lo vigente y se refresca en segundo plano con un solo refresco por clave | Padrón 30 s (DEL al terminar cada sync de Graph). Salud 10 s | Lectura directa |
-
-**Lo que no se cachea:** casos (alertas, incidentes, tareas y notas: escritura frecuente y concurrencia
-optimista), la cadena de auditoría, búsquedas libres de texto en el Indexer y cualquier PII fuera de lo
-indicado abajo.
-
-## Caché que sirve al SIEM (lecturas del Wazuh Indexer)
-
-El SIEM tiene dos lectores del Indexer: el **dashboard** (OSD lee directo) y la **API QAPAQ** (enriquecer
-una alerta, conteos de la cola, frescura de las fuentes, salud). Cada uno usa una capa distinta:
-
-| Capa | Para quién | Qué cachea | TTL |
-| --- | --- | --- | --- |
-| **Request cache de OpenSearch** (nativa, por shard) | Dashboard y API | Agregaciones (`size: 0`): histogramas, conteos, top N de los paneles | Hasta que el índice cambia |
-| **Lazy loading en Valkey** (`siem:{scope}:{sha256(consulta normalizada)}`) | API QAPAQ | Conteos y agregados de la cola, frescura por fuente, y el **evento original de una alerta por `_id`** (inmutable una vez indexado) | Según el tier del índice consultado, abajo |
-
-El TTL depende del tier, porque cuanto más frío es el dato, menos cambia:
-
-| Tier (ISM, [05](05-datos-y-retencion.md)) | Estado del índice | TTL en Valkey | Motivo |
-| --- | --- | --- | --- |
-| **hot** (0–30 d) | Escritura activa | 15 s | Llegan alertas nuevas |
-| **warm** (30–90 d) | `read_only` y fusionado | 10 min | Ya no cambia; la request cache nativa también acierta siempre |
-| **restored** (cold traído de S3) | `read_only`, TTL 7 d | 1 h | Inmutable mientras exista; se borra con el índice |
-| Evento por `_id` | Inmutable | 5 min | El documento no cambia, pero contiene PII: TTL corto |
-
-### Sistema de resiliencia del SIEM (no solo lazy loading)
-
-El lazy loading protege del costo, pero no de una caída o una saturación del Indexer. El sistema
-elegido combina técnicas que se cubren entre sí:
-
-| Técnica | Qué resuelve | Cómo se aplica |
+| Pieza | Realidad en el código | Consecuencia |
 | --- | --- | --- |
-| **Refresh-ahead (precalentado)** | Que nadie espere la primera lectura de lo más consultado | El worker recalcula cada 15 s los contadores de la cola, la frescura de las fuentes y la salud, así las lecturas casi siempre aciertan |
-| **Caché en 3 niveles** | Picos de la misma consulta | L1 en proceso (1–2 s, absorbe ráfagas por réplica) → L2 Valkey (TTL por tier) → L3 request cache de OpenSearch |
-| **Single-flight** | Estampida al expirar una clave | Una sola lectura por clave en curso, en el proceso (promesa compartida) y entre réplicas (`SET NX PX`) |
-| **Stale-while-revalidate** | Latencia al refrescar | Se responde lo vigente y se refresca en segundo plano |
-| **Stale-if-error** | Caída o lentitud del Indexer | Se sirve el último valor bueno hasta 10 min, marcado `stale: true` con `asOf`. La UI muestra «dato desactualizado» y nunca lo presenta como ausencia de amenazas (regla de producto) |
-| **Circuit breaker por dependencia** (Indexer y KrakenD) | Fallas en cascada | Tras N errores o timeouts se abre, sirve lo cacheado y prueba en medio-abierto con baja frecuencia |
-| **Bulkheads** | Que los paneles dejen sin capacidad al trabajo del analista | Concurrencia separada por clase: interactivo (detalle de alerta) > contadores > restauraciones |
-| **Timeouts y reintentos con jitter** | Errores transitorios | Solo en lecturas idempotentes y con un presupuesto de reintentos. Las escrituras nunca se reintentan a ciegas |
-| **Load shedding por prioridad** | Saturación | Se rechaza primero lo de segundo plano (503 con `Retry-After`) y se protege lo interactivo |
+| `apps/worker` | Es un **cascarón**: `package.json` declara `bullmq` e `ioredis`, pero `src/` solo tiene arranque, apagado ordenado y un `WorkerRuntime` sin consumidores (`run()` existe, ningún productor lo usa; el comentario dice que C-02 no envía tareas ficticias) | No hay colas BullMQ funcionando que migrar: se **elimina** el worker y se construyen consumidores SQS desde cero |
+| Trabajo en segundo plano | Corre **en proceso dentro de `apps/api`**: `ingestion-poller.ts`, `directory-sync.ts`, `notification-dispatcher.ts` | Lo que cambia es *dónde se dispara* (Scheduler/SQS), no la lógica |
+| Idempotencia y exactly-once | Ya está en Postgres: lease con fencing en la ingesta (`modules/soc/src/ingestion.ts`), outbox con lease (`modules/soar`, `postgres-attempt-store.ts`) y concurrencia optimista (`expectedRevision`) | SQS es at-least-once: esas defensas siguen siendo la autoridad |
+| `platform/cache` | **No existe** en este repositorio. No hay cliente Valkey/Redis en `apps/api` | La caché y los puntos 1–5 de abajo son diseño, no código a migrar |
+| Cabecera `Idempotency-Key` HTTP | No está implementada en `apps/api` | Es trabajo nuevo, no una migración |
+| `platform/gateway` (KrakenD) | Existe | Se retira ([02](02-arquitectura.md)) |
 
-Señales en «Salud operativa»: hit ratio por nivel, edad del dato servido, estado de cada breaker y
-rechazos por bulkhead.
+## Principios (se conservan)
 
-Reglas:
-- **La clave incluye el scope de autorización** (tenant y conjunto de capacidades). Dos personas con
-  permisos distintos nunca comparten una entrada. La autorización se evalúa **antes** de leer la caché.
-- Se normaliza la consulta (orden de claves, ventana de tiempo redondeada a 1 min en hot) para que
-  consultas equivalentes compartan la entrada.
-- Nada de texto libre ni de consultas que el navegador arme: solo las consultas allowlist del conector.
-- Datos con PII (evento por `_id`) solo con TTL corto, en Valkey privado con TLS y cifrado en reposo.
+1. **Aurora es la verdad; la cola transporta.** Perder un mensaje o la caché nunca pierde un
+   caso, una auditoría, una notificación ni una decisión de acceso. El outbox en Aurora
+   conserva qué falta procesar y un reconciliador reencola.
+2. **La seguridad no depende de una caché vieja.** Ninguna decisión de acceso se sirve de caché más
+   de 5 s y toda revocación invalida su entrada al instante.
+3. **Solo referencias en los mensajes.** Un mensaje lleva IDs (`outboxId`, `sourceId`), nunca raw,
+   PII ni secretos (N2).
+4. **Toda clave de caché tiene TTL.**
+5. **Sin caché, el sistema funciona** leyendo de Aurora (más lento, correcto).
+
+## Qué reemplaza a BullMQ [propuesto]
+
+| Antes (diseño BullMQ/Valkey) | Ahora | Cómo |
+| --- | --- | --- |
+| Colas BullMQ sobre Valkey | **SQS** estándar, una cola por tarea, cada una con **DLQ** | Lambda consume con *event source mapping*; `maxReceiveCount` = 5 |
+| `jobId` determinista (dedupe) | SQS **FIFO** con `MessageDeduplicationId` solo donde el orden o el dedupe lo exijan; en las demás, dedupe en el consumidor | FIFO limita el rendimiento y no admite todas las integraciones: no se usa por defecto |
+| Backoff exponencial 5 s – 5 min, 5 intentos (ADR-022) | `VisibilityTimeout` más reintentos de SQS; para backoff exponencial real, el consumidor extiende la visibilidad (`ChangeMessageVisibility`) o reencola con `DelaySeconds` | SQS no trae backoff exponencial nativo |
+| Schedulers repetibles con jitter | **EventBridge Scheduler** (`rate()`/cron) con ventana flexible como jitter | Cada disparo encola un mensaje |
+| Worker (ECS) y su proceso persistente | Lambdas consumidoras (arm64) | Sin servicio que operar |
+| `*:dlq` visible en «Salud operativa» | Métricas CloudWatch (`ApproximateAgeOfOldestMessage`, profundidad de DLQ) | Alarma al superar umbral |
+| Reconciliador cada 60 s | Una ejecución de Scheduler que reencola del outbox lo pendiente > 30 s | Misma lógica que el diseño actual |
+
+### Mapa de colas y tareas
+
+| Tarea | Productor | Consumidor | Garantías |
+| --- | --- | --- | --- |
+| `notifications` (Teams, push, correo) | API, tras el commit que escribe el outbox | Lambda | Dedupe por `idempotencyKey` (en Aurora, no en la cola), fencing token antes de enviar, backoff y DLQ |
+| `ingestion` por fuente | Scheduler cada pocos minutos | Lambda, concurrencia reservada 1 por fuente | La ventana `ingest:{source}:{ventana}` es la clave; el lease con fencing en Aurora es la autoridad |
+| Ingesta push y cloud-native | Endpoint `ingest/wazuh` y reglas de EventBridge | Lambda normalizadora | Dedupe por `_id` / id del evento; DLQ |
+| `directory-sync` (grupo SOC de Graph) | Scheduler cada 5 min | Lambda, concurrencia 1 | Al terminar invalida el padrón y dispara revocaciones |
+| `history-restore` (warm/cold) | API, tras aprobación | Lambda o Step Functions | Clave = hash de los índices a restaurar; un solo trabajo por clave. La restauración dura minutos: Step Functions encaja mejor que una Lambda de 15 min |
+| `ankay` | API, tras aprobación | **Step Functions Standard** (no SQS) | Ver [07](07-deteccion-ml-y-soar.md) y [13](13-ankay-qapaq.md) |
+
+Límites a respetar: Lambda dura máximo 15 min, SQS retiene mensajes hasta 14 días y SQS es
+*at-least-once* (el consumidor debe ser idempotente).
+
+## Caché: qué sigue haciendo falta [propuesto]
+
+Los puntos de caché del diseño original eran 5. Con Lambda, el estado en memoria no se comparte
+entre invocaciones, y eso cambia qué se necesita:
+
+| # | Punto | Antes | Ahora |
+| --- | --- | --- | --- |
+| 1 | Handshake OIDC (state, nonce, verifier) | Valkey, `GETDEL`, 10 min | **Lo asume Cognito** (flujo con PKCE). Si QAPAQ conserva el flujo propio, **DynamoDB con TTL** y escritura condicional de un solo uso |
+| 2 | Lockout y rate limit de login | Valkey `INCR`+`EXPIRE` | Cognito/WAF (límite de tasa en el borde); contadores de lockout propios, si hacen falta, en **DynamoDB con TTL** |
+| 3 | Sesión → actor (cada `introspect`) | Valkey, 5 s, DEL al revocar | Ruta caliente. Primero **Aurora directo** con consulta por clave (medir). Si no alcanza: **DynamoDB TTL** (5 s) o **ElastiCache Serverless (Valkey)** opcional. La revocación borra la entrada |
+| 4 | Cambios en vivo (pub/sub) | Valkey pub/sub | Sin pub/sub: el long-poll consulta la secuencia de auditoría ([08](08-frontend-unificado.md)). Si la carga lo exige, ElastiCache Serverless |
+| 5 | Lecturas caras y estables (padrón, salud) | Valkey, *stale-while-revalidate* | **Refresh-ahead**: una Lambda programada precalcula y guarda el resultado en **DynamoDB** (con `asOf`); la API solo lee. Sin invalidación compleja |
+
+**Decisión por defecto:** arrancar **sin ElastiCache**. DynamoDB on-demand con TTL cubre los
+puntos 1, 2 y 5 con costo casi nulo en reposo. ElastiCache Serverless (Valkey) entra solo si una
+medición real de latencia en el punto 3 lo justifica (tiene costo mínimo mensual aun sin tráfico,
+a verificar con la calculadora de precios).
+
+Se conservan las reglas de la caché del SIEM (lecturas del Indexer): clave con el scope de
+autorización (tenant y capacidades), autorización **antes** de leer la caché, consultas
+normalizadas y allowlist, y PII solo con TTL corto. Las técnicas de resiliencia siguen
+vigentes con estos cambios:
+
+| Técnica | Cómo queda en Lambda |
+| --- | --- |
+| Request cache de OpenSearch | Sin cambio (vive en el Indexer) |
+| Refresh-ahead | Lambda programada precalcula contadores, frescura y salud; guarda en DynamoDB |
+| Stale-if-error | Se sirve el último valor bueno hasta 10 min con `stale: true` y `asOf`; la UI nunca lo presenta como ausencia de amenazas |
+| Circuit breaker | **Estado por contenedor Lambda**: no es global. Se aproxima con timeouts cortos, concurrencia reservada y un indicador de apertura en DynamoDB si se requiere coordinación |
+| Bulkheads | **Concurrencia reservada por función** (interactivo vs. segundo plano) en vez de pools en proceso |
+| Load shedding | Throttling de API Gateway por ruta y concurrencia reservada; 503 con `Retry-After` |
+| Single-flight | Solo dentro de un contenedor. Entre invocaciones se acepta algún duplicado: las lecturas son idempotentes |
 
 ## Idempotencia
 
-Tres niveles. Postgres sigue siendo el respaldo final (revisión optimista y restricciones únicas):
+Aurora (revisión optimista y restricciones únicas) sigue siendo el respaldo final.
 
-| Nivel | Dónde | Cómo | Retención |
+| Nivel | Dónde | Cómo | Estado |
 | --- | --- | --- | --- |
-| **HTTP** | Mutaciones que crean cosas: `POST /api/incidents`, tareas, notas, revocar sesión, acuse de notificación y, en adelante, restaurar historia y ejecutar playbooks | Cabecera `Idempotency-Key` (UUID del cliente). `SET NX` de `idem:{actor}:{clave}` marca «en curso», guarda la respuesta y una huella del cuerpo. Un reintento con la misma clave devuelve la **misma respuesta**; con un cuerpo distinto responde `409 IDEMPOTENCY_KEY_REUSED` | 24 h |
-| **Productor de cola** | `jobId` determinista | BullMQ ignora un job con el mismo `jobId` mientras exista | Mientras viva el job |
-| **Consumidor** | Antes del efecto externo (Teams, push, Shuffle o restauración) | `done:{cola}:{clave}` más el estado en Postgres (outbox `SENT`). Un job reintentado después de un envío exitoso **no reenvía** | 7 d |
+| Transiciones | Comandos con `expectedRevision` | Concurrencia optimista | Existe [sin verificar en Lambda] |
+| **HTTP** | Mutaciones que crean cosas | Cabecera `Idempotency-Key`; registro en **DynamoDB** con escritura condicional (`attribute_not_exists`) y TTL 24 h; mismo cuerpo → misma respuesta, otro cuerpo → `409 IDEMPOTENCY_KEY_REUSED` | [propuesto]; no implementado |
+| **Productor** | Al encolar | `MessageDeduplicationId` solo en FIFO; si no, el id viaja en el mensaje | [propuesto] |
+| **Consumidor** | Antes del efecto externo | Estado del outbox en Aurora (`SENT`) más lease con fencing: un mensaje repetido tras un envío exitoso **no reenvía** | Outbox con lease existe [sin verificar]; fencing en notificaciones por confirmar |
+| **Step Functions** | Respuesta | Nombre de la ejecución = id de la solicitud | [propuesto] |
 
-Las transiciones de estado (comandos con `expectedRevision`) ya son idempotentes por la concurrencia
-optimista, así que no necesitan la cabecera.
+## Aceptación [propuesto]
 
-### Warm y cold: restauración idempotente
-
-`POST /api/history/restore` (capacidad `history.restore` y aprobación del Líder SOC):
-- **Clave de idempotencia = hash de los índices a restaurar.** Pedir el mismo rango dos veces, aunque lo
-  pidan personas distintas, devuelve el mismo trabajo o el índice `restored-*` que ya existe. No se
-  restaura dos veces el mismo snapshot.
-- Cola `history-restore`, con concurrencia 1, porque restaurar consume disco y CPU del Indexer. El
-  estado (`queued`, `restoring`, `ready`, `expired`) queda en Postgres y se cachea para la UI.
-- **Catálogo de snapshots** (`GET _snapshot/qapaq-s3/_all`, lento) cacheado 10 min, e invalidado cuando
-  ISM crea un snapshot nuevo.
-- **Registro de índices restaurados** con el mismo TTL de 7 días que la política `qapaq-restored-ttl`.
-
-## Colas (BullMQ sobre Valkey)
-
-Patrón: **outbox o lease en Postgres → job con la referencia → consumidor idempotente → reconciliador**.
-La cola es transporte rápido; Postgres conserva qué falta procesar.
-
-| Cola | Productor | Consumidor | Garantías |
-| --- | --- | --- | --- |
-| `notifications` (Teams y push) | La API, tras el commit que escribe el outbox | Worker | `jobId = idempotencyKey` (dedupe). Backoff exponencial de 5 s a 5 min, 5 intentos (ADR-022). Fencing token antes de enviar. El reconciliador reencola cada 60 s lo pendiente con más de 30 s |
-| `ingestion` (polling de Wazuh por fuente o dataset) | Scheduler repetible con jitter | Worker, concurrencia 1 por fuente | `jobId = ingest:{source}:{ventana}`: nunca dos ejecuciones de la misma ventana. El lease con fencing en Postgres sigue siendo la autoridad |
-| `directory-sync` (delta del grupo SOC en Graph) | Scheduler repetible cada 5 min | Worker, concurrencia 1 | Al terminar invalida el padrón (punto 5) y dispara las revocaciones (punto 3) |
-| `history-restore` (warm/cold) | La API, tras la aprobación | Worker, concurrencia 1 | `jobId` = hash de los índices. Antes de restaurar comprueba `done:` y si ya existe `restored-*` |
-| `ankay` (siguiente scope: Shuffle) | La API, tras una aprobación | Worker | Un timeout queda en `UNKNOWN`, sin reintento ciego (ADR-028) |
-| `*:dlq` | Jobs que agotan sus intentos | Visible en «Salud operativa» | No se reintentan solos |
-
-**Dónde corren:** la API **produce** y el worker (`apps/worker`, servicio ECS) **consume**. Así la API
-queda libre para las personas y los picos de ingesta o de notificaciones no la saturan. Si Valkey cae, la
-API vuelve a los loops en proceso actuales (degradado pero sin pérdida) y el reconciliador recupera al
-volver.
-
-## Infraestructura
-
-- ElastiCache Valkey 8, `cache.t4g.micro` (demo), un nodo, TLS obligatorio y AUTH. El token AUTH vive en
-  Secrets Manager (`qapaq-secops/demo/valkey/auth-token`) y llega a la API y al worker como secreto de ECS.
-- Parameter group propio `valkey8` con `maxmemory-policy = noeviction`.
-- Producción: réplica con failover automático (`num_cache_clusters = 2`).
-- Señales en «Salud operativa»: hit ratio por punto, profundidad y antigüedad de cada cola, tamaño de las
-  DLQ y estado de la conexión a Valkey.
-
-## Aceptación
-
-1. Con 2 réplicas de la API, un login cuyo callback cae en la otra réplica termina bien.
-2. Revocar una sesión la saca de la consola y del dashboard en ≤ 5 s, con Valkey activo y caído.
-3. Con 50 long-polls abiertos y sin cambios, Postgres no recibe consultas de `/api/changes`.
-4. Al apagar Valkey, la consola sigue funcionando. Al volver, el reconciliador envía las notificaciones
-   pendientes sin duplicarlas.
-5. Ninguna clave de caché queda sin TTL (prueba de escaneo).
-6. Repetir un `POST /api/incidents/:id/notes` con la misma `Idempotency-Key` crea una sola nota y
-   devuelve la misma respuesta. Con otro cuerpo responde 409.
-7. Pedir dos veces la restauración del mismo día produce un solo índice `restored-*`.
-8. Dos personas con capacidades distintas que consultan lo mismo nunca comparten una entrada de la
-   caché del SIEM.
+1. Un mensaje de `notifications` que falla 5 veces llega a la DLQ y dispara una alarma.
+2. Dos entregas del mismo mensaje producen un solo envío a Teams.
+3. Revocar una sesión la saca de la consola y del dashboard en ≤ 5 s con la caché activa y vacía.
+4. Ninguna entrada de DynamoDB para caché queda sin TTL (prueba de escaneo).
+5. Repetir un `POST /api/incidents/:id/notes` con la misma `Idempotency-Key` crea una sola nota.
+6. Pedir dos veces la restauración del mismo día produce un solo índice `restored-*`.
+7. Dos personas con capacidades distintas que consultan lo mismo nunca comparten una entrada.
+8. Con el Scheduler detenido, al reanudarlo el reconciliador envía lo pendiente sin duplicar.

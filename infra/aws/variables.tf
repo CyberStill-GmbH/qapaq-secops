@@ -112,15 +112,15 @@ variable "data_subnet_cidrs" {
 }
 
 variable "allowed_admin_cidrs" {
-  description = "Trusted IPv4 CIDRs allowed to reach the Wazuh Dashboard over HTTPS. Empty keeps the dashboard inaccessible."
+  description = "Trusted IPv4 Client VPN client CIDRs allowed to reach the Wazuh HTTPS edge and Dashboard. Required; empty keeps deployment blocked."
   type        = list(string)
   default     = []
 
   validation {
-    condition = alltrue([
+    condition = length(var.allowed_admin_cidrs) > 0 && alltrue([
       for cidr in var.allowed_admin_cidrs : can(cidrnetmask(cidr)) && cidr != "0.0.0.0/0"
     ])
-    error_message = "Admin CIDRs must be valid IPv4 networks and cannot include 0.0.0.0/0."
+    error_message = "Provide at least one valid IPv4 Client VPN client CIDR; 0.0.0.0/0 is not allowed."
   }
 }
 

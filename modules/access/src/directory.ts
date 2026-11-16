@@ -42,17 +42,30 @@ export interface MemberDeltaPage {
 export const DIRECTORY_ERROR_CODES = [
   'DIRECTORY_THROTTLED',
   'DIRECTORY_DELTA_EXPIRED',
+  'DIRECTORY_PERMISSION_MISSING',
   'DIRECTORY_FORBIDDEN',
   'DIRECTORY_UNAVAILABLE',
   'DIRECTORY_RESPONSE_INVALID',
 ] as const;
 export type DirectoryErrorCode = (typeof DIRECTORY_ERROR_CODES)[number];
 
+/** Safe Graph diagnostics: operation is an allowlisted tag, never a request URL. */
+export type DirectoryOperation = 'resolveGroupId' | 'memberDelta' | 'owners' | 'userProfile';
+
+export interface DirectoryDiagnostic {
+  readonly status: number;
+  readonly errorCode: string | null;
+  readonly requestId: string | null;
+  readonly operation: DirectoryOperation;
+}
+
 export class DirectoryError extends Error {
   public constructor(
     public readonly code: DirectoryErrorCode,
     /** Espera pedida por el proveedor (429), en milisegundos. */
     public readonly retryAfterMs?: number,
+    /** Solo status/código/request-id/tag; nunca cuerpo, token o URL. */
+    public readonly diagnostic?: DirectoryDiagnostic,
   ) {
     super(code);
     this.name = 'DirectoryError';

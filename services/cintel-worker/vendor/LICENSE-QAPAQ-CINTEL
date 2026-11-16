@@ -1,0 +1,16 @@
+Copyright (c) 2026 Qapaq. Todos los derechos reservados.
+
+Qapaq Phishing Contra-inteligencia (cintel)
+Authored by: Cesar Guevara — Trainee de Riesgos No Financieros, Qapaq
+
+Este software es de USO INTERNO EXCLUSIVO de Qapaq. Se prohíbe su copia,
+distribución, modificación, sublicencia o uso fuera de Qapaq sin autorización
+escrita del área de Riesgos No Financieros.
+
+Las dependencias de terceros (dnspython, reportlab, rich, extract-msg,
+opencv-python-headless, numpy y, opcionalmente, dnstwist) se rigen por sus
+propias licencias de código abierto.
+
+EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍAS DE NINGÚN TIPO. SUS
+RESULTADOS SON UN APOYO AL ANÁLISIS Y NO REEMPLAZAN EL CRITERIO DEL ANALISTA.
+

@@ -1,31 +1,44 @@
-// QAPAQ SecOps · capa visual global sobre el tema OUI v7 de OSD 2.19.6.
-//
-// Se carga en todas las páginas del dashboard (los estilos de los plugins se inyectan al
-// arrancar), así que es deliberadamente contenida: superficies, cabecera, menú, selección,
-// foco y transiciones. No toca tipografía (OUI), espaciados ni componentes de datos, para no
-// romper la maquetación de Discover, los módulos de Wazuh ni las visualizaciones.
-//
-// Tokens del doc 02 de qapaq-secops (sistema visual): fondo #080808, ámbar #c49a5a solo en
-// marca e indicador activo, grises jerárquicos, sin degradados. Movimiento: opacidad y
-// transformación de 150–250 ms; nada con `prefers-reduced-motion`.
-
-$qapaqBg: #080808;
-$qapaqSurface: #0d0d0f;
-$qapaqRaised: #131315;
-$qapaqLine: #29292d;
-$qapaqLineStrong: #49494e;
-$qapaqText: #f4f4f5;
-$qapaqText2: #b0b0b5;
-$qapaqText3: #8f8f95;
-$qapaqAmber: #c49a5a;
+// QAPAQ SOC identity layer for OpenSearch Dashboards 2.19.6.
+// Brand accents never replace Wazuh's operational severity and state semantics.
+$qapaqBg: #101014;
+$qapaqSurface: #17171d;
+$qapaqRaised: #202027;
+$qapaqLine: #34343d;
+$qapaqLineStrong: #555560;
+$qapaqText: #f7f5fb;
+$qapaqText2: #c9c6d2;
+$qapaqCoral: #ff5841;
+$qapaqFuchsia: #ff5899;
+$qapaqYellow: #ffc136;
+$qapaqBlue: #119cff;
 $qapaqEase: cubic-bezier(0.16, 1, 0.3, 1);
-
-// El optimizer compila este SCSS una vez por tema (v7light, v7dark, …). La capa oscura solo
-// se emite en los temas oscuros; en claro solo quedan selección, foco y movimiento.
 $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
 
+:root {
+  --qapaq-brand-coral: #{$qapaqCoral};
+  --qapaq-brand-fuchsia: #{$qapaqFuchsia};
+  --qapaq-brand-yellow: #{$qapaqYellow};
+  --qapaq-brand-lime: #d0e870;
+  --qapaq-brand-turquoise: #00dfc2;
+  --qapaq-brand-blue: #{$qapaqBlue};
+  --qapaq-brand-lavender: #cdcced;
+  --qapaq-font-sans: 'Satoshi', 'Helvetica Neue', Arial, sans-serif;
+}
+
+html,
+body,
+button,
+input,
+select,
+textarea,
+.euiBody,
+.euiText,
+.euiTitle {
+  font-family: 'Satoshi', 'Helvetica Neue', Arial, sans-serif;
+}
+
 ::selection {
-  background-color: rgba($qapaqAmber, 0.32);
+  background-color: rgba($qapaqFuchsia, 0.34);
   color: inherit;
 }
 
@@ -41,7 +54,6 @@ $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
     background-color: $qapaqBg;
   }
 
-  // Cabecera: negro QAPAQ, una línea de 1 px en lugar de sombra.
   .euiHeader,
   .euiHeader--dark,
   .euiHeader--default {
@@ -50,13 +62,23 @@ $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
     box-shadow: none;
   }
 
+  .euiHeader::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, $qapaqFuchsia, $qapaqCoral 55%, $qapaqYellow);
+    content: '';
+    pointer-events: none;
+  }
+
   .euiHeaderLogo__text,
   .euiHeaderLink,
   .euiHeaderSectionItemButton {
     color: $qapaqText2;
   }
 
-  // Menú lateral: superficie apenas elevada; el elemento activo lleva el indicador ámbar.
   .euiCollapsibleNav,
   .euiFlyout.euiCollapsibleNav {
     background-color: $qapaqSurface;
@@ -68,11 +90,15 @@ $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
   }
 
   .euiCollapsibleNav .euiListGroupItem-isActive {
-    box-shadow: inset 2px 0 0 $qapaqAmber;
+    box-shadow: inset 3px 0 0 $qapaqFuchsia;
     background-color: $qapaqRaised;
   }
 
-  // Flyouts, modales y popovers: superficies de doc 02 con borde neutro.
+  .euiCollapsibleNav .euiListGroupItem-isActive .euiListGroupItem__label {
+    color: $qapaqText;
+    font-weight: 700;
+  }
+
   .euiFlyout,
   .euiModal,
   .euiPopover__panel,
@@ -85,25 +111,47 @@ $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
     background-color: $qapaqLine;
   }
 
-  // Barra de carga global (chrome): ámbar sobre fondo neutro.
   .osdLoadingIndicator__bar,
   .euiProgress--indeterminate.euiProgress--accent::before {
-    background-color: $qapaqAmber;
+    background: linear-gradient(90deg, $qapaqFuchsia, $qapaqCoral, $qapaqYellow);
   }
 
-  // Barras de desplazamiento discretas (WebKit/Blink y Firefox).
   * {
     scrollbar-color: $qapaqLineStrong transparent;
   }
+} @else {
+  :root {
+    color-scheme: light;
+  }
+
+  .euiHeader,
+  .euiHeader--default,
+  .euiHeader--dark {
+    border-bottom: 1px solid #e8e5ed;
+    box-shadow: none;
+  }
+
+  .euiHeader::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, $qapaqFuchsia, $qapaqCoral 55%, $qapaqYellow);
+    content: '';
+    pointer-events: none;
+  }
+
+  .euiListGroupItem-isActive {
+    box-shadow: inset 3px 0 0 $qapaqFuchsia;
+  }
 }
 
-// Foco visible: blanco de 2 px con separación (doc 07, accesibilidad).
 :focus-visible {
-  outline-color: $qapaqText;
+  outline: 2px solid $qapaqBlue;
+  outline-offset: 2px;
 }
 
-// Entrada suave de las vistas QAPAQ (opacidad + 4 px). Solo en nuestras apps: animar el
-// contenedor de otras apps crearía un bloque contenedor para sus elementos `position: fixed`.
 .qapaqApp {
   animation: qapaqAppEnter 200ms $qapaqEase both;
 }

@@ -33,7 +33,7 @@ import { mutatingActor, readingActor } from './session-actor.js';
 import { SECOPS_RUNTIME } from './tokens.js';
 import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
 
-function alertView(alert: Alert, capabilities: ReadonlySet<string>) {
+export function alertView(alert: Alert, capabilities: ReadonlySet<string>) {
   return projectFields(
     {
       id: alert.id,

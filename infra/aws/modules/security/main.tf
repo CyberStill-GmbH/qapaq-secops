@@ -93,9 +93,11 @@ resource "aws_vpc_security_group_ingress_rule" "public_proxy_http" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "public_proxy_https" {
+  for_each = toset(var.allowed_admin_cidrs)
+
   security_group_id = aws_security_group.public_proxy.id
-  description       = "Public HTTPS for Wazuh Dashboard and the QAPAQ web API."
-  cidr_ipv4         = "0.0.0.0/0"
+  description       = "HTTPS edge reachable only from the explicitly configured Client VPN client CIDRs."
+  cidr_ipv4         = each.key
   from_port         = 443
   ip_protocol       = "tcp"
   to_port           = 443

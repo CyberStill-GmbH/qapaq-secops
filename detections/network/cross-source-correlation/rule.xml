@@ -1,0 +1,97 @@
+<!--
+  QAPAQ SOC · detección como código · detections/network/cross-source-correlation (metadata.yaml).
+  La misma IP atacante en el WAF de Cloudflare, el edge del SOC y SSH.
+  - Edge ↔ SSH: en tiempo real (srcip en ambos; if_matched_group + same_source_ip).
+  - Cloudflare → edge/SSH: Cloudflare guarda la IP en cloudflare.firewall.client_ip (no en srcip) y
+    analysisd no correlaciona campos de nombre distinto. El timer de reputación arma cada día la lista
+    qapaq-cf-waf-attackers con las IPs que el WAF bloqueó o desafió 5+ veces en 7 días (consulta al indexer,
+    infra/wazuh/network/threat-intel/) y estas reglas la cruzan con el edge y SSH.
+  Se instala como qapaq_soc_network_cross_source_correlation.xml.
+-->
+<group name="qapaq_network,qapaq_correlation,">
+
+  <rule id="101870" level="12">
+    <if_group>qapaq_edge_attack</if_group>
+    <list field="srcip" lookup="address_match_key">etc/lists/qapaq-cf-waf-attackers</list>
+    <description>QAPAQ Red: $(srcip), ya bloqueada por el WAF de Cloudflare, ataca ahora la consola del SOC: $(url).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1190</id>
+      <id>T1595</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+  <rule id="101871" level="13">
+    <if_sid>5715, 101750, 101761, 101762, 101763, 101820, 101821, 101843</if_sid>
+    <list field="srcip" lookup="address_match_key">etc/lists/qapaq-cf-waf-attackers</list>
+    <description>QAPAQ Red: inicio de sesión exitoso desde $(srcip), IP que el WAF de Cloudflare bloqueó en los últimos 7 días.</description>
+    <mitre>
+      <id>T1078</id>
+      <id>T1190</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+  <rule id="101872" level="8">
+    <if_group>authentication_failed</if_group>
+    <list field="srcip" lookup="address_match_key">etc/lists/qapaq-cf-waf-attackers</list>
+    <description>QAPAQ Red: $(srcip), bloqueada por el WAF de Cloudflare, intenta autenticarse en el SOC (SSH).</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+  <rule id="101873" level="10" timeframe="3600">
+    <if_group>authentication_failed</if_group>
+    <if_matched_group>qapaq_edge_attack</if_matched_group>
+    <same_source_ip />
+    <description>QAPAQ Red: $(srcip) atacó la consola web del SOC y ahora intenta SSH al mismo nodo (1 h).</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1190</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+  <rule id="101874" level="14" timeframe="3600">
+    <if_sid>5715, 101750, 101761, 101762, 101763, 101820, 101821</if_sid>
+    <if_matched_group>qapaq_edge_attack</if_matched_group>
+    <same_source_ip />
+    <description>QAPAQ Red: acceso SSH exitoso de $(dstuser) desde $(srcip), que atacó la consola web del SOC en la última hora.</description>
+    <mitre>
+      <id>T1078.003</id>
+      <id>T1190</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- 101875/101876: if_matched_group authentication_failed no correlaciona aquí (probado en wazuh-logtest
+       4.14.8: la historia de grupo no alcanza a una hija de 101843); se usa if_matched_sid sobre las dos
+       hojas de fallo SSH que produce sshd en Ubuntu: 5710 (usuario inexistente) y 5760 (contraseña). -->
+  <rule id="101875" level="12" timeframe="3600">
+    <if_sid>101843</if_sid>
+    <if_matched_sid>5710</if_matched_sid>
+    <same_source_ip />
+    <description>QAPAQ Red: inicio de sesión en la consola del SOC desde $(srcip), que intentó SSH con usuarios inexistentes en la última hora.</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+  <rule id="101876" level="12" timeframe="3600">
+    <if_sid>101843</if_sid>
+    <if_matched_sid>5760</if_matched_sid>
+    <same_source_ip />
+    <description>QAPAQ Red: inicio de sesión en la consola del SOC desde $(srcip), que falló contraseñas SSH de una cuenta real en la última hora.</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078</id>
+    </mitre>
+    <group>qapaq_attack_chain,</group>
+  </rule>
+
+</group>

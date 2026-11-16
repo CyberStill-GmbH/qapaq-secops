@@ -24,6 +24,21 @@ BEGIN
       REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public._prisma_migrations FROM qapaq_soc_runtime;
       GRANT SELECT ON public._prisma_migrations TO qapaq_soc_runtime;
     END IF;
+    -- Historial de Qapaqzito: única tabla con borrado real (la persona borra lo suyo y la retención
+    -- purga lo inactivo). DELETE sí; TRUNCATE no.
+    IF to_regclass('public.assistant_conversations') IS NOT NULL THEN
+      GRANT DELETE ON public.assistant_conversations TO qapaq_soc_runtime;
+      REVOKE TRUNCATE ON public.assistant_conversations FROM qapaq_soc_runtime;
+    END IF;
+    -- Archivos de Qapaqzito (informes): efimeros; el API purga los vencidos. DELETE si; TRUNCATE no.
+    IF to_regclass('public.assistant_artifacts') IS NOT NULL THEN
+      GRANT DELETE ON public.assistant_artifacts TO qapaq_soc_runtime;
+      REVOKE TRUNCATE ON public.assistant_artifacts FROM qapaq_soc_runtime;
+    END IF;
+    -- Bitácora de progreso del Analista IA append-only (docs/27): solo SELECT e INSERT.
+    IF to_regclass('public.ai_investigation_events') IS NOT NULL THEN
+      REVOKE UPDATE, DELETE, TRUNCATE ON public.ai_investigation_events FROM qapaq_soc_runtime;
+    END IF;
   END IF;
 END
 $hardening$;

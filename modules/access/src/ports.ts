@@ -52,8 +52,13 @@ export interface RateLimitStore {
 }
 
 export interface JwksProvider {
-  /** Claves vigentes del tenant. El adapter cachea y refresca ante `kid` desconocido. */
-  keys(): Promise<readonly JsonWebKey[]>;
+  /**
+   * Claves vigentes del tenant. El adapter cachea; con `forceRefresh` (un `kid` desconocido,
+   * que es como se ve una rotación de claves de Microsoft) vuelve a pedir el JWKS, con un
+   * intervalo mínimo entre refrescos forzados para que un token con `kid` inventado no
+   * convierta cada callback en una petición al emisor.
+   */
+  keys(options?: { readonly forceRefresh?: boolean }): Promise<readonly JsonWebKey[]>;
 }
 
 export interface TokenExchangeResult {

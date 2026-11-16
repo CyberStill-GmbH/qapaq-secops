@@ -1,0 +1,84 @@
+name: Terraform Serverless Validate
+
+# Validación estática del stack infra/aws-serverless. Sin credenciales cloud: no hay plan
+# ni apply; `terraform test` usa proveedores simulados.
+
+on:
+  pull_request:
+    paths:
+      - "infra/aws-serverless/**"
+      - ".github/workflows/terraform-serverless-validate.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/aws-serverless/**"
+      - ".github/workflows/terraform-serverless-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-serverless-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: infra/aws-serverless
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.16"
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform init (sin backend)
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        run: terraform validate
+
+      - name: terraform test (proveedores simulados)
+        run: terraform test
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --recursive --format compact
+
+  checkov:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      # Informativo: no rompe el job mientras se acuerdan las excepciones (soft_fail).
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra/aws-serverless
+          framework: terraform
+          quiet: true
+          soft_fail: true

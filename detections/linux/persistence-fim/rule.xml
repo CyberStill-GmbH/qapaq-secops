@@ -1,0 +1,71 @@
+<!--
+  QAPAQ SOC · detección como código · detections/linux/persistence-fim (metadata.yaml).
+  Persistencia y debilitamiento de autenticación en Linux vistos por FIM en tiempo real (grupo de
+  agentes linux-servers: /root/.ssh, /etc/ssh, sudoers.d, pam.d, cron y systemd/system en realtime).
+  550 = modificado, 554 = agregado. Los eventos de syscheck no pasan por wazuh-logtest: la prueba es
+  en vivo sobre el agente 001 (metadata.yaml → tests.live).
+  Rango QAPAQ Linux: 101750-101769. Se instala como qapaq_soc_linux_persistence_fim.xml.
+-->
+<group name="syscheck,syscheck_file,qapaq_linux,">
+  <rule id="101755" level="12">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">/\.ssh/authorized_keys2?$</field>
+    <description>QAPAQ Linux: llaves SSH autorizadas creadas o modificadas en $(file).</description>
+    <mitre>
+      <id>T1098.004</id>
+    </mitre>
+    <group>qapaq_persistence,</group>
+  </rule>
+
+  <rule id="101756" level="10">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">^/(etc|usr/lib|lib)/systemd/system/[^/]+\.(service|timer|socket|path)$</field>
+    <description>QAPAQ Linux: unidad systemd creada o modificada en $(file).</description>
+    <mitre>
+      <id>T1543.002</id>
+      <id>T1053.006</id>
+    </mitre>
+    <group>qapaq_persistence,</group>
+  </rule>
+
+  <rule id="101757" level="10">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">^(/etc/crontab|/etc/cron\.(d|hourly|daily|weekly|monthly)/[^/]+|/var/spool/cron/.+)$</field>
+    <description>QAPAQ Linux: tarea cron creada o modificada en $(file).</description>
+    <mitre>
+      <id>T1053.003</id>
+    </mitre>
+    <group>qapaq_persistence,</group>
+  </rule>
+
+  <rule id="101758" level="12">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">^/etc/sudoers(\.d/[^/]+)?$</field>
+    <description>QAPAQ Linux: configuración de sudo creada o modificada en $(file).</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>qapaq_privilege_escalation,</group>
+  </rule>
+
+  <rule id="101759" level="12">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">^/etc/pam\.d/[^/]+$</field>
+    <description>QAPAQ Linux: pila PAM creada o modificada en $(file).</description>
+    <mitre>
+      <id>T1556.003</id>
+    </mitre>
+    <group>qapaq_persistence,qapaq_credential_access,</group>
+  </rule>
+
+  <rule id="101760" level="10">
+    <if_sid>550, 554</if_sid>
+    <field name="file" type="pcre2">^/etc/ssh/sshd_config(\.d/[^/]+)?$</field>
+    <description>QAPAQ Linux: configuración del servidor SSH modificada en $(file).</description>
+    <mitre>
+      <id>T1556</id>
+      <id>T1021.004</id>
+    </mitre>
+    <group>qapaq_defense_evasion,</group>
+  </rule>
+</group>

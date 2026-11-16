@@ -4,18 +4,19 @@ environment = "demo"
 vpc_cidr    = "10.0.0.0/16"
 az_count    = 2
 
-# Empty means no inbound path to the Wazuh Dashboard.
+# Required before plan/apply: provide the assigned AWS Client VPN client CIDR(s).
+# No VPN endpoint or identity is provisioned here; empty remains fail-closed.
 allowed_admin_cidrs = []
 
 # Public application traffic must terminate TLS at the ALB; Terraform requires
 # an ACM certificate ARN in this region before planning or applying.
 enable_https                      = true
-public_api_hostname               = "api.jappi.net.pe"
-public_route53_zone_name          = "api.jappi.net.pe"
-public_root_route53_zone_name     = "jappi.net.pe"
-wazuh_dashboard_hostname          = "app.jappi.net.pe"
-wazuh_dashboard_legacy_hostname   = "wazuh.jappi.net.pe"
-wazuh_dashboard_redirect_hostname = "qapaq-secops.jappi.net.pe"
+public_api_hostname               = "api.qapaq.pe"
+public_route53_zone_name          = "api.qapaq.pe"
+public_root_route53_zone_name     = "qapaq.pe"
+wazuh_dashboard_hostname          = "app.qapaq.pe"
+wazuh_dashboard_legacy_hostname   = "wazuh.qapaq.pe"
+wazuh_dashboard_redirect_hostname = "qapaq-secops.qapaq.pe"
 siem_app_cutover                  = true
 wazuh_version                     = "4.14.8"
 wazuh_instance_type               = "t3.xlarge"
@@ -48,27 +49,24 @@ soc_database_enabled = true
 runtime_api_environment = {
   QAPAQ_ACCESS_ALLOWED_CIDRS        = "0.0.0.0/0,::/0"
   QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS  = "10.0.0.0/16"
-  QAPAQ_ENTRA_TENANT_ID             = "45f2f938-dbe3-4a3e-8a54-930893f94ef8"
-  QAPAQ_ENTRA_CLIENT_ID             = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
-  QAPAQ_ENTRA_REDIRECT_URI          = "https://app.jappi.net.pe/api/auth/callback"
-  QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS = "https://app.jappi.net.pe/api/auth/callback"
-  QAPAQ_CONSOLE_BASE_URL            = "https://app.jappi.net.pe"
+  QAPAQ_ENTRA_TENANT_ID             = "11111111-1111-4111-8111-111111111111"
+  QAPAQ_ENTRA_CLIENT_ID             = "22222222-2222-4222-8222-222222222222"
+  QAPAQ_ENTRA_REDIRECT_URI          = "https://app.qapaq.pe/api/auth/callback"
+  QAPAQ_ENTRA_ALLOWED_REDIRECT_URIS = "https://app.qapaq.pe/api/auth/callback"
+  QAPAQ_CONSOLE_BASE_URL            = "https://app.qapaq.pe"
   # Sprint 5: asignación permanente (sin vencimiento) de la persona analista del demo. El dueño
   # del grupo de admisión recibe admin por `soc_group_owner_oids` (variable de GitHub); los
   # miembros del grupo de admisión, por `QAPAQ_ADMIN_GROUP_IDS` (identity.tf).
   QAPAQ_ROLE_BINDINGS = "707e3194-cdbe-4072-b17e-712c4e5fdadb=qapaq.soc.analyst"
-  # Excepción temporal solo para el demo; vence en 24 h (hora Lima: 2026-10-16 22:41).
-  # Se retira al terminar la prueba; no cambia MFA ni Conditional Access en Entra.
-  QAPAQ_DEMO_MFA_EXCEPTION_UNTIL = "2026-10-17T03:41:30Z"
 }
 
 # El token de workload de la ingesta es v1.0 (scope `<clientid>/.default`, la app no expone
 # `api://…`): su emisor es sts.windows.net, no login.microsoftonline.com/v2.0. KrakenD valida
 # contra ese emisor; las claves de firma del tenant las sirve el mismo JWKS v2.0.
 runtime_krakend_environment = {
-  OIDC_ISSUER   = "https://sts.windows.net/45f2f938-dbe3-4a3e-8a54-930893f94ef8/"
-  OIDC_JWKS_URL = "https://login.microsoftonline.com/45f2f938-dbe3-4a3e-8a54-930893f94ef8/discovery/v2.0/keys"
-  OIDC_AUDIENCE = "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998"
+  OIDC_ISSUER   = "https://sts.windows.net/11111111-1111-4111-8111-111111111111/"
+  OIDC_JWKS_URL = "https://login.microsoftonline.com/11111111-1111-4111-8111-111111111111/discovery/v2.0/keys"
+  OIDC_AUDIENCE = "22222222-2222-4222-8222-222222222222"
 }
 
 # Sprint 5 — demo operativo sin pasos manuales (docs/09-plan-de-lanzamiento.md).

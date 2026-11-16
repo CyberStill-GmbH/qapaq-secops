@@ -1,0 +1,41 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-M365-003
+title: Desactivación de la auditoría de M365
+source: m365
+use_case: audit-tampering
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Un administrador comprometido apaga la auditoría unificada o la del buzón para operar sin rastro.
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: wazuh/office365/rules/qapaq_office365_rules.xml
+  ids:
+  - 100527
+  - 100528
+mitre:
+- technique: T1562.008
+  tactic: defense-evasion
+severity:
+  levels: 12 auditoría de buzón · 14 auditoría unificada
+  priority_hint: P1
+  rationale: Deja ciego al SOC y rompe evidencia exigida por SBS 504-2021.
+false_positives:
+- Cuentas de servicio de backup con AuditBypass aprobado (registrar en docs/10).
+tuning: []
+tests:
+  runner: logtest
+  suite: office365
+  fixtures: wazuh/office365/tests/logtest-cases.jsonl
+  expected: wazuh/office365/tests/expected-rules.txt
+  script: wazuh/office365/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/cloudtrail-y-auditoria.md
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'

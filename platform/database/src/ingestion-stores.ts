@@ -17,6 +17,19 @@ export interface IngestionCursorKeyRow {
   readonly dataset: string;
 }
 
+export interface IngestionContinuationRow {
+  readonly from: Date;
+  readonly to: Date;
+  readonly cursor: string;
+}
+
+interface IngestionCursorClaimRow {
+  readonly watermark: Date | null;
+  readonly continuationFrom: Date | null;
+  readonly continuationTo: Date | null;
+  readonly continuationCursor: string | null;
+}
+
 export interface SourcePollObservationRow {
   readonly id: string;
   readonly tenantId: string;
@@ -26,8 +39,13 @@ export interface SourcePollObservationRow {
   readonly completedAt: Date;
   readonly outcome: string;
   readonly recordsSeen: number;
+  readonly normalized: number | null;
   readonly promoted: number;
   readonly quarantined: number;
+  readonly duplicates: number | null;
+  readonly notPromoted: number | null;
+  readonly belowThreshold: number | null;
+  readonly suppressed: number | null;
   readonly newestEventAt: Date | null;
   readonly errorClass: string | null;
 }
@@ -59,10 +77,17 @@ export class PrismaIngestionStateStore {
     key: IngestionCursorKeyRow,
     at: Date,
     leaseMs: number,
-  ): Promise<{ readonly watermark: Date | null; readonly claimId: string } | undefined> {
+  ): Promise<
+    | {
+        readonly watermark: Date | null;
+        readonly continuation: IngestionContinuationRow | null;
+        readonly claimId: string;
+      }
+    | undefined
+  > {
     const claimId = randomUUID();
     const leaseUntil = new Date(at.getTime() + leaseMs);
-    const rows = await this.client.$queryRaw<{ watermark: Date | null }[]>`
+    const rows = await this.client.$queryRaw<IngestionCursorClaimRow[]>`
       INSERT INTO "soc_ingestion_cursors"
         ("tenant_id", "source_id", "dataset", "watermark", "lease_until", "claim_id", "updated_at")
       VALUES (${key.tenantId}, ${key.sourceId}, ${key.dataset}, NULL, ${leaseUntil},
@@ -73,9 +98,31 @@ export class PrismaIngestionStateStore {
             "updated_at" = EXCLUDED."updated_at"
         WHERE "soc_ingestion_cursors"."lease_until" IS NULL
            OR "soc_ingestion_cursors"."lease_until" <= ${at}
-      RETURNING "watermark"`;
+      RETURNING "watermark", "continuation_from" AS "continuationFrom",
+                "continuation_to" AS "continuationTo",
+                "continuation_cursor" AS "continuationCursor"`;
     const row = rows[0];
-    return row ? { watermark: row.watermark, claimId } : undefined;
+    if (!row) return undefined;
+    const continuationParts = [row.continuationFrom, row.continuationTo, row.continuationCursor];
+    const populatedParts = continuationParts.filter((part) => part !== null).length;
+    if (populatedParts !== 0 && populatedParts !== continuationParts.length) {
+      throw new Error('INGESTION_CURSOR_CONTINUATION_INVALID');
+    }
+    const continuation =
+      populatedParts === 0
+        ? null
+        : {
+            from: row.continuationFrom!,
+            to: row.continuationTo!,
+            cursor: row.continuationCursor!,
+          };
+    if (
+      continuation &&
+      (continuation.from.getTime() >= continuation.to.getTime() || continuation.cursor.length === 0)
+    ) {
+      throw new Error('INGESTION_CURSOR_CONTINUATION_INVALID');
+    }
+    return { watermark: row.watermark, continuation, claimId };
   }
 
   /** Avanza la marca solo con el claim vigente; nunca retrocede. */
@@ -88,6 +135,32 @@ export class PrismaIngestionStateStore {
     const updated = await this.client.$executeRaw`
       UPDATE "soc_ingestion_cursors"
          SET "watermark" = GREATEST(coalesce("watermark", ${watermark}), ${watermark}),
+             "updated_at" = ${at}
+       WHERE "tenant_id" = ${key.tenantId}
+         AND "source_id" = ${key.sourceId}
+         AND "dataset" = ${key.dataset}
+         AND "claim_id" = ${claimId}::uuid`;
+    return updated === 1;
+  }
+
+  /** Guarda o elimina el checkpoint de páginas solo con el claim vigente. */
+  public async saveContinuation(
+    key: IngestionCursorKeyRow,
+    claimId: string,
+    continuation: IngestionContinuationRow | null,
+    at: Date,
+  ): Promise<boolean> {
+    if (
+      continuation &&
+      (continuation.from.getTime() >= continuation.to.getTime() || continuation.cursor.length === 0)
+    ) {
+      throw new Error('INGESTION_CURSOR_CONTINUATION_INVALID');
+    }
+    const updated = await this.client.$executeRaw`
+      UPDATE "soc_ingestion_cursors"
+         SET "continuation_from" = ${continuation?.from ?? null},
+             "continuation_to" = ${continuation?.to ?? null},
+             "continuation_cursor" = ${continuation?.cursor ?? null},
              "updated_at" = ${at}
        WHERE "tenant_id" = ${key.tenantId}
          AND "source_id" = ${key.sourceId}

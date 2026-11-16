@@ -228,6 +228,130 @@ describe.skipIf(!databaseUrl)('C-17 · persistencia SOC sobre PostgreSQL', () =>
     }
   });
 
+  it('PostgreSQL filtra los claims por carril sin mezclar P2 con P1/críticos', async () => {
+    const admin = new Client(database!.url);
+    await admin.connect();
+    const at = new Date('2026-10-11T14:00:00.000Z');
+    const rows = [
+      {
+        id: randomUUID(),
+        aggregate: 'alert',
+        type: 'soc.alert.created',
+        payload: { priority: 'P2' },
+        offset: -3_000,
+      },
+      {
+        id: randomUUID(),
+        aggregate: 'alert',
+        type: 'soc.alert.escalated',
+        payload: { priority: 'P1' },
+        offset: -2_000,
+      },
+      {
+        id: randomUUID(),
+        aggregate: 'incident',
+        type: 'soc.incident.opened',
+        payload: { severity: 'critical' },
+        offset: -1_000,
+      },
+    ];
+    try {
+      // This temporary database is shared by earlier specs. Finish stale urgent fixtures
+      // before asserting this test's exact claim set; leave normal-lane fixtures intact for
+      // the following lease recovery spec.
+      await admin.query(
+        `UPDATE soc_outbox_messages
+            SET status = 'published', published_at = $1, lease_until = NULL, claim_id = NULL
+          WHERE status <> 'published'
+            AND COALESCE((
+              (aggregate_type = 'alert'
+                AND message_type IN ('soc.alert.created', 'soc.alert.escalated')
+                AND payload->>'priority' = 'P1')
+              OR (aggregate_type = 'incident'
+                AND message_type = 'soc.incident.opened'
+                AND payload->>'severity' = 'critical')
+            ), false)`,
+        [at],
+      );
+      await admin.query(
+        `INSERT INTO soc_outbox_messages
+          (message_id, tenant_id, aggregate_type, aggregate_id, message_type, schema_version,
+           idempotency_key, payload, available_at)
+         SELECT gen_random_uuid(), $1, 'alert', gen_random_uuid(), 'soc.alert.created', '1.0.0',
+                'urgent-lane-noise-' || n::text, '{"priority":"P2"}'::jsonb, $2
+           FROM generate_series(1, 5000) AS n`,
+        [TENANT, new Date(at.getTime() - 10_000)],
+      );
+      for (const row of rows) {
+        await admin.query(
+          `INSERT INTO soc_outbox_messages
+            (message_id, tenant_id, aggregate_type, aggregate_id, message_type, schema_version,
+             idempotency_key, payload, available_at)
+           VALUES ($1, $2, $3, $4, $5, '1.0.0', $6, $7::jsonb, $8)`,
+          [
+            row.id,
+            TENANT,
+            row.aggregate,
+            randomUUID(),
+            row.type,
+            `urgent-lane-${row.id}`,
+            JSON.stringify(row.payload),
+            new Date(at.getTime() + row.offset),
+          ],
+        );
+      }
+      await admin.query('ANALYZE soc_outbox_messages');
+
+      const explain = await admin.query<{ 'QUERY PLAN': unknown }>(
+        `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+         SELECT candidate.message_id
+           FROM soc_outbox_messages AS candidate
+          WHERE ((candidate.status = 'pending' AND candidate.available_at <= $1)
+              OR (candidate.status = 'processing' AND candidate.lease_until < $1))
+            AND candidate.status <> 'published'
+            AND COALESCE((
+              (candidate.aggregate_type = 'alert'
+                AND candidate.message_type IN ('soc.alert.created', 'soc.alert.escalated')
+                AND candidate.payload->>'priority' = 'P1')
+              OR (candidate.aggregate_type = 'incident'
+                AND candidate.message_type = 'soc.incident.opened'
+                AND candidate.payload->>'severity' = 'critical')
+            ), false)
+          ORDER BY candidate.available_at, candidate.message_id
+          LIMIT 2`,
+        [at],
+      );
+      expect(JSON.stringify(explain.rows[0]?.['QUERY PLAN'])).toContain(
+        'soc_outbox_messages_urgent_claim_idx',
+      );
+      // The 5,000 P2 rows exercise planner selectivity only. Remove them before the
+      // two-lane claims so the tiny fixture tests membership rather than batch truncation.
+      await admin.query(
+        "DELETE FROM soc_outbox_messages WHERE idempotency_key LIKE 'urgent-lane-noise-%'",
+      );
+
+      const urgent = await persistence.claimOutbox(at, 100, 60_000, 'urgent');
+      const normal = await persistence.claimOutbox(at, 100, 60_000, 'normal');
+      const urgentIds = new Set(urgent.map((message) => message.messageId));
+      const normalIds = new Set(normal.map((message) => message.messageId));
+
+      expect(urgentIds).toEqual(new Set(rows.slice(1).map((row) => row.id)));
+      expect(urgent.map((message) => message.messageId)).toEqual(
+        rows.slice(1).map((row) => row.id),
+      );
+      expect(normalIds.has(rows[0]!.id)).toBe(true);
+      expect([...urgentIds].every((id) => !normalIds.has(id))).toBe(true);
+      for (const message of [...urgent, ...normal]) {
+        await persistence.markOutboxPublished(message.messageId, message.claimToken, at);
+      }
+    } finally {
+      await admin.query(
+        "DELETE FROM soc_outbox_messages WHERE idempotency_key LIKE 'urgent-lane-%'",
+      );
+      await admin.end();
+    }
+  });
+
   it('el lease vencido devuelve el mensaje a la cola; publicar lo cierra para siempre', async () => {
     const expired = new Date('2026-10-11T14:05:00.000Z');
     const reclaimed = await persistence.claimOutbox(expired, 100, 60_000);
@@ -301,13 +425,117 @@ describe.skipIf(!databaseUrl)('C-17 · persistencia SOC sobre PostgreSQL', () =>
   });
 
   it('las consultas de salud cuentan la cola y la última alerta del tenant', async () => {
-    const health = await persistence.outboxHealth(TENANT);
-    const other = await persistence.outboxHealth('otro-tenant');
+    const at = new Date('2026-10-11T15:00:00.000Z');
+    const health = await persistence.outboxHealth(TENANT, at);
+    const other = await persistence.outboxHealth('otro-tenant', at);
 
     expect(health.pending + health.processing).toBeGreaterThan(0);
-    expect(other).toEqual({ pending: 0, processing: 0, oldestPendingAt: null });
+    expect(other).toEqual({
+      pending: 0,
+      processing: 0,
+      oldestPendingAt: null,
+      expiredProcessing: 0,
+      oldestExpiredProcessingLeaseUntil: null,
+    });
     expect(await persistence.lastAlertAt(TENANT)).toEqual(new Date(Date.UTC(2026, 9, 11, 12, 3)));
     expect(await persistence.lastAlertAt('otro-tenant')).toBeNull();
+  });
+
+  it('mide el lease vencido más antiguo sin mezclar leases activos ni tenants', async () => {
+    const tenantId = `health-${randomUUID()}`;
+    const at = new Date();
+    const oldestExpired = new Date(at.getTime() - 12_000);
+    const newerExpired = new Date(at.getTime() - 3_000);
+    const activeLease = new Date(at.getTime() + 30_000);
+    const admin = new Client(database!.url);
+    await admin.connect();
+    try {
+      const rows = [
+        { status: 'pending', availableAt: new Date(at.getTime() - 1_000), leaseUntil: null },
+        { status: 'processing', availableAt: at, leaseUntil: oldestExpired },
+        { status: 'processing', availableAt: at, leaseUntil: newerExpired },
+        { status: 'processing', availableAt: at, leaseUntil: activeLease },
+      ] as const;
+      for (const row of rows) {
+        const messageId = randomUUID();
+        await admin.query(
+          `INSERT INTO soc_outbox_messages (
+             message_id, tenant_id, aggregate_type, aggregate_id, message_type,
+             schema_version, idempotency_key, payload, available_at, status,
+             attempt_count, lease_until, claim_id
+           ) VALUES ($1, $2, 'alert', $3, 'soc.alert.created', '1.0.0', $4,
+                     '{"priority":"P1"}'::jsonb, $5, $6, 1, $7, $8)`,
+          [
+            messageId,
+            tenantId,
+            randomUUID(),
+            `health-${messageId}`,
+            row.availableAt,
+            row.status,
+            row.leaseUntil,
+            row.status === 'processing' ? randomUUID() : null,
+          ],
+        );
+      }
+
+      await admin.query(
+        `INSERT INTO soc_outbox_messages
+          (message_id, tenant_id, aggregate_type, aggregate_id, message_type, schema_version,
+           idempotency_key, payload, available_at)
+         SELECT gen_random_uuid(), $1, 'alert', gen_random_uuid(), 'soc.alert.created', '1.0.0',
+                'health-bulk-pending-' || n::text, '{"priority":"P1"}'::jsonb, $2
+           FROM generate_series(1, 5000) AS n`,
+        [tenantId, new Date(at.getTime() - 2_000)],
+      );
+      await admin.query(
+        `INSERT INTO soc_outbox_messages
+          (message_id, tenant_id, aggregate_type, aggregate_id, message_type, schema_version,
+           idempotency_key, payload, available_at, status, attempt_count, lease_until, claim_id)
+         SELECT gen_random_uuid(), $1, 'alert', gen_random_uuid(), 'soc.alert.created', '1.0.0',
+                'health-bulk-processing-' || n::text, '{"priority":"P1"}'::jsonb, $2,
+                'processing', 1, $3, gen_random_uuid()
+           FROM generate_series(1, 5000) AS n`,
+        [tenantId, at, new Date(at.getTime() - 1_000)],
+      );
+      await admin.query('ANALYZE soc_outbox_messages');
+
+      const explain = await admin.query<{ 'QUERY PLAN': unknown }>(
+        `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+         SELECT
+           (SELECT COUNT(*) FROM soc_outbox_messages
+             WHERE tenant_id = $1 AND status = 'pending'),
+           (SELECT COUNT(*) FROM soc_outbox_messages
+             WHERE tenant_id = $1 AND status = 'processing'),
+           (SELECT MIN(available_at) FROM soc_outbox_messages
+             WHERE tenant_id = $1 AND status = 'pending'),
+           (SELECT COUNT(*) FROM soc_outbox_messages
+             WHERE tenant_id = $1 AND status = 'processing' AND lease_until < $2),
+           (SELECT MIN(lease_until) FROM soc_outbox_messages
+             WHERE tenant_id = $1 AND status = 'processing' AND lease_until < $2)`,
+        [tenantId, at],
+      );
+      const plan = JSON.stringify(explain.rows[0]?.['QUERY PLAN']);
+      expect(plan).toContain('soc_outbox_messages_pending_health_idx');
+      expect(plan).toContain('soc_outbox_messages_processing_lease_health_idx');
+
+      await expect(persistence.outboxHealth(tenantId, at)).resolves.toEqual({
+        pending: 5_001,
+        processing: 5_003,
+        oldestPendingAt: new Date(at.getTime() - 2_000),
+        expiredProcessing: 5_002,
+        oldestExpiredProcessingLeaseUntil: oldestExpired,
+      });
+      await expect(persistence.outboxHealth(`${tenantId}-other`, at)).resolves.toEqual({
+        pending: 0,
+        processing: 0,
+        oldestPendingAt: null,
+        expiredProcessing: 0,
+        oldestExpiredProcessingLeaseUntil: null,
+      });
+    } finally {
+      await admin.query('DELETE FROM soc_outbox_messages WHERE tenant_id = $1', [tenantId]);
+      await admin.end();
+    }
   });
 
   it('la cadena de auditoría no se bifurca con escritores concurrentes', async () => {
@@ -462,6 +690,12 @@ describe.skipIf(!databaseUrl)('C-17 · persistencia SOC sobre PostgreSQL', () =>
     expect(winners).toHaveLength(1);
     const claim = winners[0]!;
     expect(claim.watermark).toBeNull();
+    const continuation = {
+      from: new Date('2026-10-12T17:58:00.000Z'),
+      to: new Date('2026-10-12T18:00:00.000Z'),
+      cursor: '["2026-10-12T17:59:00.000Z","wazuh-id-7"]',
+    };
+    expect(await persistence.ingestion.saveContinuation(claim, continuation, at)).toBe(true);
 
     const later = new Date('2026-10-12T17:30:00.000Z');
     const earlier = new Date('2026-10-12T17:00:00.000Z');
@@ -471,11 +705,19 @@ describe.skipIf(!databaseUrl)('C-17 · persistencia SOC sobre PostgreSQL', () =>
     expect(
       await persistence.ingestion.advanceCursor({ ...claim, claimId: randomUUID() }, at, at),
     ).toBe(false);
+    expect(
+      await persistence.ingestion.saveContinuation({ ...claim, claimId: randomUUID() }, null, at),
+    ).toBe(false);
     await persistence.ingestion.releaseCursor(claim);
 
     const next = await persistence.ingestion.claimCursor(key, at, 60_000);
     expect(next?.watermark?.toISOString()).toBe(later.toISOString());
+    expect(next?.continuation).toEqual(continuation);
+    expect(await persistence.ingestion.saveContinuation(next!, null, at)).toBe(true);
     await persistence.ingestion.releaseCursor(next!);
+    const cleared = await persistence.ingestion.claimCursor(key, at, 60_000);
+    expect(cleared?.continuation).toBeNull();
+    await persistence.ingestion.releaseCursor(cleared!);
 
     const observation = {
       id: randomUUID(),
@@ -484,8 +726,13 @@ describe.skipIf(!databaseUrl)('C-17 · persistencia SOC sobre PostgreSQL', () =>
       completedAt: at,
       outcome: 'success' as const,
       recordsSeen: 0,
+      normalized: 0,
       promoted: 0,
       quarantined: 0,
+      duplicates: 0,
+      notPromoted: 0,
+      belowThreshold: 0,
+      suppressed: 0,
       newestEventAt: null,
       errorClass: null,
     };

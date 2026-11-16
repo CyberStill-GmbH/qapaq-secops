@@ -53,6 +53,7 @@ live = yaml.safe_load(open(live_path, encoding='utf-8'))
 ours = yaml.safe_load(open(ours_path, encoding='utf-8'))
 dyn = live.setdefault('config', {}).setdefault('dynamic', {})
 dyn.setdefault('http', {}).update(ours['config']['dynamic']['http'])
+dyn.setdefault('kibana', {}).update(ours['config']['dynamic']['kibana'])
 authc = dyn.setdefault('authc', {})
 authc['qapaq_proxy_auth_domain'] = ours['config']['dynamic']['authc']['qapaq_proxy_auth_domain']
 # El basic interno sigue (servicios y break-glass) pero detrás del proxy auth.

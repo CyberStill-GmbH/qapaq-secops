@@ -91,7 +91,7 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
 El flujo `.github/workflows/azure-siem-release-bundle.yml` ensambla el bundle offline a partir de
 artifacts CI verificados (Wazuh oficial, el `.deb` QAPAQ y core). El publisher OIDC ya lo promocionó
 al contenedor Blob privado; la URI y el SHA-256 están en
-[`docs/cloud/azure/siem-release-bundle.md`](../../../../docs/cloud/azure/siem-release-bundle.md).
+[`docs/archive/azure/siem-release-bundle.md`](../../../../docs/archive/azure/siem-release-bundle.md).
 La publicación no instala el release. El objeto `siem_host` debe fijar esa URI/SHA junto con red,
 clave pública y referencias Key Vault revisadas.
 
@@ -183,7 +183,7 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   fallback a Internet directo cuando faltan o no responden esos servicios.
 
 - No copia ni elimina datos de AWS, no migra secretos, no crea DNS ni un certificado TLS. El output
-  `siem_firewall_public_ip` entrega el destino estable para revisar antes del corte `app.jappi.net.pe`.
+  `siem_firewall_public_ip` entrega el destino estable para revisar antes del corte `app.qapaq.pe`.
 - HTTPS queda denegado por defecto. Al indicar `dashboard_ingress_cidrs`, el operador debe haber
   verificado que el bundle configura el edge QAPAQ con TLS y `auth_request`; el módulo no puede
   certificar esa condición desde Terraform.
@@ -201,7 +201,7 @@ arriba. Hasta cerrar esas comprobaciones, no se debe habilitar runtime ni declar
   Su pérdida bloquea la ruta: el bootstrap falla cerrado si queda solo el certificado público. Mantén
   krakend_gateway en null hasta probar restauración cifrada del par o una rotación coordinada sin
   exponer credenciales; el procedimiento y sus comprobaciones están en
-  el [runbook del gateway](../../../../docs/cloud/azure/krakend-private-gateway.md#recuperación-ante-pérdida-o-reemplazo-del-disco-de-sistema).
+  el [runbook del gateway](../../../../docs/archive/azure/krakend-private-gateway.md#recuperación-ante-pérdida-o-reemplazo-del-disco-de-sistema).
 
 ## Preflight de módulo
 

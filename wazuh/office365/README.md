@@ -1,5 +1,9 @@
 # Microsoft 365 → Wazuh como código
 
+> **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
+> [`docs/archive/azure`](../../docs/archive/azure/README.md). QAPAQ SOC opera solo en AWS ([02](../../docs/02-arquitectura.md)); lo técnico
+> que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
+
 Estado: reglas y script **verificados contra Wazuh 4.14.7 real** (`wazuh-logtest`, 48/48
 casos; `apply-office365.sh` idempotente sobre el manager). Azure ahora incluye el script,
 plantilla y reglas en el bundle de primer arranque; la validación de producción todavía
@@ -16,13 +20,13 @@ valor de detección y la lista de cuentas de emergencia.
 
 ## Contenido
 
-| Archivo                           | Qué es                                                                                                            |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ossec-office365.xml.tmpl`        | Bloque `<office365>` con marcadores `QAPAQ:office365`. El secreto se lee de un archivo, nunca de `ossec.conf`.    |
+| Archivo                         | Qué es                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ossec-office365.xml.tmpl`      | Bloque `<office365>` con marcadores `QAPAQ:office365`. El secreto se lee de un archivo, nunca de `ossec.conf`.      |
 | `rules/qapaq_office365_rules.xml` | Reglas locales 100502–100530 (rango reservado 100500–100549).                                                     |
 | `lists/qapaq-break-glass.example` | Formato de la lista CDB de cuentas break-glass. En Azure se provisiona por ambiente desde Key Vault como secreto. |
-| `apply-office365.sh`              | Aplica todo de forma idempotente: respalda, valida con `wazuh-analysisd -t`, restaura si falla y reinicia.        |
-| `tests/`                          | Casos sintéticos para `wazuh-logtest` y su runner.                                                                |
+| `apply-office365.sh`            | Aplica todo de forma idempotente: respalda, valida con `wazuh-analysisd -t`, restaura si falla y reinicia.        |
+| `tests/`                        | Casos sintéticos para `wazuh-logtest` y su runner.                                                                |
 
 El bundle `.github/workflows/azure-siem-release-bundle.yml` incluye estos archivos fijados
 por SHA-256 y `wazuh/azure-release/install.sh` ejecuta el modo `apply` durante el primer
@@ -40,7 +44,7 @@ asignan un grupo `qapaq_<táctica>`, que la correlación de QAPAQ
 sobre el mismo usuario.
 
 | ID     | Nivel | Detección                                                         | MITRE                | Grupo QAPAQ                  |
-| ------ | ----- | ----------------------------------------------------------------- | -------------------- | ---------------------------- |
+| ------ | ----- | ----------------------------------------------------------------- | -------------------- | -------------------------- |
 | 100502 | 3     | Login fallido (marca, base de frecuencia)                         | —                    | `qapaq_credential_access`    |
 | 100506 | 3     | Login exitoso (marca)                                             | —                    | `qapaq_initial_access`       |
 | 100503 | 10    | Fuerza bruta: 10 fallos del mismo usuario en 5 min                | T1110.001            | `qapaq_credential_access`    |
@@ -127,3 +131,15 @@ bash wazuh/office365/tests/run-logtest.sh qapaq-wazuh
 `tests/architecture/wazuh-office365-rules.spec.ts` verifica sin Wazuh el rango de IDs, MITRE,
 los grupos reconocidos por la correlación, los padres de cada regla y que los casos sean
 sintéticos.
+
+## QAPAQ AWS (Docker) y permisos verificados
+
+`apply-office365-docker.sh` aplica este directorio dentro del contenedor `qapaq-wazuh.manager-1`
+con `TENANT_ID`/`CLIENT_ID`/`CLIENT_SECRET` (archivos `/opt/qapaq/secrets/collectors/entra-*`) y
+persiste `ossec.conf` en el montaje del host. `check_entra_app.py` informa los roles del token
+(sin secretos). Estado 2026-11-04 de la app "Soc Interno": `manage.office.com` emite token **sin
+roles** y `subscriptions/list` responde 401 `AF10001` → falta **ActivityFeed.Read** (Office 365
+Management APIs, aplicación, consentimiento de administrador). Graph tiene
+`SecurityEvents.Read.All` (API heredada `/security/alerts`), pero el módulo `ms-graph`
+(`security/alerts_v2`, `security/incidents`) necesita `SecurityAlert.Read.All` y
+`SecurityIncident.Read.All`, que faltan.

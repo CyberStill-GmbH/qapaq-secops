@@ -47,10 +47,10 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          role-to-assume: arn:aws:iam::123456789012:role/qapaq-secops-github-terraform-demo
           aws-region: us-east-1
           role-session-name: qapaq-secops-migrate-database
-          allowed-account-ids: 955200662475
+          allowed-account-ids: 123456789012
 
       - name: Resolve task and network from Terraform-managed resources
         id: resolve

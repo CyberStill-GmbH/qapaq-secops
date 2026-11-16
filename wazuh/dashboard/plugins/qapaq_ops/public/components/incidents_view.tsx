@@ -55,6 +55,7 @@ import {
   useAsync,
   useIsMobile,
 } from './primitives';
+import { alertInvestigationHref } from './investigation_links';
 
 type IncidentFilter = 'active' | IncidentStatus;
 
@@ -541,7 +542,8 @@ function LinkedAlertsPanel({ incident }: { incident: Incident }) {
                 <span className="qapaqCellMeta">
                   {ALERT_STATUS_LABEL[alert.status]}
                   {alert.verdict ? ` · ${VERDICT_LABEL[alert.verdict]}` : ''} ·{' '}
-                  <Timestamp iso={alert.occurredAt} />
+                  <Timestamp iso={alert.occurredAt} /> ·{' '}
+                  <a href={alertInvestigationHref(basePath, alert.id)}>Investigar</a>
                 </span>
               </div>
             </li>
@@ -708,7 +710,7 @@ function TasksPanel({ incident }: { incident: Incident }) {
   );
 }
 
-function NotesPanel({ incident }: { incident: Incident }) {
+export function NotesPanel({ incident }: { incident: Incident }) {
   const { api, can } = useConsole();
   const base = `/incidents/${encodeURIComponent(incident.id)}/notes`;
   const notes = useAsync(() => api.get<Page<IncidentNote>>(base, { pageSize: 200 }), [api, base]);

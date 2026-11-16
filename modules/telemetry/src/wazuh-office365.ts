@@ -59,6 +59,7 @@ const LOGIN_FAILURE_OPERATIONS = new Set(['userloginfailed']);
 
 const SUCCESS_STATUSES = new Set(['succeeded', 'success', 'true', 'partiallysucceeded']);
 const FAILURE_STATUSES = new Set(['failed', 'failure', 'false']);
+const MAX_PROJECTED_RECIPIENTS = 50;
 
 export interface Office365Projection {
   readonly action?: string;
@@ -81,6 +82,45 @@ function readText(value: unknown, maximum: number): string | undefined {
   const trimmed = value.trim();
   if (trimmed.length === 0) return undefined;
   return trimmed.slice(0, maximum);
+}
+
+function readMailbox(value: unknown): string | undefined {
+  const text = readText(value, 320);
+  if (!text || /[\s<>\u0000-\u001f]/u.test(text)) return undefined;
+  const at = text.lastIndexOf('@');
+  if (at <= 0 || at === text.length - 1 || text.indexOf('@') !== at) return undefined;
+  return text.toLowerCase();
+}
+
+function readInternetMessageId(value: unknown): string | undefined {
+  const text = readText(value, 512);
+  if (!text || /[\u0000-\u001f\u007f]/u.test(text)) return undefined;
+  return text;
+}
+
+function readNetworkMessageId(value: unknown): string | undefined {
+  const text = readText(value, 64);
+  if (!text || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(text)) {
+    return undefined;
+  }
+  return text.toLowerCase();
+}
+
+function readRecipientList(
+  value: unknown,
+): { readonly values: readonly string[]; readonly truncated: boolean } | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const recipients: string[] = [];
+  const seen = new Set<string>();
+  let totalUnique = 0;
+  for (const item of value) {
+    const address = readMailbox(readObject(item)?.['Address']);
+    if (!address || seen.has(address)) continue;
+    seen.add(address);
+    totalUnique += 1;
+    if (recipients.length < MAX_PROJECTED_RECIPIENTS) recipients.push(address);
+  }
+  return { values: recipients, truncated: totalUnique > MAX_PROJECTED_RECIPIENTS };
 }
 
 /** Wazuh entrega números del JSON original a veces como número y a veces como texto. */
@@ -150,6 +190,13 @@ export function projectOffice365(
   const organizationId = readText(record['OrganizationId'], 64);
   const clientIp = normalizeClientIp(record['ClientIP'] ?? record['ActorIpAddress']);
   const objectId = readText(record['ObjectId'], 256);
+  // These Exchange/Defender message fields are optional and vary by record type. Never inspect
+  // Parameters or ModifiedProperties: only explicit schema fields are eligible for projection.
+  const mailboxOwnerUpn = readMailbox(record['MailboxOwnerUPN']);
+  const internetMessageId = readInternetMessageId(record['InternetMessageId']);
+  const networkMessageId = readNetworkMessageId(record['NetworkMessageId']);
+  const recipientList = readRecipientList(record['recipientList']);
+  const recipientCount = readInteger(record['recipientCount']);
 
   const identities: Identity[] = [];
   if (principal !== undefined) {
@@ -203,6 +250,19 @@ export function projectOffice365(
   }
   if (organizationId !== undefined) extension['organizationId'] = organizationId;
   if (clientIp !== undefined) extension['clientIp'] = clientIp;
+  if (mailboxOwnerUpn !== undefined) extension['mailboxOwnerUpn'] = mailboxOwnerUpn;
+  if (internetMessageId !== undefined) extension['internetMessageId'] = internetMessageId;
+  if (networkMessageId !== undefined) extension['networkMessageId'] = networkMessageId;
+  if (recipientList?.values.length) extension['recipients'] = [...recipientList.values];
+  if (recipientCount !== undefined && recipientCount >= 0)
+    extension['recipientCount'] = recipientCount;
+  if (
+    (recipientList?.truncated ?? false) ||
+    (recipientList !== undefined &&
+      recipientCount !== undefined &&
+      recipientCount > recipientList.values.length)
+  )
+    extension['recipientsTruncated'] = true;
 
   const action = operation === undefined ? undefined : office365ActionSlug(operation);
   return {

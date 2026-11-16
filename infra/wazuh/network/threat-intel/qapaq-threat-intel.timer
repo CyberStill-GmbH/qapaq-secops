@@ -1,0 +1,12 @@
+# QAPAQ SOC · una vez al día (Spamhaus pide no más de una descarga por hora; diaria basta). El manager solo se
+# reinicia si alguna lista cambió (CDB se compila al arrancar analysisd): ~30 s sin análisis a las 05:xx UTC.
+[Unit]
+Description=QAPAQ SOC: refresco diario de listas de reputacion de IP
+
+[Timer]
+OnCalendar=*-*-* 05:20:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

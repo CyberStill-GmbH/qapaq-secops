@@ -7,28 +7,36 @@ en [`docs/03-evaluacion-de-componentes.md`](../docs/03-evaluacion-de-componentes
 > **Alcance:** esta matriz describe el código y procedimientos del overlay, no el estado
 > instalado de los recursos cloud. Sus estados históricos se refieren al flujo AWS; no
 > certifican recursos activos en AWS ni en Azure. Para EUS2, usar el
-> [runbook vigente](../docs/cloud/azure/runbook-demo-eus2.md) y el
-> [perfil SIEM y sus compuertas](../docs/cloud/azure/eus2-siem-profile-readiness.md).
+> [runbook vigente](../docs/archive/azure/runbook-demo-eus2.md) y el
+> [perfil SIEM y sus compuertas](../docs/archive/azure/eus2-siem-profile-readiness.md).
 > La secuencia de abajo es específica de `infra/aws` y no se usa para desplegar Azure.
 
-| Carpeta                      | Qué cambia de Wazuh                                                                                                         | Se aplica con                                                             | Estado                                        |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
-| `access/`                    | Usuario `qapaq_reader`, proxy TLS allowlist del Indexer, usuarios internos                                                  | `access/apply-access.sh` (workflow `initialize-wazuh.yml`)                | En uso en la demo                             |
-| `office365/`                 | Módulo Office 365, 22 reglas QAPAQ, listas y tests de logtest                                                               | `office365/apply-office365.sh` (workflow `configure-wazuh-office365.yml`) | En uso en la demo                             |
-| `archive/`                   | Archivo JSON crudo del Manager, Filebeat archives y retención ISM aislada de 7 días                                         | `archive/apply-archives.sh` (workflow `wazuh-archives.yml`)               | Listo para aplicar por CI/CD                  |
-| `edge/`                      | nginx: TLS, `auth_request` contra QAPAQ, `/` → dashboard, `/api` → QAPAQ, `/soc` estático                                   | Fase 1                                                                    | Propuesto                                     |
-| `indexer/security/`          | Security plugin: proxy auth y roles QAPAQ                                                                                   | `securityadmin.sh`                                                        | Propuesto                                     |
-| `indexer/ism/`               | Retención hot/warm/cold y repo de snapshots S3                                                                              | `indexer/ism/apply-ism.sh`                                                | Propuesto                                     |
-| `indexer/anomaly-detection/` | Detectores ML (RCF)                                                                                                         | `indexer/anomaly-detection/apply-detectors.sh`                            | Propuesto                                     |
-| `dashboard/`                 | Marca QAPAQ, proxy auth y plugin `qapaq-ops`                                                                                | Copia más reinicio de `wazuh-dashboard`                                   | Propuesto                                     |
-| `core/`                      | Núcleo QAPAQ dentro del SIEM: login Entra, casos (Ayni Qapaq), auditoría, avisos y colas, como servicios del host (docs/12) | `core/apply-core.sh` (workflow «QAPAQ SIEM», step=core)                   | Implementado; pendiente del primer despliegue |
-| `manager/integrations/`      | Push de alertas a QAPAQ (`custom-qapaq`) y snippets de Shuffle y AWS                                                        | `ossec.conf`                                                              | Propuesto (fase 2 y 3)                        |
+| Carpeta                      | Qué cambia de Wazuh                                                                                                      | Se aplica con                                                             | Estado                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------- |
+| `access/`                    | Usuario `qapaq_reader`, proxy TLS allowlist del Indexer, usuarios internos                                                 | `access/apply-access.sh` (workflow `initialize-wazuh.yml`)                | En uso en la demo                             |
+| `office365/`                 | Módulo Office 365, 22 reglas QAPAQ, listas y tests de logtest                                                              | `office365/apply-office365.sh` (workflow `configure-wazuh-office365.yml`) | En uso en la demo                             |
+| `archive/`                   | Archivo JSON crudo del Manager, Filebeat archives y retención ISM aislada de 7 días                                      | `archive/apply-archives.sh` (workflow `wazuh-archives.yml`)               | Listo para aplicar por CI/CD                  |
+| `edge/`                      | nginx: TLS, `auth_request` contra QAPAQ, `/` → dashboard, `/api` → QAPAQ, `/soc` estático                                    | Fase 1                                                                    | Propuesto                                     |
+| `indexer/security/`          | Security plugin: proxy auth y roles QAPAQ                                                                                  | `securityadmin.sh`                                                        | Propuesto                                     |
+| `indexer/ism/`               | Retención hot/warm/cold y repo de snapshots S3                                                                           | `indexer/ism/apply-ism.sh`                                                | Propuesto                                     |
+| `indexer/anomaly-detection/` | Detectores ML (RCF)                                                                                                      | `indexer/anomaly-detection/apply-detectors.sh`                            | Propuesto                                     |
+| `dashboard/`                 | Marca QAPAQ, proxy auth y plugin `qapaq-ops`                                                                                 | Copia más reinicio de `wazuh-dashboard`                                   | Propuesto                                     |
+| `core/`                      | Núcleo QAPAQ dentro del SIEM: login Entra, casos (Ayni Qapaq), auditoría, avisos y colas, como servicios del host (docs/12) | `core/apply-core.sh` (workflow «QAPAQ SIEM», step=core)                     | Implementado; pendiente del primer despliegue |
+| `manager/integrations/`      | Push HMAC minimizado a la inbox QAPAQ; configuración de conexión preparada, integración no activa                          | `ossec.conf` + `infra/aws-poweruser/scripts/prepare-wazuh-push-secret.sh` | Local; canario y activación pendientes        |
 
 ## Reglas
 
 - **Idempotente:** cada script se puede ejecutar N veces y deja el mismo estado. Cada uno toca solo
   su bloque `QAPAQ:<nombre>:begin/end` dentro de los archivos de Wazuh.
-- **Sin secretos:** las credenciales se leen de Secrets Manager en el host, nunca del repo.
+- **Sin secretos versionados:** credenciales permanecen en archivos protegidos del host, nunca en el repo.
+- **Wazuh push:** el helper `prepare-wazuh-push-secret.sh` sincroniza un HMAC generado/recuperado
+  entre `secrets/api.env` y un archivo `root:wazuh 0640` en el Manager. Requiere
+  `QAPAQ_WAZUH_PUSH_PREPARE=YES`, no reinicia servicios ni activa el bloque `<integration>`; no pasar
+  la clave por argumentos. El template usa un marcador inocuo porque Wazuh entrega `api_key` como
+  argumento al proceso. El Manager llega al edge por HTTPS con el hostname del certificado fijado a
+  la IP privada del edge. Solo el endpoint exacto `POST /api/ingest/wazuh` queda abierto sin sesión;
+  el controller valida HMAC, timestamp y persistencia antes de responder 202. La reconciliación pull
+  sigue siendo necesaria ante fallos del emisor best-effort.
 - **Raw archive:** `logall_json` archiva todos los eventos que procesa el Manager, no solo M365;
   `wazuh-archives-*` tiene política ISM separada de 7 días en el demo.
 - **Probado antes de aplicar:** reglas con `wazuh-logtest` (`office365/tests`), JSON con `jq`, nginx

@@ -3,3 +3,6 @@
 *.yaml text eol=lf
 *.patch text eol=lf
 wazuh/provider-ingestion/sophos/upstream/** text eol=lf
+# Los consume bash con `source` / `read` (build.sh de wazuh/dashboard y ankay): un CR rompe el build.
+*.lock text eol=lf
+*.tsv text eol=lf

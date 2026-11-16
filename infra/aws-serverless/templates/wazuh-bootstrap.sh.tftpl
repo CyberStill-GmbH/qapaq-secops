@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# Bootstrap del nodo Wazuh all-in-one (Ubuntu 24.04 arm64). Basado en
+# infra/aws/modules/wazuh_public/bootstrap.sh.tftpl, SIN nginx/certbot: el dashboard sirve
+# en 443 con su certificado autofirmado y el SG lo limita a allowed_admin_cidrs.
+# Es idempotente: si Wazuh ya está instalado, solo reaplica authd y el overlay.
+set -Eeuo pipefail
+exec > >(tee -a /var/log/qapaq-wazuh-bootstrap.log | logger -t qapaq-wazuh-bootstrap -s 2>/dev/console) 2>&1
+
+REGION='${aws_region}'
+WAZUH_VERSION='${wazuh_version}'
+ADMIN_SECRET_ARN='${admin_secret_arn}'
+REGISTRATION_SECRET_ARN='${registration_secret_arn}'
+OVERLAY_S3_URI='${overlay_s3_uri}'
+
+export DEBIAN_FRONTEND=noninteractive
+
+# La EIP se asocia después de crear la instancia: esperar salida a Internet (máx. ~10 min).
+for attempt in $(seq 1 60); do
+  if curl -fsS -m 5 -o /dev/null https://packages.wazuh.com/key/GPG-KEY-WAZUH; then break; fi
+  echo "Esperando conectividad (intento $attempt)..."
+  sleep 10
+done
+
+apt-get update
+apt-get install -y curl tar python3 unzip jq
+
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSLo /tmp/awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
+# --- Instalación all-in-one (solo la primera vez) -----------------------------------------
+if [ ! -x /var/ossec/bin/wazuh-control ]; then
+  curl -fsSLo /root/wazuh-install.sh "https://packages.wazuh.com/$${WAZUH_VERSION%.*}/wazuh-install.sh"
+  bash /root/wazuh-install.sh -a > /var/log/wazuh-install.log 2>&1
+  chmod 600 /root/wazuh-install-files.tar /var/log/wazuh-install.log
+  rm -f /root/wazuh-install.sh
+
+  # Guarda la clave del usuario admin del Indexer en el secreto contenedor.
+  python3 - <<'PY'
+import json, subprocess
+out = subprocess.run(['tar', '-O', '-xf', '/root/wazuh-install-files.tar',
+                      'wazuh-install-files/wazuh-passwords.txt'],
+                     check=True, capture_output=True, text=True).stdout.splitlines()
+password = None
+for i, line in enumerate(out):
+    key, sep, value = line.partition(':')
+    if sep and key.strip().lower() == 'indexer_username' and value.strip().strip("'\"").lower() == 'admin':
+        for nxt in out[i + 1:]:
+            k, s, v = nxt.partition(':')
+            if s and k.strip().lower() == 'indexer_password':
+                password = v.strip().strip("'\"")
+                break
+        break
+if not password:
+    raise RuntimeError('No se encontró la contraseña admin en el archivo de instalación')
+subprocess.run(['aws', 'secretsmanager', 'put-secret-value', '--region', '${aws_region}',
+                '--secret-id', '${admin_secret_arn}',
+                '--secret-string', json.dumps({'username': 'admin', 'password': password})],
+               check=True, stdout=subprocess.DEVNULL)
+PY
+
+  # Fija versiones: evita actualizaciones accidentales del stack Wazuh con apt upgrade.
+  apt-mark hold wazuh-manager wazuh-indexer wazuh-dashboard filebeat || true
+  sed -i 's/^deb /#deb /' /etc/apt/sources.list.d/wazuh.list || true
+fi
+
+# --- authd con contraseña de registro (Secrets Manager) -----------------------------------
+REG_PASSWORD="$(aws secretsmanager get-secret-value --region "$REGION" \
+  --secret-id "$REGISTRATION_SECRET_ARN" --query SecretString --output text)"
+umask 027
+printf '%s' "$REG_PASSWORD" > /var/ossec/etc/authd.pass
+chown root:wazuh /var/ossec/etc/authd.pass
+chmod 640 /var/ossec/etc/authd.pass
+unset REG_PASSWORD
+
+python3 - <<'PY'
+import re
+from pathlib import Path
+conf = Path('/var/ossec/etc/ossec.conf')
+text = conf.read_text()
+if '<auth>' in text:
+    auth = re.search(r'<auth>.*?</auth>', text, re.S).group(0)
+    if '<use_password>' in auth:
+        new = re.sub(r'<use_password>\s*\w+\s*</use_password>', '<use_password>yes</use_password>', auth)
+    else:
+        new = auth.replace('</auth>', '  <use_password>yes</use_password>\n  </auth>')
+    text = text.replace(auth, new)
+    conf.write_text(text)
+PY
+systemctl restart wazuh-manager
+
+# --- Overlay QAPAQ opcional ----------------------------------------------------------------
+if [ -n "$OVERLAY_S3_URI" ]; then
+  rm -rf /opt/qapaq-overlay && mkdir -p /opt/qapaq-overlay
+  aws s3 cp --region "$REGION" "$OVERLAY_S3_URI" /tmp/qapaq-overlay.tar.gz
+  tar -xzf /tmp/qapaq-overlay.tar.gz -C /opt/qapaq-overlay
+  rm -f /tmp/qapaq-overlay.tar.gz
+  if [ -x /opt/qapaq-overlay/install.sh ]; then
+    QAPAQ_AWS_REGION="$REGION" QAPAQ_WAZUH_ADMIN_SECRET_ARN="$ADMIN_SECRET_ARN" \
+      /opt/qapaq-overlay/install.sh
+  fi
+fi
+
+echo "Bootstrap Wazuh $WAZUH_VERSION completado."

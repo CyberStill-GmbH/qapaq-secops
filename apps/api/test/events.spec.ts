@@ -51,6 +51,39 @@ describe('compilador de filtros para el Indexer', () => {
     expect(compileWazuhEventFilters({ severity: ['urgente'] })).toBeUndefined();
     expect(compileWazuhEventFilters({})).toEqual([]);
   });
+
+  it('entidad: coincidencia exacta por campo (usuario sin mayúsculas) y full_log de respaldo', () => {
+    const [clause] = compileWazuhEventFilters({
+      entities: [
+        { kind: 'user', value: 'JPerez@QAPAQ.pe' },
+        { kind: 'ip', value: '203.0.113.7' },
+      ],
+    })!;
+    const should = (clause as { bool: { should: unknown[]; minimum_should_match: number } }).bool;
+    expect(should.minimum_should_match).toBe(1);
+    expect(should.should).toContainEqual({
+      term: { 'data.office365.UserId': { value: 'JPerez@QAPAQ.pe', case_insensitive: true } },
+    });
+    expect(should.should).toContainEqual({ term: { 'data.srcip': '203.0.113.7' } });
+    expect(should.should).toContainEqual({ match_phrase: { full_log: 'JPerez@QAPAQ.pe' } });
+    // Literal: nunca query_string ni comodines que el valor pudiera abrir.
+    expect(JSON.stringify(clause)).not.toMatch(/query_string|wildcard|regexp/u);
+  });
+
+  it('entidad: rechaza valores vacíos, con control, demasiados o de otro tipo', () => {
+    expect(compileWazuhEventFilters({ entities: [{ kind: 'user', value: 'ab' }] })).toBeUndefined();
+    expect(
+      compileWazuhEventFilters({ entities: [{ kind: 'user', value: 'a\u0000bc' }] }),
+    ).toBeUndefined();
+    expect(
+      compileWazuhEventFilters({ entities: [{ kind: 'host' as never, value: 'srv-01' }] }),
+    ).toBeUndefined();
+    const many = Array.from({ length: 11 }, (_, index) => ({
+      kind: 'ip' as const,
+      value: `10.0.0.${index}`,
+    }));
+    expect(compileWazuhEventFilters({ entities: many })).toBeUndefined();
+  });
 });
 
 describe('de q a la consulta del Indexer', () => {

@@ -1,0 +1,531 @@
+{
+  "id": "d628775e-b956-5011-a45a-14565bad091f",
+  "name": "QAPAQ · Contención de endpoint con aprobación (Wazuh Active Response)",
+  "description": "Bloquea temporalmente (600 s) una IP de origen en el agente Linux afectado con Wazuh Active Response firewall-drop (SSH tras fuerza bruta 101750, persistencia 101755–101760). Doble compuerta: aprobación del Líder SOC (SoD) y qapaq_contencion_habilitada (false por defecto). Requiere aprobación de QAPAQ según docs/10 y un usuario de la API de Wazuh con solo active-response:command (docs/07, gate 3).",
+  "start": "092cc0c3-79ee-5672-88fb-b544021193d6",
+  "actions": [
+    {
+      "id": "092cc0c3-79ee-5672-88fb-b544021193d6",
+      "label": "validar_solicitud",
+      "name": "execute_python",
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": true,
+      "description": "Valida referencias opacas, solicitante y executionKey.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "code",
+          "value": "import json\n# QAPAQ · valida la solicitud: referencias opacas, solicitante y clave de idempotencia (docs/14 §5).\nreq = json.loads(r\"\"\"$exec\"\"\") if isinstance(r\"\"\"$exec\"\"\", str) else $exec\nrequired = [\"incidentRef\", \"executionKey\", \"requestedBy\", \"targetRef\", \"actionId\"]\nmissing = [k for k in required if not req.get(k)]\nprint(json.dumps({\"valid\": \"false\" if missing else \"true\", \"missing\": missing, **{k: req.get(k, \"\") for k in required}}))\n",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "7cc9c087-623c-54ab-a4e5-bb6e684af139",
+      "label": "contexto_para_aprobar",
+      "name": "execute_python",
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Prepara el texto de aprobación (sin datos personales).",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "code",
+          "value": "import json\n# QAPAQ · resumen para el aprobador: qué se pide, sobre qué referencia y con qué riesgo.\ns = $validar_solicitud.message\nprint(json.dumps({\"summary\": f\"Acción {s['actionId']} sobre {s['targetRef']} del incidente {s['incidentRef']}, pedida por {s['requestedBy']}.\",\n                  \"requestedBy\": s[\"requestedBy\"]}))\n",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "435add9c-4c6c-5294-9097-13bb7d08191a",
+      "label": "verificar_compuerta",
+      "name": "execute_python",
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Compuerta: qapaq_contencion_habilitada = true y aprobador distinto del solicitante.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "code",
+          "value": "import json\n# QAPAQ · compuerta doble: aprobación humana + habilitación registrada en docs/10. SoD: aprobador ≠ solicitante.\nenabled = \"$qapaq_contencion_habilitada\".strip().lower() == \"true\"\napprover = \"$aprobacion_lider_soc.approver\" if \"$aprobacion_lider_soc.approver\" != \"\" else \"\"\nrequester = $validar_solicitud.message[\"requestedBy\"]\nok = enabled and approver != \"\" and approver != requester\nprint(json.dumps({\"proceed\": \"true\" if ok else \"false\",\n                  \"reason\": \"ok\" if ok else (\"contención deshabilitada (docs/10)\" if not enabled else \"SoD: aprobador inválido o igual al solicitante\")}))\n",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "8fe51c6a-6a99-5544-8eb0-1956bf7cee6a",
+      "label": "wazuh_firewall_drop",
+      "name": "PUT",
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Wazuh Active Response firewall-drop (endpoint.block-ip, riesgo medio, timeout 600 s del manager).",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "url",
+          "value": "$wazuh_api/active-response?agents_list=$validar_solicitud.message.targetRef",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "body",
+          "value": "{\"command\":\"!firewall-drop\",\"arguments\":[],\"alert\":{\"data\":{\"srcip\":\"$exec.params.srcip\"}}}",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "headers",
+          "value": "Content-Type: application/json\nAuthorization: <autenticación Shuffle «wazuh-api-active-response» (solo active-response:command)>",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "verify",
+          "value": "true",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "timeout",
+          "value": "15",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "to_file",
+          "value": "false",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    },
+    {
+      "id": "07ac0029-9235-56b4-b216-d7101db8a3e6",
+      "label": "resultado_en_incidente_qapaq",
+      "name": "POST",
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "isStartNode": false,
+      "description": "Resultado (ejecutada, rechazada o bloqueada por compuerta) en el timeline del incidente; nunca reintento ciego.",
+      "authentication_id": "",
+      "errors": [],
+      "sharing": false,
+      "private_id": "",
+      "public": false,
+      "parameters": [
+        {
+          "name": "url",
+          "value": "$qapaq_api/api/incidents/$validar_solicitud.message.incidentRef/notes",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "body",
+          "value": "{\"body\":\"Ankay · $validar_solicitud.message.actionId · compuerta: $verificar_compuerta.message.reason\"}",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "headers",
+          "value": "Content-Type: application/json\nAuthorization: <autenticación Shuffle «qapaq-api-notas»>",
+          "required": false,
+          "multiline": true,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "verify",
+          "value": "true",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "timeout",
+          "value": "15",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        },
+        {
+          "name": "to_file",
+          "value": "false",
+          "required": false,
+          "multiline": false,
+          "id_": "",
+          "variant": "STATIC_VALUE",
+          "action_field": "",
+          "example": "",
+          "description": ""
+        }
+      ],
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "priority": 0,
+      "execution_delay": 0
+    }
+  ],
+  "triggers": [
+    {
+      "id": "64217f86-d455-5fd7-b072-8f07d4bf82f7",
+      "label": "solicitud_desde_qapaq",
+      "name": "Webhook",
+      "app_name": "Webhook",
+      "app_version": "1.0.0",
+      "trigger_type": "WEBHOOK",
+      "status": "stopped",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "description": "Solicitud de acción del catálogo emitida por la API QAPAQ (incidentRef, executionKey, solicitante, objetivo opaco).",
+      "parameters": [
+        {
+          "name": "url",
+          "value": ""
+        },
+        {
+          "name": "tmp",
+          "value": ""
+        },
+        {
+          "name": "auth_headers",
+          "value": "X-Qapaq-Integration=<referencia, no el secreto>"
+        }
+      ],
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "large_image": ""
+    },
+    {
+      "id": "08c8a32e-486f-567b-8c01-cbc3f3505197",
+      "label": "aprobacion_lider_soc",
+      "name": "User Input",
+      "app_name": "User Input",
+      "app_version": "1.0.0",
+      "trigger_type": "USERINPUT",
+      "status": "running",
+      "environment": "Shuffle",
+      "is_valid": true,
+      "description": "Aprobación humana del Líder SOC (SoD: distinto del solicitante).",
+      "parameters": [
+        {
+          "name": "alertinfo",
+          "value": "Ankay solicita contención de endpoint: $contexto_para_aprobar.message.summary ¿Aprueba bloquear la IP 600 s en el agente? Solo el Líder SOC, distinto del solicitante."
+        },
+        {
+          "name": "type",
+          "value": "subflow"
+        },
+        {
+          "name": "email",
+          "value": ""
+        },
+        {
+          "name": "sms",
+          "value": ""
+        },
+        {
+          "name": "subflow",
+          "value": ""
+        }
+      ],
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "large_image": ""
+    }
+  ],
+  "branches": [
+    {
+      "id": "132535df-0117-58ac-bd62-1f736cf62fca",
+      "source_id": "64217f86-d455-5fd7-b072-8f07d4bf82f7",
+      "destination_id": "092cc0c3-79ee-5672-88fb-b544021193d6",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    },
+    {
+      "id": "b6613288-c1a3-5cd1-8bd2-c67f737a0a59",
+      "source_id": "092cc0c3-79ee-5672-88fb-b544021193d6",
+      "destination_id": "7cc9c087-623c-54ab-a4e5-bb6e684af139",
+      "label": "",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "name": "source",
+            "value": "$validar_solicitud.message.valid",
+            "variant": "STATIC_VALUE"
+          },
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "true",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "4df7c3ac-2766-52ea-bc94-428a6f93472b",
+      "source_id": "7cc9c087-623c-54ab-a4e5-bb6e684af139",
+      "destination_id": "08c8a32e-486f-567b-8c01-cbc3f3505197",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    },
+    {
+      "id": "d3bcb8d5-5294-55aa-b197-dbabca2f8cf1",
+      "source_id": "08c8a32e-486f-567b-8c01-cbc3f3505197",
+      "destination_id": "435add9c-4c6c-5294-9097-13bb7d08191a",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    },
+    {
+      "id": "6410c7a3-0a54-5abd-acad-68ef1e2cf139",
+      "source_id": "435add9c-4c6c-5294-9097-13bb7d08191a",
+      "destination_id": "8fe51c6a-6a99-5544-8eb0-1956bf7cee6a",
+      "label": "",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "name": "source",
+            "value": "$verificar_compuerta.message.proceed",
+            "variant": "STATIC_VALUE"
+          },
+          "condition": {
+            "name": "condition",
+            "value": "equals"
+          },
+          "destination": {
+            "name": "destination",
+            "value": "true",
+            "variant": "STATIC_VALUE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "88907620-4c84-5d1a-9b90-0990f202b720",
+      "source_id": "435add9c-4c6c-5294-9097-13bb7d08191a",
+      "destination_id": "07ac0029-9235-56b4-b216-d7101db8a3e6",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    },
+    {
+      "id": "fa88fb32-bf8b-56d9-a9d5-6c9328478e26",
+      "source_id": "8fe51c6a-6a99-5544-8eb0-1956bf7cee6a",
+      "destination_id": "07ac0029-9235-56b4-b216-d7101db8a3e6",
+      "label": "",
+      "has_errors": false,
+      "conditions": []
+    }
+  ],
+  "workflow_variables": [
+    {
+      "id": "40777e74-873e-5542-b988-32bdb9409497",
+      "name": "qapaq_api",
+      "value": "https://dev.security.qapaq.pe",
+      "description": "Base de la API QAPAQ (misma sesión de servicio de solo lectura)"
+    },
+    {
+      "id": "33dab7ef-469c-5aa2-a219-a84095e7898a",
+      "name": "qapaq_console",
+      "value": "https://dev.security.qapaq.pe/app/qapaq-alerts",
+      "description": "Enlace de consola en avisos"
+    },
+    {
+      "id": "61c641dd-bf61-55f5-8e6e-8ae50486e891",
+      "name": "qapaq_mail_from",
+      "value": "<buzón SOC: ALERT_EMAIL_FROM de wazuh/alert-mail>",
+      "description": "Remitente del servicio de correo QAPAQ"
+    },
+    {
+      "id": "d56ea5f8-59c2-5a55-9c5f-245516c9f2e7",
+      "name": "qapaq_mail_to",
+      "value": "<lista SOC (Líder SOC y guardia)>",
+      "description": "Destinatarios del aviso"
+    },
+    {
+      "id": "65447d29-2717-5bed-8a32-18a30df51c99",
+      "name": "qapaq_contencion_habilitada",
+      "value": "false",
+      "description": "Contención con aprobación: requiere (1) aprobación del Líder SOC distinta del solicitante y (2) qapaq_contencion_habilitada = true, que solo cambia una decisión registrada en docs/10. Valor por defecto: false."
+    },
+    {
+      "id": "53f88d49-a8a4-5b88-b281-a54892b9d60a",
+      "name": "wazuh_api",
+      "value": "https://wazuh.manager:55000",
+      "description": "API del manager (red interna del host)"
+    }
+  ],
+  "execution_variables": [],
+  "tags": [
+    "qapaq",
+    "ankay",
+    "contencion",
+    "requiere-aprobacion"
+  ],
+  "configuration": {
+    "exit_on_error": false,
+    "start_from_top": false,
+    "skip_notifications": true
+  },
+  "sharing": "private",
+  "status": "test",
+  "is_valid": true,
+  "previously_saved": true,
+  "org_id": "",
+  "workflow_type": "",
+  "qapaq": {
+    "catalog_id": "qapaq.endpoint-containment",
+    "version": "1.0.0",
+    "risk": "medium",
+    "approval": "lead",
+    "external_effects": [
+      "bloqueo temporal de IP en el agente"
+    ],
+    "containment": true,
+    "enabled_by_default": false,
+    "status": "exportable-no-importado",
+    "docs": "docs/detection-engineering/04-playbooks-ankay.md"
+  }
+}

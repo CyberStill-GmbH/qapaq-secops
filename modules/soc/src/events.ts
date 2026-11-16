@@ -18,6 +18,8 @@ export const SOC_EVENT_TYPES = [
   'soc.alert.triaged',
   'soc.alert.escalated',
   'soc.alert.closed',
+  /** Pedido de revisión humana del Analista IA (no cambia la alerta). */
+  'soc.alert.review_requested',
   'soc.incident.opened',
   'soc.incident.status_changed',
   'soc.incident.closed',
@@ -51,7 +53,9 @@ export interface OutboxMessageDraft {
 /** Hechos que exigen notificación inmediata según la política aprobada de QAPAQ. */
 export function requiresCriticalNotification(event: SocDomainEvent): boolean {
   if (event.type === 'soc.incident.opened') return event.payload.severity === 'critical';
-  if (event.type === 'soc.alert.escalated') return event.payload.priority === 'P1';
+  if (event.type === 'soc.alert.created' || event.type === 'soc.alert.escalated') {
+    return event.payload.priority === 'P1' || event.payload.priority === 'P2';
+  }
   return false;
 }
 
@@ -87,6 +91,11 @@ export function alertEvent(input: {
   readonly priority: Priority;
   readonly status: AlertStatus;
   readonly title: string;
+  readonly score?: number;
+  readonly signal?: string | null;
+  readonly ruleId?: string | null;
+  readonly reasonCodes?: string;
+  readonly relatedAlertCount?: number;
   readonly verdict?: TriageVerdict | null;
   readonly incidentId?: string | null;
 }): SocDomainEvent {
@@ -101,6 +110,11 @@ export function alertEvent(input: {
       title: input.title,
       priority: input.priority,
       status: input.status,
+      score: input.score ?? null,
+      signal: input.signal ?? null,
+      ruleId: input.ruleId ?? null,
+      reasonCodes: input.reasonCodes ?? '',
+      relatedAlertCount: input.relatedAlertCount ?? 0,
       verdict: input.verdict ?? null,
       incidentId: input.incidentId ?? null,
     },

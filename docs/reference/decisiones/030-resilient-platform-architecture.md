@@ -1,4 +1,11 @@
-# ADR-030 — Arquitectura resiliente y escalamiento progresivo de Qapaq SecOps
+# ADR-030 — Arquitectura resiliente y escalamiento progresivo de QAPAQ SOC
+
+> **Contexto heredado de la base de código original; vigente solo lo que recoge [docs/10-decisiones.md](../../10-decisiones.md).**
+> Se conserva como historia; la arquitectura vigente es serverless sobre AWS ([02](../../02-arquitectura.md)).
+
+> **Nota (legado):** los servicios ECS, RDS, ALB, NAT, Valkey y KrakenD de este documento son el diseño AWS anterior.
+> La arquitectura vigente reemplaza ECS por Lambda + API Gateway, RDS por Aurora Serverless v2 y quita NAT y
+> KrakenD ([02](../../02-arquitectura.md)); su Terraform aún no existe en `infra/aws/`.
 
 - Estado: Accepted como arquitectura objetivo; implementación por etapas y con gates.
 - Fecha: 2026-10-13.
@@ -7,7 +14,7 @@
 
 ## Contexto
 
-Qapaq SecOps debe procesar señales de seguridad sin trasladar picos de carga a
+QAPAQ SOC debe procesar señales de seguridad sin trasladar picos de carga a
 Wazuh, las fuentes externas, la base operacional o la experiencia del analista.
 El repositorio ya establece una aplicación modular con API, worker y web; una
 cola Redis/BullMQ para trabajos recuperables; almacenamiento operacional y de
@@ -47,7 +54,7 @@ fronteras:
    en PostgreSQL la admisión, deduplicación, checkpoint, inbox/outbox y auditoría
    requerida. Cada consumidor puede reintentarse de forma idempotente. Un fallo de
    Redis permite reconciliar jobs desde el registro durable sin perder evidencia.
-5. **Qapaq SecOps Core:** normaliza señales al contrato canónico, enriquece,
+5. **QAPAQ SOC Core:** normaliza señales al contrato canónico, enriquece,
    deduplica con cautela, correlaciona, prioriza y crea alertas/casos conforme a las
    políticas del SOC. Wazuh mantiene la recolección, agentes, decoders y detecciones
    nativas; el Core no replica su ruleset. El Wazuh Indexer se consulta con mínimo
@@ -55,7 +62,7 @@ fronteras:
    PostgreSQL conserva la autoridad transaccional de los objetos operativos.
 6. **Investigación Ayni Qapaq:** las alertas relevantes abren o se relacionan con
    investigaciones colaborativas con asignados, tareas, notas, evidencias,
-   timeline y resolución. Ayni reutiliza el modelo SOC y el audit trail de QAPAQ;
+   timeline y resolución. Ayni Qapaq reutiliza el modelo SOC y el audit trail de QAPAQ;
    no crea una segunda alerta ni un segundo motor de búsqueda.
 7. **Respuesta orquestada:** desde una alerta o investigación, una persona con
    permisos puede solicitar un playbook disponible. QAPAQ valida scope, versión,
@@ -142,7 +149,7 @@ reconciliación, drenaje y ausencia de efectos externos duplicados.
 - capacidad medida para picos de entrada, búsquedas concurrentes, polling y replay;
 - fallos de una réplica, nodo KrakenD, Redis, PostgreSQL, OpenSearch, fuente y Shuffle;
 - no pérdida de eventos ya admitidos, cursor monotónico y replay sin duplicar acciones;
-- aislamiento por rol/scope en búsquedas, Ayni, exportaciones y playbooks;
+- aislamiento por rol/scope en búsquedas, Ayni Qapaq, exportaciones y playbooks;
 - retención/restauración aprobadas y evidencia de restore;
 - alertas de cobertura, lag, oldest-job-age, index rejection, quota y circuit breaker;
 - rollback probado para aplicación, configuración KrakenD, mapping y migración de datos.
@@ -159,8 +166,7 @@ ello cada réplica y tier necesita owner, métricas, pruebas, presupuesto y runb
 
 ## Referencias
 
-[ADR-020 — continuidad](020-operations-and-continuity.md) ·
-[ADR-026 — KrakenD](026-on-premises-krakend-provider-api-gateway.md) ·
+ADR-020 (continuidad) y ADR-026 (KrakenD) no se conservan en este repo; KrakenD está retirado ([02](../../02-arquitectura.md)) ·
 [ADR-029 — producto](029-qapaq-secops-product-direction.md) ·
-[Arquitectura completa](../architecture/qapaq-secops-resilient-architecture.md) ·
+[Arquitectura completa (heredada)](../qapaq-secops-resilient-architecture.md) ·
 [C4 deployment](../diagrams/15-resilient-deployment.mmd).

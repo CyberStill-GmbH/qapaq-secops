@@ -1,0 +1,20 @@
+<!--
+  QAPAQ SOC · detección como código · detections/cloudflare/waf-attack-surge (metadata.yaml).
+  Oleada distribuida contra un host: 50 bloqueos/desafíos del WAF desde IPs distintas en 10 min.
+  101513 ya cubre una IP insistente; esta cubre botnets y escaneos distribuidos que la evaden.
+  Rango QAPAQ: 101740-101749. Se instala como qapaq_soc_cloudflare_waf_attack_surge.xml.
+-->
+<group name="qapaq_provider,cloudflare,qapaq_waf,">
+  <rule id="101740" level="12" frequency="50" timeframe="600" ignore="600">
+    <if_matched_sid>101510</if_matched_sid>
+    <same_field>cloudflare.firewall.host</same_field>
+    <different_field>cloudflare.firewall.client_ip</different_field>
+    <description>QAPAQ Cloudflare: oleada distribuida contra $(cloudflare.firewall.host): 50+ bloqueos o desafíos desde IPs distintas en 10 min.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1595.002</id>
+      <id>T1190</id>
+    </mitre>
+    <group>qapaq_attack,</group>
+  </rule>
+</group>

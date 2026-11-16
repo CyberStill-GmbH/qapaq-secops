@@ -1,0 +1,1571 @@
+{
+  "generated_by": "detections/tools/qapaq_detections.py coverage",
+  "attack_version": "Enterprise v16",
+  "official_ruleset": true,
+  "before_program": {
+    "rules": 137,
+    "rules_with_mitre": 93,
+    "techniques": [
+      "T1003.006",
+      "T1027",
+      "T1053.005",
+      "T1059",
+      "T1059.001",
+      "T1070.001",
+      "T1071",
+      "T1078.004",
+      "T1098",
+      "T1098.001",
+      "T1098.002",
+      "T1098.003",
+      "T1098.007",
+      "T1110",
+      "T1110.001",
+      "T1110.003",
+      "T1114",
+      "T1114.003",
+      "T1136.003",
+      "T1190",
+      "T1195",
+      "T1204",
+      "T1204.002",
+      "T1484",
+      "T1484.001",
+      "T1484.002",
+      "T1485",
+      "T1496",
+      "T1528",
+      "T1530",
+      "T1535",
+      "T1537",
+      "T1543.003",
+      "T1547",
+      "T1548.003",
+      "T1556.006",
+      "T1556.009",
+      "T1558.003",
+      "T1558.004",
+      "T1562",
+      "T1562.001",
+      "T1562.002",
+      "T1562.007",
+      "T1562.008",
+      "T1564.008",
+      "T1567",
+      "T1584.002",
+      "T1595",
+      "T1599"
+    ],
+    "parents": [
+      "T1003",
+      "T1027",
+      "T1053",
+      "T1059",
+      "T1070",
+      "T1071",
+      "T1078",
+      "T1098",
+      "T1110",
+      "T1114",
+      "T1136",
+      "T1190",
+      "T1195",
+      "T1204",
+      "T1484",
+      "T1485",
+      "T1496",
+      "T1528",
+      "T1530",
+      "T1535",
+      "T1537",
+      "T1543",
+      "T1547",
+      "T1548",
+      "T1556",
+      "T1558",
+      "T1562",
+      "T1564",
+      "T1567",
+      "T1584",
+      "T1595",
+      "T1599"
+    ],
+    "tactics_covered": [
+      "collection",
+      "command-and-control",
+      "credential-access",
+      "defense-evasion",
+      "execution",
+      "exfiltration",
+      "impact",
+      "initial-access",
+      "persistence",
+      "privilege-escalation",
+      "reconnaissance",
+      "resource-development"
+    ]
+  },
+  "after_program": {
+    "rules": 161,
+    "rules_with_mitre": 117,
+    "techniques": [
+      "T1003.006",
+      "T1021.004",
+      "T1027",
+      "T1053.003",
+      "T1053.005",
+      "T1053.006",
+      "T1059",
+      "T1059.001",
+      "T1070.001",
+      "T1071",
+      "T1078.003",
+      "T1078.004",
+      "T1098",
+      "T1098.001",
+      "T1098.002",
+      "T1098.003",
+      "T1098.004",
+      "T1098.005",
+      "T1098.007",
+      "T1110",
+      "T1110.001",
+      "T1110.003",
+      "T1114",
+      "T1114.003",
+      "T1136.003",
+      "T1190",
+      "T1195",
+      "T1204",
+      "T1204.002",
+      "T1484",
+      "T1484.001",
+      "T1484.002",
+      "T1485",
+      "T1496",
+      "T1528",
+      "T1530",
+      "T1535",
+      "T1537",
+      "T1543.002",
+      "T1543.003",
+      "T1547",
+      "T1548",
+      "T1548.003",
+      "T1556",
+      "T1556.003",
+      "T1556.006",
+      "T1556.009",
+      "T1558.003",
+      "T1558.004",
+      "T1562",
+      "T1562.001",
+      "T1562.002",
+      "T1562.007",
+      "T1562.008",
+      "T1564.008",
+      "T1567",
+      "T1584.002",
+      "T1595",
+      "T1595.002",
+      "T1599"
+    ],
+    "parents": [
+      "T1003",
+      "T1021",
+      "T1027",
+      "T1053",
+      "T1059",
+      "T1070",
+      "T1071",
+      "T1078",
+      "T1098",
+      "T1110",
+      "T1114",
+      "T1136",
+      "T1190",
+      "T1195",
+      "T1204",
+      "T1484",
+      "T1485",
+      "T1496",
+      "T1528",
+      "T1530",
+      "T1535",
+      "T1537",
+      "T1543",
+      "T1547",
+      "T1548",
+      "T1556",
+      "T1558",
+      "T1562",
+      "T1564",
+      "T1567",
+      "T1584",
+      "T1595",
+      "T1599"
+    ],
+    "tactics_covered": [
+      "collection",
+      "command-and-control",
+      "credential-access",
+      "defense-evasion",
+      "execution",
+      "exfiltration",
+      "impact",
+      "initial-access",
+      "lateral-movement",
+      "persistence",
+      "privilege-escalation",
+      "reconnaissance",
+      "resource-development"
+    ]
+  },
+  "new_techniques": [
+    "T1021.004",
+    "T1053.003",
+    "T1053.006",
+    "T1078.003",
+    "T1098.004",
+    "T1098.005",
+    "T1543.002",
+    "T1548",
+    "T1556",
+    "T1556.003",
+    "T1595.002"
+  ],
+  "per_tactic": {
+    "reconnaissance": [
+      "T1595",
+      "T1595.002"
+    ],
+    "resource-development": [
+      "T1584.002"
+    ],
+    "initial-access": [
+      "T1078.003",
+      "T1078.004",
+      "T1190",
+      "T1195"
+    ],
+    "execution": [
+      "T1053.003",
+      "T1053.005",
+      "T1053.006",
+      "T1059",
+      "T1059.001",
+      "T1204",
+      "T1204.002"
+    ],
+    "persistence": [
+      "T1053.003",
+      "T1053.005",
+      "T1053.006",
+      "T1078.003",
+      "T1078.004",
+      "T1098",
+      "T1098.001",
+      "T1098.002",
+      "T1098.003",
+      "T1098.004",
+      "T1098.005",
+      "T1098.007",
+      "T1136.003",
+      "T1543.002",
+      "T1543.003",
+      "T1547",
+      "T1556",
+      "T1556.003",
+      "T1556.006",
+      "T1556.009"
+    ],
+    "privilege-escalation": [
+      "T1053.003",
+      "T1053.005",
+      "T1053.006",
+      "T1078.003",
+      "T1078.004",
+      "T1098",
+      "T1098.001",
+      "T1098.002",
+      "T1098.003",
+      "T1098.004",
+      "T1098.005",
+      "T1098.007",
+      "T1484",
+      "T1484.001",
+      "T1484.002",
+      "T1543.002",
+      "T1543.003",
+      "T1547",
+      "T1548",
+      "T1548.003"
+    ],
+    "defense-evasion": [
+      "T1027",
+      "T1070.001",
+      "T1078.003",
+      "T1078.004",
+      "T1484",
+      "T1484.001",
+      "T1484.002",
+      "T1535",
+      "T1548",
+      "T1548.003",
+      "T1556",
+      "T1556.003",
+      "T1556.006",
+      "T1556.009",
+      "T1562",
+      "T1562.001",
+      "T1562.002",
+      "T1562.007",
+      "T1562.008",
+      "T1564.008",
+      "T1599"
+    ],
+    "credential-access": [
+      "T1003.006",
+      "T1110",
+      "T1110.001",
+      "T1110.003",
+      "T1528",
+      "T1556",
+      "T1556.003",
+      "T1556.006",
+      "T1556.009",
+      "T1558.003",
+      "T1558.004"
+    ],
+    "discovery": [],
+    "lateral-movement": [
+      "T1021.004"
+    ],
+    "collection": [
+      "T1114",
+      "T1114.003",
+      "T1530"
+    ],
+    "command-and-control": [
+      "T1071"
+    ],
+    "exfiltration": [
+      "T1537",
+      "T1567"
+    ],
+    "impact": [
+      "T1485",
+      "T1496"
+    ]
+  },
+  "technique_rules": {
+    "T1110.001": [
+      100503,
+      101213,
+      101608,
+      101713,
+      101750
+    ],
+    "T1110.003": [
+      100504,
+      101307,
+      101703
+    ],
+    "T1078.004": [
+      100505,
+      100530,
+      101205,
+      101605,
+      101606,
+      101609,
+      101700,
+      101703,
+      101711,
+      101713
+    ],
+    "T1110": [
+      100505,
+      101607
+    ],
+    "T1114.003": [
+      100510,
+      100512,
+      100514,
+      101702
+    ],
+    "T1564.008": [
+      100510,
+      100511,
+      101702
+    ],
+    "T1098.002": [
+      100513
+    ],
+    "T1528": [
+      100522
+    ],
+    "T1098.001": [
+      100523
+    ],
+    "T1556.006": [
+      100526,
+      101701
+    ],
+    "T1098.003": [
+      100520,
+      100521,
+      101206,
+      101632,
+      101634,
+      101700,
+      101704,
+      101710
+    ],
+    "T1484.002": [
+      100524
+    ],
+    "T1556.009": [
+      100525
+    ],
+    "T1562.008": [
+      100527,
+      100528,
+      101615,
+      101620,
+      101621,
+      101644,
+      101710,
+      101711,
+      101712
+    ],
+    "T1114": [
+      100529
+    ],
+    "T1567": [
+      100515
+    ],
+    "T1204.002": [
+      101100
+    ],
+    "T1059": [
+      101201,
+      101219
+    ],
+    "T1204": [
+      101201,
+      101219,
+      101402,
+      101403,
+      101410,
+      101411,
+      101720,
+      101722,
+      101723
+    ],
+    "T1562": [
+      101202,
+      101504,
+      101636
+    ],
+    "T1071": [
+      101203
+    ],
+    "T1098.007": [
+      101207,
+      101300,
+      101752
+    ],
+    "T1070.001": [
+      101208,
+      101302
+    ],
+    "T1562.001": [
+      101209,
+      101405,
+      101406,
+      101622,
+      101623,
+      101624,
+      101625,
+      101712,
+      101720,
+      101721,
+      101722,
+      101723
+    ],
+    "T1027": [
+      101210
+    ],
+    "T1059.001": [
+      101210
+    ],
+    "T1053.005": [
+      101211
+    ],
+    "T1543.003": [
+      101211
+    ],
+    "T1547": [
+      101212
+    ],
+    "T1548.003": [
+      101214,
+      101758
+    ],
+    "T1562.002": [
+      101301
+    ],
+    "T1484.001": [
+      101303
+    ],
+    "T1558.003": [
+      101304
+    ],
+    "T1558.004": [
+      101305
+    ],
+    "T1003.006": [
+      101306
+    ],
+    "T1190": [
+      101455,
+      101456,
+      101457,
+      101458,
+      101513,
+      101730,
+      101731,
+      101740
+    ],
+    "T1584.002": [
+      101503
+    ],
+    "T1562.007": [
+      101216,
+      101505,
+      101640,
+      101641,
+      101642
+    ],
+    "T1098": [
+      101506,
+      101630,
+      101631,
+      101633
+    ],
+    "T1485": [
+      101507,
+      101656,
+      101657
+    ],
+    "T1595": [
+      101513
+    ],
+    "T1535": [
+      101611,
+      101612
+    ],
+    "T1496": [
+      101612
+    ],
+    "T1136.003": [
+      101631
+    ],
+    "T1484": [
+      101635,
+      101636
+    ],
+    "T1599": [
+      101643
+    ],
+    "T1537": [
+      101645
+    ],
+    "T1530": [
+      101650,
+      101651,
+      101652
+    ],
+    "T1195": [
+      101218
+    ],
+    "T1595.002": [
+      101740
+    ],
+    "T1098.004": [
+      101755
+    ],
+    "T1053.006": [
+      101756
+    ],
+    "T1543.002": [
+      101756
+    ],
+    "T1053.003": [
+      101757
+    ],
+    "T1556.003": [
+      101759
+    ],
+    "T1021.004": [
+      101750,
+      101760
+    ],
+    "T1556": [
+      101760
+    ],
+    "T1548": [
+      101752
+    ],
+    "T1078.003": [
+      101750
+    ],
+    "T1098.005": [
+      101701
+    ]
+  },
+  "priorities": [
+    {
+      "technique": "T1003.001",
+      "priority": 1,
+      "env": [
+        "windows"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "Sysmon 10 sobre lsass",
+      "name": "OS Credential Dumping: LSASS Memory",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 1
+    },
+    {
+      "technique": "T1003.006",
+      "priority": 1,
+      "env": [
+        "ad"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "4662 en DC",
+      "name": "OS Credential Dumping: DCSync",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101306
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1059.001",
+      "priority": 1,
+      "env": [
+        "windows"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "PowerShell 4104 (opt-in con gate de privacidad)",
+      "name": "Command and Scripting Interpreter: PowerShell",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101210
+      ],
+      "official_rules": 19
+    },
+    {
+      "technique": "T1078.004",
+      "priority": 1,
+      "env": [
+        "m365",
+        "entra",
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "Sign-ins de Entra/O365 y ConsoleLogin de AWS",
+      "name": "Valid Accounts: Cloud Accounts",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100505,
+        100530,
+        101205,
+        101605,
+        101606,
+        101609,
+        101700,
+        101703,
+        101711,
+        101713
+      ],
+      "official_rules": 6
+    },
+    {
+      "technique": "T1098.001",
+      "priority": 1,
+      "env": [
+        "entra",
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "Credenciales en app/SP (O365) y CreateAccessKey (AWS)",
+      "name": "Account Manipulation: Additional Cloud Credentials",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100523
+      ],
+      "official_rules": 4
+    },
+    {
+      "technique": "T1098.003",
+      "priority": 1,
+      "env": [
+        "entra",
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "Add member to role (O365) y IAM/Identity Center (AWS)",
+      "name": "Account Manipulation: Additional Cloud Roles",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100520,
+        100521,
+        101206,
+        101632,
+        101634,
+        101700,
+        101704,
+        101710
+      ],
+      "official_rules": 6
+    },
+    {
+      "technique": "T1098.004",
+      "priority": 1,
+      "env": [
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "FIM realtime /root/.ssh",
+      "name": "Account Manipulation: SSH Authorized Keys",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101755
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1110.001",
+      "priority": 1,
+      "env": [
+        "m365",
+        "linux",
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "sshd del agente 001; ConsoleLogin AWS",
+      "name": "Brute Force: Password Guessing",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100503,
+        101213,
+        101608,
+        101713,
+        101750
+      ],
+      "official_rules": 5
+    },
+    {
+      "technique": "T1110.003",
+      "priority": 1,
+      "env": [
+        "m365",
+        "entra"
+      ],
+      "blocker": "entra-permission",
+      "data": "UserLoginFailed (Audit.AzureActiveDirectory); hoy bloqueado por ActivityFeed.Read",
+      "name": "Brute Force: Password Spraying",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100504,
+        101307,
+        101703
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1114.003",
+      "priority": 1,
+      "env": [
+        "m365"
+      ],
+      "blocker": "none",
+      "data": "Reglas de bandeja/transporte",
+      "name": "Email Collection: Email Forwarding Rule",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100510,
+        100512,
+        100514,
+        101702
+      ],
+      "official_rules": 2
+    },
+    {
+      "technique": "T1136.003",
+      "priority": 1,
+      "env": [
+        "aws",
+        "entra"
+      ],
+      "blocker": "none",
+      "data": "CreateUser IAM; Add user (Entra)",
+      "name": "Create Account: Cloud Account",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101631
+      ],
+      "official_rules": 1
+    },
+    {
+      "technique": "T1190",
+      "priority": 1,
+      "env": [
+        "saas",
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "Snyk + WAF de Cloudflare",
+      "name": "Exploit Public-Facing Application",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101455,
+        101456,
+        101457,
+        101458,
+        101513,
+        101730,
+        101731,
+        101740
+      ],
+      "official_rules": 18
+    },
+    {
+      "technique": "T1204.002",
+      "priority": 1,
+      "env": [
+        "windows"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "Sysmon 1 en estaciones (grupo windows-telemetry-extended, gate de privacidad)",
+      "name": "User Execution: Malicious File",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101100
+      ],
+      "official_rules": 7
+    },
+    {
+      "technique": "T1484.002",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "none",
+      "data": "Federación de dominio",
+      "name": "Domain or Tenant Policy Modification: Trust Modification",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100524
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1486",
+      "priority": 1,
+      "env": [
+        "windows",
+        "linux"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "EDR (Bitdefender) + FIM de alto volumen",
+      "name": "Data Encrypted for Impact",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 2
+    },
+    {
+      "technique": "T1490",
+      "priority": 1,
+      "env": [
+        "windows",
+        "aws"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "vssadmin/wbadmin (Sysmon 1); DeleteSnapshot/DeleteBackupVault en AWS",
+      "name": "Inhibit System Recovery",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1528",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "none",
+      "data": "Consent to application (O365)",
+      "name": "Steal Application Access Token",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100522
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1539",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "entra-permission",
+      "data": "Reuso de token/sesión: Identity Protection (anomalousToken)",
+      "name": "Steal Web Session Cookie",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1548.003",
+      "priority": 1,
+      "env": [
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "sudo y FIM de sudoers.d",
+      "name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101214,
+        101758
+      ],
+      "official_rules": 9
+    },
+    {
+      "technique": "T1556.006",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "none",
+      "data": "User registered security info",
+      "name": "Modify Authentication Process: Multi-Factor Authentication",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100526,
+        101701
+      ],
+      "official_rules": 2
+    },
+    {
+      "technique": "T1556.009",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "none",
+      "data": "Cambios de Conditional Access",
+      "name": "Modify Authentication Process: Conditional Access Policies",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100525
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1557",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "entra-permission",
+      "data": "Riesgo de sign-in (Identity Protection, P2) y token issuer anómalo",
+      "name": "Adversary-in-the-Middle",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1562.001",
+      "priority": 1,
+      "env": [
+        "aws",
+        "windows"
+      ],
+      "blocker": "none",
+      "data": "GuardDuty/Config/SecurityHub; Bitdefender antimalware",
+      "name": "Impair Defenses: Disable or Modify Tools",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101209,
+        101405,
+        101406,
+        101622,
+        101623,
+        101624,
+        101625,
+        101712,
+        101720,
+        101721,
+        101722,
+        101723
+      ],
+      "official_rules": 16
+    },
+    {
+      "technique": "T1562.008",
+      "priority": 1,
+      "env": [
+        "aws",
+        "m365"
+      ],
+      "blocker": "none",
+      "data": "StopLogging/DeleteTrail; Set-AdminAuditLogConfig",
+      "name": "Impair Defenses: Disable or Modify Cloud Logs",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100527,
+        100528,
+        101615,
+        101620,
+        101621,
+        101644,
+        101710,
+        101711,
+        101712
+      ],
+      "official_rules": 3
+    },
+    {
+      "technique": "T1564.008",
+      "priority": 1,
+      "env": [
+        "m365"
+      ],
+      "blocker": "none",
+      "data": "Reglas de ocultación",
+      "name": "Hide Artifacts: Email Hiding Rules",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100510,
+        100511,
+        101702
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1566.001",
+      "priority": 1,
+      "env": [
+        "m365"
+      ],
+      "blocker": "budget",
+      "data": "Defender for Office 365 P2",
+      "name": "Phishing: Spearphishing Attachment",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1566.002",
+      "priority": 1,
+      "env": [
+        "m365"
+      ],
+      "blocker": "budget",
+      "data": "Defender for Office 365 (AlertInfo/ClickEvents) requiere licencia P2",
+      "name": "Phishing: Spearphishing Link",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1621",
+      "priority": 1,
+      "env": [
+        "entra"
+      ],
+      "blocker": "entra-permission",
+      "data": "Logs de sign-in de Entra (Graph AuditLog.Read.All); el feed de O365 no trae la denegación MFA",
+      "name": "Multi-Factor Authentication Request Generation",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1021.001",
+      "priority": 2,
+      "env": [
+        "windows"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "4624 tipo 10",
+      "name": "Remote Services: Remote Desktop Protocol",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 8
+    },
+    {
+      "technique": "T1021.004",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "sshd",
+      "name": "Remote Services: SSH",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101750,
+        101760
+      ],
+      "official_rules": 8
+    },
+    {
+      "technique": "T1053.003",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "FIM realtime de cron",
+      "name": "Scheduled Task/Job: Cron",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101757
+      ],
+      "official_rules": 1
+    },
+    {
+      "technique": "T1070.001",
+      "priority": 2,
+      "env": [
+        "windows",
+        "ad"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "1102",
+      "name": "Indicator Removal: Clear Windows Event Logs",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101208,
+        101302
+      ],
+      "official_rules": 2
+    },
+    {
+      "technique": "T1087.004",
+      "priority": 2,
+      "env": [
+        "entra",
+        "aws"
+      ],
+      "blocker": "budget",
+      "data": "Lecturas masivas de Graph/IAM (read-only)",
+      "name": "Account Discovery: Cloud Account",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1098.007",
+      "priority": 2,
+      "env": [
+        "linux",
+        "ad"
+      ],
+      "blocker": "none",
+      "data": "gpasswd y 4728/4732/4756",
+      "name": "Account Manipulation: Additional Local or Domain Groups",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101207,
+        101300,
+        101752
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1195.001",
+      "priority": 2,
+      "env": [
+        "saas"
+      ],
+      "blocker": "none",
+      "data": "Snyk (paquetes maliciosos)",
+      "name": "Supply Chain Compromise: Compromise Software Dependencies and Development Tools",
+      "state": "parcial",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1213.002",
+      "priority": 2,
+      "env": [
+        "m365"
+      ],
+      "blocker": "entra-permission",
+      "data": "Audit.SharePoint (FileAccessed masivo)",
+      "name": "Data from Information Repositories: Sharepoint",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 4
+    },
+    {
+      "technique": "T1219",
+      "priority": 2,
+      "env": [
+        "windows"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "Inventario de software (syscollector) + Sysmon 3",
+      "name": "Remote Access Software",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1484.001",
+      "priority": 2,
+      "env": [
+        "ad"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "5136 GPO",
+      "name": "Domain or Tenant Policy Modification: Group Policy Modification",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101303
+      ],
+      "official_rules": 8
+    },
+    {
+      "technique": "T1496",
+      "priority": 2,
+      "env": [
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "RunInstances en región no habitual, GuardDuty CryptoCurrency",
+      "name": "Resource Hijacking",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101612
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1505.003",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "config",
+      "data": "FIM de raíces web (no hay servidores web con agente aún)",
+      "name": "Server Software Component: Web Shell",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 4
+    },
+    {
+      "technique": "T1530",
+      "priority": 2,
+      "env": [
+        "aws",
+        "m365"
+      ],
+      "blocker": "budget",
+      "data": "S3 data events (costo CloudTrail) y FileDownloaded de SharePoint",
+      "name": "Data from Cloud Storage",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101650,
+        101651,
+        101652
+      ],
+      "official_rules": 6
+    },
+    {
+      "technique": "T1535",
+      "priority": 2,
+      "env": [
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "Región no habitual",
+      "name": "Unused/Unsupported Cloud Regions",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101611,
+        101612
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1537",
+      "priority": 2,
+      "env": [
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "ModifySnapshotAttribute/PutBucketPolicy",
+      "name": "Transfer Data to Cloud Account",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101645
+      ],
+      "official_rules": 1
+    },
+    {
+      "technique": "T1543.002",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "FIM realtime de systemd/system",
+      "name": "Create or Modify System Process: Systemd Service",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101756
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1552.005",
+      "priority": 2,
+      "env": [
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "GuardDuty InstanceCredentialExfiltration",
+      "name": "Unsecured Credentials: Cloud Instance Metadata API",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1556.003",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "FIM realtime de pam.d",
+      "name": "Modify Authentication Process: Pluggable Authentication Modules",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101759
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1558.003",
+      "priority": 2,
+      "env": [
+        "ad"
+      ],
+      "blocker": "endpoint-agent",
+      "data": "4769 RC4 en DC",
+      "name": "Steal or Forge Kerberos Tickets: Kerberoasting",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101304
+      ],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1562.007",
+      "priority": 2,
+      "env": [
+        "aws",
+        "saas"
+      ],
+      "blocker": "none",
+      "data": "Security groups y WAF de Cloudflare",
+      "name": "Impair Defenses: Disable or Modify Cloud Firewall",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101216,
+        101505,
+        101640,
+        101641,
+        101642
+      ],
+      "official_rules": 3
+    },
+    {
+      "technique": "T1567",
+      "priority": 2,
+      "env": [
+        "m365"
+      ],
+      "blocker": "none",
+      "data": "AnonymousLinkCreated",
+      "name": "Exfiltration Over Web Service",
+      "state": "cubierta",
+      "qapaq_rules": [
+        100515
+      ],
+      "official_rules": 1
+    },
+    {
+      "technique": "T1580",
+      "priority": 2,
+      "env": [
+        "aws"
+      ],
+      "blocker": "budget",
+      "data": "Volumen de Describe*/List* (eventos read-only en CloudTrail: costo)",
+      "name": "Cloud Infrastructure Discovery",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1609",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "config",
+      "data": "Auditoría de docker exec (auditd en el nodo)",
+      "name": "Container Administration Command",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1610",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "config",
+      "data": "Eventos del daemon de Docker",
+      "name": "Deploy Container",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1611",
+      "priority": 2,
+      "env": [
+        "linux"
+      ],
+      "blocker": "config",
+      "data": "auditd + Falco/Tetragon (presupuesto de tiempo)",
+      "name": "Escape to Host",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1485",
+      "priority": 3,
+      "env": [
+        "aws",
+        "saas"
+      ],
+      "blocker": "none",
+      "data": "DeleteBucket/DeleteZone",
+      "name": "Data Destruction",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101507,
+        101656,
+        101657
+      ],
+      "official_rules": 11
+    },
+    {
+      "technique": "T1498",
+      "priority": 3,
+      "env": [
+        "saas"
+      ],
+      "blocker": "budget",
+      "data": "Analytics DDoS de Cloudflare (plan Enterprise para logs completos)",
+      "name": "Network Denial of Service",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 15
+    },
+    {
+      "technique": "T1531",
+      "priority": 3,
+      "env": [
+        "entra",
+        "linux"
+      ],
+      "blocker": "none",
+      "data": "Borrado de usuarios",
+      "name": "Account Access Removal",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 25
+    },
+    {
+      "technique": "T1584.002",
+      "priority": 3,
+      "env": [
+        "saas"
+      ],
+      "blocker": "none",
+      "data": "Auditoría DNS de Cloudflare",
+      "name": "Compromise Infrastructure: DNS Server",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101503
+      ],
+      "official_rules": 3
+    },
+    {
+      "technique": "T1595.002",
+      "priority": 3,
+      "env": [
+        "saas"
+      ],
+      "blocker": "none",
+      "data": "WAF de Cloudflare",
+      "name": "Active Scanning: Vulnerability Scanning",
+      "state": "cubierta",
+      "qapaq_rules": [
+        101740
+      ],
+      "official_rules": 2
+    },
+    {
+      "technique": "T1648",
+      "priority": 3,
+      "env": [
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "CreateFunction/UpdateFunctionCode",
+      "name": "Serverless Execution",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    },
+    {
+      "technique": "T1651",
+      "priority": 3,
+      "env": [
+        "aws"
+      ],
+      "blocker": "none",
+      "data": "ssm:SendCommand",
+      "name": "Cloud Administration Command",
+      "state": "brecha",
+      "qapaq_rules": [],
+      "official_rules": 0
+    }
+  ]
+}

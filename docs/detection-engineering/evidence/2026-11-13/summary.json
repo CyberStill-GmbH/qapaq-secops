@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "passedTests": 62,
+    "passedPackages": 6,
+    "failures": 0,
+    "sha256": "30088a547d4b4a3e237d7d2c787b57afa374a91dfde59446fd29cbfbfcddca84"
+  },
+  "correlator": {
+    "passedTests": 83,
+    "passedPackages": 7,
+    "failures": 0,
+    "sha256": "98ec0e33958f294f86e00b35fd6a75df0b5bad8573b8df927f7cbba9affb7683"
+  },
+  "baselineCommit": "ba212c97f6092c702875653938e69fc15aa2d290",
+  "candidate": "uncommitted worktree; source hashes in source-sha256.json",
+  "realFalsePositiveReduction": null,
+  "reason": "No analyst-adjudicated corpus with baseline and candidate predictions found in repository."
+}

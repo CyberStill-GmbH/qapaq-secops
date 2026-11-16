@@ -1,96 +1,63 @@
-# 14 · Arquitectura: conexión de Ankay Qapaq con QAPAQ SecOps
+# 14 · Conexión de Ankay con QAPAQ SOC
 
-Propuesta para leer de una sola vez cómo se conecta el SOAR (Ankay Qapaq, [13](13-ankay-qapaq.md)) con el
-SIEM QAPAQ. Regla central: **QAPAQ Core gobierna y deja evidencia; Shuffle/Ankay ejecuta.** El
-analista llega a la interfaz solo por `/ankay/*` detrás del edge QAPAQ y de una sesión válida. La
-ejecución automatizada solo puede salir de QAPAQ Core después del catálogo y la aprobación definidos;
-Wazuh, el navegador y otros servicios no llaman al webhook de ejecución directamente.
+> Estado (2026-11-08): el motor **vigente** de Ankay es el basado en Shuffle (sección 8),
+> desplegado en el nodo AWS PowerUser con SSO (§8.1). El diseño sobre **Step Functions** (secciones
+> 1–7) es el objetivo, no desplegado. Contexto en [13](13-ankay-qapaq.md); arquitectura en
+> [02](02-arquitectura.md).
+
+Regla central: **la QAPAQ API gobierna y deja evidencia; Step Functions ejecuta.** Una acción solo sale de
+la QAPAQ API después del catálogo y la aprobación; ni el navegador, ni Wazuh, ni otro servicio inician una
+ejecución directamente.
 
 ## 1. Contexto: quién usa qué
 
 ```mermaid
 flowchart TB
-  A((Analista SOC)) -->|pide una acción sobre un incidente| SIEM
-  L((Líder SOC)) -->|aprueba con step-up; nunca su propia solicitud| SIEM
-  E((Ingeniero de automatización)) -->|diseña y versiona playbooks| ANKAY
-  AU((Auditor)) -->|lee la auditoría encadenada| SIEM
-  SIEM["SIEM QAPAQ<br/>(Wazuh modificado + núcleo QAPAQ)"] -->|ejecuciones aprobadas| ANKAY["Ankay Qapaq<br/>(Shuffle rebrandeado)"]
-  ANKAY -->|resultado| SIEM
-  ANKAY -->|acciones| T["Destinos aprobados<br/>Graph M365, firewall, threat intel OSS"]
-  SIEM -->|Active Response por adaptador QAPAQ| W[Agentes Wazuh]
-  ENTRA[Microsoft Entra ID] -.->|identidad| SIEM
-  ENTRA -.->|SSO de la sesión interna| ANKAY
+  A((Analista SOC)) -->|pide una acción sobre un caso| UI
+  L((Líder SOC)) -->|aprueba con step-up; nunca su propia solicitud| UI
+  E((Ingeniero de automatización)) -->|diseña y versiona playbooks en Git| SFN
+  AU((Auditor)) -->|lee la auditoría encadenada| UI
+  UI["Consola QAPAQ<br/>(Dashboard Wazuh + qapaq_ops)"] --> API[QAPAQ API · Lambda]
+  API -->|StartExecution| SFN["Ankay<br/>(Step Functions)"]
+  SFN -->|resultado| API
+  SFN -->|acciones| T["Destinos aprobados<br/>Graph M365, firewall, threat intel"]
+  SFN -->|Active Response| MGR[Wazuh Manager] --> W[Agentes Wazuh]
+  COG[Cognito + Entra ID] -.->|identidad| UI
 ```
 
 | Persona | Entra a | Puede |
 | --- | --- | --- |
-| Analista SOC | SIEM (`qapaq_ops`) | Pedir acciones del catálogo y ver su estado. La ruta Ankay exige sesión QAPAQ; el rol/capability que habilita el editor debe aplicarse en servidor antes de abrir acceso de diseño |
-| Líder SOC | SIEM | Aprobar con step-up (nunca lo que pidió); accede al editor solo si su rol Ankay lo permite |
-| Ingeniero de automatización (rol nuevo `qapaq.automation.engineer`, **pendiente de aprobación del dueño**) | Ankay | Diseñar workflows y publicarlos como versión candidata. Una versión entra al catálogo solo con la aprobación del Líder SOC |
-| Auditor | SIEM | Leer la auditoría de cada ejecución |
+| Analista SOC | Consola QAPAQ (`qapaq_ops`) | Pedir acciones del catálogo y ver su estado |
+| Líder SOC | Consola QAPAQ | Aprobar con step-up (nunca lo que pidió) |
+| Ingeniero de automatización (rol nuevo `qapaq.automation.engineer`, **pendiente de aprobación del dueño**) | Repositorio y consola AWS con rol de solo despliegue vía CI | Diseñar máquinas de estados como código y publicarlas como versión candidata. Una versión entra al catálogo solo con la aprobación del Líder SOC |
+| Auditor | Consola QAPAQ | Leer la auditoría de cada ejecución |
 
 ## 2. Despliegue y red
 
 ```mermaid
 flowchart LR
-  U((Navegador)) -->|HTTPS 443| EDGE
-  subgraph VPC["VPC 10.0.0.0/16"]
-    subgraph SIEMHOST["Host SIEM QAPAQ (subred pública, EIP)"]
-      EDGE["nginx edge<br/>host QAPAQ: /ankay/"]
-      OSD[Dashboard + qapaq_ops]
-      CORE["Núcleo QAPAQ<br/>API 127.0.0.1:3000 + worker"]
-      CB["listener privado :8443<br/>solo /api/integrations/ankay/*"]
-    end
-    subgraph ANKHOST["Host Ankay Qapaq (subred privada, sin EIP)"]
-      AFE[Frontend Ankay :443]
-      ABE[Backend Shuffle :5001]
-      AOR[Orborus + workers]
-      AOS[(OpenSearch de Ankay)]
-      AG[Agente Wazuh]
-    end
-    VK[(Valkey)]
-    PG[(RDS)]
-    NAT[NAT con egress allowlist]
-  end
-  EDGE -->|auth_request + rol| AFE
-  CORE -->|webhook firmado :5001| ABE
-  AOR -->|callback firmado| CB --> CORE
-  CORE --- VK
-  CORE --- PG
-  AOR -->|443 solo a destinos aprobados| NAT
-  AG -->|1514/1515| SIEMHOST
+  U((Navegador)) -->|HTTPS| CF[CloudFront + WAF]
+  CF -->|/api| APIGW[API Gateway HTTP] --> API[Lambda · QAPAQ API]
+  API -->|StartExecution<br/>name = executionKey| SFN[Step Functions]
+  SFN -->|invoca| LA[Lambdas de acción]
+  LA -->|443, VPC endpoints| EXT[Graph, threat intel]
+  LA -->|API privada| MGR[Wazuh Manager<br/>subred privada]
+  SFN -->|SendTask / SNS| SNS[SNS]
+  API --- AUR[(Aurora Serverless v2)]
+  SFN --- S3[(S3 Object Lock)]
 ```
 
-| Flujo | Origen → destino | Puerto | Control |
-| --- | --- | --- | --- |
-| UI de Ankay | Navegador → `https://<host-QAPAQ>/ankay/` → edge → frontend privado | 443 + red privada | El `auth_request` existente valida la sesión QAPAQ y redirige al login si falta. No hay prueba de autorización por rol en esa ubicación; la política de roles del editor sigue siendo un gate. Sin acceso público directo a Ankay |
-| Disparo de ejecución | Núcleo (host SIEM) → backend de Ankay | 5001 | SG solo desde el SG del host SIEM, cabecera de autenticación del webhook y firma HMAC |
-| Callback | Worker/Ankay → API privada de QAPAQ Core | HTTPS privado | Salida iniciada desde Ankay; firma HMAC y replay protection requeridas. La API/callback y su contrato no están implementados ni verificados todavía; no se abre un listener 8443 en el edge |
-| Acciones externas | Workers → Internet | 443 | Egress por el NAT con allowlist de destinos (Graph, threat intel aprobada). Nada más sale |
-| Monitoreo | Agente Wazuh en el host de Ankay → Manager | TCP 1514 tras enrolamiento controlado | El SIEM podrá vigilar logs, FIM e integridad del host cuando exista Manager Azure y el agente esté instalado. El módulo no lo instala ni prueba esta conexión |
+| Flujo | Origen → destino | Control |
+| --- | --- | --- |
+| Solicitud y aprobación | Navegador → CloudFront → API Gateway → Lambda | Cognito (JWT), capacidad y scope en servidor, step-up para aprobar |
+| Inicio de ejecución | Lambda QAPAQ API → Step Functions | Rol IAM de solo `states:StartExecution` sobre las máquinas del catálogo |
+| Aprobación | Lambda QAPAQ API → `SendTaskSuccess` / `SendTaskFailure` | El token vive en Aurora, nunca en el navegador |
+| Acciones externas | Lambdas de acción → proveedor | Egress solo por endpoints de VPC y destinos aprobados; credenciales por `secretRef` en Secrets Manager con permiso mínimo |
+| Active Response | Lambda en VPC → API del Manager | Ruta privada, comando de la allowlist, rol propio; sin credenciales del Indexer |
+| Monitoreo | Ejecuciones → CloudWatch | Alarmas por fallo o `UNKNOWN` |
 
-### Variante Azure en preparación
-
-Azure usa dos hosts privados separados. `siem_host` albergará Wazuh QAPAQ, Core y el edge; al
-configurarlo, el root crea Azure Firewall Standard, DNAT y un Load Balancer interno. El Firewall
-filtra HTTPS por los CIDR aprobados y el backend recibe tráfico SNATeado desde la IP privada del
-Firewall. `ankay_host` está conectado opcionalmente al root y usa una subnet dedicada con UDR hacia
-ese mismo Firewall. Su NSG permite el frontend solo desde el host SIEM y el webhook solo desde el
-origen privado de QAPAQ Core; callback y acceso al agente tienen reglas salientes acotadas. No hay
-IP pública ni SSH entrante en el host Ankay. OpenSearch y `shuffle-security` permanecen internos a
-Compose; el disco administrado separado está protegido con `prevent_destroy`.
-
-La implementación sigue incompleta. Terraform de Ankay solo provisiona VM/red/disco y escribe el
-Compose: no instala Docker, no inicia servicios, no instala agente Wazuh y no configura backups. El
-workflow actual construye y publica únicamente el frontend rebrandeado; faltan digests aprobados para
-backend, Orborus, worker, `shuffle-security` y OpenSearch, y un Compose Azure fijado por SHA. El
-bootstrap SIEM aún debe entregar un edge TLS con `auth_request` y la ruta `/ankay/*`; el plan actual
-mantiene `siem_host=null` y `ankay_host=null`, así que no existe endpoint publicado ni host Ankay.
-
-Cuando el runtime exista, el edge solo debe apuntar a la IP privada de Ankay después de verificar
-sesión válida, rechazo anónimo, autorización por rol, revocación y callback autenticado. No modificar
-login ni cookies para habilitarlo. El diagrama AWS/VPC anterior conserva la topología de referencia;
-no describe la infraestructura Azure ya cableada en Terraform.
+No hay listener de callback ni HMAC propio: la integración API ↔ Step Functions se autentica con IAM y la
+espera de aprobación usa `waitForTaskToken`.
 
 ## 3. Secuencia de una acción
 
@@ -98,26 +65,24 @@ no describe la infraestructura Azure ya cableada en Terraform.
 sequenceDiagram
   autonumber
   participant AN as Analista (qapaq_ops)
-  participant CO as Núcleo QAPAQ
+  participant API as QAPAQ API
+  participant DB as Aurora (auditoría)
+  participant SF as Step Functions
   participant LS as Líder SOC
-  participant DB as RDS (auditoría)
-  participant Q as Valkey (cola ankay)
-  participant AK as Ankay Qapaq
   participant X as Destino (p. ej. Graph)
-  AN->>CO: POST /api/incidents/:id/actions {actionId, params} + Idempotency-Key
-  CO->>CO: capacidad, scope y validación de params contra el catálogo
-  CO->>DB: acción REQUESTED + AuditEvent (misma transacción)
-  LS->>CO: POST /api/actions/:id/approve (step-up; aprobador ≠ solicitante)
-  CO->>DB: APPROVED + AuditEvent + outbox(executionKey)
-  CO->>Q: job {actionId} con jobId = executionKey
-  Q->>CO: worker toma el job
-  CO->>AK: POST webhook del playbook (versión fijada) con firma HMAC
-  AK-->>CO: 200 {execution_id}
-  CO->>DB: DISPATCHED + execution_id
-  AK->>X: acción (credencial de la app en Ankay)
-  AK->>CO: callback firmado {executionKey, status, resumen} (contrato pendiente)
-  CO->>DB: SUCCEEDED o FAILED + AuditEvent + timeline del incidente
-  CO-->>AN: /api/changes despierta la vista (long-poll)
+  AN->>API: POST /api/incidents/:id/actions {actionId, params} + Idempotency-Key
+  API->>API: capacidad, scope y validación de params contra el catálogo
+  API->>DB: acción REQUESTED + AuditEvent (misma transacción)
+  API->>SF: StartExecution(name = executionKey, playbook fijado)
+  SF->>API: estado con waitForTaskToken (guarda el token, avisa por SNS)
+  LS->>API: POST /api/actions/:id/approve (step-up; aprobador ≠ solicitante)
+  API->>DB: APPROVED + AuditEvent
+  API->>SF: SendTaskSuccess(token)
+  SF->>X: acción (rol y credencial mínimos)
+  SF->>SF: verificar efecto
+  SF->>API: resultado (último estado)
+  API->>DB: SUCCEEDED o FAILED + AuditEvent + timeline del caso
+  API-->>AN: /api/changes actualiza la vista
 ```
 
 ## 4. Estados de una acción
@@ -126,15 +91,14 @@ sequenceDiagram
 stateDiagram-v2
   [*] --> REQUESTED
   REQUESTED --> APPROVED: aprobación (SoD + step-up)
-  REQUESTED --> REJECTED: rechazo
-  REQUESTED --> EXPIRED: sin aprobación a tiempo
-  APPROVED --> DISPATCHED: webhook aceptado
-  APPROVED --> UNKNOWN: timeout del webhook
-  DISPATCHED --> SUCCEEDED: callback ok
-  DISPATCHED --> FAILED: callback con error
-  DISPATCHED --> UNKNOWN: sin callback a tiempo
-  UNKNOWN --> SUCCEEDED: reconciliación con la API de Ankay
-  UNKNOWN --> FAILED: reconciliación con la API de Ankay
+  REQUESTED --> REJECTED: rechazo (SendTaskFailure)
+  REQUESTED --> EXPIRED: TimeoutSeconds sin aprobación
+  APPROVED --> RUNNING: la máquina de estados ejecuta
+  RUNNING --> SUCCEEDED: ejecución SUCCEEDED
+  RUNNING --> FAILED: ejecución FAILED o ABORTED
+  RUNNING --> UNKNOWN: timeout o estado no concluyente
+  UNKNOWN --> SUCCEEDED: reconciliación con DescribeExecution
+  UNKNOWN --> FAILED: reconciliación con DescribeExecution
   UNKNOWN --> APPROVED: reconciliado como «nunca ejecutó» (reintento explícito)
   SUCCEEDED --> [*]
   FAILED --> [*]
@@ -142,80 +106,134 @@ stateDiagram-v2
   EXPIRED --> [*]
 ```
 
-`UNKNOWN` nunca se reintenta a ciegas (ADR-028). Antes de repetir, el núcleo consulta en Ankay el
-estado de la ejecución por `execution_id` y `executionKey`.
+`UNKNOWN` nunca se reintenta a ciegas (ADR-028). Antes de repetir, la API consulta `DescribeExecution` y
+`GetExecutionHistory` por `executionKey` (el nombre de la ejecución) y concilia.
 
 ## 5. Contrato
 
-**Catálogo** (en QAPAQ, Postgres; versionado y auditado):
+**Catálogo** (Aurora; versionado y auditado):
 
 | Campo | Ejemplo | Para qué |
 | --- | --- | --- |
 | `actionId` | `m365.revoke-sessions` | Identificador estable |
-| `playbookRef` | ID del workflow de Ankay y su versión fijada | Qué se ejecuta. Nunca lo elige el navegador |
-| `paramsSchema` | `{ userRef: entityRef }` | Solo referencias opacas (D-10b): Ankay resuelve el dato con su propia credencial |
+| `playbookRef` | ARN de la máquina de estados y su versión fijada | Qué se ejecuta. Nunca lo elige el navegador |
+| `paramsSchema` | `{ userRef: entityRef }` | Solo referencias opacas (D-10b): la Lambda de acción resuelve el dato con su propia credencial |
 | `risk` | `low`, `medium` o `high` | Define la aprobación y el step-up |
 | `capability` | `soar.execute.m365` | Quién puede pedirla |
 | `approval` | `lead`, más step-up si es `high` | SoD (N5) |
-| `timeouts` | webhook 10 s, callback 10 min | Cuándo pasa a `UNKNOWN` |
+| `timeouts` | aprobación (`TimeoutSeconds`), ejecución | Cuándo pasa a `EXPIRED` o `UNKNOWN` |
 
-**Webhook de QAPAQ hacia Ankay:**
+**Entrada de la ejecución** (`StartExecution`, `name = executionKey`):
 
-```http
-POST https://ankay.internal:5001/api/v1/hooks/webhook_<id>
-X-Qapaq-Timestamp: 1791990000
-X-Qapaq-Execution-Key: 7f3c…        (idempotencia)
-X-Qapaq-Signature: sha256=<HMAC(clave, timestamp + "." + cuerpo)>
-Authorization: <secreto del webhook en Shuffle>
+```json
 { "executionKey": "7f3c…", "actionId": "m365.revoke-sessions", "version": "3",
-  "params": { "userRef": "ent_9a1…" }, "incidentRef": "inc_51…", "callback": "https://qapaq-api.internal/api/integrations/ankay/callback" }
+  "params": { "userRef": "ent_9a1…" }, "incidentRef": "inc_51…", "requestedBy": "usr_…" }
 ```
 
-- El primer paso de cada workflow es una app QAPAQ de validación (Python, versionada en `ankay/apps`, F2).
-  Verifica la firma, el timestamp (≤ 5 min) y que `executionKey` no se haya visto antes. Shuffle no
-  verifica HMAC de forma nativa.
-- Nada de raw, PII, secretos ni cookies en el cuerpo.
-
-**Callback de Ankay hacia QAPAQ:** `POST /api/integrations/ankay/callback`, con la misma firma, que
-devuelve `{executionKey, executionId, status, summary}`. El núcleo valida firma, timestamp y estado
-esperado y lo registra una sola vez. Un callback repetido responde 200 sin efecto.
-
-**Reconciliación:** el núcleo consulta el estado de la ejecución en la API de Ankay con el
-`execution_id`. A verificar en F2: la forma exacta de la respuesta del webhook y del endpoint de
-resultados en Shuffle v2.3.0.
+- Nada de raw, PII, secretos ni cookies en la entrada: el historial de la ejecución queda archivado.
+- Cada estado escribe su resultado a la auditoría; un estado repetido es idempotente por `executionKey`.
+- Un HTTP 200 de una integración solo acredita recepción; el estado «Verificar efecto» comprueba el
+  resultado real contra el proveedor.
 
 ## 6. Fronteras de seguridad
 
 | Frontera | Garantía |
 | --- | --- |
-| Navegador ↔ Ankay | Solo vía edge: sesión QAPAQ en cada request (≤ 5 s tras revocar, N9/N10), rol requerido y CSP de mismo origen (parche 0003) |
-| SIEM ↔ Ankay | SG en ambos sentidos, HMAC con timestamp y nonce (`executionKey`), y la clave en Secrets Manager. **No se rota en el despliegue** (A20); su rotación es un procedimiento aparte |
-| Credenciales de acción | Las tiene Ankay (p. ej. la app de Graph con permiso mínimo), en Secrets Manager. **QAPAQ nunca tiene escritura sobre Graph** ni Ankay credenciales del Indexer o del Manager. Active Response va por un adaptador QAPAQ con allowlist |
-| Datos | Ankay guarda definiciones de workflow y ejecuciones con referencias. La evidencia y la auditoría viven en QAPAQ (RDS, cadena hash; S3 para evidencia) |
-| Supply chain | El frontend tiene build verificable desde el commit fijado y publica su fuente AGPL. El runtime completo requiere digests inmutables verificados de los cinco servicios Compose (`shuffle-security`, frontend, backend, Orborus y OpenSearch) y la imagen dinámica `worker`, más Compose con SHA aprobado. El workflow actual solo construye el frontend |
-| Monitoreo | Un agente Wazuh en el host es objetivo de operación; instalación y FIM no están preparados en el módulo Azure y dependen de un Manager alcanzable |
+| Navegador ↔ API | Cognito, sesión revocable (≤ 5 s, N9/N10), capacidad y scope en servidor, step-up para aprobar |
+| API ↔ Step Functions | IAM: la API solo inicia y reanuda las máquinas del catálogo; las máquinas no pueden invocar otras sin permiso explícito |
+| Credenciales de acción | Las tiene el rol de cada Lambda de acción (p. ej. Graph con permiso mínimo), vía Secrets Manager. **La API nunca tiene escritura sobre Graph** ni las acciones credenciales del Indexer. Active Response va por el Manager con allowlist |
+| Datos | La entrada lleva referencias. La evidencia y la auditoría viven en Aurora (cadena hash) y S3 Object Lock |
+| Supply chain | Las máquinas de estados y Lambdas se construyen en CI con versiones y hashes fijados; ASL versionado en Git |
 
 ## 7. Resiliencia
 
 | Falla | Comportamiento |
 | --- | --- |
-| Ankay caído o lento | Diseño objetivo: el job queda en la cola con backoff y el breaker se abre. La implementación QAPAQ/Ankay y esta recuperación todavía no están integradas en runtime Azure |
-| Timeout ambiguo | `UNKNOWN` y luego reconciliación. Sin reintento ciego |
-| Valkey caído | El núcleo despacha desde el outbox en proceso (degradado, docs/11) |
-| Callback perdido | La reconciliación por `execution_id` lo recupera |
-| Host del SIEM caído | No hay nuevas solicitudes. Lo que Ankay ya ejecuta termina y su callback se reintenta. La AMI histórica y los releases permiten volver atrás |
+| Lambda de acción falla | `Retry` con backoff en pasos idempotentes; luego `Catch` a compensación o `UNKNOWN` |
+| Timeout ambiguo | `UNKNOWN` y reconciliación con `DescribeExecution`; sin reintento ciego |
+| Inicio fallido | El evento queda en SQS con reintentos y DLQ |
+| Aprobador no responde | `TimeoutSeconds` lleva la solicitud a `EXPIRED` y avisa |
+| Wazuh Manager no disponible | El paso de Active Response falla cerrado y queda registrado; no hay acción parcial silenciosa |
 
-## 8. Cómo se ve en el SIEM (F4)
+## 8. Motor vigente basado en Shuffle
 
-Dentro de `qapaq_ops`, en el incidente: un panel **Respuesta** con las acciones del catálogo permitidas
-para la persona, su estado en vivo (por long-poll), quién pidió, quién aprobó, el `execution_id` y el
-resumen. El Líder SOC tiene una bandeja de aprobaciones. Hay un deep link al editor de Ankay solo para
-ingenieros de automatización.
+**Desplegado** en el nodo AWS PowerUser (2026-11-04): `shuffle-backend`, `shuffle-orborus`,
+`shuffle-opensearch`, el frontend rebrandeado `ankay-qapaq-frontend` y el puente `ankay-sso`
+(`infra/aws-poweruser/host/compose.respond.yaml`), servidos en `/ankay/` solo con sesión QAPAQ y
+embebidos en el SIEM (app «SOAR»). El despacho automático desde el núcleo QAPAQ descrito abajo **no**
+está implementado: hoy los playbooks se ejecutan desde la consola de Respond con aprobación humana y
+sus resultados no vuelven al incidente ([19 #11](19-brechas-y-roadmap.md)).
+
+Diseño original del despacho (no implementado):
+
+- Edge con `auth_request` sirviendo `/ankay/*` hacia el frontend rebrandeado de Shuffle, con
+  SSO desde la sesión QAPAQ (§8.1).
+- Despacho: núcleo QAPAQ → cola Valkey → webhook de Shuffle con HMAC (`X-Qapaq-Signature`), `executionKey` y
+  una app de validación en Python; callback firmado hacia un listener privado `:8443` (contrato no
+  implementado).
+- Estados `REQUESTED → APPROVED → DISPATCHED → SUCCEEDED/FAILED/UNKNOWN`, con reconciliación por la API de
+  Shuffle.
+- Variante Azure: dos hosts privados (`siem_host` y `ankay_host`), Azure Firewall con DNAT y UDR;
+  Terraform solo preparaba VM, red, disco y Compose. Estaba desactivada (`siem_host=null`,
+  `ankay_host=null`).
+
+Cobertura en el repo: `ankay/` (frontend), `infra/wazuh/shuffle/` (adaptador de alertas nivel 12+),
+`infra/azure/modules/ankay_host/`, y los playbooks de triage en
+`docs/security/ankay-playbooks/`. Todo se retira en la fase M5 de [13](13-ankay-qapaq.md).
+
+### 8.1 SSO desde QAPAQ SOC (decisión B11)
+
+Decisión del dueño (2026-11-03, [10 · B11](10-decisiones.md)): una vez dentro del SOC se entra a QAPAQ
+Respond sin segundo login y se puede volver al SIEM. Sustituye la regla anterior de que la autenticación
+propia de Shuffle siguiera controlando el acceso dentro de `/ankay/`. La regla central (§1) sigue
+valiendo para las acciones del catálogo de la QAPAQ API; Shuffle es el estado heredado hasta M5.
+
+```mermaid
+sequenceDiagram
+  participant N as Navegador (sesión QAPAQ)
+  participant E as Edge nginx
+  participant A as QAPAQ API
+  participant P as Puente respond-sso
+  participant S as Shuffle backend
+  N->>E: GET /ankay/login (o /ankay/sso)
+  E-->>N: 302 /ankay/sso
+  N->>E: GET /ankay/sso
+  E->>A: auth_request /api/auth/introspect
+  A-->>E: 204 + x-qapaq-user, x-qapaq-roles
+  E->>P: /sso + x-qapaq-* (del introspect) + X-Qapaq-Edge-Token
+  P->>S: getusers / register / updateuser (API key de servicio)
+  P->>S: login con contraseña aleatoria que solo conoce el puente
+  P-->>N: Set-Cookie session_token (HttpOnly, Secure, SameSite=Strict, Path=/ankay) + 302 next
+```
+
+| Tema | Regla |
+| --- | --- |
+| Confianza | El puente no publica puertos y exige `X-Qapaq-Edge-Token` (secreto en archivo, comparación en tiempo constante). El edge pisa `x-qapaq-user`/`x-qapaq-roles` con lo que devuelve el introspect; lo que mande el navegador no llega |
+| Roles | `qapaq.platform.admin` → admin; `qapaq.soc.lead` / `qapaq.soc.analyst` → user; `qapaq.auditor` → org-reader (Shuffle le niega ejecutar, editar y programar); otro rol → 403 y se revoca su sesión de Shuffle. En el SIEM, la app «Ankay» sigue pidiendo `incidents.write` |
+| Secretos | La API key es de la cuenta de servicio admin `ankay-sso@qapaq.internal` (creada por `bootstrap.mjs`); las contraseñas de las personas son aleatorias, viven en memoria del puente y se rotan con la API de admin. Al navegador solo llega la cookie de sesión de Shuffle. El admin inicial de Shuffle no se rota: si también es persona de QAPAQ, entra con su contraseña y solo con rol admin |
+| Cookies | Todas las de sesión de Shuffle quedan en `Path=/ankay` con `HttpOnly; Secure; SameSite=Strict` (también las que emita el backend: `proxy_cookie_path`/`proxy_cookie_flags`). El frontend ya no copia el token a una cookie legible por JavaScript (`frontend/sso-overlay.mjs`) |
+| Logout | Login y logout de QAPAQ borran las cookies de Shuffle; el logout además avisa al puente (mirror de nginx) para cerrar la sesión en Shuffle. El «Logout» propio de Shuffle se oculta |
+| Navegación | Botón «Volver al SIEM» (`/app/qapaq-alerts`, `target=_top`) en todas las páginas de Ankay; funciona embebido y en pestaña aparte. Nada navega `top` sin un clic |
+| Idioma y marca | `frontend/i18n/qapaq-i18n.js` traduce en el DOM los textos de interfaz por coincidencia exacta y cambia «Shuffle» visible por «Ankay», sin tocar la lógica ni los nombres de apps del backend |
+
+Despliegue: `infra/local/compose.ankay.yaml` (local) y `infra/aws-poweruser/scripts/deploy-respond.sh`
+(AWS) construyen el puente, corren `bootstrap.mjs` y montan el token en el edge.
+
+Equivalencias en la migración:
+
+| Heredado (Shuffle) | Propuesto (Step Functions) |
+| --- | --- |
+| Cola Valkey `ankay` con `jobId = executionKey` | `StartExecution` con `name = executionKey` |
+| Webhook firmado con HMAC y app de validación | IAM entre la API y Step Functions |
+| `DISPATCHED` y callback firmado | Estados de la ejecución y `SendTaskSuccess` |
+| Reconciliación por la API de Shuffle | `DescribeExecution` y `GetExecutionHistory` |
+| Frontend Shuffle bajo `/ankay/` | Panel en `qapaq_ops` y timeline en Ayni Qapaq |
+| Orborus, workers y OpenSearch propio | Lambdas de acción |
 
 ## 9. Decisiones abiertas
 
-1. **Rol `qapaq.automation.engineer`** para el editor de Ankay. Requiere aprobación del dueño y
-   asignación en el sistema de identidad de Ankay; la ruta del edge solo exige la sesión QAPAQ.
-2. **U-022:** dictamen de Legal sobre AGPL con el frontend modificado.
-3. **App de validación HMAC** en Ankay (F2): Python, versionada en el repo.
-4. **Listener privado :8443** del edge para los callbacks: se agrega en `wazuh/edge` en F2.
+1. **Rol `qapaq.automation.engineer`:** requiere aprobación del dueño y mapeo en Cognito/Entra.
+2. **Aprobación en `qapaq_ops`:** definir si la bandeja del Líder SOC vive en el plugin o en Ayni Qapaq.
+3. **Adaptador Active Response:** forma exacta de la API del Manager y la allowlist de comandos (M3).
+4. **Cuenta de ejecución:** si las máquinas de estados corren en `qapaq-soc-workload` o en una cuenta de
+   respuesta separada.

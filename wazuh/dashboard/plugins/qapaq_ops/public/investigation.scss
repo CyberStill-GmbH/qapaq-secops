@@ -1,0 +1,770 @@
+// QAPAQ SecOps · logotipos de proveedores e investigación de alertas.
+// Logotipos oficiales siempre sobre placa clara: conservan sus colores en tema claro y oscuro.
+
+$qapaqInvMobile: 767px;
+$qapaqInvTablet: 1023px;
+$qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%);
+
+// ---------------------------------------------------------------- Logotipos
+.qapaqVendor {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  &--s {
+    width: 20px;
+    height: 20px;
+    padding: 2px;
+    border-radius: 5px;
+  }
+
+  &--m {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+  }
+
+  &--l {
+    width: 44px;
+    height: 44px;
+    padding: 7px;
+    border-radius: 12px;
+  }
+
+  // Imágenes propias de QAPAQ (Respond, Qapaqzito): ocupan toda la placa.
+  &--own {
+    overflow: hidden;
+    padding: 0;
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(#fff, #fff) padding-box,
+      $qapaqInvGradient border-box;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+}
+
+.qapaqSourceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.qapaqCellTitle__main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  .qapaqVendor {
+    margin-top: 1px;
+  }
+}
+
+// ------------------------------------------------------------ Investigación
+.qapaqEyebrow {
+  margin: 0 0 4px;
+  background: $qapaqInvGradient;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.qapaqInvestigation__back {
+  margin-bottom: $ouiSizeS;
+}
+
+.qapaqInvestigation__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $ouiSizeL;
+  padding: $ouiSizeL;
+  border: 1px solid $ouiBorderColor;
+  border-radius: 14px;
+  background:
+    linear-gradient($ouiColorEmptyShade, $ouiColorEmptyShade) padding-box,
+    linear-gradient(110deg, rgba(#ff5899, 0.5), rgba(#ff5841, 0.35), rgba(#ffc136, 0.3)) border-box;
+
+  @media (max-width: $qapaqInvTablet) {
+    flex-direction: column;
+  }
+
+  @media (max-width: $qapaqInvMobile) {
+    padding: $ouiSize;
+  }
+}
+
+.qapaqInvestigation__lead {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: $ouiSize;
+
+  h1 {
+    overflow-wrap: anywhere;
+  }
+}
+
+.qapaqInvestigation__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: $ouiSizeS;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeS;
+}
+
+.qapaqInvestigation__actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: $ouiSizeS;
+  max-width: 460px;
+
+  @media (max-width: $qapaqInvTablet) {
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  @media (max-width: $qapaqInvMobile) {
+    .euiButton {
+      flex: 1 1 100%;
+    }
+  }
+}
+
+.qapaqInvestigation__main,
+.qapaqInvestigation__side {
+  min-width: 0;
+}
+
+.qapaqInvestigation__count {
+  margin-bottom: $ouiSizeS;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+  overflow-wrap: anywhere;
+}
+
+.qapaqCard {
+  border-radius: 14px;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .qapaqInvestigation,
+  .qapaqInvestigation * {
+    visibility: visible !important;
+  }
+
+  .qapaqInvestigation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  .qapaqInvestigation__back,
+  .qapaqInvestigation__actions,
+  .qapaqChip,
+  .qapaqTimeline__title button {
+    display: none !important;
+  }
+
+  .qapaqInvestigation {
+    color: #111 !important;
+    font-size: 10pt;
+  }
+
+  .qapaqInvestigation::before {
+    display: block;
+    margin-bottom: 12pt;
+    border-bottom: 2px solid #b44335;
+    padding-bottom: 8pt;
+    content: 'QAPAQ SOC · Informe de investigación';
+    font-size: 17pt;
+    font-weight: 700;
+  }
+
+  .qapaqInvestigation__header,
+  .qapaqCard {
+    border: 1px solid #aaa !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .qapaqInvestigation__header {
+    display: block;
+    padding: 10pt;
+  }
+
+  .qapaqInvestigation__lead,
+  .qapaqInvestigation__facts,
+  .qapaqTimeline__meta {
+    color: #111 !important;
+  }
+
+  .qapaqInvestigation__main,
+  .qapaqInvestigation__side {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .qapaqTimeline__item,
+  .qapaqEntity,
+  .qapaqCard li {
+    break-inside: avoid;
+  }
+
+  .qapaqVendor,
+  .euiBadge {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+}
+
+// Chips de entidades (filtros) y de coincidencias.
+.qapaqChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qapaqChip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid $ouiBorderColor;
+  border-radius: 999px;
+  background: transparent;
+  color: $ouiTextColor;
+  cursor: pointer;
+  font-size: $ouiFontSizeXS;
+  overflow-wrap: anywhere;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid #ff5899;
+    outline-offset: 2px;
+  }
+
+  &--on {
+    border-color: #ff5899;
+    background: rgba(#ff5899, 0.14);
+  }
+
+  &--static {
+    cursor: default;
+    padding: 1px 8px;
+  }
+}
+
+.qapaqChip__kind {
+  color: $ouiTextSubduedColor;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.qapaqMitre {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid rgba(#119cff, 0.55);
+  border-radius: 6px;
+  background: rgba(#119cff, 0.12);
+  color: $ouiTextColor;
+  font-family: $ouiCodeFontFamily;
+  font-size: 11px;
+
+  &--link {
+    text-decoration: none;
+
+    &:hover,
+    &:focus {
+      background: rgba(#119cff, 0.24);
+      text-decoration: underline;
+    }
+  }
+}
+
+// Línea de tiempo vertical.
+.qapaqTimeline {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &::before {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 6px;
+    width: 2px;
+    background: $ouiBorderColor;
+    content: '';
+  }
+}
+
+.qapaqTimeline__item {
+  position: relative;
+  display: flex;
+  gap: $ouiSize;
+  padding: 0 0 $ouiSize;
+
+  &[data-level='Crítica'] .qapaqTimeline__dot {
+    background: #ff5841;
+  }
+
+  &[data-level='Alta'] .qapaqTimeline__dot {
+    background: #f5a35c;
+  }
+
+  &[data-level='Media'] .qapaqTimeline__dot {
+    background: #ffc136;
+  }
+}
+
+.qapaqTimeline__dot {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  border: 2px solid $ouiColorEmptyShade;
+  border-radius: 50%;
+  background: #7f95aa;
+}
+
+.qapaqTimeline__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.qapaqTimeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+}
+
+.qapaqTimeline__title {
+  display: block;
+  margin: 4px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: $ouiTitleColor;
+  cursor: pointer;
+  font-size: $ouiFontSizeS;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  text-align: left;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+  }
+
+  &::after {
+    margin-left: 6px;
+    color: $ouiTextSubduedColor;
+    content: '▸';
+  }
+
+  &[aria-expanded='true']::after {
+    content: '▾';
+  }
+}
+
+.qapaqTimeline__matched {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.qapaqTimeline__anchor {
+  position: relative;
+  margin: 0 0 $ouiSize;
+  padding-left: 30px;
+  color: #ff5899;
+  font-size: $ouiFontSizeXS;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  &::before {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: $qapaqInvGradient;
+    content: '';
+    transform: translateY(-50%);
+  }
+}
+
+// Ficha clave–valor del evento de origen.
+.qapaqKeyValues {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px $ouiSize;
+  margin: 0;
+  font-size: $ouiFontSizeS;
+
+  dt {
+    color: $ouiTextSubduedColor;
+  }
+
+  dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: $qapaqInvMobile) {
+    grid-template-columns: minmax(0, 1fr);
+
+    dd {
+      margin-bottom: 6px;
+    }
+  }
+}
+
+// Entidades con pivotes.
+.qapaqEntities {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqEntity {
+  padding: 10px 0;
+  border-bottom: 1px solid $ouiBorderColor;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.qapaqEntity__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $ouiSizeS;
+}
+
+.qapaqEntity__kind {
+  color: $ouiTextSubduedColor;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.qapaqEntity__value {
+  display: block;
+  margin-top: 2px;
+  font-family: $ouiCodeFontFamily;
+  font-size: $ouiFontSizeS;
+  overflow-wrap: anywhere;
+}
+
+.qapaqEntity__field {
+  display: block;
+  color: $ouiTextSubduedColor;
+  font-family: $ouiCodeFontFamily;
+  font-size: 10px;
+}
+
+.qapaqEntity__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: $ouiFontSizeXS;
+}
+
+// Chip «Riesgo» (motor de correlación).
+.qapaqRisk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+
+  &--low {
+    background: rgba(#7f95aa, 0.2);
+  }
+
+  &--medium {
+    background: rgba(#ffc136, 0.25);
+  }
+
+  &--high {
+    background: rgba(#ff5841, 0.3);
+  }
+}
+
+// Cabecera común de las vistas QAPAQ (misma identidad que «Resumen del SOC»).
+.qapaqPage > .qapaqPage__header {
+  padding: $ouiSize $ouiSizeL;
+  border: 1px solid $ouiBorderColor;
+  border-top: 3px solid transparent;
+  border-radius: 14px;
+  background:
+    linear-gradient($ouiColorEmptyShade, $ouiColorEmptyShade) padding-box,
+    $qapaqInvGradient border-box;
+
+  @media (max-width: $qapaqInvMobile) {
+    padding: $ouiSizeM;
+  }
+}
+
+// Salud de la plataforma (monitor QAPAQ, docs/20).
+.qapaqPlatformSources {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: $ouiSizeS;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqPlatformSource {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px $ouiSizeS;
+  padding: $ouiSizeS $ouiSizeM;
+  border: 1px solid $ouiBorderColor;
+  border-left-width: 3px;
+  border-radius: 10px;
+
+  &[data-state='failing'] {
+    border-left-color: #ff5f57;
+  }
+
+  &[data-state='silent'] {
+    border-left-color: #d8c35c;
+  }
+
+  &[data-state='ok'] {
+    border-left-color: #5fb98a;
+  }
+}
+
+.qapaqPlatformSource__name {
+  font-weight: 700;
+}
+
+.qapaqPlatformSource__time {
+  grid-column: 1 / -1;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+}
+
+.qapaqPlatformSource__summary {
+  grid-column: 1 / -1;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+  overflow-wrap: anywhere;
+}
+
+// Notificaciones agrupadas por alerta.
+.qapaqNotifList {
+  display: grid;
+  gap: $ouiSizeS;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqNotif {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: $ouiSizeM;
+  width: 100%;
+  padding: $ouiSizeM $ouiSize;
+  border: 1px solid $ouiBorderColor;
+  border-left: 3px solid $ouiBorderColor;
+  border-radius: 12px;
+  background: $ouiColorEmptyShade;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover,
+  &:focus-visible {
+    border-color: #ff5899;
+    outline: none;
+  }
+
+  &--pending {
+    border-left-color: #ffc136;
+  }
+
+  @media (max-width: $qapaqInvMobile) {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    .qapaqNotif__time {
+      grid-column: 2;
+    }
+  }
+}
+
+.qapaqNotif__lead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.qapaqNotif__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qapaqNotif__title {
+  color: $ouiTitleColor;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.qapaqNotif__count {
+  margin-left: 8px;
+}
+
+.qapaqNotif__deliveries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: $ouiFontSizeXS;
+}
+
+.qapaqNotif__time {
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+  white-space: nowrap;
+}
+
+.qapaqDeliveryList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqDeliveryList__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $ouiBorderColor;
+}
+
+.qapaqDeliveryList__channel {
+  color: $ouiTitleColor;
+  font-weight: 600;
+}
+
+// Canales de notificación.
+.qapaqChannels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: $ouiSize;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqChannel {
+  padding: $ouiSize;
+  border: 1px solid $ouiBorderColor;
+  border-top: 3px solid $ouiBorderColor;
+  border-radius: 14px;
+
+  &[data-state='active'] {
+    border-top-color: #5fb98a;
+  }
+
+  &[data-state='failing'] {
+    border-top-color: #ff5f57;
+  }
+
+  &[data-state='unconfigured'] {
+    border-top-color: #d8c35c;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: $ouiFontSizeM;
+    font-weight: 700;
+  }
+}
+
+.qapaqChannel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $ouiSizeS;
+  margin-bottom: 4px;
+}
+
+.qapaqChannel__test {
+  margin-top: $ouiSizeS;
+}
+
+.qapaqChannel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $ouiSizeS;
+  margin-top: $ouiSizeM;
+}

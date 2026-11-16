@@ -190,7 +190,7 @@ class ProviderConfigurationTests(unittest.TestCase):
             ossec_conf.write_text("<ossec_config><ruleset/></ossec_config>\n", encoding="utf-8")
             config_path = base / "providers.json"
             config_path.write_text(json.dumps({
-                "sophos_enabled": "true", "sophos_tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
+                "sophos_enabled": "true", "sophos_tenant_id": "11111111-1111-4111-8111-111111111111",
                 "sophos_data_region": "eu01", "cato_enabled": "true", "cato_account_id": "12345",
             }), encoding="utf-8")
             group_lookup = (

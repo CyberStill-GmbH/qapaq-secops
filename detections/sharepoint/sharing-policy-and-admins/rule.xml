@@ -1,0 +1,91 @@
+<!--
+  QAPAQ SOC · detección como código · detections/sharepoint/sharing-policy-and-admins (metadata.yaml, docs/23).
+  Debilitamiento de la política de uso compartido (tenant o sitio) y altas de administradores de colección de
+  sitios, desde la auditoría (módulo office365 o Purview). La postura periódica (detections/sharepoint/posture)
+  detecta además el cambio comparando fotos de /admin/sharepoint/settings, aunque falte la auditoría.
+  - SharingPolicyChanged / NetworkAccessPolicyChanged = 8; si el valor nuevo habilita "Cualquier persona"
+    (ExternalUserAndGuestSharing / Anyone / AnonymousAccess) = 12.
+  - SiteCollectionAdminAdded = 10. Las cuentas del sistema (app@sharepoint al aprovisionar un OneDrive) bajan
+    a 3 (qapaq-m365-service-accounts); sobre el OneDrive de otra persona = 11; administrador invitado = 12.
+  Nombres de operación del catálogo de actividades de SharePoint; qapaq_pending_provider_evidence hasta tener un
+  registro real redactado. Se instala como qapaq_soc_sharepoint_sharing_policy_and_admins.xml.
+-->
+<group name="office365,sharepoint,qapaq_sharepoint,">
+  <rule id="101935" level="8">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation">^SharingPolicyChanged$|^NetworkAccessPolicyChanged$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) cambió la política de uso compartido o de acceso ($(office365.Operation)) en $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1484</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_sharing_policy,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101936" level="12">
+    <if_sid>101935</if_sid>
+    <field name="office365.ModifiedProperties" type="pcre2">(?i)"NewValue"\s*:\s*"[^"]*(ExternalUserAndGuestSharing|Anyone|AnonymousAccess)</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) habilitó el uso compartido con cualquier persona en $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1484</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_sharing_policy,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101937" level="12">
+    <if_sid>101935</if_sid>
+    <field name="office365.EventData" type="pcre2">(?i)ExternalUserAndGuestSharing|AnonymousAccess|&gt;Anyone&lt;</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) habilitó el uso compartido con cualquier persona en $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1484</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_sharing_policy,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101938" level="10">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation">^SiteCollectionAdminAdded$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) agregó un administrador de colección de sitios en $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>qapaq_privilege_escalation,qapaq_site_admin,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101941" level="12">
+    <if_sid>101938</if_sid>
+    <field name="office365.TargetUserOrGroupName" type="pcre2">(?i)#ext#|^urn:spo:guest</field>
+    <list field="office365.UserId" lookup="not_match_key">etc/lists/qapaq-m365-service-accounts</list>
+    <description>QAPAQ SharePoint: $(office365.UserId) hizo administrador de $(office365.ObjectId) al invitado $(office365.TargetUserOrGroupName).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1098</id>
+      <id>T1078.004</id>
+    </mitre>
+    <group>qapaq_privilege_escalation,qapaq_site_admin,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101940" level="11">
+    <if_sid>101938</if_sid>
+    <field name="office365.ObjectId" type="pcre2">(?i)-my\.sharepoint\.[a-z.]+/personal/</field>
+    <list field="office365.UserId" lookup="not_match_key">etc/lists/qapaq-m365-service-accounts</list>
+    <description>QAPAQ SharePoint: $(office365.UserId) se agregó o agregó un administrador al OneDrive de otra persona ($(office365.ObjectId)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1098</id>
+      <id>T1530</id>
+    </mitre>
+    <group>qapaq_privilege_escalation,qapaq_site_admin,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101939" level="3">
+    <if_sid>101938</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-m365-service-accounts</list>
+    <description>QAPAQ SharePoint: alta de administrador de sitio por la cuenta del sistema $(office365.UserId) (aprovisionamiento).</description>
+    <options>no_full_log</options>
+    <group>qapaq_tuning,qapaq_site_admin,</group>
+  </rule>
+</group>

@@ -1,0 +1,889 @@
+{
+  "version": 1,
+  "format": "pdf",
+  "kind": "alerts",
+  "title": "Informe semanal de alertas",
+  "subtitle": "Resumen operativo del SOC para la semana del 6 al 12 de noviembre de 2026",
+  "generatedAt": "2026-11-13T17:00:00Z",
+  "generatedBy": "Analista Demo",
+  "timeZone": "America/Lima",
+  "classification": "Confidencial · uso interno QAPAQ",
+  "period": {
+    "from": "2026-11-06T05:00:00Z",
+    "to": "2026-11-13T04:59:59Z"
+  },
+  "kpis": [
+    {
+      "label": "Alertas totales",
+      "value": "64",
+      "hint": "+9 vs. periodo anterior"
+    },
+    {
+      "label": "Alertas P1",
+      "value": "4",
+      "hint": "+1 vs. periodo anterior"
+    },
+    {
+      "label": "Abiertas",
+      "value": "21",
+      "hint": "33 % del total"
+    },
+    {
+      "label": "Tiempo medio de respuesta",
+      "value": "38 min",
+      "hint": "-6 min vs. periodo anterior"
+    }
+  ],
+  "sections": [
+    {
+      "type": "markdown",
+      "heading": "Resumen ejecutivo",
+      "body": "Durante la semana se registraron **64 alertas**, con un incremento moderado frente al periodo anterior. La actividad se concentró en autenticaciones fallidas y en escaneos desde `203.0.113.0/24`.\n\n- Cuatro alertas de prioridad **P1** fueron atendidas dentro del objetivo de respuesta.\n- Dos hosts de la DMZ concentraron el 40 % de los eventos de escaneo.\n- No se confirmó compromiso de datos; se recomienda mantener la vigilancia reforzada.\n\n> Nota: las cifras provienen de Wazuh y pueden variar si se reclasifican alertas.\n\n<script>alert('esto se muestra como texto, no se ejecuta')</script>"
+    },
+    {
+      "type": "chart",
+      "heading": "Alertas por día y prioridad",
+      "chart": "bar",
+      "series": [
+        {
+          "label": "P1",
+          "points": [
+            {
+              "x": "2026-11-06",
+              "y": 0
+            },
+            {
+              "x": "2026-11-07",
+              "y": 1
+            },
+            {
+              "x": "2026-11-08",
+              "y": 1
+            },
+            {
+              "x": "2026-11-09",
+              "y": 0
+            },
+            {
+              "x": "2026-11-10",
+              "y": 1
+            },
+            {
+              "x": "2026-11-11",
+              "y": 1
+            },
+            {
+              "x": "2026-11-12",
+              "y": 1
+            }
+          ]
+        },
+        {
+          "label": "P2",
+          "points": [
+            {
+              "x": "2026-11-06",
+              "y": 2
+            },
+            {
+              "x": "2026-11-07",
+              "y": 2
+            },
+            {
+              "x": "2026-11-08",
+              "y": 1
+            },
+            {
+              "x": "2026-11-09",
+              "y": 5
+            },
+            {
+              "x": "2026-11-10",
+              "y": 1
+            },
+            {
+              "x": "2026-11-11",
+              "y": 4
+            },
+            {
+              "x": "2026-11-12",
+              "y": 4
+            }
+          ]
+        },
+        {
+          "label": "P3",
+          "points": [
+            {
+              "x": "2026-11-06",
+              "y": 8
+            },
+            {
+              "x": "2026-11-07",
+              "y": 8
+            },
+            {
+              "x": "2026-11-08",
+              "y": 6
+            },
+            {
+              "x": "2026-11-09",
+              "y": 8
+            },
+            {
+              "x": "2026-11-10",
+              "y": 2
+            },
+            {
+              "x": "2026-11-11",
+              "y": 2
+            },
+            {
+              "x": "2026-11-12",
+              "y": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "chart",
+      "heading": "Distribución por prioridad",
+      "chart": "donut",
+      "series": [
+        {
+          "label": "Prioridad",
+          "points": [
+            {
+              "x": "P1",
+              "y": 4
+            },
+            {
+              "x": "P2",
+              "y": 15
+            },
+            {
+              "x": "P3",
+              "y": 27
+            },
+            {
+              "x": "P4",
+              "y": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "chart",
+      "heading": "Tendencia de alertas totales",
+      "chart": "line",
+      "series": [
+        {
+          "label": "Total",
+          "points": [
+            {
+              "x": "2026-11-06",
+              "y": 5
+            },
+            {
+              "x": "2026-11-07",
+              "y": 10
+            },
+            {
+              "x": "2026-11-08",
+              "y": 5
+            },
+            {
+              "x": "2026-11-09",
+              "y": 5
+            },
+            {
+              "x": "2026-11-10",
+              "y": 6
+            },
+            {
+              "x": "2026-11-11",
+              "y": 14
+            },
+            {
+              "x": "2026-11-12",
+              "y": 13
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "heading": "Alertas del periodo",
+      "primary": true,
+      "columns": [
+        {
+          "key": "occurredAt",
+          "label": "Ocurrió",
+          "kind": "datetime"
+        },
+        {
+          "key": "priority",
+          "label": "Prioridad",
+          "kind": "priority"
+        },
+        {
+          "key": "title",
+          "label": "Alerta",
+          "kind": "text"
+        },
+        {
+          "key": "source",
+          "label": "IP origen",
+          "kind": "text"
+        },
+        {
+          "key": "status",
+          "label": "Estado",
+          "kind": "text"
+        },
+        {
+          "key": "score",
+          "label": "Puntuación",
+          "kind": "number"
+        },
+        {
+          "key": "link",
+          "label": "Abrir",
+          "kind": "link"
+        }
+      ],
+      "rows": [
+        {
+          "occurredAt": "2026-11-12T11:57:00Z",
+          "priority": "P1",
+          "title": "Creación de cuenta privilegiada · srv-app-01.example.test — Nueva cuenta añadida al grupo de administradores",
+          "source": "203.0.113.107",
+          "score": 62,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00041"
+        },
+        {
+          "occurredAt": "2026-11-12T11:22:00Z",
+          "priority": "P4",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-app-01.example.test",
+          "source": "203.0.113.2",
+          "score": 67,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00007"
+        },
+        {
+          "occurredAt": "2026-11-12T06:36:00Z",
+          "priority": "P3",
+          "title": "Escaneo de puertos desde IP externa · srv-web-01.example.test",
+          "source": "203.0.113.121",
+          "score": 29,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00020"
+        },
+        {
+          "occurredAt": "2026-11-12T03:00:00Z",
+          "priority": "P4",
+          "title": "Creación de cuenta privilegiada · srv-vpn-01.example.test",
+          "source": "203.0.113.95",
+          "score": 81,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00009"
+        },
+        {
+          "occurredAt": "2026-11-12T00:19:00Z",
+          "priority": "P2",
+          "title": "Cambio de integridad en archivo crítico · srv-app-02.example.test",
+          "source": "203.0.113.203",
+          "score": 20,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00054"
+        },
+        {
+          "occurredAt": "2026-11-11T23:29:00Z",
+          "priority": "P3",
+          "title": "Escaneo de puertos desde IP externa · srv-wks-014.example.test",
+          "source": "203.0.113.178",
+          "score": 28,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00004"
+        },
+        {
+          "occurredAt": "2026-11-11T17:56:00Z",
+          "priority": "P4",
+          "title": "Creación de cuenta privilegiada · srv-app-01.example.test",
+          "source": "203.0.113.67",
+          "score": 69,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00062"
+        },
+        {
+          "occurredAt": "2026-11-11T15:30:00Z",
+          "priority": "P4",
+          "title": "Servicio detenido inesperadamente · srv-wks-014.example.test — El agente de endpoint dejó de reportar durante más de 15 minutos",
+          "source": "203.0.113.129",
+          "score": 23,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00056"
+        },
+        {
+          "occurredAt": "2026-11-11T15:25:00Z",
+          "priority": "P3",
+          "title": "Autenticación fallida repetida · srv-mail-01.example.test",
+          "source": "203.0.113.179",
+          "score": 54,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00057"
+        },
+        {
+          "occurredAt": "2026-11-11T06:12:00Z",
+          "priority": "P4",
+          "title": "Escaneo de puertos desde IP externa · srv-wks-014.example.test — Barrido de puertos TCP contra varios hosts de la DMZ",
+          "source": "203.0.113.150",
+          "score": 65,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00021"
+        },
+        {
+          "occurredAt": "2026-11-11T05:17:00Z",
+          "priority": "P3",
+          "title": "Inicio de sesión desde ubicación inusual · srv-vpn-01.example.test",
+          "source": "203.0.113.18",
+          "score": 72,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00012"
+        },
+        {
+          "occurredAt": "2026-11-10T21:55:00Z",
+          "priority": "P4",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-web-01.example.test",
+          "source": "203.0.113.40",
+          "score": 80,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00039"
+        },
+        {
+          "occurredAt": "2026-11-10T21:04:00Z",
+          "priority": "P2",
+          "title": "Ejecución de PowerShell codificado · srv-wks-014.example.test — Línea de comandos con -EncodedCommand lanzada por un proceso de Office",
+          "source": "203.0.113.187",
+          "score": 27,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00061"
+        },
+        {
+          "occurredAt": "2026-11-10T19:58:00Z",
+          "priority": "P3",
+          "title": "Creación de cuenta privilegiada · srv-web-01.example.test — Nueva cuenta añadida al grupo de administradores",
+          "source": "203.0.113.149",
+          "score": 89,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00026"
+        },
+        {
+          "occurredAt": "2026-11-10T16:17:00Z",
+          "priority": "P4",
+          "title": "Escaneo de puertos desde IP externa · srv-wks-014.example.test",
+          "source": "203.0.113.98",
+          "score": 66,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00035"
+        },
+        {
+          "occurredAt": "2026-11-10T11:35:00Z",
+          "priority": "P4",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-app-02.example.test",
+          "source": "203.0.113.224",
+          "score": 55,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00022"
+        },
+        {
+          "occurredAt": "2026-11-10T09:55:00Z",
+          "priority": "P3",
+          "title": "Cambio de integridad en archivo crítico · srv-mail-01.example.test",
+          "source": "203.0.113.78",
+          "score": 33,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00017"
+        },
+        {
+          "occurredAt": "2026-11-10T08:07:00Z",
+          "priority": "P3",
+          "title": "Autenticación fallida repetida · srv-app-02.example.test",
+          "source": "203.0.113.247",
+          "score": 96,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00045"
+        },
+        {
+          "occurredAt": "2026-11-10T07:53:00Z",
+          "priority": "P2",
+          "title": "Escaneo de puertos desde IP externa · srv-app-02.example.test",
+          "source": "203.0.113.155",
+          "score": 29,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00052"
+        },
+        {
+          "occurredAt": "2026-11-10T07:26:00Z",
+          "priority": "P4",
+          "title": "Escaneo de puertos desde IP externa · srv-mail-01.example.test",
+          "source": "203.0.113.139",
+          "score": 99,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00025"
+        },
+        {
+          "occurredAt": "2026-11-10T05:10:00Z",
+          "priority": "P3",
+          "title": "Inicio de sesión desde ubicación inusual · srv-mail-01.example.test",
+          "source": "203.0.113.173",
+          "score": 73,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00064"
+        },
+        {
+          "occurredAt": "2026-11-10T01:30:00Z",
+          "priority": "P2",
+          "title": "Ejecución de PowerShell codificado · srv-wks-027.example.test",
+          "source": "203.0.113.30",
+          "score": 49,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00030"
+        },
+        {
+          "occurredAt": "2026-11-09T22:30:00Z",
+          "priority": "P3",
+          "title": "Creación de cuenta privilegiada · srv-web-01.example.test — Nueva cuenta añadida al grupo de administradores",
+          "source": "203.0.113.37",
+          "score": 35,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00051"
+        },
+        {
+          "occurredAt": "2026-11-09T20:34:00Z",
+          "priority": "P4",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-vpn-01.example.test",
+          "source": "203.0.113.75",
+          "score": 49,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00050"
+        },
+        {
+          "occurredAt": "2026-11-09T19:09:00Z",
+          "priority": "P4",
+          "title": "Autenticación fallida repetida · srv-db-01.example.test",
+          "source": "203.0.113.80",
+          "score": 54,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00029"
+        },
+        {
+          "occurredAt": "2026-11-09T18:57:00Z",
+          "priority": "P4",
+          "title": "Ejecución de PowerShell codificado · srv-db-01.example.test",
+          "source": "203.0.113.51",
+          "score": 28,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00018"
+        },
+        {
+          "occurredAt": "2026-11-09T16:29:00Z",
+          "priority": "P3",
+          "title": "Autenticación fallida repetida · srv-vpn-01.example.test",
+          "source": "203.0.113.230",
+          "score": 88,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00048"
+        },
+        {
+          "occurredAt": "2026-11-09T14:52:00Z",
+          "priority": "P2",
+          "title": "Escaneo de puertos desde IP externa · srv-mail-01.example.test",
+          "source": "203.0.113.7",
+          "score": 35,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00063"
+        },
+        {
+          "occurredAt": "2026-11-09T13:53:00Z",
+          "priority": "P1",
+          "title": "Servicio detenido inesperadamente · srv-mail-01.example.test — El agente de endpoint dejó de reportar durante más de 15 minutos",
+          "source": "203.0.113.113",
+          "score": 82,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00046"
+        },
+        {
+          "occurredAt": "2026-11-09T07:37:00Z",
+          "priority": "P3",
+          "title": "Ejecución de PowerShell codificado · srv-web-01.example.test",
+          "source": "203.0.113.130",
+          "score": 31,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00028"
+        },
+        {
+          "occurredAt": "2026-11-09T03:15:00Z",
+          "priority": "P3",
+          "title": "Ejecución de PowerShell codificado · srv-web-01.example.test",
+          "source": "203.0.113.24",
+          "score": 82,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00055"
+        },
+        {
+          "occurredAt": "2026-11-09T02:51:00Z",
+          "priority": "P3",
+          "title": "Cambio de integridad en archivo crítico · srv-wks-014.example.test",
+          "source": "203.0.113.235",
+          "score": 21,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00049"
+        },
+        {
+          "occurredAt": "2026-11-08T19:26:00Z",
+          "priority": "P2",
+          "title": "Ejecución de PowerShell codificado · srv-app-01.example.test",
+          "source": "203.0.113.133",
+          "score": 43,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00053"
+        },
+        {
+          "occurredAt": "2026-11-08T16:14:00Z",
+          "priority": "P1",
+          "title": "Creación de cuenta privilegiada · srv-mail-01.example.test",
+          "source": "203.0.113.63",
+          "score": 99,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00003"
+        },
+        {
+          "occurredAt": "2026-11-08T16:12:00Z",
+          "priority": "P2",
+          "title": "Servicio detenido inesperadamente · srv-mail-01.example.test",
+          "source": "203.0.113.206",
+          "score": 96,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00005"
+        },
+        {
+          "occurredAt": "2026-11-08T14:47:00Z",
+          "priority": "P3",
+          "title": "Inicio de sesión desde ubicación inusual · srv-app-02.example.test",
+          "source": "203.0.113.221",
+          "score": 75,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00023"
+        },
+        {
+          "occurredAt": "2026-11-08T14:28:00Z",
+          "priority": "P4",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-wks-027.example.test",
+          "source": "203.0.113.147",
+          "score": 33,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00010"
+        },
+        {
+          "occurredAt": "2026-11-08T04:11:00Z",
+          "priority": "P3",
+          "title": "Servicio detenido inesperadamente · srv-web-01.example.test",
+          "source": "203.0.113.112",
+          "score": 22,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00002"
+        },
+        {
+          "occurredAt": "2026-11-08T01:29:00Z",
+          "priority": "P1",
+          "title": "Cambio de integridad en archivo crítico · srv-app-01.example.test — Modificación de un archivo monitoreado en /etc",
+          "source": "203.0.113.23",
+          "score": 21,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00001"
+        },
+        {
+          "occurredAt": "2026-11-07T18:33:00Z",
+          "priority": "P2",
+          "title": "Servicio detenido inesperadamente · srv-app-01.example.test — El agente de endpoint dejó de reportar durante más de 15 minutos",
+          "source": "203.0.113.80",
+          "score": 27,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00036"
+        },
+        {
+          "occurredAt": "2026-11-07T18:19:00Z",
+          "priority": "P2",
+          "title": "Inicio de sesión desde ubicación inusual · srv-mail-01.example.test",
+          "source": "203.0.113.187",
+          "score": 79,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00038"
+        },
+        {
+          "occurredAt": "2026-11-07T16:33:00Z",
+          "priority": "P2",
+          "title": "Cambio de integridad en archivo crítico · srv-app-01.example.test",
+          "source": "203.0.113.45",
+          "score": 61,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00024"
+        },
+        {
+          "occurredAt": "2026-11-07T13:05:00Z",
+          "priority": "P2",
+          "title": "Autenticación fallida repetida · srv-mail-01.example.test — Más de 10 intentos fallidos de inicio de sesión en 5 minutos",
+          "source": "203.0.113.38",
+          "score": 23,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00006"
+        },
+        {
+          "occurredAt": "2026-11-07T08:19:00Z",
+          "priority": "P4",
+          "title": "Inicio de sesión desde ubicación inusual · srv-mail-01.example.test — Acceso exitoso desde un país sin actividad previa del usuario",
+          "source": "203.0.113.165",
+          "score": 42,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00016"
+        },
+        {
+          "occurredAt": "2026-11-06T22:01:00Z",
+          "priority": "P1",
+          "title": "Cambio de integridad en archivo crítico · srv-app-01.example.test",
+          "source": "203.0.113.51",
+          "score": 52,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00013"
+        },
+        {
+          "occurredAt": "2026-11-06T16:19:00Z",
+          "priority": "P3",
+          "title": "Inicio de sesión desde ubicación inusual · srv-db-01.example.test",
+          "source": "203.0.113.105",
+          "score": 51,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00042"
+        },
+        {
+          "occurredAt": "2026-11-06T16:13:00Z",
+          "priority": "P3",
+          "title": "Inicio de sesión desde ubicación inusual · srv-web-01.example.test — Acceso exitoso desde un país sin actividad previa del usuario",
+          "source": "203.0.113.207",
+          "score": 84,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00011"
+        },
+        {
+          "occurredAt": "2026-11-06T14:50:00Z",
+          "priority": "P3",
+          "title": "Cambio de integridad en archivo crítico · srv-mail-01.example.test",
+          "source": "203.0.113.149",
+          "score": 58,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00008"
+        },
+        {
+          "occurredAt": "2026-11-06T13:35:00Z",
+          "priority": "P4",
+          "title": "Creación de cuenta privilegiada · srv-db-01.example.test",
+          "source": "203.0.113.177",
+          "score": 59,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00032"
+        },
+        {
+          "occurredAt": "2026-11-06T10:45:00Z",
+          "priority": "P4",
+          "title": "Inicio de sesión desde ubicación inusual · srv-vpn-01.example.test",
+          "source": "203.0.113.180",
+          "score": 32,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00034"
+        },
+        {
+          "occurredAt": "2026-11-06T09:50:00Z",
+          "priority": "P3",
+          "title": "Servicio detenido inesperadamente · srv-wks-014.example.test",
+          "source": "203.0.113.153",
+          "score": 59,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00059"
+        },
+        {
+          "occurredAt": "2026-11-06T07:33:00Z",
+          "priority": "P3",
+          "title": "Autenticación fallida repetida · srv-wks-014.example.test",
+          "source": "203.0.113.139",
+          "score": 39,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00060"
+        },
+        {
+          "occurredAt": "2026-11-06T03:13:00Z",
+          "priority": "P3",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-app-02.example.test",
+          "source": "203.0.113.64",
+          "score": 28,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00040"
+        },
+        {
+          "occurredAt": "2026-11-06T03:01:00Z",
+          "priority": "P3",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-mail-01.example.test",
+          "source": "203.0.113.184",
+          "score": 28,
+          "status": "En análisis",
+          "link": "https://soc.example.test/alerts/00047"
+        },
+        {
+          "occurredAt": "2026-11-05T23:37:00Z",
+          "priority": "P3",
+          "title": "Cambio de integridad en archivo crítico · srv-wks-027.example.test",
+          "source": "203.0.113.157",
+          "score": 88,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00014"
+        },
+        {
+          "occurredAt": "2026-11-05T22:41:00Z",
+          "priority": "P4",
+          "title": "Creación de cuenta privilegiada · srv-wks-014.example.test",
+          "source": "203.0.113.14",
+          "score": 22,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00027"
+        },
+        {
+          "occurredAt": "2026-11-05T22:22:00Z",
+          "priority": "P3",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-wks-014.example.test",
+          "source": "203.0.113.62",
+          "score": 55,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00044"
+        },
+        {
+          "occurredAt": "2026-11-05T22:21:00Z",
+          "priority": "P1",
+          "title": "Creación de cuenta privilegiada · srv-web-01.example.test",
+          "source": "203.0.113.121",
+          "score": 61,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00019"
+        },
+        {
+          "occurredAt": "2026-11-05T22:06:00Z",
+          "priority": "P4",
+          "title": "Tráfico saliente hacia dominio de baja reputación · srv-wks-027.example.test",
+          "source": "203.0.113.64",
+          "score": 90,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00015"
+        },
+        {
+          "occurredAt": "2026-11-05T19:16:00Z",
+          "priority": "P4",
+          "title": "Inicio de sesión desde ubicación inusual · srv-wks-014.example.test",
+          "source": "203.0.113.240",
+          "score": 41,
+          "status": "Abierta",
+          "link": "https://soc.example.test/alerts/00043"
+        },
+        {
+          "occurredAt": "2026-11-05T17:21:00Z",
+          "priority": "P4",
+          "title": "Cambio de integridad en archivo crítico · srv-db-01.example.test — Modificación de un archivo monitoreado en /etc",
+          "source": "203.0.113.97",
+          "score": 94,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00031"
+        },
+        {
+          "occurredAt": "2026-11-05T16:43:00Z",
+          "priority": "P3",
+          "title": "Escaneo de puertos desde IP externa · srv-mail-01.example.test",
+          "source": "203.0.113.16",
+          "score": 70,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00037"
+        },
+        {
+          "occurredAt": "2026-11-05T16:06:00Z",
+          "priority": "P3",
+          "title": "Ejecución de PowerShell codificado · srv-vpn-01.example.test",
+          "source": "203.0.113.7",
+          "score": 40,
+          "status": "Contenida",
+          "link": "https://soc.example.test/alerts/00058"
+        },
+        {
+          "occurredAt": "2026-11-05T14:30:00Z",
+          "priority": "P2",
+          "title": "Ejecución de PowerShell codificado · srv-mail-01.example.test",
+          "source": "203.0.113.241",
+          "score": 65,
+          "status": "Cerrada",
+          "link": "https://soc.example.test/alerts/00033"
+        }
+      ],
+      "note": "Ordenadas de la más reciente a la más antigua. Horas en America/Lima."
+    },
+    {
+      "type": "timeline",
+      "heading": "Cronología de eventos relevantes",
+      "items": [
+        {
+          "at": "2026-11-09T13:42:00Z",
+          "title": "Primer escaneo de puertos detectado",
+          "detail": "Origen 203.0.113.45 contra la DMZ.",
+          "priority": "P3"
+        },
+        {
+          "at": "2026-11-09T14:10:00Z",
+          "title": "Bloqueo preventivo de la IP de origen",
+          "detail": "Regla aplicada en el firewall perimetral por el analista de turno.",
+          "priority": "P4"
+        },
+        {
+          "at": "2026-11-10T22:03:00Z",
+          "title": "Inicio de sesión desde ubicación inusual",
+          "detail": "Cuenta de servicio svc-reports@example.test; sesión revocada y credenciales rotadas.",
+          "priority": "P2"
+        },
+        {
+          "at": "2026-11-11T15:27:00Z",
+          "title": "PowerShell codificado en estación de trabajo",
+          "detail": "Proceso padre: aplicación de ofimática. Equipo aislado de la red.",
+          "priority": "P1"
+        },
+        {
+          "at": "2026-11-11T16:05:00Z",
+          "title": "Equipo reimaginado y devuelto al usuario",
+          "detail": "Sin indicios de persistencia tras el análisis forense básico.",
+          "priority": ""
+        },
+        {
+          "at": "2026-11-12T13:15:00Z",
+          "title": "Cierre de la alerta P1",
+          "detail": "Informe de incidente registrado en el caso INC-0042."
+        }
+      ]
+    },
+    {
+      "type": "markdown",
+      "heading": "Recomendaciones",
+      "body": "1. Mantener el bloqueo de rangos con actividad de escaneo recurrente.\n2. Revisar la política de bloqueo de cuentas tras intentos fallidos.\n3. Completar la capacitación sobre macros y archivos adjuntos antes del cierre de mes.\n\n| Acción | Responsable | Plazo |\n|---|---|---|\n| Revisar reglas de firewall | Redes | 2026-11-20 |\n| Ajustar umbrales de autenticación | SOC | 2026-11-18 |\n"
+    }
+  ],
+  "sources": [
+    "Wazuh Indexer · wazuh-alerts-* (consulta 2026-11-13 12:00)",
+    "QAPAQ SOC API"
+  ]
+}

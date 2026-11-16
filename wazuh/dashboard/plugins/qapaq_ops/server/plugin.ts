@@ -14,6 +14,16 @@ import type {
 } from '../../../src/core/server';
 import type { ConfigSchema } from './config';
 import { LEGACY_LOGIN_PATHS, LOGIN_PATH, LOGOUT_PATH } from '../common';
+import { OVERVIEW_ROUTE } from '../common/integrations';
+import { buildOverview, SearchClient } from './overview';
+import { findEvent, findRelated, findSource } from './investigation';
+import {
+  INVESTIGATION_ROUTES,
+  MAX_QUERY_ENTITIES,
+  parseEntityKey,
+  RELATED_WINDOWS,
+  RelatedWindow,
+} from '../common/investigation';
 import {
   loginContentSecurityPolicy,
   logoutContentSecurityPolicy,
@@ -25,10 +35,31 @@ import {
 
 const NO_STORE_HEADERS = {
   'cache-control': 'no-store',
-  'referrer-policy': 'no-referrer',
+  // same-origin: con no-referrer Chrome envía Origin: null en el POST del login y la API lo rechaza.
+  'referrer-policy': 'same-origin',
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
 };
+
+interface SourceQuery {
+  id?: string;
+  ruleId?: string;
+  at?: string;
+  description?: string;
+}
+
+interface RelatedQuery {
+  e: string | string[];
+  at: string;
+  window: string;
+  exclude?: string;
+  cursor?: string;
+}
+
+const idValidator = (value: string) =>
+  /^[A-Za-z0-9_-]{1,128}$/u.test(value) ? undefined : 'identificador no válido';
+const digitsValidator = (value: string) =>
+  /^\d{1,10}$/u.test(value) ? undefined : 'regla no válida';
 
 export class QapaqOpsServerPlugin implements Plugin<void, void> {
   private readonly logger: Logger;
@@ -42,10 +73,109 @@ export class QapaqOpsServerPlugin implements Plugin<void, void> {
       .create<ConfigSchema>()
       .pipe(first())
       .toPromise();
-    if (!config.enabled || !config.login.enabled) return;
+    if (!config.enabled) return;
 
     const basePath = core.http.basePath.serverBasePath;
     const router = core.http.createRouter();
+
+    // «Resumen del SOC» e «Integraciones»: agregaciones del Indexer con la identidad de quien
+    // mira (proxy auth). Nunca con la identidad interna del dashboard.
+    router.get({ path: OVERVIEW_ROUTE, validate: false }, async (context, _request, response) => {
+      const client = (
+        context as { core: { opensearch: { client: { asCurrentUser: SearchClient } } } }
+      ).core.opensearch.client.asCurrentUser;
+      const body = await buildOverview(client, config.integrations);
+      return response.ok({
+        body,
+        headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
+      });
+    });
+
+    // Investigación de alertas: evento de origen, eventos relacionados por entidad y documento
+    // completo. Siempre con la identidad de quien mira (asCurrentUser), como el resumen.
+    const currentUser = (context: unknown): SearchClient =>
+      (context as { core: { opensearch: { client: { asCurrentUser: SearchClient } } } }).core
+        .opensearch.client.asCurrentUser;
+    const json = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
+    const docId = schema.string({ maxLength: 128, validate: idValidator });
+    router.get(
+      {
+        path: INVESTIGATION_ROUTES.source,
+        validate: {
+          query: schema.object({
+            id: schema.maybe(docId),
+            ruleId: schema.maybe(schema.string({ maxLength: 10, validate: digitsValidator })),
+            at: schema.maybe(schema.string({ maxLength: 40 })),
+            description: schema.maybe(schema.string({ maxLength: 400 })),
+          }),
+        },
+      },
+      async (context, request, response) =>
+        response.ok({
+          body: await findSource(currentUser(context), request.query as SourceQuery),
+          headers: json,
+        }),
+    );
+    router.get(
+      {
+        path: INVESTIGATION_ROUTES.event,
+        validate: { query: schema.object({ id: docId }) },
+      },
+      async (context, request, response) =>
+        response.ok({
+          body: await findEvent(currentUser(context), (request.query as { id: string }).id),
+          headers: json,
+        }),
+    );
+    router.get(
+      {
+        path: INVESTIGATION_ROUTES.related,
+        validate: {
+          query: schema.object({
+            e: schema.oneOf([
+              schema.string({ maxLength: 300 }),
+              schema.arrayOf(schema.string({ maxLength: 300 }), { maxSize: MAX_QUERY_ENTITIES }),
+            ]),
+            at: schema.string({ maxLength: 40 }),
+            window: schema.string({ defaultValue: '24h', maxLength: 4 }),
+            exclude: schema.maybe(docId),
+            cursor: schema.maybe(schema.string({ maxLength: 2048 })),
+          }),
+        },
+      },
+      async (context, request, response) => {
+        const query = request.query as RelatedQuery;
+        const keys = Array.isArray(query.e) ? query.e : [query.e];
+        const entities = keys
+          .map(parseEntityKey)
+          .filter((entity): entity is NonNullable<typeof entity> => entity !== null);
+        const at = Date.parse(query.at);
+        const window = (RELATED_WINDOWS as readonly string[]).includes(query.window)
+          ? (query.window as RelatedWindow)
+          : '24h';
+        if (!Number.isFinite(at) || entities.length === 0) {
+          return response.badRequest({ body: 'Entidad u hora no válidas.' });
+        }
+        try {
+          return response.ok({
+            body: await findRelated(currentUser(context), {
+              entities,
+              at,
+              window,
+              excludeId: query.exclude,
+              cursor: query.cursor,
+            }),
+            headers: json,
+          });
+        } catch {
+          return response.badRequest({
+            body: 'Cursor de investigacion no valido para estos filtros.',
+          });
+        }
+      },
+    );
+
+    if (!config.login.enabled) return;
 
     // El login de Wazuh / Security plugin deja de existir: cualquier navegación a él
     // (redirect por sesión ausente, enlace antiguo, logout) llega al login QAPAQ.
@@ -81,6 +211,8 @@ export class QapaqOpsServerPlugin implements Plugin<void, void> {
             notice,
             nonce,
             destinationLabel: config.login.destinationLabel,
+            passwordEnabled: config.login.passwordEnabled,
+            entraEnabled: config.login.entraEnabled,
           }),
           headers: {
             ...NO_STORE_HEADERS,

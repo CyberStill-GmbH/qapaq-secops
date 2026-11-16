@@ -1,0 +1,37 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-WIN-001
+title: Outlook lanza un proceso sospechoso (Sysmon 1)
+source: windows
+use_case: outlook-child-process
+status: experimental
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Un adjunto o enlace malicioso hace que Outlook ejecute un intérprete o binario LOLBin.
+data_sources:
+- Sysmon Event ID 1 (grupo windows-telemetry-extended, opt-in con gate de privacidad)
+rules:
+  file: infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml
+  ids:
+  - 101100
+mitre:
+- technique: T1204.002
+  tactic: execution
+severity:
+  levels: '8'
+  priority_hint: P2
+  rationale: Patrón de phishing con alta precisión (SigmaHQ 208748f7) pero depende de Sysmon, que hoy no está desplegado.
+false_positives:
+- Complementos de Outlook que lanzan procesos auxiliares (inventariar y excluir por hash/firma).
+tuning: []
+tests:
+  runner: validator
+  script: infra/wazuh/endpoint/tests/validate-fixtures.py
+  fixtures: infra/wazuh/endpoint/tests/sysmon-cases.jsonl
+  expected: infra/wazuh/endpoint/tests/expected-rules.txt
+runbook: docs/detection-engineering/runbooks/malware-edr.md
+notes: 'Sin datos: no hay agentes Windows con Sysmon (backlog BL-E01).'

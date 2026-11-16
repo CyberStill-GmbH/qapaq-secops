@@ -51,16 +51,45 @@ export function discoverUrlForEntity(
   const query = entityQuery(entity);
   const at = Date.parse(occurredAt);
   if (!query || Number.isNaN(at)) return null;
-  const from = new Date(at - windowMs).toISOString();
-  const to = new Date(at + windowMs).toISOString();
+  return discoverUrlForQuery(
+    basePath,
+    query,
+    new Date(at - windowMs).toISOString(),
+    new Date(at + windowMs).toISOString(),
+  );
+}
+
+/** Discover sobre `wazuh-alerts-*` con una consulta KQL y una ventana absoluta (ISO 8601). */
+export function discoverUrlForQuery(basePath: string, kql: string, from: string, to: string) {
   const app = `(discover:(columns:!(_source),isDirty:!f,sort:!()),metadata:(indexPattern:${risonString(
     ALERTS_INDEX_PATTERN,
   )},view:discover))`;
   const global = `(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:${risonString(
     from,
   )},to:${risonString(to)}))`;
-  const q = `(filters:!(),query:(language:kuery,query:${risonString(query)}))`;
+  const q = `(filters:!(),query:(language:kuery,query:${risonString(kql)}))`;
   return `${basePath}/app/data-explorer/discover#?_a=${encodeURIComponent(
     app,
   )}&_g=${encodeURIComponent(global)}&_q=${encodeURIComponent(q)}`;
+}
+
+/**
+ * «Threat Hunting» de la app de Wazuh (pestaña Eventos) con la misma consulta y ventana. El
+ * estado va en el hash (`_a` con la consulta, `_g` con el tiempo), como lo escribe la propia app.
+ */
+export function threatHuntingUrl(basePath: string, kql: string, from: string, to: string) {
+  const app = `(filters:!(),query:(language:kuery,query:${risonString(kql)}))`;
+  const global = `(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:${risonString(
+    from,
+  )},to:${risonString(to)}))`;
+  return `${basePath}/app/threat-hunting#/overview/?tab=general&tabView=events&_a=${encodeURIComponent(
+    app,
+  )}&_g=${encodeURIComponent(global)}`;
+}
+
+/** Página de la técnica en MITRE ATT&CK (T1562.001 → techniques/T1562/001/). */
+export function mitreTechniqueUrl(id: string): string | null {
+  const match = /^(T\d{4})(?:\.(\d{3}))?$/u.exec(id.trim());
+  if (!match) return null;
+  return `https://attack.mitre.org/techniques/${match[1]}/${match[2] ? `${match[2]}/` : ''}`;
 }

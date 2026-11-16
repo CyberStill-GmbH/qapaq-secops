@@ -1,0 +1,68 @@
+# QAPAQ — gateway C-28 mínimo con token estático, para un solo nodo sin Entra
+# (API con QAPAQ_WAZUH_GATEWAY_AUTH=static-token). Ver docs/04-identidad-y-acceso.md,
+# «Ingesta de Wazuh sin Entra».
+#
+# Mismo contrato que KrakenD (platform/gateway/krakend/routes.json): solo
+#   GET  /wazuh/_cluster/health -> /_cluster/health
+#   POST /wazuh/_search         -> /wazuh-alerts-*/_search
+# El cliente no elige upstream, índice ni query string; el resto responde 404.
+#
+# Uso con la imagen oficial de nginx: montar este archivo en /etc/nginx/templates/ (el
+# entrypoint lo renderiza con envsubst SOLO hacia el filesystem del contenedor) y definir:
+#   QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN  el mismo token que recibe el API (secreto, 0600 en el host)
+#   WAZUH_INDEXER_BASIC_AUTH_B64    base64("qapaq_reader:<contraseña>"): usuario del Indexer con
+#                                   rol qapaq_alerts_read (read sobre wazuh-alerts-* y
+#                                   cluster_monitor; ver wazuh/access/apply-access.sh)
+#   WAZUH_INDEXER_UPSTREAM          host:puerto del Indexer, p. ej. wazuh.indexer:9200
+#   WAZUH_INDEXER_TLS_NAME          nombre del certificado del Indexer (SAN), p. ej. wazuh.indexer
+# y montar (solo lectura):
+#   /etc/qapaq-gateway/tls/cert.pem, key.pem  certificado del gateway para el nombre que usa el
+#                                           API (firmado por la CA que el API confía)
+#   /etc/qapaq-gateway/indexer-ca.pem         CA del Indexer (verificación y pinning del upstream)
+# No publicar el puerto: solo la red interna de Docker donde vive el API.
+
+server {
+  listen 8443 ssl;
+  server_name _;
+  ssl_certificate     /etc/qapaq-gateway/tls/cert.pem;
+  ssl_certificate_key /etc/qapaq-gateway/tls/key.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  server_tokens off;
+  # Nunca registrar peticiones: llevan el bearer.
+  access_log off;
+  client_max_body_size 64k;
+
+  proxy_ssl_verify on;
+  proxy_ssl_verify_depth 3;
+  proxy_ssl_trusted_certificate /etc/qapaq-gateway/indexer-ca.pem;
+  proxy_ssl_name ${WAZUH_INDEXER_TLS_NAME};
+  proxy_ssl_server_name on;
+  proxy_ssl_protocols TLSv1.2 TLSv1.3;
+  proxy_hide_header Server;
+  proxy_hide_header X-Powered-By;
+
+  location = /wazuh/_search {
+    # Comparación exacta y sensible a mayúsculas (un `map` de nginx no lo es).
+    if ($http_authorization != "Bearer ${QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN}") { return 401; }
+    if ($args != "") { return 400; }
+    limit_except POST { deny all; }
+    proxy_set_header Authorization "Basic ${WAZUH_INDEXER_BASIC_AUTH_B64}";
+    proxy_set_header Cookie "";
+    proxy_set_header Content-Type "application/json";
+    proxy_read_timeout 15s;
+    proxy_pass https://${WAZUH_INDEXER_UPSTREAM}/wazuh-alerts-*/_search;
+  }
+
+  location = /wazuh/_cluster/health {
+    # Comparación exacta y sensible a mayúsculas (un `map` de nginx no lo es).
+    if ($http_authorization != "Bearer ${QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN}") { return 401; }
+    if ($args != "") { return 400; }
+    limit_except GET { deny all; }
+    proxy_set_header Authorization "Basic ${WAZUH_INDEXER_BASIC_AUTH_B64}";
+    proxy_set_header Cookie "";
+    proxy_read_timeout 5s;
+    proxy_pass https://${WAZUH_INDEXER_UPSTREAM}/_cluster/health;
+  }
+
+  location / { return 404; }
+}

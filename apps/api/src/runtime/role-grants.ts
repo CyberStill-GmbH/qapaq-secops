@@ -19,13 +19,24 @@ export interface GroupOwnerSource {
   /** Miembros vigentes del grupo sincronizado; solo cuenta si ese grupo es admin. */
   isMember?(oid: string): Promise<boolean>;
   /** Object ID del grupo sincronizado, en minúsculas. */
-  readonly groupId?: string;
+  readonly groupId?: string | undefined;
 }
 
 export type RoleGrantResolver = (
   oid: string | undefined,
   groups?: readonly string[],
 ) => Promise<readonly string[]>;
+
+/**
+ * Roles que se aceptan del claim `roles` del ID token (app roles de Entra). Los aprobadores
+ * nunca: solo los concede la declaración explícita del deploy (`QAPAQ_ACCESS_APPROVER_OIDS`,
+ * `QAPAQ_SECURITY_APPROVER_OIDS`), así que un app role con ese nombre no aporta nada.
+ */
+export function rolesFromIdToken(roles: readonly string[] | undefined): string[] {
+  return (roles ?? []).filter(
+    (role) => role !== ACCESS_APPROVER_ROLE && role !== SECURITY_APPROVER_ROLE,
+  );
+}
 
 /** El padrón se considera viejo después de tres ciclos de sincronización. */
 export const ROSTER_STALE_AFTER_INTERVALS = 3;
@@ -49,8 +60,6 @@ export function createRoleGrantResolver(
   const adminGroups = new Set(config.adminGroupIds);
   const accessApprovers = new Set(config.accessApproverOids ?? []);
   const securityApprovers = new Set(config.securityApproverOids ?? []);
-  const directoryIsAdmin =
-    directory?.groupId !== undefined && adminGroups.has(directory.groupId.toLowerCase());
 
   return async (oid, groups = []) => {
     if (!oid) return [];
@@ -64,6 +73,10 @@ export function createRoleGrantResolver(
       deployOwners.has(key) || groups.some((group) => adminGroups.has(group.toLowerCase()));
     if (!admin && directory) {
       try {
+        // `directory` may be a lazy source: its group ID is undefined at construction time and
+        // becomes available after Graph resolves the configured group name. Read it per login.
+        const directoryIsAdmin =
+          directory.groupId !== undefined && adminGroups.has(directory.groupId.toLowerCase());
         admin =
           (await directory.owners()).has(key) ||
           (directoryIsAdmin && (await directory.isMember?.(key)) === true);

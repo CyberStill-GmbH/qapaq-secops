@@ -11,16 +11,74 @@ export {
 export {
   ACKNOWLEDGEMENT_ERROR_CODES,
   acknowledge,
+  AWAITING_ACKNOWLEDGEMENT,
   clientRequestIdFor,
   createAttempt,
+  deliveryLabel,
   NOTIFICATION_CHANNELS,
   NOTIFICATION_STATUSES,
+  supersede,
+  SUPPRESSION_REASONS,
   type AcknowledgementErrorCode,
   type AcknowledgementResult,
+  type DeliveryEvidence,
   type NotificationAttempt,
   type NotificationChannel,
   type NotificationStatus,
+  type SuppressionReason,
 } from './notification.js';
+export {
+  contextFromMessage,
+  ENTITY_LABELS,
+  entityFromKeys,
+  groupKeyFor,
+  maskText,
+  PRIORITIES,
+  sourceFromTitle,
+  vendorFor,
+  type CorrelationSummary,
+  type NotificationContext,
+  type NotificationEnricher,
+  type NotificationEntity,
+  type NotificationPriority,
+} from './notification-context.js';
+export {
+  DEFAULT_NOTIFICATION_POLICY,
+  decideNotification,
+  notificationPolicyFrom,
+  type NotificationPolicyConfig,
+  type PolicyDecision,
+  type PolicyHistory,
+} from './notification-policy.js';
+export {
+  buildAlertCard,
+  buildAlertEmail,
+  buildDigestCard,
+  buildDigestEmail,
+  formatLocal,
+  incidentLink,
+  investigationLink,
+  linksFor,
+  notificationLink,
+  notificationSections,
+  NOTIFICATION_CONTENT_VERSION,
+  PRIORITY_STYLE,
+  type AlertNotificationInput,
+  type DigestInput,
+  type DigestLine,
+  type NotificationLinks,
+  type RenderedEmail,
+  type TeamsCardMessage,
+} from './notification-content.js';
+export {
+  DIGEST_GROUPS,
+  runAnalystDigest,
+  runLowPriorityDigest,
+  runSuppressedDigest,
+  type AnalystDigestInput,
+  type DigestDependencies,
+  type LowPriorityAlert,
+} from './notification-digest.js';
 export {
   buildTeamsMessage,
   FORBIDDEN_PAYLOAD_KEYS,
@@ -29,12 +87,14 @@ export {
   type TeamsMessage,
 } from './teams-payload.js';
 export {
+  providerMessageIdOf,
   TeamsWorkflowTransport,
   type DeliveryOutcome,
   type NotificationTransport,
   type TeamsTransportOptions,
 } from './teams-adapter.js';
 export {
+  contextOf,
   DISPATCH_RESULTS,
   dispatchMessage,
   drainOutbox,
@@ -43,7 +103,14 @@ export {
   type DispatchResultCode,
 } from './dispatcher.js';
 export { ConsoleFallbackChannel, InMemoryAttemptStore, InMemoryOutbox } from './memory-stores.js';
-export type { AttemptStore, FallbackChannel, FallbackNotification, OutboxReader } from './ports.js';
+export type {
+  AttemptStore,
+  FallbackChannel,
+  FallbackNotification,
+  MailChannel,
+  OutboxReader,
+  ProviderAcceptanceLatency,
+} from './ports.js';
 export {
   MAXIMUM_MENTIONS,
   NOTIFICATION_ROUTES,
@@ -65,3 +132,17 @@ export {
   type PushValidation,
 } from './push.js';
 export { InMemoryPushSubscriptionStore } from './memory-push-store.js';
+export {
+  CHANNEL_IDS,
+  EMPTY_HEALTH,
+  emptyChannel,
+  InMemoryChannelStore,
+  maskWebhookUrl,
+  validateTeamsWebhookUrl,
+  WEBHOOK_URL_MAXIMUM,
+  type ChannelHealth,
+  type ChannelId,
+  type ChannelRecord,
+  type ChannelStore,
+  type WebhookValidation,
+} from './notification-channels.js';

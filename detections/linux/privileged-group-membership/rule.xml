@@ -1,0 +1,19 @@
+<!--
+  QAPAQ SOC · detección como código · detections/linux/privileged-group-membership (metadata.yaml).
+  Usuario agregado a un grupo que equivale a root (sudo, wheel, admin, root, docker, lxd, disk) o que
+  lee secretos y logs (shadow, adm). La oficial 2961 solo eleva sudo y a nivel 5.
+  Limitación: solo el decoder gpasswd extrae el grupo; `usermod -aG` no tiene decoder (backlog BL-L03).
+  Rango QAPAQ Linux: 101750-101769. Se instala como qapaq_soc_linux_privileged_group_membership.xml.
+-->
+<group name="syslog,qapaq_linux,">
+  <rule id="101752" level="10">
+    <if_sid>2960, 2961</if_sid>
+    <field name="group" type="pcre2">^(sudo|wheel|admin|root|docker|lxd|disk|shadow|adm)$</field>
+    <description>QAPAQ Linux: $(srcuser) agregó a $(dstuser) al grupo privilegiado $(group).</description>
+    <mitre>
+      <id>T1098.007</id>
+      <id>T1548</id>
+    </mitre>
+    <group>qapaq_privilege_escalation,</group>
+  </rule>
+</group>

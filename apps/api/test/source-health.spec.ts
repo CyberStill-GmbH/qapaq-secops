@@ -13,12 +13,53 @@ import { InMemoryIngestionState } from '@qapaq/soc';
 import {
   measureSourceActivity,
   recordSourceHealth,
+  sourceEventLagSummary,
   sourceHealthMonitor,
 } from '../src/runtime/source-health.js';
 
 const KEY = { tenantId: 'tenant-sh', sourceId: 'wazuh-indexer', dataset: 'wazuh-alerts' };
 
 describe('registro de la salud por fuente', () => {
+  it('estima lag por ventana y excluye los timestamps futuros como skew', () => {
+    const base = {
+      id: 'poll',
+      ...KEY,
+      attemptedAt: new Date('2026-10-12T20:00:00.000Z'),
+      completedAt: new Date('2026-10-12T20:00:02.000Z'),
+      outcome: 'success' as const,
+      recordsSeen: 1,
+      normalized: 1,
+      promoted: 1,
+      quarantined: 0,
+      duplicates: 0,
+      notPromoted: 0,
+      belowThreshold: 0,
+      suppressed: 0,
+      errorClass: null,
+    };
+    const summary = sourceEventLagSummary([
+      { ...base, newestEventAt: new Date('2026-10-12T19:59:59.000Z') },
+      {
+        ...base,
+        id: 'future-clock',
+        newestEventAt: new Date('2026-10-12T20:00:05.000Z'),
+      },
+      { ...base, id: 'empty', newestEventAt: null },
+      { ...base, id: 'failed', outcome: 'permanent_error', newestEventAt: null },
+    ]);
+
+    expect(summary).toEqual({
+      sampleWindow: 50,
+      sampleCount: 1,
+      clockSkewSamples: 1,
+      measuredAt: base.completedAt,
+      p50Ms: 3_000,
+      p95Ms: 3_000,
+      p99Ms: 3_000,
+    });
+    expect(sourceEventLagSummary([])).toMatchObject({ sampleCount: 0, p95Ms: null });
+  });
+
   it('escribe una transición y un AuditEvent solo cuando cambia el estado', async () => {
     const state = new InMemoryIngestionState();
     const audit = new InMemoryAuditStore();
@@ -37,8 +78,13 @@ describe('registro de la salud por fuente', () => {
         completedAt: at(minute),
         outcome,
         recordsSeen: 0,
+        normalized: 0,
         promoted: 0,
         quarantined: 0,
+        duplicates: 0,
+        notPromoted: 0,
+        belowThreshold: 0,
+        suppressed: 0,
         newestEventAt: null,
         errorClass: outcome === 'success' ? null : 'PROVIDER_AUTHENTICATION_FAILED',
       });

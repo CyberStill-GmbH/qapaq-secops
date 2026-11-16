@@ -1,0 +1,43 @@
+{
+  "name": "qapaq-waf-blocks-per-zone",
+  "description": "QAPAQ: volumen anómalo de bloqueos y desafíos del WAF de Cloudflare por zona (docs/detection-engineering/07)",
+  "time_field": "timestamp",
+  "indices": ["wazuh-alerts-*"],
+  "filter_query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "rule.groups": "qapaq_waf"
+          }
+        }
+      ]
+    }
+  },
+  "feature_attributes": [
+    {
+      "feature_name": "waf_events",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "waf_events": {
+          "value_count": {
+            "field": "rule.id"
+          }
+        }
+      }
+    }
+  ],
+  "detection_interval": {
+    "period": {
+      "interval": 10,
+      "unit": "Minutes"
+    }
+  },
+  "window_delay": {
+    "period": {
+      "interval": 5,
+      "unit": "Minutes"
+    }
+  },
+  "category_field": ["data.cloudflare.zone_name"]
+}

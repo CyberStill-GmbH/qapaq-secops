@@ -1,0 +1,47 @@
+# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-AD-002
+title: Kerberoasting, AS-REP roasting, DCSync y spray Kerberos
+source: ad
+use_case: kerberos-attacks
+status: experimental
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: El atacante abusa de Kerberos para obtener hashes crackeables o replica el directorio.
+data_sources:
+- Windows Security de DC (4769, 4768, 4662, 4771)
+rules:
+  file: infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml
+  ids:
+  - 101304
+  - 101305
+  - 101306
+  - 101307
+mitre:
+- technique: T1558.003
+  tactic: credential-access
+- technique: T1558.004
+  tactic: credential-access
+- technique: T1003.006
+  tactic: credential-access
+- technique: T1110.003
+  tactic: credential-access
+severity:
+  levels: 5-7 (candidatos que se agrupan antes de elevar)
+  priority_hint: P3 aislado; P1 si se correlaciona
+  rationale: Señales con falsos positivos de compatibilidad (RC4, cuentas sin preautenticación) que necesitan contexto.
+false_positives:
+- Aplicaciones heredadas que exigen RC4.
+- Replicación legítima entre DC (DCSync candidato).
+tuning: []
+tests:
+  runner: logtest
+  suite: active-directory
+  fixtures: infra/wazuh/active-directory/tests/ad-cases.jsonl
+  expected: infra/wazuh/active-directory/tests/expected-rules.txt
+runbook: docs/detection-engineering/runbooks/credenciales.md#kerberos
+notes: 'Sin datos: no hay DC con agente (backlog BL-E02).'
