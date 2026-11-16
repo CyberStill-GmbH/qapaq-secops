@@ -2,7 +2,7 @@
   <img src="docs/reference/assets/qapaq-logo.png" alt="Qapaq, una financiera solidaria" width="320" />
 </p>
 
-# QAPAQ SOC
+# QAPAQ SecOps
 
 **Plataforma de operaciones de seguridad de la fintech QAPAQ.** Una URL y un login dan acceso al SIEM
 (Wazuh con marca QAPAQ), a la cola de alertas, los incidentes y la auditoría del motor QAPAQ, a la
@@ -48,7 +48,7 @@ Requisitos: Node 24.21 y pnpm 12.4 ([toolchain](docs/reference/toolchain-and-cap
 
 ## Licencias y atribución
 
-Código QAPAQ: ver [LICENSE](LICENSE). QAPAQ SOC se basa en software abierto que conserva sus licencias:
+Código QAPAQ: ver [LICENSE](LICENSE). QAPAQ SecOps se basa en software abierto que conserva sus licencias:
 Wazuh (manager, reglas y decoders, GPLv2), Wazuh Indexer y Dashboard / OpenSearch (Apache-2.0) y
 Shuffle (AGPL-3.0), base de Ankay, cuyo código fuente modificado se publica dentro de la imagen
 del frontend. Las reglas derivadas que viven en `wazuh/` y `detections/` mantienen la atribución GPLv2.

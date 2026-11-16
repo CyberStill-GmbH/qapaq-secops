@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/entra/privileged-role-assignment (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/entra/privileged-role-assignment (metadata.yaml).
   Refina 100520 (rol privilegiado de Entra) cuando el rol es tier 0: control total del tenant.
   Rango QAPAQ: 101704 (bloque M365/Entra 101700-101709). Se instala como qapaq_soc_entra_privileged_role_assignment.xml.
   Mismo gate que 100520: qapaq_pending_provider_evidence hasta tener un registro real redactado como fixture.

@@ -387,7 +387,7 @@ def build() -> list[dict]:
             f"{name} · integración",
             f"### ![{LOGO_ALT[pid]}]({LOGO_PATH}/{LOGOS[pid]}) {name[6:]}\n\n{provider['about']}\n\n"
             f"**Reglas Wazuh:** {provider['rules']} · **Filtro:** `{query}` · "
-            f"Estado y permisos en **QAPAQ SOC → Integraciones**.",
+            f"Estado y permisos en **QAPAQ SecOps → Integraciones**.",
             description="Contexto de la fuente, cobertura de eventos y referencia de reglas.",
         )
         events = metric(

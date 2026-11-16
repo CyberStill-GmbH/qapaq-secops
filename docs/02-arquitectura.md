@@ -8,7 +8,7 @@
 
 ## En una frase
 
-**QAPAQ SOC corre en un solo nodo EC2 con Docker**: Wazuh 4.14.8 (manager, indexer y dashboard con
+**QAPAQ SecOps corre en un solo nodo EC2 con Docker**: Wazuh 4.14.8 (manager, indexer y dashboard con
 marca QAPAQ), el motor QAPAQ (API TypeScript + PostgreSQL), Ankay (SOAR) y un edge nginx que
 impone la sesión QAPAQ en todo. Delante hay un ALB con WAF. No se usa ningún recurso IAM: la cuenta
 solo concede el permission set `SOC-PowerUser`, que no puede crear roles ni hacer `iam:PassRole`.

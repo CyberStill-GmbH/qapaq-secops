@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QAPAQ SOC: correo de alertas críticas/altas de Wazuh vía Microsoft Graph ``sendMail``.
+"""QAPAQ SecOps: correo de alertas críticas/altas de Wazuh vía Microsoft Graph ``sendMail``.
 
 Se ejecuta cada ``ALERT_INTERVAL_MIN`` (timer systemd). Lee ``alerts.json`` del manager desde el
 último offset (detecta rotación por inode/tamaño), filtra ``rule.level >= min_level`` (por defecto
@@ -39,7 +39,7 @@ LOGIN = "https://login.microsoftonline.com"
 DEFAULT_CONSOLE = "https://dev.security.qapaq.pe/app/qapaq-alerts"
 MAX_READ_BYTES = 64 * 1024 * 1024
 MAX_PENDING = 500
-TEST_SUBJECT = "[QAPAQ SOC] Prueba de alertas"
+TEST_SUBJECT = "[QAPAQ SecOps] Prueba de alertas"
 
 
 def severity(level: int) -> str:
@@ -90,8 +90,8 @@ def read_new_alerts(path: pathlib.Path, state: dict, min_level: int) -> tuple[li
 def render(alerts: list[dict], omitted: int, console: str) -> tuple[str, str, str]:
     alerts = sorted(alerts, key=lambda a: (-a["level"], a["timestamp"]))
     critical = sum(1 for a in alerts if a["level"] >= 12)
-    subject = f"[QAPAQ SOC] {len(alerts) + omitted} alerta(s): {critical} crítica(s), {len(alerts) - critical} alta(s)"
-    lines = ["QAPAQ SOC — alertas críticas y altas de Wazuh", ""]
+    subject = f"[QAPAQ SecOps] {len(alerts) + omitted} alerta(s): {critical} crítica(s), {len(alerts) - critical} alta(s)"
+    lines = ["QAPAQ SecOps — alertas críticas y altas de Wazuh", ""]
     rows = []
     for a in alerts:
         lines.append(f"- [{severity(a['level'])} · nivel {a['level']}] {a['description']} "
@@ -113,7 +113,7 @@ def render(alerts: list[dict], omitted: int, console: str) -> tuple[str, str, st
     body_html = (
         "<div style='font-family:Segoe UI,Arial,sans-serif;color:#111827;max-width:880px'>"
         "<div style='background:#0f172a;color:#fff;padding:14px 18px;border-radius:8px 8px 0 0'>"
-        "<strong style='font-size:18px'>QAPAQ SOC</strong> · alertas críticas y altas</div>"
+        "<strong style='font-size:18px'>QAPAQ SecOps</strong> · alertas críticas y altas</div>"
         "<div style='border:1px solid #e5e7eb;border-top:0;padding:16px 18px;border-radius:0 0 8px 8px'>"
         f"<p>{len(alerts) + omitted} alerta(s) nuevas con nivel alto o crítico en Wazuh.</p>"
         "<table style='border-collapse:collapse;width:100%;font-size:13px'>"

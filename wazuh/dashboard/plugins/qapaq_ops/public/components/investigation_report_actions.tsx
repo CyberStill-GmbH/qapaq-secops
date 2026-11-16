@@ -114,7 +114,7 @@ export function InvestigationReportActions({
           suggestedName: filename,
           types: [
             {
-              description: 'Libro Excel de QAPAQ SOC',
+              description: 'Libro Excel de QAPAQ SecOps',
               accept: {
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
               },
@@ -145,7 +145,7 @@ export function InvestigationReportActions({
     if (opened) {
       opened.document.open();
       opened.document.write(
-        '<!doctype html><html lang="es"><meta charset="utf-8"><title>QAPAQ SOC · Preparando informe</title><body style="font:16px Arial;padding:32px;color:#263444"><h1>QAPAQ SOC · Preparando informe</h1><p>Consultando el historial autorizado de la investigación…</p><p>Esta ventana mostrará la opción de imprimir o guardar como PDF cuando termine.</p></body></html>',
+        '<!doctype html><html lang="es"><meta charset="utf-8"><title>QAPAQ SecOps · Preparando informe</title><body style="font:16px Arial;padding:32px;color:#263444"><h1>QAPAQ SecOps · Preparando informe</h1><p>Consultando el historial autorizado de la investigación…</p><p>Esta ventana mostrará la opción de imprimir o guardar como PDF cuando termine.</p></body></html>',
       );
       opened.document.close();
     }
@@ -183,7 +183,7 @@ export function InvestigationReportActions({
           highestProgress.current = percent;
           setProgress({ ...next, percent });
           if (next.phase === 'query' && printWindow.current && !printWindow.current.closed) {
-            printWindow.current.document.body.innerHTML = `<h1>QAPAQ SOC · Preparando informe</h1><p>${escapeHtml(next.message)}</p>`;
+            printWindow.current.document.body.innerHTML = `<h1>QAPAQ SecOps · Preparando informe</h1><p>${escapeHtml(next.message)}</p>`;
           }
         },
       });

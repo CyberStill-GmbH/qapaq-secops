@@ -1,7 +1,7 @@
 # Wazuh → Microsoft Teams Workflows
 
 > **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
-> [`docs/archive/azure`](../../../docs/archive/azure/README.md). QAPAQ SOC opera solo en AWS ([02](../../../docs/02-arquitectura.md)); lo técnico
+> [`docs/archive/azure`](../../../docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](../../../docs/02-arquitectura.md)); lo técnico
 > que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
 
 Adaptador de notificación para **Wazuh Manager 4.x** (`wazuh-integratord`). No

@@ -1,5 +1,5 @@
 /**
- * Qapaqzito, el asistente de IA de QAPAQ SOC: `POST /api/assistant/chat` y el historial de
+ * Qapaqzito, el asistente de IA de QAPAQ SecOps: `POST /api/assistant/chat` y el historial de
  * conversaciones (`/api/assistant/conversations`).
  *
  * Reglas:

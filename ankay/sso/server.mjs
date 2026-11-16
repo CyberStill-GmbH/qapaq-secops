@@ -137,7 +137,7 @@ export function createHandler({
     const username = normalizeUser(req.headers['x-qapaq-user']);
     const roles = parseRoles(req.headers['x-qapaq-roles']);
     if (!username) {
-      sendPage(res, 401, 'Sesión no válida', 'No se pudo identificar tu sesión de QAPAQ SOC. Vuelve a iniciar sesión.');
+      sendPage(res, 401, 'Sesión no válida', 'No se pudo identificar tu sesión de QAPAQ SecOps. Vuelve a iniciar sesión.');
       return;
     }
     if (reserved.has(username)) {
@@ -150,7 +150,7 @@ export function createHandler({
       if (!fixed.has(username)) await withLock(username, () => revoke(username)).catch(() => undefined);
       log({ event: 'respond_sso.denied', user: username, reason: 'NO_MAPPED_ROLE', roles });
       send(res, 403, { 'content-type': 'text/html; charset=utf-8', 'set-cookie': clearCookies() },
-        page('Sin acceso a Ankay', 'Tu rol en QAPAQ SOC no incluye Ankay. Pide acceso a tu Líder SOC.'));
+        page('Sin acceso a Ankay', 'Tu rol en QAPAQ SecOps no incluye Ankay. Pide acceso a tu Líder SOC.'));
       return;
     }
     const next = safeNext(url.searchParams.get('next'));

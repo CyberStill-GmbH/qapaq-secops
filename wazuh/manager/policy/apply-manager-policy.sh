@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — política del manager: ossec.conf + reglas QAPAQ (docs/16-politicas.md). Idempotente.
+# QAPAQ SecOps — política del manager: ossec.conf + reglas QAPAQ (docs/16-politicas.md). Idempotente.
 #
 #   1. Reglas: comprueba que los IDs QAPAQ no colisionan entre sí ni con lo instalado
 #      (check_rule_ids.py) y prepara wazuh/office365/rules + infra/wazuh/*/rules.

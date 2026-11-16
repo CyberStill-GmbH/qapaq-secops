@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — aplica todas las políticas (docs/16-politicas.md) y luego las verifica. Idempotente.
+# QAPAQ SecOps — aplica todas las políticas (docs/16-politicas.md) y luego las verifica. Idempotente.
 # Corre EN el host de los contenedores (EC2 o local), como root en el EC2:
 #
 #   sudo bash infra/wazuh/policies/apply-policies.sh

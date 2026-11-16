@@ -2,7 +2,7 @@
 
 **Ayni Qapaq** es el espacio de trabajo en equipo para investigar señales que
 requieren atención, coordinar decisiones y conservar el aprendizaje sobre
-incidentes de seguridad. Forma parte de QAPAQ SOC; no es un SIEM separado ni
+incidentes de seguridad. Forma parte de QAPAQ SecOps; no es un SIEM separado ni
 una fuente alternativa de alertas. Corre como Lambda sobre Aurora Serverless v2
 (`modules/soc`; ver [02](../02-arquitectura.md)).
 
@@ -16,7 +16,7 @@ actividad que permita reconstruir lo ocurrido.
 Su diseño toma como referencia los patrones de colaboración de TheHive —casos,
 observables, tareas y trabajo en equipo— sin copiar su interfaz, vocabulario,
 modelo de datos ni código. La identidad visual, permisos, estados y contratos
-pertenecen a QAPAQ SOC.
+pertenecen a QAPAQ SecOps.
 
 ## Recorrido de una investigación
 
@@ -70,6 +70,6 @@ integración con Ankay estén ya desplegadas; cada etapa requiere pruebas y evid
 ## Documentación relacionada
 
 - [Arquitectura](../02-arquitectura.md) y [decisiones vigentes](../10-decisiones.md).
-- [Ankay](../13-ankay-qapaq.md) y [su conexión con QAPAQ SOC](../14-ankay-conexion-qapaq.md).
+- [Ankay](../13-ankay-qapaq.md) y [su conexión con QAPAQ SecOps](../14-ankay-conexion-qapaq.md).
 - [Dirección de producto (ADR-029, heredado)](decisiones/029-qapaq-secops-product-direction.md).
 - [Arquitectura resiliente (heredado)](qapaq-secops-resilient-architecture.md).

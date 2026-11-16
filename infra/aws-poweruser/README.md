@@ -1,4 +1,4 @@
-# QAPAQ SOC en AWS, modo PowerUser (`infra/aws-poweruser`)
+# QAPAQ SecOps en AWS, modo PowerUser (`infra/aws-poweruser`)
 
 Despliegue para cuentas donde el operador solo tiene el permission set **SOC-PowerUser**:
 no puede crear recursos IAM ni hacer `iam:PassRole`. Sin eso AWS no permite Lambda,

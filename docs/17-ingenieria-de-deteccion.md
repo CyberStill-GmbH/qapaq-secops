@@ -3,7 +3,7 @@
 > Leyenda: **[verificado]** hecho y comprobado contra el manager real; **[sin verificar]** existe en el repo
 > pero no se probó de extremo a extremo; **[propuesto]** diseño sin implementación. Estado al 2026-11-04.
 
-QAPAQ SOC detecta con Wazuh (reglas, capa 1 y 1b de [07](07-deteccion-ml-y-soar.md)), prioriza con QAPAQ Core
+QAPAQ SecOps detecta con Wazuh (reglas, capa 1 y 1b de [07](07-deteccion-ml-y-soar.md)), prioriza con QAPAQ Core
 (P1–P4 con razones, `modules/detection`) y responde con Ankay bajo aprobación humana
 ([13](13-ankay-qapaq.md), [14](14-ankay-conexion-qapaq.md)). Este documento define el **programa** que
 hace que eso funcione como una disciplina: cómo nace, se prueba, se despliega, se mide y se retira una

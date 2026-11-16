@@ -18,7 +18,7 @@ def test_sample_renders_multi_page(sample):
     reader = PdfReader(io.BytesIO(data))
     assert len(reader.pages) == pages and pages > 3
     assert reader.metadata.title == "Informe semanal de alertas"
-    assert reader.metadata.author == "QAPAQ SOC"
+    assert reader.metadata.author == "QAPAQ SecOps"
     text = "\n".join(p.extract_text() for p in reader.pages)
     assert "Resumen ejecutivo" in text
     assert "Fuentes" in text

@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/network-auditd (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/network-auditd (metadata.yaml).
   Llamadas de red auditadas por auditd (wazuh/manager/policy/shared/linux-servers/qapaq-audit-network.rules):
   connect/bind/accept de sesiones interactivas (auid>=1000), connect de www-data y ejecución de
   herramientas de red. La IP sale del registro SOCKADDR enriquecido (decoder hermano auditd-syscall en

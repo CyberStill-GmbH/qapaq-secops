@@ -1,4 +1,4 @@
-# QAPAQ SOC · reglas estándar de Wazuh 4.14.8 que generan alertas en QAPAQ, con guía de triage QAPAQ.
+# QAPAQ SecOps · reglas estándar de Wazuh 4.14.8 que generan alertas en QAPAQ, con guía de triage QAPAQ.
 #
 # No son reglas nuevas (vienen en /var/ossec/ruleset/rules del manager; aquí no se instalan):
 # este archivo solo da contexto al Analista IA y a Qapaqzito (apps/api/scripts/generate-qapaqzito-knowledge.py).

@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/network/cross-source-correlation (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/network/cross-source-correlation (metadata.yaml).
   La misma IP atacante en el WAF de Cloudflare, el edge del SOC y SSH.
   - Edge ↔ SSH: en tiempo real (srcip en ambos; if_matched_group + same_source_ip).
   - Cloudflare → edge/SSH: Cloudflare guarda la IP en cloudflare.firewall.client_ip (no en srcip) y

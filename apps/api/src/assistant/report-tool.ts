@@ -454,7 +454,7 @@ async function gatherAlerts(context: ToolContext, scope: Row): Promise<Gathered>
   return {
     kpis,
     sections,
-    sources: [`QAPAQ SOC API · alertas (consulta ${stamp(context.now)} hora de Lima)`],
+    sources: [`QAPAQ SecOps API · alertas (consulta ${stamp(context.now)} hora de Lima)`],
     period: { from: parsed.from.toISOString(), to: parsed.to.toISOString() },
     ...(filters.length > 0 ? { subtitle: `Filtros: ${filters.join(' · ')}` } : {}),
     rows: shown.length,
@@ -527,7 +527,7 @@ async function gatherInvestigation(context: ToolContext, scope: Row): Promise<Ga
   related.sort((a, b) => String(a['occurredAt']).localeCompare(String(b['occurredAt'])));
 
   // Eventos relacionados de la ventana (si la persona puede leer eventos).
-  const sources = [`QAPAQ SOC API · alerta ${alertId}`];
+  const sources = [`QAPAQ SecOps API · alerta ${alertId}`];
   let events: Row[] = [];
   let eventsNote: string | undefined;
   let eventsRead = false;
@@ -861,7 +861,7 @@ async function gatherIncident(context: ToolContext, scope: Row): Promise<Gathere
     ],
     sections,
     sources: [
-      `QAPAQ SOC API · incidente ${incidentId} (consulta ${stamp(context.now)} hora de Lima)`,
+      `QAPAQ SecOps API · incidente ${incidentId} (consulta ${stamp(context.now)} hora de Lima)`,
     ],
     subtitle: str(incident['title'], 200),
     rows: shownAlerts.length + tasks.length + incidentNotes.length,

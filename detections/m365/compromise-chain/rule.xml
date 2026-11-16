@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/m365/compromise-chain (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/m365/compromise-chain (metadata.yaml).
   Cadena de compromiso de cuenta Microsoft 365 dentro de Wazuh (capa 1b de docs/07): la MISMA
   cuenta que acaba de entrar tras fuerza bruta (100505), o un inicio exitoso desde la IP que hizo
   password spray (100504), seguido de privilegio, MFA o reenvío de correo.

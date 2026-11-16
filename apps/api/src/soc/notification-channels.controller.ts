@@ -47,7 +47,7 @@ export function needsRecentAuth(
   if (actor.roles.includes(PLATFORM_ADMIN_ROLE)) return false;
   return now.getTime() - session.createdAt.getTime() > RECENT_AUTH_MS;
 }
-const TEST_TITLE = '[QAPAQ SOC] Prueba de notificación';
+const TEST_TITLE = '[QAPAQ SecOps] Prueba de notificación';
 
 /**
  * `expectedRevision` es opcional (clientes anteriores no lo envían); si viene, debe ser un entero
@@ -211,7 +211,7 @@ export class NotificationChannelsController {
           title: TEST_TITLE,
           priority: 'P4',
           severity: null,
-          source: { id: 'qapaq', vendor: 'QAPAQ SOC (prueba manual)' },
+          source: { id: 'qapaq', vendor: 'QAPAQ SecOps (prueba manual)' },
           entity: null,
           ruleId: null,
           summary: 'Mensaje de verificación del canal de avisos. No requiere acción: si lo ves en el canal, la entrega a Microsoft Teams funciona.',

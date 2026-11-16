@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/sharepoint/exfiltration (metadata.yaml, docs/23).
+  QAPAQ SecOps · detección como código · detections/sharepoint/exfiltration (metadata.yaml, docs/23).
   Exfiltración desde SharePoint/OneDrive sobre la forma del módulo office365 de Wazuh. Sirven las dos vías:
   módulo nativo (Audit.SharePoint, ActivityFeed.Read) y collector Purview Audit Search
   (wazuh/provider-ingestion/sharepoint, mismo office365.* + contexto qapaq.*).

@@ -46,7 +46,7 @@ resource "aws_acm_certificate_validation" "soc" {
 
 resource "aws_security_group" "alb" {
   name        = "${var.name}-alb"
-  description = "QAPAQ SOC public ALB"
+  description = "QAPAQ SecOps public ALB"
   vpc_id      = aws_vpc.this.id
   tags        = { Name = "${var.name}-alb" }
 }

@@ -1,7 +1,7 @@
 # Microsoft 365 → Wazuh como código
 
 > **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
-> [`docs/archive/azure`](../../docs/archive/azure/README.md). QAPAQ SOC opera solo en AWS ([02](../../docs/02-arquitectura.md)); lo técnico
+> [`docs/archive/azure`](../../docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](../../docs/02-arquitectura.md)); lo técnico
 > que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
 
 Estado: reglas y script **verificados contra Wazuh 4.14.7 real** (`wazuh-logtest`, 48/48

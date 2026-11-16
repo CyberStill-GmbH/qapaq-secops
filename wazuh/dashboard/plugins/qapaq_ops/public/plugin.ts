@@ -27,7 +27,7 @@ import { QapaqzitoState, mountQapaqzitoPanel, registerQapaqzitoLauncher } from '
 /**
  * Plugin público de QAPAQ SecOps para OSD 2.19.6.
  *
- * - Registra la categoría «QAPAQ SOC» primera en el menú.
+ * - Registra la categoría «QAPAQ SecOps» primera en el menú.
  * - Un único cliente de API y un único long-poll de `/api/changes` por página del dashboard,
  *   compartidos por todas las apps QAPAQ y por el aviso de P1 de la cabecera.
  * - No importa valores del core en tiempo de ejecución (solo tipos): el plugin no depende de
@@ -63,7 +63,7 @@ export class QapaqOpsPublicPlugin implements Plugin<void, void> {
       order: -1000,
       euiIconType: core.http.basePath.prepend(`${BRAND_ASSETS_PATH}/qapaq-observability.svg`),
     };
-    // «Monitoreo» justo debajo de «QAPAQ SOC»: la vigilancia en vivo (cola de alertas) separada
+    // «Monitoreo» justo debajo de «QAPAQ SecOps»: la vigilancia en vivo (cola de alertas) separada
     // del resumen, que es la portada tras iniciar sesión.
     const monitoring = {
       id: 'qapaq-monitoring',

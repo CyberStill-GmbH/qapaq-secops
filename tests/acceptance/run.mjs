@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Suite de aceptación QAPAQ SOC (edge, login, dashboard, Wazuh, motor, SOAR e integraciones).
+ * Suite de aceptación QAPAQ SecOps (edge, login, dashboard, Wazuh, motor, SOAR e integraciones).
  *
  * Solo lectura salvo: inicio/cierre de sesión con las cuentas demo (lo que aplica la regla de
  * sesión única y expulsa otras sesiones de esa misma cuenta) y, si Qapaqzito está habilitado, un

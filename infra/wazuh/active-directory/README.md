@@ -1,7 +1,7 @@
 # Perfil QAPAQ de detección para Active Directory
 
 > **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
-> [`docs/archive/azure`](../../../docs/archive/azure/README.md). QAPAQ SOC opera solo en AWS ([02](../../../docs/02-arquitectura.md)); lo técnico
+> [`docs/archive/azure`](../../../docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](../../../docs/02-arquitectura.md)); lo técnico
 > que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
 
 Estado: **candidate/disabled**. Reglas y perfiles están versionados para revisión; no

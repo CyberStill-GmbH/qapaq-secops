@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · despliegue de la visibilidad de red en el manager (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
+# QAPAQ SecOps · despliegue de la visibilidad de red en el manager (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
 #
 # Corre EN el host de los contenedores (EC2 PowerUser), como root, desde una copia del repo:
 #   sudo bash infra/wazuh/network/deploy-network.sh manager   # decoders, reglas de red, listas, <localfile> del edge

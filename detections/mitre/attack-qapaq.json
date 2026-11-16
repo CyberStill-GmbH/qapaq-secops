@@ -1,5 +1,5 @@
 {
-  "_comment": "QAPAQ SOC · subconjunto curado de MITRE ATT&CK Enterprise (v16) para el entorno QAPAQ y prioridades del análisis de brechas. Lo lee detections/tools/qapaq_detections.py coverage. Agregar aquí toda técnica nueva que use una regla (el lint falla si falta).",
+  "_comment": "QAPAQ SecOps · subconjunto curado de MITRE ATT&CK Enterprise (v16) para el entorno QAPAQ y prioridades del análisis de brechas. Lo lee detections/tools/qapaq_detections.py coverage. Agregar aquí toda técnica nueva que use una regla (el lint falla si falta).",
   "attack_version": "Enterprise v16",
   "tactics": [
     {"id": "TA0043", "key": "reconnaissance", "es": "Reconocimiento"},

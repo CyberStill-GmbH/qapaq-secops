@@ -26,7 +26,7 @@ export function PoliciesView({ basePath }: { basePath: string }) {
     <main className="qapaqPage qapaqOverview">
       <header className="qapaqHero">
         <div className="qapaqHero__text">
-          <span className="qapaqHero__eyebrow">QAPAQ SOC</span>
+          <span className="qapaqHero__eyebrow">QAPAQ SecOps</span>
           <h1>Políticas</h1>
           <p>
             Políticas de seguridad aplicadas como código: grupos de agentes, manager y retención. Se

@@ -1,6 +1,6 @@
-# Documentación QAPAQ SOC
+# Documentación QAPAQ SecOps
 
-**QAPAQ SOC** es la plataforma de operaciones de seguridad de la fintech QAPAQ: Wazuh 4.14.8 con marca
+**QAPAQ SecOps** es la plataforma de operaciones de seguridad de la fintech QAPAQ: Wazuh 4.14.8 con marca
 QAPAQ, el motor QAPAQ (alertas, incidentes, auditoría), Ankay (SOAR), Qapaqzito (asistente de IA) y
 las integraciones con Microsoft 365, Bitdefender, Snyk, Cloudflare y AWS. Hoy corre en un nodo EC2
 de la cuenta AWS de QAPAQ, sin recursos IAM ([02](02-arquitectura.md)).
@@ -22,7 +22,7 @@ automatizadas), **sin verificar** (existe en el repositorio, no probado contra e
 
 | # | Documento | Pregunta que responde |
 | - | --- | --- |
-| 01 | [Producto](01-producto.md) | Qué es QAPAQ SOC, roles y decisiones de negocio |
+| 01 | [Producto](01-producto.md) | Qué es QAPAQ SecOps, roles y decisiones de negocio |
 | 02 | [Arquitectura](02-arquitectura.md) | Qué corre, dónde y cómo fluyen los datos (con diagrama del despliegue AWS) |
 | 04 | [Identidad y acceso](04-identidad-y-acceso.md) | Login QAPAQ, proxy auth, edge, cuentas demo por rol y separación de funciones |
 | 05 | [Datos y retención](05-datos-y-retencion.md) | Dónde vive cada dato y cuánto se guarda |

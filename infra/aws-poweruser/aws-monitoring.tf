@@ -196,7 +196,7 @@ resource "aws_sns_topic" "aws_events" {
 resource "aws_cloudwatch_event_rule" "aws_events" {
   for_each      = local.aws_events_patterns
   name          = "${var.name}-aws-${each.key}"
-  description   = "QAPAQ SOC: ${each.key} -> SNS ${local.aws_events_topic}"
+  description   = "QAPAQ SecOps: ${each.key} -> SNS ${local.aws_events_topic}"
   event_pattern = jsonencode(each.value)
 }
 

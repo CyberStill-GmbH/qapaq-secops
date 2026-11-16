@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Dar al analista una ayuda integrada en QAPAQ SOC para priorizar alertas, investigar eventos relacionados y preparar informes de incidente. Una recomendación de Claude nunca modifica Wazuh por sí misma. Contención o remediación se presenta como una solicitud explícita de Ankay y sigue su aprobación humana, separación de funciones (SoD), allowlist, idempotencia y auditoría.
+Dar al analista una ayuda integrada en QAPAQ SecOps para priorizar alertas, investigar eventos relacionados y preparar informes de incidente. Una recomendación de Claude nunca modifica Wazuh por sí misma. Contención o remediación se presenta como una solicitud explícita de Ankay y sigue su aprobación humana, separación de funciones (SoD), allowlist, idempotencia y auditoría.
 
 La integración usa el protocolo MCP para exponer herramientas SOC acotadas mediante el backend QAPAQ privado. No significa que Claude reciba acceso de red al Manager o al Indexer. El modelo recibe únicamente resúmenes mínimos a través del backend QAPAQ.
 

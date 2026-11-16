@@ -1,4 +1,4 @@
-# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
 # Referencia: las reglas viven en su ruta canónica y no se mueven.
 id: QAPAQ-DET-CF-001
 title: Auditoría de cuenta y WAF de Cloudflare

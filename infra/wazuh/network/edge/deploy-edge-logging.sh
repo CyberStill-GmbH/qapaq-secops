@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · activa la bitácora JSON del edge nginx para Wazuh en el nodo PowerUser (docs/18).
+# QAPAQ SecOps · activa la bitácora JSON del edge nginx para Wazuh en el nodo PowerUser (docs/18).
 # Corre EN el host, como root:  sudo bash infra/wazuh/network/edge/deploy-edge-logging.sh
 #
 # 1. Valida qapaq-edge-logging.conf con `nginx -t` DENTRO del edge en ejecución (mismos upstreams y
@@ -61,7 +61,7 @@ M="$(docker ps --format '{{.Names}}' | grep -E 'wazuh\.manager' | head -n1)"
 vol="$(docker inspect "$M" --format '{{range .Mounts}}{{if eq .Destination "/var/ossec/logs"}}{{.Source}}{{end}}{{end}}')"
 if [[ -n "$vol" ]]; then
   cat >/etc/logrotate.d/qapaq-edge <<EOF
-# QAPAQ SOC · bitácora del edge para Wazuh (infra/wazuh/network/edge/deploy-edge-logging.sh)
+# QAPAQ SecOps · bitácora del edge para Wazuh (infra/wazuh/network/edge/deploy-edge-logging.sh)
 $vol/qapaq-collectors/edge/access.json $vol/qapaq-collectors/edge/error.log {
     daily
     maxsize 100M

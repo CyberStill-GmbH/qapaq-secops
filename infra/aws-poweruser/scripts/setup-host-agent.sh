@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enrola el propio nodo QAPAQ SOC (el host EC2, no el contenedor del manager) como agente Wazuh:
+# Enrola el propio nodo QAPAQ SecOps (el host EC2, no el contenedor del manager) como agente Wazuh:
 # FIM, inventario, SCA y logs del sistema que corre todo el SOC. Se conecta al manager por el
 # puerto publicado en el host (127.0.0.1:1514/1515), grupo linux-pilot. Idempotente; EN el host.
 set -euo pipefail

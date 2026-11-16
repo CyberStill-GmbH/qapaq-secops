@@ -6,7 +6,7 @@
 
 ## Qué es
 
-**QAPAQ SOC** es una **plataforma SOC unificada sobre Wazuh** para una fintech: una sola URL, un solo
+**QAPAQ SecOps** es una **plataforma SOC unificada sobre Wazuh** para una fintech: una sola URL, un solo
 login Entra y un solo shell visual (el dashboard de Wazuh con marca QAPAQ), al que QAPAQ añade lo que
 Wazuh no tiene. Se ejecuta **serverless en AWS**; solo el núcleo Wazuh tiene servidor.
 

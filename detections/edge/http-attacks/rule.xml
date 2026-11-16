@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/edge/http-attacks (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/edge/http-attacks (metadata.yaml).
   Ataques web contra la propia consola del SOC, desde la bitácora JSON del edge nginx
   (infra/wazuh/network/edge/qapaq-edge-logging.conf → volumen de logs del manager → <localfile> json).
   srcip es la IP real del cliente (edge confía en X-Forwarded-For solo desde la VPC del ALB).

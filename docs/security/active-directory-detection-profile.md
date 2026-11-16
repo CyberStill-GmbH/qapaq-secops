@@ -1,4 +1,4 @@
-# Perfil defensivo de Active Directory para QAPAQ SOC
+# Perfil defensivo de Active Directory para QAPAQ SecOps
 
 Estado: **propuesta lista para evaluación en laboratorio; pendiente de despliegue y
 prueba con el AD autorizado**. El paquete Wazuh separado vive en

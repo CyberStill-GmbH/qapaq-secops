@@ -1,4 +1,4 @@
-// Command qapaq-correlator is the QAPAQ SOC risk correlator: entity resolution across sources,
+// Command qapaq-correlator is the QAPAQ SecOps risk correlator: entity resolution across sources,
 // per-entity risk with time decay, multi-stage patterns, alert grouping and an analyst
 // feedback loop. Subcommands:
 //

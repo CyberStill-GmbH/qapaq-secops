@@ -47,7 +47,7 @@ LEVEL_BANDS = [
 LEVEL_COLORS = {"Baja (0–3)": OK, "Media (4–7)": MED, "Alta (8–11)": HIGH, "Crítica (12–15)": CRIT}
 VD_COLORS = {"Critical": CRIT, "High": HIGH, "Medium": MED, "Low": OK, "-": NEUTRAL}
 SNYK_COLORS = {"critical": CRIT, "high": HIGH, "medium": MED, "low": OK}
-FOOTER = "\n\n---\n*QAPAQ SOC · Ingeniería de detección · docs/17-ingenieria-de-deteccion.md*"
+FOOTER = "\n\n---\n*QAPAQ SecOps · Ingeniería de detección · docs/17-ingenieria-de-deteccion.md*"
 
 
 # ----------------------------------------------------------------------------- primitivas
@@ -213,7 +213,7 @@ def mitre_dashboard():
            if cov["per_tactic"][t["key"]] else "**sin cobertura**") + " |"
         for t in att["tactics"])
     about = (
-        "## Cobertura MITRE ATT&CK de QAPAQ SOC\n\n"
+        "## Cobertura MITRE ATT&CK de QAPAQ SecOps\n\n"
         "Arriba: lo que **dispara** en el periodo elegido (campo `rule.mitre.*` de las alertas). "
         "Abajo: lo que **cubren las reglas** del repositorio, generado desde su XML por "
         "`detections/tools/qapaq_detections.py coverage`.\n\n"

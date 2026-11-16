@@ -9,7 +9,7 @@ Estados: **Vigente**, **Gate** (decidida, pero falta evidencia antes de producci
 
 ## Decisiones QAPAQ (fork serverless, 2026-11-02)
 
-Estas decisiones definen QAPAQ SOC frente a la base heredada. Detalle en
+Estas decisiones definen QAPAQ SecOps frente a la base heredada. Detalle en
 [02](02-arquitectura.md).
 
 | ID | Decisión | Estado |
@@ -22,9 +22,9 @@ Estas decisiones definen QAPAQ SOC frente a la base heredada. Detalle en
 | B6 | Auditoría y evidencia en S3 Object Lock (compliance) replicadas a una cuenta de archivo de logs separada | Propuesta |
 | B7 | Tres cuentas AWS (`qapaq-soc-workload`, `qapaq-log-archive`, `qapaq-security-tooling`) | Propuesta |
 | B8 | QAPAQ opera **solo en AWS**. El perfil Azure queda archivado en [`archive/azure`](archive/azure/README.md) | Vigente |
-| B9 | Marcas: **QAPAQ SOC** (producto), **Ankay** (respuesta), **Ayni Qapaq** (casos). Dominio y logo definitivos pendientes de QAPAQ | Vigente |
+| B9 | Marcas: **QAPAQ SecOps** (producto), **Ankay** (respuesta), **Ayni Qapaq** (casos). Dominio y logo definitivos pendientes de QAPAQ | Vigente |
 | B10 | **Qapaqzito**, el asistente de IA integrado (Claude por Bedrock o API de Anthropic), de **solo lectura** y con los permisos de la persona; datos personales seudonimizados; apagado por defecto. Detalle en [15](15-qapaqzito-asistente.md). El proveedor `anthropic` directo exige dictamen de Legal (N1/N2) | Vigente, sin probar contra el proveedor real |
-| B11 | **SSO de QAPAQ SOC a Ankay (Shuffle heredado)** (2026-11-03, decisión del dueño: «una vez dentro del SOC se debe poder entrar a Ankay y volver al SIEM»). Con sesión QAPAQ, el edge abre la sesión de Shuffle de esa persona mediante un puente interno (`ankay/sso/`): sin segundo login, rol por mapeo (`platform.admin`→admin, `soc.lead`/`soc.analyst`→user, `auditor`→org-reader, resto denegado) y botón «Volver al SIEM». Reemplaza la restricción de [14](14-ankay-conexion-qapaq.md) de que la autenticación propia de Shuffle siguiera controlando el acceso. Detalle en [14 §8.1](14-ankay-conexion-qapaq.md#81-sso-desde-qapaq-soc-decisión-b11) | Vigente (estado heredado hasta M5) |
+| B11 | **SSO de QAPAQ SecOps a Ankay (Shuffle heredado)** (2026-11-03, decisión del dueño: «una vez dentro del SOC se debe poder entrar a Ankay y volver al SIEM»). Con sesión QAPAQ, el edge abre la sesión de Shuffle de esa persona mediante un puente interno (`ankay/sso/`): sin segundo login, rol por mapeo (`platform.admin`→admin, `soc.lead`/`soc.analyst`→user, `auditor`→org-reader, resto denegado) y botón «Volver al SIEM». Reemplaza la restricción de [14](14-ankay-conexion-qapaq.md) de que la autenticación propia de Shuffle siguiera controlando el acceso. Detalle en [14 §8.1](14-ankay-conexion-qapaq.md#81-sso-desde-qapaq-soc-decisión-b11) | Vigente (estado heredado hasta M5) |
 | B12 | **Programa de ingeniería de detección como código** (2026-11-04, encargo del dueño). Toda regla QAPAQ vive en `detections/` (o se referencia desde ahí) con metadatos, fixtures, resultado esperado y runbook; rangos de IDs por fuente en `detections/catalog.yaml`; descripciones `QAPAQ <Fuente>:`; despliegue con `detections/tools/deploy-detections.sh` (respaldo, `analysisd -t`, rollback, agente verificado). Los playbooks de contención de Ankay se exportan con `qapaq_contencion_habilitada=false`: **habilitar uno exige una fila nueva aquí** con aprobador, permisos de proveedor y prueba. Detalle en [17](17-ingenieria-de-deteccion.md) | Vigente; contención: Gate |
 | B13 | **Ingesta confiable y de baja latencia en el perfil vigente** (2026-11-11). El endpoint Wazuh debe persistir el aviso en PostgreSQL antes de responder 202; el consumidor procesa con lease, reintentos e idempotencia; el pull de Indexer reconcilia. SQS queda para una futura migración serverless con IAM. La identidad común push/pull y las garantías se validan con pruebas antes del despliegue. Detalle: [25](25-programa-confiabilidad-e-investigacion.md) | Vigente; implementación y prueba: Gate |
 

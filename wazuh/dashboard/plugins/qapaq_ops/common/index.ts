@@ -5,7 +5,7 @@
 export const PLUGIN_ID = 'qapaqOps';
 export const PLUGIN_NAME = 'QAPAQ SecOps';
 /** Nombre descriptivo del grupo de navegación en el menú lateral. */
-export const NAV_CATEGORY_NAME = 'QAPAQ SOC';
+export const NAV_CATEGORY_NAME = 'QAPAQ SecOps';
 
 /** Rutas propias del dashboard (servidas por este plugin, sin sesión de OSD). */
 export const LOGIN_PATH = '/qapaq/login';
@@ -27,7 +27,7 @@ export const ATTRIBUTION = 'Basado en Wazuh (GPLv2) y OpenSearch Dashboards (Apa
 export const MONITORING_CATEGORY_NAME = 'Monitoreo';
 
 /**
- * Apps registradas bajo «QAPAQ SOC» (primera categoría del menú) o «Monitoreo». Cada una monta
+ * Apps registradas bajo «QAPAQ SecOps» (primera categoría del menú) o «Monitoreo». Cada una monta
  * la misma consola en la vista indicada. El orden sigue `order` dentro de cada categoría.
  */
 export const QAPAQ_APPS = [

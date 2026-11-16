@@ -6,7 +6,7 @@
 > El diseño sobre **AWS Step Functions** de las secciones 2–4 es el **objetivo**, no desplegado:
 > requiere IAM. Uso diario en [20](20-guia-de-usuario.md#ankay).
 
-**Ankay** es la capa de respuesta de QAPAQ SOC: convierte una decisión humana sobre una alerta o caso
+**Ankay** es la capa de respuesta de QAPAQ SecOps: convierte una decisión humana sobre una alerta o caso
 en una acción ejecutada, auditada y reversible. Ya no es un SOAR en una VM: cada playbook es una
 **máquina de estados de Step Functions (Standard)** invocada por la QAPAQ API, sin servidor que operar.
 

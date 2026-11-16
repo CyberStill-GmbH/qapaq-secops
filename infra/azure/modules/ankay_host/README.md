@@ -1,7 +1,7 @@
 # Ankay host (Azure, isolated module)
 
 > **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
-> [`docs/archive/azure`](../../../../docs/archive/azure/README.md). QAPAQ SOC opera solo en AWS ([02](../../../../docs/02-arquitectura.md)); lo técnico
+> [`docs/archive/azure`](../../../../docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](../../../../docs/02-arquitectura.md)); lo técnico
 > que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
 
 > **Nota (heredado):** Shuffle y su webhook son el estado heredado de Ankay. El diseño vigente es

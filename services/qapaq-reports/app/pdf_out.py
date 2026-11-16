@@ -198,9 +198,9 @@ def build_html(spec: Spec) -> str:
     return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <title>{e(spec.title)}</title>
-<meta name="author" content="QAPAQ SOC">
+<meta name="author" content="QAPAQ SecOps">
 <meta name="description" content="{e(kind_label)} · {e(spec.classification)}">
-<meta name="generator" content="QAPAQ SOC reports">
+<meta name="generator" content="QAPAQ SecOps reports">
 <style>{css}</style></head>
 <body>{header}{cover}
 <main>{kpis}{"".join(parts)}{sources}</main>

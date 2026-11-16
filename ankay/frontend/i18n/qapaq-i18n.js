@@ -8,7 +8,7 @@
  * etiquetas de Shuffle también se usan como claves (`item.label.toLowerCase()`).
  *
  * Además: «Shuffle» visible → «Ankay», y se ocultan los elementos de marketing y el «Logout»
- * propio de Shuffle (la sesión la gobierna QAPAQ SOC; decisión B11).
+ * propio de Shuffle (la sesión la gobierna QAPAQ SecOps; decisión B11).
  *
  * Se sirve desde public/ (CSP script-src 'self') y lo carga index.html (sso-overlay.mjs).
  */
@@ -263,7 +263,7 @@
     [/^Learn to use Ankay by$/u, 'Aprende a usar Ankay'],
   ];
 
-  /** Marketing de Shuffle y su propio logout: se ocultan (la sesión la gobierna QAPAQ SOC). */
+  /** Marketing de Shuffle y su propio logout: se ocultan (la sesión la gobierna QAPAQ SecOps). */
   var HIDE = { 'Book a Demo': 1, 'Join Discord community': 1, 'Discord Chat': 1, Logout: 1, 'Log out': 1 };
 
   // «Shuffle» como marca visible; los nombres de apps del backend se conservan.

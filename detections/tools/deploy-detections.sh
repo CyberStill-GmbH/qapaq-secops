@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · despliegue de las reglas del programa de detección en el manager (docs/17 §despliegue).
+# QAPAQ SecOps · despliegue de las reglas del programa de detección en el manager (docs/17 §despliegue).
 #
 # Corre EN el host de los contenedores (EC2 PowerUser), como root, desde una copia del repo:
 #   sudo bash detections/tools/deploy-detections.sh            # instala, valida, reinicia y verifica

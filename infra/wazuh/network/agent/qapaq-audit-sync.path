@@ -1,6 +1,6 @@
-# QAPAQ SOC · reaplica las reglas de auditoría de red cuando el manager distribuye una versión nueva.
+# QAPAQ SecOps · reaplica las reglas de auditoría de red cuando el manager distribuye una versión nueva.
 [Unit]
-Description=QAPAQ SOC: vigila las reglas de auditoria de red distribuidas por Wazuh
+Description=QAPAQ SecOps: vigila las reglas de auditoria de red distribuidas por Wazuh
 
 [Path]
 PathChanged=/var/ossec/etc/shared/qapaq-audit-network.rules

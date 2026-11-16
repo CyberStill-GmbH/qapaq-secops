@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC Â· importa las vistas de anÃ¡lisis del programa de detecciÃ³n (docs/17) en el tenant global.
+# QAPAQ SecOps Â· importa las vistas de anÃ¡lisis del programa de detecciÃ³n (docs/17) en el tenant global.
 #
 #   sudo bash infra/aws-poweruser/scripts/bootstrap-detection-content.sh
 #

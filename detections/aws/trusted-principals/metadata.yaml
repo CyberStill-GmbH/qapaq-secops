@@ -1,4 +1,4 @@
-# QAPAQ SOC · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+# QAPAQ SecOps · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
 id: QAPAQ-TUNE-AWS-001
 title: Cambios del propio SOC en el pipeline de monitoreo AWS
 source: aws

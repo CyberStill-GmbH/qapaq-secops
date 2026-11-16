@@ -1,4 +1,4 @@
-# Infraestructura local (stack Docker de QAPAQ SOC)
+# Infraestructura local (stack Docker de QAPAQ SecOps)
 
 Réplica local del nodo AWS ([docs/02](../../docs/02-arquitectura.md)) para desarrollar el dashboard,
 el edge, la API y Ankay. Pensada para Docker Desktop en Windows (WSL2). Operación del nodo

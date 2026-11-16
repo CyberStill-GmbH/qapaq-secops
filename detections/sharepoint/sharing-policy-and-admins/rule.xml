@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/sharepoint/sharing-policy-and-admins (metadata.yaml, docs/23).
+  QAPAQ SecOps · detección como código · detections/sharepoint/sharing-policy-and-admins (metadata.yaml, docs/23).
   Debilitamiento de la política de uso compartido (tenant o sitio) y altas de administradores de colección de
   sitios, desde la auditoría (módulo office365 o Purview). La postura periódica (detections/sharepoint/posture)
   detecta además el cambio comparando fotos de /admin/sharepoint/settings, aunque falte la auditoría.

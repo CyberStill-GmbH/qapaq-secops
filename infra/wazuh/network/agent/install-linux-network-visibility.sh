@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · prepara un host Linux con agente Wazuh para la visibilidad de red (docs/18).
+# QAPAQ SecOps · prepara un host Linux con agente Wazuh para la visibilidad de red (docs/18).
 # Se corre UNA vez por host, como root, desde una copia del repo:
 #   sudo bash infra/wazuh/network/agent/install-linux-network-visibility.sh [--docker]
 #
@@ -56,7 +56,7 @@ lio=/var/ossec/etc/local_internal_options.conf
 touch "$lio"
 if ! grep -qE '^logcollector\.remote_commands=1' "$lio"; then
   sed -i '/^logcollector\.remote_commands=/d' "$lio"
-  printf '# QAPAQ SOC (docs/18): <localfile> de comando del agent.conf del grupo (qapaq-netconn.sh).\nlogcollector.remote_commands=1\n' >>"$lio"
+  printf '# QAPAQ SecOps (docs/18): <localfile> de comando del agent.conf del grupo (qapaq-netconn.sh).\nlogcollector.remote_commands=1\n' >>"$lio"
   log 'logcollector.remote_commands=1'
   restart=1
 fi

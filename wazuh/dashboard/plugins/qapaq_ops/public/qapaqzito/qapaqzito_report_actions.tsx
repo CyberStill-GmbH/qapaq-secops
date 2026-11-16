@@ -115,7 +115,7 @@ export function QapaqzitoReportActions({
           suggestedName: filename,
           types: [
             {
-              description: 'Libro Excel de QAPAQ SOC',
+              description: 'Libro Excel de QAPAQ SecOps',
               accept: {
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
               },

@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/network/threat-intel (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/network/threat-intel (metadata.yaml).
   Reputación de IP sin servicios pagos: listas CDB que refresca a diario el timer del host
   (infra/wazuh/network/threat-intel/): qapaq-ti-blocklist (Spamhaus DROP + abuse.ch Feodo Tracker; FireHOL
   level1 opcional) y qapaq-ti-tor (nodos de salida de Tor). Claves por prefijo de octetos (`198.51.100.`).

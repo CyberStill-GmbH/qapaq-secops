@@ -1,4 +1,4 @@
-# ADR-030 — Arquitectura resiliente y escalamiento progresivo de QAPAQ SOC
+# ADR-030 — Arquitectura resiliente y escalamiento progresivo de QAPAQ SecOps
 
 > **Contexto heredado de la base de código original; vigente solo lo que recoge [docs/10-decisiones.md](../../10-decisiones.md).**
 > Se conserva como historia; la arquitectura vigente es serverless sobre AWS ([02](../../02-arquitectura.md)).
@@ -14,7 +14,7 @@
 
 ## Contexto
 
-QAPAQ SOC debe procesar señales de seguridad sin trasladar picos de carga a
+QAPAQ SecOps debe procesar señales de seguridad sin trasladar picos de carga a
 Wazuh, las fuentes externas, la base operacional o la experiencia del analista.
 El repositorio ya establece una aplicación modular con API, worker y web; una
 cola Redis/BullMQ para trabajos recuperables; almacenamiento operacional y de
@@ -54,7 +54,7 @@ fronteras:
    en PostgreSQL la admisión, deduplicación, checkpoint, inbox/outbox y auditoría
    requerida. Cada consumidor puede reintentarse de forma idempotente. Un fallo de
    Redis permite reconciliar jobs desde el registro durable sin perder evidencia.
-5. **QAPAQ SOC Core:** normaliza señales al contrato canónico, enriquece,
+5. **QAPAQ SecOps Core:** normaliza señales al contrato canónico, enriquece,
    deduplica con cautela, correlaciona, prioriza y crea alertas/casos conforme a las
    políticas del SOC. Wazuh mantiene la recolección, agentes, decoders y detecciones
    nativas; el Core no replica su ruleset. El Wazuh Indexer se consulta con mínimo

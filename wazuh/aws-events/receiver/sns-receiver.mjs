@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// QAPAQ SOC · receptor SNS → JSONL para Wazuh (monitoreo de la cuenta AWS sin IAM).
+// QAPAQ SecOps · receptor SNS → JSONL para Wazuh (monitoreo de la cuenta AWS sin IAM).
 //
 // EventBridge (bus default) → SNS (política del tema, sin rol) → HTTPS → edge nginx → este servicio.
 // Cada evento queda como UNA línea JSON en el volumen de logs del manager

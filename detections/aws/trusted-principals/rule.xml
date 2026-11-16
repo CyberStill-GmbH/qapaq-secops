@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · reducción de falsos positivos · detections/aws/trusted-principals (metadata.yaml, docs/17 §Ajuste).
+  QAPAQ SecOps · reducción de falsos positivos · detections/aws/trusted-principals (metadata.yaml, docs/17 §Ajuste).
   Los cambios del propio SOC en el pipeline de monitoreo (rol SSO AWSReservedSSO_SOC-PowerUser de
   soc@qapaq.pe, TagResource y similares) disparaban 101616 (nivel 6). Allowlist CDB por aws.principal
   (detections/lists/qapaq-aws-trusted-principals) con DEGRADACIÓN, nunca supresión: el evento queda en

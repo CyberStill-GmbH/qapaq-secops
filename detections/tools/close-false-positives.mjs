@@ -1,4 +1,4 @@
-// QAPAQ SOC · cierre auditado de alertas falsas positivas por regla (docs/17 §Ajuste y reducción de falsos positivos).
+// QAPAQ SecOps · cierre auditado de alertas falsas positivas por regla (docs/17 §Ajuste y reducción de falsos positivos).
 //
 // Corre UNA vez dentro de la imagen de la API (mismo código de dominio, misma auditoría con cadena hash) como
 // principal de servicio, nunca con el login de una persona. Cada alerta pasa por los comandos normales del

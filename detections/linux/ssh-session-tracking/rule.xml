@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/ssh-session-tracking (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/ssh-session-tracking (metadata.yaml).
   Seguimiento de sesiones SSH por cuenta. Complementa (no repite) a 101750 (éxito tras fuerza bruta) y a
   101761-101763 (SSH desde IP no administrativa, noise-tuning). La IP y la geolocalización de cada sesión
   las ponen 5715 y el pipeline del indexer (GeoLocation.*); las listas de reputación están en

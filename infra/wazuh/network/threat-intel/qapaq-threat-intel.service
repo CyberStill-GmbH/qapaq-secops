@@ -1,7 +1,7 @@
-# QAPAQ SOC · refresco diario de las listas de reputación de IP en Wazuh (docs/18).
+# QAPAQ SecOps · refresco diario de las listas de reputación de IP en Wazuh (docs/18).
 # Instalar: install -m 0644 este archivo y el .timer en /etc/systemd/system; systemctl enable --now qapaq-threat-intel.timer
 [Unit]
-Description=QAPAQ SOC: listas CDB de reputacion de IP (Spamhaus DROP, abuse.ch Feodo, Tor, Cloudflare WAF)
+Description=QAPAQ SecOps: listas CDB de reputacion de IP (Spamhaus DROP, abuse.ch Feodo, Tor, Cloudflare WAF)
 After=docker.service network-online.target
 Wants=network-online.target
 

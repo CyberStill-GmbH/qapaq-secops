@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — instala en el manager Wazuh (nodo AWS PowerUser) la parte Wazuh del monitoreo de la
+# QAPAQ SecOps — instala en el manager Wazuh (nodo AWS PowerUser) la parte Wazuh del monitoreo de la
 # cuenta AWS (EventBridge → SNS → receptor aws-events → JSONL):
 #
 #   sudo bash wazuh/aws-events/install-aws-events.sh

@@ -1,5 +1,5 @@
 #!/bin/sh
-# QAPAQ SOC · visibilidad de conexiones de red para el command monitoring de Wazuh
+# QAPAQ SecOps · visibilidad de conexiones de red para el command monitoring de Wazuh
 # (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
 #
 # Fuente: wazuh/manager/policy/shared/linux-servers/qapaq-netconn.sh; se distribuye con el grupo linux-servers y lo ejecuta

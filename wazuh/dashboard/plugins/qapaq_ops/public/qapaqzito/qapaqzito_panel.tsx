@@ -61,7 +61,7 @@ import { QapaqzitoReportActions } from './qapaqzito_report_actions';
 import { QapaqzitoActivity, QapaqzitoThinking } from './qapaqzito_thinking';
 
 /**
- * Qapaqzito, el asistente de IA de QAPAQ SOC. Panel lateral derecho al estilo de ChatGPT/Codex: en
+ * Qapaqzito, el asistente de IA de QAPAQ SecOps. Panel lateral derecho al estilo de ChatGPT/Codex: en
  * pantallas anchas EMPUJA la consola a la izquierda (acoplado, con ancho ajustable); en las
  * estrechas es un cajón con fondo. Saluda con ejemplos de la página, muestra la actividad como una
  * línea plegable, cita lo que afirma con enlaces a la consola, entrega informes (PDF/Excel/CSV)
@@ -1084,7 +1084,7 @@ export function QapaqzitoPanel({
         style={{ width: renderWidth }}
         role="dialog"
         aria-modal={mode === 'overlay' ? true : undefined}
-        aria-label={`${NAME}, asistente de IA de QAPAQ SOC`}
+        aria-label={`${NAME}, asistente de IA de QAPAQ SecOps`}
         data-test-subj="qapaqQapaqzitoPanel"
         onKeyDown={onPanelKeyDown}
       >

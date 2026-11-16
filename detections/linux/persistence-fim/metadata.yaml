@@ -1,4 +1,4 @@
-# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
 # Reglas nuevas del programa en rule.xml de esta carpeta.
 id: QAPAQ-DET-LNX-003
 title: Persistencia y debilitamiento de autenticación por FIM en tiempo real

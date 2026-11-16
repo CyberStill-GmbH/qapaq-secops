@@ -96,7 +96,7 @@ export function OverviewView({ basePath }: { basePath: string }) {
     <main className="qapaqPage qapaqOverview">
       <header className="qapaqHero">
         <div className="qapaqHero__text">
-          <span className="qapaqHero__eyebrow">QAPAQ SOC</span>
+          <span className="qapaqHero__eyebrow">QAPAQ SecOps</span>
           <h1>Resumen del SOC</h1>
           <p>
             {name ? `Hola, ${name}. ` : ''}

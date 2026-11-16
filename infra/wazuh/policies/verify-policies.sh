@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — verificación de políticas: imprime PASS/FAIL/WARN por política (docs/16-politicas.md).
+# QAPAQ SecOps — verificación de políticas: imprime PASS/FAIL/WARN por política (docs/16-politicas.md).
 # Solo lectura: no cambia nada en el manager ni en el indexer. Sale 1 si hay algún FAIL.
 #
 #   bash infra/wazuh/policies/verify-policies.sh

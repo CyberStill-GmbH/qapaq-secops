@@ -50,7 +50,7 @@ function plainEmail(notification: FallbackNotification): RenderedEmail {
     notification.link ? `Abrir en QAPAQ: ${notification.link}` : '',
   ].join('\n');
   return {
-    subject: `QAPAQ SOC · ${notification.severity.toUpperCase()} · ${notification.title}`.slice(0, 255),
+    subject: `QAPAQ SecOps · ${notification.severity.toUpperCase()} · ${notification.title}`.slice(0, 255),
     html: '',
     text,
   };

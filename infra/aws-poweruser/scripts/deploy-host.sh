@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC (modo PowerUser) — instala o actualiza el runtime en el nodo. Se ejecuta EN el host,
+# QAPAQ SecOps (modo PowerUser) — instala o actualiza el runtime en el nodo. Se ejecuta EN el host,
 # como root, con el árbol del repo ya copiado en /opt/qapaq/src (ver ship.sh). Idempotente:
 # los secretos se generan una sola vez en /opt/qapaq/secrets (0700/0600) y nunca salen del host.
 #
@@ -64,7 +64,7 @@ set -a; . "$SECRETS/compose.env"; set +a
 if [[ ! -s $ROOT/pki/ca.pem ]]; then
   log 'creando CA interna y certificado de postgres'
   install -d -m 0755 "$ROOT/pki" "$ROOT/pki/postgres"
-  openssl req -x509 -new -nodes -newkey rsa:3072 -sha256 -days 1825 -subj '/CN=QAPAQ SOC dev internal CA' \
+  openssl req -x509 -new -nodes -newkey rsa:3072 -sha256 -days 1825 -subj '/CN=QAPAQ SecOps dev internal CA' \
     -keyout "$SECRETS/ca.key" -out "$ROOT/pki/ca.pem"
   openssl req -new -nodes -newkey rsa:2048 -subj '/CN=postgres' \
     -keyout "$ROOT/pki/postgres/postgres.key" -out /tmp/pg.csr
@@ -119,8 +119,8 @@ for key in ("pattern", "alerts.sample.prefix", "cron.prefix"):
 # Informes PDF de la app de Wazuh con identidad QAPAQ (claves customization.* de 4.14; cabecera
 # 3 líneas × 40, pie 2 × 50). El logo es el de assets/wazuh-app/logo_reports.png (targets.tsv).
 data["customization.enabled"] = True
-data["customization.reports.header"] = "QAPAQ SOC · Operaciones de Seguridad\nsoc@qapaq.pe\nhttps://dev.security.qapaq.pe"
-data["customization.reports.footer"] = "QAPAQ SOC · Informe confidencial\nGenerado por QAPAQ SecOps (motor Wazuh)"
+data["customization.reports.header"] = "QAPAQ SecOps · Operaciones de Seguridad\nsoc@qapaq.pe\nhttps://dev.security.qapaq.pe"
+data["customization.reports.footer"] = "QAPAQ SecOps · Informe confidencial\nGenerado por QAPAQ SecOps (motor Wazuh)"
 yaml.safe_dump(data, open(path, "w"), sort_keys=False)
 PY
 chown 1000:1000 config/wazuh_dashboard/wazuh.yml; chmod 0600 config/wazuh_dashboard/wazuh.yml

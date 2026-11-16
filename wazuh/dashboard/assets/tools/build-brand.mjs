@@ -205,7 +205,7 @@ const ankayNav = () =>
       `<path fill="${AMBER}" stroke="${AMBER}" stroke-width="10" stroke-linejoin="round" d="${ANKAY_PLAY}"/></g>`,
   );
 
-/** Fondo del login QAPAQ SOC (1252×941): negro, luz ámbar tenue y la Q en línea. */
+/** Fondo del login QAPAQ SecOps (1252×941): negro, luz ámbar tenue y la Q en línea. */
 const loginHeroBackdrop = () =>
   svg(
     1252,
@@ -342,8 +342,8 @@ function writeStatic() {
     join(favDir, 'manifest.json'),
     JSON.stringify(
       {
-        name: 'QAPAQ SOC',
-        short_name: 'QAPAQ SOC',
+        name: 'QAPAQ SecOps',
+        short_name: 'QAPAQ SecOps',
         icons: [
           { src: 'android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
           {

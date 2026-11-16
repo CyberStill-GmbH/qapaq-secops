@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · reducción de falsos positivos · detections/linux/noise-tuning (metadata.yaml, docs/17 §Ajuste).
+  QAPAQ SecOps · reducción de falsos positivos · detections/linux/noise-tuning (metadata.yaml, docs/17 §Ajuste).
   Nota: en <list> el usuario destino (dstuser, campo estático) se consulta como field="user".
   Medido en AWS (7 días, agente 001): 5501/5502 sesiones PAM de la cuenta admin = 2165/día; 5715 SSH = 350/día
   desde la IP del operador; 521 rootcheck sobre overlay de Docker = 328 en una pasada.

@@ -1,4 +1,4 @@
-# 14 · Conexión de Ankay con QAPAQ SOC
+# 14 · Conexión de Ankay con QAPAQ SecOps
 
 > Estado (2026-11-08): el motor **vigente** de Ankay es el basado en Shuffle (sección 8),
 > desplegado en el nodo AWS PowerUser con SSO (§8.1). El diseño sobre **Step Functions** (secciones
@@ -181,7 +181,7 @@ Cobertura en el repo: `ankay/` (frontend), `infra/wazuh/shuffle/` (adaptador de 
 `infra/azure/modules/ankay_host/`, y los playbooks de triage en
 `docs/security/ankay-playbooks/`. Todo se retira en la fase M5 de [13](13-ankay-qapaq.md).
 
-### 8.1 SSO desde QAPAQ SOC (decisión B11)
+### 8.1 SSO desde QAPAQ SecOps (decisión B11)
 
 Decisión del dueño (2026-11-03, [10 · B11](10-decisiones.md)): una vez dentro del SOC se entra a QAPAQ
 Respond sin segundo login y se puede volver al SIEM. Sustituye la regla anterior de que la autenticación

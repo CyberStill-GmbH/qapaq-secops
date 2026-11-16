@@ -17,7 +17,7 @@ def test_sheets_and_properties(sample):
     assert wb.sheetnames == [
         "Resumen", "Alertas por día y prioridad", "Distribución por prioridad",
         "Tendencia de alertas totales", "Alertas del periodo", "Cronología"]
-    assert wb.properties.creator == "QAPAQ SOC"
+    assert wb.properties.creator == "QAPAQ SecOps"
     assert wb.properties.title == "Informe semanal de alertas"
 
 

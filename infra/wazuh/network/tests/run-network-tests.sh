@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · pruebas de wazuh-logtest de la visibilidad de red (docs/18).
+# QAPAQ SecOps · pruebas de wazuh-logtest de la visibilidad de red (docs/18).
 #
 #   bash infra/wazuh/network/tests/run-network-tests.sh                 # manager DESECHABLE (todas las suites)
 #   bash infra/wazuh/network/tests/run-network-tests.sh --manager qapaq-wazuh.manager-1

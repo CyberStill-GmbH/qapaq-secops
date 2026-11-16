@@ -31,7 +31,7 @@ resource "aws_cloudfront_distribution" "main" {
   provider = aws.us_east_1
 
   enabled         = true
-  comment         = "${local.name} QAPAQ SOC"
+  comment         = "${local.name} QAPAQ SecOps"
   price_class     = "PriceClass_100"
   http_version    = "http2and3"
   is_ipv6_enabled = true

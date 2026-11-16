@@ -47,8 +47,8 @@ export function analystReportHtml(filename: string, markdown: string, basePath =
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escape(title)}</title>
   <style>@page{size:A4;margin:18mm}body{font:11pt Arial,sans-serif;color:#20232a;line-height:1.5;margin:24px auto;max-width:190mm}header{display:flex;align-items:center;gap:18px;border-bottom:4px solid #c49a5a;padding-bottom:18px}header img{width:64px;height:64px;object-fit:contain}header strong{font-size:22pt}header small{display:block;color:#555}h1{font-size:20pt}h2{font-size:15pt;border-bottom:1px solid #ddd;padding-bottom:6px}h3{font-size:12pt}h1,h2,h3,h4{break-after:avoid}p,td{overflow-wrap:anywhere;white-space:pre-wrap}table{width:100%;border-collapse:collapse;font-size:9pt;margin:14px 0}td{border:1px solid #ccc;padding:7px;vertical-align:top}tr{break-inside:avoid}footer{border-top:1px solid #ccc;margin-top:24px;font-size:9pt;color:#555}.toolbar{padding:12px;background:#f3f4f6;margin-bottom:20px}.toolbar button{padding:10px 18px;cursor:pointer}@media print{body{margin:0;max-width:none}.toolbar{display:none}}</style></head><body>
   <div class="toolbar"><button id="print">Guardar como PDF / Imprimir</button><p>Selecciona Guardar como PDF en el diálogo del navegador. Revisa la cobertura declarada antes de distribuir.</p></div>
-  <header><img src="${escape(basePath)}/ui/qapaq/qapaq-mark-gradient.png" alt="QAPAQ"><div><strong>QAPAQ SOC</strong><small>Informe de investigación · Analista IA</small></div></header>
-  <main>${lines.join('\n')}</main><footer>QAPAQ SOC · Documento de uso interno. Las conclusiones conservan las limitaciones y referencias del expediente original.</footer></body></html>`;
+  <header><img src="${escape(basePath)}/ui/qapaq/qapaq-mark-gradient.png" alt="QAPAQ"><div><strong>QAPAQ SecOps</strong><small>Informe de investigación · Analista IA</small></div></header>
+  <main>${lines.join('\n')}</main><footer>QAPAQ SecOps · Documento de uso interno. Las conclusiones conservan las limitaciones y referencias del expediente original.</footer></body></html>`;
 }
 
 export function openReportWindow(): Window {

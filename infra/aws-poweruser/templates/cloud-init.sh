@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bootstrap base del nodo QAPAQ SOC (sin secretos). El runtime lo instala el operador con
+# Bootstrap base del nodo QAPAQ SecOps (sin secretos). El runtime lo instala el operador con
 # infra/aws-poweruser/scripts/deploy-host.sh por SSH.
 set -euxo pipefail
 exec > >(tee -a /var/log/qapaq-cloud-init.log) 2>&1

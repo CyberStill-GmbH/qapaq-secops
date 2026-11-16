@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QAPAQ SOC · genera etc/decoders/qapaq_auditd_decoders.xml a partir del 0040-auditd_decoders.xml del manager.
+"""QAPAQ SecOps · genera etc/decoders/qapaq_auditd_decoders.xml a partir del 0040-auditd_decoders.xml del manager.
 
 Los decoders hermanos (mismo nombre) solo se encadenan dentro del archivo del ruleset: uno agregado en otro
 archivo no se aplica. Para que los eventos de auditd traigan la IP del registro SOCKADDR enriquecido
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 SIBLING = """
-<!-- QAPAQ SOC (docs/18): dirección remota de connect()/bind()/accept() en el registro SOCKADDR enriquecido
+<!-- QAPAQ SecOps (docs/18): dirección remota de connect()/bind()/accept() en el registro SOCKADDR enriquecido
      de auditd 3.x (log_format = ENRICHED). Insertado por infra/wazuh/network/decoders/build_auditd_override.py. -->
 <decoder name="auditd-syscall">
   <parent>auditd</parent>

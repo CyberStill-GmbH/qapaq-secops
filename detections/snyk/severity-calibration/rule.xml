@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · calibración de severidad · detections/snyk/severity-calibration (metadata.yaml, docs/17 §Ajuste).
+  QAPAQ SecOps · calibración de severidad · detections/snyk/severity-calibration (metadata.yaml, docs/17 §Ajuste).
   Para que P1/P2 signifiquen "accionable hoy": una vulnerabilidad sube de nivel solo si está EXPUESTA
   (lista qapaq-internet-facing-projects) o tiene exploit maduro. Medido en AWS: 173 issues bajos (nivel 3),
   60 altos (nivel 10 = correo QAPAQ) y críticos a nivel 12 (webhook de Ankay) sin corroboración.

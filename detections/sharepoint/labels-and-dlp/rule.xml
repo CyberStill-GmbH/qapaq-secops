@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/sharepoint/labels-and-dlp (metadata.yaml, docs/23).
+  QAPAQ SecOps · detección como código · detections/sharepoint/labels-and-dlp (metadata.yaml, docs/23).
   Etiquetas de confidencialidad y DLP en SharePoint/OneDrive:
   - Etiqueta quitada (FileSensitivityLabelRemoved / SensitivityLabelRemoved) o rebajada/quitada según
     SensitivityLabelEventData.LabelEventType (2 = rebajada, 3 = quitada; registros MIP RecordType 83/84) = 8.

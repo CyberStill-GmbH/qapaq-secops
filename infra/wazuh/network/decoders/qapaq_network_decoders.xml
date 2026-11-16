@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · decoders de visibilidad de red (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
+  QAPAQ SecOps · decoders de visibilidad de red (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
   Se instala como etc/decoders/qapaq_network_decoders.xml con infra/wazuh/network/deploy-network.sh.
 
   1. qapaq-netconn  · salida de infra/wazuh/network/agent/qapaq-netconn.sh (command monitoring, una línea

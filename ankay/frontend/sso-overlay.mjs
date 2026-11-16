@@ -34,7 +34,7 @@ export const BACK_BUTTON_STYLE = `
 // Comillas simples a propósito: el sub_filter del edge solo antepone /ankay a href/src con
 // comillas dobles, y este enlace debe ir al SIEM (/app/…), no dentro de Ankay.
 export const BACK_BUTTON =
-  "<a id='qapaq-back-to-siem' href='/app/qapaq-alerts' target='_top' title='Volver a QAPAQ SOC (SIEM)'>" +
+  "<a id='qapaq-back-to-siem' href='/app/qapaq-alerts' target='_top' title='Volver a QAPAQ SecOps (SIEM)'>" +
   "<svg aria-hidden='true' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='2' " +
   "stroke-linecap='round' stroke-linejoin='round'><path d='M10 3 5 8l5 5'/></svg>Volver al SIEM</a>";
 export const I18N_SCRIPT = "<script src='/ankay/qapaq-i18n.js' defer></script>";

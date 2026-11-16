@@ -90,7 +90,7 @@ evita que una persona o un agente expulse a otro. Detalle de la excepción en
 
 `QAPAQ_DEMO_MFA_EXCEPTION_UNTIL` (en `apps/api/src/main.ts` y el esquema de configuración) permitía
 completar el login sin prueba de MFA/passkey con vencimiento acotado. La fecha de la demo anterior
-(2026-10-17) **ya venció**. En QAPAQ SOC no se propaga: no se define la variable en ningún entorno
+(2026-10-17) **ya venció**. En QAPAQ SecOps no se propaga: no se define la variable en ningún entorno
 nuevo y se evalúa retirar el código en la fase 1 ([09](09-plan-de-lanzamiento.md)).
 
 ## Flujo

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · monitores de Alerting sobre los detectores de Anomaly Detection (docs/detection-engineering/07).
+# QAPAQ SecOps · monitores de Alerting sobre los detectores de Anomaly Detection (docs/detection-engineering/07).
 #
 #   sudo bash wazuh/indexer/anomaly-detection/apply-detectors.sh     # crea y arranca los detectores qapaq-*
 #   sudo bash detections/tools/apply-anomaly-monitors.sh             # crea/actualiza un monitor por detector

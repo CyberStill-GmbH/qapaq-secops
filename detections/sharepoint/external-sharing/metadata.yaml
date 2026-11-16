@@ -1,4 +1,4 @@
-# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
 # Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
 id: QAPAQ-DET-SP-003
 title: 'Uso compartido externo: enlaces anónimos en volumen y correos personales'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — aplica wazuh/office365 (módulo office365 de Wazuh + reglas 100502-100530) en el
+# QAPAQ SecOps — aplica wazuh/office365 (módulo office365 de Wazuh + reglas 100502-100530) en el
 # manager Docker (wazuh-docker single-node) y persiste ossec.conf en el montaje del host.
 #
 #   sudo bash wazuh/office365/apply-office365-docker.sh

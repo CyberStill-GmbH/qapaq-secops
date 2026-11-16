@@ -87,7 +87,7 @@ describe('renderLoginPage', () => {
     basePath: '/dash',
     apiPrefix: '/api',
     nonce: 'abc123',
-    destinationLabel: 'QAPAQ SOC',
+    destinationLabel: 'QAPAQ SecOps',
   };
 
   const clean = { code: null, correlationId: null, superseded: false, loggedOut: false };
@@ -102,7 +102,7 @@ describe('renderLoginPage', () => {
     expect(html).toContain('autocomplete="current-password"');
     expect(html).toContain('name="returnTo" value="/dash/app/home?x=1"');
     // El destino viaja codificado en la URL de Entra y escapado en el campo oculto.
-    expect(html).toContain('Bienvenido a QAPAQ SOC');
+    expect(html).toContain('Bienvenido a QAPAQ SecOps');
   });
 
   it('la contraseña nunca se escribe en la página ni viaja por la URL', () => {
@@ -208,7 +208,7 @@ describe('aviso de cookies', () => {
     basePath: '',
     apiPrefix: '/api',
     nonce: 'n',
-    destinationLabel: 'QAPAQ SOC',
+    destinationLabel: 'QAPAQ SecOps',
     nextUrl: '/app/home',
     notice: { code: null, correlationId: null, superseded: false, loggedOut: false },
   });

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QAPAQ SOC · detección como código (docs/17-ingenieria-de-deteccion.md).
+"""QAPAQ SecOps · detección como código (docs/17-ingenieria-de-deteccion.md).
 
 Subcomandos:
   lint                         Valida catálogo, metadatos, rangos de IDs, prefijos y MITRE.
@@ -302,7 +302,7 @@ def cmd_coverage(args) -> int:
     blk = {"none": "Hay datos hoy", "entra-permission": "Permiso de Entra", "endpoint-agent": "Agentes en endpoints",
            "budget": "Presupuesto/licencia", "config": "Configuración"}
     lines = [
-        "# QAPAQ SOC · Cobertura MITRE ATT&CK",
+        "# QAPAQ SecOps · Cobertura MITRE ATT&CK",
         "",
         "> Generado por `python3 detections/tools/qapaq_detections.py coverage`"
         + (" con el ruleset oficial de Wazuh 4.14.8 (`--official`)." if official else ".")

@@ -3,7 +3,7 @@
 > **Nota (heredado):** Shuffle y su webhook son el estado heredado de Ankay. El diseño vigente es
 > Step Functions ([13](../docs/13-ankay-qapaq.md), [14](../docs/14-ankay-conexion-qapaq.md)); este material se reemplaza (fase M5).
 
-El frontend se construye para alojarse en la ruta `/ankay/` detrás de la sesión QAPAQ. Se entra con la sesión de QAPAQ SOC, sin segundo login: el puente `sso/` abre la sesión de Shuffle con el rol mapeado desde QAPAQ (decisión B11, [14 §8.1](../docs/14-ankay-conexion-qapaq.md)). `frontend/i18n/qapaq-i18n.js` pone la interfaz en español y `frontend/sso-overlay.mjs` añade «Volver al SIEM».
+El frontend se construye para alojarse en la ruta `/ankay/` detrás de la sesión QAPAQ. Se entra con la sesión de QAPAQ SecOps, sin segundo login: el puente `sso/` abre la sesión de Shuffle con el rol mapeado desde QAPAQ (decisión B11, [14 §8.1](../docs/14-ankay-conexion-qapaq.md)). `frontend/i18n/qapaq-i18n.js` pone la interfaz en español y `frontend/sso-overlay.mjs` añade «Volver al SIEM».
 
 Overlay versionado sobre **Shuffle v2.3.0** ([`upstream.lock`](upstream.lock)). Diseño vigente (Step Functions) y plan de migración en [`docs/13-ankay-qapaq.md`](../docs/13-ankay-qapaq.md).
 

@@ -167,7 +167,7 @@ describe('tarjeta de Teams', () => {
 describe('correo', () => {
   it('HTML escapado con botón primario y versión de texto equivalente', () => {
     const email = buildAlertEmail(input({ title: 'QAPAQ <script>alert(1)</script>' }));
-    expect(email.subject).toMatch(/^QAPAQ SOC · P1 Crítica · /u);
+    expect(email.subject).toMatch(/^QAPAQ SecOps · P1 Crítica · /u);
     expect(email.html).not.toContain('<script>');
     expect(email.html).toContain('&lt;script&gt;');
     expect(email.html).toContain(`href="${BASE}/app/qapaq-alerts?id=${ALERT}&amp;investigate=1"`);

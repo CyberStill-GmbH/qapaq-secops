@@ -3,7 +3,7 @@
  */
 
 /**
- * Login QAPAQ SOC servido por el dashboard (sustituye al formulario de Wazuh).
+ * Login QAPAQ SecOps servido por el dashboard (sustituye al formulario de Wazuh).
  *
  * Dos formas de entrar, ambas por el BFF de QAPAQ y ambas con la misma admisión (red, bloqueo,
  * MFA/passkey y rol Accesos_SOC):
@@ -357,7 +357,7 @@ export function renderLoginPage(options: LoginPageOptions): string {
 <link rel="apple-touch-icon" sizes="180x180" href="${ui}/favicons/apple-touch-icon.png">
 <link rel="manifest" href="${ui}/favicons/manifest.json">
 <link rel="preload" as="image" type="image/webp" href="${brand}/qapaq_login_hero.webp" media="(min-width: 1001px)">
-<title>Iniciar sesión · QAPAQ SOC</title>
+<title>Iniciar sesión · QAPAQ SecOps</title>
 <style nonce="${nonce}">${css}</style>
 </head>
 <body>
@@ -365,12 +365,12 @@ export function renderLoginPage(options: LoginPageOptions): string {
 <main class="login-shell">
   <section class="login-side">
     <header class="login-brand">
-      <img class="brand-badge" src="${brand}/qapaq-head-mark.webp" alt="QAPAQ SOC">
+      <img class="brand-badge" src="${brand}/qapaq-head-mark.webp" alt="QAPAQ SecOps">
       <span class="brand-name">SOC</span>
       <span class="login-destination">Estás iniciando sesión en ${escapeHtml(destinationLabel)}</span>
     </header>
     <div class="login-core" aria-labelledby="login-title">
-      <h1 id="login-title">Bienvenido a QAPAQ SOC</h1>
+      <h1 id="login-title">Bienvenido a QAPAQ SecOps</h1>
       <p class="login-subtitle">${
         !passwordEnabled
           ? 'Ingresa con tu cuenta institucional.'
@@ -448,7 +448,7 @@ export function renderLogoutPage({ basePath, apiPrefix, nonce }: LogoutPageOptio
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>Cerrando sesión · QAPAQ SOC</title>
+<title>Cerrando sesión · QAPAQ SecOps</title>
 <style nonce="${nonce}">html,body{margin:0;height:100%;background:#080808;color:#b0b0b5;font:13px/20px 'Segoe UI',Inter,ui-sans-serif,system-ui,sans-serif}main{display:grid;height:100%;place-items:center}</style>
 </head>
 <body>

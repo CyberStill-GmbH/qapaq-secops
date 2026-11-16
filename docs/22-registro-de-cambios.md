@@ -1,4 +1,4 @@
-# 22 · Registro de cambios del despliegue QAPAQ SOC
+# 22 · Registro de cambios del despliegue QAPAQ SecOps
 
 > Esfuerzo de despliegue del 2026-11-02 al 2026-11-08 en la rama `qapaq/rebrand-serverless`. Agrupado
 > por tema; cada línea cita el commit. Lo que otros agentes tienen en curso figura al final.

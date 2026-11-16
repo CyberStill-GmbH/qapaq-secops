@@ -1,4 +1,4 @@
-# QAPAQ SOC · Cobertura MITRE ATT&CK
+# QAPAQ SecOps · Cobertura MITRE ATT&CK
 
 > Generado por `python3 detections/tools/qapaq_detections.py coverage` con el ruleset oficial de Wazuh 4.14.8 (`--official`). No editar a mano. Fuente: el XML de las reglas QAPAQ (`<mitre><id>`), no las intenciones.
 

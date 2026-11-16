@@ -1,4 +1,4 @@
-# QAPAQ SOC · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+# QAPAQ SecOps · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
 id: QAPAQ-TUNE-CF-001
 title: Escáneres autorizados, automatización DNS y corroboración por zona crítica
 source: cloudflare

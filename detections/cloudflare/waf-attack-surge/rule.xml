@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/cloudflare/waf-attack-surge (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/cloudflare/waf-attack-surge (metadata.yaml).
   Oleada distribuida contra un host: 50 bloqueos/desafíos del WAF desde IPs distintas en 10 min.
   101513 ya cubre una IP insistente; esta cubre botnets y escaneos distribuidos que la evaden.
   Rango QAPAQ: 101740-101749. Se instala como qapaq_soc_cloudflare_waf_attack_surge.xml.

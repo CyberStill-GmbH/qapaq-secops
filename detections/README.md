@@ -1,4 +1,4 @@
-# detections/ · Detección como código de QAPAQ SOC
+# detections/ · Detección como código de QAPAQ SecOps
 
 Programa: [docs/17-ingenieria-de-deteccion.md](../docs/17-ingenieria-de-deteccion.md) · Ciclo y estándar:
 [docs/detection-engineering/01](../docs/detection-engineering/01-ciclo-de-vida.md).

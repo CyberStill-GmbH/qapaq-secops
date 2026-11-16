@@ -1,4 +1,4 @@
-# QAPAQ SOC · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+# QAPAQ SecOps · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
 id: QAPAQ-TUNE-SNYK-001
 title: Calibración de severidad de Snyk por exposición y explotabilidad
 source: snyk

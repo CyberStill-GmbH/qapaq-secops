@@ -103,7 +103,7 @@ spec = {
     ],
     "sources": [
         "Wazuh Indexer · wazuh-alerts-* (consulta 2026-11-13 12:00)",
-        "QAPAQ SOC API",
+        "QAPAQ SecOps API",
     ],
 }
 print(json.dumps(spec, ensure_ascii=False, indent=2))

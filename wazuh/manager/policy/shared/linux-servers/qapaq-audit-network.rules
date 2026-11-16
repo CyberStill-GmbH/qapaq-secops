@@ -1,4 +1,4 @@
-## QAPAQ SOC · auditoría de red para Wazuh (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
+## QAPAQ SecOps · auditoría de red para Wazuh (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
 ## Fuente: wazuh/manager/policy/shared/linux-servers/; se distribuye con el grupo linux-servers y la
 ## instala qapaq-audit-sync (infra/wazuh/network/agent/install-linux-network-visibility.sh) en
 ## /etc/audit/rules.d/60-qapaq-network.rules. El agente lee /var/log/audit/audit.log (log_format audit).

@@ -1,4 +1,4 @@
-# QAPAQ SOC · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+# QAPAQ SecOps · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
 id: QAPAQ-TUNE-LNX-001
 title: Ruido de sesiones administrativas, SSH por contexto y rootcheck en overlay
 source: linux

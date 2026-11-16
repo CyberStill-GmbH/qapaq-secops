@@ -22,7 +22,7 @@ API/UI/servicio, 2026-11-13).
   Prioridad como etiqueta de texto P1..P4 en rampa neutra. Tipografía Noto Sans. Para acotar
   tiempo y tamaño, el PDF muestra como máximo 3000 filas en total y avisa; el detalle completo va en XLSX/CSV.
 - **XLSX** (xlsxwriter): hoja «Resumen», una hoja por tabla o gráfico (gráficos nativos de Excel), «Cronología».
-  Fechas reales en la zona del informe, números reales, enlaces reales. Autor «QAPAQ SOC».
+  Fechas reales en la zona del informe, números reales, enlaces reales. Autor «QAPAQ SecOps».
 - **CSV**: tabla `primary` (o la primera), UTF-8 con BOM, coma, RFC 4180, fechas ISO con zona.
 - Donut: con una serie, cada punto es una porción; con varias, cada serie aporta su total.
 

@@ -22,7 +22,7 @@ resource "aws_sns_topic" "this" {
 
 resource "aws_cloudwatch_event_rule" "activity" {
   name        = "${var.topic_name}-region-activity"
-  description = "QAPAQ SOC: actividad (API de escritura o login de consola) en region no habitual"
+  description = "QAPAQ SecOps: actividad (API de escritura o login de consola) en region no habitual"
   event_pattern = jsonencode({
     "detail-type" = [
       "AWS API Call via CloudTrail",

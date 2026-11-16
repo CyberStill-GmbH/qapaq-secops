@@ -357,7 +357,7 @@
         },
         {
           "name": "body",
-          "value": "{\"message\":{\"subject\":\"QAPAQ SOC · $resumen_triage.message.severity_label · $resumen_triage.message.title\",\"body\":{\"contentType\":\"Text\",\"content\":\"$resumen_triage.message.mail_text\"},\"toRecipients\":$resumen_triage.message.recipients},\"saveToSentItems\":false}",
+          "value": "{\"message\":{\"subject\":\"QAPAQ SecOps · $resumen_triage.message.severity_label · $resumen_triage.message.title\",\"body\":{\"contentType\":\"Text\",\"content\":\"$resumen_triage.message.mail_text\"},\"toRecipients\":$resumen_triage.message.recipients},\"saveToSentItems\":false}",
           "required": false,
           "multiline": false,
           "id_": "",

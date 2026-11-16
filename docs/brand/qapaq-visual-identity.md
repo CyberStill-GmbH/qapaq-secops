@@ -50,7 +50,7 @@ la misma pila. Los informes PDF usan Noto Sans/DejaVu, disponibles en la imagen 
 | Q sola | `wazuh/dashboard/assets/svg/qapaq_mark_on_{dark,light}.svg` | Cabecera, menú, iconos del core. |
 | Logotipo «QAPAQ SecOps» | `wazuh/dashboard/assets/svg/qapaq_wordmark_on_{dark,light}.svg` | Login heredado, logo de la app, informes de Wazuh. |
 | Icono de la app | `wazuh/dashboard/assets/svg/qapaq_app_icon.svg` | Favicons, PWA, logo de informes. |
-| Insignia circular | `wazuh/dashboard/assets/svg/qapaq_head_mark.svg` | Login QAPAQ SOC y login de Ankay. |
+| Insignia circular | `wazuh/dashboard/assets/svg/qapaq_head_mark.svg` | Login QAPAQ SecOps y login de Ankay. |
 | Splash | `wazuh/dashboard/assets/svg/qapaq_splash.svg` | Pantalla de carga (la Q late y una línea ámbar recorre la base). |
 | Ankay | `ankay/frontend/assets/svg/ankay_*.svg`, `wazuh/dashboard/assets/svg/ankay.svg` | La Q con el triángulo ámbar de «ejecutar». |
 

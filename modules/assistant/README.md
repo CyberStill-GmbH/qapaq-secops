@@ -1,6 +1,6 @@
 # assistant — Qapaqzito
 
-Dominio del asistente de IA de QAPAQ SOC («Qapaqzito»). Sin frameworks ni SDK de proveedores: define el
+Dominio del asistente de IA de QAPAQ SecOps («Qapaqzito»). Sin frameworks ni SDK de proveedores: define el
 puerto del modelo (`AssistantModel`), las herramientas de **solo lectura** (`AssistantTool`) y el
 bucle que las orquesta (`runAssistant`). Los adaptadores de Claude (API de Anthropic o Amazon
 Bedrock) y las herramientas que leen el SOC viven en `apps/api/src/assistant/`.

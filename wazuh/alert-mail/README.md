@@ -1,4 +1,4 @@
-# Correo de alertas críticas/altas (QAPAQ SOC)
+# Correo de alertas críticas/altas (QAPAQ SecOps)
 
 `qapaq_alert_mail.py` envía por Microsoft Graph `sendMail` (client credentials) un correo por
 intervalo (`ALERT_INTERVAL_MIN`, timer `qapaq-alert-mail.timer`) con las alertas Wazuh de

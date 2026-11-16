@@ -1,4 +1,4 @@
-# QAPAQ SOC en modo PowerUser: un solo nodo EC2 sin rol IAM ni perfil de instancia.
+# QAPAQ SecOps en modo PowerUser: un solo nodo EC2 sin rol IAM ni perfil de instancia.
 # El permiso SSO SOC-PowerUser no permite IAM ni iam:PassRole; por eso aquí no hay Lambda,
 # Step Functions, Scheduler, DLM ni Flow Logs. Los secretos se generan en el host
 # (/opt/qapaq/secrets, 0600 root) y nunca pasan por Terraform, el estado ni el user_data.
@@ -73,7 +73,7 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_security_group" "soc" {
   name        = "${var.name}-node"
-  description = "QAPAQ SOC node: admin SSH/HTTPS, ACME HTTP, Wazuh agents"
+  description = "QAPAQ SecOps node: admin SSH/HTTPS, ACME HTTP, Wazuh agents"
   vpc_id      = aws_vpc.this.id
   tags        = { Name = "${var.name}-node" }
 }

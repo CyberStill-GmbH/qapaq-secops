@@ -261,7 +261,7 @@ export function buildAlertCard(
               type: 'Column',
               width: 'stretch',
               items: [
-                { type: 'TextBlock', text: 'QAPAQ SOC', weight: 'Bolder', size: 'Small', isSubtle: true },
+                { type: 'TextBlock', text: 'QAPAQ SecOps', weight: 'Bolder', size: 'Small', isSubtle: true },
                 {
                   type: 'TextBlock',
                   text: parts.heading,
@@ -401,7 +401,7 @@ export function buildAlertEmail(input: AlertNotificationInput): RenderedEmail {
   const priority = context.priority ?? (context.kind === 'incident' ? 'P1' : 'P4');
   const style = PRIORITY_STYLE[priority];
   const prefix = context.test ? '[PRUEBA] ' : '';
-  const subject = `${prefix}QAPAQ SOC · ${priority} ${style.label} · ${clean(context.title, 180)}`.slice(0, 255);
+  const subject = `${prefix}QAPAQ SecOps · ${priority} ${style.label} · ${clean(context.title, 180)}`.slice(0, 255);
   const factRows = parts.facts
     .map(
       (fact) =>
@@ -415,7 +415,7 @@ export function buildAlertEmail(input: AlertNotificationInput): RenderedEmail {
     '<!doctype html><html lang="es"><body style="margin:0;padding:0;background:#F3F4F6">',
     `<div style="font-family:'Segoe UI',Arial,sans-serif;color:${BRAND.dark};max-width:680px;margin:0 auto;padding:16px">`,
     `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.accent}">`,
-    `<div style="font-size:12px;opacity:.75">QAPAQ SOC</div>`,
+    `<div style="font-size:12px;opacity:.75">QAPAQ SecOps</div>`,
     `<div style="font-size:18px;font-weight:700">${escapeHtml(parts.heading)}</div></div>`,
     `<div style="background:#ffffff;border:1px solid #E5E7EB;border-top:0;padding:20px;border-radius:0 0 8px 8px">`,
     `<div style="border-left:4px solid ${style.color};padding-left:12px;margin-bottom:12px">`,
@@ -445,7 +445,7 @@ export function buildAlertEmail(input: AlertNotificationInput): RenderedEmail {
     '</div></div></body></html>',
   ].join('');
   const text = [
-    `QAPAQ SOC · ${parts.heading}${parts.badges.length > 0 ? ` [${parts.badges.join(', ')}]` : ''}`,
+    `QAPAQ SecOps · ${parts.heading}${parts.badges.length > 0 ? ` [${parts.badges.join(', ')}]` : ''}`,
     clean(context.title, 300),
     '',
     ...parts.facts.map((fact) => `${fact.title}: ${fact.value}`),
@@ -529,7 +529,7 @@ export function buildDigestCard(input: DigestInput, clientRequestId: string): Te
               style: 'emphasis',
               bleed: true,
               items: [
-                { type: 'TextBlock', text: 'QAPAQ SOC', weight: 'Bolder', size: 'Small', isSubtle: true },
+                { type: 'TextBlock', text: 'QAPAQ SecOps', weight: 'Bolder', size: 'Small', isSubtle: true },
                 { type: 'TextBlock', text: digestHeading(input), weight: 'Bolder', size: 'Medium', wrap: true, spacing: 'None' },
                 {
                   type: 'TextBlock',
@@ -590,7 +590,7 @@ export function buildDigestEmail(input: DigestInput): RenderedEmail {
   const html = [
     '<!doctype html><html lang="es"><body style="margin:0;padding:0;background:#F3F4F6">',
     `<div style="font-family:'Segoe UI',Arial,sans-serif;color:${BRAND.dark};max-width:760px;margin:0 auto;padding:16px">`,
-    `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.accent}"><div style="font-size:12px;opacity:.75">QAPAQ SOC</div><div style="font-size:18px;font-weight:700">${escapeHtml(heading)}</div></div>`,
+    `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.accent}"><div style="font-size:12px;opacity:.75">QAPAQ SecOps</div><div style="font-size:18px;font-weight:700">${escapeHtml(heading)}</div></div>`,
     `<div style="background:#ffffff;border:1px solid #E5E7EB;border-top:0;padding:20px;border-radius:0 0 8px 8px">`,
     `<p style="margin-top:0">Del ${escapeHtml(formatLocal(input.from, input.timeZone))} al ${escapeHtml(formatLocal(input.to, input.timeZone))}. Estas alertas no generaron aviso inmediato para no inundar el canal.</p>`,
     `<table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="text-align:left;color:${BRAND.muted};font-size:12px"><th style="padding:6px 8px">Prioridad</th><th style="padding:6px 8px">Alerta</th><th style="padding:6px 8px;text-align:right">Veces</th><th style="padding:6px 8px">Última</th></tr>${rows}</table>`,
@@ -599,7 +599,7 @@ export function buildDigestEmail(input: DigestInput): RenderedEmail {
     '</div></div></body></html>',
   ].join('');
   const text = [
-    `QAPAQ SOC · ${heading}`,
+    `QAPAQ SecOps · ${heading}`,
     `Del ${formatLocal(input.from, input.timeZone)} al ${formatLocal(input.to, input.timeZone)}.`,
     '',
     ...input.lines
@@ -611,5 +611,5 @@ export function buildDigestEmail(input: DigestInput): RenderedEmail {
     '',
     `Abrir cola de alertas: ${root}/app/qapaq-alerts`,
   ].join('\n');
-  return { subject: `QAPAQ SOC · ${heading}`.slice(0, 255), html, text };
+  return { subject: `QAPAQ SecOps · ${heading}`.slice(0, 255), html, text };
 }

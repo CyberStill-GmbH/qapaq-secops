@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/sharepoint/posture (metadata.yaml, docs/23).
+  QAPAQ SecOps · detección como código · detections/sharepoint/posture (metadata.yaml, docs/23).
   Eventos propios del collector wazuh/provider-ingestion/sharepoint (qapaq.vendor=m365):
   - capability (audit y posture): estado de cada función según los permisos de la app de Entra. Es la salud
     de la fuente: "bloqueada" informa (3); una función que funcionaba y deja de hacerlo (permiso revocado o

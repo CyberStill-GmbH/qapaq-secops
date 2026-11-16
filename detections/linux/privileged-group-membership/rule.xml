@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/privileged-group-membership (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/privileged-group-membership (metadata.yaml).
   Usuario agregado a un grupo que equivale a root (sudo, wheel, admin, root, docker, lxd, disk) o que
   lee secretos y logs (shadow, adm). La oficial 2961 solo eleva sudo y a nivel 5.
   Limitación: solo el decoder gpasswd extrae el grupo; `usermod -aG` no tiene decoder (backlog BL-L03).

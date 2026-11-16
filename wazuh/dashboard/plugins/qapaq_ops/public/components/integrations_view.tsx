@@ -32,7 +32,7 @@ export function IntegrationsView({ basePath }: { basePath: string }) {
     <main className="qapaqPage qapaqOverview">
       <header className="qapaqHero">
         <div className="qapaqHero__text">
-          <span className="qapaqHero__eyebrow">QAPAQ SOC</span>
+          <span className="qapaqHero__eyebrow">QAPAQ SecOps</span>
           <h1>Integraciones</h1>
           <p>
             Servicios conectados al SIEM, qué recoge cada uno, la política que se les aplica y los

@@ -1,4 +1,4 @@
-# Override del single-node oficial de wazuh-docker (v4.14.8) para el nodo QAPAQ SOC en AWS.
+# Override del single-node oficial de wazuh-docker (v4.14.8) para el nodo QAPAQ SecOps en AWS.
 # Se aplica desde /opt/qapaq/wazuh-docker/single-node con:
 #   docker compose --env-file /opt/qapaq/secrets/compose.env -f docker-compose.yml \
 #     -f /opt/qapaq/src/infra/aws-poweruser/host/compose.qapaq.yaml up -d

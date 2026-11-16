@@ -52,10 +52,10 @@ def render_xlsx(spec: Spec) -> bytes:
     wb.set_properties({
         "title": spec.title,
         "subject": KIND_LABELS.get(spec.kind, "Informe"),
-        "author": "QAPAQ SOC",
+        "author": "QAPAQ SecOps",
         "company": "QAPAQ",
         "category": spec.classification,
-        "comments": "Generado por QAPAQ SOC. " + spec.classification,
+        "comments": "Generado por QAPAQ SecOps. " + spec.classification,
         "created": spec.generated_at.replace(tzinfo=None),
     })
     base = {"font_name": "Calibri", "font_size": 10, "font_color": INK, "valign": "top"}

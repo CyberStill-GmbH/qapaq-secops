@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · pruebas de detección como código en un manager Wazuh DESECHABLE (docs/17).
+# QAPAQ SecOps · pruebas de detección como código en un manager Wazuh DESECHABLE (docs/17).
 #
 #   bash detections/tools/test-in-container.sh                  # arranca wazuh/wazuh-manager:4.14.8 sin red
 #   bash detections/tools/test-in-container.sh --keep           # deja el contenedor para depurar

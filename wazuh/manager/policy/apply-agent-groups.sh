@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — políticas de agente centralizadas (etc/shared/<grupo>/agent.conf). Idempotente.
+# QAPAQ SecOps — políticas de agente centralizadas (etc/shared/<grupo>/agent.conf). Idempotente.
 #
 #   1. Valida cada agent.conf con verify-agent-conf del propio manager antes de instalarlo.
 #   2. Crea el grupo si falta (agent_groups -a) e instala el agent.conf solo si cambió.

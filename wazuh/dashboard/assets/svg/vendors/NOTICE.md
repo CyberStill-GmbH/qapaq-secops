@@ -1,6 +1,6 @@
 # Marcas de terceros: logotipos de proveedores integrados
 
-Estos archivos identifican **servicios de terceros integrados con QAPAQ SOC** (uso nominativo:
+Estos archivos identifican **servicios de terceros integrados con QAPAQ SecOps** (uso nominativo:
 la tarjeta, la fila o el título muestran qué proveedor originó el dato). No implican patrocinio,
 aval ni relación comercial. Cada marca pertenece a su titular. Se muestran sin recortar, girar
 ni deformar, y siempre con el nombre completo del servicio al lado.

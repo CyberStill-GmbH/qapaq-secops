@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/sharepoint/external-sharing (metadata.yaml, docs/23).
+  QAPAQ SecOps · detección como código · detections/sharepoint/external-sharing (metadata.yaml, docs/23).
   Uso compartido fuera de QAPAQ: enlaces anónimos ("Cualquier persona") y compartición con correos personales o
   invitados. Refina 100515 (enlace anónimo, nivel 7, wazuh/office365) sin moverla.
   - Cuentas aprobadas para publicar con enlaces anónimos o compartir con socios (qapaq-m365-sharing-approved)

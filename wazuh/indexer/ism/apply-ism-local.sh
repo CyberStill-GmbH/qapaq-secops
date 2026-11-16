@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — retención del Indexer en nodo único SIN repositorio de snapshots (EC2 PowerUser y
+# QAPAQ SecOps — retención del Indexer en nodo único SIN repositorio de snapshots (EC2 PowerUser y
 # local). Idempotente. Catálogo y motivos: docs/16-politicas.md.
 #
 #   qapaq-wazuh-alerts-90d        wazuh-alerts-*                         hot 90 d → delete

@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · reducción de falsos positivos · detections/cloudflare/noise-tuning (metadata.yaml, docs/17 §Ajuste).
+  QAPAQ SecOps · reducción de falsos positivos · detections/cloudflare/noise-tuning (metadata.yaml, docs/17 §Ajuste).
   - Escáneres autorizados (detections/lists/qapaq-authorized-scanners): sus bloqueos bajan a nivel 2 y por eso
     no cuentan para 101513 ni 101740 (dejan de ser 101510).
   - Corroboración por activo: una IP insistente (101513, nivel 10 = correo) solo conserva nivel ≥ 10 si ataca

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — instala en el host Docker (AWS PowerUser o local con systemd) los collectors de
+# QAPAQ SecOps — instala en el host Docker (AWS PowerUser o local con systemd) los collectors de
 # Bitdefender GravityZone, Snyk y Cloudflare y el servicio de correo de alertas críticas/altas.
 #
 #   sudo bash wazuh/provider-ingestion/install-qapaq-collectors.sh

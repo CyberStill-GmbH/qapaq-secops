@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/network-connections (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/network-connections (metadata.yaml).
   Puertos en escucha y conexiones TCP del host, desde el command monitoring del grupo linux-servers
   (wazuh/manager/policy/shared/linux-servers/qapaq-netconn.sh, decoder qapaq-netconn en
   infra/wazuh/network/decoders/qapaq_network_decoders.xml). Docs: docs/18-visibilidad-de-red-y-capacidades-wazuh.md.

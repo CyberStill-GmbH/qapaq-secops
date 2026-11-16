@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/docker-runtime (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/docker-runtime (metadata.yaml).
   Eventos del daemon Docker del nodo del SOC (wodle docker-listener del grupo linux-docker-hosts).
   Las reglas oficiales 87900-87999 cubren el ciclo de vida; estas suben la severidad cuando la acción toca
   los contenedores que guardan las alertas, las credenciales o el tráfico del SOC.

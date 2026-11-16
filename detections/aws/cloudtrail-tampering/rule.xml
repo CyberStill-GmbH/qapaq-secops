@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/aws/cloudtrail-tampering (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/aws/cloudtrail-tampering (metadata.yaml).
   Correlación sobre las reglas AWS del receptor EventBridge (wazuh/aws-events, 101600-101699, otro owner).
   Se enlaza por GRUPO (qapaq_aws_defense_disabled, qapaq_aws_iam, qapaq_aws_root) y no por ID, para que un
   cambio de numeración del paquete AWS no rompa la carga del manager. La regla base de StopLogging es

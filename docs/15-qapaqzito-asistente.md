@@ -4,7 +4,7 @@
 > (existe en el repo, no se probó contra el proveedor real ni en el dashboard desplegado) y
 > **[propuesto]**.
 
-**Qapaqzito** es el asistente de IA integrado en QAPAQ SOC, representado por la Q de QAPAQ con cara (ojos y sonrisa ámbar).
+**Qapaqzito** es el asistente de IA integrado en QAPAQ SecOps, representado por la Q de QAPAQ con cara (ojos y sonrisa ámbar).
 Se comporta como un asistente de consola tipo Amazon Q: un panel lateral que se abre desde la
 cabecera, entiende en qué página estás, consulta el SOC por ti con herramientas, muestra qué
 consultó y cita las alertas e incidentes en que se apoya. Usa **Claude** por API.

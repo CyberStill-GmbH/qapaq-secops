@@ -37,7 +37,7 @@ entrega el administrador de plataforma desde `/opt/qapaq/secrets/` del nodo
 Capacidades exactas: `modules/access/src/capabilities.ts`. Separación de funciones en
 [04](04-identidad-y-acceso.md).
 
-## Menú QAPAQ SOC
+## Menú QAPAQ SecOps
 
 | Página | Para qué |
 | --- | --- |

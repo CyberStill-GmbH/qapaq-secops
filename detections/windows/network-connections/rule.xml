@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/windows/network-connections (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/windows/network-connections (metadata.yaml).
   Telemetría de red de endpoints Windows del grupo opt-in windows-telemetry-extended (gate de privacidad):
   Sysmon 3 (conexión con proceso), Sysmon 22 (DNS), Windows Filtering Platform 5156/5157 y pfirewall.log
   (decoder oficial windows-firewall). Sin agentes Windows en el entorno: se prueba con fixtures en el manager desechable.

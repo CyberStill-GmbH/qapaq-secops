@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — monitoreo de plataforma, priorización KEV/EPSS y canarios (docs/20). EN el host, como root:
+# QAPAQ SecOps — monitoreo de plataforma, priorización KEV/EPSS y canarios (docs/20). EN el host, como root:
 #
 #   sudo bash /opt/qapaq/src/wazuh/platform-monitoring/install-platform-monitoring.sh [--no-restart]
 #

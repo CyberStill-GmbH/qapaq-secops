@@ -1,4 +1,4 @@
-# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
 # Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
 id: QAPAQ-DET-SP-001
 title: Exfiltración desde SharePoint/OneDrive (volumen, horario, red nueva, invitados, cuentas deshabilitadas, IP maliciosa)

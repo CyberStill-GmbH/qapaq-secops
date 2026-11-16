@@ -160,7 +160,7 @@ describe('generate_report · kind=alerts', () => {
     expect(
       spec.sections.some((s) => s.type === 'table' && s.heading === 'Reglas más frecuentes'),
     ).toBe(true);
-    expect(spec.sources[0]).toContain('QAPAQ SOC API');
+    expect(spec.sources[0]).toContain('QAPAQ SecOps API');
 
     // El archivo quedó guardado para la persona.
     expect(stored).toHaveLength(1);

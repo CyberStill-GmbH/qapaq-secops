@@ -1,4 +1,4 @@
-# QAPAQ SOC · catálogo de detección como código (docs/17-ingenieria-de-deteccion.md).
+# QAPAQ SecOps · catálogo de detección como código (docs/17-ingenieria-de-deteccion.md).
 #
 # Fuente única de: rangos de IDs por fuente, dueño de cada archivo de reglas y suites de prueba.
 # Los archivos de reglas que ya existían NO se mueven (los instalan scripts de otros owners y la CI
@@ -9,7 +9,7 @@
 # Validación: python3 detections/tools/qapaq_detections.py lint
 
 version: 1
-program: QAPAQ SOC · Ingeniería de detección
+program: QAPAQ SecOps · Ingeniería de detección
 rule_prefix: "QAPAQ "          # toda descripción de regla QAPAQ empieza por "QAPAQ <Fuente>:"
 user_range: [100000, 120000]  # rango de usuario de Wazuh
 

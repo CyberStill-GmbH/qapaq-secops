@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/aws/console-bruteforce-success (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/aws/console-bruteforce-success (metadata.yaml).
   Inicio de sesión exitoso en la consola AWS desde una IP que hizo fuerza bruta (grupo qapaq_aws_bruteforce,
   regla 101608 del paquete AWS). La 40112 oficial no aplica: compara srcip y el receptor usa aws.source_ip.
   Rango QAPAQ: 101713. Se instala como qapaq_soc_aws_console_bruteforce_success.xml.

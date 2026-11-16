@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC · aplica en auditd las reglas de red que el manager distribuye con el grupo del agente
+# QAPAQ SecOps · aplica en auditd las reglas de red que el manager distribuye con el grupo del agente
 # (etc/shared/<grupo>/qapaq-audit-network.rules → /var/ossec/etc/shared/qapaq-audit-network.rules).
 # Lo dispara qapaq-audit-sync.path cuando el archivo cambia, y qapaq-audit-sync.service al arrancar.
 #

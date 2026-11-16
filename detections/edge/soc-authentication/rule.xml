@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/edge/soc-authentication (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/edge/soc-authentication (metadata.yaml).
   Inicios de sesión con contraseña en la consola del SOC vistos en el edge (POST /api/auth/password).
   El API responde 303 siempre; el edge clasifica con la cabecera Location (authError= = fallo) y lo deja en
   auth_result. No hay usuario en la bitácora (el cuerpo no se registra): la correlación es por IP; el

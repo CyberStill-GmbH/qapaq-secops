@@ -1,4 +1,4 @@
-# Integración de Qapaq `cintel` con QAPAQ SOC
+# Integración de Qapaq `cintel` con QAPAQ SecOps
 
 **Estado:** evaluación del componente fuente; integración de runtime pendiente de confirmar su ámbito de licencia.
 

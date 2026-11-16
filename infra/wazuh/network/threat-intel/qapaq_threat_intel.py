@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QAPAQ SOC · listas CDB de reputación de IP para Wazuh, desde fuentes públicas gratuitas (docs/18).
+"""QAPAQ SecOps · listas CDB de reputación de IP para Wazuh, desde fuentes públicas gratuitas (docs/18).
 
 Subcomandos:
   fetch --out DIR [--cache DIR] [--firehol] [--aws-regions us-east-1,GLOBAL] [--egress-static F]

@@ -97,7 +97,7 @@ export function QapaqPage({
         wrap
       >
         <EuiFlexItem grow>
-          <p className="qapaqEyebrow">QAPAQ SOC</p>
+          <p className="qapaqEyebrow">QAPAQ SecOps</p>
           <EuiTitle size="m">
             <h1>{title}</h1>
           </EuiTitle>

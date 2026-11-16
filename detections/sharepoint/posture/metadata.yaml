@@ -1,4 +1,4 @@
-# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
 # Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
 id: QAPAQ-DET-SP-006
 title: Postura de SharePoint y salud de la fuente

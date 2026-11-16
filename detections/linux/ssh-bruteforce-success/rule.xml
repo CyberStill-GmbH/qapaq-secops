@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/ssh-bruteforce-success (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/ssh-bruteforce-success (metadata.yaml).
   Acceso SSH exitoso desde una IP que falló antes (5712/5720/5763 o cualquier regla del grupo
   authentication_failures) en 30 min. La 40112 oficial mira solo 4 min y un atacante lento la evade.
   Es hija de 5715 y de 40112: si 40112 gana el primer nivel, la QAPAQ desciende y prevalece.

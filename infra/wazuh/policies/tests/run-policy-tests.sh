@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — pruebas de las políticas y del contenido de detección en un manager DESECHABLE
+# QAPAQ SecOps — pruebas de las políticas y del contenido de detección en un manager DESECHABLE
 # (wazuh/wazuh-manager de wazuh/VERSION). No toca el manager real. docs/16-politicas.md.
 #
 #   bash infra/wazuh/policies/tests/run-policy-tests.sh

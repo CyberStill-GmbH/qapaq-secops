@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# QAPAQ SOC — helpers comunes de las políticas (docs/16-politicas.md). Se carga con `source`.
+# QAPAQ SecOps — helpers comunes de las políticas (docs/16-politicas.md). Se carga con `source`.
 #
 # Corre EN el host que tiene los contenedores Wazuh (EC2 PowerUser o local con Docker Desktop):
 # todo pasa por `docker exec`/`docker cp`, nunca por SSH ni por la API pública.

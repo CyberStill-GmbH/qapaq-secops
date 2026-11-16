@@ -31,7 +31,7 @@ function spreadsheetSafe(value: unknown): string {
 
 function investigationCsvRows(input: InvestigationExport): unknown[][] {
   const rows: unknown[][] = [
-    ['QAPAQ SOC · Informe de investigación', input.title, '', '', '', '', '', '', ''],
+    ['QAPAQ SecOps · Informe de investigación', input.title, '', '', '', '', '', '', ''],
     ['Generado (UTC)', (input.generatedAt ?? new Date()).toISOString(), '', '', '', '', '', '', ''],
     [
       'Eventos relacionados exportados',
@@ -62,7 +62,7 @@ function investigationCsvRows(input: InvestigationExport): unknown[][] {
       input.alert.occurredAt,
       input.alert.priority,
       input.alert.status,
-      'QAPAQ SOC',
+      'QAPAQ SecOps',
       '',
       input.alert.title,
       input.alert.entities.map((entity) => `${entity.kind}:${entity.label}`).join(' | '),

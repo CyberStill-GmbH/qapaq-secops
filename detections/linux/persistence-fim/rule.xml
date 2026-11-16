@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/linux/persistence-fim (metadata.yaml).
+  QAPAQ SecOps · detección como código · detections/linux/persistence-fim (metadata.yaml).
   Persistencia y debilitamiento de autenticación en Linux vistos por FIM en tiempo real (grupo de
   agentes linux-servers: /root/.ssh, /etc/ssh, sudoers.d, pam.d, cron y systemd/system en realtime).
   550 = modificado, 554 = agregado. Los eventos de syscheck no pasan por wazuh-logtest: la prueba es

@@ -1,4 +1,4 @@
-# QAPAQ SOC en AWS: stack serverless (`infra/aws-serverless`)
+# QAPAQ SecOps en AWS: stack serverless (`infra/aws-serverless`)
 
 Implementación Terraform de la arquitectura de [02 · Arquitectura](../../docs/02-arquitectura.md) y
 [AWS serverless](../../docs/cloud/aws/architecture.md). Es el stack **vigente**; `infra/aws/` es el

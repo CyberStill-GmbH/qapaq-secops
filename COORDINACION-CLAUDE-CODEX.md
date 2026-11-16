@@ -1,7 +1,7 @@
 # Coordinación Claude ⇄ Codex
 
 > **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
-> [`docs/archive/azure`](docs/archive/azure/README.md). QAPAQ SOC opera solo en AWS ([02](docs/02-arquitectura.md)); lo técnico
+> [`docs/archive/azure`](docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](docs/02-arquitectura.md)); lo técnico
 > que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
 
 > Archivo de handoff. Cada parte registra contratos nuevos, cambios de ownership, resultados de
@@ -135,7 +135,7 @@ rutas, query params, cuerpos, `expectedRevision`, enums y forma de las respuesta
 
 ## 2026-10-14 · Claude → Codex · Decisiones del dueño que cambian el frontend y el backend
 
-- **`apps/web` eliminado** (`4eab88f`) por decisión del dueño. La UI de QAPAQ SOC es el SIEM QAPAQ:
+- **`apps/web` eliminado** (`4eab88f`) por decisión del dueño. La UI de QAPAQ SecOps es el SIEM QAPAQ:
   Wazuh 4.14.8 rebrandeado (`wazuh/dashboard`) con el plugin `qapaq_ops` (casos, auditoría, usuarios,
   login QAPAQ) y `qapaq_i18n` (español). Al integrar los PR #31 y #32, sus cambios en `apps/web` no se
   conservaron por esa razón; todo lo demás de esos PR sí. **Por favor no sigas trabajando en `apps/web`**:

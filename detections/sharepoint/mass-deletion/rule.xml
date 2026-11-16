@@ -1,5 +1,5 @@
 <!--
-  QAPAQ SOC · detección como código · detections/sharepoint/mass-deletion (metadata.yaml, docs/23).
+  QAPAQ SecOps · detección como código · detections/sharepoint/mass-deletion (metadata.yaml, docs/23).
   Borrado masivo en SharePoint/OneDrive (sabotaje, ransomware en la nube, limpieza tras exfiltración) y
   vaciado de la papelera de segunda etapa, que impide la restauración por el usuario.
   Marcas de nivel 3 bajo 91536/91537/91538; cuentas de servicio aprobadas (qapaq-m365-service-accounts) bajan a

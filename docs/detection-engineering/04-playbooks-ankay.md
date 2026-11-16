@@ -24,7 +24,7 @@ el runbook) → `buscar_alerta_qapaq` (prioridad P1–P4 y razones, API QAPAQ de
 (solo si la alerta ya está en un incidente) y `aviso_correo_qapaq`.
 
 **Correo:** usa el mismo contrato que el servicio de correo QAPAQ (`wazuh/alert-mail`): Graph `sendMail` desde el
-buzón del SOC, asunto `QAPAQ SOC · <SEVERIDAD> · <título>`, contenido mínimo y enlace a la consola. Hoy la app no
+buzón del SOC, asunto `QAPAQ SecOps · <SEVERIDAD> · <título>`, contenido mínimo y enlace a la consola. Hoy la app no
 tiene `Mail.Send`; hasta concederlo (acotado al buzón con Application Access Policy), el paso falla cerrado y la
 nota en QAPAQ se conserva. Que Ankay tenga esa credencial es una excepción a «Respond no guarda credenciales
 de proveedor» y debe aprobarse; la alternativa es encolar la intención de aviso en el outbox de QAPAQ (contrato

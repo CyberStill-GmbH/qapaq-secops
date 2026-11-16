@@ -1,4 +1,4 @@
-# QAPAQ SOC · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
 # Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
 id: QAPAQ-DET-NET-001
 title: Puertos en escucha y conexiones TCP nuevas del host

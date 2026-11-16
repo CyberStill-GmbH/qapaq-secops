@@ -1,4 +1,4 @@
-# QAPAQ SOC · destinos de salida conocidos además de los rangos AWS de la región (los agrega el timer de
+# QAPAQ SecOps · destinos de salida conocidos además de los rangos AWS de la región (los agrega el timer de
 # reputación a etc/lists/qapaq-egress-known). Formato: <ip o prefijo de octetos con punto final>:<motivo>.
 # Un prefijo IPv4 en CIDR también se acepta (el timer lo expande a octetos). Cambios por PR.
 # Ubuntu / Canonical (apt, snap, livepatch, motd)
