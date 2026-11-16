@@ -33,7 +33,7 @@ export const PRIORITY_STYLE: Readonly<
   P4: { label: 'Baja', color: '#546E7A', cardStyle: 'default' },
 });
 
-const BRAND = Object.freeze({ dark: '#111827', coral: '#FF5841', muted: '#6B7280' });
+const BRAND = Object.freeze({ dark: '#080808', accent: '#C49A5A', muted: '#6B6B72' });
 
 export interface NotificationLinks {
   readonly primary: { readonly title: string; readonly url: string };
@@ -390,7 +390,7 @@ export interface RenderedEmail {
 
 function button(url: string, label: string, primary: boolean): string {
   const colors = primary
-    ? `background:${BRAND.coral};color:#ffffff;border:1px solid ${BRAND.coral}`
+    ? `background:${BRAND.accent};color:${BRAND.dark};border:1px solid ${BRAND.accent}`
     : `background:#ffffff;color:${BRAND.dark};border:1px solid #D1D5DB`;
   return `<a href="${escapeHtml(url)}" style="display:inline-block;${colors};padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;margin:0 8px 8px 0">${escapeHtml(label)}</a>`;
 }
@@ -414,13 +414,13 @@ export function buildAlertEmail(input: AlertNotificationInput): RenderedEmail {
   const html = [
     '<!doctype html><html lang="es"><body style="margin:0;padding:0;background:#F3F4F6">',
     `<div style="font-family:'Segoe UI',Arial,sans-serif;color:${BRAND.dark};max-width:680px;margin:0 auto;padding:16px">`,
-    `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.coral}">`,
+    `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.accent}">`,
     `<div style="font-size:12px;opacity:.75">QAPAQ SOC</div>`,
     `<div style="font-size:18px;font-weight:700">${escapeHtml(parts.heading)}</div></div>`,
     `<div style="background:#ffffff;border:1px solid #E5E7EB;border-top:0;padding:20px;border-radius:0 0 8px 8px">`,
     `<div style="border-left:4px solid ${style.color};padding-left:12px;margin-bottom:12px">`,
     parts.badges.length > 0
-      ? `<div style="font-size:12px;font-weight:700;color:${context.test ? '#119CFF' : style.color}">${escapeHtml(parts.badges.join(' · ').toUpperCase())}</div>`
+      ? `<div style="font-size:12px;font-weight:700;color:${context.test ? '#8C6A38' : style.color}">${escapeHtml(parts.badges.join(' · ').toUpperCase())}</div>`
       : '',
     `<div style="font-size:18px;font-weight:700;line-height:1.35">${escapeHtml(clean(context.title, 300))}</div></div>`,
     `<table style="border-collapse:collapse;font-size:14px">${factRows}</table>`,
@@ -590,7 +590,7 @@ export function buildDigestEmail(input: DigestInput): RenderedEmail {
   const html = [
     '<!doctype html><html lang="es"><body style="margin:0;padding:0;background:#F3F4F6">',
     `<div style="font-family:'Segoe UI',Arial,sans-serif;color:${BRAND.dark};max-width:760px;margin:0 auto;padding:16px">`,
-    `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.coral}"><div style="font-size:12px;opacity:.75">QAPAQ SOC</div><div style="font-size:18px;font-weight:700">${escapeHtml(heading)}</div></div>`,
+    `<div style="background:${BRAND.dark};color:#ffffff;padding:14px 20px;border-radius:8px 8px 0 0;border-top:4px solid ${BRAND.accent}"><div style="font-size:12px;opacity:.75">QAPAQ SOC</div><div style="font-size:18px;font-weight:700">${escapeHtml(heading)}</div></div>`,
     `<div style="background:#ffffff;border:1px solid #E5E7EB;border-top:0;padding:20px;border-radius:0 0 8px 8px">`,
     `<p style="margin-top:0">Del ${escapeHtml(formatLocal(input.from, input.timeZone))} al ${escapeHtml(formatLocal(input.to, input.timeZone))}. Estas alertas no generaron aviso inmediato para no inundar el canal.</p>`,
     `<table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="text-align:left;color:${BRAND.muted};font-size:12px"><th style="padding:6px 8px">Prioridad</th><th style="padding:6px 8px">Alerta</th><th style="padding:6px 8px;text-align:right">Veces</th><th style="padding:6px 8px">Última</th></tr>${rows}</table>`,

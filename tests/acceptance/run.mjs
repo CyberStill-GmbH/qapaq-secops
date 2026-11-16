@@ -601,7 +601,7 @@ const FAVICON_PAIRS = [
   ['/ui/logos/wazuh_mark.svg', 'svg/qapaq_mark_on_dark.svg'],
   ['/ui/logos/wazuh_mark_on_light.svg', 'svg/qapaq_mark_on_light.svg'],
   ['/ui/qapaq/qapaq-qapaqzito.webp', 'images/qapaq-qapaqzito.webp'],
-  ['/ui/qapaq/qapaq-mark-gradient.png', 'images/qapaq-mark-gradient-256.png'],
+  ['/ui/qapaq/qapaq-mark-gradient.png', 'images/qapaq_app_icon_256.png'],
 ];
 
 async function assetChecks(target, call, rec, cookie) {

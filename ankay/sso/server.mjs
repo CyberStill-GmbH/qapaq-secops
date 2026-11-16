@@ -45,9 +45,9 @@ function escapeHtml(value) {
 
 function page(title, message) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head>
-<body style="background:#080808;color:#f4f4f5;font-family:Satoshi,Helvetica,Arial,sans-serif;max-width:560px;margin:72px auto;padding:0 16px;line-height:1.6">
+<body style="background:#080808;color:#f4f4f5;font-family:'Segoe UI',Inter,'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:72px auto;padding:0 16px;line-height:1.6">
 <h1 style="font-size:22px">${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p>
-<p><a href='/app/qapaq-alerts' target='_top' style="color:#ff5841;font-weight:700">Volver al SIEM</a></p></body></html>`;
+<p><a href='/app/qapaq-alerts' target='_top' style="color:#c49a5a;font-weight:700">Volver al SIEM</a></p></body></html>`;
 }
 
 function send(res, status, headers, body = '') {

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/brand/assets/logo/qapaq-mark-gradient.png" alt="Monograma oficial QAPAQ" width="160" />
+  <img src="docs/reference/assets/qapaq-logo.png" alt="Qapaq, una financiera solidaria" width="320" />
 </p>
 
 # QAPAQ SOC

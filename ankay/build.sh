@@ -46,10 +46,6 @@ grep -v '^#' "$HERE/frontend/assets/targets.tsv" | while IFS=$'\t' read -r src d
   cp "$HERE/frontend/assets/$src" "$FE/$dst"
 done
 
-# Tipografía oficial (Satoshi Medium/Bold, licencia ITF FFL): el patch 0004 declara el @font-face.
-mkdir -p "$FE/public/fonts"
-cp "$HERE"/frontend/assets/fonts/* "$FE/public/fonts/"
-
 # Capa de español y marca en el DOM (sso-overlay.mjs la carga desde index.html).
 cp "$HERE/frontend/i18n/qapaq-i18n.js" "$FE/public/qapaq-i18n.js"
 
@@ -65,8 +61,8 @@ cat >"$FE/public/source/index.html" <<HTML
 <body style="background:#080808;color:#f4f4f5;font-family:system-ui;max-width:640px;margin:48px auto;line-height:1.6">
 <h1>Ankay · código fuente</h1>
 <p>Ankay es una versión modificada de Shuffle ${SHUFFLE_TAG} (commit ${SHUFFLE_SHA}), distribuida bajo la
-<a style="color:#ff5841" href="LICENSE">GNU Affero General Public License v3.0</a>.</p>
-<p>Código fuente correspondiente de esta versión: <a style="color:#ff5841" href="${src_name}">${src_name}</a>.</p>
+<a style="color:#c49a5a" href="LICENSE">GNU Affero General Public License v3.0</a>.</p>
+<p>Código fuente correspondiente de esta versión: <a style="color:#c49a5a" href="${src_name}">${src_name}</a>.</p>
 <p>Modificaciones de QAPAQ: tema, marca y textos (overlay <code>ankay/</code> de qapaq-secops, ${QAPAQ_SHA}).</p>
 </body></html>
 HTML

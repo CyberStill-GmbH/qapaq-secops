@@ -12,9 +12,8 @@ Overlay versionado sobre **Shuffle v2.3.0** ([`upstream.lock`](upstream.lock)). 
 | `frontend/patches/0001-ankay-tema-y-marca-por-defecto.patch` | Superficies oscuras neutras (`#080808`) y nombre de marca por defecto «Ankay» (white-label nativo de Shuffle)                                                                                                                                                                                                     |
 | `frontend/patches/0002-ankay-html-y-manifest.patch`          | Título, `theme-color` y manifest PWA (`lang` sigue en `en` hasta traducir la UI de Ankay)                                                                                                                                                                                                                         |
 | `frontend/patches/0003-ankay-csp-mismo-origen.patch`         | CSP de mismo origen: el frontend no puede llamar a la nube de Shuffle, Algolia ni otros terceros (N1)                                                                                                                                                                                                                   |
-| `frontend/assets/`                                                 | Arte Ankay: el monograma oficial de QAPAQ (sin redibujar; ver [identidad visual](../docs/brand/qapaq-visual-identity.md)). Reemplaza los logos con los mismos nombres de archivo (`targets.tsv`). Se regenera con `python assets/tools/build-brand.py`                                                                |
-| `frontend/patches/0004-ankay-tipografia-satoshi.patch`       | `@font-face` de Satoshi Medium/Bold (los archivos los copia `build.sh` a `public/fonts/`)                                                                                                                                                                                                                               |
-| `frontend/rebrand.mjs`                                             | Codemod con AST de TypeScript: colores naranja de Shuffle → Coral `#FF5841` y Fucsia `#FF5899` de la paleta oficial en todo el código, y «Shuffle» → «Ankay» **solo en texto visible**. No toca la lógica, los datos, los nombres de apps del backend (Shuffle Tools, DB, AI) ni los textos que el código compara |
+| `frontend/assets/`                                                 | Arte Ankay: la Q de QAPAQ con el «ejecutar» ámbar (ver [identidad visual](../docs/brand/qapaq-visual-identity.md)). Reemplaza los logos con los mismos nombres de archivo (`targets.tsv`). Se regenera con `node assets/tools/build-brand.mjs --raster` (después del de `wazuh/dashboard/assets`)       |
+| `frontend/rebrand.mjs`                                             | Codemod con AST de TypeScript: colores naranja de Shuffle → ámbar QAPAQ `#c49a5a` y sus tonos en todo el código, y «Shuffle» → «Ankay» **solo en texto visible**. No toca la lógica, los datos, los nombres de apps del backend (Shuffle Tools, DB, AI) ni los textos que el código compara |
 | `build.sh`                                                         | Clona el tag, verifica el SHA, aplica parches, arte y codemod, publica el código fuente en `/source/` (AGPL §13) y construye la imagen                                                                                                                                                                                  |
 
 El workflow [`.github/workflows/ankay-azure.yml`](../.github/workflows/ankay-azure.yml)
@@ -26,14 +25,10 @@ ruta pública.
 
 ## Identidad visual
 
-Sigue [Identidad visual QAPAQ · Frontend](../docs/brand/qapaq-visual-identity.md): paleta oficial de siete
-colores, monograma sin modificar y ninguna imagen de otras marcas. Se usa el Coral como acento (el naranja de
-Shuffle), pero **la paleta de marca no codifica severidad ni estado**: los colores semánticos de Shuffle
-(éxito, error, advertencia) se conservan.
-
-**Tipografía.** Satoshi Medium y Bold (`frontend/assets/fonts/`, con su licencia ITF FFL) se declaran en el
-patch 0004 y el codemod cambia la pila de Inter/Roboto de Shuffle por Satoshi. La licencia permite
-autoalojarla en las propias aplicaciones, pero **no redistribuirla**: este repositorio debe seguir privado.
+Sigue [Identidad visual QAPAQ · Frontend](../docs/brand/qapaq-visual-identity.md): fondo `#080808`, tinta
+`#f4f4f5`, ámbar `#c49a5a` como único acento y la Q de QAPAQ. El ámbar reemplaza el naranja de Shuffle, pero
+**la marca no codifica severidad ni estado**: los colores semánticos de Shuffle (éxito, error, advertencia)
+se conservan. La tipografía es la del sistema (pila `'Segoe UI', Inter, …`); Ankay no empaqueta fuentes.
 
 ## Uso
 

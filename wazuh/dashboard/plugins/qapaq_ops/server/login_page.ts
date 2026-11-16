@@ -203,44 +203,44 @@ const COOKIE_ACK_KEY = 'qapaq.cookie-notice.technical.v1';
 const COOKIE_BAR_CSS = `
 .auth-footer span{display:block}
 .auth-footer .auth-attribution{margin-top:2px;color:#6f6f75;font-size:11px}
-.qapaq-cookie-notice.qapaq-cookie-bar{--ck-pink:var(--qapaq-pink,#ff5899);--ck-rose:var(--qapaq-rose,#ff5841);--ck-orange:var(--qapaq-orange,#ffc136);--ck-ink:var(--qapaq-ink,#1b1220);--ck-soft:var(--qapaq-ink-soft,#5d5266);--ck-line:var(--qapaq-line,#eadfe6);
+.qapaq-cookie-notice.qapaq-cookie-bar{--ck-amber:var(--qapaq-amber,#c49a5a);--ck-amber-light:var(--qapaq-amber-light,#e0bd80);--ck-ink:var(--qapaq-ink,#f4f4f5);--ck-soft:var(--qapaq-ink-soft,#b0b0b5);--ck-line:var(--qapaq-line-strong,#49494e);--ck-bg:var(--qapaq-raised,#131315);
 position:fixed;z-index:110;bottom:max(20px,env(safe-area-inset-bottom));left:max(20px,env(safe-area-inset-left));display:flex;width:min(440px,calc(100vw - 40px));align-items:flex-start;gap:14px;
-padding:18px 18px 18px 18px;border:1px solid var(--ck-line);border-radius:20px;background:rgb(255 255 255 / 96%);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-box-shadow:0 24px 48px -16px rgb(27 18 32 / 28%),0 2px 6px rgb(27 18 32 / 6%);color:var(--ck-ink);font:inherit;overflow:hidden;
+padding:18px 18px 18px 18px;border:1px solid var(--ck-line);border-radius:10px;background:var(--ck-bg);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+box-shadow:0 24px 48px -16px rgb(0 0 0 / 60%);color:var(--ck-ink);font:inherit;overflow:hidden;
 transform:translateY(24px);opacity:0;transition:transform 360ms cubic-bezier(0.16,1,0.3,1),opacity 240ms ease}
-.qapaq-cookie-notice.qapaq-cookie-bar::before{position:absolute;top:0;right:0;left:0;height:4px;background:linear-gradient(90deg,var(--ck-pink),var(--ck-rose) 55%,var(--ck-orange));content:''}
+.qapaq-cookie-notice.qapaq-cookie-bar::before{position:absolute;top:0;right:0;left:0;height:2px;background:var(--ck-amber);content:''}
 .qapaq-cookie-bar.is-visible{transform:translateY(0);opacity:1}
 .qapaq-cookie-bar.is-leaving{transform:translateY(100%);opacity:0;transition:transform 280ms cubic-bezier(0.4,0,1,1),opacity 240ms ease}
-.qapaq-cookie-bar .qapaq-cookie-notice__mark{display:grid;width:44px;height:44px;flex:0 0 auto;place-items:center;border-radius:14px;background:linear-gradient(135deg,var(--ck-pink),var(--ck-orange));color:#fff;box-shadow:0 8px 16px -8px rgb(255 88 153 / 70%)}
+.qapaq-cookie-bar .qapaq-cookie-notice__mark{display:grid;width:44px;height:44px;flex:0 0 auto;place-items:center;border:1px solid var(--ck-line);border-radius:9px;background:transparent;color:var(--ck-amber-light)}
 .qapaq-cookie-bar .qapaq-cookie-notice__mark svg{width:24px;height:24px}
 .qapaq-cookie-bar .qapaq-cookie-notice__content{display:flex;min-width:0;flex:1 1 auto;flex-direction:column;gap:14px;padding-right:28px}
 .qapaq-cookie-bar .qapaq-cookie-notice__text{min-width:0}
 .qapaq-cookie-bar h2{margin:2px 0 0;color:var(--ck-ink);font-size:15px;font-weight:700;line-height:22px}
 .qapaq-cookie-bar .qapaq-cookie-notice__content p{margin:4px 0 0;color:var(--ck-soft);font-size:13px;line-height:20px}
 .qapaq-cookie-bar details{margin:8px 0 0;color:var(--ck-soft);font-size:12.5px;line-height:19px}
-.qapaq-cookie-bar summary{display:inline-flex;align-items:center;gap:6px;color:var(--ck-rose);font-weight:600;cursor:pointer;list-style:none;border-radius:6px}
+.qapaq-cookie-bar summary{display:inline-flex;align-items:center;gap:6px;color:var(--ck-amber-light);font-weight:600;cursor:pointer;list-style:none;border-radius:6px}
 .qapaq-cookie-bar summary::-webkit-details-marker{display:none}
 .qapaq-cookie-bar summary::after{width:6px;height:6px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform 160ms ease;content:''}
 .qapaq-cookie-bar details[open] summary::after{transform:rotate(-135deg) translateY(-1px)}
-.qapaq-cookie-bar summary:focus-visible{outline:2px solid var(--ck-pink);outline-offset:3px}
-.qapaq-cookie-bar ul{margin:8px 0 0;padding:10px 12px 10px 28px;border-radius:12px;background:#fff4f8}
+.qapaq-cookie-bar summary:focus-visible{outline:2px solid var(--ck-ink);outline-offset:3px}
+.qapaq-cookie-bar ul{margin:8px 0 0;padding:10px 12px 10px 28px;border-radius:8px;background:#0d0d0f}
 .qapaq-cookie-bar li+li{margin-top:4px}
-.qapaq-cookie-bar code{padding:1px 6px;border-radius:6px;background:#fff;color:var(--ck-ink);font-size:12px}
+.qapaq-cookie-bar code{padding:1px 6px;border-radius:6px;background:#080808;color:var(--ck-ink);font-size:12px}
 .qapaq-cookie-bar .qapaq-cookie-notice__actions{display:flex;align-items:center;gap:8px}
-.qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept{display:inline-flex;min-height:42px;align-items:center;justify-content:center;padding:0 20px;border:0;border-radius:999px;
-background:linear-gradient(100deg,var(--ck-pink),var(--ck-rose) 55%,var(--ck-orange));color:#21141b;font:inherit;font-size:14px;font-weight:700;cursor:pointer;
-box-shadow:0 8px 18px -8px rgb(255 88 153 / 55%);transition:transform 140ms ease,box-shadow 140ms ease}
-.qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept:hover{transform:translateY(-1px);box-shadow:0 12px 22px -8px rgb(255 88 153 / 60%)}
+.qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept{display:inline-flex;min-height:42px;align-items:center;justify-content:center;padding:0 20px;border:0;border-radius:6px;
+background:var(--ck-ink);color:#080808;font:inherit;font-size:14px;font-weight:700;cursor:pointer;
+transition:transform 140ms ease,background-color 140ms ease}
+.qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept:hover{transform:translateY(-1px);background:#ffffff}
 .qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept:active{transform:translateY(0)}
-.qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept:focus-visible{outline:3px solid var(--qapaq-blue,#119cff);outline-offset:2px}
+.qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept:focus-visible{outline:2px solid var(--ck-ink);outline-offset:3px}
 .qapaq-cookie-bar .qapaq-cookie-close{position:absolute;top:12px;right:12px;display:grid;width:32px;height:32px;place-items:center;padding:0;border:0;border-radius:999px;background:transparent;color:var(--ck-soft);cursor:pointer;transition:background-color 160ms ease,color 160ms ease}
-.qapaq-cookie-bar .qapaq-cookie-close:hover{background:#fff0f6;color:var(--ck-ink)}
-.qapaq-cookie-bar .qapaq-cookie-close:focus-visible{outline:2px solid var(--ck-pink);outline-offset:2px}
+.qapaq-cookie-bar .qapaq-cookie-close:hover{background:#1a1a1c;color:var(--ck-ink)}
+.qapaq-cookie-bar .qapaq-cookie-close:focus-visible{outline:2px solid var(--ck-ink);outline-offset:2px}
 .qapaq-cookie-bar .qapaq-cookie-close svg{width:14px;height:14px}
 @media (max-width:600px){
-.qapaq-cookie-notice.qapaq-cookie-bar{right:0;bottom:0;left:0;width:100%;gap:12px;padding:20px 16px calc(16px + env(safe-area-inset-bottom));border-width:1px 0 0;border-radius:22px 22px 0 0;box-shadow:0 -16px 40px -12px rgb(27 18 32 / 30%)}
+.qapaq-cookie-notice.qapaq-cookie-bar{right:0;bottom:0;left:0;width:100%;gap:12px;padding:20px 16px calc(16px + env(safe-area-inset-bottom));border-width:1px 0 0;border-radius:12px 12px 0 0;box-shadow:0 -16px 40px -12px rgb(0 0 0 / 60%)}
 .qapaq-cookie-notice.qapaq-cookie-bar::before{top:8px;right:auto;left:50%;width:40px;height:4px;border-radius:999px;transform:translateX(-50%)}
-.qapaq-cookie-bar .qapaq-cookie-notice__mark{width:40px;height:40px;border-radius:12px}
+.qapaq-cookie-bar .qapaq-cookie-notice__mark{width:40px;height:40px;border-radius:9px}
 .qapaq-cookie-bar .qapaq-cookie-notice__content{padding-right:32px}
 .qapaq-cookie-bar .qapaq-cookie-notice__actions{width:100%}
 .qapaq-cookie-bar .qapaq-cookie-notice__content .qapaq-cookie-accept{flex:1;min-height:48px;font-size:15px}
@@ -351,12 +351,11 @@ export function renderLoginPage(options: LoginPageOptions): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#101014">
+<meta name="theme-color" content="#080808">
 <meta name="referrer" content="same-origin">
 <link rel="icon" type="image/png" sizes="32x32" href="${ui}/favicons/favicon-32x32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="${ui}/favicons/apple-touch-icon.png">
 <link rel="manifest" href="${ui}/favicons/manifest.json">
-<link rel="stylesheet" href="${brand}/fonts/satoshi.css">
 <link rel="preload" as="image" type="image/webp" href="${brand}/qapaq_login_hero.webp" media="(min-width: 1001px)">
 <title>Iniciar sesión · QAPAQ SOC</title>
 <style nonce="${nonce}">${css}</style>
@@ -389,7 +388,7 @@ export function renderLoginPage(options: LoginPageOptions): string {
       <span class="auth-attribution">${escapeHtml(ATTRIBUTION)}</span>
     </footer>
   </section>
-  <aside class="login-hero" role="img" aria-label="Ilustración de QAPAQ: el conejo analista y el planeta vigilan el panel de seguridad"></aside>
+  <aside class="login-hero" role="img" aria-label="Ilustración de QAPAQ: una analista del SOC"></aside>
 </main>
 <aside id="qapaq-cookie-notice" class="qapaq-cookie-notice qapaq-cookie-bar" aria-labelledby="cookie-notice-title" hidden>
   <div class="qapaq-cookie-notice__mark" aria-hidden="true">${COOKIE_ICON}</div>
@@ -449,9 +448,8 @@ export function renderLogoutPage({ basePath, apiPrefix, nonce }: LogoutPageOptio
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<link rel="stylesheet" href="${basePath}/ui/qapaq/fonts/satoshi.css">
 <title>Cerrando sesión · QAPAQ SOC</title>
-<style nonce="${nonce}">html,body{margin:0;height:100%;background:#101014;color:#c9c6d2;font:13px/20px 'Satoshi',ui-sans-serif,system-ui,sans-serif}main{display:grid;height:100%;place-items:center}</style>
+<style nonce="${nonce}">html,body{margin:0;height:100%;background:#080808;color:#b0b0b5;font:13px/20px 'Segoe UI',Inter,ui-sans-serif,system-ui,sans-serif}main{display:grid;height:100%;place-items:center}</style>
 </head>
 <body>
 

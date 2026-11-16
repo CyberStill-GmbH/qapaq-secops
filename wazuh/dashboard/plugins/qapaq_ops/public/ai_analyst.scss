@@ -12,7 +12,7 @@ $qapaqAiFail: #ff5f57;
 $qapaqAiInfo: #8fb3d9;
 $qapaqAiNeutral: #8f8f95;
 $qapaqAiRisk: #f0904a;
-$qapaqAiAccent: #ff5899;
+$qapaqAiAccent: #c49a5a;
 
 @mixin qapaqAiFocus {
   &:focus-visible {
@@ -519,7 +519,7 @@ a.qapaqAi__cite {
     right: 0;
     left: 0;
     height: 3px;
-    background: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%);
+    background: linear-gradient(#c49a5a, #c49a5a);
     content: '';
   }
 

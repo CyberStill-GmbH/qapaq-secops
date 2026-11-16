@@ -33,18 +33,20 @@ VULNS = "wazuh-states-vulnerabilities-*"
 INDEX_REF = "kibanaSavedObjectMeta.searchSourceJSON.index"
 OSD_VERSION = "2.19.6"
 
-# Paleta QAPAQ (docs/brand/qapaq-visual-identity.md).
-CORAL, FUCSIA, AMARILLO, LIMA, TURQUESA, AZUL, LAVANDA = (
-    "#FF5841", "#FF5899", "#FFC136", "#D0E870", "#00DFC2", "#119CFF", "#CDCCED")
+# Colores QAPAQ (docs/brand/qapaq-visual-identity.md): severidad con los pasos operativos de
+# prioridad del plugin (P1 #ff5f57, P2 #f0904a, P3 #d8c35c, ok #5fb98a) y ámbar/neutros para series
+# sin significado de estado.
+CRIT, HIGH, MED, OK, ACCENT, ACCENT_2, NEUTRAL = (
+    "#FF5F57", "#F0904A", "#D8C35C", "#5FB98A", "#C49A5A", "#E0BD80", "#8F8F95")
 LEVEL_BANDS = [
     {"from": 0, "to": 4, "label": "Baja (0–3)"},
     {"from": 4, "to": 8, "label": "Media (4–7)"},
     {"from": 8, "to": 12, "label": "Alta (8–11)"},
     {"from": 12, "to": 16, "label": "Crítica (12–15)"},
 ]
-LEVEL_COLORS = {"Baja (0–3)": TURQUESA, "Media (4–7)": AMARILLO, "Alta (8–11)": FUCSIA, "Crítica (12–15)": CORAL}
-VD_COLORS = {"Critical": CORAL, "High": FUCSIA, "Medium": AMARILLO, "Low": TURQUESA, "-": LAVANDA}
-SNYK_COLORS = {"critical": CORAL, "high": FUCSIA, "medium": AMARILLO, "low": TURQUESA}
+LEVEL_COLORS = {"Baja (0–3)": OK, "Media (4–7)": MED, "Alta (8–11)": HIGH, "Crítica (12–15)": CRIT}
+VD_COLORS = {"Critical": CRIT, "High": HIGH, "Medium": MED, "Low": OK, "-": NEUTRAL}
+SNYK_COLORS = {"critical": CRIT, "high": HIGH, "medium": MED, "low": OK}
 FOOTER = "\n\n---\n*QAPAQ SOC · Ingeniería de detección · docs/17-ingenieria-de-deteccion.md*"
 
 
@@ -91,7 +93,7 @@ def markdown(vid, title, text):
                index=None)
 
 
-def metric(vid, title, query, label, index=ALERTS, metric_agg=None, color=AZUL):
+def metric(vid, title, query, label, index=ALERTS, metric_agg=None, color=ACCENT):
     aggs = [metric_agg or count(label)]
     params = {"addTooltip": True, "addLegend": False, "type": "metric",
               "metric": {"percentageMode": False, "useRanges": False, "colorSchema": "Green to Red",
@@ -117,11 +119,11 @@ def axes(category_position="bottom", value_title="Alertas", rotate=0):
                        "title": {"text": value_title}}],
         "addTooltip": True, "legendPosition": "right", "times": [], "addTimeMarker": False,
         "labels": {"show": horizontal}, "thresholdLine": {"show": False, "value": 10, "width": 1,
-                                                          "style": "full", "color": CORAL},
+                                                          "style": "full", "color": CRIT},
     }
 
 
-def bars(vid, title, query, field, label, size=10, horizontal=True, index=ALERTS, metric_agg=None, color=AZUL):
+def bars(vid, title, query, field, label, size=10, horizontal=True, index=ALERTS, metric_agg=None, color=ACCENT):
     aggs = [metric_agg or count(), terms("2", field, label, size, "segment")]
     params = {"type": "histogram", **axes("left" if horizontal else "bottom"), "addLegend": False,
               "seriesParams": [{"show": True, "type": "histogram", "mode": "normal",
@@ -234,11 +236,11 @@ def mitre_dashboard():
                                                                     customLabel="Técnicas observadas")),
         "tactics": metric("qapaq-det-mitre-tactics", "QAPAQ · Cobertura MITRE · tácticas observadas", q, "Tácticas",
                           metric_agg=agg("1", "cardinality", "metric", field="rule.mitre.tactic",
-                                         customLabel="Tácticas observadas"), color=TURQUESA),
+                                         customLabel="Tácticas observadas"), color=OK),
         "chains": metric("qapaq-det-mitre-chains", "QAPAQ · Cobertura MITRE · cadenas de ataque",
-                         "rule.groups:qapaq_attack_chain", "Cadenas QAPAQ", color=CORAL),
+                         "rule.groups:qapaq_attack_chain", "Cadenas QAPAQ", color=CRIT),
         "by_tactic": bars("qapaq-det-mitre-by-tactic", "QAPAQ · Cobertura MITRE · alertas por táctica", q,
-                          "rule.mitre.tactic", "Táctica", 14, color=FUCSIA),
+                          "rule.mitre.tactic", "Táctica", 14, color=HIGH),
         "top_tech": table("qapaq-det-mitre-top-techniques", "QAPAQ · Cobertura MITRE · técnicas observadas", q,
                           [terms("2", "rule.mitre.id", "Técnica", 40), terms("3", "rule.mitre.technique", "Nombre", 1)],
                           [count(), agg("4", "max", "metric", field="rule.level", customLabel="Nivel máx."),
@@ -273,13 +275,13 @@ def vuln_dashboard():
         "vd_total": metric("qapaq-det-vuln-vd-total", "QAPAQ · Vulnerabilidades · CVE abiertas (agentes)", "", "CVE abiertas",
                            index=VULNS),
         "vd_crit": metric("qapaq-det-vuln-vd-critical", "QAPAQ · Vulnerabilidades · críticas y altas (agentes)",
-                          "vulnerability.severity:(Critical or High)", "Críticas y altas", index=VULNS, color=CORAL),
+                          "vulnerability.severity:(Critical or High)", "Críticas y altas", index=VULNS, color=CRIT),
         "snyk_open": metric("qapaq-det-vuln-snyk-open", "QAPAQ · Vulnerabilidades · issues Snyk críticos/altos",
                             f"{snyk_open} and data.snyk.issue.severity:(critical or high)", "Issues",
                             metric_agg=agg("1", "cardinality", "metric", field="data.snyk.issue.id",
-                                           customLabel="Issues críticos/altos"), color=FUCSIA),
+                                           customLabel="Issues críticos/altos"), color=HIGH),
         "exposed": metric("qapaq-det-vuln-exposed", "QAPAQ · Vulnerabilidades · expuestas con exploit",
-                          "rule.groups:qapaq_exposure", "Expuestas con exploit", color=CORAL),
+                          "rule.groups:qapaq_exposure", "Expuestas con exploit", color=CRIT),
         "vd_sev": pie("qapaq-det-vuln-vd-severity", "QAPAQ · Vulnerabilidades · severidad (agentes)", "",
                       terms("2", "vulnerability.severity", "Severidad", 6, "segment"), index=VULNS, colors=VD_COLORS),
         "vd_cves": table("qapaq-det-vuln-vd-cves", "QAPAQ · Vulnerabilidades · CVE con mayor puntaje",
@@ -298,7 +300,7 @@ def vuln_dashboard():
                          index=VULNS, per_page=12),
         "vd_agents": bars("qapaq-det-vuln-vd-agents", "QAPAQ · Vulnerabilidades · agentes más expuestos",
                           "vulnerability.severity:(Critical or High)", "agent.name", "Agente", 10, index=VULNS,
-                          metric_agg=count("CVE críticas/altas"), color=CORAL),
+                          metric_agg=count("CVE críticas/altas"), color=CRIT),
         "snyk_sev": pie("qapaq-det-vuln-snyk-severity", "QAPAQ · Vulnerabilidades · Snyk por severidad", snyk_open,
                         terms("2", "data.snyk.issue.severity", "Severidad", 4, "segment"), colors=SNYK_COLORS,
                         metric_agg=agg("1", "cardinality", "metric", field="data.snyk.issue.id", customLabel="Issues")),
@@ -338,25 +340,25 @@ def identity_dashboard():
     objs = {
         "about": markdown("qapaq-det-id-about", "QAPAQ · Identidad · resumen", about),
         "fails": metric("qapaq-det-id-fails", "QAPAQ · Identidad · inicios fallidos", fail, "Inicios fallidos",
-                        color=AMARILLO),
+                        color=MED),
         "oks": metric("qapaq-det-id-success", "QAPAQ · Identidad · inicios exitosos", ok, "Inicios exitosos",
-                      color=TURQUESA),
+                      color=OK),
         "chains": metric("qapaq-det-id-chains", "QAPAQ · Identidad · accesos tras ataque",
                          "rule.groups:qapaq_attack_chain and rule.groups:qapaq_initial_access", "Accesos tras ataque",
-                         color=CORAL),
+                         color=CRIT),
         "privs": metric("qapaq-det-id-privilege", "QAPAQ · Identidad · cambios de privilegio", priv, "Cambios de privilegio",
-                        color=FUCSIA),
+                        color=HIGH),
         "timeline": over_time("qapaq-det-id-timeline", "QAPAQ · Identidad · accesos en el tiempo", "",
                               filters_split([("Exitosos", ok), ("Fallidos", fail), ("Privilegio", priv),
                                              ("Cadena de ataque", "rule.groups:qapaq_attack_chain")]),
-                              colors={"Exitosos": TURQUESA, "Fallidos": AMARILLO, "Privilegio": FUCSIA,
-                                      "Cadena de ataque": CORAL}, mode="normal", vtype="line"),
+                              colors={"Exitosos": OK, "Fallidos": MED, "Privilegio": HIGH,
+                                      "Cadena de ataque": CRIT}, mode="normal", vtype="line"),
         "by_source": pie("qapaq-det-id-sources", "QAPAQ · Identidad · accesos por fuente", f"{ok} or {fail}",
                          filters_split([("Microsoft 365 / Entra", "rule.groups:office365"),
                                         ("AWS", "rule.groups:aws"), ("SSH Linux", "rule.groups:sshd"),
                                         ("Otros", "not rule.groups:(office365 or aws or sshd)")], "2"),
-                         colors={"Microsoft 365 / Entra": AZUL, "AWS": AMARILLO, "SSH Linux": TURQUESA,
-                                 "Otros": LAVANDA}),
+                         colors={"Microsoft 365 / Entra": ACCENT, "AWS": MED, "SSH Linux": OK,
+                                 "Otros": NEUTRAL}),
         "m365_users": table("qapaq-det-id-m365-users", "QAPAQ · Identidad · M365: cuentas con fallos", "rule.id:100502",
                             [terms("2", "data.office365.UserId", "Cuenta", 15)],
                             [count("Fallos"), agg("3", "cardinality", "metric", field="data.office365.ClientIP",
@@ -405,27 +407,27 @@ def integrity_dashboard():
              "Runbook: `escalada-de-privilegios.md#linux`.")
     objs = {
         "about": markdown("qapaq-det-int-about", "QAPAQ · Integridad · resumen", about),
-        "fim": metric("qapaq-det-int-fim", "QAPAQ · Integridad · cambios FIM", fim, "Cambios FIM", color=AZUL),
+        "fim": metric("qapaq-det-int-fim", "QAPAQ · Integridad · cambios FIM", fim, "Cambios FIM", color=ACCENT),
         "persist": metric("qapaq-det-int-persistence", "QAPAQ · Integridad · persistencia QAPAQ", persist,
-                          "Persistencia (101755–101760)", color=CORAL),
+                          "Persistencia (101755–101760)", color=CRIT),
         "sca_failed": metric("qapaq-det-int-sca-failed", "QAPAQ · Integridad · controles CIS fallidos",
                              f"{sca} and data.sca.check.result:failed", "Controles fallidos",
                              metric_agg=agg("1", "cardinality", "metric", field="data.sca.check.id",
-                                            customLabel="Controles CIS fallidos"), color=FUCSIA),
+                                            customLabel="Controles CIS fallidos"), color=HIGH),
         "sca_passed": metric("qapaq-det-int-sca-passed", "QAPAQ · Integridad · controles CIS aprobados",
                              f"{sca} and data.sca.check.result:passed", "Controles aprobados",
                              metric_agg=agg("1", "cardinality", "metric", field="data.sca.check.id",
-                                            customLabel="Controles CIS aprobados"), color=TURQUESA),
+                                            customLabel="Controles CIS aprobados"), color=OK),
         "fim_time": over_time("qapaq-det-int-fim-timeline", "QAPAQ · Integridad · FIM en el tiempo", fim,
                               terms("3", "syscheck.event", "Evento", 5, "group"),
-                              colors={"added": TURQUESA, "modified": AMARILLO, "deleted": CORAL}),
+                              colors={"added": OK, "modified": MED, "deleted": CRIT}),
         "fim_paths": table("qapaq-det-int-fim-paths", "QAPAQ · Integridad · rutas más cambiadas", fim,
                            [terms("2", "syscheck.path", "Ruta", 20), terms("3", "agent.name", "Agente", 1)],
                            [count("Cambios"), agg("4", "max", "metric", field="rule.level", customLabel="Nivel máx.")],
                            per_page=12),
         "sca_result": pie("qapaq-det-int-sca-result", "QAPAQ · Integridad · resultado SCA", sca,
                           terms("2", "data.sca.check.result", "Resultado", 4, "segment"),
-                          colors={"passed": TURQUESA, "failed": CORAL, "not applicable": LAVANDA},
+                          colors={"passed": OK, "failed": CRIT, "not applicable": NEUTRAL},
                           metric_agg=agg("1", "cardinality", "metric", field="data.sca.check.id",
                                          customLabel="Controles")),
         "sca_failed_t": table("qapaq-det-int-sca-failed-checks", "QAPAQ · Integridad · controles CIS fallidos",
@@ -433,9 +435,9 @@ def integrity_dashboard():
                               [terms("2", "data.sca.check.title", "Control", 25), terms("3", "data.sca.policy", "Política", 1)],
                               [count("Evaluaciones")], per_page=12),
         "pci": bars("qapaq-det-int-pci", "QAPAQ · Integridad · requisitos PCI DSS con alertas", "rule.pci_dss:*",
-                    "rule.pci_dss", "Requisito PCI DSS", 12, color=AZUL),
+                    "rule.pci_dss", "Requisito PCI DSS", 12, color=ACCENT),
         "nist": bars("qapaq-det-int-nist", "QAPAQ · Integridad · controles NIST 800-53 con alertas",
-                     "rule.nist_800_53:*", "rule.nist_800_53", "Control NIST 800-53", 12, color=LIMA),
+                     "rule.nist_800_53:*", "rule.nist_800_53", "Control NIST 800-53", 12, color=ACCENT_2),
         "latest": search("qapaq-det-int-latest", "QAPAQ · Integridad · últimos cambios de archivos", fim,
                          ["rule.level", "rule.description", "agent.name", "syscheck.path", "syscheck.event"]),
     }
@@ -514,14 +516,14 @@ def quality_dashboard():
         "about": markdown("qapaq-det-q-about", "QAPAQ · Calidad · resumen", about),
         "total": metric("qapaq-det-q-total", "QAPAQ · Calidad · alertas", "", "Alertas"),
         "high": metric("qapaq-det-q-high", "QAPAQ · Calidad · altas y críticas", "rule.level >= 8", "Nivel ≥ 8 (correo QAPAQ)",
-                       color=CORAL),
+                       color=CRIT),
         "rules": metric("qapaq-det-q-rules", "QAPAQ · Calidad · reglas que dispararon", "", "Reglas distintas",
                         metric_agg=agg("1", "cardinality", "metric", field="rule.id", customLabel="Reglas distintas"),
-                        color=TURQUESA),
+                        color=OK),
         "qapaqshare": metric("qapaq-det-q-qapaq", "QAPAQ · Calidad · alertas de reglas QAPAQ", qapaq, "Alertas de reglas QAPAQ",
-                           color=FUCSIA),
+                           color=HIGH),
         "noisy": bars("qapaq-det-q-noisy", "QAPAQ · Calidad · reglas más ruidosas", "", "rule.description",
-                      "Regla", 15, color=AMARILLO),
+                      "Regla", 15, color=MED),
         "volume": table("qapaq-det-q-volume", "QAPAQ · Calidad · volumen por regla", "",
                         [terms("2", "rule.id", "ID", 40), terms("3", "rule.description", "Descripción", 1)],
                         [count(), agg("4", "max", "metric", field="rule.level", customLabel="Nivel"),
@@ -529,13 +531,13 @@ def quality_dashboard():
         "levels": over_time("qapaq-det-q-levels", "QAPAQ · Calidad · volumen por banda de severidad", "", level_split(),
                             colors=LEVEL_COLORS),
         "level_dist": bars("qapaq-det-q-level-dist", "QAPAQ · Calidad · distribución por nivel", "", "rule.level",
-                           "Nivel", 16, horizontal=False, color=AZUL),
+                           "Nivel", 16, horizontal=False, color=ACCENT),
         "origin": pie("qapaq-det-q-origin", "QAPAQ · Calidad · origen de las alertas", "",
                       filters_split([("Reglas QAPAQ", qapaq), ("Ruleset oficial de Wazuh", f"not {qapaq}")], "2"),
-                      colors={"Reglas QAPAQ": FUCSIA, "Ruleset oficial de Wazuh": AZUL}),
+                      colors={"Reglas QAPAQ": HIGH, "Ruleset oficial de Wazuh": ACCENT}),
         "mitre_share": pie("qapaq-det-q-mitre", "QAPAQ · Calidad · alertas con técnica MITRE", "",
                            filters_split([("Con MITRE", "rule.mitre.id:*"), ("Sin MITRE", "not rule.mitre.id:*")], "2"),
-                           colors={"Con MITRE": TURQUESA, "Sin MITRE": LAVANDA}),
+                           colors={"Con MITRE": OK, "Sin MITRE": NEUTRAL}),
     }
     layout = [(objs["about"], (0, 0, 24, 12)), (objs["total"], (24, 0, 12, 6)), (objs["high"], (36, 0, 12, 6)),
               (objs["rules"], (24, 6, 12, 6)), (objs["qapaqshare"], (36, 6, 12, 6)),

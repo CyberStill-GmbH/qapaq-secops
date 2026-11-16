@@ -4,7 +4,7 @@ index 0000000..839f45c
 --- /dev/null
 +++ b/frontend/src/views/LoginPage.qapaq.css
 @@ -0,0 +1,20 @@
-+/* Ankay: centered login over the supplied rabbit fortress illustration. */
++/* Ankay: centered login over the QAPAQ dark backdrop (Q outline + amber glow). */
 +.ankayLogin {
 +  position: fixed;
 +  inset: 0;
@@ -14,7 +14,7 @@ index 0000000..839f45c
 +  align-items: center;
 +  padding: 32px 24px;
 +  overflow: auto;
-+  background: linear-gradient(rgba(8, 8, 18, .2), rgba(8, 8, 18, .35)), url('/images/ankay-login.webp') center 52% / cover no-repeat;
++  background: #080808 url('/images/ankay-login.webp') center 52% / cover no-repeat;
 +}
 +.ankayLogin, .ankayLogin * { box-sizing: border-box; }
 +.ankayLogin > div { width: min(440px, 100%); margin-block: auto; flex-shrink: 0; }
@@ -22,7 +22,7 @@ index 0000000..839f45c
 +.ankayLogin__title { margin: 0 0 28px; text-align: center; font-size: clamp(26px, 5vw, 32px); font-weight: 700; line-height: 1.2; letter-spacing: -.5px; }
 +.ankayLogin input { min-width: 0; font-size: 16px; }
 +@media (max-width: 600px) {
-+  .ankayLogin { padding: 60px 16px 24px; background-image: linear-gradient(rgba(8, 8, 18, .22), rgba(8, 8, 18, .4)), url('/images/ankay-login-mobile.webp'); background-position: 50% center; }
++  .ankayLogin { padding: 60px 16px 24px; background-image: url('/images/ankay-login-mobile.webp'); background-position: 50% center; }
 +}
 diff --git a/frontend/src/views/LoginPage.jsx b/frontend/src/views/LoginPage.jsx
 index 59fa3ce..70c716e 100644
@@ -86,14 +86,14 @@ index 59fa3ce..70c716e 100644
 -		borderRadius: "12px",
 -		display: "flex",
 -		// flexDirection: "column",
-+		color: "#f7f5fb",
++		color: "#f4f4f5",
 +		width: "100%",
 +		maxWidth: 440,
 +		minWidth: 0,
 +		padding: "clamp(24px, 5vw, 36px)",
-+		background: "rgba(17, 17, 26, 0.94)",
-+		border: "1px solid rgba(255, 255, 255, 0.18)",
-+		borderRadius: 20,
++		background: "rgba(13, 13, 15, 0.94)",
++		border: "1px solid #29292d",
++		borderRadius: 12,
 +		boxShadow: "0 24px 80px rgba(0, 0, 0, 0.5)",
 +		backdropFilter: "blur(16px)",
  	};
@@ -188,7 +188,7 @@ index 59fa3ce..70c716e 100644
  
  	return (
 -		<div style={{zoom: embedded ? 1 : 0.8, minHeight: embedded ? "auto" : "75vh", paddingTop: embedded ? 0 : 75, paddingBottom: embedded ? 0 : 90 }}>
-+		<div data-qapaq-login-version="rabbit-v2" className="ankayLogin">
++		<div data-qapaq-login-version="qapaq-v2" className="ankayLogin">
  			{loadedCheck}
  		</div>
  	)

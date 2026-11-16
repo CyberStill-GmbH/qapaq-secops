@@ -1,22 +1,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { comparedLiterals, recolor, retext, retypeface } from './rebrand.mjs';
+import { comparedLiterals, recolor, retext } from './rebrand.mjs';
 
-test('recolor cambia el naranja de Shuffle por el Coral y Fucsia de QAPAQ sin importar mayúsculas', () => {
+test('recolor cambia el naranja de Shuffle por el ámbar QAPAQ sin importar mayúsculas', () => {
   assert.equal(
     recolor('color: "#FF8544"; b: "#f85a3e"; c: "#123456"'),
-    'color: "#ff5841"; b: "#e64a35"; c: "#123456"',
+    'color: "#c49a5a"; b: "#b5874a"; c: "#123456"',
   );
 });
 
-test('recolor lleva el rosado de Shuffle al Fucsia de la paleta oficial', () => {
-  assert.equal(recolor('x: "#EC517C"'), 'x: "#ff5899"');
+test('recolor lleva el rosado de Shuffle a un tono ámbar claro', () => {
+  assert.equal(recolor('x: "#EC517C"'), 'x: "#d6b27a"');
 });
 
 test('recolor mantiene coherentes las comparaciones con el color por defecto', () => {
   assert.equal(
     recolor('brand !== "#ff8544" ? brand : "#ff8544"'),
-    'brand !== "#ff5841" ? brand : "#ff5841"',
+    'brand !== "#c49a5a" ? brand : "#c49a5a"',
   );
 });
 
@@ -110,14 +110,3 @@ test('conserva los nombres de apps del backend en los textos de ayuda', () => {
   );
 });
 
-test('retypeface cambia la pila de Inter/Roboto por Satoshi', () => {
-  assert.equal(
-    retypeface('fontFamily: `"inter", "Roboto", "Helvetica", "Arial", sans-serif`'),
-    'fontFamily: `"Satoshi", "Helvetica", "Arial", sans-serif`',
-  );
-  assert.equal(
-    retypeface('"var(--zds-typography-base,Inter,Helvetica,arial,sans-serif)"'),
-    '"var(--zds-typography-base,Satoshi,Helvetica,arial,sans-serif)"',
-  );
-  assert.equal(retypeface("font-family: 'Inter';"), "font-family: 'Inter';");
-});

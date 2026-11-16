@@ -158,10 +158,10 @@ describe('renderLoginPage', () => {
     expect(html).not.toMatch(/ style="/u);
   });
 
-  it('carga Satoshi desde la ruta pública de los activos de marca', () => {
+  it('usa la tipografía del sistema, sin fuentes de marca empaquetadas', () => {
     const html = renderLoginPage({ ...base, nextUrl: '/dash/app/home', notice: clean });
-    expect(html).toContain('href="/dash/ui/qapaq/fonts/satoshi.css"');
-    expect(html).toContain("'Satoshi'");
+    expect(html).not.toContain('/fonts/');
+    expect(html).toContain("'Segoe UI',Inter");
   });
 
   it('usa la ilustración y la paleta de marca', () => {
@@ -169,8 +169,9 @@ describe('renderLoginPage', () => {
     expect(html).toContain('/dash/ui/qapaq/qapaq_login_hero.webp');
     expect(html).not.toContain('qapaq_login_hero_sm.webp');
     expect(html).toContain('.login-hero{display:none}');
-    expect(html).toContain('#ff5899');
-    expect(html).toContain('#ffc136');
+    expect(html).toContain('--qapaq-black:#080808');
+    expect(html).toContain('--qapaq-amber:#c49a5a');
+    expect(html).toContain('/dash/ui/qapaq/qapaq-head-mark.webp');
   });
 
   it('muestra el mensaje público del catálogo como alerta, nunca el código crudo', () => {

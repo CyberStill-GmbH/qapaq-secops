@@ -60,7 +60,7 @@ def test_fetcher_blocks_remote_and_local_files():
                 "data:text/plain;base64,AAAA", "asset:../app/spec.py", "asset:nope.png"):
         with pytest.raises(pdf_out.BlockedFetch):
             pdf_out.asset_fetcher(url)
-    assert pdf_out.asset_fetcher("asset:remi.png")["mime_type"] == "image/png"
+    assert pdf_out.asset_fetcher("asset:qapaqzito.png")["mime_type"] == "image/png"
 
 
 def test_row_budget_truncates_pdf(minimal, monkeypatch):

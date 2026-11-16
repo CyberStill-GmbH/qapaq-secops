@@ -17,9 +17,9 @@ API/UI/servicio, 2026-11-13).
 
 ## Formatos
 
-- **PDF** (WeasyPrint): portada con logo, Remi, título/subtítulo/periodo/clasificación; KPIs; secciones en orden;
+- **PDF** (WeasyPrint): portada con logo, Qapaqzito, título/subtítulo/periodo/clasificación; KPIs; secciones en orden;
   cabecera corriente y pie (clasificación · página X de Y · fecha de generación en la zona del informe); fuentes.
-  Prioridad como etiqueta de texto P1..P4 en rampa neutra. Tipografía Noto Sans (nunca Satoshi). Para acotar
+  Prioridad como etiqueta de texto P1..P4 en rampa neutra. Tipografía Noto Sans. Para acotar
   tiempo y tamaño, el PDF muestra como máximo 3000 filas en total y avisa; el detalle completo va en XLSX/CSV.
 - **XLSX** (xlsxwriter): hoja «Resumen», una hoja por tabla o gráfico (gráficos nativos de Excel), «Cronología».
   Fechas reales en la zona del informe, números reales, enlaces reales. Autor «QAPAQ SOC».

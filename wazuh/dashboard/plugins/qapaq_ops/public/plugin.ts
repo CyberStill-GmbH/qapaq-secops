@@ -38,7 +38,6 @@ export class QapaqOpsPublicPlugin implements Plugin<void, void> {
   private api: QapaqApiClient | null = null;
   private feed: ChangeFeed | null = null;
   private stopWatch: (() => void) | null = null;
-  private fontStylesheet: HTMLLinkElement | null = null;
   private stopQapaqzito: (() => void) | null = null;
 
   constructor(initializerContext: PluginInitializerContext<PublicConfigSchema>) {
@@ -131,11 +130,6 @@ export class QapaqOpsPublicPlugin implements Plugin<void, void> {
   }
 
   public start(core: CoreStart) {
-    this.fontStylesheet = document.createElement('link');
-    this.fontStylesheet.rel = 'stylesheet';
-    this.fontStylesheet.href = core.http.basePath.prepend('/ui/qapaq/fonts/satoshi.css');
-    this.fontStylesheet.dataset.qapaqTypography = 'satoshi';
-    document.head.appendChild(this.fontStylesheet);
     const { api, feed } = this.shared(core.http.basePath.get());
     this.startQapaqzito(core, api);
     if (this.config.p1Watch === false) return;
@@ -157,8 +151,6 @@ export class QapaqOpsPublicPlugin implements Plugin<void, void> {
   public stop() {
     this.stopQapaqzito?.();
     this.stopQapaqzito = null;
-    this.fontStylesheet?.remove();
-    this.fontStylesheet = null;
     this.stopWatch?.();
     this.feed?.stop();
   }

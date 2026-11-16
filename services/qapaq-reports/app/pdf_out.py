@@ -12,7 +12,7 @@ from .common import (ASSETS_DIR, KIND_LABELS, MD, fmt_dt, fmt_dt_long, fmt_numbe
 from .spec import (ChartSection, MarkdownSection, Spec, TableSection, TimelineSection)
 
 ALLOWED_ASSETS = {
-    "qapaq-mark-gradient.png", "remi.png",
+    "qapaq-mark-gradient.png", "qapaqzito.png",
 }
 PDF_MAX_ROWS = 3000  # presupuesto total de filas en el PDF; el detalle completo va en XLSX/CSV
 STYLE_PATH = Path(__file__).with_name("pdf.css")
@@ -148,7 +148,7 @@ def build_html(spec: Spec) -> str:
   <div class="bar"></div>
   <div class="brand"><img class="logo" src="asset:qapaq-mark-gradient.png" alt="QAPAQ"><div class="wordmark">QAPAQ <span>SOC</span></div></div>
   <div class="orb"></div>
-  <img class="remi" src="asset:remi.png" alt="">
+  <img class="mascot" src="asset:qapaqzito.png" alt="">
   <div class="cover-main">
     <div class="eyebrow">{e(kind_label)}</div>
     <h1>{e(spec.title)}</h1>

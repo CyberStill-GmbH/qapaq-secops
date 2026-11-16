@@ -6,7 +6,7 @@ raster/ankay_icon_174.png	public/images/Shuffle_logo_new.png	logo cuadrado del e
 raster/favicon.ico	public/favicon.ico	icono de la pestaña
 raster/ankay_icon_144.png	public/images/security/shuffle-icon.png	icono de la sección de seguridad
 svg/ankay_mark.svg	public/images/icons/shuffleLogo.svg	marca pequeña en la barra lateral
-raster/qapaq-qapaqzito.webp	public/images/qapaq-qapaqzito.webp	conejo de marca del login Ankay
+raster/qapaq-qapaqzito.webp	public/images/qapaq-qapaqzito.webp	Qapaqzito (asistente QAPAQ), disponible para la UI de Ankay
 raster/ankay-login.webp	public/images/ankay-login.webp	Fondo del login de Ankay
 raster/ankay-login-mobile.webp	public/images/ankay-login-mobile.webp	Fondo del login de Ankay
-raster/qapaq-head-mark.webp	public/images/qapaq-head-mark.webp	logo cabeza del conejo, separado de la mascota IA
+raster/qapaq-head-mark.webp	public/images/qapaq-head-mark.webp	insignia circular de la Q de QAPAQ (login de Ankay)

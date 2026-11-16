@@ -13,8 +13,8 @@ from matplotlib.ticker import MaxNLocator  # noqa: E402
 from .common import INK, SERIES_COLORS, fmt_number  # noqa: E402
 from .spec import ChartSection  # noqa: E402
 
-MUTED = "#6B6B85"
-GRID = "#E6E5F2"
+MUTED = "#6B6B72"
+GRID = "#E4E4E7"
 _counter = 0
 
 

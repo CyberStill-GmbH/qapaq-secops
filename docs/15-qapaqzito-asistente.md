@@ -4,7 +4,7 @@
 > (existe en el repo, no se probó contra el proveedor real ni en el dashboard desplegado) y
 > **[propuesto]**.
 
-**Qapaqzito** es el asistente de IA integrado en QAPAQ SOC, con el conejo Remi de la identidad de marca.
+**Qapaqzito** es el asistente de IA integrado en QAPAQ SOC, representado por la Q de QAPAQ con cara (ojos y sonrisa ámbar).
 Se comporta como un asistente de consola tipo Amazon Q: un panel lateral que se abre desde la
 cabecera, entiende en qué página estás, consulta el SOC por ti con herramientas, muestra qué
 consultó y cita las alertas e incidentes en que se apoya. Usa **Claude** por API.
@@ -172,7 +172,7 @@ que el control permite elegir entre **Solo respuesta de Qapaqzito** e **Investig
 imprimible y Excel. Qapaqzito no afirma que ya descargó el archivo: la exportación se completa desde ese control y
 requiere una acción explícita de la persona.
 
-Botón con Remi en la cabecera (atajo Alt+Shift+B), panel lateral con saludo, ejemplos según la página
+Botón con Qapaqzito en la cabecera (atajo Alt+Shift+B), panel lateral con saludo, ejemplos según la página
 (alertas, incidentes, fuentes, auditoría), estado «consultando…», lista plegable de lo que consultó,
 fuentes citadas con enlace a la consola, copiar, nueva conversación y aviso permanente de IA generativa
 y solo lectura. Accesible por teclado, con foco visible y sin animación bajo `prefers-reduced-motion`. El

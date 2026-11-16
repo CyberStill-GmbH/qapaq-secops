@@ -9,11 +9,12 @@ from markdown_it import MarkdownIt
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
-# Paleta oficial (docs/brand/qapaq-visual-identity.md)
-CORAL, FUCSIA, AMARILLO, LIMA = "#FF5841", "#FF5899", "#FFC136", "#D0E870"
-TURQUESA, AZUL, LAVANDA, INK = "#00DFC2", "#119CFF", "#CDCCED", "#1B1B2F"
-# Orden de series en graficos: contraste razonable sobre blanco primero.
-SERIES_COLORS = [AZUL, FUCSIA, TURQUESA, AMARILLO, CORAL, "#8E8CD8", "#A9C94A"]
+# Paleta QAPAQ para papel (docs/brand/qapaq-visual-identity.md): tinta casi negra, grises
+# neutros y el ambar como unico acento de marca.
+AMBER, AMBER_DARK, AMBER_LIGHT = "#C49A5A", "#8C6A38", "#E0BD80"
+INK, MUTED, LINE, SOFT = "#18181B", "#6B6B72", "#E4E4E7", "#F4F4F5"
+# Orden de series en graficos: ambar y neutros alternados para que se distingan sobre blanco.
+SERIES_COLORS = [AMBER, "#3F3F46", AMBER_DARK, "#8F8F95", AMBER_LIGHT, "#B0B0B5", "#5C5C63"]
 
 MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 KIND_LABELS = {

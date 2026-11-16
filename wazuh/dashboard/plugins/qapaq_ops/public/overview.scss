@@ -1,12 +1,12 @@
 // QAPAQ SOC · «Resumen del SOC», «Integraciones» y «Políticas».
-// Marca (docs/brand/qapaq-visual-identity.md): Satoshi, acentos fucsia → coral → amarillo solo en
-// la identidad (encabezado, distintivos). Los estados usan HEALTH_TONE y la severidad los pasos de
-// prioridad QAPAQ; la paleta de marca nunca codifica gravedad ni salud.
+// Marca (docs/brand/qapaq-visual-identity.md): superficies neutras y ámbar solo en la identidad
+// (encabezado, distintivos). Los estados usan HEALTH_TONE y la severidad los pasos de
+// prioridad QAPAQ; el acento de marca nunca codifica gravedad ni salud.
 
 $qapaqOvMobile: 767px;
 $qapaqOvTablet: 1023px;
 $qapaqOvRadius: 14px;
-$qapaqOvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%);
+$qapaqOvAccent: linear-gradient(#c49a5a, #c49a5a);
 $qapaqOvEase: cubic-bezier(0.16, 1, 0.3, 1);
 
 .qapaqOverview {
@@ -42,8 +42,8 @@ $qapaqOvEase: cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid $ouiBorderColor;
   border-radius: $qapaqOvRadius;
   background:
-    radial-gradient(120% 140% at 100% 0%, rgba(#ff5899, 0.16) 0%, transparent 55%),
-    radial-gradient(90% 120% at 0% 100%, rgba(#ffc136, 0.08) 0%, transparent 60%),
+    radial-gradient(120% 140% at 100% 0%, rgba(#c49a5a, 0.16) 0%, transparent 55%),
+    radial-gradient(90% 120% at 0% 100%, rgba(#e0bd80, 0.08) 0%, transparent 60%),
     $ouiColorEmptyShade;
 
   &::before {
@@ -52,7 +52,7 @@ $qapaqOvEase: cubic-bezier(0.16, 1, 0.3, 1);
     right: 0;
     left: 0;
     height: 3px;
-    background: $qapaqOvGradient;
+    background: $qapaqOvAccent;
     content: '';
   }
 
@@ -80,7 +80,7 @@ $qapaqOvEase: cubic-bezier(0.16, 1, 0.3, 1);
 .qapaqHero__eyebrow {
   display: inline-block;
   margin-bottom: $ouiSizeXS;
-  background: $qapaqOvGradient;
+  background: $qapaqOvAccent;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -134,7 +134,7 @@ $qapaqOvEase: cubic-bezier(0.16, 1, 0.3, 1);
 
   &[href]:hover,
   &[href]:focus-visible {
-    border-color: rgba(#ff5899, 0.6);
+    border-color: rgba(#c49a5a, 0.6);
     color: inherit;
     text-decoration: none;
     transform: translateY(-1px);
@@ -496,7 +496,7 @@ $qapaqOvEase: cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: 12px;
   background:
     linear-gradient($ouiColorLightestShade, $ouiColorLightestShade) padding-box,
-    $qapaqOvGradient border-box;
+    $qapaqOvAccent border-box;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;

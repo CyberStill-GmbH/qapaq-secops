@@ -2,8 +2,8 @@
 
 Parte de [17 · Ingeniería de detección](../17-ingenieria-de-deteccion.md). Fuente:
 `wazuh/dashboard/saved-objects/detection/build_detection_dashboards.py` → `qapaq-detection-dashboards.ndjson`
-(73 objetos, IDs `qapaq-det-*`, paleta de la [identidad QAPAQ](../brand/qapaq-visual-identity.md): Coral = crítica,
-Fucsia = alta, Amarillo = media, Turquesa = baja/éxito, Azul = neutro, Lavanda = sin dato).
+(73 objetos, IDs `qapaq-det-*`, colores de la [identidad QAPAQ](../brand/qapaq-visual-identity.md): severidad con los pasos operativos
+(`#ff5f57` crítica, `#f0904a` alta, `#d8c35c` media, `#5fb98a` baja/éxito), ámbar `#c49a5a` neutro y gris `#8f8f95` sin dato).
 
 | Dashboard | ID | Qué responde | Índices |
 | --- | --- | --- | --- |

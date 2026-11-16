@@ -8,35 +8,34 @@
 //    se quitan ambas y OSD queda exactamente como estaba.
 //  - Pantallas < 1200 px: cajón superpuesto con fondo (`.qapaqQapaqzito__backdrop`), sin tocar el layout.
 //
-// Colores: superficies neutras + acentos de marca (Fucsia/Coral para la acción principal, Azul para
-// enlaces). Los colores de marca no codifican estado; las prioridades llevan siempre texto (P1…P4).
+// Colores: superficies neutras QAPAQ + ámbar como único acento de marca (acción principal,
+// enlaces, foco de selección). La marca no codifica estado; las prioridades llevan siempre texto
+// (P1…P4) y conservan sus colores operativos.
 // Tema claro/oscuro: se decide al compilar con `$euiColorEmptyShade`, igual que `theme.scss`.
 
 $bnDark: lightness($euiColorEmptyShade) < 50%;
-$qapaqzitoCoral: #ff5841;
-$qapaqzitoFuchsia: #ff5899;
-$qapaqzitoYellow: #ffc136;
-$qapaqzitoBlue: #119cff;
-$qapaqzitoLavender: #cdcced;
+$qapaqzitoAmber: #c49a5a;
+$qapaqzitoAmberLight: #e0bd80;
+$qapaqzitoMuted: #8f8f95;
 $qapaqzitoEase: cubic-bezier(0.16, 1, 0.3, 1);
 $qapaqzitoMono: 'Roboto Mono', Menlo, Consolas, monospace;
 
 @mixin qapaqzitoTokens($dark) {
   @if $dark {
-    --bn-bg: #16161c;
-    --bn-surface: #1e1e26;
-    --bn-raised: #282832;
-    --bn-line: #34343d;
-    --bn-line-strong: #4a4a56;
-    --bn-text: #f3f1f8;
-    --bn-text2: #cfccd8;
-    --bn-muted: #9d9aa9;
-    --bn-link: #5cb8ff;
-    --bn-accent: #ff5899;
-    --bn-warn: #ffc136;
-    --bn-hover: rgba(255, 255, 255, 0.07);
-    --bn-user: #2a2a35;
-    --bn-code: #0f0f14;
+    --bn-bg: #0d0d0f;
+    --bn-surface: #131315;
+    --bn-raised: #1a1a1c;
+    --bn-line: #29292d;
+    --bn-line-strong: #49494e;
+    --bn-text: #f4f4f5;
+    --bn-text2: #b0b0b5;
+    --bn-muted: #8f8f95;
+    --bn-link: #e0bd80;
+    --bn-accent: #c49a5a;
+    --bn-warn: #d8c35c;
+    --bn-hover: rgba(255, 255, 255, 0.06);
+    --bn-user: #1a1a1c;
+    --bn-code: #080808;
     --bn-shadow: rgba(0, 0, 0, 0.5);
     --bn-c1-bg: rgba(229, 72, 77, 0.18);
     --bn-c1-bd: #e5484d;
@@ -44,39 +43,39 @@ $qapaqzitoMono: 'Roboto Mono', Menlo, Consolas, monospace;
     --bn-c2-bg: rgba(247, 107, 21, 0.16);
     --bn-c2-bd: #f76b15;
     --bn-c2-fg: #ffc59f;
-    --bn-c3-bg: rgba(255, 193, 54, 0.14);
-    --bn-c3-bd: #ffc136;
-    --bn-c3-fg: #ffe08f;
+    --bn-c3-bg: rgba(216, 195, 92, 0.14);
+    --bn-c3-bd: #d8c35c;
+    --bn-c3-fg: #ece0a0;
     --bn-c4-bg: rgba(70, 167, 88, 0.14);
     --bn-c4-bd: #46a758;
     --bn-c4-fg: #b6e8bf;
-    --bn-id-bg: rgba(17, 156, 255, 0.14);
-    --bn-id-fg: #8fd0ff;
-    --bn-inc-bg: rgba(255, 88, 153, 0.14);
-    --bn-inc-fg: #ffb3d1;
-    --bn-pdf-bg: rgba(255, 88, 65, 0.18);
-    --bn-pdf-fg: #ff9a8b;
-    --bn-xls-bg: rgba(0, 223, 194, 0.15);
-    --bn-xls-fg: #5eeadb;
-    --bn-csv-bg: rgba(205, 204, 237, 0.16);
-    --bn-csv-fg: #cdcced;
+    --bn-id-bg: rgba(196, 154, 90, 0.14);
+    --bn-id-fg: #e0bd80;
+    --bn-inc-bg: rgba(244, 244, 245, 0.08);
+    --bn-inc-fg: #f4f4f5;
+    --bn-pdf-bg: rgba(255, 95, 87, 0.16);
+    --bn-pdf-fg: #ffb0ab;
+    --bn-xls-bg: rgba(95, 185, 138, 0.15);
+    --bn-xls-fg: #a8dcbf;
+    --bn-csv-bg: rgba(176, 176, 181, 0.16);
+    --bn-csv-fg: #b0b0b5;
     color-scheme: dark;
   } @else {
     --bn-bg: #ffffff;
-    --bn-surface: #f7f6fa;
-    --bn-raised: #edecf3;
-    --bn-line: #dedce6;
-    --bn-line-strong: #c3c1d0;
-    --bn-text: #1b1b2f;
-    --bn-text2: #434259;
-    --bn-muted: #6a6980;
-    --bn-link: #0b64b8;
-    --bn-accent: #c2306c;
-    --bn-warn: #8a5a00;
-    --bn-hover: rgba(27, 27, 47, 0.06);
-    --bn-user: #efeef5;
-    --bn-code: #f3f2f8;
-    --bn-shadow: rgba(27, 27, 47, 0.22);
+    --bn-surface: #f7f7f8;
+    --bn-raised: #ededef;
+    --bn-line: #e4e4e7;
+    --bn-line-strong: #c8c8cc;
+    --bn-text: #18181b;
+    --bn-text2: #3f3f46;
+    --bn-muted: #6b6b72;
+    --bn-link: #8c6a38;
+    --bn-accent: #8c6a38;
+    --bn-warn: #7a5f00;
+    --bn-hover: rgba(8, 8, 8, 0.06);
+    --bn-user: #f1f1f2;
+    --bn-code: #f4f4f5;
+    --bn-shadow: rgba(8, 8, 8, 0.2);
     --bn-c1-bg: rgba(209, 52, 56, 0.1);
     --bn-c1-bd: #d13438;
     --bn-c1-fg: #a4181c;
@@ -89,16 +88,16 @@ $qapaqzitoMono: 'Roboto Mono', Menlo, Consolas, monospace;
     --bn-c4-bg: rgba(47, 143, 69, 0.1);
     --bn-c4-bd: #2f8f45;
     --bn-c4-fg: #1f6b30;
-    --bn-id-bg: rgba(17, 156, 255, 0.12);
-    --bn-id-fg: #0b64b8;
-    --bn-inc-bg: rgba(194, 48, 108, 0.1);
-    --bn-inc-fg: #9c1f55;
-    --bn-pdf-bg: rgba(255, 88, 65, 0.14);
-    --bn-pdf-fg: #b5271a;
-    --bn-xls-bg: rgba(0, 150, 130, 0.14);
-    --bn-xls-fg: #00695c;
-    --bn-csv-bg: rgba(110, 108, 190, 0.16);
-    --bn-csv-fg: #4a4980;
+    --bn-id-bg: rgba(196, 154, 90, 0.16);
+    --bn-id-fg: #6e5229;
+    --bn-inc-bg: rgba(8, 8, 8, 0.06);
+    --bn-inc-fg: #18181b;
+    --bn-pdf-bg: rgba(209, 52, 56, 0.1);
+    --bn-pdf-fg: #a4181c;
+    --bn-xls-bg: rgba(47, 143, 69, 0.1);
+    --bn-xls-fg: #1f6b30;
+    --bn-csv-bg: rgba(107, 107, 114, 0.14);
+    --bn-csv-fg: #3f3f46;
     color-scheme: light;
   }
 }
@@ -112,7 +111,7 @@ $qapaqzitoMono: 'Roboto Mono', Menlo, Consolas, monospace;
   margin: 0 4px;
   place-items: center;
   padding: 0;
-  border: 1px solid $qapaqzitoFuchsia;
+  border: 1px solid $qapaqzitoAmber;
   border-radius: 50%;
   background: transparent;
   box-shadow: none;
@@ -126,16 +125,16 @@ $qapaqzitoMono: 'Roboto Mono', Menlo, Consolas, monospace;
     object-fit: contain;
   }
   &:hover {
-    background: rgba(255, 88, 153, 0.18);
+    background: rgba(196, 154, 90, 0.18);
     transform: translateY(-2px);
   }
   &:focus-visible {
-    outline: 2px solid $qapaqzitoBlue;
+    outline: 2px solid $qapaqzitoAmber;
     outline-offset: 3px;
   }
   &--open {
-    border-color: $qapaqzitoBlue;
-    background: rgba(17, 156, 255, 0.12);
+    border-color: $qapaqzitoAmber;
+    background: rgba(196, 154, 90, 0.12);
   }
 }
 
@@ -187,7 +186,7 @@ html.qapaq-qapaqzito-docked {
   border-left: 1px solid var(--bn-line);
   background: var(--bn-bg);
   color: var(--bn-text);
-  font-family: 'Satoshi', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.55;
   animation: qapaqQapaqzitoSlideIn 220ms $qapaqzitoEase both;
@@ -206,7 +205,7 @@ html.qapaq-qapaqzito-docked {
   a:focus-visible,
   select:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid $qapaqzitoBlue;
+    outline: 2px solid $qapaqzitoAmber;
     outline-offset: 2px;
   }
 
@@ -255,7 +254,7 @@ html.qapaq-qapaqzito-docked {
   &:hover::after,
   &:focus-visible::after,
   .is-resizing > &::after {
-    background: $qapaqzitoBlue;
+    background: $qapaqzitoAmber;
   }
   &:focus-visible {
     outline: none;
@@ -369,7 +368,7 @@ html.qapaq-qapaqzito-docked {
   margin: auto 20px;
   padding: 20px;
   border: 1px solid var(--bn-line);
-  border-left: 3px solid $qapaqzitoYellow;
+  border-left: 3px solid $qapaqzitoAmberLight;
   border-radius: 12px;
   background: var(--bn-surface);
   color: var(--bn-text2);
@@ -386,7 +385,7 @@ html.qapaq-qapaqzito-docked {
   button {
     margin-top: 14px;
     padding: 7px 12px;
-    border: 1px solid $qapaqzitoBlue;
+    border: 1px solid $qapaqzitoAmber;
     border-radius: 8px;
     background: transparent;
     color: var(--bn-text);
@@ -690,19 +689,19 @@ html.qapaq-qapaqzito-docked {
       }
     }
     &--summary::before {
-      background: $qapaqzitoFuchsia;
+      background: $qapaqzitoAmber;
     }
     &--evidence::before {
-      background: $qapaqzitoBlue;
+      background: $qapaqzitoAmber;
     }
     &--assessment::before {
-      background: $qapaqzitoYellow;
+      background: $qapaqzitoAmberLight;
     }
     &--actions::before {
-      background: $qapaqzitoCoral;
+      background: $qapaqzitoAmber;
     }
     &--next::before {
-      background: $qapaqzitoLavender;
+      background: $qapaqzitoMuted;
     }
   }
 
@@ -714,12 +713,12 @@ html.qapaq-qapaqzito-docked {
 .qapaqQapaqzito__message.is-error .qapaqQapaqzito__answer,
 .qapaqQapaqzito__message.is-notice .qapaqQapaqzito__answer {
   padding: 8px 12px;
-  border-left: 3px solid $qapaqzitoCoral;
+  border-left: 3px solid $qapaqzitoAmber;
   border-radius: 4px 10px 10px 4px;
   background: var(--bn-surface);
 }
 .qapaqQapaqzito__message.is-notice .qapaqQapaqzito__answer {
-  border-left-color: $qapaqzitoYellow;
+  border-left-color: $qapaqzitoAmberLight;
   color: var(--bn-text2);
 }
 
@@ -804,7 +803,7 @@ html.qapaq-qapaqzito-docked {
   cursor: pointer;
 
   &:hover {
-    border-color: $qapaqzitoBlue;
+    border-color: $qapaqzitoAmber;
     color: var(--bn-text);
   }
 }
@@ -922,7 +921,7 @@ html.qapaq-qapaqzito-docked {
   height: 8px;
   flex: none;
   border-radius: 50%;
-  background: $qapaqzitoFuchsia;
+  background: $qapaqzitoAmber;
   animation: qapaqQapaqzitoPulse 1.2s ease-in-out infinite;
 }
 
@@ -963,14 +962,14 @@ html.qapaq-qapaqzito-docked {
   transform: translateY(-1px);
 
   [data-status='running'] > & {
-    background: $qapaqzitoBlue;
+    background: $qapaqzitoAmber;
     animation: qapaqQapaqzitoPulse 1.2s ease-in-out infinite;
   }
   [data-status='complete'] > & {
     background: var(--bn-text2);
   }
   [data-status='no-result'] > & {
-    background: $qapaqzitoYellow;
+    background: $qapaqzitoAmberLight;
   }
 }
 .qapaqQapaqzito__timelineLabel {
@@ -1266,7 +1265,7 @@ html.qapaq-qapaqzito-docked {
     cursor: pointer;
   }
   input {
-    accent-color: $qapaqzitoBlue;
+    accent-color: $qapaqzitoAmber;
   }
   select {
     max-width: 100%;
@@ -1280,7 +1279,7 @@ html.qapaq-qapaqzito-docked {
   > button {
     margin-top: 10px;
     padding: 6px 12px;
-    border: 1px solid $qapaqzitoBlue;
+    border: 1px solid $qapaqzitoAmber;
     border-radius: 8px;
     background: transparent;
     color: var(--bn-text);
@@ -1326,7 +1325,7 @@ html.qapaq-qapaqzito-docked {
     display: block;
     height: 8px;
     border-radius: 5px;
-    background: $qapaqzitoBlue;
+    background: $qapaqzitoAmber;
   }
   b {
     color: var(--bn-text);
@@ -1481,7 +1480,7 @@ html.qapaq-qapaqzito-docked {
 
   &:focus-within {
     border-color: var(--bn-accent);
-    box-shadow: 0 0 0 3px rgba(255, 88, 153, 0.18);
+    box-shadow: 0 0 0 3px rgba(196, 154, 90, 0.18);
   }
 
   textarea {
@@ -1529,8 +1528,8 @@ html.qapaq-qapaqzito-docked {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(120deg, $qapaqzitoFuchsia, $qapaqzitoCoral);
-  color: #21141b;
+  background: $qapaqzitoAmber;
+  color: #080808;
   cursor: pointer;
   transition: transform 140ms $qapaqzitoEase;
 

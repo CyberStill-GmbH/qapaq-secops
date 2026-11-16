@@ -7,9 +7,9 @@ index 1313707..a19da60 100644
            .osdWelcomeView {
              line-height: 1.5;
 -            background-color: ${themeDefinition.ouiHeaderBackgroundColor};
-+            /* QAPAQ: la pantalla de carga siempre es blanca */
-+            background: #ffffff;
-+            background-color: #ffffff;
++            /* QAPAQ: la pantalla de carga siempre es negra (#080808) */
++            background: #080808;
++            background-color: #080808;
              height: 100%;
              display: -webkit-box;
              display: -webkit-flex;
@@ -20,12 +20,12 @@ index 1313707..a19da60 100644
 -            font-size: 24px; /* Wazuh */
 -            font-family: sans-serif;
 +            font-size: 13px; /* QAPAQ */
-+            font-family: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
++            font-family: 'Segoe UI', Inter, ui-sans-serif, system-ui, sans-serif;
 +            letter-spacing: 0.01em;
              line-height: 40px !important;
              height: 40px !important;
 -            color: ${themeDefinition.euiColorDarkShade};
-+            color: #5d5266;
++            color: #8f8f95;
 +            /* QAPAQ: sin texto «Loading»; solo se ve el mensaje de error si la carga falla */
 +            animation: qapaqSplashText 600ms ease-out 1.2s both;
            }
@@ -41,13 +41,13 @@ index 1313707..a19da60 100644
              transform: scaleX(0) translateX(0%);
              animation: osdProgress 1s cubic-bezier(.694, .0482, .335, 1) infinite;
 -            background-color: ${darkMode ? '#1BA9F5' : '#006DE4'};
-+            background: linear-gradient(90deg, #ff5899, #ff5841 55%, #ffc136);
++            background: #c49a5a;
            }
  
            .loadingLogoContainer {
 -            height: 100px; /* Wazuh */
 -            padding: 10px 10px 10px 10px;
-+            /* QAPAQ: la animación SVG (planeta + mascota) ocupa el centro, sin pasar del 90 % del ancho */
++            /* QAPAQ: la animación SVG (Q de QAPAQ + línea ámbar) ocupa el centro, sin pasar del 90 % del ancho */
 +            height: min(28vh, 180px);
 +            padding: 0;
            }
@@ -66,7 +66,7 @@ index 1313707..a19da60 100644
 +            display: flex;
 +            align-items: center;
 +            justify-content: center;
-+            background: #ffffff;
++            background: #080808;
 +            pointer-events: none;
 +            animation: qapaqSplashHold 2200ms ease-out forwards;
 +          }
@@ -134,7 +134,7 @@ index c76ef5a..bb07493 100644
          <link
            rel="mask-icon"
 -          color="#003553"
-+          color="#101014"
++          color="#080808"
            href={favicon ?? `${uiPublicUrl}/favicons/safari-pinned-tab.svg`}
          />
          <link rel="shortcut icon" href={favicon ?? `${uiPublicUrl}/favicons/favicon.ico`} />

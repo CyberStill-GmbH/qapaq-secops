@@ -23,12 +23,12 @@ export const BACK_BUTTON_STYLE = `
       #qapaq-back-to-siem {
         position: fixed; top: 10px; right: 64px; z-index: 2147483000;
         display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
-        border-radius: 8px; border: 1px solid rgba(255, 88, 65, 0.55);
-        background: #141414; color: #f4f4f5; font: 700 13px/1 "Satoshi", "Helvetica", "Arial", sans-serif;
+        border-radius: 8px; border: 1px solid rgba(196, 154, 90, 0.55);
+        background: #141414; color: #f4f4f5; font: 600 13px/1 "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
         text-decoration: none; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
       }
-      #qapaq-back-to-siem:hover { background: #ff5841; border-color: #ff5841; color: #080808; }
-      #qapaq-back-to-siem:focus-visible { outline: 2px solid #ff5899; outline-offset: 2px; }
+      #qapaq-back-to-siem:hover { background: #c49a5a; border-color: #c49a5a; color: #080808; }
+      #qapaq-back-to-siem:focus-visible { outline: 2px solid #f4f4f5; outline-offset: 2px; }
       #qapaq-back-to-siem svg { width: 14px; height: 14px; }
 `;
 // Comillas simples a propósito: el sub_filter del edge solo antepone /ankay a href/src con

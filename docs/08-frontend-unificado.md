@@ -1,15 +1,15 @@
 # 08 · Frontend unificado
 
-**Identidad vigente (2026-11-03, due�o):** el conejo mantenido en `wazuh/dashboard/assets/images/qapaq-qapaqzito.webp` sustituye al monograma en Wazuh y Ankay. Respond usa el t�tulo �nico **Ankay**.
+**Identidad vigente:** la Q de QAPAQ (negro `#080808`, tinta `#f4f4f5`, ámbar `#c49a5a`) en Wazuh y Ankay; Qapaqzito es la Q con cara. Respond usa el título único **Ankay**.
 
 > Leyenda: **[verificado]**, **[sin verificar]** (existe en el repo, no probado en AWS) y
 > **[propuesto]**. Arquitectura general en [02](02-arquitectura.md).
 
 ## Sistema visual QAPAQ
 
-![Monograma oficial QAPAQ del formato de presentación 2026](brand/assets/logo/qapaq-mark-gradient.png)
+![Icono de la aplicación QAPAQ SecOps](../wazuh/dashboard/assets/svg/qapaq_app_icon.svg)
 
-La guía [Identidad visual QAPAQ - Frontend](brand/qapaq-visual-identity.md) fija Satoshi Medium/Bold, la paleta oficial de siete colores, variantes de logotipo, Remi y Mundi, y la galería de ilustraciones recortadas de la presentación. El frontend solo muestra los recursos gráficos oficiales de QAPAQ.
+La guía [Identidad visual QAPAQ - Frontend](brand/qapaq-visual-identity.md) fija la paleta (negro, grises y ámbar como único acento), la tipografía del sistema, la Q de QAPAQ y sus variantes, Qapaqzito y la mascota del Analista IA. Los colores de severidad y estado no son de marca.
 
 ## Decisión
 

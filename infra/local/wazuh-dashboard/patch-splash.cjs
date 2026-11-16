@@ -23,7 +23,7 @@ patch('styles.js', [
   [
     'fondo blanco',
     /(\.osdWelcomeView \{\s*line-height: 1\.5;\s*)background-color: \$\{themeDefinition\.ouiHeaderBackgroundColor\};/,
-    '$1/* QAPAQ: la pantalla de carga siempre es blanca */\n            background: #ffffff;\n            background-color: #ffffff;',
+    '$1/* QAPAQ: la pantalla de carga siempre es negra (#080808) */\n            background: #080808;\n            background-color: #080808;',
   ],
   [
     'contenedor grande',
@@ -45,7 +45,7 @@ patch('styles.js', [
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #ffffff;
+            background: #080808;
             pointer-events: none;
             animation: qapaqSplashHold 2200ms ease-out forwards;
           }
@@ -79,7 +79,7 @@ patch('styles.js', [
   [
     'barra de progreso QAPAQ',
     "background-color: ${darkMode ? '#1BA9F5' : '#006DE4'};",
-    'background: linear-gradient(90deg, #ff5899, #ff5841 55%, #ffc136);',
+    'background: #c49a5a;',
   ],
 ]);
 
@@ -89,7 +89,7 @@ patch('template.js', [
     /, i18n\('core\.ui\.welcomeMessage', \{[\s\S]*?defaultMessage: 'Loading \.\.\.'\s*\}\)/,
     '',
   ],
-  ['mask-icon', 'color: "#003553"', 'color: "#101014"'],
+  ['mask-icon', 'color: "#003553"', 'color: "#080808"'],
   [
     'overlay del splash (patch 0001, commit 5733a77)',
     /(\(0, _react\.createElement\)\('osd-injected-metadata', \{\s*data: JSON\.stringify\(injectedMetadata\)\s*\}\),)/,

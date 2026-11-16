@@ -12,7 +12,7 @@ from datetime import datetime
 
 import xlsxwriter
 
-from .common import (ASSETS_DIR, FUCSIA, INK, LAVANDA, SERIES_COLORS,
+from .common import (AMBER, ASSETS_DIR, INK, LINE, SERIES_COLORS,
                      KIND_LABELS, fmt_period, markdown_to_blocks, to_tz)
 from .spec import ChartSection, MarkdownSection, Spec, TableSection, TimelineSection
 
@@ -61,29 +61,29 @@ def render_xlsx(spec: Spec) -> bytes:
     base = {"font_name": "Calibri", "font_size": 10, "font_color": INK, "valign": "top"}
     F = {
         "title": wb.add_format({**base, "font_size": 20, "bold": True, "valign": "vcenter"}),
-        "subtitle": wb.add_format({**base, "font_size": 11, "font_color": "#555570", "text_wrap": True}),
-        "label": wb.add_format({**base, "bold": True, "font_color": "#555570"}),
+        "subtitle": wb.add_format({**base, "font_size": 11, "font_color": "#52525B", "text_wrap": True}),
+        "label": wb.add_format({**base, "bold": True, "font_color": "#52525B"}),
         "val": wb.add_format({**base, "text_wrap": True}),
-        "h2": wb.add_format({**base, "font_size": 13, "bold": True, "bottom": 2, "bottom_color": FUCSIA}),
-        "kpi_label": wb.add_format({**base, "bg_color": "#F4F3FB", "bold": True, "border": 1, "border_color": LAVANDA}),
-        "kpi_val": wb.add_format({**base, "bg_color": "#F4F3FB", "font_size": 14, "bold": True,
-                                   "border": 1, "border_color": LAVANDA, "align": "left"}),
-        "kpi_hint": wb.add_format({**base, "bg_color": "#F4F3FB", "font_color": "#555570",
-                                    "border": 1, "border_color": LAVANDA, "text_wrap": True}),
+        "h2": wb.add_format({**base, "font_size": 13, "bold": True, "bottom": 2, "bottom_color": AMBER}),
+        "kpi_label": wb.add_format({**base, "bg_color": "#F4F4F5", "bold": True, "border": 1, "border_color": LINE}),
+        "kpi_val": wb.add_format({**base, "bg_color": "#F4F4F5", "font_size": 14, "bold": True,
+                                   "border": 1, "border_color": LINE, "align": "left"}),
+        "kpi_hint": wb.add_format({**base, "bg_color": "#F4F4F5", "font_color": "#52525B",
+                                    "border": 1, "border_color": LINE, "text_wrap": True}),
         "p": wb.add_format({**base, "text_wrap": True}),
         "pb": wb.add_format({**base, "text_wrap": True, "bold": True}),
         "bullet": wb.add_format({**base, "text_wrap": True, "indent": 1}),
-        "code": wb.add_format({**base, "font_name": "Consolas", "text_wrap": True, "bg_color": "#F4F3FB"}),
-        "head": wb.add_format({**base, "bold": True, "font_color": "#FFFFFF", "bg_color": "#D8266F",
+        "code": wb.add_format({**base, "font_name": "Consolas", "text_wrap": True, "bg_color": "#F4F4F5"}),
+        "head": wb.add_format({**base, "bold": True, "font_color": "#FFFFFF", "bg_color": "#080808",
                                "border": 1, "border_color": "#FFFFFF", "text_wrap": True, "valign": "vcenter"}),
-        "text": wb.add_format({**base, "text_wrap": True, "bottom": 1, "bottom_color": "#E6E5F2"}),
+        "text": wb.add_format({**base, "text_wrap": True, "bottom": 1, "bottom_color": "#E4E4E7"}),
         "dt": wb.add_format({**base, "num_format": DT_FORMAT, "align": "left",
-                             "bottom": 1, "bottom_color": "#E6E5F2"}),
-        "num": wb.add_format({**base, "num_format": "#,##0.##", "bottom": 1, "bottom_color": "#E6E5F2"}),
-        "prio": wb.add_format({**base, "bold": True, "align": "center", "bottom": 1, "bottom_color": "#E6E5F2"}),
+                             "bottom": 1, "bottom_color": "#E4E4E7"}),
+        "num": wb.add_format({**base, "num_format": "#,##0.##", "bottom": 1, "bottom_color": "#E4E4E7"}),
+        "prio": wb.add_format({**base, "bold": True, "align": "center", "bottom": 1, "bottom_color": "#E4E4E7"}),
         "link": wb.add_format({**base, "font_color": "#0A6FD0", "underline": 1,
-                               "bottom": 1, "bottom_color": "#E6E5F2"}),
-        "note": wb.add_format({**base, "italic": True, "font_color": "#555570", "text_wrap": True}),
+                               "bottom": 1, "bottom_color": "#E4E4E7"}),
+        "note": wb.add_format({**base, "italic": True, "font_color": "#52525B", "text_wrap": True}),
         "foot": wb.add_format({**base, "font_color": "#777790", "font_size": 9, "text_wrap": True}),
     }
 
@@ -322,7 +322,7 @@ def _chart_sheet(wb, ws, sec: ChartSection, F) -> None:
                 spec_s["marker"] = {"type": "circle", "size": 5, "fill": {"color": color},
                                     "border": {"color": color}}
             chart.add_series(spec_s)
-        chart.set_y_axis({"major_gridlines": {"visible": True, "line": {"color": "#E6E5F2"}},
+        chart.set_y_axis({"major_gridlines": {"visible": True, "line": {"color": "#E4E4E7"}},
                           "line": {"none": True}})
         chart.set_x_axis({"line": {"color": "#BBBBD0"}, "num_font": {"rotation": -45 if n > 8 else 0}})
     chart.set_title({"name": sec.heading, "name_font": {"size": 13, "color": INK, "bold": True}})

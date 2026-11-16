@@ -37,7 +37,7 @@ RUN set -eu; \
     # Informes PDF de la app de Wazuh: color primario QAPAQ (REPORTS_PRIMARY_COLOR no es configurable;
     # cabecera, pie y logo sí: customization.* en wazuh.yml).
     for f in "$R/plugins/wazuh/common/constants.js" "$R/plugins/wazuhCore/common/constants.js"; do \
-      if [ -f "$f" ]; then sed -i 's/#256BD1/#FF5841/g' "$f"; fi; \
+      if [ -f "$f" ]; then sed -i 's/#256BD1/#C49A5A/g' "$f"; fi; \
     done; \
     chown -R wazuh-dashboard:wazuh-dashboard "$R/src/core/server/core_app/assets" "$R/plugins/wazuh/public/assets/images" "$R/plugins/securityDashboards/target/public"; \
     rm -rf /tmp/qapaq/assets;     chown -R wazuh-dashboard:wazuh-dashboard /tmp/qapaq

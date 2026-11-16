@@ -3,7 +3,7 @@
 
 $qapaqInvMobile: 767px;
 $qapaqInvTablet: 1023px;
-$qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%);
+$qapaqInvAccent: linear-gradient(#c49a5a, #c49a5a);
 
 // ---------------------------------------------------------------- Logotipos
 .qapaqVendor {
@@ -50,7 +50,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
     border: 1.5px solid transparent;
     background:
       linear-gradient(#fff, #fff) padding-box,
-      $qapaqInvGradient border-box;
+      $qapaqInvAccent border-box;
 
     img {
       width: 100%;
@@ -83,7 +83,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
 // ------------------------------------------------------------ Investigación
 .qapaqEyebrow {
   margin: 0 0 4px;
-  background: $qapaqInvGradient;
+  background: $qapaqInvAccent;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -107,7 +107,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   border-radius: 14px;
   background:
     linear-gradient($ouiColorEmptyShade, $ouiColorEmptyShade) padding-box,
-    linear-gradient(110deg, rgba(#ff5899, 0.5), rgba(#ff5841, 0.35), rgba(#ffc136, 0.3)) border-box;
+    linear-gradient(rgba(#c49a5a, 0.45), rgba(#c49a5a, 0.45)) border-box;
 
   @media (max-width: $qapaqInvTablet) {
     flex-direction: column;
@@ -281,13 +281,13 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   text-align: left;
 
   &:focus-visible {
-    outline: 2px solid #ff5899;
+    outline: 2px solid #c49a5a;
     outline-offset: 2px;
   }
 
   &--on {
-    border-color: #ff5899;
-    background: rgba(#ff5899, 0.14);
+    border-color: #c49a5a;
+    background: rgba(#c49a5a, 0.14);
   }
 
   &--static {
@@ -307,9 +307,9 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
 .qapaqMitre {
   display: inline-block;
   padding: 1px 8px;
-  border: 1px solid rgba(#119cff, 0.55);
+  border: 1px solid rgba(#c49a5a, 0.55);
   border-radius: 6px;
-  background: rgba(#119cff, 0.12);
+  background: rgba(#c49a5a, 0.12);
   color: $ouiTextColor;
   font-family: $ouiCodeFontFamily;
   font-size: 11px;
@@ -319,7 +319,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
 
     &:hover,
     &:focus {
-      background: rgba(#119cff, 0.24);
+      background: rgba(#c49a5a, 0.24);
       text-decoration: underline;
     }
   }
@@ -350,7 +350,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   padding: 0 0 $ouiSize;
 
   &[data-level='Crítica'] .qapaqTimeline__dot {
-    background: #ff5841;
+    background: #c49a5a;
   }
 
   &[data-level='Alta'] .qapaqTimeline__dot {
@@ -358,7 +358,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   }
 
   &[data-level='Media'] .qapaqTimeline__dot {
-    background: #ffc136;
+    background: #e0bd80;
   }
 }
 
@@ -428,7 +428,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   position: relative;
   margin: 0 0 $ouiSize;
   padding-left: 30px;
-  color: #ff5899;
+  color: #c49a5a;
   font-size: $ouiFontSizeXS;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -441,7 +441,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: $qapaqInvGradient;
+    background: $qapaqInvAccent;
     content: '';
     transform: translateY(-50%);
   }
@@ -542,11 +542,11 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   }
 
   &--medium {
-    background: rgba(#ffc136, 0.25);
+    background: rgba(#e0bd80, 0.25);
   }
 
   &--high {
-    background: rgba(#ff5841, 0.3);
+    background: rgba(#c49a5a, 0.3);
   }
 }
 
@@ -558,7 +558,7 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
   border-radius: 14px;
   background:
     linear-gradient($ouiColorEmptyShade, $ouiColorEmptyShade) padding-box,
-    $qapaqInvGradient border-box;
+    $qapaqInvAccent border-box;
 
   @media (max-width: $qapaqInvMobile) {
     padding: $ouiSizeM;
@@ -639,12 +639,12 @@ $qapaqInvGradient: linear-gradient(110deg, #ff5899 0%, #ff5841 55%, #ffc136 100%
 
   &:hover,
   &:focus-visible {
-    border-color: #ff5899;
+    border-color: #c49a5a;
     outline: none;
   }
 
   &--pending {
-    border-left-color: #ffc136;
+    border-left-color: #e0bd80;
   }
 
   @media (max-width: $qapaqInvMobile) {
