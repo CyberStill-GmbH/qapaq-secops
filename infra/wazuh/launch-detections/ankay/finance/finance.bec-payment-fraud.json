@@ -1,0 +1,2476 @@
+{
+  "actions": [
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "8d677015-0e02-538f-a617-a7d08aa4313e",
+      "is_valid": true,
+      "isStartNode": true,
+      "sharing": false,
+      "label": "verify_dispatch",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/dispatch/verify",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"envelope\": \"$exec\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 0,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "5cdeab46-6be1-5402-8014-0dd1a2fb1988",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_m365_mailbox_rules",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"m365.mailbox_rules\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 260,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "0d1721f7-ac6d-54cc-bf7f-520bfcc686e7",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_m365_signin_summary",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"m365.signin_summary\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 520,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "14572102-cad8-5c23-8d79-9321af144df5",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_erp_vendor_bank_changes",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"erp.vendor_bank_changes\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 780,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "d9c3176a-6b80-5ac1-9d5d-d5030bdf751e",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_erp_payments_pending",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"erp.payments_pending\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1040,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "a441d12f-c098-5387-8441-f1a53147bd0f",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_qapaq_related_alerts",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"qapaq.related_alerts\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1300,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "errors": [],
+      "id": "bc5fdfd9-b2ee-5878-bed0-7a68ca7b25ec",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "assess",
+      "environment": "Shuffle",
+      "name": "execute_python",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "code",
+          "example": "",
+          "value": "import json\n\n# Generado por build_workflows.py. Ankay no decide efectos: solo agrega el\n# resultado de las lecturas y marca si existe candidato a contención para que un\n# humano decida en QAPAQ con control dual y SoD.\ndef load(raw):\n    try:\n        value = json.loads(raw) if isinstance(raw, str) else raw\n    except ValueError:\n        return {'status': 'degraded', 'reason': 'respuesta no JSON'}\n    if not isinstance(value, dict):\n        return {'status': 'degraded', 'reason': 'respuesta vacía'}\n    if value.get('status') != 200:\n        return {'status': 'degraded', 'reason': 'HTTP %s' % value.get('status')}\n    body = value.get('body')\n    return body if isinstance(body, dict) else {'status': 'degraded', 'reason': 'cuerpo inválido'}\n\nresults = {\n    'enrich_m365_mailbox_rules': load(r'''$enrich_m365_mailbox_rules'''),\n    'enrich_m365_signin_summary': load(r'''$enrich_m365_signin_summary'''),\n    'enrich_erp_vendor_bank_changes': load(r'''$enrich_erp_vendor_bank_changes'''),\n    'enrich_erp_payments_pending': load(r'''$enrich_erp_payments_pending'''),\n    'enrich_qapaq_related_alerts': load(r'''$enrich_qapaq_related_alerts'''),\n}\ndegraded = sorted(name for name, body in results.items() if body.get('status') != 'ok')\nsignals = sorted({signal for body in results.values() for signal in body.get('signals', [])\n                  if isinstance(signal, str)})\ncandidate = any(body.get('containmentCandidate') is True for body in results.values())\nprint(json.dumps({\n    'playbookId': 'finance.bec-payment-fraud',\n    'playbookVersion': '1.0.0',\n    'state': 'degraded' if degraded else 'complete',\n    'degradedSources': degraded,\n    'signals': signals,\n    'containmentCandidate': 'true' if candidate else 'false',\n    'evidenceRefs': sorted({ref for body in results.values() for ref in body.get('evidenceRefs', [])\n                            if isinstance(ref, str)}),\n}))",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1560,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": true
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "c99b8e43-6930-587a-82df-e1c0711cd59a",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "attach_evidence",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/incidents/$verify_dispatch.body.incidentRef/evidence",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"kind\": \"playbook-triage-summary\",\n  \"summary\": \"$assess.message\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1820,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "5fd3284e-5383-55fd-97c9-857432f4d817",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "request_actions",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/action-requests",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"state\": \"pending-human-decision\",\n  \"decision\": \"¿Hay pago en riesgo o cuenta comprometida que exija retener pagos y revocar sesiones?\",\n  \"options\": [\n    {\n      \"effect\": \"payment-hold-request\",\n      \"approverRoles\": [\n        \"jefe-tesoreria\"\n      ],\n      \"constraints\": \"solo pagos a la referencia de proveedor afectada; expira en 72 h\"\n    },\n    {\n      \"effect\": \"mail-forwarding-removal\",\n      \"approverRoles\": [\n        \"jefe-soc\"\n      ],\n      \"constraints\": \"solo la regla o reenvío identificados; copia previa como evidencia\"\n    },\n    {\n      \"effect\": \"identity-session-revocation\",\n      \"approverRoles\": [\n        \"jefe-soc\"\n      ],\n      \"constraints\": \"solo la identidad afectada\"\n    }\n  ],\n  \"approvalPolicy\": \"dual-control-and-sod\",\n  \"triageRef\": \"$assess.message\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1950,
+        "y": 380
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "0933357f-5bc7-5f90-a015-ea354bb9d9d6",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "notify_outbox",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/notification-intents",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"priority\": \"P1\",\n  \"template\": \"finance.bec-payment-fraud.triage-complete\",\n  \"dedupeKey\": \"$verify_dispatch.body.executionKey\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 2080,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "8dd00d66-b42c-5dac-8989-3b989d09325d",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "record_result",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/executions/$verify_dispatch.body.executionKey/result",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"outcome\": \"triage-complete\",\n  \"triage\": \"$assess.message\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 2340,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "b501f117-10c3-5db2-8668-3b57cebe7464",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "record_rejected",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/executions/rejected",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.bec-payment-fraud\",\n  \"playbookVersion\": \"1.0.0\",\n  \"outcome\": \"dispatch-rejected\",\n  \"reason\": \"$verify_dispatch.body.reason\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 260,
+        "y": 420
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    }
+  ],
+  "branches": [
+    {
+      "destination_id": "5cdeab46-6be1-5402-8014-0dd1a2fb1988",
+      "id": "4cbd1007-f026-5426-8cf1-2005a99ec3ae",
+      "source_id": "8d677015-0e02-538f-a617-a7d08aa4313e",
+      "label": "despacho válido",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$verify_dispatch.body.decision",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "equals",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "accept",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "b501f117-10c3-5db2-8668-3b57cebe7464",
+      "id": "1bd13d05-729d-5467-a68c-80a1d50c79f3",
+      "source_id": "8d677015-0e02-538f-a617-a7d08aa4313e",
+      "label": "despacho rechazado o duplicado",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$verify_dispatch.body.decision",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "does not equal",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "accept",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "0d1721f7-ac6d-54cc-bf7f-520bfcc686e7",
+      "id": "f7a47009-1a6c-5d50-bd91-4ebe353e263a",
+      "source_id": "5cdeab46-6be1-5402-8014-0dd1a2fb1988",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "14572102-cad8-5c23-8d79-9321af144df5",
+      "id": "afb1b114-ded0-5249-981b-773328ddaf1e",
+      "source_id": "0d1721f7-ac6d-54cc-bf7f-520bfcc686e7",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "d9c3176a-6b80-5ac1-9d5d-d5030bdf751e",
+      "id": "13721a6c-4792-5e99-a972-9539c355ea06",
+      "source_id": "14572102-cad8-5c23-8d79-9321af144df5",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "a441d12f-c098-5387-8441-f1a53147bd0f",
+      "id": "1437f052-45f2-5605-b8a9-f31a96c5f529",
+      "source_id": "d9c3176a-6b80-5ac1-9d5d-d5030bdf751e",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "bc5fdfd9-b2ee-5878-bed0-7a68ca7b25ec",
+      "id": "c0dea88c-a141-558d-83ac-fdeb7e76f9c0",
+      "source_id": "a441d12f-c098-5387-8441-f1a53147bd0f",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "c99b8e43-6930-587a-82df-e1c0711cd59a",
+      "id": "1fa98c01-b8a4-592a-bd96-1928dd3b8f2d",
+      "source_id": "bc5fdfd9-b2ee-5878-bed0-7a68ca7b25ec",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "5fd3284e-5383-55fd-97c9-857432f4d817",
+      "id": "fa2884db-30ec-5abc-843c-178ee2f0921d",
+      "source_id": "c99b8e43-6930-587a-82df-e1c0711cd59a",
+      "label": "candidato a contención: decide un humano en QAPAQ",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$assess.message.containmentCandidate",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "equals",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "true",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "0933357f-5bc7-5f90-a015-ea354bb9d9d6",
+      "id": "8e3cc35e-bf64-5457-bc92-ee7df9985ed2",
+      "source_id": "5fd3284e-5383-55fd-97c9-857432f4d817",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "0933357f-5bc7-5f90-a015-ea354bb9d9d6",
+      "id": "7a409709-c80a-5c02-90de-98409729f73c",
+      "source_id": "c99b8e43-6930-587a-82df-e1c0711cd59a",
+      "label": "sin candidato a contención",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$assess.message.containmentCandidate",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "does not equal",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "true",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "8dd00d66-b42c-5dac-8989-3b989d09325d",
+      "id": "26ee685e-ed76-5612-8c8f-00ac969896ce",
+      "source_id": "0933357f-5bc7-5f90-a015-ea354bb9d9d6",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    }
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "description": "Recibe el despacho firmado del outbox QAPAQ",
+      "long_description": "",
+      "status": "uninitialized",
+      "app_version": "1.0.0",
+      "errors": null,
+      "id": "22826215-c364-5d3c-bd10-061ffb6c2490",
+      "is_valid": true,
+      "isStartNode": false,
+      "label": "qapaq_outbox_dispatch",
+      "small_image": "",
+      "large_image": "",
+      "environment": "cloud",
+      "trigger_type": "WEBHOOK",
+      "name": "Webhook",
+      "tags": null,
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "tmp",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "auth_headers",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "position": {
+        "x": -260,
+        "y": 200
+      },
+      "priority": 0
+    }
+  ],
+  "schedules": null,
+  "configuration": {
+    "exit_on_error": false,
+    "start_from_top": false,
+    "skip_notifications": false
+  },
+  "tags": [
+    "qapaq",
+    "finance",
+    "P1",
+    "design-only"
+  ],
+  "id": "36345e3c-76a3-51af-a30f-98d164b82e95",
+  "is_valid": true,
+  "name": "QAPAQ · BEC y fraude de transferencia o cambio de cuenta de proveedor",
+  "description": "BEC y fraude de transferencia o cambio de cuenta de proveedor. Playbook finance.bec-payment-fraud v1.0.0 del catálogo qapaq-ankay-finance (estado design-only). Triage de solo lectura vía puente QAPAQ; toda acción con efecto se solicita a QAPAQ (control dual y SoD) y la despacha el outbox. Runbook: docs/security/ankay-playbooks/finance/runbooks/01-bec-fraude-transferencia.md. Generado por build_workflows.py; no editar a mano.",
+  "start": "8d677015-0e02-538f-a617-a7d08aa4313e",
+  "owner": "",
+  "sharing": "private",
+  "execution_org": {
+    "name": "",
+    "org": "",
+    "users": null,
+    "id": "",
+    "role": "",
+    "child_orgs": null
+  },
+  "workflow_variables": [
+    {
+      "description": "URL HTTPS del puente QAPAQ para Ankay (no secreta; se fija al importar)",
+      "id": "2833ac31-0e02-5d3e-b91a-49a12b995708",
+      "name": "qapaq_bridge_base_url",
+      "value": ""
+    }
+  ]
+}

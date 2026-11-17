@@ -1,6 +1,11 @@
 name: Diagnose Azure EUS2 SIEM bootstrap
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/diagnose-azure-eus2-siem-bootstrap.yml
   workflow_dispatch:
 
 permissions:
@@ -23,6 +28,63 @@ jobs:
           client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Compare public DNS with the Azure SIEM firewall address
+        shell: bash
+        env:
+          RESOURCE_GROUP: rg-qapaqsecopsdemoeus-3a2405f3
+        run: |
+          set -euo pipefail
+          echo '== public firewall IP metadata =='
+          az network public-ip list --resource-group "$RESOURCE_GROUP" \
+            --query "[?tags.service=='siem-egress'].{name:name,ip:ipAddress,state:provisioningState}" \
+            --output json
+          echo '== public IPv4 DNS for app.jappi.net.pe =='
+          getent ahostsv4 app.jappi.net.pe | awk '{print $1}' | sort -u
+
+      - name: Read selected EUS2 Key Vault metadata without secret values
+        shell: bash
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+        run: |
+          set -euo pipefail
+          vault_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/rg-qapaqsecopsdemoeus-3a2405f3/providers/Microsoft.KeyVault/vaults/kv-qapaqsecopsd-3a2405f3"
+          metadata="$RUNNER_TEMP/eus2-key-vault-metadata.json"
+          trap 'rm -f "$metadata"' EXIT
+          # The ARM list endpoint is paginated; keep only name/status/expiry metadata.
+          page_url="https://management.azure.com${vault_id}/secrets?api-version=2025-05-01"
+          previous_url=""
+          : > "$metadata"
+          while [[ -n "$page_url" ]]; do
+            [[ "$page_url" != "$previous_url" ]] || { echo 'Key Vault returned a repeated nextLink.' >&2; exit 1; }
+            previous_url="$page_url"
+            page="$(az rest --method get --url "$page_url" --output json)"
+            jq -c '
+              .value[]? |
+              {
+                name: (.id | split("/")[-1]),
+                enabled: (.properties.attributes.enabled // false),
+                expires: (.properties.attributes.exp // null)
+              }
+            ' <<< "$page" >> "$metadata"
+            page_url="$(jq -r '.nextLink // empty' <<< "$page")"
+          done
+          for name in \
+            qapaq-anthropic-api-key qapaq-virustotal-api-key \
+            qapaq-entra-client-secret office365-client-secret \
+            sophos-client-id sophos-client-secret cato-api-key \
+            qapaq-teams-workflow-url qapaq-active-directory-secret \
+            wazuh-install-files-tar-b64; do
+            row="$(jq -sr --arg name "$name" '
+              map(select(.name == $name)) | .[0] // empty |
+              [(.enabled | tostring), (if .expires == null then "not-set" else (.expires | tostring) end)] | @tsv
+            ' "$metadata")"
+            if [[ -n "$row" ]]; then
+              printf 'KEY_VAULT_METADATA|%s|%s\n' "$name" "$row"
+            else
+              printf 'KEY_VAULT_METADATA|%s|missing\n' "$name"
+            fi
+          done
 
       - name: Read extension status without protected settings
         shell: bash
@@ -55,6 +117,156 @@ jobs:
             ls -l /var/log/qapaq-siem-bootstrap.log /usr/local/sbin/qapaq-siem-bootstrap.py 2>&1 || true
             cloud-init status --long 2>&1 || true
           fi' \
+            --query 'value[0].message' \
+            --output tsv
+
+      - name: Read package-manager failure evidence without installer output
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'set -eu
+          echo "== apt transaction summary =="
+          if [ -r /var/log/apt/history.log ]; then
+            grep -E "^(Start-Date:|End-Date:|Commandline:|Error:)" /var/log/apt/history.log | tail -n 40 || true
+          else
+            echo apt-history-absent
+          fi
+          echo "== apt failure lines =="
+          if [ -r /var/log/apt/term.log ]; then
+            grep -Ei "^(Err:|E:|W:|Failed to fetch|Temporary failure resolving|Could not |Unable to |dpkg: error)|No space left|unmet dependencies|returned error" /var/log/apt/term.log | tail -n 80 || true
+          else
+            echo apt-term-log-absent
+          fi
+          echo "== last dpkg package transitions =="
+          if [ -r /var/log/dpkg.log ]; then
+            tail -n 40 /var/log/dpkg.log
+          else
+            echo dpkg-log-absent
+          fi
+          echo "== filesystem capacity =="
+          df -h / /srv/qapaq-siem || true' \
+            --query 'value[0].message' \
+            --output tsv
+
+      - name: Read redacted Wazuh installer startup context
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'python3 - <<'"'"'PY'"'"'
+          from pathlib import Path
+          import re
+
+          log = Path("/var/log/wazuh-install.log")
+          if not log.is_file():
+              print("wazuh-installer-log-absent")
+              raise SystemExit(0)
+
+          failure = re.compile(r"\b(error|warning|fatal|failed|failure|exception)\b", re.I)
+          context = re.compile(r"dashboard|status|indexer|initializ|waiting|port|listener|connection", re.I)
+          sensitive = re.compile(
+              r"password|secret|token|credential|authorization|api[_-]?key|bearer|private.?key|"
+              r"user(name)?|email|cookie|session|signed.?url",
+              re.I,
+          )
+          matches = []
+          skipped = 0
+          for line in log.read_text(errors="replace").splitlines()[-400:]:
+              if not failure.search(line) and not context.search(line):
+                  continue
+              if sensitive.search(line):
+                  skipped += 1
+                  continue
+              # Do not emit URL paths or query strings from an installer diagnostic.
+              line = re.sub(r"https?://[^\s]+", "[url-redacted]", line, flags=re.I)
+              kind = "failure" if failure.search(line) else "context"
+              matches.append((kind, line[:500]))
+          failures = sum(1 for kind, _ in matches if kind == "failure")
+          print("installer_context_lines=%d failures=%d sensitive_lines_suppressed=%d" % (len(matches), failures, skipped))
+          for kind, line in matches[-80:]:
+              print("[%s] %s" % (kind, line))
+          if not matches:
+              print("no-safe-installer-failure-lines")
+          PY' \
+            --query 'value[0].message' \
+            --output tsv
+
+      - name: Read redacted Wazuh service failure summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'set -eu
+          for service in wazuh-indexer wazuh-manager filebeat wazuh-dashboard; do
+            echo "== $service state =="
+            systemctl show "$service" --no-pager \
+              --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,ExecMainStartTimestamp 2>/dev/null || true
+            echo "== $service recent errors (sensitive lines excluded) =="
+            journalctl -u "$service" --since "45 minutes ago" --no-pager -o cat 2>/dev/null \
+              | grep -Ei "error|fatal|exception|failed|denied|refused|timeout|certificate|SSL|TLS|permission" \
+              | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
+              | tail -n 30 || true
+          done
+          for log in /var/log/wazuh-indexer/*.log* /var/ossec/logs/*.log* /var/log/wazuh-dashboard/*.log*; do
+            [ -r "$log" ] || continue
+            echo "== $log recent errors (sensitive lines excluded) =="
+            grep -Ei "error|fatal|exception|failed|denied|refused|timeout|certificate|SSL|TLS|permission" "$log" \
+              | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
+              | tail -n 30 || true
+          done' \
+            --query 'value[0].message' \
+            --output tsv
+
+      - name: Read bounded Wazuh service startup events
+        shell: bash
+        run: |
+          set -euo pipefail
+          az vm run-command invoke \
+            --resource-group rg-qapaqsecopsdemoeus-3a2405f3 \
+            --name vm-qapaqsecopsdemoeus-siem \
+            --command-id RunShellScript \
+            --scripts 'python3 - <<'"'"'PY'"'"'
+          import re
+          import subprocess
+
+          interesting = re.compile(
+              r"systemd|dashboard|indexer|server|started|listening|bound|ready|status|"
+              r"error|fatal|exception|failed|timeout|refused|certificate|TLS|SSL|401|403|443|5601|9200",
+              re.I,
+          )
+          sensitive = re.compile(
+              r"password|secret|token|credential|authorization|api[_-]?key|bearer|private.?key|"
+              r"user(name)?|email|cookie|session|signed.?url",
+              re.I,
+          )
+          for unit in ("wazuh-indexer", "wazuh-dashboard"):
+              result = subprocess.run(
+                  ["journalctl", "-u", unit, "--since", "2026-10-31 00:03:00 UTC",
+                   "--until", "2026-10-31 00:13:00 UTC", "--no-pager", "-o", "short-iso"],
+                  check=False, capture_output=True, text=True,
+              )
+              rows = []
+              for line in result.stdout.splitlines():
+                  if not interesting.search(line):
+                      continue
+                  if sensitive.search(line):
+                      continue
+                  line = re.sub(r"https?://[^\s]+", "[url-redacted]", line, flags=re.I)
+                  rows.append(line[:320])
+              print("unit=%s matching_startup_events=%d" % (unit, len(rows)))
+              for line in rows[-30:]:
+                  print(line)
+          PY' \
             --query 'value[0].message' \
             --output tsv
 
@@ -97,12 +309,46 @@ jobs:
             state=$(systemctl is-active "$service" 2>/dev/null || true)
             printf "%s=%s\n" "$service" "${state:-unknown}"
           done
+          echo "== Indexer resource prerequisites =="
+          printf "vm.max_map_count=%s\n" "$(sysctl -n vm.max_map_count 2>/dev/null || echo unknown)"
+          free -h
+          journalctl -k --since "45 minutes ago" --no-pager -o cat 2>/dev/null \
+            | grep -Ei "out of memory|killed process|oom|memory map|segfault|I/O error" \
+            | grep -Eiv "password|token|secret|authorization|api[_-]?key|credential" \
+            | tail -n 30 || true
+          echo "== Filebeat unit and executable owner =="
+          systemctl show filebeat --no-pager --property=FragmentPath,ActiveState,SubState,MainPID 2>/dev/null || true
+          filebeat_pid=$(systemctl show --property=MainPID --value filebeat 2>/dev/null || true)
+          if [[ "$filebeat_pid" =~ ^[1-9][0-9]*$ ]] && [ -e "/proc/$filebeat_pid/exe" ]; then
+            executable=$(readlink "/proc/$filebeat_pid/exe" 2>/dev/null || true)
+            if [ -n "$executable" ]; then
+              printf "filebeat_executable=%s\n" "$executable"
+              executable="${executable% (deleted)}"
+              dpkg-query --search "$executable" 2>/dev/null || echo filebeat-executable-not-owned-by-dpkg
+            else
+              echo filebeat-executable-link-unavailable
+            fi
+          else
+            echo filebeat-process-absent
+          fi
           echo "== Core readiness =="
           if [ -x /opt/qapaq-core/current/node/bin/node ]; then
             /opt/qapaq-core/current/node/bin/node --version
           else
             echo node-runtime-absent
           fi
+          echo "== public edge TLS metadata and services =="
+          systemctl is-active nginx 2>/dev/null || true
+          if [ -d /etc/letsencrypt/live ]; then
+            find /etc/letsencrypt/live -mindepth 2 -maxdepth 2 -type f -name fullchain.pem -print | sort
+            for cert in /etc/letsencrypt/live/*/fullchain.pem; do
+              [ -r "$cert" ] || continue
+              openssl x509 -in "$cert" -noout -enddate -ext subjectAltName 2>/dev/null || true
+            done
+          else
+            echo letsencrypt-certificate-directory-absent
+          fi
+          ss -lnt
           curl --silent --output /dev/null --write-out "health_ready_http=%{http_code}\n" --max-time 5 http://127.0.0.1:3000/health/ready || true' \
             --query 'value[0].message' \
             --output tsv

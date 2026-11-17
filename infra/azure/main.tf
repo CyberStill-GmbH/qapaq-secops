@@ -25,6 +25,8 @@ locals {
     ] : [],
     # El host regional (api.<región>.catonetworks.com) llega por Key Vault; el comodín lo cubre.
     try(var.siem_host.provider_ingestion["cato_enabled"], "false") == "true" ? ["api.catonetworks.com", "*.catonetworks.com"] : [],
+    # Qapaqzito: solo el API de mensajes de Anthropic, y solo si el asistente está habilitado.
+    try(var.siem_host.assistant_secret_name, null) == null ? [] : ["api.anthropic.com"],
   ))
 }
 
@@ -275,6 +277,7 @@ module "siem_host" {
   manage_artifact_read_assignment = var.siem_artifact_read_assignment_managed
   core_secret_names               = try(var.siem_host.core_secret_names, {})
   wazuh_secret_names              = try(var.siem_host.wazuh_secret_names, {})
+  assistant_secret_name           = try(var.siem_host.assistant_secret_name, null)
   indexer_proxy = var.krakend_gateway == null ? null : {
     reader_secret_name   = var.krakend_gateway.indexer_reader_secret_name
     proxy_ca_secret_name = var.krakend_gateway.indexer_proxy_ca_secret_name

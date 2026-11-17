@@ -1,0 +1,7 @@
+DC01.qapaq-lab.example:dc
+DC02.qapaq-lab.example:dc
+CORE01.qapaq-lab.example:core
+CRED01.qapaq-lab.example:core
+SQL01.qapaq-lab.example:db
+PAW01.qapaq-lab.example:paw
+lnx-core01.qapaq-lab.example:core

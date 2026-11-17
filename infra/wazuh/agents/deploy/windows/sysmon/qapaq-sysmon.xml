@@ -1,0 +1,119 @@
+<!--
+  QAPAQ · configuración base de Sysmon (esquema 4.90, Sysmon 15.x).
+
+  Obra original de QAPAQ SecOps bajo la licencia de este repositorio. No copia configuraciones
+  de terceros; sigue prácticas públicas conocidas (inclusión explícita para eventos de alto
+  volumen). Sysmon es software de Microsoft Sysinternals con su propia licencia: el binario no
+  se versiona aquí; se descarga de Microsoft al construir el paquete y se fija por hash
+  (deploy/package-manifest.json). Revisión de licencia: docs/security/agents/04-despliegue.md §4.
+
+  Volumen: los eventos de alto volumen (red, archivo, registro, acceso a procesos) usan
+  `include`, de modo que solo se registra lo que alguna regla Wazuh o una investigación usa.
+  Imagen cargada (7) y DNS (22) quedan apagados: Cato cubre DNS y el costo de 7 no se justifica.
+  Privacidad (Ley 29733): la línea de comandos puede contener datos personales; su retención
+  sigue la política de wazuh-alerts-* y requiere aprobación del dueño antes del despliegue masivo.
+-->
+<Sysmon schemaversion="4.90">
+  <HashAlgorithms>SHA256</HashAlgorithms>
+  <CheckRevocation>False</CheckRevocation>
+  <DnsLookup>False</DnsLookup>
+  <EventFiltering>
+
+    <!-- 1 · Creación de procesos: base de casi todas las detecciones de endpoint. -->
+    <RuleGroup name="process-create" groupRelation="or">
+      <ProcessCreate onmatch="exclude">
+        <Image condition="is">C:\Program Files (x86)\ossec-agent\wazuh-agent.exe</Image>
+        <Image condition="is">C:\Windows\Sysmon64.exe</Image>
+        <ParentImage condition="is">C:\Program Files (x86)\ossec-agent\wazuh-agent.exe</ParentImage>
+      </ProcessCreate>
+    </RuleGroup>
+
+    <!-- 3 · Conexiones de red solo de binarios que el malware usa para descargar o comandar. -->
+    <RuleGroup name="network-lolbins" groupRelation="or">
+      <NetworkConnect onmatch="include">
+        <Image condition="end with">\powershell.exe</Image>
+        <Image condition="end with">\pwsh.exe</Image>
+        <Image condition="end with">\cmd.exe</Image>
+        <Image condition="end with">\mshta.exe</Image>
+        <Image condition="end with">\rundll32.exe</Image>
+        <Image condition="end with">\regsvr32.exe</Image>
+        <Image condition="end with">\certutil.exe</Image>
+        <Image condition="end with">\bitsadmin.exe</Image>
+        <Image condition="end with">\wscript.exe</Image>
+        <Image condition="end with">\cscript.exe</Image>
+        <Image condition="end with">\msbuild.exe</Image>
+        <Image condition="end with">\installutil.exe</Image>
+        <Image condition="begin with">C:\Users\</Image>
+        <Image condition="begin with">C:\ProgramData\</Image>
+        <Image condition="begin with">C:\Windows\Temp\</Image>
+        <DestinationPort condition="is">4444</DestinationPort>
+        <DestinationPort condition="is">3389</DestinationPort>
+        <DestinationPort condition="is">5985</DestinationPort>
+        <DestinationPort condition="is">5986</DestinationPort>
+      </NetworkConnect>
+    </RuleGroup>
+
+    <!-- 7 · Carga de imágenes: apagado (volumen). 22 · DNS: apagado (Cato). -->
+    <RuleGroup name="off-by-volume" groupRelation="or">
+      <ImageLoad onmatch="include" />
+      <DnsQuery onmatch="include" />
+    </RuleGroup>
+
+    <!-- 8 · Hilo remoto: poco volumen y alto valor (inyección). Se registra todo. -->
+    <RuleGroup name="remote-thread" groupRelation="or">
+      <CreateRemoteThread onmatch="exclude" />
+    </RuleGroup>
+
+    <!-- 10 · Acceso a LSASS con máscaras de lectura de memoria (volcado de credenciales). -->
+    <RuleGroup name="lsass-access" groupRelation="and">
+      <ProcessAccess onmatch="include">
+        <TargetImage condition="end with">\lsass.exe</TargetImage>
+        <GrantedAccess condition="is any">0x1010;0x1410;0x1438;0x143a;0x1fffff;0x1f1fff;0x1f3fff</GrantedAccess>
+      </ProcessAccess>
+    </RuleGroup>
+    <RuleGroup name="lsass-access-noise" groupRelation="or">
+      <ProcessAccess onmatch="exclude">
+        <SourceImage condition="begin with">C:\Program Files\Sophos\</SourceImage>
+        <SourceImage condition="begin with">C:\Program Files (x86)\Sophos\</SourceImage>
+        <SourceImage condition="is">C:\Program Files (x86)\ossec-agent\wazuh-agent.exe</SourceImage>
+      </ProcessAccess>
+    </RuleGroup>
+
+    <!-- 11 · Archivos ejecutables o de script creados en rutas de staging y de inicio. -->
+    <RuleGroup name="file-create" groupRelation="or">
+      <FileCreate onmatch="include">
+        <TargetFilename condition="contains">\Start Menu\Programs\Startup\</TargetFilename>
+        <TargetFilename condition="contains">\Windows\System32\Tasks\</TargetFilename>
+        <TargetFilename condition="end with">.ps1</TargetFilename>
+        <TargetFilename condition="end with">.hta</TargetFilename>
+        <TargetFilename condition="end with">.vbs</TargetFilename>
+        <TargetFilename condition="end with">.js</TargetFilename>
+        <TargetFilename condition="end with">.bat</TargetFilename>
+        <TargetFilename condition="end with">.iso</TargetFilename>
+        <TargetFilename condition="end with">.lnk</TargetFilename>
+        <TargetFilename condition="end with">.aspx</TargetFilename>
+        <TargetFilename condition="end with">.dmp</TargetFilename>
+        <TargetFilename condition="end with">.dit</TargetFilename>
+      </FileCreate>
+    </RuleGroup>
+
+    <!-- 12/13 · Registro: persistencia y debilitamiento de credenciales. -->
+    <RuleGroup name="registry" groupRelation="or">
+      <RegistryEvent onmatch="include">
+        <TargetObject condition="contains">\CurrentVersion\Run</TargetObject>
+        <TargetObject condition="contains">\Image File Execution Options\</TargetObject>
+        <TargetObject condition="contains">\Winlogon\</TargetObject>
+        <TargetObject condition="contains">\Control\Lsa\</TargetObject>
+        <TargetObject condition="contains">\SecurityProviders\WDigest\</TargetObject>
+        <TargetObject condition="end with">\ImagePath</TargetObject>
+        <TargetObject condition="contains">\Terminal Server\</TargetObject>
+      </RegistryEvent>
+    </RuleGroup>
+
+    <!-- 25 · Manipulación de procesos (hollowing/herpaderping): se registra todo. -->
+    <RuleGroup name="tampering" groupRelation="or">
+      <ProcessTampering onmatch="exclude" />
+    </RuleGroup>
+
+  </EventFiltering>
+</Sysmon>

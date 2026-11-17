@@ -25,3 +25,10 @@ cbdd0661c45a95d84b4fc67f72920e24ef186623:platform/configuration/src/control-plan
 48529ce74ed2fe5c6492b281252cb33fbe10bb80:ankay/runtime/shuffle-worker-moby-v29.patch:generic-api-key:102
 # False positive: the OpenSearch smoke healthcheck passes a runtime env variable, not a literal password.
 2deecc085522db22f502fce031de52963bb6668e:ankay/runtime/opensearch-smoke.compose.yml:curl-auth-user:10
+# Exact false positives from the KrakenD go-jose/v4 dependency patch commit: public upstream commit SHA, synthetic test-only signing keys, and a public SumDB checksum.
+2923e024c48dc64cca63dce6704eaaa0caf4ee98:platform/gateway/krakend/Dockerfile:generic-api-key:16
+2923e024c48dc64cca63dce6704eaaa0caf4ee98:platform/gateway/krakend/patches/go-auth0-v2.0.1-go-jose-v4.patch:generic-api-key:164
+2923e024c48dc64cca63dce6704eaaa0caf4ee98:platform/gateway/krakend/patches/go-auth0-v2.0.1-go-jose-v4.patch:generic-api-key:174
+2923e024c48dc64cca63dce6704eaaa0caf4ee98:platform/gateway/krakend/patches/go-auth0-v2.0.1-go-jose-v4.patch:generic-api-key:179
+2923e024c48dc64cca63dce6704eaaa0caf4ee98:platform/gateway/krakend/patches/go-auth0-v2.0.1-go-jose-v4.patch:generic-api-key:184
+2923e024c48dc64cca63dce6704eaaa0caf4ee98:platform/gateway/krakend/patches/krakend-jose-v3.0.1-go-jose-v4.patch:generic-api-key:120

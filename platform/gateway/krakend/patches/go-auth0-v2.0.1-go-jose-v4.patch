@@ -1,0 +1,407 @@
+diff --git a/auth0.go b/auth0.go
+index b1acb02..a248d08 100644
+--- a/auth0.go
++++ b/auth0.go
+@@ -5,10 +5,26 @@ import (
+ 	"net/http"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
++// supportedSignatureAlgorithms preserves the previous ParseSigned behavior of
++// parsing any supported JWS algorithm. Validation still enforces configured alg.
++var supportedSignatureAlgorithms = []jose.SignatureAlgorithm{
++	jose.EdDSA,
++	jose.HS256, jose.HS384, jose.HS512,
++	jose.RS256, jose.RS384, jose.RS512,
++	jose.ES256, jose.ES384, jose.ES512,
++	jose.PS256, jose.PS384, jose.PS512,
++}
++
++// ParseSignedToken parses a compact JWT while limiting parsing to supported
++// JOSE signature algorithms. JWTValidator applies configured algorithm policy.
++func ParseSignedToken(raw string) (*jwt.JSONWebToken, error) {
++	return jwt.ParseSigned(raw, supportedSignatureAlgorithms)
++}
++
+ // SecretProvider will provide everything
+ // needed retrieve the secret.
+ type SecretProvider interface {
+@@ -69,7 +85,7 @@ func NewConfiguration(provider SecretProvider, audience []string, issuer string,
+ 	}
+ 	return Configuration{
+ 		secretProvider:      provider,
+-		expectedClaims:      jwt.Expected{Issuer: issuer, Audience: audience},
++		expectedClaims:      jwt.Expected{Issuer: issuer, AnyAudience: audience},
+ 		signIn:              method,
+ 		tokenSecretProvider: tokenSecretProvider,
+ 	}
+@@ -83,7 +99,7 @@ func NewConfigurationTrustProvider(provider SecretProvider, audience []string, i
+ 	}
+ 	return Configuration{
+ 		secretProvider:      provider,
+-		expectedClaims:      jwt.Expected{Issuer: issuer, Audience: audience},
++		expectedClaims:      jwt.Expected{Issuer: issuer, AnyAudience: audience},
+ 		tokenSecretProvider: tokenSecretProvider,
+ 	}
+ }
+@@ -162,7 +178,7 @@ func (v *JWTValidator) ValidateSigned(s string) (*jwt.JSONWebToken, error) {
+ 	if s == "" {
+ 		return nil, ErrTokenNotFound
+ 	}
+-	token, err := jwt.ParseSigned(s)
++	token, err := ParseSignedToken(s)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/auth0_test.go b/auth0_test.go
+index cde20fd..29fdc1f 100644
+--- a/auth0_test.go
++++ b/auth0_test.go
+@@ -8,7 +8,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ func genTestConfiguration(configuration Configuration, token string) (*JWTValidator, *http.Request) {
+@@ -232,7 +232,7 @@ func TestValidateRequestAndClaims(t *testing.T) {
+ 				defaultIssuer,
+ 				time.Now().Add(24*time.Hour),
+ 				jose.HS256,
+-				[]byte("invalid secret"),
++				[]byte("01234567890123456789012345678902"),
+ 			),
+ 			expectedErrorMsg: "error in cryptographic primitive",
+ 		},
+diff --git a/common_test.go b/common_test.go
+index ce88f5a..2e7379e 100644
+--- a/common_test.go
++++ b/common_test.go
+@@ -11,8 +11,8 @@ import (
+ 	"net/http/httptest"
+ 	"time"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	jose "github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ var (
+@@ -23,7 +23,7 @@ var (
+ 	defaultIssuer   = "issuer"
+ 
+ 	// The default generated token by Chrome jwt extension
+-	defaultSecret         = []byte("secret")
++	defaultSecret         = []byte("0123456789012345678901234567890101234567890123456789012345678901")
+ 	defaultSecretProvider = NewKeyProvider(defaultSecret)
+ 
+ 	defaultSecretRS256         = genRSASSAJWK(jose.RS256, "")
+@@ -87,7 +87,7 @@ func getTestToken(audience []string, issuer string, expTime time.Time, alg jose.
+ 		Expiry:   jwt.NewNumericDate(expTime),
+ 	}
+ 
+-	raw, err := jwt.Signed(signer).Claims(cl).CompactSerialize()
++	raw, err := jwt.Signed(signer).Claims(cl).Serialize()
+ 	if err != nil {
+ 		panic(err)
+ 	}
+@@ -107,7 +107,7 @@ func getTestTokenWithKid(audience []string, issuer string, expTime time.Time, al
+ 		Expiry:   jwt.NewNumericDate(expTime),
+ 	}
+ 
+-	raw, err := jwt.Signed(signer).Claims(cl).CompactSerialize()
++	raw, err := jwt.Signed(signer).Claims(cl).Serialize()
+ 	if err != nil {
+ 		panic(err)
+ 	}
+diff --git a/compatibility_v4_test.go b/compatibility_v4_test.go
+new file mode 100644
+index 0000000..13fc558
+--- /dev/null
++++ b/compatibility_v4_test.go
+@@ -0,0 +1,126 @@
++package auth0
++
++import (
++	"encoding/base64"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
++)
++
++func TestV4RS256JWTAndJWKSCompatibility(t *testing.T) {
++	publicKey := defaultSecretRS256.Public()
++	publicKey.KeyID = "compat-rs256"
++	publicKey.Use = "sig"
++	jwks := JWKS{Keys: []jose.JSONWebKey{publicKey}}
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.Header().Set("Content-Type", "application/jwk-set+json")
++		if err := json.NewEncoder(w).Encode(jwks); err != nil {
++			t.Error(err)
++		}
++	}))
++	defer server.Close()
++
++	provider := NewJWKClient(JWKClientOptions{URI: server.URL}, nil)
++	validator := NewValidator(NewConfiguration(provider, defaultAudience, defaultIssuer, jose.RS256), nil)
++
++	validJWT := getTestTokenWithKid(
++		defaultAudience,
++		defaultIssuer,
++		time.Now().Add(time.Hour),
++		jose.RS256,
++		defaultSecretRS256,
++		"compat-rs256",
++	)
++	request := func(raw string) *http.Request {
++		req := httptest.NewRequest(http.MethodGet, "/", nil)
++		req.Header.Set("Authorization", "Bearer "+raw)
++		return req
++	}
++	if _, err := validator.ValidateRequest(request(validJWT)); err != nil {
++		t.Fatalf("valid RS256 JWT from JWKS was rejected: %v", err)
++	}
++
++	wrongAudience := getTestTokenWithKid(
++		[]string{"another-api"},
++		defaultIssuer,
++		time.Now().Add(time.Hour),
++		jose.RS256,
++		defaultSecretRS256,
++		"compat-rs256",
++	)
++	if _, err := validator.ValidateRequest(request(wrongAudience)); !errors.Is(err, jwt.ErrInvalidAudience) {
++		t.Fatalf("wrong audience error = %v, want %v", err, jwt.ErrInvalidAudience)
++	}
++
++	wrongIssuer := getTestTokenWithKid(
++		defaultAudience,
++		"another-issuer",
++		time.Now().Add(time.Hour),
++		jose.RS256,
++		defaultSecretRS256,
++		"compat-rs256",
++	)
++	if _, err := validator.ValidateRequest(request(wrongIssuer)); !errors.Is(err, jwt.ErrInvalidIssuer) {
++		t.Fatalf("wrong issuer error = %v, want %v", err, jwt.ErrInvalidIssuer)
++	}
++
++	wrongAlgorithm := getTestTokenWithKid(
++		defaultAudience,
++		defaultIssuer,
++		time.Now().Add(time.Hour),
++		jose.HS256,
++		defaultSecret,
++		"compat-rs256",
++	)
++	if _, err := validator.ValidateRequest(request(wrongAlgorithm)); !errors.Is(err, ErrInvalidAlgorithm) {
++		t.Fatalf("wrong algorithm error = %v, want %v", err, ErrInvalidAlgorithm)
++	}
++}
++
++func oversizedRSAModulus() []byte {
++	// 513 bytes with the high bit set is exactly a 4097-bit modulus.
++	modulus := make([]byte, 513)
++	modulus[0] = 1
++	return modulus
++}
++
++func TestV4RejectsOversizedRSAJWKInJWKS(t *testing.T) {
++	modulus := base64.RawURLEncoding.EncodeToString(oversizedRSAModulus())
++	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
++		w.Header().Set("Content-Type", "application/jwk-set+json")
++		_, _ = fmt.Fprintf(w, `{"keys":[{"kty":"RSA","n":%q,"e":"AQAB"}]}`, modulus)
++	}))
++	defer server.Close()
++
++	client := NewJWKClient(JWKClientOptions{URI: server.URL}, nil)
++	_, err := client.downloadKeys()
++	if err == nil || !strings.Contains(err.Error(), "modulus too large") {
++		t.Fatalf("oversized JWKS RSA modulus error = %v, want modulus too large", err)
++	}
++}
++
++func TestV4RejectsOversizedRSAJWKInCompactJWTHeader(t *testing.T) {
++	protected, err := json.Marshal(map[string]interface{}{
++		"alg": "RS256",
++		"jwk": map[string]string{
++			"kty": "RSA",
++			"n":   base64.RawURLEncoding.EncodeToString(oversizedRSAModulus()),
++			"e":   "AQAB",
++		},
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	compact := base64.RawURLEncoding.EncodeToString(protected) + ".e30.AA"
++	if _, err := ParseSignedToken(compact); err == nil || !strings.Contains(err.Error(), "modulus too large") {
++		t.Fatalf("oversized compact-JWT RSA modulus error = %v, want modulus too large", err)
++	}
++}
+diff --git a/go.mod b/go.mod
+index c040b1e..ec40d62 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,20 +1,15 @@
+ module github.com/krakend/go-auth0/v2
+ 
+-go 1.21
++go 1.24.0
+ 
+-toolchain go1.22.2
+-
+-require (
+-	github.com/go-jose/go-jose/v3 v3.0.3
+-	github.com/stretchr/testify v1.8.4
+-)
++require github.com/stretchr/testify v1.8.4
+ 
+ require (
+ 	github.com/davecgh/go-spew v1.1.1 // indirect
++	github.com/go-jose/go-jose/v4 v4.1.6
+ 	github.com/kr/pretty v0.3.0 // indirect
+ 	github.com/pmezard/go-difflib v1.0.0 // indirect
+ 	github.com/rogpeppe/go-internal v1.8.0 // indirect
+-	golang.org/x/crypto v0.19.0 // indirect
+ 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+ 	gopkg.in/yaml.v3 v3.0.1 // indirect
+ )
+diff --git a/jwk_client.go b/jwk_client.go
+index 6aca439..1f2c7eb 100644
+--- a/jwk_client.go
++++ b/jwk_client.go
+@@ -8,7 +8,7 @@ import (
+ 	"strings"
+ 	"sync"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ var (
+diff --git a/jwk_client_test.go b/jwk_client_test.go
+index ee00e99..71ad3e1 100644
+--- a/jwk_client_test.go
++++ b/jwk_client_test.go
+@@ -10,7 +10,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ 	"github.com/stretchr/testify/assert"
+ )
+ 
+diff --git a/key_cacher.go b/key_cacher.go
+index c82fa44..a63bf0b 100644
+--- a/key_cacher.go
++++ b/key_cacher.go
+@@ -4,7 +4,7 @@ import (
+ 	"errors"
+ 	"time"
+ 
+-	jose "github.com/go-jose/go-jose/v3"
++	jose "github.com/go-jose/go-jose/v4"
+ )
+ 
+ var (
+diff --git a/key_cacher_test.go b/key_cacher_test.go
+index 9a2f161..baf9a28 100644
+--- a/key_cacher_test.go
++++ b/key_cacher_test.go
+@@ -8,7 +8,7 @@ import (
+ 
+ 	"github.com/stretchr/testify/assert"
+ 
+-	"github.com/go-jose/go-jose/v3"
++	"github.com/go-jose/go-jose/v4"
+ )
+ 
+ func TestGet(t *testing.T) {
+diff --git a/token_extraction.go b/token_extraction.go
+index e32f2f6..7da40e4 100644
+--- a/token_extraction.go
++++ b/token_extraction.go
+@@ -5,7 +5,7 @@ import (
+ 	"net/http"
+ 	"strings"
+ 
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ var (
+@@ -57,7 +57,7 @@ func FromHeader(r *http.Request) (*jwt.JSONWebToken, error) {
+ 	if raw == "" {
+ 		return nil, ErrTokenNotFound
+ 	}
+-	return jwt.ParseSigned(raw)
++	return ParseSignedToken(raw)
+ }
+ 
+ // FromParams returns the JWT when passed as the URL query param "token".
+@@ -66,5 +66,5 @@ func FromParams(r *http.Request) (*jwt.JSONWebToken, error) {
+ 	if raw == "" {
+ 		return nil, ErrTokenNotFound
+ 	}
+-	return jwt.ParseSigned(raw)
++	return ParseSignedToken(raw)
+ }
+diff --git a/token_extraction_test.go b/token_extraction_test.go
+index c154ee5..e969e61 100644
+--- a/token_extraction_test.go
++++ b/token_extraction_test.go
+@@ -7,8 +7,8 @@ import (
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/go-jose/go-jose/v3"
+-	"github.com/go-jose/go-jose/v3/jwt"
++	"github.com/go-jose/go-jose/v4"
++	"github.com/go-jose/go-jose/v4/jwt"
+ )
+ 
+ func TestFromRequestHeaderExtraction(t *testing.T) {
+@@ -25,7 +25,7 @@ func TestFromRequestHeaderExtraction(t *testing.T) {
+ 	}
+ 
+ 	claims := jwt.Claims{}
+-	err = token.Claims([]byte("secret"), &claims)
++	err = token.Claims(defaultSecret, &claims)
+ 	if err != nil {
+ 		t.Errorf("Claims should be decoded correctly with default token: %q \n", err)
+ 		t.FailNow()
+@@ -48,7 +48,7 @@ func TestFromRequestParamsExtraction(t *testing.T) {
+ 	}
+ 
+ 	claims := jwt.Claims{}
+-	err = token.Claims([]byte("secret"), &claims)
++	err = token.Claims(defaultSecret, &claims)
+ 	if err != nil {
+ 		t.Errorf("Claims should be decoded correctly with default token: %q \n", err)
+ 		t.FailNow()
+@@ -81,7 +81,7 @@ func TestFromMultipleExtraction(t *testing.T) {
+ 		}
+ 
+ 		claims := jwt.Claims{}
+-		err = token.Claims([]byte("secret"), &claims)
++		err = token.Claims(defaultSecret, &claims)
+ 		if err != nil {
+ 			t.Errorf("Claims should be decoded correctly with default token: %q \n", err)
+ 			t.FailNow()

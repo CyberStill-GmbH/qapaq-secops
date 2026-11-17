@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate-pilot-required",
+  "wazuhVersion": "4.14.8",
+  "activation": "owner-approval-pilot-per-profile",
+  "documentation": "docs/security/agents/02-perfiles-de-agente.md",
+  "safety": {
+    "activeResponse": false,
+    "remoteCommands": false,
+    "enrollmentSecretInArgv": false,
+    "requiresPrivacyReviewForCommandLines": true
+  },
+  "volumeAssumptions": "EPS por agente en régimen estable, estimados para dimensionar; se reemplazan por la medición del piloto (docs/security/agents/05-operacion.md §3).",
+  "profiles": [
+    {
+      "group": "qapaq-dc",
+      "os": ["windows"],
+      "assetClass": "Controladores de dominio",
+      "criticality": "critical",
+      "tier": "tier0",
+      "cdbLists": ["qapaq-critical-assets:dc"],
+      "assignment": "OU=Domain Controllers",
+      "estimatedEps": [5, 30],
+      "channels": [
+        "Security (DC)",
+        "System",
+        "PowerShell 4104 completo",
+        "Sysmon completo",
+        "Sophos local"
+      ]
+    },
+    {
+      "group": "qapaq-srv-core",
+      "os": ["windows", "linux"],
+      "assetClass": "Servidores del core financiero y créditos",
+      "criticality": "critical",
+      "tier": "tier1",
+      "cdbLists": ["qapaq-critical-assets:core"],
+      "assignment": "TO_BE_PROVIDED (OU o patrón de nombre, cuestionario R2)",
+      "estimatedEps": [1, 8],
+      "channels": [
+        "Security (servidor)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon completo",
+        "Sophos local",
+        "auditd"
+      ]
+    },
+    {
+      "group": "qapaq-srv-db",
+      "os": ["windows", "linux"],
+      "assetClass": "Servidores de base de datos",
+      "criticality": "critical",
+      "tier": "tier1",
+      "cdbLists": ["qapaq-critical-assets:db"],
+      "assignment": "TO_BE_PROVIDED",
+      "estimatedEps": [1, 8],
+      "channels": [
+        "Security (servidor)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon completo",
+        "Sophos local + SQL 18456/33205",
+        "auditd",
+        "PostgreSQL"
+      ]
+    },
+    {
+      "group": "qapaq-srv-web",
+      "os": ["windows", "linux"],
+      "assetClass": "Servidores web y expuestos a Internet",
+      "criticality": "high",
+      "tier": "tier1",
+      "cdbLists": ["qapaq-internet-facing:web"],
+      "assignment": "TO_BE_PROVIDED",
+      "estimatedEps": [3, 40],
+      "channels": [
+        "Security (servidor)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon completo",
+        "Sophos local",
+        "IIS/nginx/Apache",
+        "auditd"
+      ]
+    },
+    {
+      "group": "qapaq-ws-sensitive",
+      "os": ["windows"],
+      "assetClass": "Estaciones de tesorería, operaciones, créditos y TI privilegiado",
+      "criticality": "high",
+      "tier": "tier2",
+      "cdbLists": ["qapaq-sensitive-workstations"],
+      "assignment": "TO_BE_PROVIDED (OU por área)",
+      "estimatedEps": [0.3, 2],
+      "channels": [
+        "Security (estación + USB 6416 + 4648)",
+        "System",
+        "PowerShell 4104 completo",
+        "Sysmon completo",
+        "Sophos local"
+      ]
+    },
+    {
+      "group": "qapaq-ws-general",
+      "os": ["windows"],
+      "assetClass": "Estaciones generales",
+      "criticality": "medium",
+      "tier": "tier2",
+      "cdbLists": [],
+      "assignment": "grupo por defecto",
+      "estimatedEps": [0.1, 0.8],
+      "channels": [
+        "Security (estación)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon sin red",
+        "Sophos local"
+      ]
+    },
+    {
+      "group": "qapaq-linux-server",
+      "os": ["linux"],
+      "assetClass": "Servidores Linux de propósito general",
+      "criticality": "high",
+      "tier": "tier1",
+      "cdbLists": [],
+      "assignment": "explícito al instalar",
+      "estimatedEps": [0.5, 5],
+      "channels": ["auditd", "autenticación del ossec.conf por defecto de la distribución"]
+    },
+    {
+      "group": "qapaq-laptop-remote",
+      "os": ["windows"],
+      "assetClass": "Portátiles remotos",
+      "criticality": "medium",
+      "tier": "tier2",
+      "cdbLists": [],
+      "assignment": "TO_BE_PROVIDED (OU de portátiles)",
+      "estimatedEps": [0.1, 0.8],
+      "channels": [
+        "Security (estación)",
+        "System",
+        "PowerShell 4104 Warning",
+        "Sysmon sin red",
+        "Sophos local"
+      ]
+    }
+  ]
+}

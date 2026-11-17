@@ -1,6 +1,19 @@
 # QAPAQ SIEM Azure release bundle
 
-Status: **the current-main candidate was built and published to private Azure Blob; no SIEM VM has been provisioned or installed yet**.
+Status: **the 2026-10-27 bundle below is historical and is not an operational release.**
+
+### EUS2 runtime check — 2026-10-30
+
+- The SIEM VM and durable data disk exist. The last Terraform apply, run
+  [41108212914](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/41108212914), failed while the bootstrap extension was handling a prior partial package install.
+- The read-only diagnostic, run
+  [41115511017](https://github.com/CyberStill-GmbH/qapaq-secops/actions/runs/41115511017), found the disk mounted, `wazuh-manager` left in `config-files`, no Indexer/Dashboard/Filebeat packages, no bootstrap state marker, and no active Wazuh or QAPAQ Core services.
+- The bootstrap recovery fix is in `main` through PR #216, but the EUS2 profile still points to the older `cda708` bundle. The next release must be rebuilt and its new immutable URL/SHA pinned before retrying Terraform.
+- HTTPS 443 is configured for public ingress. SSH remains closed and agent ports remain restricted to the existing allowlist.
+
+This release branch now packages Qapaqzito, the authenticated HTTPS edge, the finance/priority rule candidates, and the agent deployment candidates. It has not yet been published or applied. The first bundle must be built with `edge_hostname=app.jappi.net.pe`; first-run Let's Encrypt issuance requires DNS to resolve to the Azure firewall and reachable HTTP-01 on TCP/80. This bundle does not change firewall rules. The edge smoke checks must pass before calling the public dashboard operational. Qapaqzito additionally requires the enabled `qapaq-anthropic-api-key` Key Vault reference, managed-identity access, and Anthropic egress. No secret value is placed in the artifact.
+
+The first SIEM release does not configure an Ankay upstream or webhook; those belong to the separately approved second apply. Finance and priority rules remain disabled until production CDB lists and owner review are supplied. Windows/Linux agent installers remain pilot-gated until asset assignments and command-line privacy review are complete. Their presence in the artifact does not enroll endpoints or prove telemetry ingestion.
 
 ### Latest EUS2 publication — 2026-10-27
 

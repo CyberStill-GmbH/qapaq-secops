@@ -160,6 +160,9 @@ variable "siem_host" {
     wazuh_secret_names      = map(string)
     core_environment        = map(string)
     provider_ingestion      = optional(map(string), {})
+    # Qapaqzito: nombre del secreto con la API key de Anthropic. Concede su lectura y abre
+    # api.anthropic.com en el Firewall; null deja el asistente apagado y sin egress.
+    assistant_secret_name = optional(string)
     office365 = object({
       tenant_id  = string
       client_id  = string

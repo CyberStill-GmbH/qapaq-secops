@@ -293,6 +293,17 @@ variable "core_secret_names" {
   }
 }
 
+variable "assistant_secret_name" {
+  description = "Secreto Key Vault con la API key del asistente Qapaqzito (p. ej. qapaq-anthropic-api-key). Solo concede lectura a la identidad del SIEM: el API lo busca por su nombre convenido, sin pasar por core_environment ni por el bootstrap de la VM. null = asistente apagado."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.assistant_secret_name == null || can(regex("^[A-Za-z0-9-]{1,127}$", var.assistant_secret_name))
+    error_message = "assistant_secret_name debe ser un nombre de secreto Key Vault, nunca un valor."
+  }
+}
+
 variable "wazuh_secret_names" {
   description = "Mapa nombre de archivo seguro → secreto preexistente para la instalación Wazuh. Solo referencias, nunca valores."
   type        = map(string)

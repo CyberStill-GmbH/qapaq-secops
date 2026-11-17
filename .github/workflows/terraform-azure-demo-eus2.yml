@@ -4,10 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: Apply the exact reviewed plan produced in this run
+        description: Apply the exact reviewed saved plan from approved_plan_run_id
         type: boolean
         required: true
         default: false
+      siem_diagnostics_only:
+        description: Run read-only SIEM VM diagnostics; cannot be combined with apply
+        type: boolean
+        required: true
+        default: false
+      approved_plan_run_id:
+        description: GitHub Actions run ID of the reviewed plan; required with apply=true
+        type: number
+        required: true
+        default: 0
       deployment_scope:
         description: Select foundation maintenance, Wazuh-first rollout, or Wazuh plus Ankay
         type: choice
@@ -41,6 +51,8 @@ jobs:
       - name: Require main and reviewed costs before apply
         env:
           APPLY: ${{ inputs.apply }}
+          SIEM_DIAGNOSTICS_ONLY: ${{ inputs.siem_diagnostics_only }}
+          APPROVED_PLAN_RUN_ID: ${{ inputs.approved_plan_run_id }}
           COST_REVIEW_REFERENCE: ${{ inputs.cost_review_reference }}
         shell: bash
         run: |
@@ -49,7 +61,15 @@ jobs:
             echo '::error::East US 2 Terraform can run only from main.'
             exit 1
           }
+          if [[ "$SIEM_DIAGNOSTICS_ONLY" == true && "$APPLY" == true ]]; then
+            echo '::error::Read-only SIEM diagnostics cannot be combined with Terraform apply.'
+            exit 1
+          fi
           if [[ "$APPLY" == true ]]; then
+            [[ "$APPROVED_PLAN_RUN_ID" =~ ^[1-9][0-9]*$ ]] || {
+              echo '::error::Apply requires the run ID of a reviewed, same-commit plan.'
+              exit 1
+            }
             [[ "$COST_REVIEW_REFERENCE" =~ ^https://[^[:space:]]+$ ]] || {
               echo '::error::Apply requires an HTTPS reference to an East US 2 cost review.'
               exit 1
@@ -57,6 +77,7 @@ jobs:
           fi
 
   plan:
+    if: ${{ !inputs.apply && !inputs.siem_diagnostics_only }}
     name: Create and summarize isolated East US 2 Terraform plan
     needs: [preflight]
     runs-on: ubuntu-24.04
@@ -155,7 +176,7 @@ jobs:
         run: node --test scripts/ci/validate-azure-eus2-deployment-scope.test.mjs
 
       - name: Sign in for SIEM extension recovery and optional KrakenD preflight
-        if: ${{ env.TF_VAR_krakend_gateway != 'null' || (inputs.apply && inputs.deployment_scope != 'foundation' && env.TF_VAR_siem_host != 'null') }}
+        if: ${{ env.TF_VAR_krakend_gateway != 'null' || (inputs.deployment_scope != 'foundation' && env.TF_VAR_siem_host != 'null') }}
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
@@ -189,7 +210,7 @@ jobs:
             -backend-config="use_azuread_auth=true"
 
       - name: Import an interrupted SIEM bootstrap extension if it is not in state
-        if: ${{ inputs.apply && inputs.deployment_scope != 'foundation' && env.TF_VAR_siem_host != 'null' }}
+        if: ${{ inputs.deployment_scope != 'foundation' && env.TF_VAR_siem_host != 'null' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -252,9 +273,10 @@ jobs:
           set -euo pipefail
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/plan.commit"
           sha256sum "$RUNNER_TEMP/azure-demo-eus2.tfplan" | awk '{print $1}' > "$RUNNER_TEMP/plan.sha256"
+          printf '%s\n' "$GITHUB_RUN_ID" > "$RUNNER_TEMP/plan.run_id"
+          printf '%s\n' "$DEPLOYMENT_SCOPE" > "$RUNNER_TEMP/plan.scope"
 
-      - name: Upload sensitive saved plan for same-run apply
-        if: ${{ inputs.apply }}
+      - name: Upload sensitive plan for review and later exact apply
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: azure-demo-eus2-tfplan-${{ github.sha }}
@@ -262,6 +284,8 @@ jobs:
             ${{ runner.temp }}/azure-demo-eus2.tfplan
             ${{ runner.temp }}/plan.commit
             ${{ runner.temp }}/plan.sha256
+            ${{ runner.temp }}/plan.run_id
+            ${{ runner.temp }}/plan.scope
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -269,7 +293,7 @@ jobs:
   apply:
     name: Apply exact reviewed East US 2 plan
     if: ${{ inputs.apply }}
-    needs: [plan]
+    needs: [preflight]
     runs-on: ubuntu-24.04
     # Azure Custom Script has a 90-minute execution limit. Leave room for
     # Terraform setup, saved-plan checks, and state unlock after the extension.
@@ -299,6 +323,10 @@ jobs:
       TF_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_EUS2_TF_STATE_STORAGE_ACCOUNT }}
       TF_STATE_CONTAINER: ${{ vars.AZURE_EUS2_TF_STATE_CONTAINER }}
       TF_STATE_KEY: ${{ vars.AZURE_EUS2_TF_STATE_KEY }}
+      EUS2_APPLY_READY: ${{ vars.AZURE_EUS2_APPLY_READY }}
+      DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope }}
+      APPROVED_PLAN_RUN_ID: ${{ inputs.approved_plan_run_id }}
+      SIEM_HOST_CONFIGURED: ${{ vars.AZURE_EUS2_SIEM_HOST_JSON != '' && vars.AZURE_EUS2_SIEM_HOST_JSON != 'null' }}
     steps:
       - name: Checkout exact planned commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -306,8 +334,25 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Validate the approved plan target and isolated backend
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in ARM_CLIENT_ID ARM_TENANT_ID ARM_SUBSCRIPTION_ID TF_STATE_RESOURCE_GROUP TF_STATE_STORAGE_ACCOUNT TF_STATE_CONTAINER TF_STATE_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing protected EUS2 apply setting: $name"; exit 1; }
+          done
+          [[ "$EUS2_APPLY_READY" == true ]] || { echo '::error::EUS2 apply gate is not enabled.'; exit 1; }
+          [[ "$TF_STATE_RESOURCE_GROUP" == rg-qapaqsecopsdemoeus-state-3a2405f3 ]] || { echo '::error::Terraform state resource group is not isolated.'; exit 1; }
+          [[ "$TF_STATE_STORAGE_ACCOUNT" == qapaqsecopseus23a2405f3 ]] || { echo '::error::Terraform state storage is not isolated.'; exit 1; }
+          [[ "$TF_STATE_CONTAINER" == tfstate && "$TF_STATE_KEY" == qapaq-secops/demo-eus2/terraform.tfstate ]] || { echo '::error::Terraform state key is not isolated.'; exit 1; }
+          grep -Eq '^environment[[:space:]]*=[[:space:]]*"demo-eus2"$' infra/azure/profiles/demo-eus2.tfvars || { echo '::error::Wrong EUS2 Terraform profile.'; exit 1; }
+          grep -Eq '^location[[:space:]]*=[[:space:]]*"eastus2"$' infra/azure/profiles/demo-eus2.tfvars || { echo '::error::Wrong Azure region.'; exit 1; }
+          grep -Eq '^address_space[[:space:]]*=[[:space:]]*"10\.80\.0\.0/16"$' infra/azure/profiles/demo-eus2.tfvars || { echo '::error::Wrong reserved EUS2 address space.'; exit 1; }
+          [[ "$APPROVED_PLAN_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Invalid reviewed plan run ID.'; exit 1; }
+
       - name: Sign in before optional KrakenD secret metadata preflight
-        if: ${{ env.TF_VAR_krakend_gateway != 'null' }}
+        if: ${{ (inputs.deployment_scope == 'siem' && env.SIEM_HOST_CONFIGURED == 'true') || env.TF_VAR_krakend_gateway != 'null' }}
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
@@ -319,10 +364,12 @@ jobs:
         working-directory: .
         run: python3 .github/ci/verify-eus2-indexer-secret-metadata.py
 
-      - name: Download this run's saved plan
+      - name: Download the reviewed plan artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: azure-demo-eus2-tfplan-${{ github.sha }}
+          run-id: ${{ inputs.approved_plan_run_id }}
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/azure-demo-eus2-plan
 
       - name: Verify commit and plan checksum
@@ -333,9 +380,52 @@ jobs:
             echo '::error::Saved plan commit does not match this workflow run.'
             exit 1
           }
+          [[ "$(cat "$RUNNER_TEMP/azure-demo-eus2-plan/plan.run_id")" == "$APPROVED_PLAN_RUN_ID" ]] || {
+            echo '::error::Saved plan run ID does not match the approved input.'
+            exit 1
+          }
+          [[ "$(cat "$RUNNER_TEMP/azure-demo-eus2-plan/plan.scope")" == "$DEPLOYMENT_SCOPE" ]] || {
+            echo '::error::Saved plan scope does not match this apply.'
+            exit 1
+          }
           expected="$(cat "$RUNNER_TEMP/azure-demo-eus2-plan/plan.sha256")"
           actual="$(sha256sum "$RUNNER_TEMP/azure-demo-eus2-plan/azure-demo-eus2.tfplan" | awk '{print $1}')"
           [[ "$expected" == "$actual" ]] || { echo '::error::Saved plan checksum mismatch.'; exit 1; }
+
+      - name: Recover only an orphaned Filebeat unit after a failed SIEM first install
+        if: ${{ inputs.apply && inputs.deployment_scope == 'siem' && env.SIEM_HOST_CONFIGURED == 'true' }}
+        shell: bash
+        working-directory: infra/azure
+        run: |
+          set -euo pipefail
+          project="$(sed -n 's/^project[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          environment="$(sed -n 's/^environment[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          [[ -n "$project" && -n "$environment" ]] || {
+            echo '::error::Could not derive the EUS2 resource names from the committed profile.'
+            exit 1
+          }
+          name_base="$(printf '%s' "${project}-${environment}" | tr '[:upper:]' '[:lower:]' | tr -d '-' | cut -c1-18)"
+          suffix="$(printf '%s' "${ARM_SUBSCRIPTION_ID}:${project}:${environment}" | sha256sum | cut -c1-8)"
+          resource_group="rg-${name_base}-${suffix}"
+          vm_name="vm-${name_base}-siem"
+          recovery_script="modules/siem_host/recover-orphaned-filebeat.sh"
+          [[ -f "$recovery_script" ]] || { echo '::error::Guarded SIEM recovery script is missing.'; exit 1; }
+          script_b64="$(base64 --wrap=0 "$recovery_script")"
+          remote_script="set -eu; trap 'rm -f /run/qapaq-recover-orphaned-filebeat.sh' EXIT; printf '%s' '${script_b64}' | base64 -d > /run/qapaq-recover-orphaned-filebeat.sh; bash /run/qapaq-recover-orphaned-filebeat.sh; printf 'QAPAQ_FILEBEAT_RECOVERY_OK\n'"
+          recovery_output="$(az vm run-command invoke \
+            --resource-group "$resource_group" \
+            --name "$vm_name" \
+            --command-id RunShellScript \
+            --scripts "$remote_script" \
+            --query 'value[0].message' \
+            --output tsv \
+            --only-show-errors)"
+          if ! grep -Fq 'QAPAQ_FILEBEAT_RECOVERY_OK' <<<"$recovery_output"; then
+            echo '::error::Azure Run Command did not confirm successful SIEM recovery; stopping before Terraform plan/apply.'
+            printf '%s\n' "$recovery_output"
+            exit 1
+          fi
+          printf '%s\n' "$recovery_output"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -357,3 +447,114 @@ jobs:
 
       - name: Apply only the reviewed saved plan
         run: terraform apply -input=false -auto-approve -no-color "$RUNNER_TEMP/azure-demo-eus2-plan/azure-demo-eus2.tfplan"
+  diagnose-siem-vm:
+    name: Read-only SIEM VM diagnostics
+    if: ${{ inputs.siem_diagnostics_only }}
+    needs: [preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: azure-demo-eus2
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/azure
+    env:
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+      SIEM_HOST_CONFIGURED: ${{ vars.AZURE_EUS2_SIEM_HOST_JSON != '' && vars.AZURE_EUS2_SIEM_HOST_JSON != 'null' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Authenticate with the protected East US 2 identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_EUS2_TERRAFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_EUS2_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_EUS2_SUBSCRIPTION_ID }}
+
+      - name: Inspect Filebeat service state without changing the VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SIEM_HOST_CONFIGURED" == true ]] || {
+            echo '::error::Read-only diagnostics require the protected SIEM host profile.'
+            exit 1
+          }
+          [[ -n "$ARM_SUBSCRIPTION_ID" ]] || {
+            echo '::error::East US 2 subscription is not configured.'
+            exit 1
+          }
+          project="$(sed -n 's/^project[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          environment="$(sed -n 's/^environment[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' profiles/demo-eus2.tfvars)"
+          [[ "$project" == qapaq-secops && "$environment" == demo-eus2 ]] || {
+            echo '::error::The committed profile is not the expected East US 2 SIEM target.'
+            exit 1
+          }
+          name_base="$(printf '%s' "${project}-${environment}" | tr '[:upper:]' '[:lower:]' | tr -d '-' | cut -c1-18)"
+          suffix="$(printf '%s' "${ARM_SUBSCRIPTION_ID}:${project}:${environment}" | sha256sum | cut -c1-8)"
+          resource_group="rg-${name_base}-${suffix}"
+          vm_name="vm-${name_base}-siem"
+          actual_subscription="$(az account show --query id --output tsv --only-show-errors)"
+          [[ "$actual_subscription" == "$ARM_SUBSCRIPTION_ID" ]] || {
+            echo '::error::Azure login resolved to a different subscription.'
+            exit 1
+          }
+          printf 'Target: %s/%s (no Terraform operation, no service or data changes).\n' "$resource_group" "$vm_name"
+          remote_script="$(cat <<'QAPAQ_DIAGNOSTICS'
+          set -eu
+          printf 'QAPAQ_SIEM_DIAGNOSTIC_BEGIN\n'
+          for property in LoadState ActiveState SubState FragmentPath MainPID UnitFileState Result; do
+            value="$(systemctl show --property="$property" --value filebeat.service 2>/dev/null || true)"
+            printf 'filebeat.%s=%s\n' "$property" "${value:-empty}"
+          done
+          pid="$(systemctl show --property=MainPID --value filebeat.service 2>/dev/null || true)"
+          pid_valid=false
+          case "$pid" in
+            ''|0|*[!0-9]*) ;;
+            *) pid_valid=true ;;
+          esac
+          proc_entry_present=false
+          comm_readable=false
+          if [ "$pid_valid" = true ]; then
+            if [ -d "/proc/$pid" ]; then proc_entry_present=true; fi
+            if [ -r "/proc/$pid/comm" ]; then
+              comm_readable=true
+              printf 'filebeat.process.name='
+              cat "/proc/$pid/comm"
+              printf 'filebeat.process.executable='
+              readlink "/proc/$pid/exe" || true
+            fi
+          fi
+          printf 'filebeat.process.pid_valid=%s\n' "$pid_valid"
+          printf 'filebeat.process.proc_entry_present=%s\n' "$proc_entry_present"
+          printf 'filebeat.process.comm_readable=%s\n' "$comm_readable"
+          if [ -z "$(systemctl show --property=FragmentPath --value filebeat.service 2>/dev/null || true)" ] &&
+            [ "$pid_valid" = true ] && [ "$proc_entry_present" = false ]; then
+            printf 'filebeat.recovery_guard=would_allow_orphan_cleanup\n'
+          else
+            printf 'filebeat.recovery_guard=blocked\n'
+          fi
+          package_status="$(dpkg-query --show --showformat='${db:Status-Status}|${Version}' filebeat 2>/dev/null || true)"
+          printf 'filebeat.package=%s\n' "${package_status:-absent}"
+          printf 'QAPAQ_SIEM_DIAGNOSTIC_END\n'
+          QAPAQ_DIAGNOSTICS
+          )"
+          diagnostic_output="$(az vm run-command invoke \
+            --resource-group "$resource_group" \
+            --name "$vm_name" \
+            --command-id RunShellScript \
+            --scripts "$remote_script" \
+            --query 'value[0].message' \
+            --output tsv \
+            --only-show-errors)"
+          if ! grep -Fq 'QAPAQ_SIEM_DIAGNOSTIC_END' <<<"$diagnostic_output"; then
+            echo '::error::Azure Run Command did not confirm the read-only SIEM diagnostic.'
+            printf '%s\n' "$diagnostic_output"
+            exit 1
+          fi
+          printf '%s\n' "$diagnostic_output"
+

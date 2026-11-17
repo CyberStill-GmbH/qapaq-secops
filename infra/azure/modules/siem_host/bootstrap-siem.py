@@ -30,6 +30,7 @@ from indexer_read_proxy import IndexerProxyError, configure as configure_indexer
 CONFIG_PATH = pathlib.Path("/etc/qapaq-siem/bootstrap.json")
 DATA_DEVICE = pathlib.Path("/dev/disk/azure/scsi1/lun0")
 DATA_ROOT = pathlib.Path("/srv/qapaq-siem")
+CORE_ROOT = pathlib.Path("/opt/qapaq-core")
 CORE_ENV_PATH = pathlib.Path("/etc/qapaq-core/core.env")
 WAZUH_SECRET_DIR = pathlib.Path("/etc/qapaq-secrets")
 RELEASE_ROOT = pathlib.Path("/opt/qapaq-siem/releases")
@@ -820,23 +821,86 @@ def install_state_path() -> pathlib.Path:
     return DATA_ROOT / "bootstrap-install-state.json"
 
 
-def package_registered(package_name: str) -> bool:
+def package_status(package_name: str) -> tuple[str, str]:
     result = subprocess.run(
-        ["dpkg-query", "--show", "-f=${db:Status-Status}", package_name],
+        ["dpkg-query", "--show", "-f=${db:Status-Status}|${Version}", package_name],
         check=False,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
     if result.returncode == 0:
-        return bool(result.stdout.strip())
+        fields = result.stdout.strip().split("|", 1)
+        if len(fields) != 2:
+            fail(f"no se pudo leer el estado/version de {package_name}")
+        return fields[0], fields[1]
     if result.returncode == 1:
-        return False
+        return "", ""
     fail(f"no se pudo comprobar el estado de {package_name}")
     raise AssertionError("unreachable")
 
 
-def installer_required(release: pathlib.Path) -> bool:
+def require_clean_first_install_state(
+    package_statuses: dict[str, tuple[str, str]], expected_manager_version: str
+) -> None:
+    package_names = ("wazuh-manager", "wazuh-indexer", "wazuh-dashboard", "filebeat")
+    manager_status, manager_version = package_statuses.get("wazuh-manager", ("", ""))
+    residual_manager_config = manager_status == "config-files"
+    if residual_manager_config and manager_version != expected_manager_version:
+        fail("el residuo config-files de wazuh-manager no corresponde a la versión fijada; se preserva")
+    for name in package_names:
+        status, _version = package_statuses.get(name, ("", ""))
+        if name == "wazuh-manager" and residual_manager_config:
+            continue
+        if status not in ("", "not-installed"):
+            fail("el host tiene paquetes Wazuh instalados o parcialmente instalados sin registro")
+
+    if os.path.lexists(DATA_ROOT) is False or DATA_ROOT.is_symlink() or not DATA_ROOT.is_dir():
+        fail("no se pudo verificar el disco durable vacío antes de instalar")
+
+    expected_data_dirs = {
+        "manager": DATA_ROOT / "manager",
+        "indexer": DATA_ROOT / "indexer",
+        "dashboard": DATA_ROOT / "dashboard",
+    }
+    for path in expected_data_dirs.values():
+        if path.is_symlink() or not path.is_dir() or any(path.iterdir()):
+            fail("el disco durable contiene datos o una estructura inesperada; se preserva sin cambios")
+
+    for entry in DATA_ROOT.iterdir():
+        if entry.name in expected_data_dirs:
+            continue
+        if entry.name == "lost+found" and not entry.is_symlink() and entry.is_dir() and not any(entry.iterdir()):
+            continue
+        fail("el disco durable contiene datos o una estructura inesperada; se preserva sin cambios")
+
+    state_path = install_state_path()
+    if os.path.lexists(state_path):
+        fail("el host tiene un registro durable de instalación; se preserva sin cambios")
+
+    if os.path.lexists(CORE_ROOT):
+        fail("QAPAQ Core ya existe; se preserva sin cambios")
+
+    for service in (
+        "wazuh-indexer",
+        "wazuh-manager",
+        "filebeat",
+        "wazuh-dashboard",
+        "qapaq-core-api",
+        "qapaq-core-worker",
+    ):
+        result = subprocess.run(
+            ["systemctl", "show", "--property=ActiveState", "--value", service],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode != 0 or result.stdout.strip() not in ("", "inactive"):
+            fail("hay un servicio de Wazuh o Core activo/no verificable; se preserva el estado existente")
+
+
+def installer_required(release: pathlib.Path, expected_manager_version: str | None = None) -> bool:
     """Run the one-shot installer only on a clean host or for its recorded release.
 
     The installer may generate credentials and initialize state-bearing services. Re-running
@@ -864,12 +928,8 @@ def installer_required(release: pathlib.Path) -> bool:
         return False
 
     package_names = ("wazuh-manager", "wazuh-indexer", "wazuh-dashboard", "filebeat")
-    present = [name for name in package_names if package_registered(name)]
-    state_dirs = (DATA_ROOT / "manager", DATA_ROOT / "indexer", DATA_ROOT / "dashboard")
-    populated_dirs = [path for path in state_dirs if path.exists() and any(path.iterdir())]
-    core_root = pathlib.Path("/opt/qapaq-core")
-    if present or populated_dirs or core_root.exists():
-        fail("hay instalación o datos previos sin registro; se detuvo para proteger el estado existente")
+    package_statuses = {name: package_status(name) for name in package_names}
+    require_clean_first_install_state(package_statuses, expected_manager_version or "")
     return True
 
 
@@ -897,8 +957,13 @@ def install_release(release: pathlib.Path, config: dict) -> None:
     except (OSError, json.JSONDecodeError):
         fail("manifest.json del bundle no es válido al instalar")
 
+    debian_packages = manifest.get("debianPackages") if isinstance(manifest, dict) else None
+    expected_manager_version = debian_packages.get("wazuh-manager") if isinstance(debian_packages, dict) else None
+    if not isinstance(expected_manager_version, str) or not expected_manager_version:
+        fail("manifest.json no fija la versión Debian de wazuh-manager")
+
     installer = release / "install.sh"
-    needs_install = installer_required(release)
+    needs_install = installer_required(release, expected_manager_version)
     if needs_install:
         os.chmod(installer, 0o700)
         environment = os.environ.copy()

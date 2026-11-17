@@ -1,0 +1,480 @@
+# Catálogo de playbooks financieros QAPAQ para Ankay Qapaq (Shuffle 2.3.0).
+# Mismo esquema v1 que catalog.yaml (id, version, status, trigger, sources, actions,
+# approval, effects) con campos adicionales para el contexto de una financiera regulada.
+# Documentación: docs/security/ankay-playbooks/finance/README.md
+# Workflows: infra/wazuh/launch-detections/ankay/finance/ (generados desde este archivo).
+# Reglas: infra/wazuh/finance/rules/qapaq_finance_rules.xml (101400-101449).
+schemaVersion: 1
+catalogId: qapaq-ankay-finance
+extends: qapaq-ankay-initial-soc
+status: design-only
+owner: QAPAQ SecOps
+engine:
+  product: Ankay Qapaq
+  upstream: Shuffle
+  upstreamVersion: 2.3.0
+  overlay: frontend-branding-csp
+executionBoundary: >-
+  Ankay solo ejecuta triage de lectura sobre referencias opacas. Toda lectura de proveedor
+  pasa por adaptadores QAPAQ de mínimo privilegio y toda acción con efecto se registra como
+  solicitud en QAPAQ, se aprueba con control dual y separación de funciones (SoD) y se
+  despacha por el outbox QAPAQ hacia un playbook containment.* separado. Ankay no guarda
+  credenciales de proveedores ni ejecuta efectos desde estos workflows.
+webhook:
+  # El despacho gobernado es el mismo del catálogo base (governedActionDispatcher).
+  status: not-provisioned
+  method: POST
+  pathPattern: /api/v1/webhooks/webhook_<id>
+  transport: HTTPS
+  ingress: qapaq-outbox-worker
+  legacyWazuhDirectAdapter:
+    allowedFor: none
+    reason: los playbooks financieros necesitan incidentRef y alcance aprobado por QAPAQ
+bridge:
+  # Contrato propuesto entre Ankay y QAPAQ (no implementado). Ver finance/bridge-contract.md.
+  status: proposed-not-implemented
+  baseUrlVariable: qapaq_bridge_base_url
+  authentication: shuffle-app-auth:qapaq-ankay-bridge
+  credentialScope: lectura de enriquecimiento permitido por playbook y alta de evidencias, solicitudes y avisos; nunca aprobar ni ejecutar
+  endpoints:
+    verifyDispatch: POST /v1/ankay/dispatch/verify
+    enrichment: POST /v1/ankay/enrichment
+    evidence: POST /v1/ankay/incidents/{incidentRef}/evidence
+    actionRequest: POST /v1/ankay/action-requests
+    notificationIntent: POST /v1/ankay/notification-intents
+    executionResult: POST /v1/ankay/executions/{executionKey}/result
+slaPolicy:
+  # Prioridades del núcleo QAPAQ (modules/detection/src/prioritization.ts).
+  # Reloj desde que QAPAQ crea la alerta o el incidente. Horario 24x7 para P1 y P2.
+  P1:
+    acknowledge: PT15M
+    triageComplete: PT1H
+    containmentDecision: PT2H
+    regulatoryAssessment: PT4H
+  P2:
+    acknowledge: PT30M
+    triageComplete: PT4H
+    containmentDecision: PT8H
+    regulatoryAssessment: PT24H
+  P3:
+    acknowledge: PT4H
+    triageComplete: PT24H
+    containmentDecision: P2D
+    regulatoryAssessment: P3D
+metricDefinitions:
+  MTTD: hora de alerta Wazuh/QAPAQ menos hora del primer evento malicioso reconstruido en la línea de tiempo
+  MTTA: hora de primer reconocimiento humano en QAPAQ menos hora de alerta
+  MTTT: hora de triage completo (evidencia adjunta y recomendación) menos hora de alerta
+  MTTC: hora de contención verificada menos hora de alerta
+  MTTR: hora de recuperación verificada (servicio o cuenta restituidos) menos hora de alerta
+  FPR: alertas cerradas como falso positivo sobre alertas del playbook en 30 días
+  SLA_BREACH_RATE: incidentes con algún hito fuera de slaPolicy sobre incidentes del playbook
+  APPROVAL_LATENCY: hora de aprobación SoD menos hora de solicitud de la acción
+effectCatalog:
+  # Cada efecto se solicita desde un playbook financiero y lo ejecuta otro actor.
+  # status disabled = playbook containment.* del catálogo base, aún no habilitado.
+  # proposed-disabled = ejecutor nuevo que este catálogo propone; se diseña aparte.
+  # manual = lo ejecuta un área de negocio siguiendo el runbook, fuera de Ankay.
+  - effect: identity-session-revocation
+    executor: containment.m365-revoke-sessions
+    status: disabled
+    reversible: parcial (el usuario vuelve a autenticarse)
+  - effect: mail-forwarding-removal
+    executor: containment.m365-remove-mail-forwarding
+    status: proposed-disabled
+    reversible: sí, con copia previa de la regla registrada como evidencia
+  - effect: identity-disable
+    executor: containment.entra-disable-user
+    status: proposed-disabled
+    reversible: sí (rehabilitar tras restablecer credenciales y MFA)
+  - effect: endpoint-isolation
+    executor: containment.endpoint-isolate
+    status: disabled
+    reversible: sí (quitar aislamiento aprobado)
+  - effect: network-policy-change
+    executor: containment.cato-block-indicator
+    status: disabled
+    reversible: sí (bloqueo con expiración)
+  - effect: payment-hold-request
+    executor: human-runbook:tesoreria
+    status: manual
+    reversible: sí (liberar el pago tras verificación telefónica con el proveedor)
+  - effect: external-takedown-request
+    executor: human-runbook:legal-marca
+    status: manual
+    reversible: no aplica
+  - effect: access-suspension-request
+    executor: human-runbook:iam-rrhh
+    status: manual
+    reversible: sí
+playbooks:
+  - id: finance.bec-payment-fraud
+    version: "1.0.0"
+    status: design-only
+    name: BEC y fraude de transferencia o cambio de cuenta de proveedor
+    priority: P1
+    trigger: qapaq-incident-admitted-with-finance-bec-rule
+    triggerRules:
+      primary: ["101400", "101401", "101403", "101404"]
+      context: ["100510", "100511", "100512", "100513", "100514", "101402", "100505"]
+      minimumEvidence: 1
+    sources: [wazuh-m365, wazuh-erp-normalized, entra-via-qapaq, qapaq-cases]
+    actions: [verify-dispatch, read-mailbox-rule-summary, read-signin-context, read-erp-change-and-payment-status, correlate-actor-vendor-time, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    triage:
+      queries:
+        - m365.mailbox_rules
+        - m365.signin_summary
+        - erp.vendor_bank_changes
+        - erp.payments_pending
+        - qapaq.related_alerts
+      decisionSignals:
+        - regla de bandeja con palabras de pagos o reenvío externo
+        - acceso por fuerza bruta o riesgo alto en la misma identidad en 24 h
+        - cambio de cuenta de proveedor sin ticket o con conflicto SoD
+        - pago pendiente o liberado hacia cuenta nueva o cambiada en 72 h
+    humanDecision:
+      question: ¿Hay pago en riesgo o cuenta comprometida que exija retener pagos y revocar sesiones?
+      decidedBy: [analista-soc-n2, jefe-soc]
+      consulted: [tesoreria, cumplimiento]
+    requestableEffects:
+      - effect: payment-hold-request
+        approverRoles: [jefe-tesoreria]
+        constraints: solo pagos a la referencia de proveedor afectada; expira en 72 h
+      - effect: mail-forwarding-removal
+        approverRoles: [jefe-soc]
+        constraints: solo la regla o reenvío identificados; copia previa como evidencia
+      - effect: identity-session-revocation
+        approverRoles: [jefe-soc]
+        constraints: solo la identidad afectada
+    evidence: [registro UAL de la regla o reenvío, resumen de inicios de sesión, registro de cambio del ERP con aprobador, estado del pago, verificación telefónica con el proveedor por canal conocido]
+    sla: P1
+    metrics: [MTTD, MTTA, MTTT, MTTC, APPROVAL_LATENCY, FPR]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/01-bec-fraude-transferencia.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.bec-payment-fraud.json
+    regulatory: [SBS-504-INC, SBS-504-REP, LPDP-SEG]
+
+  - id: finance.credit-core-account-takeover
+    version: "1.0.0"
+    status: design-only
+    name: Toma de cuenta de colaborador con acceso a sistemas de crédito o core
+    priority: P1
+    trigger: qapaq-incident-admitted-with-core-user-takeover-rule
+    triggerRules:
+      primary: ["101410", "101411", "101412"]
+      context: ["100505", "100526", "101205", "100522", "100506"]
+      minimumEvidence: 1
+    sources: [wazuh-m365, entra-via-qapaq, active-directory, cato-via-qapaq, core-banking-normalized]
+    actions: [verify-dispatch, read-signin-context, read-mfa-changes, read-core-banking-session-summary, read-network-context, build-utc-timeline, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    triage:
+      queries:
+        - m365.signin_summary
+        - entra.risk_detections
+        - entra.auth_methods_changes
+        - core_banking.session_summary
+        - cato.user_sessions
+        - qapaq.related_alerts
+      decisionSignals:
+        - éxito tras fuerza bruta o riesgo alto de Entra
+        - alta o cambio de MFA en la hora siguiente
+        - sesión en el core desde ubicación o equipo no habitual
+        - operaciones de crédito (aprobación, desembolso, cambio de condiciones) tras el acceso
+    humanDecision:
+      question: ¿La identidad está comprometida y hubo operaciones en el core que revertir o revisar?
+      decidedBy: [analista-soc-n2, jefe-soc]
+      consulted: [jefe-creditos, riesgos-operacionales]
+    requestableEffects:
+      - effect: identity-session-revocation
+        approverRoles: [jefe-soc]
+        constraints: solo la identidad afectada
+      - effect: identity-disable
+        approverRoles: [jefe-soc, gerente-ti]
+        constraints: requiere dos aprobadores distintos del solicitante; expira al restablecer credenciales
+      - effect: access-suspension-request
+        approverRoles: [jefe-creditos]
+        constraints: suspensión temporal del rol en el core, ejecutada por IAM
+    evidence: [inicios de sesión con IP y agente, cambios de MFA, sesiones del core, operaciones de crédito en la ventana, contexto de red Cato]
+    sla: P1
+    metrics: [MTTD, MTTA, MTTT, MTTC, MTTR, APPROVAL_LATENCY]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/02-toma-cuenta-core-creditos.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.credit-core-account-takeover.json
+    regulatory: [SBS-504-INC, SBS-504-ACC, LPDP-SEG]
+
+  - id: finance.customer-data-exfiltration
+    version: "1.0.0"
+    status: design-only
+    name: Descarga o exfiltración masiva de datos de clientes
+    priority: P1
+    trigger: qapaq-incident-admitted-with-data-exfiltration-rule
+    triggerRules:
+      primary: ["101416", "101417", "101418", "101419", "101421", "101422"]
+      context: ["101415", "101420", "100515", "100529", "101203"]
+      minimumEvidence: 1
+    sources: [wazuh-m365, purview-dlp-via-wazuh, cato-via-qapaq, qapaq-cases]
+    actions: [verify-dispatch, read-file-activity-summary, read-sharing-links, read-dlp-matches, read-upload-destinations, compare-role-baseline, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    privacy: solo metadatos (conteos, rutas, etiquetas de sensibilidad); nunca contenido de archivos
+    triage:
+      queries:
+        - m365.file_activity_summary
+        - m365.sharing_links
+        - m365.dlp_matches
+        - cato.upload_destinations
+        - iam.role_baseline
+        - qapaq.related_alerts
+      decisionSignals:
+        - volumen sobre la línea base del rol o fuera de horario
+        - sitios o etiquetas con datos de clientes, créditos o PLAFT
+        - enlaces anónimos o subida a aplicaciones no autorizadas
+        - aviso de renuncia, cese o vacaciones (solo si RR. HH. lo aporta por el canal aprobado)
+    humanDecision:
+      question: ¿Hubo exposición de datos personales de clientes que active la evaluación regulatoria?
+      decidedBy: [analista-soc-n2, oficial-proteccion-datos]
+      consulted: [legal, cumplimiento, jefe-area-del-usuario]
+    requestableEffects:
+      - effect: identity-session-revocation
+        approverRoles: [jefe-soc]
+        constraints: solo la identidad afectada
+      - effect: network-policy-change
+        approverRoles: [jefe-soc, jefe-redes]
+        constraints: bloqueo exacto del destino con expiración de 7 días
+      - effect: access-suspension-request
+        approverRoles: [jefe-area-del-usuario]
+        constraints: retiro temporal de permisos al sitio afectado, ejecutado por IAM
+    evidence: [lista de archivos con conteo y etiqueta de sensibilidad, enlaces creados, coincidencias DLP, destinos y volúmenes de red, línea base del rol, decisión de exposición]
+    sla: P1
+    metrics: [MTTD, MTTA, MTTT, MTTC, FPR]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/03-exfiltracion-datos-clientes.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.customer-data-exfiltration.json
+    regulatory: [SBS-504-INC, LPDP-SEG, LPDP-BRECHA]
+
+  - id: finance.privileged-breakglass-abuse
+    version: "1.0.0"
+    status: design-only
+    name: Abuso de cuentas privilegiadas y break-glass
+    priority: P1
+    trigger: qapaq-incident-admitted-with-privileged-abuse-rule
+    triggerRules:
+      primary: ["101425", "101426", "101427", "101428"]
+      context: ["100530", "100520", "100521", "100524", "100525", "101300", "101303", "101206", "101207"]
+      minimumEvidence: 1
+    sources: [wazuh-m365, active-directory, entra-via-qapaq, qapaq-changes]
+    actions: [verify-dispatch, read-privileged-changes, read-approved-change-window, read-breakglass-custody-log, build-utc-timeline, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    triage:
+      queries:
+        - entra.privileged_role_changes
+        - ad.privileged_group_changes
+        - qapaq.approved_changes
+        - qapaq.breakglass_custody
+        - qapaq.related_alerts
+      decisionSignals:
+        - uso de break-glass sin evento de custodia (sobre/caja fuerte o bóveda) registrado
+        - cambio privilegiado fuera de horario o sin ticket aprobado
+        - el actor aprueba su propio cambio
+        - desactivación de auditoría o cambio de federación en la ventana
+    humanDecision:
+      question: ¿El uso privilegiado está autorizado por una emergencia o un cambio aprobado?
+      decidedBy: [jefe-soc, gerente-ti]
+      consulted: [oficial-seguridad-informacion]
+    requestableEffects:
+      - effect: identity-session-revocation
+        approverRoles: [oficial-seguridad-informacion]
+        constraints: solo la cuenta privilegiada; nunca la última cuenta break-glass operativa
+      - effect: identity-disable
+        approverRoles: [oficial-seguridad-informacion, gerente-ti]
+        constraints: rotación de credencial y nueva custodia antes de rehabilitar
+    evidence: [cambios de rol o grupo con actor y destino, ticket o ausencia de ticket, registro de custodia de break-glass, línea de tiempo UTC]
+    sla: P1
+    metrics: [MTTD, MTTA, MTTT, MTTC, APPROVAL_LATENCY]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/04-abuso-privilegios-break-glass.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.privileged-breakglass-abuse.json
+    regulatory: [SBS-504-INC, SBS-504-ACC, SBS-504-LOG]
+
+  - id: finance.branch-ransomware
+    version: "1.0.0"
+    status: design-only
+    name: Ransomware en agencia o sucursal
+    priority: P1
+    trigger: qapaq-incident-admitted-with-ransomware-rule
+    triggerRules:
+      primary: ["101430", "101431", "101432", "101433"]
+      context: ["101201", "101202", "101203", "101209", "101302", "101208"]
+      minimumEvidence: 1
+    sources: [wazuh-sysmon, sophos-via-qapaq, cato-via-qapaq, qapaq-assets]
+    actions: [verify-dispatch, read-endpoint-detections, read-remediation-status, read-site-network-events, scope-affected-hosts-and-site, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    triage:
+      queries:
+        - sophos.endpoint_detections
+        - sophos.remediation_status
+        - cato.site_events
+        - wazuh.host_alerts
+        - qapaq.asset_context
+        - qapaq.related_alerts
+      decisionSignals:
+        - inhibición de recuperación o detección CryptoGuard
+        - más de un equipo de la misma agencia o propagación SMB
+        - remediación fallida de Sophos
+        - servidores del core o backups alcanzables desde la agencia
+    humanDecision:
+      question: ¿Se aíslan los equipos o la agencia y se activa continuidad del negocio?
+      decidedBy: [jefe-soc, gerente-ti]
+      consulted: [jefe-agencias, continuidad-negocio]
+    requestableEffects:
+      - effect: endpoint-isolation
+        approverRoles: [jefe-soc]
+        constraints: solo los endpoints con evidencia; el aprobador no es el solicitante
+      - effect: network-policy-change
+        approverRoles: [jefe-soc, jefe-redes]
+        constraints: aislamiento del sitio Cato o bloqueo exacto de indicadores con expiración
+      - effect: identity-session-revocation
+        approverRoles: [jefe-soc]
+        constraints: cuentas usadas en la propagación
+    evidence: [detecciones y hashes, estado de remediación, eventos de red del sitio, lista de equipos afectados, hora del primer cifrado, estado de backups]
+    sla: P1
+    metrics: [MTTD, MTTA, MTTT, MTTC, MTTR]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/05-ransomware-agencia.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.branch-ransomware.json
+    regulatory: [SBS-504-INC, SBS-504-REP, SBS-504-CONT, LPDP-BRECHA]
+
+  - id: finance.brand-impersonation-phishing
+    version: "1.0.0"
+    status: design-only
+    name: Suplantación de marca y phishing a clientes
+    priority: P2
+    trigger: qapaq-incident-admitted-with-brand-rule-or-customer-report
+    triggerRules:
+      primary: ["101436", "101437"]
+      context: ["101435", "101100"]
+      minimumEvidence: 1
+      manualIntake: reporte de cliente o del contact center registrado como caso QAPAQ
+    sources: [brand-monitor-normalized, cato-via-qapaq, wazuh-m365, qapaq-cases]
+    actions: [verify-dispatch, read-domain-intel, read-internal-clicks, read-related-mail-alerts, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    privacy: el dominio se trata como texto; Ankay no visita la URL ni descarga contenido
+    triage:
+      queries:
+        - brand.domain_intel
+        - cato.domain_access
+        - m365.related_mail_alerts
+        - qapaq.customer_reports
+        - qapaq.related_alerts
+      decisionSignals:
+        - dominio con MX, certificado o web activa
+        - clics internos o reportes de clientes
+        - uso de logotipos o canales oficiales en el sitio (validado por un analista en entorno aislado)
+    humanDecision:
+      question: ¿Se pide la baja del dominio y se avisa a clientes por los canales oficiales?
+      decidedBy: [jefe-soc, legal]
+      consulted: [marketing-comunicaciones, atencion-al-cliente]
+    requestableEffects:
+      - effect: external-takedown-request
+        approverRoles: [legal]
+        constraints: solicitud al registrador u hosting con evidencia; sin contacto con el atacante
+      - effect: network-policy-change
+        approverRoles: [jefe-soc]
+        constraints: bloqueo del dominio en Cato para usuarios internos, con expiración
+    evidence: [registro WHOIS/RDAP y DNS, certificado, capturas tomadas en entorno aislado, reportes de clientes, clics internos]
+    sla: P2
+    metrics: [MTTD, MTTA, MTTT, MTTC]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/06-suplantacion-marca-phishing.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.brand-impersonation-phishing.json
+    regulatory: [SBS-504-INC, LPDP-SEG]
+
+  - id: finance.insider-fraud
+    version: "1.0.0"
+    status: design-only
+    name: Fraude interno por acceso a datos sin relación con la función
+    priority: P2
+    trigger: qapaq-incident-admitted-with-insider-rule
+    triggerRules:
+      primary: ["101441", "101443", "101444", "101445"]
+      context: ["101440", "101442", "101416"]
+      minimumEvidence: 1
+    sources: [core-banking-normalized, wazuh-m365, iam-via-qapaq, qapaq-cases]
+    actions: [verify-dispatch, read-core-access-summary, read-role-and-portfolio, read-sensitive-site-access, attach-evidence, request-approved-action, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    privacy: investigación confidencial con acceso restringido al caso; sin aviso al usuario investigado
+    triage:
+      queries:
+        - core_banking.access_summary
+        - iam.role_baseline
+        - m365.sensitive_site_access
+        - qapaq.related_alerts
+      decisionSignals:
+        - consultas fuera de cartera o agencia sostenidas
+        - clientes PEP, colaboradores o segmento reservado sin justificación
+        - exportaciones de reportes que el rol no justifica
+        - relación con reclamos de clientes o movimientos atípicos (aportada por riesgos o auditoría)
+    humanDecision:
+      question: ¿Se abre investigación formal y se restringe el acceso del colaborador?
+      decidedBy: [oficial-seguridad-informacion, auditoria-interna]
+      consulted: [rrhh, legal, oficial-cumplimiento]
+    requestableEffects:
+      - effect: access-suspension-request
+        approverRoles: [oficial-seguridad-informacion, jefe-area-del-usuario]
+        constraints: suspensión temporal del rol; la ejecuta IAM y el jefe directo no puede aprobar solo
+    evidence: [consultas con cliente referenciado de forma opaca, cartera asignada, justificaciones registradas, exportaciones, accesos a sitios sensibles]
+    sla: P2
+    metrics: [MTTD, MTTA, MTTT, FPR]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/07-fraude-interno.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.insider-fraud.json
+    regulatory: [SBS-504-INC, SBS-504-ACC, LPDP-SEG, LPDP-BRECHA]
+
+  - id: finance.significant-incident-regulatory
+    version: "1.0.0"
+    status: design-only
+    name: Incidente significativo con notificación regulatoria y evidencia
+    priority: P1
+    trigger: qapaq-incident-flagged-significant-or-personal-data-breach
+    triggerRules:
+      primary: []
+      context: []
+      minimumEvidence: 1
+      manualIntake: incidente QAPAQ marcado como candidato a significativo por un playbook financiero o por el jefe del SOC
+    sources: [qapaq-cases, qapaq-audit, qapaq-evidence-store]
+    actions: [verify-dispatch, read-incident-timeline, read-evidence-inventory, read-impact-assessment, compute-regulatory-clocks, prepare-notification-dossier, notify-via-outbox, record-execution]
+    approval: none-for-read-only-and-dual-control-sod-for-every-effect
+    effects: none
+    triage:
+      queries:
+        - qapaq.incident_timeline
+        - qapaq.evidence_inventory
+        - qapaq.impact_assessment
+        - qapaq.regulatory_clock
+      decisionSignals:
+        - afectación de servicios críticos, clientes, fondos o datos personales
+        - criterio de incidente significativo de la SBS (pendiente de validación legal, ver matriz)
+        - brecha de datos personales según Ley 29733 y su reglamento
+    humanDecision:
+      question: ¿El incidente es reportable a la SBS o a la ANPD y quién firma la notificación?
+      decidedBy: [comite-de-crisis, oficial-seguridad-informacion]
+      consulted: [legal, oficial-proteccion-datos, gerencia-general]
+    requestableEffects: []
+    evidence: [línea de tiempo UTC con fuentes, inventario de evidencias con hash SHA-256 y cadena de custodia, evaluación de impacto, decisión del comité con firmantes, constancia de envío al regulador]
+    sla: P1
+    metrics: [MTTA, MTTT, SLA_BREACH_RATE]
+    runbook: docs/security/ankay-playbooks/finance/runbooks/08-incidente-significativo-regulatorio.md
+    workflow: infra/wazuh/launch-detections/ankay/finance/finance.significant-incident-regulatory.json
+    regulatory: [SBS-504-INC, SBS-504-REP, SBS-504-LOG, LPDP-BRECHA, LPDP-REG]
+globalGuards:
+  - no-raw-event-or-mail-body-in-webhook
+  - no-secrets-or-provider-tokens-in-workflow-payload
+  - no-provider-api-call-from-ankay-only-qapaq-bridge
+  - no-effect-without-qapaq-action-request-dual-control-and-sod
+  - requester-and-approver-are-different-people
+  - no-automatic-containment-based-only-on-severity-or-threat-intel
+  - no-customer-pii-account-numbers-or-amounts-in-workflow-variables
+  - missing-source-yields-degraded-never-clean
+  - no-duplicate-critical-teams-send-outside-qapaq-outbox
+  - every-action-has-stable-idempotency-key-and-auditable-result
+  - regulatory-notification-is-sent-by-authorized-humans-not-by-ankay

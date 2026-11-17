@@ -1,0 +1,2476 @@
+{
+  "actions": [
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "6be8db2d-3dc9-5bfb-9a11-e2dd0c0e7805",
+      "is_valid": true,
+      "isStartNode": true,
+      "sharing": false,
+      "label": "verify_dispatch",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/dispatch/verify",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"envelope\": \"$exec\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 0,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "aba4bf1c-88f8-52c9-8a1d-6622c8c64a40",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_entra_privileged_role_changes",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"entra.privileged_role_changes\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 260,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "470f88d5-4152-5f16-bce6-12c546c7b6f8",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_ad_privileged_group_changes",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"ad.privileged_group_changes\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 520,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "562dd1d6-db84-541d-b40b-798c1ea40894",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_qapaq_approved_changes",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"qapaq.approved_changes\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 780,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "1ecbdd24-f306-5fad-8f03-1514aa83d62d",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_qapaq_breakglass_custody",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"qapaq.breakglass_custody\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1040,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "02aded8a-d4b0-5df7-aeb7-14586747876c",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "enrich_qapaq_related_alerts",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/enrichment",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"query\": \"qapaq.related_alerts\",\n  \"scopeRef\": \"$verify_dispatch.body.scopeRef\",\n  \"window\": \"$verify_dispatch.body.window\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1300,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "Shuffle Tools",
+      "app_version": "1.2.0",
+      "app_id": "",
+      "errors": [],
+      "id": "6c42d364-c17c-5780-b6a6-66c715917426",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "assess",
+      "environment": "Shuffle",
+      "name": "execute_python",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "code",
+          "example": "",
+          "value": "import json\n\n# Generado por build_workflows.py. Ankay no decide efectos: solo agrega el\n# resultado de las lecturas y marca si existe candidato a contención para que un\n# humano decida en QAPAQ con control dual y SoD.\ndef load(raw):\n    try:\n        value = json.loads(raw) if isinstance(raw, str) else raw\n    except ValueError:\n        return {'status': 'degraded', 'reason': 'respuesta no JSON'}\n    if not isinstance(value, dict):\n        return {'status': 'degraded', 'reason': 'respuesta vacía'}\n    if value.get('status') != 200:\n        return {'status': 'degraded', 'reason': 'HTTP %s' % value.get('status')}\n    body = value.get('body')\n    return body if isinstance(body, dict) else {'status': 'degraded', 'reason': 'cuerpo inválido'}\n\nresults = {\n    'enrich_entra_privileged_role_changes': load(r'''$enrich_entra_privileged_role_changes'''),\n    'enrich_ad_privileged_group_changes': load(r'''$enrich_ad_privileged_group_changes'''),\n    'enrich_qapaq_approved_changes': load(r'''$enrich_qapaq_approved_changes'''),\n    'enrich_qapaq_breakglass_custody': load(r'''$enrich_qapaq_breakglass_custody'''),\n    'enrich_qapaq_related_alerts': load(r'''$enrich_qapaq_related_alerts'''),\n}\ndegraded = sorted(name for name, body in results.items() if body.get('status') != 'ok')\nsignals = sorted({signal for body in results.values() for signal in body.get('signals', [])\n                  if isinstance(signal, str)})\ncandidate = any(body.get('containmentCandidate') is True for body in results.values())\nprint(json.dumps({\n    'playbookId': 'finance.privileged-breakglass-abuse',\n    'playbookVersion': '1.0.0',\n    'state': 'degraded' if degraded else 'complete',\n    'degradedSources': degraded,\n    'signals': signals,\n    'containmentCandidate': 'true' if candidate else 'false',\n    'evidenceRefs': sorted({ref for body in results.values() for ref in body.get('evidenceRefs', [])\n                            if isinstance(ref, str)}),\n}))",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1560,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": true
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "587950a6-8d4c-5430-b77c-c032955f9273",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "attach_evidence",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/incidents/$verify_dispatch.body.incidentRef/evidence",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"kind\": \"playbook-triage-summary\",\n  \"summary\": \"$assess.message\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1820,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "eebb63dc-7ae5-5a28-ae07-cacb4d371ee2",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "request_actions",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/action-requests",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"state\": \"pending-human-decision\",\n  \"decision\": \"¿El uso privilegiado está autorizado por una emergencia o un cambio aprobado?\",\n  \"options\": [\n    {\n      \"effect\": \"identity-session-revocation\",\n      \"approverRoles\": [\n        \"oficial-seguridad-informacion\"\n      ],\n      \"constraints\": \"solo la cuenta privilegiada; nunca la última cuenta break-glass operativa\"\n    },\n    {\n      \"effect\": \"identity-disable\",\n      \"approverRoles\": [\n        \"oficial-seguridad-informacion\",\n        \"gerente-ti\"\n      ],\n      \"constraints\": \"rotación de credencial y nueva custodia antes de rehabilitar\"\n    }\n  ],\n  \"approvalPolicy\": \"dual-control-and-sod\",\n  \"triageRef\": \"$assess.message\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 1950,
+        "y": 380
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "5c19cbb7-f3a5-529f-86e9-f13a79072297",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "notify_outbox",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/notification-intents",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"priority\": \"P1\",\n  \"template\": \"finance.privileged-breakglass-abuse.triage-complete\",\n  \"dedupeKey\": \"$verify_dispatch.body.executionKey\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 2080,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "7553c3b7-9151-57df-8944-431fbb1c0cb2",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "record_result",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/executions/$verify_dispatch.body.executionKey/result",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"executionKey\": \"$verify_dispatch.body.executionKey\",\n  \"incidentRef\": \"$verify_dispatch.body.incidentRef\",\n  \"outcome\": \"triage-complete\",\n  \"triage\": \"$assess.message\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 2340,
+        "y": 200
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    },
+    {
+      "app_name": "http",
+      "app_version": "1.4.0",
+      "app_id": "",
+      "errors": [],
+      "id": "494ec2c8-d074-593d-b250-51d59a59687b",
+      "is_valid": true,
+      "isStartNode": false,
+      "sharing": false,
+      "label": "record_rejected",
+      "environment": "Shuffle",
+      "name": "POST",
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "$qapaq_bridge_base_url/v1/ankay/executions/rejected",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": true,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "headers",
+          "example": "",
+          "value": "Content-Type: application/json\nAccept: application/json",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "body",
+          "example": "",
+          "value": "{\n  \"playbookId\": \"finance.privileged-breakglass-abuse\",\n  \"playbookVersion\": \"1.0.0\",\n  \"outcome\": \"dispatch-rejected\",\n  \"reason\": \"$verify_dispatch.body.reason\"\n}",
+          "multiline": true,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "username",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "Se completa con la autenticación de app qapaq-ankay-bridge",
+          "id": "",
+          "name": "password",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": true,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "verify",
+          "example": "",
+          "value": "true",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "timeout",
+          "example": "",
+          "value": "15",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "to_file",
+          "example": "",
+          "value": "false",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "execution_variable": {
+        "description": "",
+        "id": "",
+        "name": "",
+        "value": ""
+      },
+      "position": {
+        "x": 260,
+        "y": 420
+      },
+      "authentication_id": "",
+      "auth_not_required": false
+    }
+  ],
+  "branches": [
+    {
+      "destination_id": "aba4bf1c-88f8-52c9-8a1d-6622c8c64a40",
+      "id": "e9e10a57-f340-58d9-8cad-687625ebdb0f",
+      "source_id": "6be8db2d-3dc9-5bfb-9a11-e2dd0c0e7805",
+      "label": "despacho válido",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$verify_dispatch.body.decision",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "equals",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "accept",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "494ec2c8-d074-593d-b250-51d59a59687b",
+      "id": "e3b657c0-b4a0-5104-aafe-ad60c0595348",
+      "source_id": "6be8db2d-3dc9-5bfb-9a11-e2dd0c0e7805",
+      "label": "despacho rechazado o duplicado",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$verify_dispatch.body.decision",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "does not equal",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "accept",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "470f88d5-4152-5f16-bce6-12c546c7b6f8",
+      "id": "2bf7775f-fd48-51fe-9312-45f9b9315dbe",
+      "source_id": "aba4bf1c-88f8-52c9-8a1d-6622c8c64a40",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "562dd1d6-db84-541d-b40b-798c1ea40894",
+      "id": "f75e9b7a-16c8-5c80-a6a4-22783c28a720",
+      "source_id": "470f88d5-4152-5f16-bce6-12c546c7b6f8",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "1ecbdd24-f306-5fad-8f03-1514aa83d62d",
+      "id": "71fc3ce0-3659-50a7-9699-24b8c4be08f8",
+      "source_id": "562dd1d6-db84-541d-b40b-798c1ea40894",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "02aded8a-d4b0-5df7-aeb7-14586747876c",
+      "id": "0e3e94ee-d498-5497-892e-c98285ddea41",
+      "source_id": "1ecbdd24-f306-5fad-8f03-1514aa83d62d",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "6c42d364-c17c-5780-b6a6-66c715917426",
+      "id": "8f3d28fa-c270-5f71-9c20-28e5f6f1a9a0",
+      "source_id": "02aded8a-d4b0-5df7-aeb7-14586747876c",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "587950a6-8d4c-5430-b77c-c032955f9273",
+      "id": "646c65e1-7833-57bd-bd26-b8d46892f374",
+      "source_id": "6c42d364-c17c-5780-b6a6-66c715917426",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "eebb63dc-7ae5-5a28-ae07-cacb4d371ee2",
+      "id": "9e86c768-c3e2-5a8b-b034-7e7eb016d069",
+      "source_id": "587950a6-8d4c-5430-b77c-c032955f9273",
+      "label": "candidato a contención: decide un humano en QAPAQ",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$assess.message.containmentCandidate",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "equals",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "true",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "5c19cbb7-f3a5-529f-86e9-f13a79072297",
+      "id": "a55325e9-3be5-5193-9e09-b97d69545d95",
+      "source_id": "eebb63dc-7ae5-5a28-ae07-cacb4d371ee2",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    },
+    {
+      "destination_id": "5c19cbb7-f3a5-529f-86e9-f13a79072297",
+      "id": "f19c58b5-33cb-543f-9c44-def3dad38df7",
+      "source_id": "587950a6-8d4c-5430-b77c-c032955f9273",
+      "label": "sin candidato a contención",
+      "has_errors": false,
+      "conditions": [
+        {
+          "source": {
+            "description": "",
+            "id": "",
+            "name": "source",
+            "example": "",
+            "value": "$assess.message.containmentCandidate",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "condition": {
+            "description": "",
+            "id": "",
+            "name": "condition",
+            "example": "",
+            "value": "does not equal",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          },
+          "destination": {
+            "description": "",
+            "id": "",
+            "name": "destination",
+            "example": "",
+            "value": "true",
+            "multiline": false,
+            "options": null,
+            "action_field": "",
+            "variant": "STATIC_VALUE",
+            "required": false,
+            "configuration": false,
+            "tags": null,
+            "schema": {
+              "type": "string"
+            },
+            "skip_multicheck": false,
+            "value_replace": null
+          }
+        }
+      ]
+    },
+    {
+      "destination_id": "7553c3b7-9151-57df-8944-431fbb1c0cb2",
+      "id": "c2c7eaa9-14e1-5d37-967e-9d40cc7b1244",
+      "source_id": "5c19cbb7-f3a5-529f-86e9-f13a79072297",
+      "label": "",
+      "has_errors": false,
+      "conditions": null
+    }
+  ],
+  "triggers": [
+    {
+      "app_name": "Webhook",
+      "description": "Recibe el despacho firmado del outbox QAPAQ",
+      "long_description": "",
+      "status": "uninitialized",
+      "app_version": "1.0.0",
+      "errors": null,
+      "id": "5fae478e-2564-51bb-b78c-282bdd927572",
+      "is_valid": true,
+      "isStartNode": false,
+      "label": "qapaq_outbox_dispatch",
+      "small_image": "",
+      "large_image": "",
+      "environment": "cloud",
+      "trigger_type": "WEBHOOK",
+      "name": "Webhook",
+      "tags": null,
+      "parameters": [
+        {
+          "description": "",
+          "id": "",
+          "name": "url",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "tmp",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        },
+        {
+          "description": "",
+          "id": "",
+          "name": "auth_headers",
+          "example": "",
+          "value": "",
+          "multiline": false,
+          "options": null,
+          "action_field": "",
+          "variant": "STATIC_VALUE",
+          "required": false,
+          "configuration": false,
+          "tags": null,
+          "schema": {
+            "type": "string"
+          },
+          "skip_multicheck": false,
+          "value_replace": null
+        }
+      ],
+      "position": {
+        "x": -260,
+        "y": 200
+      },
+      "priority": 0
+    }
+  ],
+  "schedules": null,
+  "configuration": {
+    "exit_on_error": false,
+    "start_from_top": false,
+    "skip_notifications": false
+  },
+  "tags": [
+    "qapaq",
+    "finance",
+    "P1",
+    "design-only"
+  ],
+  "id": "b109ae0d-ef47-5f20-b670-6122fc7e42a3",
+  "is_valid": true,
+  "name": "QAPAQ · Abuso de cuentas privilegiadas y break-glass",
+  "description": "Abuso de cuentas privilegiadas y break-glass. Playbook finance.privileged-breakglass-abuse v1.0.0 del catálogo qapaq-ankay-finance (estado design-only). Triage de solo lectura vía puente QAPAQ; toda acción con efecto se solicita a QAPAQ (control dual y SoD) y la despacha el outbox. Runbook: docs/security/ankay-playbooks/finance/runbooks/04-abuso-privilegios-break-glass.md. Generado por build_workflows.py; no editar a mano.",
+  "start": "6be8db2d-3dc9-5bfb-9a11-e2dd0c0e7805",
+  "owner": "",
+  "sharing": "private",
+  "execution_org": {
+    "name": "",
+    "org": "",
+    "users": null,
+    "id": "",
+    "role": "",
+    "child_orgs": null
+  },
+  "workflow_variables": [
+    {
+      "description": "URL HTTPS del puente QAPAQ para Ankay (no secreta; se fija al importar)",
+      "id": "f296f0ab-2efa-5595-bc29-f76bbda9c04f",
+      "name": "qapaq_bridge_base_url",
+      "value": ""
+    }
+  ]
+}

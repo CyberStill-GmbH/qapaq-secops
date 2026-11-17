@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "wazuhVersion": "4.14.8",
+  "manager": "app.jappi.net.pe",
+  "registrationServer": "app.jappi.net.pe",
+  "status": "hashes-pending",
+  "note": "Los SHA-256 se fijan con Update-QapaqAgentManifest.ps1 (MSI y Sysmon) y update-linux-manifest.sh (deb/rpm) tras verificar la firma del fabricante. Los instaladores rechazan cualquier artefacto con sha256 TO_BE_PROVIDED.",
+  "artifacts": [
+    {
+      "id": "wazuh-agent-windows",
+      "file": "wazuh-agent-4.14.8-1.msi",
+      "url": "https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.8-1.msi",
+      "sha256": "TO_BE_PROVIDED",
+      "verification": { "type": "authenticode", "signerSubjectContains": "Wazuh, Inc" }
+    },
+    {
+      "id": "wazuh-agent-deb-amd64",
+      "file": "wazuh-agent_4.14.8-1_amd64.deb",
+      "url": "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.14.8-1_amd64.deb",
+      "sha256": "TO_BE_PROVIDED",
+      "verification": {
+        "type": "gpg",
+        "keyUrl": "https://packages.wazuh.com/key/GPG-KEY-WAZUH",
+        "fingerprint": "TO_BE_PROVIDED"
+      }
+    },
+    {
+      "id": "wazuh-agent-rpm-x86_64",
+      "file": "wazuh-agent-4.14.8-1.x86_64.rpm",
+      "url": "https://packages.wazuh.com/4.x/yum/wazuh-agent-4.14.8-1.x86_64.rpm",
+      "sha256": "TO_BE_PROVIDED",
+      "verification": {
+        "type": "gpg",
+        "keyUrl": "https://packages.wazuh.com/key/GPG-KEY-WAZUH",
+        "fingerprint": "TO_BE_PROVIDED"
+      }
+    },
+    {
+      "id": "sysmon",
+      "file": "Sysmon.zip",
+      "url": "https://download.sysinternals.com/files/Sysmon.zip",
+      "version": "TO_BE_PROVIDED",
+      "sha256": "TO_BE_PROVIDED",
+      "verification": {
+        "type": "authenticode",
+        "signerSubjectContains": "Microsoft Corporation",
+        "innerFile": "Sysmon64.exe"
+      }
+    }
+  ]
+}

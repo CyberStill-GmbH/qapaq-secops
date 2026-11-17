@@ -6,6 +6,7 @@ export {
   prioritize,
   priorityForScore,
   PROMOTION_THRESHOLD,
+  PROVIDER_CONTEXT_GROUPS,
   REASON_CODES,
   type PrioritizationContext,
   type PrioritizationOutcome,

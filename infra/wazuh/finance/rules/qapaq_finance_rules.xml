@@ -1,0 +1,534 @@
+<!--
+  QAPAQ SecOps — reglas de riesgo financiero para Wazuh 4.14.x.
+
+  Por qué existen: los paquetes office365, active-directory, endpoint y launch-detections
+  detectan técnicas genéricas. Estas reglas añaden el contexto de una financiera regulada
+  (BEC y fraude de transferencia, toma de cuentas con acceso al core de créditos,
+  exfiltración de datos de clientes, abuso de cuentas privilegiadas y break-glass,
+  ransomware en agencias, suplantación de marca y fraude interno). Son los disparadores
+  del catálogo `docs/security/ankay-playbooks/finance-catalog.yaml`.
+
+  Convenciones:
+  - Rango reservado: 101400-101449. No reutilizar IDs; una regla retirada deja su ID
+    documentado en infra/wazuh/finance/README.md.
+  - Bloques: 101400-101409 BEC y fraude de pagos · 101410-101414 toma de cuenta ·
+    101415-101424 exfiltración · 101425-101429 privilegios y break-glass ·
+    101430-101434 ransomware · 101435-101439 marca y phishing a clientes ·
+    101440-101449 fraude interno.
+  - Nivel: 3 marca sin alerta operativa, 7-11 alta, 12-15 crítica (escala de
+    modules/telemetry/src/wazuh-normalization.ts). Solo nivel 12+ llega al adaptador
+    de triage de Ankay; ninguna regla ejecuta Active Response.
+  - `qapaq_pending_provider_evidence`: la regla depende de un campo o evento que todavía
+    no se comprobó con un registro real redactado del tenant (Sophos, Cato, ERP, core
+    bancario o monitoreo de marca). Dispara igual, pero QAPAQ la declara pendiente.
+  - Eventos de proveedores no M365/Windows usan el contrato normalizado
+    `integration=qapaq-provider` (regla base 101200 de launch-detections). Los campos
+    nuevos que estas reglas exigen (qapaq_site, qapaq_threat_name, qapaq_role_match, …)
+    están descritos en infra/wazuh/finance/README.md.
+  - Las reglas con <time> usan la hora local del Manager. El Manager QAPAQ debe correr
+    con TZ America/Lima o estas ventanas se desplazan (UTC-5 todo el año).
+  - Listas CDB nuevas (plantillas .example sintéticas en infra/wazuh/finance/lists):
+    qapaq-finance-core-users, qapaq-break-glass-ad, qapaq-sensitive-sites,
+    qapaq-lookalike-domains. La lista qapaq-break-glass la provee el paquete office365.
+-->
+
+<group name="qapaq_finance,">
+
+  <!-- ============================================ BEC y fraude de pagos (101400-101409) -->
+
+  <!--
+    Regla de bandeja que oculta, reenvía o borra correo y además filtra por palabras de
+    pagos. Es el patrón típico de BEC: el atacante esconde las respuestas del proveedor o
+    del banco mientras negocia el cambio de cuenta. Hija de 100510 (paquete office365).
+  -->
+  <rule id="101400" level="14">
+    <if_sid>100510</if_sid>
+    <field name="office365.Parameters" type="pcre2">"Name":\s*"(SubjectContainsWords|BodyContainsWords|SubjectOrBodyContainsWords|FromAddressContainsWords)",\s*"Value":\s*"[^"]*(?i:factur|pago|transferen|banc|cuenta|abono|desembolso|tesorer|invoice|payment|wire|swift|iban|remit)</field>
+    <description>QAPAQ finanzas: regla de bandeja de $(office365.UserId) que oculta o reenvía correo sobre pagos (patrón BEC).</description>
+    <options>no_full_log</options>
+    <group>qapaq_bec,qapaq_persistence,</group>
+    <mitre>
+      <id>T1564.008</id>
+      <id>T1114.003</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Regla de bandeja o reenvío de buzón creada por una cuenta que una hora antes tuvo
+    inicio de sesión exitoso tras fuerza bruta (100505). Es la secuencia de toma de
+    cuenta que precede a un fraude de transferencia.
+  -->
+  <rule id="101401" level="14" timeframe="3600">
+    <if_sid>100510, 100511, 100512</if_sid>
+    <if_matched_sid>100505</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ finanzas: $(office365.UserId) creó reglas o reenvío de buzón tras un acceso por fuerza bruta (BEC probable).</description>
+    <options>no_full_log</options>
+    <group>qapaq_bec,qapaq_persistence,</group>
+    <mitre>
+      <id>T1078.004</id>
+      <id>T1114.003</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Cambio de cuenta bancaria de un proveedor en el ERP/tesorería. Visible para
+    correlación; el adaptador debe entregar referencia opaca del proveedor, nunca el
+    número de cuenta.
+  -->
+  <rule id="101402" level="8">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">erp</field>
+    <field name="qapaq_event_type">vendor_bank_account_changed</field>
+    <description>QAPAQ finanzas: cambio de cuenta bancaria del proveedor $(qapaq_vendor_ref) por $(qapaq_user_id).</description>
+    <options>no_full_log</options>
+    <group>qapaq_payment_fraud,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1657</id>
+    </mitre>
+  </rule>
+
+  <!-- El mismo cambio sin ticket aprobado o con solicitante igual al aprobador. -->
+  <rule id="101403" level="13">
+    <if_sid>101402</if_sid>
+    <field name="qapaq_change_status" type="pcre2">^(unapproved|unknown|sod_violation)$</field>
+    <description>QAPAQ finanzas: cambio de cuenta bancaria del proveedor $(qapaq_vendor_ref) sin aprobación válida o con conflicto de funciones.</description>
+    <options>no_full_log</options>
+    <group>qapaq_payment_fraud,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1657</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Pago liberado a un beneficiario nuevo o cuya cuenta cambió en las últimas 72 h. El
+    adaptador de tesorería calcula qapaq_beneficiary_age=new|changed_72h.
+  -->
+  <rule id="101404" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">erp</field>
+    <field name="qapaq_event_type">payment_released</field>
+    <field name="qapaq_beneficiary_age" type="pcre2">^(new|changed_72h)$</field>
+    <description>QAPAQ finanzas: pago liberado a un beneficiario nuevo o con cuenta cambiada en 72 h ($(qapaq_vendor_ref)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_payment_fraud,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1657</id>
+    </mitre>
+  </rule>
+
+  <!-- ==================================================== Toma de cuenta (101410-101414) -->
+
+  <!--
+    Cambio de método MFA dentro de la hora siguiente a un acceso por fuerza bruta. Nivel
+    14 a propósito: Wazuh no reutiliza un evento previo ya usado por una correlación de
+    nivel igual o mayor, y 100505 (nivel 13) marca el acceso con su propio nivel.
+  -->
+  <rule id="101410" level="14" timeframe="3600">
+    <if_sid>100526</if_sid>
+    <if_matched_sid>100505</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ finanzas: $(office365.UserId) cambió métodos MFA tras un acceso por fuerza bruta (toma de cuenta probable).</description>
+    <options>no_full_log</options>
+    <group>qapaq_account_takeover,qapaq_persistence,</group>
+    <mitre>
+      <id>T1556.006</id>
+      <id>T1078.004</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Inicio de sesión de riesgo alto (101205) de una identidad con acceso al core de
+    créditos. La lista se mantiene desde IAM; las claves son el UPN exacto.
+  -->
+  <rule id="101411" level="14">
+    <if_sid>101205</if_sid>
+    <list field="qapaq_user_id" lookup="match_key">etc/lists/qapaq-finance-core-users</list>
+    <description>QAPAQ finanzas: inicio de sesión de riesgo alto de $(qapaq_user_id), que tiene acceso al core de créditos.</description>
+    <options>no_full_log</options>
+    <group>qapaq_account_takeover,qapaq_finance_core,</group>
+    <mitre>
+      <id>T1078.004</id>
+    </mitre>
+  </rule>
+
+  <!-- Fuerza bruta exitosa (100505) contra una identidad del core de créditos. -->
+  <rule id="101412" level="14">
+    <if_sid>100505</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-finance-core-users</list>
+    <description>QAPAQ finanzas: acceso tras fuerza bruta de $(office365.UserId), que tiene acceso al core de créditos.</description>
+    <options>no_full_log</options>
+    <group>qapaq_account_takeover,qapaq_finance_core,</group>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078.004</id>
+    </mitre>
+  </rule>
+
+  <!-- ================================================ Exfiltración (101415-101424) -->
+
+  <!--
+    Marca de descarga o sincronización desde SharePoint/OneDrive. Nivel 3: una descarga
+    no es alerta; sirve de base para las reglas de volumen. Cuelga también de 91537
+    (RecordType 6, SharePointFileOperation): la oficial gana a igual nivel y sin ella la
+    marca nunca se evalúa (comprobado con wazuh-logtest 4.14.8).
+  -->
+  <rule id="101415" level="3">
+    <if_sid>91532, 91537</if_sid>
+    <field name="office365.Operation" type="pcre2">^(FileDownloaded|FileSyncDownloadedFull|FileCopied)$</field>
+    <field name="office365.Workload" type="pcre2">^(SharePoint|OneDrive)$</field>
+    <description>QAPAQ finanzas: $(office365.UserId) descargó $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>sharepoint,qapaq_collection,</group>
+  </rule>
+
+  <!--
+    Descarga masiva: 100 descargas del mismo usuario en 10 minutos. Nivel 13 para poder
+    contar descargas que 101417/101418 (nivel 12) ya usaron de noche o en fin de semana.
+  -->
+  <rule id="101416" level="13" frequency="100" timeframe="600" ignore="900">
+    <if_matched_sid>101415</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ finanzas: descarga masiva desde SharePoint/OneDrive por $(office365.UserId) (100 archivos en 10 min).</description>
+    <options>no_full_log</options>
+    <group>qapaq_data_exfiltration,qapaq_collection,</group>
+    <mitre>
+      <id>T1530</id>
+      <id>T1213.002</id>
+    </mitre>
+  </rule>
+
+  <!-- Fuera de horario (21:00-06:30 hora Lima) el umbral baja a 30 archivos en 10 minutos. -->
+  <rule id="101417" level="12" frequency="30" timeframe="600" ignore="900">
+    <if_matched_sid>101415</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <time>9 pm - 6:30 am</time>
+    <description>QAPAQ finanzas: descarga masiva fuera de horario por $(office365.UserId) (30 archivos en 10 min).</description>
+    <options>no_full_log</options>
+    <group>qapaq_data_exfiltration,qapaq_collection,qapaq_off_hours,</group>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+  </rule>
+
+  <!-- En fin de semana el umbral también baja a 30 archivos en 10 minutos. -->
+  <rule id="101418" level="12" frequency="30" timeframe="600" ignore="900">
+    <if_matched_sid>101415</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <weekday>weekends</weekday>
+    <description>QAPAQ finanzas: descarga masiva en fin de semana por $(office365.UserId) (30 archivos en 10 min).</description>
+    <options>no_full_log</options>
+    <group>qapaq_data_exfiltration,qapaq_collection,qapaq_off_hours,</group>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+  </rule>
+
+  <!-- Ráfaga de enlaces anónimos (100515): 10 en una hora del mismo usuario. -->
+  <rule id="101419" level="12" frequency="10" timeframe="3600" ignore="3600">
+    <if_matched_sid>100515</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ finanzas: $(office365.UserId) creó 10 enlaces anónimos en una hora.</description>
+    <options>no_full_log</options>
+    <group>qapaq_data_exfiltration,qapaq_exfiltration,</group>
+    <mitre>
+      <id>T1567</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Coincidencia de una política DLP de Microsoft Purview. Requiere la suscripción
+    DLP.All en el módulo office365 (opcional en ossec-office365.xml.tmpl).
+  -->
+  <rule id="101420" level="8">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation" type="pcre2">^DLPRuleMatch$</field>
+    <description>QAPAQ finanzas: coincidencia DLP para $(office365.UserId) en $(office365.Workload).</description>
+    <options>no_full_log</options>
+    <group>qapaq_dlp,qapaq_exfiltration,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1048</id>
+    </mitre>
+  </rule>
+
+  <!-- Cinco coincidencias DLP del mismo usuario en una hora. -->
+  <rule id="101421" level="13" frequency="5" timeframe="3600" ignore="3600">
+    <if_matched_sid>101420</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ finanzas: ráfaga de coincidencias DLP de $(office365.UserId) (5 en una hora).</description>
+    <options>no_full_log</options>
+    <group>qapaq_dlp,qapaq_data_exfiltration,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1048</id>
+    </mitre>
+  </rule>
+
+  <!-- Subida de volumen alto a almacenamiento en la nube no autorizado, según Cato. -->
+  <rule id="101422" level="12">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">cato</field>
+    <field name="qapaq_event_type">cloud_upload</field>
+    <field name="qapaq_app_sanctioned">false</field>
+    <field name="qapaq_volume_class" type="pcre2">^(high|anomalous)$</field>
+    <description>QAPAQ finanzas: subida de volumen alto desde $(qapaq_source_ip) a la aplicación no autorizada $(qapaq_destination).</description>
+    <options>no_full_log</options>
+    <group>qapaq_data_exfiltration,qapaq_cato,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1567.002</id>
+    </mitre>
+  </rule>
+
+  <!-- ===================================== Privilegios y break-glass (101425-101429) -->
+
+  <!--
+    Una cuenta break-glass hace cambios privilegiados en Entra/Exchange. El uso de la
+    cuenta ya alerta con 100530; aquí se marca que además está cambiando el control.
+  -->
+  <rule id="101425" level="15">
+    <if_sid>100520, 100521, 100524, 100525, 100527, 100528</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-break-glass</list>
+    <description>QAPAQ finanzas: la cuenta de emergencia $(office365.UserId) ejecutó un cambio privilegiado ($(office365.Operation)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_privileged_abuse,qapaq_break_glass,</group>
+    <mitre>
+      <id>T1078.004</id>
+      <id>T1098.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Asignación de rol privilegiado de Entra fuera de horario (21:00-06:30 hora Lima). -->
+  <rule id="101426" level="14">
+    <if_sid>100520</if_sid>
+    <time>9 pm - 6:30 am</time>
+    <description>QAPAQ finanzas: $(office365.UserId) asignó un rol privilegiado de Entra fuera de horario.</description>
+    <options>no_full_log</options>
+    <group>qapaq_privileged_abuse,qapaq_off_hours,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1098.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Alta en grupo privilegiado de AD (101300) fuera de horario. -->
+  <rule id="101427" level="14">
+    <if_sid>101300</if_sid>
+    <time>9 pm - 6:30 am</time>
+    <description>QAPAQ finanzas: miembro añadido a un grupo privilegiado de AD fuera de horario en $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <group>qapaq_privileged_abuse,qapaq_off_hours,</group>
+    <mitre>
+      <id>T1098.007</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Inicio de sesión exitoso (4624) de una cuenta break-glass de AD. La lista contiene
+    sAMAccountName exactos tal como los registra el DC. El ruleset oficial reparte el 4624
+    entre 60106 y sus hijas (60118 interactivo, 60119 primera vez, 92651-92653 remoto, RDP
+    y NTLM); la regla cuelga de todas para no perder el inicio por RDP (comprobado con
+    wazuh-logtest 4.14.8).
+  -->
+  <rule id="101428" level="14">
+    <if_sid>60106, 60118, 60119, 92651, 92652, 92653</if_sid>
+    <field name="win.system.eventID">^4624$</field>
+    <list field="win.eventdata.targetUserName" lookup="match_key">etc/lists/qapaq-break-glass-ad</list>
+    <description>QAPAQ finanzas: inicio de sesión de la cuenta de emergencia de AD $(win.eventdata.targetUserName) en $(win.system.computer).</description>
+    <options>no_full_log</options>
+    <group>qapaq_privileged_abuse,qapaq_break_glass,</group>
+    <mitre>
+      <id>T1078.002</id>
+    </mitre>
+  </rule>
+
+  <!-- ============================================= Ransomware en agencia (101430-101434) -->
+
+  <!--
+    Inhibición de recuperación: borrado de shadow copies, catálogo de backup o arranque
+    en recuperación. Es casi siempre el paso previo al cifrado. Sysmon Event ID 1.
+  -->
+  <rule id="101430" level="14">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(vssadmin(\.exe)?\s+(delete\s+shadows|resize\s+shadowstorage)|wmic(\.exe)?\s+shadowcopy\s+delete|wbadmin(\.exe)?\s+delete\s+(catalog|systemstatebackup)|bcdedit(\.exe)?\s+/set\s+\S+\s+(recoveryenabled\s+no|bootstatuspolicy\s+ignoreallfailures)|win32_shadowcopy.{0,80}(delete|remove-ciminstance))</field>
+    <description>QAPAQ finanzas: inhibición de recuperación en $(win.system.computer): $(win.eventdata.image).</description>
+    <options>no_full_log</options>
+    <group>qapaq_ransomware,qapaq_impact,</group>
+    <mitre>
+      <id>T1490</id>
+    </mitre>
+  </rule>
+
+  <!-- La misma inhibición en tres equipos distintos en 30 minutos: propagación. -->
+  <rule id="101431" level="15" frequency="3" timeframe="1800" ignore="1800">
+    <if_matched_sid>101430</if_matched_sid>
+    <different_field>win.system.computer</different_field>
+    <description>QAPAQ finanzas: inhibición de recuperación en tres equipos distintos en 30 min (ransomware en propagación).</description>
+    <options>no_full_log</options>
+    <group>qapaq_ransomware,qapaq_impact,</group>
+    <mitre>
+      <id>T1490</id>
+      <id>T1486</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Detección de ransomware de Sophos (CryptoGuard o firma de ransomware). Cuelga también
+    de 101201 (amenaza alta/crítica activa), que la gana cuando la severidad es alta.
+  -->
+  <rule id="101432" level="15">
+    <if_sid>101200, 101201</if_sid>
+    <field name="qapaq_vendor">sophos</field>
+    <field name="qapaq_event_type">threat_detected</field>
+    <field name="qapaq_threat_name" type="pcre2">(?i)(ransom|cryptoguard|wipeguard|crypto-?locker)</field>
+    <description>QAPAQ finanzas: Sophos detectó ransomware en el endpoint $(qapaq_endpoint_id) ($(qapaq_threat_name)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_ransomware,qapaq_sophos,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+  </rule>
+
+  <!-- Cinco amenazas altas permitidas por Cato (101203) en el mismo sitio en 15 minutos. -->
+  <rule id="101433" level="14" frequency="5" timeframe="900" ignore="900">
+    <if_matched_sid>101203</if_matched_sid>
+    <same_field>qapaq_site</same_field>
+    <description>QAPAQ finanzas: cinco amenazas altas permitidas por Cato en el sitio $(qapaq_site) en 15 min.</description>
+    <options>no_full_log</options>
+    <group>qapaq_ransomware,qapaq_cato,qapaq_lateral_movement,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1071</id>
+      <id>T1021.002</id>
+    </mitre>
+  </rule>
+
+  <!-- ============================== Suplantación de marca y phishing (101435-101439) -->
+
+  <!-- Dominio parecido a QAPAQ detectado por el monitoreo de marca (CT logs/dnstwist). -->
+  <rule id="101435" level="8">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">brand_monitor</field>
+    <field name="qapaq_event_type">lookalike_domain_detected</field>
+    <description>QAPAQ finanzas: dominio parecido a la marca detectado: $(qapaq_domain).</description>
+    <options>no_full_log</options>
+    <group>qapaq_brand_impersonation,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1583.001</id>
+    </mitre>
+  </rule>
+
+  <!-- El dominio parecido tiene MX, certificado o web activa: listo para phishing. -->
+  <rule id="101436" level="12">
+    <if_sid>101435</if_sid>
+    <field name="qapaq_domain_capability" type="pcre2">(?i)(mx|certificate|web_active)</field>
+    <description>QAPAQ finanzas: dominio parecido $(qapaq_domain) con capacidad activa ($(qapaq_domain_capability)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_brand_impersonation,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1583.001</id>
+      <id>T1566</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Tráfico interno hacia un dominio parecido ya registrado (lista revisada por el SOC):
+    un colaborador abrió un enlace de phishing o el dominio sirve de C2.
+  -->
+  <rule id="101437" level="12">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">cato</field>
+    <list field="qapaq_destination" lookup="match_key">etc/lists/qapaq-lookalike-domains</list>
+    <description>QAPAQ finanzas: $(qapaq_source_ip) accedió al dominio parecido a la marca $(qapaq_destination).</description>
+    <options>no_full_log</options>
+    <group>qapaq_brand_impersonation,qapaq_cato,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1566.002</id>
+    </mitre>
+  </rule>
+
+  <!-- ================================================== Fraude interno (101440-101449) -->
+
+  <!--
+    Acceso a un sitio de SharePoint clasificado como sensible (créditos, cobranzas, RR. HH.,
+    PLAFT). Marca de nivel 3; la lista contiene la SiteUrl exacta sin barra final. Cuelga
+    también de 91537 por el mismo motivo que 101415.
+  -->
+  <rule id="101440" level="3">
+    <if_sid>91532, 91537</if_sid>
+    <field name="office365.Operation" type="pcre2">^(FileAccessed|FileDownloaded|FilePreviewed)$</field>
+    <list field="office365.SiteUrl" lookup="match_key">etc/lists/qapaq-sensitive-sites</list>
+    <description>QAPAQ finanzas: $(office365.UserId) accedió al sitio sensible $(office365.SiteUrl).</description>
+    <options>no_full_log</options>
+    <group>sharepoint,qapaq_insider,</group>
+  </rule>
+
+  <!-- 50 accesos a sitios sensibles del mismo usuario en una hora: revisar función. -->
+  <rule id="101441" level="10" frequency="50" timeframe="3600" ignore="3600">
+    <if_matched_sid>101440</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ finanzas: $(office365.UserId) accedió 50 veces a sitios sensibles en una hora; validar relación con su función.</description>
+    <options>no_full_log</options>
+    <group>qapaq_insider,qapaq_collection,</group>
+    <mitre>
+      <id>T1213.002</id>
+    </mitre>
+  </rule>
+
+  <!--
+    Consulta de un cliente en el core bancario sin relación con la función. El adaptador
+    del core compara la consulta con la cartera/agencia asignada y entrega
+    qapaq_role_match=false; Wazuh no conoce la cartera.
+  -->
+  <rule id="101442" level="9">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">core_banking</field>
+    <field name="qapaq_event_type">customer_record_viewed</field>
+    <field name="qapaq_role_match">false</field>
+    <description>QAPAQ finanzas: $(qapaq_user_id) consultó un cliente fuera de su cartera o agencia.</description>
+    <options>no_full_log</options>
+    <group>qapaq_insider,qapaq_finance_core,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1213</id>
+    </mitre>
+  </rule>
+
+  <!-- 20 consultas fuera de función del mismo usuario en una hora. -->
+  <rule id="101443" level="13" frequency="20" timeframe="3600" ignore="3600">
+    <if_matched_sid>101442</if_matched_sid>
+    <same_field>qapaq_user_id</same_field>
+    <description>QAPAQ finanzas: $(qapaq_user_id) consultó 20 clientes fuera de su función en una hora.</description>
+    <options>no_full_log</options>
+    <group>qapaq_insider,qapaq_finance_core,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1213</id>
+    </mitre>
+  </rule>
+
+  <!-- Consulta sin justificación de un cliente PEP, colaborador o de segmento reservado. -->
+  <rule id="101444" level="12">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">core_banking</field>
+    <field name="qapaq_event_type">customer_record_viewed</field>
+    <field name="qapaq_customer_segment" type="pcre2">^(pep|employee|restricted)$</field>
+    <field name="qapaq_access_justification">none</field>
+    <description>QAPAQ finanzas: $(qapaq_user_id) consultó sin justificación un cliente de segmento $(qapaq_customer_segment).</description>
+    <options>no_full_log</options>
+    <group>qapaq_insider,qapaq_finance_core,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1213</id>
+    </mitre>
+  </rule>
+
+  <!-- Exportación de reporte de clientes por un usuario cuyo rol no lo justifica. -->
+  <rule id="101445" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">core_banking</field>
+    <field name="qapaq_event_type">customer_report_exported</field>
+    <field name="qapaq_role_match">false</field>
+    <description>QAPAQ finanzas: $(qapaq_user_id) exportó un reporte de clientes que su función no justifica.</description>
+    <options>no_full_log</options>
+    <group>qapaq_insider,qapaq_data_exfiltration,qapaq_pending_provider_evidence,</group>
+    <mitre>
+      <id>T1213</id>
+      <id>T1005</id>
+    </mitre>
+  </rule>
+
+</group>

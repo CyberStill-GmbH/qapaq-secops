@@ -82,6 +82,13 @@ contrato es Wazuh Manager/Indexer/Filebeat/Dashboard **4.14.8**, OpenSearch Dash
   misma release verifica salud sin volver a ejecutar el instalador. Si encuentra paquetes/datos
   previos sin registro o una release distinta, se detiene para proteger el estado. Las actualizaciones
   requieren un flujo explícito de migración y rollback; cambiar el bundle no equivale a upgrade seguro.
+- `custom_data` es un seed inmutable de cloud-init. Terraform ignora sus cambios después de crear la VM
+  para no reemplazar el host ni el disco de datos cuando evoluciona el código. En cada ejecución,
+  `qapaq-siem-bootstrap` instala primero las versiones actuales de `bootstrap-siem.py` y
+  `indexer_read_proxy.py` desde sus contenidos comprimidos en la extensión y después ejecuta el
+  bootstrap con el bundle/configuración fijados. Los cambios de scripts o bundle actualizan la
+  extensión in-place; no autorizan a reemplazar la VM ni a reformatear el volumen. Terraform rechaza
+  un payload que supere el límite de 256 KiB de Azure Custom Script.
 - La URL del artefacto debe ser Blob HTTPS privado, sin SAS; el SHA-256 completo lo fija CI. No se usa
   `latest`, AWS SSM ni AWS Secrets Manager. El cambio de artefacto reejecuta la extensión sin recrear
   la VM; el bootstrap falla cerrado si no concuerdan versión, integridad o servicios.
@@ -131,6 +138,15 @@ mantiene la copia instalada bajo permisos `0600` en disco durable para que los a
 puedan usar el material. No se lee el valor del secreto durante plan/build. El módulo no crea esa
 referencia ni inventa credenciales; si falta o no cumple el formato, el bootstrap falla antes de
 instalar paquetes.
+
+Antes del plan de un apply `siem`, el workflow puede limpiar el residuo de Filebeat dejado por un
+rollback inicial. La recuperación exige que `dpkg` confirme el paquete ausente, systemd no encuentre
+un unit file, el disco durable siga vacío y no haya registro de instalación/Core. Si queda activo el
+PID huérfano, solo envía `SIGTERM` cuando `/proc` confirma que su nombre es `filebeat` y su ejecutable
+es exactamente `/usr/share/filebeat/bin/filebeat (deleted)`; espera hasta 30 segundos y nunca usa
+`SIGKILL`. Un PID, paquete, dato, ejecutable o estado distinto bloquea la reinstalación. Después limpia
+únicamente el estado systemd residual cuando `LoadState=not-found` (no ejecuta `systemctl stop` para
+una unidad inexistente). La recuperación no borra archivos ni datos.
 
 `core_secret_names` y `core_environment` también deben estar completos para el perfil y modos elegidos
 por el sistema (Entra, DB, Key Vault/provider, persistencia y conexiones requeridas). El bundle no

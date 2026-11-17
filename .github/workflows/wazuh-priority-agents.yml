@@ -1,0 +1,138 @@
+name: QAPAQ Wazuh agent profiles and priority rules
+
+on:
+  pull_request:
+    paths:
+      - 'infra/wazuh/agents/**'
+      - 'infra/wazuh/priority/**'
+      - 'infra/wazuh/active-directory/rules/**'
+      - 'infra/wazuh/endpoint/rules/**'
+      - 'infra/wazuh/launch-detections/rules/**'
+      - 'wazuh/office365/rules/**'
+      - '.github/workflows/wazuh-priority-agents.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/wazuh/agents/**'
+      - 'infra/wazuh/priority/**'
+      - 'infra/wazuh/active-directory/rules/**'
+      - 'infra/wazuh/endpoint/rules/**'
+      - 'infra/wazuh/launch-detections/rules/**'
+      - 'wazuh/office365/rules/**'
+      - '.github/workflows/wazuh-priority-agents.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-wazuh-priority-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Profile, package and priority-rule invariants
+        run: |
+          python3 -m unittest discover -s infra/wazuh/agents/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s infra/wazuh/priority/tests -p 'test_*.py' -v
+      - name: Shell syntax
+        run: |
+          for script in $(git ls-files 'infra/wazuh/agents/*.sh' 'infra/wazuh/priority/*.sh'); do
+            bash -n "$script"
+          done
+      - name: PowerShell syntax
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem -Recurse -Filter *.ps1 infra/wazuh/agents | ForEach-Object {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+            if ($errors) { $failed = $true; $errors | ForEach-Object { Write-Host "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" } }
+          }
+          if ($failed) { exit 1 }
+
+  manager:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: static
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start isolated Wazuh Manager 4.14.8 with every rule package the priority rules extend
+        run: >-
+          docker run --detach --rm --name qapaq-wazuh-priority-test
+          --ulimit nofile=458752:458752
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml:/var/ossec/etc/rules/qapaq_active_directory_rules.xml:ro"
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml:/var/ossec/etc/rules/qapaq_endpoint_rules.xml:ro"
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml:/var/ossec/etc/rules/qapaq_launch_provider_rules.xml:ro"
+          --volume "${GITHUB_WORKSPACE}/wazuh/office365/rules/qapaq_office365_rules.xml:/var/ossec/etc/rules/qapaq_office365_rules.xml:ro"
+          --volume "${GITHUB_WORKSPACE}/infra/wazuh/priority/rules/qapaq_priority_rules.xml:/var/ossec/etc/rules/qapaq_priority_rules.xml:ro"
+          wazuh/wazuh-manager:4.14.8
+      - name: Validate the eight agent profiles with verify-agent-conf
+        run: |
+          set -euo pipefail
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec --workdir /var/ossec qapaq-wazuh-priority-test sh -c \
+              'test -s etc/internal_options.conf && grep -q "^agent.remote_conf=" etc/internal_options.conf'; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = true
+          for profile in infra/wazuh/agents/shared/*/agent.conf; do
+            group="$(basename "$(dirname "$profile")")"
+            docker cp "$profile" "qapaq-wazuh-priority-test:/tmp/${group}.agent.conf"
+            docker exec --workdir /var/ossec qapaq-wazuh-priority-test /var/ossec/bin/verify-agent-conf -f "/tmp/${group}.agent.conf"
+          done
+      - name: Install synthetic CDB lists and register them
+        run: |
+          set -euo pipefail
+          lists="${RUNNER_TEMP}/lists"
+          mkdir -p "${lists}/src"
+          for name in qapaq-critical-assets qapaq-privileged-identities qapaq-sensitive-workstations qapaq-internet-facing; do
+            cp "infra/wazuh/priority/lists/${name}.example" "${lists}/src/${name}"
+          done
+          QAPAQ_APPLY_MODE=render QAPAQ_PRIORITY_ALLOW_EXAMPLE=true \
+            QAPAQ_PRIORITY_LISTS_DIR="${lists}/src" QAPAQ_PRIORITY_RENDER_DIR="${lists}/out" \
+            bash infra/wazuh/priority/apply-priority.sh
+          cp wazuh/office365/lists/qapaq-break-glass.example "${lists}/out/qapaq-break-glass"
+          for file in "${lists}"/out/*; do
+            docker cp "$file" "qapaq-wazuh-priority-test:/var/ossec/etc/lists/$(basename "$file")"
+          done
+          docker exec qapaq-wazuh-priority-test sh -c 'chown root:wazuh /var/ossec/etc/lists/qapaq-* && chmod 0640 /var/ossec/etc/lists/qapaq-*'
+          docker exec qapaq-wazuh-priority-test sed -i \
+            's|</ruleset>|  <list>etc/lists/qapaq-critical-assets</list>\n    <list>etc/lists/qapaq-privileged-identities</list>\n    <list>etc/lists/qapaq-sensitive-workstations</list>\n    <list>etc/lists/qapaq-internet-facing</list>\n    <list>etc/lists/qapaq-break-glass</list>\n  </ruleset>|' \
+            /var/ossec/etc/ossec.conf
+      - name: Start Manager daemons and run raise/keep/lower fixtures
+        run: |
+          # Logtest lee los fixtures JSON con el decoder json genérico. Solo en este contenedor
+          # desechable se adapta la regla padre de Windows; las reglas productivas no cambian.
+          docker exec qapaq-wazuh-priority-test sed -i \
+            -e '/<category>ossec<\/category>/d' \
+            -e 's|<decoded_as>windows_eventchannel</decoded_as>|<decoded_as>json</decoded_as>|' \
+            /var/ossec/ruleset/rules/0575-win-base_rules.xml
+          if ! docker exec qapaq-wazuh-priority-test /var/ossec/bin/wazuh-control restart; then
+            echo 'Manager restart returned a nonzero status; checking analysisd health.'
+          fi
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec qapaq-wazuh-priority-test /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q 'wazuh-analysisd is running'; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          bash infra/wazuh/priority/tests/run-logtest.sh qapaq-wazuh-priority-test
+      - name: Stop test Manager
+        if: always()
+        run: docker rm -f qapaq-wazuh-priority-test || true

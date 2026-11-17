@@ -56,7 +56,7 @@ variable "ingress_http_enabled" {
   default     = true
 }
 variable "allowed_fqdns" {
-  description = "Explicit HTTPS egress allowlist for Ubuntu, Entra, Graph, Teams Workflows and VirusTotal."
+  description = "Explicit HTTPS egress allowlist for Ubuntu, Entra, Graph, Teams Workflows and VirusTotal; the root adds provider APIs (Sophos, Cato, Anthropic) only when enabled."
   type        = set(string)
   default = [
     "archive.ubuntu.com",
