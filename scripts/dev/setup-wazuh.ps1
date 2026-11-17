@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$wazuhVersion = 'v4.14.7'
+$wazuhVersion = 'v4.14.8'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $localRoot = Join-Path $repositoryRoot '.local'
 $wazuhRoot = Join-Path $localRoot 'wazuh-docker'

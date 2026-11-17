@@ -1,0 +1,62 @@
+name: QAPAQ detection as code
+
+on:
+  pull_request:
+    paths:
+      - 'detections/**'
+      - 'wazuh/office365/rules/**'
+      - 'wazuh/office365/tests/**'
+      - 'wazuh/provider-ingestion/rules/**'
+      - 'wazuh/provider-ingestion/tests/**'
+      - 'wazuh/aws-events/rules/**'
+      - 'wazuh/aws-events/tests/**'
+      - 'infra/wazuh/*/rules/**'
+      - 'infra/wazuh/*/tests/**'
+      - 'wazuh/dashboard/saved-objects/detection/**'
+      - 'ankay/playbooks/**'
+      - '.github/workflows/qapaq-detections.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'detections/**'
+      - 'wazuh/dashboard/saved-objects/detection/**'
+      - 'ankay/playbooks/**'
+      - '.github/workflows/qapaq-detections.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qapaq-detections-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detections:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install PyYAML
+        run: python3 -m pip install --user 'pyyaml==6.0.2'
+      - name: Lint catalog, metadata, ID ranges, prefixes and MITRE
+        run: python3 detections/tools/qapaq_detections.py lint
+      - name: Playbook contract (approval gate, no secrets)
+        run: node --test ankay/playbooks/playbooks.test.mjs
+      - name: MITRE coverage report and dashboards are up to date (warning)
+        # Aviso, no falla: el informe se genera con las reglas desplegadas, que pueden incluir archivos de
+        # otros owners todavía sin commitear. Regenerar y commitear cuando cambien reglas (docs/detection-engineering/01).
+        run: |
+          docker create --name qapaq-ruleset wazuh/wazuh-manager:4.14.8 >/dev/null
+          docker cp qapaq-ruleset:/var/ossec/ruleset/rules "$RUNNER_TEMP/official-rules"
+          docker rm qapaq-ruleset >/dev/null
+          python3 detections/tools/qapaq_detections.py coverage --official "$RUNNER_TEMP/official-rules"
+          python3 wazuh/dashboard/saved-objects/detection/build_detection_dashboards.py
+          if ! git diff --quiet -- detections/reports wazuh/dashboard/saved-objects/detection; then
+            git diff --stat -- detections/reports wazuh/dashboard/saved-objects/detection
+            echo '::warning::Cobertura MITRE o vistas desactualizadas: regenerar con qapaq_detections.py coverage y build_detection_dashboards.py'
+          fi
+      - name: All logtest suites in a disposable Wazuh Manager 4.14.8
+        run: bash detections/tools/test-in-container.sh

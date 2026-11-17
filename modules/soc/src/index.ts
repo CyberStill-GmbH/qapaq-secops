@@ -63,6 +63,8 @@ export {
 } from './events.js';
 export {
   addIncidentNote,
+  attachAlertToIncident,
+  type AttachAlertRequest,
   createIncidentTask,
   executeAlertCommand,
   executeIncidentCommand,
@@ -72,8 +74,10 @@ export {
   type TaskCommandRequest,
   ingestCandidate,
   openIncidentFromAlert,
+  requestAlertReview,
   SOC_FAILURE_CODES,
   type AlertCommandRequest,
+  type AlertReviewRequest,
   type EntityRefFactory,
   type IdFactory,
   type IncidentCommandRequest,
@@ -100,6 +104,7 @@ export {
   planIngestionWindow,
   POLL_OUTCOMES,
   type ClaimedIngestionCursor,
+  type IngestionContinuation,
   type IngestionCursorKey,
   type IngestionStateStore,
   type IngestionWindowPolicy,
@@ -107,8 +112,18 @@ export {
   type SourcePollObservation,
   type StreamActivityRecord,
 } from './ingestion.js';
+export {
+  assertWazuhPushHint,
+  type ClaimedWazuhPushHint,
+  type WazuhPushHint,
+  type WazuhPushHintStatus,
+  type WazuhPushInboxMetrics,
+  type WazuhPushInboxStore,
+} from './wazuh-push-inbox.js';
 export type {
   AlertQuery,
+  AlertStats,
+  AlertStatsQuery,
   AlertStore,
   ClaimedOutboxMessage,
   IncidentNoteStore,
@@ -116,6 +131,7 @@ export type {
   IncidentStore,
   IncidentTaskStore,
   OutboxHealth,
+  OutboxLane,
   OutboxStore,
   QueryResult,
   SocHealthQuery,

@@ -1,6 +1,5 @@
 import {
   ConfigurationError,
-  SecretProviderError,
   parseSecretReference,
   type ConfigurationErrorCode,
   type EnvironmentInput,
@@ -14,28 +13,12 @@ const API_SECRET_REFERENCES = [
   ['QAPAQ_ENTITY_REF_KEY_REF', 'QAPAQ_ENTITY_REF_KEY'],
   ['QAPAQ_TEAMS_WORKFLOW_URL_REF', 'QAPAQ_TEAMS_WORKFLOW_URL'],
   ['QAPAQ_VAPID_PRIVATE_KEY_REF', 'QAPAQ_VAPID_PRIVATE_KEY'],
+  ['QAPAQ_CORRELATOR_SERVICE_TOKEN_REF', 'QAPAQ_CORRELATOR_SERVICE_TOKEN'],
+  ['QAPAQ_CORRELATOR_READ_TOKEN_REF', 'QAPAQ_CORRELATOR_READ_TOKEN'],
+  // Excepción demo: el hash scrypt de la contraseña también es material sensible.
+  ['QAPAQ_DEMO_ADMIN_PASSWORD_HASH_REF', 'QAPAQ_DEMO_ADMIN_PASSWORD_HASH'],
+  ['QAPAQ_DEMO_ACCOUNTS_REF', 'QAPAQ_DEMO_ACCOUNTS'],
 ] as const;
-
-/**
- * La API key del asistente es opcional: si no se puede leer, el API arranca igual y el asistente
- * responde `FEATURE_NOT_CONFIGURED`. Por eso no está en la lista de arriba, donde cualquier fallo
- * detiene el arranque.
- */
-const ASSISTANT_SECRET_REFERENCE = [
-  'QAPAQ_ANTHROPIC_API_KEY_REF',
-  'QAPAQ_ANTHROPIC_API_KEY',
-] as const;
-
-/**
- * Nombre convenido del secreto en Key Vault cuando el despliegue no declara la referencia.
- *
- * El host SIEM de Azure arma `core.env` con un allowlist que viaja en el `custom_data` de la VM:
- * agregarle `QAPAQ_ANTHROPIC_API_KEY_REF` obligaría a reemplazar la VM. Con el nombre convenido,
- * el asistente se enciende cargando el secreto y concediendo lectura sobre él (Terraform), sin
- * tocar el bootstrap. Sin ese permiso la lectura falla con `SECRET_ACCESS_DENIED` y el asistente
- * queda deshabilitado; nada más cambia.
- */
-export const DEFAULT_ASSISTANT_SECRET_REFERENCE = 'secret://keyvault/qapaq-anthropic-api-key';
 
 const KEY_VAULT_PROVIDER_TYPE = 'azure-key-vault';
 const DEFAULT_SECRET_PROVIDER_TIMEOUT_MS = 5_000;
@@ -78,14 +61,10 @@ function configuredKeyVaultReferences(environment: EnvironmentInput) {
 export async function resolveApiSecretEnvironment(
   environment: EnvironmentInput,
   providerFactory?: (environment: EnvironmentInput) => SecretProvider,
-  options: {
-    /** Un secreto opcional no se pudo leer: variable y código, nunca el valor ni el nombre. */
-    readonly onOptionalSecretUnavailable?: (variable: string, code: string) => void;
-  } = {},
 ): Promise<EnvironmentInput> {
   const providerType = environment['QAPAQ_SECRET_PROVIDER_TYPE'];
-  const hasKeyVaultReference = [...API_SECRET_REFERENCES, ASSISTANT_SECRET_REFERENCE].some(
-    ([referenceName]) => environment[referenceName]?.startsWith('secret://keyvault/'),
+  const hasKeyVaultReference = API_SECRET_REFERENCES.some(([referenceName]) =>
+    environment[referenceName]?.startsWith('secret://keyvault/'),
   );
 
   if (providerType !== KEY_VAULT_PROVIDER_TYPE && !hasKeyVaultReference) return environment;
@@ -103,7 +82,7 @@ export async function resolveApiSecretEnvironment(
     }
   }
 
-  for (const [, valueName] of [...API_SECRET_REFERENCES, ASSISTANT_SECRET_REFERENCE]) {
+  for (const [, valueName] of API_SECRET_REFERENCES) {
     if (environment[valueName] !== undefined && environment[valueName] !== '') {
       fail('CONFIG_VALUE_INVALID', valueName);
     }
@@ -119,24 +98,6 @@ export async function resolveApiSecretEnvironment(
   const resolved: Record<string, string | undefined> = { ...environment };
   for (const { valueName, reference } of references) {
     resolved[valueName] = await provider.resolve(reference);
-  }
-  const [assistantReferenceName, assistantValueName] = ASSISTANT_SECRET_REFERENCE;
-  const declared = environment[assistantReferenceName];
-  const assistantReference = parseSecretReference(
-    declared === undefined || declared === '' ? DEFAULT_ASSISTANT_SECRET_REFERENCE : declared,
-    assistantReferenceName,
-  );
-  // Una referencia declarada fuera de Key Vault es un error de despliegue, no un secreto ausente.
-  if (!assistantReference.startsWith('secret://keyvault/')) {
-    fail('SECRET_REFERENCE_INVALID', assistantReferenceName);
-  }
-  try {
-    resolved[assistantValueName] = await provider.resolve(assistantReference);
-  } catch (error) {
-    options.onOptionalSecretUnavailable?.(
-      assistantValueName,
-      error instanceof SecretProviderError ? error.code : 'SECRET_RESOLUTION_FAILED',
-    );
   }
   return Object.freeze(resolved);
 }

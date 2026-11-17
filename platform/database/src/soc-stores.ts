@@ -589,6 +589,54 @@ export class PrismaSocQueries {
     return { rows: rows as unknown as readonly AlertRow[], total };
   }
 
+  /**
+   * Conteos exactos de las alertas de una entidad (índice GIN de `entity_refs`), sin el tope
+   * de filas del listado: historial y actividad del Analista IA.
+   */
+  public async alertStats(filter: {
+    readonly tenantId: string;
+    readonly entityRef: string;
+    readonly ruleId?: string;
+    readonly since?: Date;
+    readonly excludeIds?: readonly string[];
+  }): Promise<{
+    readonly total: number;
+    readonly falsePositive: number;
+    readonly truePositive: number;
+    readonly open: number;
+    readonly incidentIds: readonly string[];
+  }> {
+    const excluded = (filter.excludeIds ?? []).filter((id) => UUID_PATTERN.test(id));
+    const where: Prisma.SocAlertWhereInput = {
+      tenantId: filter.tenantId,
+      entityRefs: { has: filter.entityRef },
+      ...(filter.ruleId ? { ruleId: filter.ruleId } : {}),
+      ...(filter.since ? { createdAt: { gte: filter.since } } : {}),
+      ...(excluded.length > 0 ? { id: { notIn: excluded } } : {}),
+    };
+    const [total, falsePositive, truePositive, open, incidents] = await Promise.all([
+      this.client.socAlert.count({ where }),
+      this.client.socAlert.count({ where: { ...where, verdict: 'false_positive' } }),
+      this.client.socAlert.count({ where: { ...where, verdict: 'true_positive' } }),
+      this.client.socAlert.count({ where: { ...where, status: { not: 'closed' } } }),
+      this.client.socAlert.findMany({
+        where: { ...where, incidentId: { not: null } },
+        distinct: ['incidentId'],
+        select: { incidentId: true },
+        take: SOC_QUERY_LIMITS.maximumListRows,
+      }),
+    ]);
+    return {
+      total,
+      falsePositive,
+      truePositive,
+      open,
+      incidentIds: incidents
+        .map((row) => row.incidentId)
+        .filter((id): id is string => typeof id === 'string'),
+    };
+  }
+
   public async incidentById(
     tenantId: string,
     incidentId: string,
@@ -678,22 +726,47 @@ export class PrismaSocQueries {
     return row?.occurredAt ?? null;
   }
 
-  /** Conteos de la cola del outbox del tenant y el pendiente más antiguo. */
-  public async outboxHealth(tenantId: string): Promise<{
+  /** Conteos consistentes de la cola del tenant y el lease vencido más antiguo. */
+  public async outboxHealth(
+    tenantId: string,
+    at: Date,
+  ): Promise<{
     readonly pending: number;
     readonly processing: number;
     readonly oldestPendingAt: Date | null;
+    readonly expiredProcessing: number;
+    readonly oldestExpiredProcessingLeaseUntil: Date | null;
   }> {
-    const [pending, processing, oldest] = await Promise.all([
-      this.client.socOutboxMessage.count({ where: { tenantId, status: 'pending' } }),
-      this.client.socOutboxMessage.count({ where: { tenantId, status: 'processing' } }),
-      this.client.socOutboxMessage.findFirst({
-        where: { tenantId, status: 'pending' },
-        orderBy: [{ availableAt: 'asc' }, { messageId: 'asc' }],
-        select: { availableAt: true },
-      }),
-    ]);
-    return { pending, processing, oldestPendingAt: oldest?.availableAt ?? null };
+    const [row] = await this.client.$queryRaw<
+      readonly {
+        readonly pending: bigint;
+        readonly processing: bigint;
+        readonly oldest_pending_at: Date | null;
+        readonly expired_processing: bigint;
+        readonly oldest_expired_processing_lease_until: Date | null;
+      }[]
+    >`
+      SELECT
+        (SELECT COUNT(*) FROM "soc_outbox_messages"
+          WHERE "tenant_id" = ${tenantId} AND "status" = 'pending') AS pending,
+        (SELECT COUNT(*) FROM "soc_outbox_messages"
+          WHERE "tenant_id" = ${tenantId} AND "status" = 'processing') AS processing,
+        (SELECT MIN("available_at") FROM "soc_outbox_messages"
+          WHERE "tenant_id" = ${tenantId} AND "status" = 'pending') AS oldest_pending_at,
+        (SELECT COUNT(*) FROM "soc_outbox_messages"
+          WHERE "tenant_id" = ${tenantId} AND "status" = 'processing'
+            AND "lease_until" < ${at}) AS expired_processing,
+        (SELECT MIN("lease_until") FROM "soc_outbox_messages"
+          WHERE "tenant_id" = ${tenantId} AND "status" = 'processing'
+            AND "lease_until" < ${at}) AS oldest_expired_processing_lease_until
+    `;
+    return {
+      pending: Number(row?.pending ?? 0n),
+      processing: Number(row?.processing ?? 0n),
+      oldestPendingAt: row?.oldest_pending_at ?? null,
+      expiredProcessing: Number(row?.expired_processing ?? 0n),
+      oldestExpiredProcessingLeaseUntil: row?.oldest_expired_processing_lease_until ?? null,
+    };
   }
 
   /**
@@ -715,23 +788,25 @@ export class PrismaSocQueries {
     at: Date,
     limit: number,
     leaseMs: number,
+    lane: 'all' | 'urgent' | 'normal' = 'all',
   ): Promise<readonly ClaimedSocOutboxRow[]> {
     const take = Math.min(Math.max(limit, 1), SOC_QUERY_LIMITS.maximumOutboxBatch);
     const leaseUntil = new Date(at.getTime() + Math.max(leaseMs, 1_000));
-    const rows = await this.client.$queryRaw<
-      {
-        message_id: string;
-        tenant_id: string;
-        aggregate_type: 'alert' | 'incident';
-        aggregate_id: string;
-        message_type: string;
-        schema_version: string;
-        idempotency_key: string;
-        payload: Readonly<Record<string, string | number | boolean | null>>;
-        available_at: Date;
-        claim_id: string;
-      }[]
-    >`
+    type RawClaimedRow = {
+      message_id: string;
+      tenant_id: string;
+      aggregate_type: 'alert' | 'incident';
+      aggregate_id: string;
+      message_type: string;
+      schema_version: string;
+      idempotency_key: string;
+      payload: Readonly<Record<string, string | number | boolean | null>>;
+      available_at: Date;
+      claim_id: string;
+    };
+    const rows =
+      lane === 'urgent'
+        ? await this.client.$queryRaw<RawClaimedRow[]>`
       UPDATE "soc_outbox_messages" AS target
          SET "status" = 'processing',
              "lease_until" = ${leaseUntil},
@@ -740,8 +815,51 @@ export class PrismaSocQueries {
        WHERE target."message_id" IN (
          SELECT candidate."message_id"
            FROM "soc_outbox_messages" AS candidate
-          WHERE (candidate."status" = 'pending' AND candidate."available_at" <= ${at})
-             OR (candidate."status" = 'processing' AND candidate."lease_until" < ${at})
+          WHERE (
+                (candidate."status" = 'pending' AND candidate."available_at" <= ${at})
+                OR (candidate."status" = 'processing' AND candidate."lease_until" < ${at})
+              )
+            AND candidate."status" <> 'published'
+            AND COALESCE((
+                (candidate."aggregate_type" = 'alert'
+                  AND candidate."message_type" IN ('soc.alert.created', 'soc.alert.escalated')
+                  AND candidate."payload"->>'priority' = 'P1')
+                OR (candidate."aggregate_type" = 'incident'
+                  AND candidate."message_type" = 'soc.incident.opened'
+                  AND candidate."payload"->>'severity' = 'critical')
+              ), false)
+          ORDER BY candidate."available_at", candidate."message_id"
+          LIMIT ${take}
+          FOR UPDATE SKIP LOCKED
+       )
+      RETURNING target."message_id", target."tenant_id", target."aggregate_type",
+                target."aggregate_id", target."message_type", target."schema_version",
+                target."idempotency_key", target."payload", target."available_at",
+                target."claim_id"`
+        : await this.client.$queryRaw<RawClaimedRow[]>`
+      UPDATE "soc_outbox_messages" AS target
+         SET "status" = 'processing',
+             "lease_until" = ${leaseUntil},
+             "claim_id" = gen_random_uuid(),
+             "attempt_count" = target."attempt_count" + 1
+       WHERE target."message_id" IN (
+         SELECT candidate."message_id"
+           FROM "soc_outbox_messages" AS candidate
+          WHERE (
+                (candidate."status" = 'pending' AND candidate."available_at" <= ${at})
+                OR (candidate."status" = 'processing' AND candidate."lease_until" < ${at})
+              )
+            AND (
+              ${lane} = 'all'
+              OR NOT COALESCE((
+                (candidate."aggregate_type" = 'alert'
+                  AND candidate."message_type" IN ('soc.alert.created', 'soc.alert.escalated')
+                  AND candidate."payload"->>'priority' = 'P1')
+                OR (candidate."aggregate_type" = 'incident'
+                  AND candidate."message_type" = 'soc.incident.opened'
+                  AND candidate."payload"->>'severity' = 'critical')
+              ), false)
+            )
           ORDER BY candidate."available_at", candidate."message_id"
           LIMIT ${take}
           FOR UPDATE SKIP LOCKED

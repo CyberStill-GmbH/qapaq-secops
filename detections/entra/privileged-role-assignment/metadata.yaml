@@ -1,0 +1,49 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-ENTRA-001
+title: Nuevo administrador en Entra (rol privilegiado y tier 0)
+source: entra
+use_case: privileged-role-assignment
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Un atacante con privilegio intermedio se agrega o agrega a un cómplice a un rol de Entra para controlar
+  el tenant.
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: detections/entra/privileged-role-assignment/rule.xml
+  ids:
+  - 101704
+  installed_as: etc/rules/qapaq_soc_entra_privileged_role_assignment.xml
+  related:
+    file: wazuh/office365/rules/qapaq_office365_rules.xml
+    ids:
+    - 100520
+    - 100521
+mitre:
+- technique: T1098.003
+  tactic: privilege-escalation
+severity:
+  levels: 9 cualquier rol · 13 rol privilegiado · 14 tier 0 (Global/Privileged Role/Privileged Authentication)
+  priority_hint: P1 para tier 0
+  rationale: Un Global Administrator puede deshabilitar toda la defensa del tenant; no existe un falso positivo
+    barato.
+false_positives:
+- Activaciones PIM planificadas de los administradores de plataforma (deben venir con ticket).
+- 'Altas de onboarding del equipo de identidad: correlacionar con el cambio aprobado.'
+tuning:
+- Cuando haya evidencia real, confirmar el nombre exacto de la operación y el formato de ModifiedProperties.
+tests:
+  runner: logtest
+  fixtures: detections/entra/privileged-role-assignment/fixtures.jsonl
+  expected: detections/entra/privileged-role-assignment/expected.txt
+runbook: docs/detection-engineering/runbooks/escalada-de-privilegios.md#entra
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'
+respond_playbook: ankay/playbooks/qapaq-contencion-identidad-aprobada.json

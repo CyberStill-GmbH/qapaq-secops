@@ -11,7 +11,8 @@ variable "vpc_id" {
 }
 
 variable "allowed_admin_cidrs" {
-  type = list(string)
+  description = "Client VPN client CIDRs allowed to reach the Wazuh HTTPS edge and Dashboard. Must be configured before deployment."
+  type        = list(string)
 }
 
 variable "enable_https" {

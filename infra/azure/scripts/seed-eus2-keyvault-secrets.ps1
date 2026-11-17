@@ -21,7 +21,7 @@ $sourceToSecret = [ordered]@{
 # Pin the importer to the isolated EUS2 target so an accidental parameter override
 # cannot send demo credentials to another subscription or vault.
 $targetSubscriptionId = 'aaf787f8-5964-4470-9eb6-89d15eacda61'
-$targetTenantId = '45f2f938-dbe3-4a3e-8a54-930893f94ef8'
+$targetTenantId = '11111111-1111-4111-8111-111111111111'
 $targetResourceGroupName = 'rg-qapaqsecopsdemoeus-3a2405f3'
 $targetVaultName = 'kv-qapaqsecopsd-3a2405f3'
 

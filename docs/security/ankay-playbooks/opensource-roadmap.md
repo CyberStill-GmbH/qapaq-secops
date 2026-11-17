@@ -1,7 +1,10 @@
-# Roadmap de automatización Ankay QAPAQ basado en upstreams
+# Roadmap de automatización de Ankay basado en upstreams
 
-**Estado:** selección y diseño; todavía no se importaron workflows a una instancia
-Ankay ni se habilitaron credenciales. El criterio es adoptar interfaces y prácticas
+**Estado:** selección y diseño; todavía no se importó ninguna automatización ni se habilitaron
+credenciales. Cada automatización se implementa como una **máquina de estados de AWS Step Functions**
+con aprobación humana (`waitForTaskToken`) y ejecución idempotente ([13](../../13-ankay-qapaq.md)).
+Las filas y secciones que citan Shuffle son referencia **heredada** del motor anterior; se aprovechan
+como patrones, no como dependencia. El criterio es adoptar interfaces y prácticas
 de repositorios upstream con mantenimiento identificable, no copiar flujos de labs
 personales que ejecutan comandos, usan tokens en claro o bloquean automáticamente.
 
@@ -11,7 +14,7 @@ personales que ejecutan comandos, usan tokens en claro o bloquean automáticamen
 |---|---|---|---|
 | Wazuh Manager / ruleset | Decoders y reglas base, grupos de eventos, `wazuh-logtest`, integración de alertas. | Wazuh detecta y mantiene alertas; personalizaciones locales en `infra/wazuh/` y versionadas. | No editar `/var/ossec/ruleset`; validar contra la versión exacta; los grupos de eventos requieren telemetría real. |
 | SigmaHQ | Hipótesis de detección portables con estado, UUID, ATT&CK y falsos positivos documentados. | Traducir reglas elegidas a campos del decoder Wazuh; guardar fuente, autores, licencia y fixtures. | No importación masiva ni conversión automática a producción. Las reglas test/experimental pasan a shadow y nivel de revisión. |
-| Shuffle / Shuffle Docs | Workflows visuales, triggers, condiciones, subflows, export/import JSON y patrón Collect → Enrich → Detect → Respond → Verify. | Ankay ejecuta triage y enriquecimiento; export JSON versionado tras validar que el workflow importa en la versión fijada. | Las variables ordinarias de Shuffle no están cifradas y son compartidas dentro del tenant; no poner tokens de proveedor allí. Sin acciones destructivas en un workflow de ingestión. |
+| Shuffle / Shuffle Docs (heredado) | Patrón Collect → Enrich → Detect → Respond → Verify, triggers, condiciones y subflows. | Se reutiliza el patrón como estructura de las máquinas de estados (estados de enriquecimiento y verificación); no se usa el motor. | Sin tokens de proveedor en variables de workflow; sin acciones destructivas en una automatización de ingestión. |
 | Sophos Central SIEM Integration (upstream Sophos) | Recolección paginada con estado/checkpoint, reintento y normalización JSON/CEF; evita perder eventos por polling incremental. | Comparar con el conector QAPAQ existente; aprovechar el contrato/técnicas para ingestión de eventos y alertas Sophos. | No ejecutar dos pollers con estados independientes contra la misma fuente; deduplicar por ID proveedor y no confundir alerta con evento. |
 | Cato Networks `cato-go-sdk` / `cato-cli` | Cliente/CLI oficial de la API GraphQL para consultas y automatización operativa. | En Ankay usar un adapter read-only o HTTP GraphQL limitado para `eventsFeed`, continuar el marker opaco y adjuntar site/asset. | No dar a un workflow de triage credenciales de mutación de política. No reconstruir markers ni cambiar configuración de red automáticamente. |
 | Microsoft Graph | Superficie oficial complementaria para `security/alerts_v2`, sign-ins y audit logs. | Mantener Wazuh como colector M365 principal; Graph complementa casos con scopes mínimos, cuando añada campos no presentes en UAL. | No duplicar todo el feed; fijar permiso/licencia, tenant, campos y política de retención antes de activar. |
@@ -81,16 +84,16 @@ personales que ejecutan comandos, usan tokens en claro o bloquean automáticamen
 - **Acciones:** humano/SoD, permiso de mínimo alcance, dry-run, idempotencia,
   expiración y verificación. `containment.*` permanece desactivado hasta ese gate.
 
-## Condiciones para importar a Shuffle
+## Condiciones para desplegar una automatización
 
-1. Confirmar versión de Ankay/Shuffle y presencia/versiones de las Apps requeridas.
-2. Exportar el workflow desde Shuffle en JSON; revisar el diff y versionarlo en Git.
-   No inventar un JSON de importación sin probarlo con la versión fijada.
+1. Definir la máquina de estados como ASL versionado en Git, con los roles IAM mínimos de cada estado.
+   (Heredado: si se usara Shuffle, exportar el workflow en JSON y no inventar un JSON sin probarlo
+   con la versión fijada.)
 3. Revisar cada variable, auth, endpoint, scope y límite; eliminar secretos y PII del
-   artefacto exportado.
+   artefacto versionado (los secretos van por `secretRef` a Secrets Manager).
 4. Ejecutar fixtures sintéticos con ramas positivas, negativas, datos incompletos,
    timeout, 401/403/429/5xx, replay y duplicados.
-5. Importar y probar con credenciales read-only en demo; conservar evidencia redacted,
+5. Desplegar y probar con credenciales read-only en demo; conservar evidencia redacted,
    y luego solicitar revisión humana antes de habilitar un workflow.
 
 ## Referencias de código y documentación
@@ -99,7 +102,7 @@ personales que ejecutan comandos, usan tokens en claro o bloquean automáticamen
 - [Wazuh ruleset: Sysmon Event ID 1](https://github.com/wazuh/wazuh-ruleset/blob/master/rules/0595-win-sysmon_rules.xml)
 - [SigmaHQ: hijo sospechoso de Outlook](https://github.com/SigmaHQ/sigma/blob/master/rules/windows/process_creation/proc_creation_win_office_outlook_susp_child_processes.yml)
 - [SigmaHQ: DRL 1.1](https://github.com/SigmaHQ/Detection-Rule-License)
-- [Shuffle: workflow lifecycle, webhook, conditions, exports e imports](https://github.com/shuffle/shuffle-docs/blob/master/docs/workflows.md)
+- (Heredado) [Shuffle: workflow lifecycle, webhook, conditions, exports e imports](https://github.com/shuffle/shuffle-docs/blob/master/docs/workflows.md)
 - [Shuffle: Wazuh alert forwarding](https://github.com/Shuffle/Shuffle-docs/blob/master/docs/extensions.md)
 - [Shuffle: workflow release process y etapas Collect/Enrich/Detect/Respond/Verify](https://github.com/Shuffle/shuffle-docs/blob/master/handbook/engineering/workflow_release_process.md)
 - [Shuffle: workflows del proyecto upstream](https://github.com/Shuffle/shuffle-workflows)

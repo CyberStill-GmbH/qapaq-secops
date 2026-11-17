@@ -136,6 +136,34 @@ export interface SourceHealth {
   readonly lastAttemptAt: string | null;
   readonly lastSuccessAt: string | null;
   readonly lastEventAt: string | null;
+  readonly eventLag: {
+    readonly sampleWindow: number;
+    readonly sampleCount: number;
+    readonly clockSkewSamples: number;
+    readonly measuredAt: string | null;
+    readonly p50Ms: number | null;
+    readonly p95Ms: number | null;
+    readonly p99Ms: number | null;
+  };
+  readonly processing: {
+    readonly attemptedAt: string;
+    readonly completedAt: string;
+    readonly outcome: 'success' | 'retryable_error' | 'permanent_error';
+    readonly recordsSeen: number;
+    /** Null for historic rows predating this counter. */
+    readonly normalized: number | null;
+    readonly quarantined: number;
+    readonly promoted: number;
+    /** Null for historic rows predating these counters. */
+    readonly duplicates: number | null;
+    /** Null for historic rows predating these counters. */
+    readonly notPromoted: number | null;
+    /** Subset of notPromoted below the QAPAQ promotion score threshold. */
+    readonly belowThreshold: number | null;
+    /** Subset of notPromoted suppressed by a benign rule or maintenance window. */
+    readonly suppressed: number | null;
+    readonly errorClass: string | null;
+  } | null;
   readonly consecutiveFailures: number;
   readonly lastErrorClass: string | null;
   readonly policy: {
@@ -257,10 +285,28 @@ export interface RoleRequestView {
   readonly revision: number;
 }
 
+/** Estado del padrón cuando todavía no hay solicitudes posibles (sin grupo resuelto). */
+export interface DirectoryDiagnostic {
+  readonly status: number;
+  readonly errorCode: string | null;
+  readonly requestId: string | null;
+  readonly operation: 'resolveGroupId' | 'memberDelta' | 'owners' | 'userProfile';
+}
+
+export interface RoleRequestDirectoryState {
+  readonly status: 'pending' | 'disabled';
+  readonly lastErrorClass: string | null;
+  /** Falta `GroupMember.Read.All` (consentimiento de administrador) en la app de Entra. */
+  readonly permissionMissing: boolean;
+  readonly diagnostic?: DirectoryDiagnostic | null;
+  readonly nextAttemptAt: string | null;
+}
+
 export interface RoleRequestPage {
   readonly correlationId: string;
   readonly items: readonly RoleRequestView[];
   readonly nextCursor: string | null;
+  readonly directory?: RoleRequestDirectoryState;
 }
 
 export type RoleRequestListResponse = RoleRequestPage;
@@ -300,7 +346,14 @@ export interface DirectorySync {
   readonly lastAttemptAt: string | null;
   readonly lastSuccessAt: string | null;
   readonly lastErrorClass: string | null;
+  readonly diagnostic?: DirectoryDiagnostic | null;
   readonly stale: boolean;
+  /** `false` mientras el grupo Accesos_SOC no se ha podido resolver en Graph. */
+  readonly groupResolved?: boolean;
+  /** Falta `GroupMember.Read.All` (consentimiento de administrador) en la app de Entra. */
+  readonly permissionMissing?: boolean;
+  /** Próximo reintento automático de resolver el grupo. */
+  readonly nextAttemptAt?: string | null;
 }
 
 export interface SessionInfo {
@@ -329,9 +382,12 @@ export const NOTIFICATION_STATUSES = [
   'failed',
   'fallback',
   'acknowledged',
+  'suppressed',
+  'superseded',
 ] as const;
 export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
 export type NotificationChannel = 'teams' | 'fallback_email' | 'manual_console';
+export type NotificationDeliveryChannel = NotificationChannel | 'email' | 'console' | 'push';
 
 /** Estados en los que una persona puede acusar recibo (modules/soar/src/notification.ts). */
 export const ACKNOWLEDGEABLE: readonly NotificationStatus[] = ['sent', 'indeterminate', 'fallback'];
@@ -345,6 +401,117 @@ export interface NotificationAttempt {
   readonly acknowledgedAt: string | null;
   readonly acknowledgedBy: string | null;
   readonly lastFailureClass: string | null;
+  /** Campos que el API ya entrega en el nivel superior del DTO. */
+  readonly statusLabel?: string;
+  readonly deliveryState?: string;
+  readonly createdAt?: string;
+  readonly title?: string | null;
+  readonly priority?: Priority | null;
+  readonly severity?: string | null;
+  readonly source?: string | null;
+  readonly sourceId?: string | null;
+  readonly entity?: string | { readonly kind?: string; readonly display?: string } | null;
+  readonly ruleId?: string | null;
+  readonly summary?: string | null;
+  readonly whyItMatters?: string | null;
+  readonly nextStep?: string | null;
+  readonly occurredAt?: string | null;
+  readonly kind?: string | null;
+  readonly occurrences?: number;
+  readonly suppressionReason?: string | null;
+  readonly coveredBy?: string | null;
+  readonly digestId?: string | null;
+  readonly deepLink?: string | null;
+  readonly links?: Readonly<Record<string, string | null>> | null;
+  /*
+   * Campos opcionales pedidos al dispatcher (coordinación con el agente de notificaciones,
+   * COORDINACION-CLAUDE-CODEX.md). La bandeja funciona sin ellos y los usa en cuanto llegan.
+   */
+  /** Mensaje lógico: varios intentos del mismo aviso comparten `messageId`. */
+  readonly messageId?: string;
+  /** Alerta QAPAQ que originó el aviso (si la hay). */
+  readonly alertId?: string | null;
+  readonly incidentId?: string | null;
+  /** Resumen ya proyectado y con la entidad enmascarada (sin datos personales en claro). */
+  readonly subject?: NotificationSubject | null;
+  /** Historial de entrega por canal e intento. */
+  readonly deliveries?: readonly NotificationDelivery[];
+  /** Nombre que usa el DTO actual de OperationsController. */
+  readonly delivery?: readonly NotificationDelivery[];
+  /** Enlace al mensaje en Teams («Ver en Teams»), si el canal lo devuelve. */
+  readonly link?: string | null;
+  readonly lastFailureReason?: string | null;
+}
+
+export interface NotificationSubject {
+  readonly title: string;
+  readonly priority?: Priority | null;
+  readonly ruleId?: string | null;
+  /** `wazuh | office365 | bitdefender | snyk | cloudflare | aws | sharepoint`. */
+  readonly source?: string | null;
+  /** Entidad afectada YA enmascarada por la API (p. ej. `is***@qapaq.pe`). */
+  readonly entity?: string | null;
+}
+
+/**
+ * Canales de notificación (`GET /api/notifications/channels`, propuesta acordada con el agente
+ * de notificaciones; ver COORDINACION-CLAUDE-CODEX.md). El secreto nunca viaja completo:
+ * `target` es el webhook o buzón ya enmascarado por la API.
+ */
+export type NotificationChannelState =
+  'active' | 'inactive' | 'failing' | 'unconfigured' | 'unknown';
+
+export interface NotificationChannelView {
+  readonly id: NotificationChannel;
+  /** ID wire del API (por compatibilidad con los nombres visibles de la UI). */
+  readonly apiId?: 'teams' | 'email' | 'push';
+  readonly enabled: boolean;
+  readonly configured: boolean;
+  readonly state: NotificationChannelState;
+  readonly target: string | null;
+  readonly lastDelivery: {
+    readonly ok: boolean;
+    readonly at: string;
+    readonly reason?: string | null;
+  } | null;
+  readonly updatedAt?: string | null;
+  readonly updatedBy?: string | null;
+  /** Revisión de la configuración; se devuelve como `expectedRevision` en cada cambio. */
+  readonly revision?: number;
+  /** El API indica que el canal aún no demostró que puede entregar (falta configurar, activar o probar). */
+  readonly needsSetup?: boolean;
+}
+
+export interface NotificationChannelsResponse {
+  readonly channels: readonly NotificationChannelView[];
+}
+
+export interface NotificationChannelTest {
+  readonly ok: boolean;
+  /** El proveedor aceptó la solicitud; no demuestra entrega o lectura humana. */
+  readonly accepted: boolean;
+  readonly at: string;
+  readonly reason?: string | null;
+  readonly latencyMs?: number | null;
+}
+
+export type NotificationDeliveryOutcome = 'sent' | 'delivered' | 'failed' | 'acknowledged';
+
+export interface NotificationDelivery {
+  /** Presente en el formato histórico `deliveries`; `delivery` del DTO actual lo omite. */
+  readonly attempt?: number;
+  readonly channel: NotificationDeliveryChannel;
+  /** accepted = el proveedor aceptó la solicitud; no demuestra lectura humana. */
+  readonly outcome: NotificationDeliveryOutcome | 'accepted' | 'indeterminate';
+  readonly at: string;
+  readonly responseAt?: string;
+  readonly httpStatus?: number | null;
+  readonly providerMessageId?: string | null;
+  readonly providerLink?: string | null;
+  readonly reason?: string | null;
+  /** Quién reconoció (solo `acknowledged`). */
+  readonly actor?: string | null;
+  readonly link?: string | null;
 }
 
 /** `GET /api/changes`: qué cambió (tipo, id), nunca el contenido. */
@@ -362,6 +529,22 @@ export interface ChangesResponse {
 }
 
 export type OperationsStatus = 'OK' | 'NO_DATA' | 'STALE' | 'DEGRADED';
+
+export type CorrelatorFeedbackStatus =
+  | 'ready'
+  | 'pending'
+  | 'failed'
+  | 'stale'
+  | 'unavailable'
+  | 'unconfigured';
+
+export interface SocCorrelatorHealth {
+  readonly status: OperationsStatus;
+  readonly ready: boolean | null;
+  readonly feedbackStatus: CorrelatorFeedbackStatus;
+  readonly feedbackAgeSeconds: number | null;
+  readonly lastFeedbackSuccess: string | null;
+}
 
 export interface OperationsHealth {
   readonly generatedAt: string;
@@ -382,11 +565,56 @@ export interface OperationsHealth {
         readonly pending: number;
         readonly processing: number;
         readonly oldestPendingAgeSeconds: number | null;
+        readonly expiredProcessing: number;
+        readonly oldestExpiredLeaseAgeSeconds: number | null;
       };
       readonly notifications: {
         readonly windowHours: number;
         readonly byStatus: Readonly<Record<string, number>>;
       };
+      /** Optional while older API deployments do not yet return correlator readiness. */
+      readonly correlator?: SocCorrelatorHealth | null;
+      /** Outbox creation to first external provider HTTP 2xx; accepted does not mean read. */
+      readonly outboxToProviderAcceptanceMs: {
+        readonly status: OperationsStatus;
+        readonly windowHours: 24;
+        readonly sampleCount: number;
+        readonly excludedClockSkewCount: number;
+        readonly sampleCapReached: boolean;
+        readonly p50: number | null;
+        readonly p95: number | null;
+        readonly p99: number | null;
+        readonly acceptanceMeans: string;
+      };
+      readonly wazuhPushInbox: {
+        readonly counts: Readonly<
+          Record<'pending' | 'processing' | 'processed' | 'failed-terminal', number>
+        >;
+        readonly oldestPendingAgeSeconds: number | null;
+        readonly oldestProcessingAgeSeconds: number | null;
+        readonly oldestUnresolvedAgeSeconds: number | null;
+        readonly oldestTerminalAgeSeconds: number | null;
+        readonly lastProcessedAt: string | null;
+        readonly expiredProcessing: number;
+        readonly terminalFailuresRecent: number;
+        readonly terminalWindowHours: 24;
+        readonly sourceToReceiptMs: {
+          readonly windowHours: 24;
+          readonly sampleCount: number;
+          readonly clockSkewSamples: number;
+          readonly sampleCapReached: boolean;
+          readonly p50: number | null;
+          readonly p95: number | null;
+          readonly p99: number | null;
+        };
+        readonly receiptToHandlerMs: {
+          readonly windowHours: 24;
+          readonly sampleCount: number;
+          readonly p50: number | null;
+          readonly p95: number | null;
+          readonly p99: number | null;
+        };
+      } | null;
     };
     readonly platform?: {
       readonly status: OperationsStatus;
@@ -421,7 +649,6 @@ export const API_ERROR_CODES = [
   'STATE_CONFLICT',
   'VALIDATION_FAILED',
   'DEPENDENCY_DEGRADED',
-  'FEATURE_NOT_CONFIGURED',
   'INTERNAL_ERROR',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
@@ -457,39 +684,11 @@ export const CAPABILITIES = {
   sessionsRead: 'sessions.read',
   sessionsRevoke: 'sessions.revoke',
   notificationsRead: 'notifications.read',
+  notificationsManage: 'notifications.manage',
   observabilitySoc: 'observability.read_soc',
   observabilityPlatform: 'observability.read_platform',
-  assistantUse: 'assistant.use',
+  /** Analista IA: ver investigaciones / iniciar, detener y reintentar / configurar (admin). */
+  investigationsRead: 'investigations.read',
+  investigationsRun: 'investigations.run',
+  investigationsConfigure: 'investigations.configure',
 } as const;
-
-/**
- * Asistente Qapaqzito (`apps/api/src/soc/assistant.controller.ts`). El backend seudonimiza todo lo
- * que envía al modelo y re-resuelve la respuesta: `reply.text` ya trae las entidades en claro.
- * El historial vive en el servidor; la consola solo envía el mensaje nuevo y `conversationId`.
- */
-export interface AssistantStatus {
-  readonly name: string;
-  readonly configured: boolean;
-  readonly model: string | null;
-  readonly limits: { readonly messageMaxLength: number; readonly maxTurns: number };
-  readonly correlationId: string;
-}
-
-export interface AssistantMessageRequest {
-  readonly conversationId?: string;
-  readonly message: string;
-  readonly context?: { readonly alertId?: string; readonly incidentId?: string };
-}
-
-export interface AssistantMessageResponse {
-  readonly conversationId: string;
-  readonly reply: {
-    readonly text: string;
-    readonly truncated: boolean;
-    readonly declined: boolean;
-  };
-  readonly model: string;
-  readonly toolsUsed: readonly string[];
-  readonly usage: { readonly inputTokens: number; readonly outputTokens: number };
-  readonly correlationId: string;
-}

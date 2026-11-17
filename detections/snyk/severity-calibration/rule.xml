@@ -1,0 +1,39 @@
+<!--
+  QAPAQ SecOps · calibración de severidad · detections/snyk/severity-calibration (metadata.yaml, docs/17 §Ajuste).
+  Para que P1/P2 signifiquen "accionable hoy": una vulnerabilidad sube de nivel solo si está EXPUESTA
+  (lista qapaq-internet-facing-projects) o tiene exploit maduro. Medido en AWS: 173 issues bajos (nivel 3),
+  60 altos (nivel 10 = correo QAPAQ) y críticos a nivel 12 (webhook de Ankay) sin corroboración.
+  - baja sin exploit maduro → 2 (fuera del índice de alertas; sigue en Snyk y en el estado del collector)
+  - alta no expuesta y sin exploit → 7 (cola QAPAQ, sin correo)
+  - crítica no expuesta y sin exploit → 10 (correo QAPAQ, sin webhook de respuesta)
+  Las hermanas con exploit maduro (101457/101458) y las expuestas (101730/101731) tienen más nivel y se
+  evalúan primero. Rango QAPAQ Snyk 101730–101739. Se instala como qapaq_soc_snyk_severity_calibration.xml.
+-->
+<group name="qapaq_provider,snyk,qapaq_vulnerability,qapaq_tuning,">
+  <rule id="101732" level="2">
+    <if_sid>101453</if_sid>
+    <field name="snyk.issue.exploit_maturity" negate="yes">^Mature$</field>
+    <description>QAPAQ Snyk: vulnerabilidad baja sin exploit maduro $(snyk.issue.title) en $(snyk.project.name) (backlog de AppSec).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101733" level="7">
+    <if_sid>101455</if_sid>
+    <list field="snyk.project.name" lookup="not_match_key">etc/lists/qapaq-internet-facing-projects</list>
+    <description>QAPAQ Snyk: vulnerabilidad ALTA sin exposición ni exploit maduro $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <rule id="101734" level="10">
+    <if_sid>101456</if_sid>
+    <list field="snyk.project.name" lookup="not_match_key">etc/lists/qapaq-internet-facing-projects</list>
+    <description>QAPAQ Snyk: vulnerabilidad CRÍTICA sin exposición ni exploit maduro $(snyk.issue.title) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+</group>

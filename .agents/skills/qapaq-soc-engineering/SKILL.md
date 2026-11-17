@@ -3,7 +3,7 @@ name: qapaq-soc-engineering
 description: Use for QAPAQ SecOps product, SOC workflow, UI, backend integration, release-readiness, or cloud test work in this repository.
 ---
 
-# QAPAQ SOC engineering
+# QAPAQ SecOps engineering
 
 Before changing code or plans, read `COORDINACION-CLAUDE-CODEX.md`, inspect `git status`,
 check file locks there, and read the applicable decision in `docs/10-decisiones.md`, component doc, API/design

@@ -1,0 +1,63 @@
+<!-- QAPAQ provider rules: monitoring only; response actions require the QAPAQ approval workflow. -->
+<group name="qapaq_provider,qapaq_multisource,">
+  <rule id="101216" level="14">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">cloudflare</field>
+    <field name="qapaq_event_type">security_control_disabled</field>
+    <description>QAPAQ: cambio destructivo en control de seguridad de Cloudflare; verificar actor, recurso y cambio aprobado.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.007</id></mitre>
+    <group>qapaq_cloudflare,qapaq_defense_evasion,</group>
+  </rule>
+  <rule id="101217" level="8">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">cloudflare</field>
+    <field name="qapaq_event_type">audit_change</field>
+    <description>QAPAQ: cambio administrativo en Cloudflare por $(qapaq_actor) sobre $(qapaq_product): $(qapaq_action).</description>
+    <options>no_full_log</options>
+    <group>qapaq_cloudflare,qapaq_change_monitoring,</group>
+  </rule>
+  <rule id="101218" level="11">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">snyk</field>
+    <field name="qapaq_event_type">vulnerability_found</field>
+    <field name="qapaq_severity" type="pcre2">(?i)^(high|critical)$</field>
+    <field name="qapaq_status" type="pcre2">(?i)^(open|active|new)$</field>
+    <description>QAPAQ: hallazgo alto/crítico activo en Snyk; valorar exposición, entorno productivo y explotabilidad antes de priorizar.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1195</id></mitre>
+    <group>qapaq_snyk,qapaq_vulnerability,</group>
+  </rule>
+  <rule id="101219" level="13">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_vendor">bitdefender</field>
+    <field name="qapaq_event_type">endpoint_incident</field>
+    <field name="qapaq_severity" type="pcre2">(?i)^(high|critical)$</field>
+    <field name="qapaq_status" type="pcre2">(?i)^(open|in_progress)$</field>
+    <description>QAPAQ: incidente alto/crítico abierto de Bitdefender en endpoint $(qapaq_endpoint_id).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1204</id><id>T1059</id></mitre>
+    <group>qapaq_bitdefender,qapaq_malware,</group>
+  </rule>
+  <rule id="101220" level="7">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_event_type">provider_auth_failed</field>
+    <description>QAPAQ: el collector de $(qapaq_vendor) no tiene autorización API (HTTP $(qapaq_http_status)); la fuente está degradada.</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_health,qapaq_authentication_failed,</group>
+  </rule>
+  <rule id="101221" level="5">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_event_type">provider_api_error</field>
+    <description>QAPAQ: error de consulta de $(qapaq_vendor); revisar la salud de la integración.</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_health,</group>
+  </rule>
+  <rule id="101222" level="2">
+    <if_sid>101200</if_sid>
+    <field name="qapaq_event_type">provider_recovered</field>
+    <description>QAPAQ: se restableció la conexión de lectura a $(qapaq_vendor).</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_health,qapaq_provider_recovered,</group>
+  </rule>
+</group>

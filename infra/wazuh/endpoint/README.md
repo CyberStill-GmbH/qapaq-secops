@@ -1,5 +1,9 @@
 # Detecciones endpoint QAPAQ sobre Wazuh
 
+> **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
+> [`docs/archive/azure`](../../../docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](../../../docs/02-arquitectura.md)); lo técnico
+> que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
+
 **Estado: candidata; quedará en el próximo bundle Azure, pero aún no está instalada en un Manager ni observada en endpoints QAPAQ.**
 
 Este paquete incorpora una adaptación acotada de la idea de SigmaHQ “Suspicious Outlook

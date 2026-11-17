@@ -1,0 +1,18 @@
+<!--
+  QAPAQ SecOps · detección como código · detections/entra/privileged-role-assignment (metadata.yaml).
+  Refina 100520 (rol privilegiado de Entra) cuando el rol es tier 0: control total del tenant.
+  Rango QAPAQ: 101704 (bloque M365/Entra 101700-101709). Se instala como qapaq_soc_entra_privileged_role_assignment.xml.
+  Mismo gate que 100520: qapaq_pending_provider_evidence hasta tener un registro real redactado como fixture.
+-->
+<group name="office365,qapaq_m365,">
+  <rule id="101704" level="14">
+    <if_sid>100520</if_sid>
+    <field name="office365.ModifiedProperties" type="pcre2">(Global Administrator|Privileged Role Administrator|Privileged Authentication Administrator|Company Administrator)</field>
+    <description>QAPAQ Entra: $(office365.UserId) asignó un rol tier 0 (Global, Privileged Role o Privileged Authentication Administrator) a $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1098.003</id>
+    </mitre>
+    <group>azure_ad,qapaq_privilege_escalation,qapaq_tier0,qapaq_pending_provider_evidence,</group>
+  </rule>
+</group>

@@ -43,14 +43,12 @@ import {
   Priority,
   SEVERITY_LABEL,
   VERDICT_LABEL,
+  vendorOfTitle,
 } from '../../common';
+import { openIncidentForAlert } from '../api/alert_review';
 import { QapaqApiError } from '../api/client';
-import {
-  AssistantLauncher,
-  AssistantPanel,
-  AssistantSession,
-  useAssistantSession,
-} from './assistant_panel';
+import { alertInvestigationHref } from './investigation_links';
+import { VendorLogo } from './vendor_logo';
 import { QapaqPage, useChanges, useConsole } from './console_context';
 import {
   DataZone,
@@ -92,21 +90,22 @@ export function AlertsView({
   onSelect,
   basePath,
   initialPriority = null,
+  initialQuery = null,
 }: {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   basePath: string;
   initialPriority?: string | null;
+  /** `?q=` (pivote desde una entidad de la investigación). */
+  initialQuery?: string | null;
 }) {
   const { api } = useConsole();
-  // Qapaqzito: la conversación vive en la vista, así sobrevive a cerrar el panel o cambiar de alerta.
-  const assistant = useAssistantSession();
   const [status, setStatus] = useState<StatusFilter>('open');
   const [priority, setPriority] = useState<Priority | ''>(
     isPriority(initialPriority) ? initialPriority : '',
   );
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState((initialQuery ?? '').slice(0, 120));
+  const [query, setQuery] = useState((initialQuery ?? '').trim().slice(0, 120));
   const [items, setItems] = useState<readonly Alert[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [extraPages, setExtraPages] = useState(0);
@@ -161,7 +160,10 @@ export function AlertsView({
       truncateText: false,
       render: (value: string, alert: Alert) => (
         <span className="qapaqCellTitle">
-          <span>{value}</span>
+          <span className="qapaqCellTitle__main">
+            <VendorLogo id={vendorOfTitle(value)} basePath={basePath} size="s" />
+            <span>{value}</span>
+          </span>
           {alert.entities.length > 0 && (
             <span className="qapaqCellMeta">
               {alert.entities
@@ -201,7 +203,6 @@ export function AlertsView({
     <QapaqPage
       title="Cola de alertas"
       description="Cola priorizada por QAPAQ (P1–P4) a partir de las detecciones del SIEM y de Microsoft 365."
-      actions={<AssistantLauncher session={assistant} label="Preguntar a Qapaqzito" />}
     >
       <EuiTabs size="s" className="qapaqTabs">
         {STATUS_TABS.map((tab) => (
@@ -280,7 +281,6 @@ export function AlertsView({
         <AlertFlyout
           alertId={selectedId}
           basePath={basePath}
-          assistant={assistant}
           onClose={() => onSelect(null)}
           onChanged={(updated) =>
             setItems((current) =>
@@ -289,7 +289,6 @@ export function AlertsView({
           }
         />
       )}
-      <AssistantPanel session={assistant} />
     </QapaqPage>
   );
 }
@@ -297,13 +296,11 @@ export function AlertsView({
 function AlertFlyout({
   alertId,
   basePath,
-  assistant,
   onClose,
   onChanged,
 }: {
   alertId: string;
   basePath: string;
-  assistant: AssistantSession;
   onClose: () => void;
   onChanged: (alert: Alert) => void;
 }) {
@@ -382,11 +379,24 @@ function AlertFlyout({
         {alert && (
           <>
             <EuiSpacer size="s" />
-            <AssistantLauncher
-              session={assistant}
-              alertId={alert.id}
-              label="Preguntar a Qapaqzito sobre esta alerta"
-            />
+            <EuiButton
+              size="s"
+              fill
+              iconType="inspect"
+              href={alertInvestigationHref(basePath, alert.id)}
+              data-test-subj="qapaqInvestigateAlert"
+            >
+              Investigar: línea de tiempo, entidades y evento
+            </EuiButton>
+            {can(CAPABILITIES.investigationsRun) && (
+              <EuiButtonEmpty
+                size="s"
+                href={`${basePath}/app/qapaq-ai-analyst?alertId=${encodeURIComponent(alert.id)}`}
+                data-test-subj="qapaqInvestigateWithAnalyst"
+              >
+                Investigar con Analista IA
+              </EuiButtonEmpty>
+            )}
           </>
         )}
       </EuiFlyoutHeader>
@@ -642,14 +652,19 @@ function NoteField({
   );
 }
 
-function OpenIncidentForm({
+export function OpenIncidentForm({
   alert,
   onCancel,
   onOpened,
+  initialSummary = '',
+  heading = 'Abrir incidente desde esta alerta',
 }: {
   alert: Alert;
   onCancel: () => void;
   onOpened: (incidentId: string) => void;
+  /** Resumen precargado y editable (p. ej. la conclusión del Analista IA). */
+  initialSummary?: string;
+  heading?: string;
 }) {
   const { api } = useConsole();
   const defaultSeverity = useMemo<IncidentSeverity>(
@@ -658,7 +673,7 @@ function OpenIncidentForm({
   );
   const [title, setTitle] = useState(alert.title);
   const [severity, setSeverity] = useState<IncidentSeverity>(defaultSeverity);
-  const [summary, setSummary] = useState('');
+  const [summary, setSummary] = useState(initialSummary);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -666,14 +681,7 @@ function OpenIncidentForm({
     setBusy(true);
     setError(null);
     try {
-      const result = await api.post<{ incident: { id: string } }>('/incidents', {
-        alertId: alert.id,
-        title: title.trim(),
-        severity,
-        summary: summary.trim(),
-        expectedAlertRevision: alert.revision,
-      });
-      onOpened(result.incident.id);
+      onOpened(await openIncidentForAlert(api, alert, { title, severity, summary }));
     } catch (failure) {
       setError(failure);
     } finally {
@@ -685,7 +693,7 @@ function OpenIncidentForm({
     <>
       <EuiSpacer size="l" />
       <EuiTitle size="xxs">
-        <h3>Abrir incidente desde esta alerta</h3>
+        <h3>{heading}</h3>
       </EuiTitle>
       <EuiSpacer size="s" />
       {error != null && <ErrorCallout error={error} />}

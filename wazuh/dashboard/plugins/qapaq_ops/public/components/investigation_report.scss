@@ -1,0 +1,184 @@
+.qapaqReportActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px;
+  align-items: center;
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #364453;
+  border-radius: 4px;
+  background: #1a222b;
+}
+
+.qapaqReportActions__copy h3 {
+  margin: 0 0 4px;
+  color: #edf2f7;
+  font-size: 14px;
+}
+
+.qapaqReportActions__copy p,
+.qapaqReportActions__message {
+  margin: 0;
+  color: #aab6c2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.qapaqReportActions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+// Acción principal: «Generar informe con Qapaqzito» (ámbar QAPAQ) con menú de formato.
+.qapaqReportActions__primary {
+  position: relative;
+}
+
+.qapaqReportActions__split {
+  display: inline-flex;
+}
+
+.qapaqReportActions__qapaqzito,
+.qapaqReportActions__qapaqzitoMenu {
+  min-height: 36px;
+  border: 0;
+  background: #c49a5a;
+  color: #080808;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #c49a5a;
+    outline-offset: 2px;
+  }
+}
+
+.qapaqReportActions__qapaqzito {
+  padding: 7px 14px;
+  border-radius: 6px 0 0 6px;
+}
+
+.qapaqReportActions__qapaqzitoMenu {
+  padding: 7px 10px;
+  border-left: 1px solid rgba(33, 20, 27, 0.35);
+  border-radius: 0 6px 6px 0;
+}
+
+.qapaqReportActions__menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid #566576;
+  border-radius: 6px;
+  background: #1f2832;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  button {
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: #f2f5f8;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+
+    &:hover,
+    &:focus-visible {
+      background: #334151;
+    }
+  }
+}
+
+// Exportación directa (en el navegador): secundaria.
+.qapaqReportActions__direct {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #364453;
+}
+
+.qapaqReportActions__directLabel {
+  color: #aab6c2;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.qapaqReportActions__buttons button {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #566576;
+  border-radius: 3px;
+  background: #273443;
+  color: #f2f5f8;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.qapaqReportActions__buttons button:hover:not(:disabled) {
+  border-color: #e49a38;
+  background: #334151;
+}
+
+.qapaqReportActions__buttons button:focus-visible {
+  outline: 2px solid #e49a38;
+  outline-offset: 2px;
+}
+
+.qapaqReportActions__buttons button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.qapaqReportActions__buttons .qapaqReportActions__cancel {
+  background: transparent;
+  color: #ffb4a9;
+}
+
+.qapaqReportActions__progress,
+.qapaqReportActions__message {
+  grid-column: 1 / -1;
+}
+
+.qapaqReportActions__progress {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  color: #d7e0e8;
+  font-size: 12px;
+}
+
+.qapaqReportActions__progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: #e49a38;
+}
+
+@media (max-width: 720px) {
+  .qapaqReportActions {
+    grid-template-columns: 1fr;
+  }
+
+  .qapaqReportActions__buttons {
+    justify-content: flex-start;
+  }
+
+  .qapaqReportActions__progress {
+    grid-template-columns: 1fr;
+  }
+}

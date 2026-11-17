@@ -4,57 +4,51 @@
 
 # QAPAQ SecOps
 
-**Plataforma SOC unificada sobre Wazuh.** Una URL, un login Entra y un shell: el dashboard de Wazuh
-con marca QAPAQ, al que QAPAQ añade casos, correlación contextual, respuesta gobernada, auditoría
-con integridad, gestión de acceso con revocación inmediata y avisos con acuse humano. La investigación
-colaborativa es **Ayni Qapaq** y la automatización de respuesta será **Ankay Qapaq** (Shuffle).
+**Plataforma de operaciones de seguridad de la fintech QAPAQ.** Una URL y un login dan acceso al SIEM
+(Wazuh con marca QAPAQ), a la cola de alertas, los incidentes y la auditoría del motor QAPAQ, a la
+respuesta gobernada de **Ankay** y al asistente **Qapaqzito**.
 
-- **Wazuh** recolecta, detecta y guarda (manager, indexer, dashboard). Lo que QAPAQ cambia de
-  Wazuh vive versionado en [`wazuh/`](wazuh/README.md), sin fork del código.
-- **QAPAQ** (TypeScript, NestJS) coordina el trabajo humano: quién toma una alerta, cómo se vuelve
-  incidente, quién aprueba una acción, qué queda como evidencia y quién puede entrar.
-
-## Estructura
-
-| Ruta                      | Contenido                                                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `wazuh/`                  | Overlay QAPAQ de Wazuh: reglas, Office 365, edge nginx, seguridad del Indexer, ISM, detectores ML, integraciones y dashboard    |
-| `apps/api`, `apps/worker` | Backend QAPAQ (login Entra, casos, auditoría, avisos, colas). Pasa al SIEM QAPAQ según [docs/12](docs/12-backend-en-el-siem.md) |
-| `modules/`                | Dominio hexagonal sin frameworks: `access`, `soc`, `detection`, `soar`, `connectors`, `telemetry`                               |
-| `platform/`               | Auditoría, configuración y secretos, base de datos (Prisma/Postgres), testing, gateway (en retiro)                              |
-| `packages/contracts`      | Contrato `SecurityEvent` 1.0.0 y catálogo de errores                                                                            |
-| `infra/aws`               | Terraform de la demo AWS. `infra/local`: Postgres, Redis y MinIO para desarrollo                                                |
+- **En producción de demo:** `https://dev.security.qapaq.pe`, un nodo EC2 en la cuenta AWS de QAPAQ con
+  ALB + WAF, sin recursos IAM ([arquitectura](docs/02-arquitectura.md)).
+- **Fuentes:** agentes Wazuh, Microsoft 365, Bitdefender GravityZone, Snyk, Cloudflare y la propia
+  cuenta AWS ([integraciones](docs/18-integraciones.md)).
+- **Detección como código** en [`detections/`](detections/README.md) ([docs/17](docs/17-ingenieria-de-deteccion.md)).
 
 ## Documentación
 
-Empieza por [`docs/README.md`](docs/README.md), que tiene diez documentos cortos:
+Empieza por [`docs/README.md`](docs/README.md). Accesos directos:
+[guía de usuario](docs/20-guia-de-usuario.md) · [operación](docs/06-operacion.md) ·
+[identidad y acceso](docs/04-identidad-y-acceso.md) · [postura de seguridad](docs/21-postura-de-seguridad.md) ·
+[brechas y roadmap](docs/19-brechas-y-roadmap.md).
 
-1. [Producto y decisiones de negocio](docs/01-producto.md)
-2. [Arquitectura](docs/02-arquitectura.md)
-3. [Evaluación de componentes y decisión de fork](docs/03-evaluacion-de-componentes.md)
-4. [Identidad, acceso y administración de usuarios](docs/04-identidad-y-acceso.md)
-5. [Datos y retención hot/warm/cold](docs/05-datos-y-retencion.md)
-6. [Operación, costos y observabilidad](docs/06-operacion.md)
-7. [Detección, ML y SOAR](docs/07-deteccion-ml-y-soar.md)
-8. [Frontend unificado](docs/08-frontend-unificado.md)
-9. [Plan de lanzamiento](docs/09-plan-de-lanzamiento.md)
-10. [Decisiones vigentes](docs/10-decisiones.md)
+## Estructura
+
+| Ruta                                 | Contenido                                                                                                                                                                   |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wazuh/`                             | Overlay QAPAQ de Wazuh: dashboard (marca, `qapaq_ops`, `qapaq_i18n`), seguridad e ISM del indexer, políticas del manager, Office 365, collectors, correo de alertas, receptor AWS |
+| `detections/`                        | Reglas, casos de prueba, catálogo de IDs y herramientas de despliegue                                                                                                       |
+| `apps/api`                           | Motor QAPAQ: sesión, alertas, incidentes, auditoría, avisos y Qapaqzito                                                                                                           |
+| `modules/`, `platform/`, `packages/` | Dominio hexagonal, configuración, base de datos, auditoría y contrato `SecurityEvent`                                                                                       |
+| `ankay/`                       | Ankay: frontend rebrandeado, puente SSO y playbooks                                                                                                                   |
+| `infra/aws-poweruser`                | Terraform y scripts del nodo vigente                                                                                                                                        |
+| `infra/local`                        | Stack Docker local                                                                                                                                                          |
+| `infra/aws-serverless`               | Diseño objetivo serverless (requiere IAM; no desplegado)                                                                                                                    |
+| `infra/aws`, `infra/azure`           | Perfiles heredados de la base de código original; no se usan                                                                                                                |
 
 ## Desarrollo
 
 ```powershell
 pnpm install
-pnpm infra:up          # Postgres, Redis, MinIO locales (infra/local/README.md)
+pnpm infra:up      # PostgreSQL, Redis y Wazuh locales (infra/local/README.md)
 pnpm dev:api
-pnpm dev:web
-pnpm verify            # lint, typecheck, unit, boundaries
+pnpm verify        # lint, typecheck, unit, boundaries
 ```
 
-Requisitos: Node 24.21 y pnpm 12.4. Baseline completa en
-[`docs/reference/toolchain-and-capacity.md`](docs/reference/toolchain-and-capacity.md).
+Requisitos: Node 24.21 y pnpm 12.4 ([toolchain](docs/reference/toolchain-and-capacity.md)).
 
-## Licencias
+## Licencias y atribución
 
-Código QAPAQ: ver [LICENSE](LICENSE). Wazuh Manager y sus reglas y decoders son GPLv2. El Indexer,
-el Dashboard y OpenSearch son Apache-2.0. Las reglas y decoders derivados que viven en `wazuh/`
-mantienen la atribución GPLv2.
+Código QAPAQ: ver [LICENSE](LICENSE). QAPAQ SecOps se basa en software abierto que conserva sus licencias:
+Wazuh (manager, reglas y decoders, GPLv2), Wazuh Indexer y Dashboard / OpenSearch (Apache-2.0) y
+Shuffle (AGPL-3.0), base de Ankay, cuyo código fuente modificado se publica dentro de la imagen
+del frontend. Las reglas derivadas que viven en `wazuh/` y `detections/` mantienen la atribución GPLv2.

@@ -1,0 +1,109 @@
+# Ankay (Shuffle v2.3.0 rebrandeado) en el nodo PowerUser. Mismo proyecto Compose `qapaq`
+# que el SOC: el edge llega al frontend por la red interna. Nada se publica en el host.
+# Imágenes oficiales fijadas a 2.3.0 (no `latest`); el frontend es el overlay ankay/.
+# Valores ${...} desde /opt/qapaq/secrets/compose.env; el resto en /opt/qapaq/respond/shuffle.env.
+services:
+  ankay-qapaq-frontend:
+    image: qapaq/respond-frontend:2.3.0
+    build:
+      context: /opt/qapaq/respond/frontend
+    hostname: ankay-qapaq-frontend
+    environment:
+      - BACKEND_HOSTNAME=shuffle-backend
+    depends_on:
+      - shuffle-backend
+    restart: unless-stopped
+
+  # Puente SSO sesión QAPAQ → sesión Shuffle (decisión B11, docs/14 §8.1). Sin puertos:
+  # solo lo alcanza el edge. Secretos en /opt/qapaq/secrets/respond-sso (bootstrap.mjs, deploy-respond.sh).
+  ankay-sso:
+    image: qapaq/respond-sso:1
+    build:
+      context: /opt/qapaq/src/ankay/sso
+    hostname: ankay-sso
+    environment:
+      - SHUFFLE_URL=http://shuffle-backend:5001
+      - RESPOND_SSO_SECRETS=/run/ankay-sso
+      # Admin inicial de Shuffle: si también es persona de QAPAQ, entra con esta contraseña (no se rota).
+      - SHUFFLE_ADMIN_USERNAME=${SHUFFLE_ADMIN_USERNAME}
+      - SHUFFLE_ADMIN_PASSWORD=${SHUFFLE_ADMIN_PASSWORD}
+    volumes:
+      - /opt/qapaq/secrets/respond-sso:/run/ankay-sso:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - shuffle-backend
+    mem_limit: 128m
+    restart: unless-stopped
+
+  # El edge (compose.qapaq.yaml) lee el token compartido con el puente.
+  edge:
+    volumes:
+      - /opt/qapaq/secrets/respond-sso:/etc/nginx/ankay-sso:ro
+
+  shuffle-backend:
+    image: ghcr.io/shuffle/shuffle-backend:2.3.0
+    hostname: shuffle-backend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/qapaq/respond/apps:/shuffle-apps
+      - /opt/qapaq/respond/files:/shuffle-files
+    env_file: /opt/qapaq/respond/shuffle.env
+    environment:
+      - SHUFFLE_APP_HOTLOAD_FOLDER=/shuffle-apps
+      - SHUFFLE_FILE_LOCATION=/shuffle-files
+      - SHUFFLE_OPENSEARCH_PASSWORD=${SHUFFLE_OPENSEARCH_PASSWORD}
+      - SHUFFLE_DEFAULT_USERNAME=${SHUFFLE_ADMIN_USERNAME}
+      - SHUFFLE_DEFAULT_PASSWORD=${SHUFFLE_ADMIN_PASSWORD}
+      - SHUFFLE_ENCRYPTION_MODIFIER=${SHUFFLE_ENCRYPTION_MODIFIER}
+    depends_on:
+      - shuffle-opensearch
+    restart: unless-stopped
+
+  shuffle-orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:2.3.0
+    hostname: shuffle-orborus
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file: /opt/qapaq/respond/shuffle.env
+    environment:
+      - SHUFFLE_APP_SDK_TIMEOUT=300
+      - ENVIRONMENT_NAME=Shuffle
+      - ORG_ID=Shuffle
+      - BASE_URL=http://shuffle-backend:5001
+      - DOCKER_API_VERSION=1.44
+      - SHUFFLE_STATS_DISABLED=true
+      - SHUFFLE_LOGS_DISABLED=true
+      - SHUFFLE_SWARM_CONFIG=run
+      - CLEANUP=false
+      - SHUFFLE_WORKER_IMAGE=ghcr.io/shuffle/shuffle-worker:2.3.0
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped
+
+  shuffle-opensearch:
+    image: opensearchproject/opensearch:3.2.0
+    hostname: shuffle-opensearch
+    environment:
+      - 'OPENSEARCH_JAVA_OPTS=-Xms3g -Xmx3g'
+      - bootstrap.memory_lock=true
+      - DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI=true
+      - cluster.initial_master_nodes=shuffle-opensearch
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - cluster.name=shuffle-cluster
+      - node.name=shuffle-opensearch
+      - node.store.allow_mmap=false
+      - discovery.seed_hosts=shuffle-opensearch
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${SHUFFLE_OPENSEARCH_PASSWORD}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - /opt/qapaq/respond/db:/usr/share/opensearch/data
+    restart: unless-stopped

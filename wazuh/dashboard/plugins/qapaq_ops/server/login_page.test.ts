@@ -90,25 +90,88 @@ describe('renderLoginPage', () => {
     destinationLabel: 'QAPAQ SecOps',
   };
 
-  it('el único control lleva al BFF con el destino codificado', () => {
-    const html = renderLoginPage({
-      ...base,
-      nextUrl: '/dash/app/home?x=1',
-      notice: { code: null, correlationId: null, superseded: false, loggedOut: false },
-    });
+  const clean = { code: null, correlationId: null, superseded: false, loggedOut: false };
+
+  it('ofrece Entra con el destino codificado y el formulario de usuario y contraseña', () => {
+    const html = renderLoginPage({ ...base, nextUrl: '/dash/app/home?x=1', notice: clean });
     expect(html).toContain('href="/api/auth/start?returnTo=%2Fdash%2Fapp%2Fhome%3Fx%3D1"');
     expect(html).toContain('Continuar con Microsoft Entra');
-    // La única mención es la atribución de licencias (NOTICE), no la marca.
+    expect(html).toContain('<form id="qapaq-password-form"');
+    expect(html).toContain('method="post" action="/api/auth/password"');
+    expect(html).toContain('name="username"');
+    expect(html).toContain('autocomplete="current-password"');
+    expect(html).toContain('name="returnTo" value="/dash/app/home?x=1"');
+    // El destino viaja codificado en la URL de Entra y escapado en el campo oculto.
+    expect(html).toContain('Bienvenido a QAPAQ SecOps');
+  });
+
+  it('la contraseña nunca se escribe en la página ni viaja por la URL', () => {
+    const html = renderLoginPage({ ...base, nextUrl: '/dash/app/home', notice: clean });
+    expect(html).toMatch(/<input id="qapaq-password" name="password" type="password"/u);
+    expect(html).not.toMatch(/action="[^"]*\?/u);
+    expect(html).toContain('method="post"');
+  });
+
+  it('con passwordEnabled=false solo queda el acceso con Entra', () => {
+    const html = renderLoginPage({
+      ...base,
+      passwordEnabled: false,
+      nextUrl: '/dash/app/home',
+      notice: clean,
+    });
+    expect(html).not.toContain('qapaq-password-form');
+    expect(html).not.toContain('name="password"');
+    expect(html).toContain('Continuar con Microsoft Entra');
+  });
+
+  it('con entraEnabled=false solo queda usuario y contraseña, sin enlace a /auth/start', () => {
+    const html = renderLoginPage({
+      ...base,
+      entraEnabled: false,
+      nextUrl: '/dash/app/home',
+      notice: clean,
+    });
+    expect(html).toContain('qapaq-password-form');
+    expect(html).not.toContain('Microsoft Entra');
+    expect(html).not.toContain('/auth/start');
+    expect(html).not.toContain('role="separator"');
+  });
+
+  it('nunca deja la pantalla sin forma de entrar', () => {
+    const html = renderLoginPage({
+      ...base,
+      entraEnabled: false,
+      passwordEnabled: false,
+      nextUrl: '/dash/app/home',
+      notice: clean,
+    });
+    expect(html).toContain('qapaq-password-form');
+  });
+
+  it('cumple la CSP: solo script y estilos con nonce y nada inline', () => {
+    const html = renderLoginPage({ ...base, nextUrl: '/dash/app/home', notice: clean });
     expect(html).toContain(ATTRIBUTION);
     expect(html.split(ATTRIBUTION).join('')).not.toMatch(/wazuh|opensearch/iu);
     expect(html).toContain('<style nonce="abc123">');
     expect(html).toContain('<script nonce="abc123">');
     expect(html).not.toMatch(/<script(?![^>]*nonce="abc123")/u);
-    expect(html).not.toMatch(/ style="/u); // nada inline fuera del nonce (CSP)
-    // Mismo arte que HeroArt.tsx: máscara original de la Q y analista.
-    expect(html).toContain('/dash/ui/qapaq/qapaq_q_mask.png');
-    expect(html).toContain('/dash/ui/qapaq/qapaq_analyst.webp');
-    expect(html).toContain('class="auth-splash"');
+    expect(html).not.toMatch(/ style="/u);
+  });
+
+  it('usa la tipografía del sistema, sin fuentes de marca empaquetadas', () => {
+    const html = renderLoginPage({ ...base, nextUrl: '/dash/app/home', notice: clean });
+    expect(html).not.toContain('/fonts/');
+    expect(html).toContain("'Segoe UI',Inter");
+  });
+
+  it('usa la ilustración y la paleta de marca', () => {
+    const html = renderLoginPage({ ...base, nextUrl: '/dash/app/home', notice: clean });
+    expect(html).toContain('/dash/ui/qapaq/qapaq_login_hero.webp');
+    expect(html).not.toContain('qapaq_login_hero_sm.webp');
+    expect(html).toContain('.login-hero{display:none}');
+    expect(html).toContain('--qapaq-black:#080808');
+    expect(html).toContain('--qapaq-amber:#c49a5a');
+    expect(html).toContain('/dash/ui/qapaq/qapaq-head-mark.webp');
   });
 
   it('muestra el mensaje público del catálogo como alerta, nunca el código crudo', () => {

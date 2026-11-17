@@ -204,6 +204,7 @@ jobs:
           pnpm run typecheck
           pnpm run lint
           pnpm run test:unit
+          pnpm --dir wazuh/dashboard/plugins/qapaq_ops test
           pnpm run boundaries
           pnpm --filter @qapaq/api... --filter @qapaq/worker... build
           pnpm run smoke:built

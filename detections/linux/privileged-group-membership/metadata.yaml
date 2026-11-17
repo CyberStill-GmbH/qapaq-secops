@@ -1,0 +1,39 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-LNX-002
+title: Usuario agregado a grupo privilegiado en Linux
+source: linux
+use_case: privileged-group-membership
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Agregar a sudo, docker o lxd equivale a dar root; shadow/adm dan lectura de secretos y logs.
+data_sources:
+- journald (gpasswd) del agente
+rules:
+  file: detections/linux/privileged-group-membership/rule.xml
+  ids:
+  - 101752
+  installed_as: etc/rules/qapaq_soc_linux_privileged_group_membership.xml
+mitre:
+- technique: T1098.007
+  tactic: persistence
+- technique: T1548
+  tactic: privilege-escalation
+severity:
+  levels: '10'
+  priority_hint: P2
+  rationale: Escalada a root persistente.
+false_positives:
+- Altas de administradores vía gestión de configuración (registrar el cambio).
+tuning:
+- '`usermod -aG` no tiene decoder en el ruleset oficial (backlog BL-L03).'
+tests:
+  runner: logtest
+  fixtures: detections/linux/privileged-group-membership/fixtures.jsonl
+  expected: detections/linux/privileged-group-membership/expected.txt
+runbook: docs/detection-engineering/runbooks/escalada-de-privilegios.md#linux

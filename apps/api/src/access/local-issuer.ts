@@ -9,13 +9,31 @@
  * entre una herramienta de desarrollo y una puerta trasera.
  */
 
-import { createSign, generateKeyPairSync, randomUUID, type KeyObject } from 'node:crypto';
+import {
+  createHash,
+  createSign,
+  generateKeyPairSync,
+  randomUUID,
+  timingSafeEqual,
+  type KeyObject,
+} from 'node:crypto';
 import type { JsonWebKey } from '@qapaq/access';
 
 export const LOCAL_ISSUER_KID = 'qapaq-local-dev';
 
+/**
+ * Contraseña de las personas sintéticas del entorno local. Es un dato público de desarrollo:
+ * el emisor se niega a existir en el perfil de producción, así que nunca protege nada real.
+ */
+export const LOCAL_DEV_PASSWORD = 'qapaq-dev-password';
+
 export interface LocalPrincipal {
   readonly subjectId: string;
+  /**
+   * `oid` sintético con formato GUID, como el de Entra: la sesión durable lo guarda en
+   * `access_sessions.subject_oid`, cuyo CHECK exige ese formato.
+   */
+  readonly objectId: string;
   readonly username: string;
   readonly displayName: string;
   readonly roles: readonly string[];
@@ -26,6 +44,7 @@ export interface LocalPrincipal {
 export const LOCAL_PRINCIPALS: Readonly<Record<string, LocalPrincipal>> = Object.freeze({
   'analista@qapaq.pe': {
     subjectId: 'local-analyst-1',
+    objectId: '00000000-0000-4000-8000-b89000000001',
     username: 'analista@qapaq.pe',
     displayName: 'Ana Lista',
     roles: ['qapaq.soc.analyst'],
@@ -33,6 +52,7 @@ export const LOCAL_PRINCIPALS: Readonly<Record<string, LocalPrincipal>> = Object
   },
   'lider@qapaq.pe': {
     subjectId: 'local-lead-1',
+    objectId: '00000000-0000-4000-8000-b89000000002',
     username: 'lider@qapaq.pe',
     displayName: 'Luis Líder',
     roles: ['qapaq.soc.lead'],
@@ -40,6 +60,7 @@ export const LOCAL_PRINCIPALS: Readonly<Record<string, LocalPrincipal>> = Object
   },
   'auditor@qapaq.pe': {
     subjectId: 'local-auditor-1',
+    objectId: '00000000-0000-4000-8000-b89000000003',
     username: 'auditor@qapaq.pe',
     displayName: 'Aída Auditora',
     roles: ['qapaq.auditor'],
@@ -47,6 +68,7 @@ export const LOCAL_PRINCIPALS: Readonly<Record<string, LocalPrincipal>> = Object
   },
   'admin@qapaq.pe': {
     subjectId: 'local-platform-admin-1',
+    objectId: '00000000-0000-4000-8000-b89000000004',
     username: 'admin@qapaq.pe',
     displayName: 'Ada Admin',
     roles: ['qapaq.platform.admin'],
@@ -54,6 +76,7 @@ export const LOCAL_PRINCIPALS: Readonly<Record<string, LocalPrincipal>> = Object
   },
   'sinrol@qapaq.pe': {
     subjectId: 'local-norole-1',
+    objectId: '00000000-0000-4000-8000-b89000000005',
     username: 'sinrol@qapaq.pe',
     displayName: 'Sin Rol',
     roles: [],
@@ -91,6 +114,18 @@ export class LocalDevelopmentIssuer {
     ];
   }
 
+  /**
+   * Comprueba usuario y contraseña de una persona sintética. Tiempo constante respecto al
+   * contenido de la contraseña y misma ruta de cálculo para usuarios existentes e
+   * inexistentes: el resultado no confirma si la cuenta existe.
+   */
+  public verifyPassword(username: string, password: string): LocalPrincipal | undefined {
+    const principal = LOCAL_PRINCIPALS[username.trim().toLowerCase()];
+    const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest();
+    const matches = timingSafeEqual(digest(password), digest(LOCAL_DEV_PASSWORD));
+    return principal && matches ? principal : undefined;
+  }
+
   /** Simula la pantalla de Entra: entrega un código ligado al usuario y al `nonce`. */
   public issueCode(username: string, nonce: string, now: Date): string {
     const code = randomUUID();
@@ -114,7 +149,7 @@ export class LocalDevelopmentIssuer {
       iss: this.options.issuer,
       aud: this.options.audience,
       sub: principal.subjectId,
-      oid: principal.subjectId,
+      oid: principal.objectId,
       tid: this.options.tenantId,
       iat: seconds,
       nbf: seconds,

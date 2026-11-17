@@ -4,7 +4,8 @@
 -- una vez por ambiente y cada vez que se rotan las contraseñas. Es idempotente.
 --
 --   qapaq_migrator     dueño del esquema y de las tablas: aplica migraciones (DDL).
---   qapaq_soc_runtime  login del API: DML sin DELETE ni TRUNCATE y sin DDL.
+--   qapaq_soc_runtime  login del API: DML sin DELETE ni TRUNCATE y sin DDL (única excepción:
+--                    DELETE en `assistant_conversations`, concedido en `post-migrate.sql`).
 --
 -- Las contraseñas llegan como settings de sesión (`qapaq.migrator_password`,
 -- `qapaq.runtime_password`) porque CREATE/ALTER ROLE no aceptan parámetros enlazados; se

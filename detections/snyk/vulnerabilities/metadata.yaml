@@ -1,0 +1,45 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-SNYK-001
+title: Vulnerabilidades de código y dependencias (Snyk)
+source: snyk
+use_case: vulnerabilities
+status: production
+version: 1.0.0
+owner: provider-ingestion
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Una vulnerabilidad abierta y explotable en código propio es la puerta de entrada más probable de una
+  fintech digital.
+data_sources:
+- Snyk REST API de issues (collector qapaq-collector-snyk, cada 15 min)
+rules:
+  file: wazuh/provider-ingestion/rules/qapaq_snyk_rules.xml
+  ids:
+  - 101451
+  - 101452
+  - 101453
+  - 101454
+  - 101455
+  - 101456
+  - 101457
+  - 101458
+mitre:
+- technique: T1190
+  tactic: initial-access
+severity:
+  levels: 3 baja · 5 media · 10 alta · 11 alta+exploit · 12 crítica · 13 crítica+exploit
+  priority_hint: P2 crítica; P3 alta
+  rationale: Escala Snyk mapeada a modules/telemetry.
+false_positives:
+- Dependencias de desarrollo no desplegadas.
+- Issues ya mitigados por WAF sin marcar en Snyk.
+tuning: []
+tests:
+  runner: logtest
+  suite: collectors
+  fixtures: wazuh/provider-ingestion/tests/collector-cases.jsonl
+  expected: wazuh/provider-ingestion/tests/collector-expected-rules.txt
+runbook: docs/detection-engineering/runbooks/vulnerabilidad-expuesta.md

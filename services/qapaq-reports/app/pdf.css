@@ -1,0 +1,146 @@
+/* QAPAQ SecOps · hoja de estilos de informes PDF. Paleta QAPAQ para papel: tinta, grises y ambar. */
+:root {
+  --ink: #18181B; --muted: #6B6B72; --line: #E4E4E7; --soft: #F7F7F8;
+  --amber: #C49A5A; --amber-dark: #8C6A38; --amber-light: #E0BD80; --line-strong: #D4D4D8; --black: #080808;
+}
+
+@page {
+  size: A4;
+  margin: 26mm 16mm 20mm 16mm;
+  @top-center { content: element(hdr); width: 178mm; vertical-align: bottom; padding-bottom: 3mm; }
+  @bottom-left { content: "@@CLS@@"; width: 70mm; font-size: 7.5pt; color: #6B6B72;
+                 border-top: 0.25mm solid #E4E4E7; padding-top: 2.5mm; vertical-align: top; }
+  @bottom-center { content: "Página " counter(page) " de " counter(pages); width: 38mm; text-align: center;
+                   font-size: 7.5pt; color: #18181B; font-weight: 600;
+                   border-top: 0.25mm solid #E4E4E7; padding-top: 2.5mm; vertical-align: top; }
+  @bottom-right { content: "@@GEN@@"; width: 70mm; text-align: right; font-size: 7.5pt;
+                  color: #6B6B72; border-top: 0.25mm solid #E4E4E7; padding-top: 2.5mm; vertical-align: top; }
+}
+@page cover {
+  margin: 0;
+  @top-center { content: none; } @bottom-left { content: none; }
+  @bottom-center { content: none; } @bottom-right { content: none; }
+}
+
+html { font-family: "Noto Sans", "DejaVu Sans", sans-serif; font-size: 9.5pt; line-height: 1.45; color: var(--ink); }
+body { margin: 0; }
+* { box-sizing: border-box; }
+h1, h2, h3, p, ul, ol, figure { margin: 0; }
+
+/* Cabecera corriente */
+.run-header { position: running(hdr); display: block; border-bottom: 0.3mm solid var(--line-strong);
+  padding-bottom: 2mm; font-size: 8pt; color: var(--muted); }
+.run-header img { height: 7mm; width: 7mm; vertical-align: middle; margin-right: 2.5mm; }
+.run-header .rt { vertical-align: middle; font-weight: 600; color: var(--ink); }
+
+/* Portada */
+.cover { page: cover; position: relative; height: 296mm; width: 210mm; overflow: hidden; background: #fff; }
+.cover .bar { position: absolute; left: 0; top: 0; width: 210mm; height: 5mm;
+  background: var(--black); border-bottom: 1.2mm solid var(--amber); }
+.cover .brand { position: absolute; left: 20mm; top: 20mm; }
+.cover .logo { width: 17mm; height: 17mm; vertical-align: middle; }
+.cover .wordmark { display: inline-block; vertical-align: middle; margin-left: 4mm; font-size: 15pt;
+  font-weight: 700; letter-spacing: 0.4mm; }
+.cover .wordmark span { color: var(--muted); font-weight: 400; }
+.cover .orb { position: absolute; right: -30mm; bottom: -8mm; width: 150mm; height: 150mm;
+  border-radius: 50%; background: #F4F4F5; }
+.cover .mascot { position: absolute; right: 14mm; bottom: 20mm; width: 92mm; }
+.cover-main { position: absolute; left: 20mm; top: 78mm; width: 170mm; }
+.cover .eyebrow { font-size: 9pt; font-weight: 700; letter-spacing: 0.5mm; text-transform: uppercase;
+  color: var(--amber-dark); margin-bottom: 4mm; }
+.cover h1 { font-size: 29pt; line-height: 1.12; font-weight: 700; letter-spacing: -0.2mm; }
+.cover .sub { font-size: 13pt; color: var(--muted); margin-top: 5mm; line-height: 1.35; width: 150mm; }
+.cover .cls { display: inline-block; margin-top: 8mm; padding: 1.4mm 4mm; border-radius: 6mm;
+  background: var(--ink); color: #fff; font-size: 8pt; font-weight: 600; letter-spacing: 0.15mm;
+  }
+.cover .meta { position: absolute; left: 20mm; bottom: 24mm; width: 100mm; border-left: 1.2mm solid var(--amber);
+  padding-left: 5mm; }
+.cover .m { margin-top: 3.2mm; }
+.cover .m:first-child { margin-top: 0; }
+.cover .ml { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.3mm; color: var(--muted); font-weight: 600; }
+.cover .mv { font-size: 10pt; font-weight: 500; }
+
+
+main { break-before: page; }
+
+/* KPIs */
+table.kpis { width: 100%; border-collapse: separate; border-spacing: 3mm 0; margin: 0 -3mm 7mm; width: calc(100% + 6mm);
+  table-layout: fixed; }
+table.kpis td { background: var(--soft); border: 0.25mm solid var(--line); border-top: 1mm solid var(--amber);
+  border-radius: 2mm; padding: 3.5mm 4mm 3.5mm; vertical-align: top; }
+table.kpis tr + tr td { }
+table.kpis td.pad { background: transparent; border: 0; }
+.kv { font-size: 19pt; font-weight: 700; line-height: 1.1; }
+.kl { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.2mm; color: var(--muted); font-weight: 600; margin-top: 1.2mm; }
+.kh { font-size: 7.5pt; color: var(--muted); margin-top: 1mm; }
+
+/* Secciones */
+.sec { margin-bottom: 8mm; }
+h2 { font-size: 13.5pt; font-weight: 700; margin-bottom: 3.5mm; padding-left: 3mm;
+  border-left: 1.4mm solid var(--amber); line-height: 1.2; break-after: avoid; }
+.sec-table, .sec-timeline { }
+.count { font-size: 8pt; color: var(--muted); margin: -1.5mm 0 2mm; break-after: avoid; }
+.note { font-size: 8pt; color: var(--muted); margin-top: 2mm; font-style: italic; }
+.note.warn { font-style: normal; color: var(--ink); background: #FFF6DD; border-left: 1mm solid var(--amber);
+  padding: 2mm 3mm; }
+
+/* Markdown */
+.md p { margin-bottom: 2.6mm; }
+.md h1, .md h2, .md h3, .md h4 { font-size: 10.5pt; font-weight: 700; margin: 4mm 0 1.6mm; border: 0; padding: 0; }
+.md ul, .md ol { margin: 0 0 2.6mm 5mm; padding: 0; }
+.md li { margin-bottom: 1mm; }
+.md blockquote { margin: 0 0 3mm; padding: 1.5mm 4mm; border-left: 1mm solid var(--line-strong); color: var(--muted); background: var(--soft); }
+.md code { font-family: "DejaVu Sans Mono", monospace; font-size: 8pt; background: var(--soft); padding: 0 1mm; border-radius: 1mm; }
+.md pre { background: var(--soft); padding: 3mm; border-radius: 2mm; font-size: 8pt; white-space: pre-wrap; overflow-wrap: anywhere; }
+.md pre code { background: none; padding: 0; }
+.md a { color: #0A6FD0; text-decoration: none; border-bottom: 0.2mm solid #9CCBF5; }
+.md hr { border: 0; border-top: 0.3mm solid var(--line); margin: 4mm 0; }
+.md table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 3mm; }
+.md th { background: var(--ink); color: #fff; text-align: left; padding: 1.8mm 2.2mm; }
+.md td { padding: 1.6mm 2.2mm; border-bottom: 0.2mm solid var(--line); }
+.md tbody tr:nth-child(even) td { background: var(--soft); }
+.md tr { break-inside: avoid; }
+
+/* Tablas de datos */
+table.data { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 8pt; }
+table.data.dense { font-size: 7pt; }
+table.data thead { display: table-header-group; }
+table.data th { background: var(--ink); color: #fff; font-weight: 600; text-align: left; padding: 2mm 2.2mm;
+  border-bottom: 0.7mm solid var(--amber); font-size: 0.92em; letter-spacing: 0.1mm; }
+table.data td { padding: 1.7mm 2.2mm; border-bottom: 0.2mm solid var(--line); vertical-align: top;
+  overflow-wrap: break-word; }
+table.data td.nw { white-space: nowrap; }
+table.data tbody tr:nth-child(even) td { background: var(--soft); }
+table.data tr { break-inside: avoid; }
+table.data .k-datetime, table.data .k-priority, table.data .k-link { white-space: nowrap; }
+table.data th.k-number, table.data td.k-number { text-align: right; font-variant-numeric: tabular-nums; }
+table.data th.k-priority, table.data td.k-priority { text-align: center; }
+table.data td.none { text-align: center; color: var(--muted); padding: 6mm; background: #fff !important; }
+.empty { color: #A1A1AA; }
+table.data a { color: #0A6FD0; text-decoration: none; border-bottom: 0.2mm solid #9CCBF5; }
+
+/* Prioridad: etiqueta de texto en rampa neutra (nunca solo color) */
+.tag { display: inline-block; padding: 0.2mm 2mm; border-radius: 1.2mm; font-size: 0.9em; font-weight: 700;
+  letter-spacing: 0.15mm; border: 0.25mm solid var(--ink); line-height: 1.35; }
+.tag-p1 { background: var(--ink); color: #fff; }
+.tag-p2 { background: #3F3F46; border-color: #3F3F46; color: #fff; }
+.tag-p3 { background: #E4E4E7; border-color: #E4E4E7; color: var(--ink); }
+.tag-p4 { background: #fff; border-color: #C8C8CC; color: var(--muted); }
+
+/* Graficos */
+figure.chart { break-inside: avoid; border: 0.25mm solid var(--line); border-radius: 2.5mm; padding: 3mm 3mm 2mm; background: #fff; }
+figure.chart svg { display: block; width: 100%; height: auto; }
+
+/* Cronologia */
+ol.tl { list-style: none; padding: 0; margin: 1mm 0 0 30mm; border-left: 0.5mm solid var(--line-strong); }
+ol.tl li { position: relative; padding: 0 0 4.5mm 6mm; break-inside: avoid; }
+ol.tl li::before { content: ""; position: absolute; left: -1.9mm; top: 1.1mm; width: 3.3mm; height: 3.3mm;
+  border-radius: 50%; background: var(--amber); border: 0.6mm solid #fff; }
+.tl-time { position: absolute; left: -31mm; top: 0; width: 26mm; text-align: right; font-size: 8pt; color: var(--muted);
+  font-variant-numeric: tabular-nums; line-height: 1.8; }
+.tl-title { font-weight: 600; }
+.tl-detail { font-size: 8.5pt; color: var(--muted); margin-top: 0.8mm; }
+
+/* Fuentes */
+.sources ul { padding-left: 5mm; font-size: 8pt; color: var(--muted); }
+.sources li { margin-bottom: 1mm; overflow-wrap: anywhere; }

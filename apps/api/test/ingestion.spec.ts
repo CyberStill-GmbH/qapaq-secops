@@ -58,6 +58,12 @@ function office365Document(id: string, timestamp: string): ProviderRecord {
   };
 }
 
+function wazuhRecordToEventId(record: ProviderRecord): string {
+  const converted = wazuhRecordToEvent(record, KEY.tenantId, KEY.sourceId);
+  if (converted.status !== 'normalized') throw new Error('documento de prueba inválido');
+  return converted.event.recordId;
+}
+
 /** Proveedor falso que pagina una lista fija dentro de la ventana pedida. */
 function fakeReader(documents: readonly ProviderRecord[], pageSize = 2) {
   const calls: EventQuery[] = [];
@@ -121,7 +127,10 @@ describe('pasada de ingesta', () => {
     expect(observation).toMatchObject({
       outcome: 'success',
       recordsSeen: 3,
+      normalized: 3,
       promoted: 3,
+      duplicates: 0,
+      notPromoted: 0,
       errorClass: null,
     });
     expect(observation!.newestEventAt?.toISOString()).toBe('2026-10-12T17:30:00.000Z');
@@ -150,11 +159,105 @@ describe('pasada de ingesta', () => {
     expect(first.event.raw.ref).toBe('raw:wazuh/wazuh-alerts/doc-1');
   });
 
+  it('el pull reconcilia un documento visible tarde mientras siga dentro del solape', async () => {
+    const watermark = new Date('2026-10-12T17:59:00.000Z');
+    const cursor = await state.claimCursor(KEY, NOW, 300_000);
+    expect(cursor).toBeDefined();
+    await state.advanceCursor(cursor!, watermark, NOW);
+    await state.releaseCursor(cursor!);
+
+    const late = office365Document('doc-late-within-overlap', '2026-10-12T17:58:00.000Z');
+    const reader = fakeReader([late]);
+    const pass = createIngestionPass({ ...base(), readPage: reader.readPage });
+
+    await pass();
+
+    expect(reader.calls[0]!.from).toBe('2026-10-12T17:57:00.000Z');
+    expect(promoted).toEqual([wazuhRecordToEventId(late)]);
+  });
+
+  it('no promete recuperar por pull un documento anterior al límite del solape', async () => {
+    const watermark = new Date('2026-10-12T17:59:00.000Z');
+    const cursor = await state.claimCursor(KEY, NOW, 300_000);
+    expect(cursor).toBeDefined();
+    await state.advanceCursor(cursor!, watermark, NOW);
+    await state.releaseCursor(cursor!);
+
+    const late = office365Document('doc-late-outside-overlap', '2026-10-12T17:56:59.999Z');
+    const reader = fakeReader([late]);
+    const pass = createIngestionPass({ ...base(), readPage: reader.readPage });
+
+    await pass();
+
+    expect(reader.calls[0]!.from).toBe('2026-10-12T17:57:00.000Z');
+    expect(promoted).not.toContain(wazuhRecordToEventId(late));
+  });
+
+  it('separa occurredAt y receivedAt sin cambiar la identidad entre push, pull y replay', () => {
+    const doc = office365Document('doc-time-semantics', '2026-10-12T17:10:00.000Z');
+    const first = wazuhRecordToEvent(
+      doc,
+      KEY.tenantId,
+      KEY.sourceId,
+      new Date('2026-10-12T17:11:00.000Z'),
+    );
+    const replay = wazuhRecordToEvent(
+      { ...doc, collectedAt: '2026-10-12T17:12:00.000Z' },
+      KEY.tenantId,
+      KEY.sourceId,
+      new Date('2026-10-12T17:13:00.000Z'),
+    );
+
+    expect(first.status).toBe('normalized');
+    expect(replay.status).toBe('normalized');
+    if (first.status !== 'normalized' || replay.status !== 'normalized') return;
+    expect(first.event.recordId).toBe(replay.event.recordId);
+    expect(first.event.occurredAt).toBe('2026-10-12T17:10:00.000Z');
+    expect(first.event.receivedAt).toBe('2026-10-12T17:11:00.000Z');
+    expect(replay.event.receivedAt).toBe('2026-10-12T17:13:00.000Z');
+    expect(replay.event.observedAt).toBe('2026-10-12T17:12:00.000Z');
+  });
+
   it('un poll vacío también queda observado como éxito', async () => {
     const pass = createIngestionPass({ ...base(), readPage: fakeReader([]).readPage });
     await pass();
     const [observation] = await state.recentObservations(KEY, 1);
     expect(observation).toMatchObject({ outcome: 'success', recordsSeen: 0, newestEventAt: null });
+  });
+
+  it('separa alertas creadas, duplicados y eventos sin promoción', async () => {
+    const docs = [
+      office365Document('created', '2026-10-12T17:10:00.000Z'),
+      office365Document('duplicate', '2026-10-12T17:11:00.000Z'),
+      office365Document('below-threshold', '2026-10-12T17:12:00.000Z'),
+      office365Document('suppressed', '2026-10-12T17:13:00.000Z'),
+    ];
+    const recordIds = docs.map(wazuhRecordToEventId);
+    const pass = createIngestionPass({
+      ...base(),
+      readPage: fakeReader(docs).readPage,
+      promote: async (event) =>
+        event.recordId === recordIds[0]
+          ? 'promoted'
+          : event.recordId === recordIds[1]
+            ? 'duplicate'
+            : event.recordId === recordIds[2]
+              ? 'below_threshold'
+              : 'suppressed',
+    });
+
+    await pass();
+    const [observation] = await state.recentObservations(KEY, 1);
+    expect(observation).toMatchObject({
+      recordsSeen: 4,
+      normalized: 4,
+      promoted: 1,
+      duplicates: 1,
+      notPromoted: 2,
+      belowThreshold: 1,
+      suppressed: 1,
+      quarantined: 0,
+    });
   });
 
   it('un error queda con código neutral, no avanza la marca y libera el lease', async () => {
@@ -183,6 +286,99 @@ describe('pasada de ingesta', () => {
     const pass = createIngestionPass({ ...base(), readPage: reader.readPage });
     expect(await pass()).toBe(0);
     expect(reader.calls).toHaveLength(0);
+  });
+
+  it('un hueco de más de una ventana sin eventos no deja la marca clavada', async () => {
+    // Marca en un evento de hace 20 h; el siguiente evento llegó hace 10 min. Cada ventana
+    // (1 h) intermedia está vacía o solo contiene lo ya leído: la marca tiene que avanzar
+    // tramo a tramo hasta alcanzar el evento nuevo.
+    const old = office365Document('doc-viejo', '2026-10-11T22:00:00.000Z');
+    const fresh = office365Document('doc-nuevo', '2026-10-12T17:50:00.000Z');
+    const reader = fakeReader([old, fresh]);
+    const claim = await state.claimCursor(KEY, NOW, 1);
+    await state.advanceCursor(claim!, new Date(old.occurredAt!));
+    await state.releaseCursor(claim!);
+    const pass = createIngestionPass({ ...base(), readPage: reader.readPage });
+    let passes = 0;
+    while ((await pass()) === 1 && passes < 50) passes += 1;
+    expect(passes).toBeLessThan(50);
+    expect(promoted).toContain(wazuhRecordToEventId(fresh));
+    const cursor = state.cursors.get(`${KEY.tenantId}|${KEY.sourceId}|${KEY.dataset}`);
+    expect(cursor?.watermark?.toISOString()).toBe('2026-10-12T17:50:00.000Z');
+  });
+
+  it('un solape con más eventos que el tope no deja la marca clavada (2026-11-13)', async () => {
+    // 12 eventos dentro del solape (≤ marca) superan el tope de 10 (5 páginas × 2): antes cada
+    // pasada releía solo el solape y los eventos posteriores nunca se ingerían.
+    const watermark = new Date('2026-10-12T17:50:00.000Z');
+    const burst = Array.from({ length: 12 }, (_, index) =>
+      office365Document(
+        `burst-${index}`,
+        `2026-10-12T17:4${index < 10 ? 8 : 9}:${String(10 + index).padStart(2, '0')}.000Z`,
+      ),
+    );
+    const atMark = office365Document('at-mark', watermark.toISOString());
+    const fresh = office365Document('after-mark', '2026-10-12T17:55:00.000Z');
+    const reader = fakeReader([...burst, atMark, fresh]);
+    const claim = await state.claimCursor(KEY, NOW, 1);
+    await state.advanceCursor(claim!, watermark);
+    await state.releaseCursor(claim!);
+    const pass = createIngestionPass({ ...base(), readPage: reader.readPage });
+
+    let passes = 0;
+    while ((await pass()) === 1 && passes < 5) passes += 1;
+
+    expect(promoted).toContain(wazuhRecordToEventId(fresh));
+    const cursor = state.cursors.get(`${KEY.tenantId}|${KEY.sourceId}|${KEY.dataset}`);
+    expect(cursor?.watermark?.toISOString()).toBe('2026-10-12T17:55:00.000Z');
+  });
+
+  it('reanuda con search_after durable cuando más eventos comparten la marca que el tope', async () => {
+    const watermark = new Date('2026-10-12T17:50:00.000Z');
+    const tied = Array.from({ length: 12 }, (_, index) =>
+      office365Document(`tied-${index}`, watermark.toISOString()),
+    );
+    const reader = fakeReader(tied);
+    const claim = await state.claimCursor(KEY, NOW, 300_000);
+    await state.advanceCursor(claim!, watermark, NOW);
+    await state.releaseCursor(claim!);
+    const pass = createIngestionPass({ ...base(), readPage: reader.readPage });
+
+    expect(await pass()).toBe(1);
+    expect(
+      state.cursors.get(`${KEY.tenantId}|${KEY.sourceId}|${KEY.dataset}`)?.continuation,
+    ).toMatchObject({ from: watermark, cursor: '10' });
+    expect(await pass()).toBe(0);
+    expect(reader.calls.at(-1)?.cursor).toBe('10');
+    expect(new Set(promoted).size).toBe(12);
+    expect(
+      state.cursors.get(`${KEY.tenantId}|${KEY.sourceId}|${KEY.dataset}`)?.continuation,
+    ).toBeNull();
+  });
+
+  it('reinicia el rango fijo si expira el token search_after guardado', async () => {
+    const watermark = new Date('2026-10-12T17:50:00.000Z');
+    const to = new Date('2026-10-12T17:59:30.000Z');
+    const tied = Array.from({ length: 12 }, (_, index) =>
+      office365Document(`expired-${index}`, watermark.toISOString()),
+    );
+    const reader = fakeReader(tied);
+    const claim = await state.claimCursor(KEY, NOW, 300_000);
+    await state.advanceCursor(claim!, watermark, NOW);
+    await state.saveContinuation(claim!, { from: watermark, to, cursor: 'expired-token' }, NOW);
+    await state.releaseCursor(claim!);
+    const readPage = async (query: EventQuery) => {
+      if (query.cursor === 'expired-token') {
+        throw Object.assign(new Error('cursor expired'), { code: 'PROVIDER_CURSOR_EXPIRED' });
+      }
+      return reader.readPage(query);
+    };
+    const pass = createIngestionPass({ ...base(), readPage });
+
+    expect(await pass()).toBe(1);
+    expect(reader.calls[0]?.from).toBe(watermark.toISOString());
+    expect(await pass()).toBe(0);
+    expect(new Set(promoted).size).toBe(12);
   });
 
   it('con más páginas que el tope pide otra pasada sin esperar el intervalo', async () => {

@@ -1,0 +1,40 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-003
+title: Seguimiento de sesiones SSH por cuenta
+source: linux
+use_case: ssh-session-tracking
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Una cuenta que entra desde varias IPs en poco tiempo, o root directo, indica credencial compartida o
+  robada.
+data_sources:
+- journald/sshd del agente (grupo linux-servers)
+rules:
+  file: detections/linux/ssh-session-tracking/rule.xml
+  ids:
+  - 101820
+  - 101821
+  installed_as: etc/rules/qapaq_soc_linux_ssh_session_tracking.xml
+mitre:
+- technique: T1078.003
+  tactic: defense-evasion
+- technique: T1021.004
+  tactic: lateral-movement
+severity:
+  levels: 10 misma cuenta desde 3 IPs en 1 h · 12 SSH como root
+  priority_hint: P2
+  rationale: Ubuntu del SOC usa cuentas nominales con llave.
+false_positives:
+- Operador que cambia de red (VPN, móvil) varias veces en una hora.
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/linux/ssh-session-tracking/fixtures.jsonl
+  expected: detections/linux/ssh-session-tracking/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#ssh

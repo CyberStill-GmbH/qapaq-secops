@@ -91,7 +91,10 @@ function auditDraft(input: AuditInput): AuditEventDraft {
     id: input.id,
     tenantId: input.actor.tenantId,
     occurredAt: input.at,
-    actor: { id: input.actor.subjectId, type: 'user', sessionId: input.actor.sessionId },
+    // Identidades de servicio (`svc:…`, p. ej. el Analista IA) se auditan como servicio.
+    actor: input.actor.subjectId.startsWith('svc:')
+      ? { id: input.actor.subjectId, type: 'service' }
+      : { id: input.actor.subjectId, type: 'user', sessionId: input.actor.sessionId },
     action: input.action,
     resource: input.resource,
     outcome: input.outcome,
@@ -198,6 +201,11 @@ export async function ingestCandidate(
           priority: alert.priority,
           status: alert.status,
           title: alert.title,
+          score: alert.score,
+          signal: alert.signal,
+          ruleId: alert.ruleId,
+          reasonCodes: alert.reasons.map((reason) => reason.code).join(', '),
+          relatedAlertCount: alert.relatedAlertIds.length,
         }),
       ],
       dependencies.ids,
@@ -325,6 +333,11 @@ export async function executeAlertCommand(
             priority: transition.alert.priority,
             status: transition.alert.status,
             title: transition.alert.title,
+            score: transition.alert.score,
+            signal: transition.alert.signal,
+            ruleId: transition.alert.ruleId,
+            reasonCodes: transition.alert.reasons.map((reason) => reason.code).join(', '),
+            relatedAlertCount: transition.alert.relatedAlertIds.length,
             verdict: transition.alert.verdict,
             incidentId: transition.alert.incidentId,
           }),
@@ -333,6 +346,106 @@ export async function executeAlertCommand(
       );
     }
     return { ok: true as const, value: transition.alert };
+  });
+}
+
+export interface AlertReviewRequest {
+  readonly actor: Actor;
+  readonly alertId: string;
+  readonly correlationId: string;
+  /** Investigación del Analista IA que pide la revisión (clave de idempotencia del aviso). */
+  readonly investigationId: string;
+  /** `immediate`: aviso propio; `digest`: va al resumen de lo suprimido (un mensaje por ventana). */
+  readonly urgency: 'immediate' | 'digest';
+  /** Agrupa pedidos del mismo caso (regla + entidad opaca, candidato o trabajo). */
+  readonly groupKey: string;
+  /** Código `UPPER_SNAKE` del motivo; nunca texto libre ni texto de un modelo. */
+  readonly reason: string;
+}
+
+const REVIEW_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
+const REVIEW_GROUP = /^[A-Za-z0-9_:|.-]{1,200}$/u;
+
+/**
+ * Pide revisión humana de una alerta por la vía de notificación existente: encola el hecho
+ * `soc.alert.review_requested` en el outbox (misma transacción que la auditoría), y el despacho
+ * aplica ruteo por rol, agrupación, ventanas silenciosas, topes y resumen. No cambia la alerta.
+ * Idempotente por investigación: repetirlo no encola un segundo aviso.
+ */
+export async function requestAlertReview(
+  dependencies: SocDependencies,
+  request: AlertReviewRequest,
+): Promise<SocResult<{ readonly enqueued: boolean; readonly idempotencyKey: string }>> {
+  if (
+    !REVIEW_CODE.test(request.reason) ||
+    !REVIEW_GROUP.test(request.groupKey) ||
+    request.investigationId.length < 1 ||
+    request.investigationId.length > 128
+  ) {
+    return failure('INVALID_COMMAND', 'REVIEW_REQUEST_INVALID', 'Pedido de revisión no válido.');
+  }
+  const at = dependencies.clock.now();
+  return dependencies.unitOfWork.run(async (context) => {
+    const alert = await context.alerts.byId(request.actor.tenantId, request.alertId);
+    const decision = authorize({
+      actor: request.actor,
+      capability: 'alerts.read',
+      resource: {
+        type: 'alert',
+        id: request.alertId,
+        tenantId: alert?.tenantId ?? request.actor.tenantId,
+      },
+    });
+    if (!decision.allowed) return failure('FORBIDDEN', decision.reason, decision.detail);
+    if (!alert) return failure('NOT_FOUND', 'ALERT_NOT_FOUND', 'La alerta no existe.');
+    const event: SocDomainEvent = {
+      type: 'soc.alert.review_requested',
+      tenantId: alert.tenantId,
+      aggregateType: 'alert',
+      aggregateId: alert.id,
+      occurredAt: at,
+      actorId: request.actor.subjectId,
+      payload: {
+        title: `Revisión pedida por el Analista IA · ${alert.title}`.slice(0, 300),
+        priority: alert.priority,
+        status: alert.status,
+        score: alert.score,
+        signal: alert.signal,
+        ruleId: alert.ruleId,
+        reasonCodes: request.reason,
+        relatedAlertCount: alert.relatedAlertIds.length,
+        incidentId: alert.incidentId,
+        urgency: request.urgency,
+        groupKey: request.groupKey,
+        investigationId: request.investigationId,
+      },
+    };
+    const message = toOutboxMessage(event, dependencies.ids.next());
+    const enqueued = await context.outbox.enqueueIfAbsent(message);
+    if (enqueued) {
+      await recordAudit(
+        context.audit,
+        auditDraft({
+          id: dependencies.ids.next(),
+          actor: request.actor,
+          action: 'soc.alert.review_requested',
+          resource: { type: 'alert', id: alert.id },
+          outcome: 'succeeded',
+          correlationId: request.correlationId,
+          at,
+          reason: request.reason,
+          metadata: {
+            urgency: request.urgency,
+            investigationId: request.investigationId,
+            priority: alert.priority,
+          },
+        }),
+      );
+    }
+    return {
+      ok: true as const,
+      value: { enqueued, idempotencyKey: message.idempotencyKey },
+    };
   });
 }
 
@@ -432,6 +545,97 @@ export async function openIncidentFromAlert(
       dependencies.ids,
     );
     return { ok: true as const, value: incident };
+  });
+}
+
+export interface AttachAlertRequest {
+  readonly actor: Actor;
+  readonly alertId: string;
+  readonly incidentId: string;
+  readonly correlationId: string;
+  readonly expectedAlertRevision: number;
+}
+
+/**
+ * Asocia una alerta a un incidente abierto en una sola transacción: el incidente suma la alerta
+ * (`attach_alert`) y la alerta queda vinculada (`incidentId`). Auditado como
+ * `soc.incident.attach_alert`. No cambia el estado del incidente.
+ */
+export async function attachAlertToIncident(
+  dependencies: SocDependencies,
+  request: AttachAlertRequest,
+): Promise<SocResult<Incident>> {
+  const at = dependencies.clock.now();
+  return dependencies.unitOfWork.run(async (context) => {
+    const incident = await context.incidents.byId(request.actor.tenantId, request.incidentId);
+    const decision = authorize({
+      actor: request.actor,
+      capability: 'incidents.write',
+      resource: {
+        type: 'incident',
+        id: request.incidentId,
+        tenantId: incident?.tenantId ?? request.actor.tenantId,
+        closed: incident?.status === 'closed',
+      },
+      rejectWhenClosed: true,
+    });
+    if (!decision.allowed) {
+      await recordAudit(
+        context.audit,
+        auditDraft({
+          id: dependencies.ids.next(),
+          actor: request.actor,
+          action: 'soc.incident.attach_alert',
+          resource: { type: 'incident', id: request.incidentId },
+          outcome: 'denied',
+          correlationId: request.correlationId,
+          at,
+          reason: decision.reason,
+        }),
+      );
+      return failure('FORBIDDEN', decision.reason, decision.detail);
+    }
+    if (!incident) return failure('NOT_FOUND', 'INCIDENT_NOT_FOUND', 'El caso no existe.');
+    const alert = await context.alerts.byId(request.actor.tenantId, request.alertId);
+    if (!alert) return failure('NOT_FOUND', 'ALERT_NOT_FOUND', 'La alerta no existe.');
+    if (alert.revision !== request.expectedAlertRevision) {
+      return failure('CONFLICT', 'REVISION_STALE', 'La alerta cambió mientras se asociaba.');
+    }
+    if (alert.incidentId) {
+      return failure('CONFLICT', 'ALERT_ALREADY_LINKED', 'La alerta ya pertenece a un caso.');
+    }
+    const transition = applyIncidentCommand(incident, {
+      name: 'attach_alert',
+      actorId: request.actor.subjectId,
+      at,
+      expectedRevision: incident.revision,
+      alert: { id: alert.id, tenantId: alert.tenantId, triaged: alert.verdict !== null },
+    });
+    if (!transition.ok) {
+      return failure(mapTransitionCode(transition.code), transition.code, transition.detail);
+    }
+    if (!(await context.incidents.update(transition.incident, incident.revision))) {
+      return failure('CONFLICT', 'REVISION_STALE', 'Otra escritura modificó el caso.');
+    }
+    if (
+      !(await context.alerts.update(linkAlertToIncident(alert, incident.id, at), alert.revision))
+    ) {
+      return failure('CONFLICT', 'REVISION_STALE', 'Otra escritura modificó la alerta.');
+    }
+    await recordAudit(
+      context.audit,
+      auditDraft({
+        id: dependencies.ids.next(),
+        actor: request.actor,
+        action: 'soc.incident.attach_alert',
+        resource: { type: 'incident', id: incident.id },
+        outcome: 'succeeded',
+        correlationId: request.correlationId,
+        at,
+        metadata: { alertId: alert.id, alertCount: transition.incident.alertIds.length },
+      }),
+    );
+    return { ok: true as const, value: transition.incident };
   });
 }
 

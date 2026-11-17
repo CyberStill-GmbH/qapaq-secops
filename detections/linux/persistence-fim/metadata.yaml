@@ -1,0 +1,66 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-LNX-003
+title: Persistencia y debilitamiento de autenticación por FIM en tiempo real
+source: linux
+use_case: persistence-fim
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: 'Toda persistencia Linux deja un archivo: llaves SSH, unidades systemd, cron, sudoers, PAM o sshd_config.'
+data_sources:
+- FIM realtime del grupo linux-servers (/root/.ssh, /etc/ssh, /etc/sudoers.d, /etc/pam.d, /etc/cron.*, /etc/systemd/system)
+rules:
+  file: detections/linux/persistence-fim/rule.xml
+  ids:
+  - 101755
+  - 101756
+  - 101757
+  - 101758
+  - 101759
+  - 101760
+  installed_as: etc/rules/qapaq_soc_linux_persistence_fim.xml
+mitre:
+- technique: T1098.004
+  tactic: persistence
+- technique: T1543.002
+  tactic: persistence
+- technique: T1053.006
+  tactic: persistence
+- technique: T1053.003
+  tactic: persistence
+- technique: T1548.003
+  tactic: privilege-escalation
+- technique: T1556.003
+  tactic: credential-access
+- technique: T1556
+  tactic: defense-evasion
+- technique: T1021.004
+  tactic: lateral-movement
+severity:
+  levels: 10 systemd/cron/sshd_config · 12 llaves SSH, sudoers y PAM
+  priority_hint: P2 (P1 fuera de cambio aprobado)
+  rationale: Llaves, sudo y PAM dan acceso o privilegio persistente sin malware.
+false_positives:
+- Despliegues y actualizaciones de paquetes (apt crea unidades y cron); correlacionar con dpkg (2902/2904).
+- Rotación de llaves por el equipo de plataforma.
+tuning:
+- Si apt genera ruido, excluir por ventana de mantenimiento en QAPAQ, no en la regla.
+tests:
+  runner: live
+  agent: 001 (qapaq-soc-dev-node)
+  live:
+  - action: crear /root/.ssh/authorized_keys2 vacío y borrarlo
+    expect: 101755
+  - action: crear /etc/cron.d/qapaq-deteccion-prueba (solo comentario) y borrarlo
+    expect: 101757
+  - action: crear /etc/systemd/system/qapaq-deteccion-prueba.service (sin habilitar) y borrarlo
+    expect: 101756
+  note: Los eventos de syscheck no pasan por wazuh-logtest; sudoers, PAM y sshd_config solo con analysisd -t (riesgo
+    de tocar el nodo).
+runbook: docs/detection-engineering/runbooks/escalada-de-privilegios.md#linux
+respond_playbook: ankay/playbooks/qapaq-contencion-endpoint-aprobada.json

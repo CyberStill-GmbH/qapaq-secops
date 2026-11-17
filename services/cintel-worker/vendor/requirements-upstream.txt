@@ -1,0 +1,9 @@
+# Dependencias obligatorias
+dnspython>=2.6,<3
+reportlab>=4.0
+rich>=13.0
+# Opcionales (recomendadas): lectura de .msg de Outlook y de códigos QR
+extract-msg>=0.48
+opencv-python-headless>=4.8
+numpy
+

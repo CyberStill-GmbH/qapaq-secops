@@ -1,0 +1,324 @@
+# Override del single-node oficial de wazuh-docker (v4.14.8) para el nodo QAPAQ SecOps en AWS.
+# Se aplica desde /opt/qapaq/wazuh-docker/single-node con:
+#   docker compose --env-file /opt/qapaq/secrets/compose.env -f docker-compose.yml \
+#     -f /opt/qapaq/src/infra/aws-poweruser/host/compose.qapaq.yaml up -d
+# Los valores ${...} salen de /opt/qapaq/secrets/compose.env (0600, generado en el host).
+name: qapaq
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.89.0/24
+  correlator-internal:
+    name: qapaq-correlator-internal
+    internal: true
+  # Servicio de informes de Qapaqzito: solo el API le llega; sin salida a Internet.
+  reports-internal:
+    name: qapaq-reports-internal
+    internal: true
+
+services:
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.14.8
+    # Wazuh push uses the public certificate name but resolves it to this private edge address.
+    # The signed ingestion endpoint therefore traverses the same TLS gateway as other API calls.
+    extra_hosts:
+      - '${SOC_HOSTNAME}:172.30.89.11'
+    environment:
+      - QAPAQ_INGEST_CA_FILE=/etc/qapaq-edge-ca/ca-bundle.pem
+      - INDEXER_URL=https://wazuh.indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_ADMIN_PASSWORD}
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat.key
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+    ports: !override
+      - '1514:1514'
+      - '1515:1515'
+      - '127.0.0.1:55000:55000'
+    volumes:
+      - /etc/ssl/certs/ca-certificates.crt:/etc/qapaq-edge-ca/ca-bundle.pem:ro
+    restart: unless-stopped
+
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.14.8
+    environment:
+      - 'OPENSEARCH_JAVA_OPTS=-Xms3g -Xmx3g'
+    ports: !override
+      - '127.0.0.1:9200:9200'
+    restart: unless-stopped
+
+  wazuh.dashboard:
+    image: qapaq/wazuh-dashboard:4.14.8
+    build:
+      context: /opt/qapaq/src/infra/local/wazuh-dashboard
+      additional_contexts:
+        brand: /opt/qapaq/src/wazuh/dashboard
+      args:
+        WAZUH_VERSION: 4.14.8
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_ADMIN_PASSWORD}
+      - WAZUH_API_URL=https://wazuh.manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=${KIBANASERVER_PASSWORD}
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+    ports: !reset []
+    # IP fija: es el ÚNICO proxy en el que confía el indexer para x-proxy-user (xff.internalProxies).
+    networks:
+      default:
+        ipv4_address: 172.30.89.10
+    volumes:
+      - /opt/qapaq/config/opensearch_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml:ro
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_USER: qapaq_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_DB: qapaq_secops
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/qapaq-pki/postgres.crt
+      - -c
+      - ssl_key_file=/etc/qapaq-pki/postgres.key
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+    volumes:
+      - qapaq-postgres:/var/lib/postgresql
+      - /opt/qapaq/pki/postgres:/etc/qapaq-pki:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U qapaq_admin -d qapaq_secops']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrator:
+    image: qapaq/migrator:local
+    build:
+      context: /opt/qapaq/src
+      dockerfile: platform/database/Dockerfile.migrator
+    profiles: ['tools']
+    environment:
+      QAPAQ_POSTGRES_HOST: postgres
+      QAPAQ_POSTGRES_PORT: '5432'
+      QAPAQ_POSTGRES_DATABASE: qapaq_secops
+      QAPAQ_POSTGRES_TLS: 'true'
+      QAPAQ_MIGRATOR_PASSWORD: ${QAPAQ_MIGRATOR_PASSWORD}
+      NODE_EXTRA_CA_CERTS: /etc/qapaq-local/ca.pem
+    volumes:
+      - /opt/qapaq/pki/ca.pem:/etc/qapaq-local/ca.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: qapaq/api:local
+    build:
+      context: /opt/qapaq/src
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - /opt/qapaq/config/api.env
+      - /opt/qapaq/secrets/api.env
+    environment:
+      NODE_EXTRA_CA_CERTS: /etc/qapaq-local/ca.pem
+    volumes:
+      - /opt/qapaq/pki/ca.pem:/etc/qapaq-local/ca.pem:ro
+    networks:
+      - default
+      - correlator-internal
+      - reports-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Gateway C-28 mínimo con token estático (platform/gateway/static-token): única vía del API al
+  # indexer. Sin puerto publicado; inyecta la credencial read-only de qapaq_reader.
+  wazuh-gateway:
+    image: nginx:1.29.3
+    env_file:
+      - /opt/qapaq/secrets/gateway.env
+    environment:
+      WAZUH_INDEXER_UPSTREAM: wazuh.indexer:9200
+      WAZUH_INDEXER_TLS_NAME: wazuh.indexer
+      NGINX_ENVSUBST_FILTER: '^(QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN|WAZUH_INDEXER_BASIC_AUTH_B64|WAZUH_INDEXER_UPSTREAM|WAZUH_INDEXER_TLS_NAME)$'
+    volumes:
+      - /opt/qapaq/src/platform/gateway/static-token/wazuh-gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - /opt/qapaq/pki/gateway/cert.pem:/etc/qapaq-gateway/tls/cert.pem:ro
+      - /opt/qapaq/pki/gateway/key.pem:/etc/qapaq-gateway/tls/key.pem:ro
+      - /opt/qapaq/pki/gateway/indexer-ca.pem:/etc/qapaq-gateway/indexer-ca.pem:ro
+    networks:
+      - default
+      - correlator-internal
+    depends_on:
+      - wazuh.indexer
+    restart: unless-stopped
+
+  # Correlación determinista 24/7. Solo se conecta al API y al gateway en la red
+  # interna, no publica puertos y arranca en modo observación (EMIT=false).
+  correlator:
+    image: qapaq/correlator:local
+    build:
+      context: /opt/qapaq/src
+      dockerfile: services/qapaq-correlator/Dockerfile
+    env_file:
+      - /opt/qapaq/config/correlator.env
+    environment:
+      QAPAQ_CORRELATOR_LISTEN: ':8080'
+      QAPAQ_CORRELATOR_API_URL: http://api:3000/api
+      QAPAQ_CORRELATOR_GATEWAY_URL: https://wazuh-gateway:8443
+      QAPAQ_CORRELATOR_GATEWAY_TOKEN_FILE: /run/secrets/qapaq-correlator/gateway.token
+      QAPAQ_CORRELATOR_SERVICE_TOKEN_FILE: /run/secrets/qapaq-correlator/service.token
+      QAPAQ_CORRELATOR_READ_TOKEN_FILE: /run/secrets/qapaq-correlator/read.token
+      QAPAQ_CORRELATOR_CA_FILE: /run/secrets/qapaq-correlator/ca.pem
+      # Criticidad versionada (demoter, no cegar) e IP de administración de detections/lists.
+      QAPAQ_CORRELATOR_CRITICALITY_FILE: /etc/qapaq-correlator/criticality
+      QAPAQ_CORRELATOR_ADMIN_IPS_FILE: /etc/qapaq-correlator/qapaq-admin-ips
+    volumes:
+      - /opt/qapaq/secrets/correlator/gateway.token:/run/secrets/qapaq-correlator/gateway.token:ro
+      - /opt/qapaq/secrets/correlator/service.token:/run/secrets/qapaq-correlator/service.token:ro
+      - /opt/qapaq/secrets/correlator/read.token:/run/secrets/qapaq-correlator/read.token:ro
+      - /opt/qapaq/pki/ca.pem:/run/secrets/qapaq-correlator/ca.pem:ro
+      - /opt/qapaq/src/services/qapaq-correlator/config/criticality:/etc/qapaq-correlator/criticality:ro
+      - /opt/qapaq/src/detections/lists/qapaq-admin-ips:/etc/qapaq-correlator/qapaq-admin-ips:ro
+    networks:
+      - correlator-internal
+    depends_on:
+      api:
+        condition: service_healthy
+      wazuh-gateway:
+        condition: service_started
+    user: '65532:65532'
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    init: true
+    mem_limit: 256m
+    cpus: 0.50
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+    restart: unless-stopped
+
+  # Informes de Qapaqzito (PDF/XLSX/CSV): POST /render con bearer QAPAQ_REPORTS_TOKEN. Solo en la red
+  # interna compartida con el API, sin puertos publicados. El token vive en secrets/reports.env
+  # (0600, scripts/bootstrap-reports.sh) y es el mismo que usa el API (secrets/api.env).
+  reports:
+    image: qapaq/reports:local
+    build:
+      context: /opt/qapaq/src/services/qapaq-reports
+      target: runtime
+    env_file:
+      - /opt/qapaq/secrets/reports.env
+    networks:
+      - reports-internal
+    user: '10089:10089'
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    init: true
+    mem_limit: 1g
+    cpus: 1.00
+    pids_limit: 128
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/healthz', timeout=3).status == 200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+    restart: unless-stopped
+
+  # Receptor del webhook SNS (monitoreo de la cuenta AWS sin IAM; wazuh/aws-events/README.md).
+  # Sin puerto publicado: solo el edge le llega por /hooks/aws-sns. Escribe el JSONL dentro del
+  # volumen de logs del manager (qapaq-collectors/aws), que Wazuh lee como <localfile log_format="json">.
+  aws-events:
+    image: node:24.21.0-trixie-slim
+    user: '1000:1000'
+    working_dir: /app
+    command: ['node', '/app/sns-receiver.mjs']
+    env_file:
+      - /opt/qapaq/src/infra/aws-poweruser/host/aws-events.env
+    environment:
+      QAPAQ_AWS_EVENTS_FILE: /out/aws-events.jsonl
+      NODE_ENV: production
+    volumes:
+      - /opt/qapaq/src/wazuh/aws-events/receiver/sns-receiver.mjs:/app/sns-receiver.mjs:ro
+      - type: volume
+        source: wazuh_logs
+        target: /out
+        volume:
+          subpath: qapaq-collectors/aws
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 128m
+    pids_limit: 64
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+    restart: unless-stopped
+
+  edge:
+    image: nginx:1.29.3
+    # IP fija: único proxy de confianza del API (QAPAQ_ACCESS_TRUSTED_PROXY_CIDRS).
+    networks:
+      default:
+        ipv4_address: 172.30.89.11
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /opt/qapaq/config/edge.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+      # Bitácora JSON del edge para Wazuh (docs/18): formato en qapaq-logging.conf y archivos en el
+      # volumen de logs del manager (qapaq-collectors/edge), que Wazuh lee como <localfile> json.
+      - /opt/qapaq/src/infra/wazuh/network/edge/qapaq-edge-logging.conf:/etc/nginx/conf.d/qapaq-logging.conf:ro
+      - type: volume
+        source: wazuh_logs
+        target: /var/log/qapaq-edge
+        volume:
+          subpath: qapaq-collectors/edge
+    depends_on:
+      - wazuh.dashboard
+      - api
+    restart: unless-stopped
+
+volumes:
+  qapaq-postgres:

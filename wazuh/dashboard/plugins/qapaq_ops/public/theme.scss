@@ -2,12 +2,14 @@
 //
 // Se carga en todas las páginas del dashboard (los estilos de los plugins se inyectan al
 // arrancar), así que es deliberadamente contenida: superficies, cabecera, menú, selección,
-// foco y transiciones. No toca tipografía (OUI), espaciados ni componentes de datos, para no
-// romper la maquetación de Discover, los módulos de Wazuh ni las visualizaciones.
+// foco y transiciones. No cambia espaciados ni componentes de datos, para no romper la
+// maquetación de Discover, los módulos de Wazuh ni las visualizaciones.
 //
-// Tokens del doc 02 de qapaq-secops (sistema visual): fondo #080808, ámbar #c49a5a solo en
-// marca e indicador activo, grises jerárquicos, sin degradados. Movimiento: opacidad y
-// transformación de 150–250 ms; nada con `prefers-reduced-motion`.
+// Tokens del sistema visual QAPAQ (docs/brand/qapaq-visual-identity.md): fondo #080808, ámbar
+// #c49a5a solo en marca e indicador activo, grises jerárquicos, sin degradados. Tipografía del
+// sistema (pila `--qapaq-font-sans`). Los acentos de marca nunca sustituyen la semántica
+// operativa de severidad y estado de Wazuh. Movimiento: opacidad y transformación de
+// 150–250 ms; nada con `prefers-reduced-motion`.
 
 $qapaqBg: #080808;
 $qapaqSurface: #0d0d0f;
@@ -18,11 +20,20 @@ $qapaqText: #f4f4f5;
 $qapaqText2: #b0b0b5;
 $qapaqText3: #8f8f95;
 $qapaqAmber: #c49a5a;
+$qapaqAmberLight: #e0bd80;
 $qapaqEase: cubic-bezier(0.16, 1, 0.3, 1);
 
 // El optimizer compila este SCSS una vez por tema (v7light, v7dark, …). La capa oscura solo
-// se emite en los temas oscuros; en claro solo quedan selección, foco y movimiento.
+// se emite en los temas oscuros; en claro solo quedan selección, foco, borde e indicador.
 $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
+
+:root {
+  --qapaq-brand-amber: #{$qapaqAmber};
+  --qapaq-brand-amber-light: #{$qapaqAmberLight};
+  --qapaq-brand-ink: #{$qapaqText};
+  --qapaq-brand-black: #{$qapaqBg};
+  --qapaq-font-sans: 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif;
+}
 
 ::selection {
   background-color: rgba($qapaqAmber, 0.32);
@@ -72,7 +83,12 @@ $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
     background-color: $qapaqRaised;
   }
 
-  // Flyouts, modales y popovers: superficies de doc 02 con borde neutro.
+  .euiCollapsibleNav .euiListGroupItem-isActive .euiListGroupItem__label {
+    color: $qapaqText;
+    font-weight: 600;
+  }
+
+  // Flyouts, modales y popovers: superficies QAPAQ con borde neutro.
   .euiFlyout,
   .euiModal,
   .euiPopover__panel,
@@ -95,11 +111,27 @@ $qapaqIsDark: lightness($euiColorEmptyShade) < 50%;
   * {
     scrollbar-color: $qapaqLineStrong transparent;
   }
+} @else {
+  :root {
+    color-scheme: light;
+  }
+
+  .euiHeader,
+  .euiHeader--default,
+  .euiHeader--dark {
+    border-bottom: 1px solid #e4e4e7;
+    box-shadow: none;
+  }
+
+  .euiListGroupItem-isActive {
+    box-shadow: inset 2px 0 0 $qapaqAmber;
+  }
 }
 
-// Foco visible: blanco de 2 px con separación (doc 07, accesibilidad).
+// Foco visible: 2 px con separación (doc 07, accesibilidad); claro en oscuro, negro en claro.
 :focus-visible {
-  outline-color: $qapaqText;
+  outline: 2px solid if($qapaqIsDark, $qapaqText, $qapaqBg);
+  outline-offset: 2px;
 }
 
 // Entrada suave de las vistas QAPAQ (opacidad + 4 px). Solo en nuestras apps: animar el

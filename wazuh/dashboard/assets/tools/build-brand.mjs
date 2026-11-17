@@ -6,14 +6,20 @@
  * vectorizada (misma silueta que `qapaq-secops/apps/web/public/qapaq-mark-source.png`).
  *
  *   node assets/tools/build-brand.mjs            # escribe assets/svg/*.svg (sin dependencias)
- *   node assets/tools/build-brand.mjs --raster   # además PNG/ICO de favicons y logo de reportes
+ *   node assets/tools/build-brand.mjs --raster   # además PNG/ICO/WebP (favicons, logo de reportes,
+ *                                                # mascotas, login e informes de services/qapaq-reports)
  *
  * `--raster` necesita `sharp` resoluble desde NODE_PATH o desde el cwd (p. ej. un
  * `npm install sharp@0.33.5` en un directorio temporal fuera del repo). Los PNG generados se
- * versionan, así que CI no necesita sharp. Paleta: doc 02 de qapaq-secops.
+ * versionan, así que CI no necesita sharp. Paleta: doc 02 de qapaq-secops
+ * (docs/brand/qapaq-visual-identity.md).
+ *
+ * Qapaqzito (asistente) y la mascota del Analista IA se construyen con la misma Q: el hueco de
+ * la Q es la cara (ojos y sonrisa ámbar). Son arte provisional hasta tener ilustración oficial.
+ * El fondo del login compone `images/qapaq_analyst.webp` (ilustración original de QAPAQ).
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,6 +52,33 @@ function q(x, y, w, h, fill, extra = '') {
   )}) scale(${s.toFixed(5)}) translate(${-Q_BOX.x} ${-Q_BOX.y})" d="${Q_PATH}"/>`;
 }
 
+/** Transformación que lleva coordenadas de origen de la Q al rectángulo (x, y, w, h). */
+function qTransform(x, y, w, h) {
+  const s = Math.min(w / Q_BOX.w, h / Q_BOX.h);
+  const tx = x + (w - Q_BOX.w * s) / 2;
+  const ty = y + (h - Q_BOX.h * s) / 2;
+  return `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${s.toFixed(5)}) translate(${-Q_BOX.x} ${-Q_BOX.y})`;
+}
+
+/**
+ * Cara de Qapaqzito en coordenadas de origen: el hueco de la Q (centro ≈ 219,196) lleva dos ojos
+ * ámbar y una sonrisa. Sin texto ni fuentes: se rasteriza igual en cualquier máquina.
+ */
+const FACE =
+  `<rect x="181" y="160" width="22" height="38" rx="11" fill="${AMBER}"/>` +
+  `<rect x="235" y="160" width="22" height="38" rx="11" fill="${AMBER}"/>` +
+  `<path d="M186 226Q219 254 252 226" fill="none" stroke="${AMBER}" stroke-width="11" stroke-linecap="round"/>`;
+
+/** Destello de cuatro puntas (marca de «IA»), centrado en (cx, cy) con radio r. */
+const spark = (cx, cy, r, fill) =>
+  `<path fill="${fill}" d="M${cx} ${cy - r}Q${cx + r * 0.16} ${cy - r * 0.16} ${cx + r} ${cy}Q${cx + r * 0.16} ${
+    cy + r * 0.16
+  } ${cx} ${cy + r}Q${cx - r * 0.16} ${cy + r * 0.16} ${cx - r} ${cy}Q${cx - r * 0.16} ${cy - r * 0.16} ${cx} ${cy - r}Z"/>`;
+
+/** Q de QAPAQ con cara, inscrita en (x, y, w, h). */
+const qFace = (x, y, w, h, ink) =>
+  `<g transform="${qTransform(x, y, w, h)}"><path fill="${ink}" fill-rule="evenodd" d="${Q_PATH}"/>${FACE}</g>`;
+
 const svg = (w, h, label, body) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${label}">${body}</svg>\n`;
 
@@ -65,37 +98,6 @@ function wordmark(w, h, fill, secondary) {
       `<text x="${textX.toFixed(1)}" y="${(h * 0.68).toFixed(1)}" font-family="${FONT}" font-size="${fontSize.toFixed(
         1,
       )}" font-weight="600" letter-spacing="${(-fontSize * 0.02).toFixed(2)}" fill="${fill}">QAPAQ<tspan dx="${(fontSize * 0.26).toFixed(1)}" font-weight="400" fill="${secondary}">SecOps</tspan></text>`,
-  );
-}
-
-/**
- * Pantalla de carga (OSD `spinner_on_*.svg`, 1024×200, se pinta a 100 px de alto): la Q late
- * suavemente (opacidad) y una línea ámbar recorre la base. Nada se mueve con
- * `prefers-reduced-motion` (los SVG en <img> respetan la media query del sistema).
- */
-function spinner(fill, secondary, track) {
-  const style =
-    '<style>' +
-    '@keyframes qp{0%,100%{opacity:1}50%{opacity:.6}}' +
-    '@keyframes ql{0%{transform:translateX(-240px)}100%{transform:translateX(1024px)}}' +
-    '@keyframes qi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}' +
-    '.q{animation:qp 1.6s cubic-bezier(.4,0,.2,1) infinite}' +
-    '.t{animation:qi 240ms cubic-bezier(.16,1,.3,1) both}' +
-    '.l{animation:ql 1.8s cubic-bezier(.65,0,.35,1) infinite}' +
-    '@media (prefers-reduced-motion:reduce){.q,.l,.t{animation:none}}' +
-    '</style>';
-  return svg(
-    1024,
-    200,
-    'Cargando QAPAQ SecOps',
-    style +
-      `<g class="t">` +
-      q(224, 24, 112, 136, fill, ' class="q"') +
-      `<text x="360" y="124" font-family="${FONT}" font-size="84" font-weight="600" letter-spacing="-1.6" fill="${fill}">QAPAQ<tspan dx="22" font-weight="400" fill="${secondary}">SecOps</tspan></text>` +
-      `</g>` +
-      `<clipPath id="c"><rect x="224" y="184" width="576" height="3" rx="1.5"/></clipPath>` +
-      `<rect x="224" y="184" width="576" height="3" rx="1.5" fill="${track}"/>` +
-      `<g clip-path="url(#c)"><rect class="l" x="0" y="184" width="240" height="3" rx="1.5" fill="${AMBER}"/></g>`,
   );
 }
 
@@ -126,6 +128,95 @@ const loginBg = () =>
       ),
   );
 
+/**
+ * Pantalla de carga (OSD `ui/logos/spinner*.svg` y splash del login; el fondo es siempre #080808):
+ * la Q entra, late suavemente y una línea ámbar recorre la base. 640×512 para el hueco del patch 0001.
+ */
+function splash() {
+  const style =
+    '<style>' +
+    '@keyframes qi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}' +
+    '@keyframes qp{0%,100%{opacity:1}50%{opacity:.62}}' +
+    '@keyframes ql{0%{transform:translateX(-120px)}100%{transform:translateX(400px)}}' +
+    '.t{animation:qi 320ms cubic-bezier(.16,1,.3,1) both}' +
+    '.q{animation:qp 1.6s cubic-bezier(.4,0,.2,1) infinite}' +
+    '.l{animation:ql 1.6s cubic-bezier(.65,0,.35,1) infinite}' +
+    '@media (prefers-reduced-motion:reduce){.t,.q,.l{animation:none}}' +
+    '</style>';
+  return svg(
+    640,
+    512,
+    'Cargando QAPAQ SecOps',
+    style +
+      `<g class="t">${q(200, 56, 240, 300, INK, ' class="q"')}</g>` +
+      `<clipPath id="c"><rect x="200" y="420" width="240" height="4" rx="2"/></clipPath>` +
+      `<rect x="200" y="420" width="240" height="4" rx="2" fill="#1a1a1c"/>` +
+      `<g clip-path="url(#c)"><rect class="l" x="200" y="420" width="120" height="4" rx="2" fill="${AMBER}"/></g>`,
+  );
+}
+
+/** Insignia circular de la Q (login, Ankay): Q clara sobre círculo negro con borde neutro. */
+const headMark = (size = 256) =>
+  svg(
+    size,
+    size,
+    'QAPAQ',
+    `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - size * 0.01}" fill="${BLACK}" stroke="${GREY_LINE}" stroke-width="${size * 0.02}"/>` +
+      q(size * 0.25, size * 0.2, size * 0.5, size * 0.6, INK),
+  );
+
+/** Qapaqzito, el asistente: la Q con cara sobre insignia negra y un destello ámbar de IA. */
+const qapaqzito = (size = 192) =>
+  svg(
+    size,
+    size,
+    'Qapaqzito',
+    `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - size * 0.01}" fill="${BLACK}" stroke="${GREY_LINE}" stroke-width="${size * 0.02}"/>` +
+      qFace(size * 0.22, size * 0.17, size * 0.56, size * 0.66, INK) +
+      spark(size * 0.79, size * 0.22, size * 0.085, AMBER),
+  );
+
+/**
+ * Mascota del Analista IA (453×512, misma proporción que la anterior): Qapaqzito con lupa ámbar.
+ * Fondo transparente; la insignia negra la hace legible en tema claro y oscuro.
+ */
+const aiAnalyst = () =>
+  svg(
+    453,
+    512,
+    'Analista IA de QAPAQ',
+    `<circle cx="246" cy="214" r="200" fill="${BLACK}" stroke="${GREY_LINE}" stroke-width="6"/>` +
+      qFace(146, 74, 200, 280, INK) +
+      spark(392, 64, 30, AMBER) +
+      spark(428, 128, 14, AMBER) +
+      `<path d="M66 466L134 398" stroke="${AMBER}" stroke-width="30" stroke-linecap="round"/>` +
+      `<circle cx="168" cy="364" r="66" fill="${BLACK}" fill-opacity=".72" stroke="${AMBER}" stroke-width="20"/>` +
+      `<path d="M134 346a40 40 0 0 1 30-24" fill="none" stroke="${INK}" stroke-opacity=".7" stroke-width="9" stroke-linecap="round"/>`,
+  );
+
+/** Icono de Ankay (Respuesta) para el menú del dashboard: Q clara con el «ejecutar» ámbar. */
+const ANKAY_PLAY = 'M196 158L262 195L196 232Z';
+const ankayNav = () =>
+  svg(
+    256,
+    256,
+    'Ankay',
+    `<g transform="${qTransform(28, 16, 200, 224)}"><path fill="${INK}" fill-rule="evenodd" d="${Q_PATH}"/>` +
+      `<path fill="${AMBER}" stroke="${AMBER}" stroke-width="10" stroke-linejoin="round" d="${ANKAY_PLAY}"/></g>`,
+  );
+
+/** Fondo del login QAPAQ SecOps (1252×941): negro, luz ámbar tenue y la Q en línea. */
+const loginHeroBackdrop = () =>
+  svg(
+    1252,
+    941,
+    '',
+    `<defs><radialGradient id="a" cx="78%" cy="18%" r="70%"><stop offset="0" stop-color="${AMBER}" stop-opacity=".22"/>` +
+      `<stop offset=".55" stop-color="${AMBER}" stop-opacity=".05"/><stop offset="1" stop-color="${AMBER}" stop-opacity="0"/></radialGradient></defs>` +
+      `<rect width="1252" height="941" fill="${BLACK}"/><rect width="1252" height="941" fill="url(#a)"/>` +
+      q(-60, 120, 640, 760, 'none', ` stroke="${GREY_LINE}" stroke-width="3" opacity=".9"`),
+  );
+
 function writeSvgs() {
   mkdirSync(svgDir, { recursive: true });
   const files = {
@@ -133,8 +224,11 @@ function writeSvgs() {
     'qapaq_mark_on_light.svg': mark(BLACK),
     'qapaq_wordmark_on_dark.svg': wordmark(360, 72, INK, INK_2),
     'qapaq_wordmark_on_light.svg': wordmark(360, 72, BLACK, '#4a4a4f'),
-    'qapaq_spinner_on_dark.svg': spinner(INK, INK_2, '#1a1a1c'),
-    'qapaq_spinner_on_light.svg': spinner(BLACK, '#4a4a4f', '#e4e4e7'),
+    'qapaq_splash.svg': splash(),
+    'qapaq_head_mark.svg': headMark(256),
+    'qapaq_qapaqzito.svg': qapaqzito(192),
+    'qapaq_ai_analyst_mascot.svg': aiAnalyst(),
+    'ankay.svg': ankayNav(),
     'qapaq_login_bg.svg': loginBg(),
     'qapaq_app_icon.svg': appIcon(512),
     // Safari pinned tab: silueta monocroma (Safari aplica el color de `mask-icon`).
@@ -206,16 +300,50 @@ async function raster(files) {
       .png()
       .toBuffer(),
   );
+
+  // Mascotas, insignia y logo cuadrado servidos en /ui/qapaq/ (nombres que usa el código).
+  const imgDir = join(root, 'images');
+  mkdirSync(imgDir, { recursive: true });
+  const render = (name, w, h) => sharp(Buffer.from(files[name]), { density: 300 }).resize(w, h);
+  writeFileSync(join(imgDir, 'qapaq-head-mark.webp'), await render('qapaq_head_mark.svg', 256, 256).webp({ quality: 92 }).toBuffer());
+  writeFileSync(join(imgDir, 'qapaq-qapaqzito.webp'), await render('qapaq_qapaqzito.svg', 192, 192).webp({ quality: 92 }).toBuffer());
+  writeFileSync(
+    join(imgDir, 'qapaq-ai-analyst-qapaqzito.webp'),
+    await render('qapaq_ai_analyst_mascot.svg', 453, 512).webp({ quality: 90 }).toBuffer(),
+  );
+  writeFileSync(
+    join(imgDir, 'qapaq-ai-analyst-qapaqzito-160.webp'),
+    await render('qapaq_ai_analyst_mascot.svg', 142, 160).webp({ quality: 90 }).toBuffer(),
+  );
+  writeFileSync(join(imgDir, 'qapaq_app_icon_256.png'), await square(256));
+
+  // Panel de marca del login: fondo + ilustración original de la analista QAPAQ.
+  const analyst = await sharp(readFileSync(join(imgDir, 'qapaq_analyst.webp'))).resize(880, 880).toBuffer();
+  writeFileSync(
+    join(imgDir, 'qapaq_login_hero.webp'),
+    await sharp(Buffer.from(loginHeroBackdrop()))
+      .resize(1252, 941)
+      .composite([{ input: analyst, left: 372, top: 61 }])
+      .webp({ quality: 82 })
+      .toBuffer(),
+  );
+
+  // Informes PDF/Excel (services/qapaq-reports): logo cuadrado y mascota de portada.
+  const reportsDir = resolve(root, '../../../services/qapaq-reports/assets');
+  mkdirSync(reportsDir, { recursive: true });
+  writeFileSync(join(reportsDir, 'qapaq-mark-gradient.png'), await square(512));
+  writeFileSync(join(reportsDir, 'qapaqzito.png'), await render('qapaq_qapaqzito.svg', 640, 640).png().toBuffer());
 }
 
 function writeStatic() {
   mkdirSync(favDir, { recursive: true });
+  writeFileSync(join(favDir, 'favicon.svg'), appIcon(64));
   writeFileSync(
     join(favDir, 'manifest.json'),
     JSON.stringify(
       {
         name: 'QAPAQ SecOps',
-        short_name: 'QAPAQ SOC',
+        short_name: 'QAPAQ SecOps',
         icons: [
           { src: 'android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
           {
@@ -243,7 +371,7 @@ const files = writeSvgs();
 writeStatic();
 if (process.argv.includes('--raster')) {
   await raster(files);
-  console.log('SVG, favicons PNG/ICO y logo de reportes generados.');
+  console.log('SVG, favicons PNG/ICO, mascotas, login y logos de reportes generados.');
 } else {
   console.log('SVG generados (sin --raster: PNG/ICO sin cambios).');
 }

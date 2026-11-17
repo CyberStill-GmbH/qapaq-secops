@@ -1,0 +1,54 @@
+# QAPAQ SecOps · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+id: QAPAQ-TUNE-SNYK-001
+title: Calibración de severidad de Snyk por exposición y explotabilidad
+source: snyk
+use_case: severity-calibration
+kind: tuning
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-08'
+updated: '2026-11-08'
+hypothesis: Una vulnerabilidad es urgente cuando es explotable (exploit maduro) y alcanzable desde Internet; sin
+  eso es backlog de AppSec.
+data_sources:
+- Snyk issues
+- Lista qapaq-internet-facing-projects
+rules:
+  file: detections/snyk/severity-calibration/rule.xml
+  ids:
+  - 101732
+  - 101733
+  - 101734
+  installed_as: etc/rules/qapaq_soc_snyk_severity_calibration.xml
+mitre:
+- technique: T1190
+  tactic: initial-access
+severity:
+  levels: 2 baja sin exploit · 7 alta no expuesta · 10 crítica no expuesta
+  priority_hint: P3/P4
+  rationale: 'Antes: 60 altas a nivel 10 (correo) y críticas a 12 (webhook de Respond) sin corroboración.'
+false_positives:
+- 'Proyecto expuesto que falta en la lista: quedaría degradado. La lista es parte del cambio de cada servicio publicado.'
+tuning:
+- Las hermanas con exploit maduro (101457/101458) y las expuestas (101730/101731) tienen más nivel y se evalúan
+  primero.
+measurement:
+  window: 7 días hasta 2026-11-04
+  before:
+    '101453': 173
+    '101454': 59
+    '101455': 60
+  expected_after:
+    '101453': 0 indexadas (101732 nivel 2)
+    '101455': → 101733 nivel 7 salvo expuestas
+lists:
+- detections/lists/qapaq-internet-facing-projects (entorno)
+tests:
+  runner: logtest
+  fixtures: detections/snyk/severity-calibration/fixtures.jsonl
+  expected: detections/snyk/severity-calibration/expected.txt
+runbook: docs/detection-engineering/runbooks/vulnerabilidad-expuesta.md
+tuning_log: docs/detection-engineering/07-ajuste-falsos-positivos.md

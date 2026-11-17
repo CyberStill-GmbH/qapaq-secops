@@ -22,7 +22,21 @@ export interface EventFilters {
   readonly severity?: readonly string[];
   readonly category?: readonly string[];
   readonly outcome?: string;
+  /**
+   * Eventos que mencionan alguna de estas entidades (OR). Uso interno del API (Analista IA):
+   * acota la lectura a la entidad en vez de recorrer todo el tenant. Valor literal, nunca consulta.
+   */
+  readonly entities?: readonly EventEntityFilter[];
 }
+
+export interface EventEntityFilter {
+  readonly kind: 'user' | 'ip';
+  /** 3–256 caracteres, sin caracteres de control. */
+  readonly value: string;
+}
+
+/** Límites del filtro por entidad (validados por el proveedor). */
+export const EVENT_ENTITY_FILTER_LIMITS = Object.freeze({ maxEntities: 10, minChars: 3, maxChars: 256 });
 
 export interface EventQuery {
   readonly filters?: EventFilters;

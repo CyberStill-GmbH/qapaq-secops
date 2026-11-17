@@ -1,0 +1,64 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-M365-005
+title: Cadena de compromiso de cuenta M365 (acceso → privilegio/MFA/reenvío)
+source: m365
+use_case: compromise-chain
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: La cuenta que entra tras fuerza bruta, o desde la IP de un spray, ejecuta en las 24 h siguientes la
+  acción que el atacante necesita para quedarse.
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: detections/m365/compromise-chain/rule.xml
+  ids:
+  - 101700
+  - 101701
+  - 101702
+  - 101703
+  installed_as: etc/rules/qapaq_soc_m365_compromise_chain.xml
+mitre:
+- technique: T1098.003
+  tactic: privilege-escalation
+- technique: T1078.004
+  tactic: initial-access
+- technique: T1556.006
+  tactic: persistence
+- technique: T1098.005
+  tactic: persistence
+- technique: T1114.003
+  tactic: collection
+- technique: T1564.008
+  tactic: defense-evasion
+- technique: T1110.003
+  tactic: credential-access
+severity:
+  levels: 13 éxito desde IP de spray · 14 MFA/reenvío tras compromiso · 15 rol privilegiado tras compromiso
+  priority_hint: P1
+  rationale: 'Dos señales independientes sobre la misma cuenta: la probabilidad de benigno es muy baja y el impacto,
+    máximo.'
+false_positives:
+- 'Usuario que olvidó su contraseña, la recuperó y configuró MFA nuevo en la misma sesión (101701): confirmar con
+  la persona por un canal fuera de banda.'
+- Spray desde una salida NAT compartida y login legítimo de otra persona detrás de la misma IP (101703).
+tuning:
+- Ventana 24 h (86400 s) para persistencia y 1 h para spray; afinar con datos reales.
+- 'No suprimir por ventana de mantenimiento: es una cadena (modules/detection lo prohíbe).'
+tests:
+  runner: logtest
+  fixtures: detections/m365/compromise-chain/fixtures.jsonl
+  expected: detections/m365/compromise-chain/expected.txt
+runbook: docs/detection-engineering/runbooks/credenciales.md#cadena-m365
+depends_on:
+- wazuh/office365/rules/qapaq_office365_rules.xml (100504, 100505, 100506, 100510, 100512, 100520, 100526)
+- detections/entra/privileged-role-assignment (101704)
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'
+respond_playbook: ankay/playbooks/qapaq-contencion-identidad-aprobada.json

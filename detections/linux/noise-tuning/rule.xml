@@ -1,0 +1,71 @@
+<!--
+  QAPAQ SecOps · reducción de falsos positivos · detections/linux/noise-tuning (metadata.yaml, docs/17 §Ajuste).
+  Nota: en <list> el usuario destino (dstuser, campo estático) se consulta como field="user".
+  Medido en AWS (7 días, agente 001): 5501/5502 sesiones PAM de la cuenta admin = 2165/día; 5715 SSH = 350/día
+  desde la IP del operador; 521 rootcheck sobre overlay de Docker = 328 en una pasada.
+  Técnicas: allowlist CDB (detections/lists/qapaq-admin-accounts, qapaq-admin-ips), contexto de horario QAPAQ
+  (UTC del manager: 01:00–13:00 UTC = 20:00–08:00 Lima) y degradación a nivel 0 solo para ruido redundante
+  (la sesión PAM duplica 5402/5715, que se conservan). Nunca se silencia el éxito SSH: se ELEVA el desconocido.
+  Rango QAPAQ Linux 101750–101769. Se instala como qapaq_soc_linux_noise_tuning.xml.
+-->
+<group name="syslog,qapaq_linux,qapaq_tuning,">
+  <!-- Sesión PAM abierta por y para cuentas administrativas (sudo de ubuntu a root): duplica 5402. -->
+  <rule id="101766" level="0">
+    <if_sid>5501</if_sid>
+    <list field="user" lookup="match_key">etc/lists/qapaq-admin-accounts</list>
+    <!-- <list> no admite srcuser (no es campo estático de lista): mismo conjunto que qapaq-admin-accounts. -->
+    <regex type="pcre2">by (?:ubuntu|root)\(uid=\d+\)</regex>
+    <description>QAPAQ Linux: sesión PAM de cuenta administrativa ($(srcuser) a $(dstuser)); ya auditada por sudo/SSH.</description>
+  </rule>
+
+  <!-- Cierre de sesión PAM de cuenta administrativa: sin valor de detección. -->
+  <rule id="101767" level="0">
+    <if_sid>5502</if_sid>
+    <list field="user" lookup="match_key">etc/lists/qapaq-admin-accounts</list>
+    <description>QAPAQ Linux: cierre de sesión PAM de cuenta administrativa $(dstuser).</description>
+  </rule>
+
+  <!-- SSH exitoso desde una IP fuera de la allowlist de administración: se eleva (contexto). -->
+  <rule id="101761" level="8">
+    <if_sid>5715</if_sid>
+    <list field="srcip" lookup="not_address_match_key">etc/lists/qapaq-admin-ips</list>
+    <description>QAPAQ Linux: acceso SSH exitoso de $(dstuser) desde $(srcip), IP no registrada como administrativa.</description>
+    <mitre>
+      <id>T1078.003</id>
+      <id>T1021.004</id>
+    </mitre>
+    <group>qapaq_initial_access,</group>
+  </rule>
+
+  <!-- Mismo acceso fuera del horario QAPAQ (20:00–08:00 Lima = 01:00–13:00 UTC) o en fin de semana. -->
+  <rule id="101762" level="11">
+    <if_sid>101761</if_sid>
+    <time>1 am - 1 pm</time>
+    <description>QAPAQ Linux: acceso SSH de $(dstuser) desde IP no registrada $(srcip) fuera del horario del SOC.</description>
+    <mitre>
+      <id>T1078.003</id>
+      <id>T1021.004</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_off_hours,</group>
+  </rule>
+
+  <rule id="101763" level="11">
+    <if_sid>101761</if_sid>
+    <weekday>weekends</weekday>
+    <description>QAPAQ Linux: acceso SSH de $(dstuser) desde IP no registrada $(srcip) en fin de semana.</description>
+    <mitre>
+      <id>T1078.003</id>
+      <id>T1021.004</id>
+    </mitre>
+    <group>qapaq_initial_access,qapaq_off_hours,</group>
+  </rule>
+
+  <!-- 521 sobre capas overlay de Docker/containerd: falso positivo conocido de check_sys. Respaldo de la
+       exclusión del agente (linux-servers y linux-pilot); un rootkit real fuera de esas rutas sigue en 521. -->
+  <rule id="101765" level="0">
+    <if_sid>521</if_sid>
+    <match>/var/lib/docker/|/var/lib/containerd/</match>
+    <description>QAPAQ Linux: anomalía de rootcheck en capa overlay de contenedores (falso positivo conocido de 521).</description>
+    <group>rootcheck,</group>
+  </rule>
+</group>

@@ -1,8 +1,11 @@
 # ADR-029 — QAPAQ SecOps como plataforma SIEM/XDR y espacio de trabajo SOC
 
+> **Contexto heredado de la base de código original; vigente solo lo que recoge [docs/10-decisiones.md](../../10-decisiones.md).**
+> Se conserva como historia; la arquitectura vigente es serverless sobre AWS ([02](../../02-arquitectura.md)).
+
 > **Nota (2026-10-14):** la parte de «consola propia QAPAQ» de esta decisión fue reemplazada por la
 > instrucción posterior del dueño: QAPAQ SecOps usa la UI de Wazuh rebrandeada de principio a fin
-> (`docs/10-decisiones.md`, A6). Siguen vigentes Ayni Qapaq, Shuffle y la visión SIEM/XDR.
+> (`docs/10-decisiones.md`, A6). Siguen vigentes Ayni Qapaq, Ankay (antes Shuffle) y la visión SIEM/XDR.
 
 
 - Estado: Accepted.
@@ -28,7 +31,7 @@ motor SIEM ni confiar la autorización de negocio a la interfaz.
 
 ## Decisión
 
-QAPAQ SecOps es el producto SOC central de la Financiera Qapaq: una plataforma SIEM/XDR
+QAPAQ SecOps es el producto SOC central de la Financiera QAPAQ: una plataforma SIEM/XDR
 que integra recolección y detección de Wazuh con normalización, investigación,
 coordinación operativa, respuesta gobernada y aprendizaje continuo. Wazuh es un
 componente tecnológico del producto —motor de agentes, ingesta, reglas y alertas—,
@@ -124,7 +127,6 @@ soporte, seguridad o costo cambia la selección de componentes.
 
 ## Referencias
 
-[ADR-024 — Vertical del primer MVP](024-microsoft-365-wazuh-mvp-vertical.md) ·
-[ADR-028 — Shuffle como motor SOAR](028-shuffle-soar-webhook-adapter.md) ·
-[Sistema](../architecture/system-context.md) ·
-[Motor Wazuh/OpenSearch](../architecture/wazuh-engine-and-opensearch.md).
+ADR-024 — Vertical del primer MVP (no conservado en este repo) ·
+[ADR-028 — Shuffle como motor SOAR (heredado)](028-shuffle-soar-webhook-adapter.md) ·
+[Arquitectura vigente](../../02-arquitectura.md).

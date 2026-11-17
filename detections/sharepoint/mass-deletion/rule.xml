@@ -1,0 +1,69 @@
+<!--
+  QAPAQ SecOps · detección como código · detections/sharepoint/mass-deletion (metadata.yaml, docs/23).
+  Borrado masivo en SharePoint/OneDrive (sabotaje, ransomware en la nube, limpieza tras exfiltración) y
+  vaciado de la papelera de segunda etapa, que impide la restauración por el usuario.
+  Marcas de nivel 3 bajo 91536/91537/91538; cuentas de servicio aprobadas (qapaq-m365-service-accounts) bajan a
+  2 y no cuentan. 101918 (nivel 13) sigue contando a través de las alertas de 101917 (nivel 10): Wazuh solo
+  corta la cuenta en eventos ya marcados con un nivel igual o mayor.
+  Se instala como qapaq_soc_sharepoint_mass_deletion.xml. Rango 101900–101979.
+-->
+<group name="office365,sharepoint,qapaq_sharepoint,">
+  <rule id="101915" level="3">
+    <if_sid>91536, 91537, 91538</if_sid>
+    <field name="office365.Operation">^FileDeleted$|^FileDeletedFirstStageRecycleBin$|^FileRecycled$|^FolderDeleted$|^FolderDeletedFirstStageRecycleBin$|^FolderRecycled$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) borró $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_deletion,</group>
+  </rule>
+
+  <!-- Papelera de segunda etapa: lo borrado ahí ya no lo restaura el usuario. -->
+  <rule id="101919" level="3">
+    <if_sid>91536, 91537, 91538</if_sid>
+    <field name="office365.Operation">^FileDeletedSecondStageRecycleBin$|^FolderDeletedSecondStageRecycleBin$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) eliminó de la papelera de segunda etapa $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_deletion,</group>
+  </rule>
+
+  <rule id="101916" level="2">
+    <if_sid>101915, 101919</if_sid>
+    <list field="office365.UserId" lookup="match_key">etc/lists/qapaq-m365-service-accounts</list>
+    <description>QAPAQ SharePoint: borrado de la cuenta de servicio aprobada $(office365.UserId).</description>
+    <options>no_full_log</options>
+    <group>qapaq_tuning,</group>
+  </rule>
+
+  <rule id="101918" level="13" frequency="300" timeframe="900">
+    <if_matched_sid>101915</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: destrucción masiva, $(office365.UserId) borró 300 archivos o carpetas en 15 min.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+    <group>qapaq_impact,</group>
+  </rule>
+
+  <rule id="101917" level="10" frequency="100" timeframe="600">
+    <if_matched_sid>101915</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: borrado masivo, $(office365.UserId) borró 100 archivos o carpetas en 10 min.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1485</id>
+    </mitre>
+    <group>qapaq_impact,</group>
+  </rule>
+
+  <rule id="101920" level="12" frequency="25" timeframe="900">
+    <if_matched_sid>101919</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: $(office365.UserId) vació 25 elementos de la papelera de segunda etapa en 15 min (impide la recuperación).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1490</id>
+      <id>T1485</id>
+    </mitre>
+    <group>qapaq_impact,</group>
+  </rule>
+</group>

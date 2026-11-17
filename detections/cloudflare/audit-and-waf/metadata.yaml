@@ -1,0 +1,60 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-CF-001
+title: Auditoría de cuenta y WAF de Cloudflare
+source: cloudflare
+use_case: audit-and-waf
+status: production
+version: 1.0.0
+owner: provider-ingestion
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: 'El perímetro público de QAPAQ está en Cloudflare: los cambios de control y los ataques al WAF son la
+  primera señal externa.'
+data_sources:
+- Cloudflare audit logs y firewall events por zona (collector qapaq-collector-cloudflare, cada 5 min)
+rules:
+  file: wazuh/provider-ingestion/rules/qapaq_cloudflare_rules.xml
+  ids:
+  - 101501
+  - 101502
+  - 101503
+  - 101504
+  - 101505
+  - 101506
+  - 101507
+  - 101510
+  - 101511
+  - 101512
+  - 101513
+mitre:
+- technique: T1584.002
+  tactic: resource-development
+- technique: T1562
+  tactic: defense-evasion
+- technique: T1562.007
+  tactic: defense-evasion
+- technique: T1098
+  tactic: persistence
+- technique: T1485
+  tactic: impact
+- technique: T1190
+  tactic: initial-access
+- technique: T1595
+  tactic: reconnaissance
+severity:
+  levels: 2-5 actividad · 8-10 cambios de control/identidad · 10 ataque sostenido · 12 zona borrada
+  priority_hint: P2 controles; P1 zona borrada
+  rationale: Perímetro público.
+false_positives:
+- Cambios de DNS planificados por despliegues.
+- Escáneres autorizados (pentest).
+tuning: []
+tests:
+  runner: logtest
+  suite: collectors
+  fixtures: wazuh/provider-ingestion/tests/collector-cases.jsonl
+  expected: wazuh/provider-ingestion/tests/collector-expected-rules.txt
+runbook: docs/detection-engineering/runbooks/oleada-waf.md

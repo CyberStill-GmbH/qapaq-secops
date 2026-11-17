@@ -41,12 +41,7 @@ function isApiErrorCode(value: unknown): value is ApiErrorCode {
 function errorFrom(status: number, body: unknown): QapaqApiError {
   const parsed = (body ?? {}) as Partial<ApiErrorBody>;
   if (isApiErrorCode(parsed.code)) {
-    return new QapaqApiError(
-      parsed.code,
-      status,
-      parsed.correlationId ?? null,
-      parsed.fields ?? [],
-    );
+    return new QapaqApiError(parsed.code, status, parsed.correlationId ?? null, parsed.fields ?? []);
   }
   const code: ApiErrorCode =
     status === 401
@@ -118,6 +113,70 @@ export class QapaqApiClient {
     return this.request<T>('POST', path, body, session.csrfToken);
   }
 
+  /** POST with CSRF for APIs that return a streaming body instead of JSON. */
+  public async postStream(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
+    const session = await this.session();
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.options.apiPrefix}${path}`, {
+        method: 'POST',
+        headers: {
+          accept: 'text/event-stream',
+          'content-type': 'application/json',
+          'x-csrf-token': session.csrfToken,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      });
+    } catch (error) {
+      // Keep AbortError intact so callers can distinguish an intentional cancel
+      // from a transport failure and the server can observe the closed stream.
+      if (signal?.aborted) throw error;
+      throw new QapaqApiError('DEPENDENCY_DEGRADED', 0, null);
+    }
+    if (!response.ok) {
+      let parsed: unknown = null;
+      try {
+        parsed = await response.json();
+      } catch {
+        parsed = null;
+      }
+      const error = errorFrom(response.status, parsed);
+      if (error.code === 'AUTH_REQUIRED' || error.code === 'SESSION_EXPIRED') {
+        this.sessionPromise = null;
+        this.options.redirect?.(this.loginUrl());
+      }
+      throw error;
+    }
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    if (contentType.includes('application/json')) return response;
+    if (!contentType.includes('text/event-stream') || !response.body) {
+      throw new QapaqApiError('DEPENDENCY_DEGRADED', response.status, null);
+    }
+    return response;
+  }
+
+  public async patch<T>(path: string, body: unknown): Promise<T> {
+    const session = await this.session();
+    return this.request<T>('PATCH', path, body, session.csrfToken);
+  }
+
+  public async put<T>(path: string, body: unknown): Promise<T> {
+    const session = await this.session();
+    return this.request<T>('PUT', path, body, session.csrfToken);
+  }
+
+  public async delete<T>(path: string): Promise<T> {
+    const session = await this.session();
+    return this.request<T>('DELETE', path, undefined, session.csrfToken);
+  }
+
+  /** Prefijo público de la API QAPAQ (mismo origen), para sondas opcionales sin redirección. */
+  public get apiPrefix(): string {
+    return this.options.apiPrefix;
+  }
+
   public loginUrl(): string {
     const current =
       this.options.currentUrl?.() ??
@@ -126,7 +185,7 @@ export class QapaqApiClient {
   }
 
   private async request<T>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
     path: string,
     body?: unknown,
     csrfToken?: string,

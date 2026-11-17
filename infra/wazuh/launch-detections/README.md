@@ -1,5 +1,12 @@
 # Paquete de detección QAPAQ para lanzamiento
 
+> **Nota (legado):** las menciones a Azure describen el perfil heredado de la base de código original, archivado en
+> [`docs/archive/azure`](../../../docs/archive/azure/README.md). QAPAQ SecOps opera solo en AWS ([02](../../../docs/02-arquitectura.md)); lo técnico
+> que sigue aquí vale como referencia del perfil heredado, no como runbook vigente.
+
+> **Nota (heredado):** Shuffle y su webhook son el estado heredado de Ankay. El diseño vigente es
+> Step Functions ([13](../../../docs/13-ankay-qapaq.md), [14](../../../docs/14-ankay-conexion-qapaq.md)); este material se reemplaza (fase M5).
+
 Estado: **preconfigurado en Git; no instalado en un Manager real**. El catálogo
 mantiene 30 casos priorizados. Las reglas locales de este paquete consumen un
 contrato JSON plano `integration=qapaq-provider`; los adapters Sophos/Cato/Entra

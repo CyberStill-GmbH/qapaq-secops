@@ -1,0 +1,285 @@
+<!--
+  QAPAQ · Salud de la plataforma y canarios (wazuh/platform-monitoring, docs/20).
+  IDs reservados: 101800-101849 (101800-101829 salud, 101830-101849 canarios).
+  El nombre qapaq_watch_* hace que el archivo cargue después de todos los qapaq_* de los que cuelga
+  (qapaq_bitdefender/snyk/cloudflare/aws), requisito de if_sid entre archivos.
+  Los eventos de salud solo se emiten en transiciones (problema → recuperado), re-notificación cada
+  6 h y una instantánea por fuente cada hora: el volumen es bajo por diseño.
+-->
+<group name="qapaq_platform,qapaq_platform_health,">
+  <rule id="101800" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="qapaq.vendor">^qapaq-platform$</field>
+    <description>QAPAQ Plataforma: evento del monitor de salud.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Orden importante: Wazuh toma el primer hijo que coincide. -->
+  <rule id="101801" level="3">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.check">^source_status$</field>
+    <description>QAPAQ Integración: estado de la fuente $(qapaq.health.source): $(qapaq.health.source_state).</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_status,</group>
+  </rule>
+
+  <rule id="101802" level="3">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^ok$</field>
+    <description>QAPAQ Plataforma: $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_health_recovered,</group>
+  </rule>
+
+  <rule id="101804" level="10">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^source_silent$</field>
+    <description>QAPAQ Integración: fuente silenciosa $(qapaq.health.source). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_source_silent,</group>
+  </rule>
+
+  <rule id="101805" level="8">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^collector_failing$</field>
+    <description>QAPAQ Integración: colector fallando ($(qapaq.health.source)). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_collector_failing,</group>
+  </rule>
+
+  <rule id="101806" level="10">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^agent_disconnected$</field>
+    <description>QAPAQ Plataforma: agente desconectado $(qapaq.health.agent_name). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_agent_disconnected,</group>
+  </rule>
+
+  <rule id="101807" level="12">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^host_disk$|^indexer_disk$</field>
+    <description>QAPAQ Plataforma: disco por encima del umbral ($(qapaq.health.component)). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_disk,</group>
+  </rule>
+
+  <rule id="101808" level="13">
+    <if_sid>101807</if_sid>
+    <field name="qapaq.health.severity">^critical$</field>
+    <description>QAPAQ Plataforma: disco CRÍTICO ($(qapaq.health.component)). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_disk,</group>
+  </rule>
+
+  <rule id="101809" level="10">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^container_unhealthy$</field>
+    <description>QAPAQ Plataforma: contenedor con problemas $(qapaq.health.component). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_container,</group>
+  </rule>
+
+  <rule id="101810" level="12">
+    <if_sid>101809</if_sid>
+    <field name="qapaq.health.severity">^critical$</field>
+    <description>QAPAQ Plataforma: servicio esencial caído $(qapaq.health.component). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_container,</group>
+  </rule>
+
+  <rule id="101811" level="8">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^indexer_cluster$</field>
+    <description>QAPAQ Plataforma: indexer degradado. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_indexer,</group>
+  </rule>
+
+  <rule id="101812" level="12">
+    <if_sid>101811</if_sid>
+    <field name="qapaq.health.severity">^critical$</field>
+    <description>QAPAQ Plataforma: indexer en ROJO. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_indexer,</group>
+  </rule>
+
+  <rule id="101814" level="7">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^ism_error$</field>
+    <description>QAPAQ Plataforma: errores de ISM (retención). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_indexer,</group>
+  </rule>
+
+  <rule id="101815" level="8">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^cert_expiry$</field>
+    <description>QAPAQ Plataforma: certificado por vencer $(qapaq.health.component). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_certificate,</group>
+  </rule>
+
+  <rule id="101816" level="12">
+    <if_sid>101815</if_sid>
+    <field name="qapaq.health.severity">^critical$</field>
+    <description>QAPAQ Plataforma: certificado vence en menos de 7 días o vencido: $(qapaq.health.component). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_certificate,</group>
+  </rule>
+
+  <rule id="101817" level="9">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^ingestion_lag$</field>
+    <description>QAPAQ Plataforma: ingesta QAPAQ retrasada. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_ingestion,</group>
+  </rule>
+
+  <rule id="101818" level="11">
+    <if_sid>101817</if_sid>
+    <field name="qapaq.health.severity">^critical$</field>
+    <description>QAPAQ Plataforma: ingesta QAPAQ detenida. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_ingestion,</group>
+  </rule>
+
+  <rule id="101819" level="8">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^host_memory$|^host_load$</field>
+    <description>QAPAQ Plataforma: recursos del host. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_host,</group>
+  </rule>
+
+  <rule id="101820" level="12">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^edge_unreachable$</field>
+    <description>QAPAQ Plataforma: portal del SOC inaccesible. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_edge,</group>
+  </rule>
+
+  <rule id="101821" level="5">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^vuln_intel_stale$</field>
+    <description>QAPAQ Plataforma: feeds KEV/EPSS desactualizados. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_vulnprio,</group>
+  </rule>
+
+  <rule id="101822" level="10">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^canary_missing$</field>
+    <description>QAPAQ Canario: el evento sintético de $(qapaq.health.source) no completó el recorrido. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_canary,</group>
+  </rule>
+
+  <rule id="101823" level="7">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^sns_subscription$</field>
+    <description>QAPAQ Plataforma: suscripción SNS sin confirmar. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws,</group>
+  </rule>
+
+  <rule id="101824" level="5">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <field name="qapaq.health.check">^monitor_error$</field>
+    <description>QAPAQ Plataforma: chequeo del monitor sin ejecutar. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_monitor,</group>
+  </rule>
+
+  <rule id="101825" level="10">
+    <if_sid>101824</if_sid>
+    <field name="qapaq.health.severity">^critical$</field>
+    <description>QAPAQ Plataforma: el monitor de salud no corre. $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+    <group>qapaq_monitor,</group>
+  </rule>
+
+  <rule id="101829" level="5">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^health$</field>
+    <field name="qapaq.health.status">^problem$</field>
+    <description>QAPAQ Plataforma: problema de salud $(qapaq.health.check). $(qapaq.health.summary)</description>
+    <options>no_full_log</options>
+  </rule>
+</group>
+
+<!-- Canarios: evento sintético por pipeline, nivel 3 (se indexa y llega a QAPAQ, no avisa ni envía correo). -->
+<group name="qapaq_platform,qapaq_canary,qapaq_synthetic,">
+  <rule id="101830" level="3">
+    <if_sid>101400</if_sid>
+    <field name="qapaq.event_type">^canary$</field>
+    <description>QAPAQ Canario: evento sintético de Bitdefender (sintético/canary, no requiere acción).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101831" level="3">
+    <if_sid>101450</if_sid>
+    <field name="qapaq.event_type">^canary$</field>
+    <description>QAPAQ Canario: evento sintético de Snyk (sintético/canary, no requiere acción).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101832" level="3">
+    <if_sid>101500</if_sid>
+    <field name="qapaq.event_type">^canary$</field>
+    <description>QAPAQ Canario: evento sintético de Cloudflare (sintético/canary, no requiere acción).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101833" level="3">
+    <if_sid>101600</if_sid>
+    <field name="qapaq.event_type">^canary$</field>
+    <description>QAPAQ Canario: evento sintético de AWS (sintético/canary, no requiere acción).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101834" level="3">
+    <if_sid>101800</if_sid>
+    <field name="qapaq.event_type">^canary$</field>
+    <description>QAPAQ Canario: evento sintético del monitor de plataforma (sintético/canary, no requiere acción).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101835" level="3">
+    <program_name>^qapaq-canary$</program_name>
+    <match>QAPAQ canary qapaq-canary-</match>
+    <description>QAPAQ Canario: evento sintético del agente Wazuh (journald) (sintético/canary, no requiere acción).</description>
+  </rule>
+</group>

@@ -1,0 +1,115 @@
+<!--
+  QAPAQ SecOps · detección como código · detections/linux/network-connections (metadata.yaml).
+  Puertos en escucha y conexiones TCP del host, desde el command monitoring del grupo linux-servers
+  (wazuh/manager/policy/shared/linux-servers/qapaq-netconn.sh, decoder qapaq-netconn en
+  infra/wazuh/network/decoders/qapaq_network_decoders.xml). Docs: docs/18-visibilidad-de-red-y-capacidades-wazuh.md.
+  - 101800: foto de escuchas con check_diff (misma lógica que la 533 oficial, alias propio para no
+    mezclarse con el netstat por defecto del agente).
+  - 101801-101809: una línea por escucha o conexión NUEVA. Orden de hermanos = prioridad (gana el primero).
+  Rango QAPAQ red: 101800-101899 (catalog.yaml). Se instala como qapaq_soc_linux_network_connections.xml.
+-->
+<group name="qapaq_network,qapaq_linux,">
+
+  <rule id="101800" level="7">
+    <if_sid>530</if_sid>
+    <match>ossec: output: 'qapaq listening ports'</match>
+    <check_diff />
+    <description>QAPAQ Linux: cambiaron los puertos en escucha del host (se abrió o se cerró uno).</description>
+    <mitre>
+      <id>T1571</id>
+    </mitre>
+    <group>qapaq_listening_ports,</group>
+  </rule>
+
+  <rule id="101801" level="0">
+    <if_sid>530</if_sid>
+    <field name="qapaq.net.type">^listen$|^conn$|^truncated$|^error$</field>
+    <description>QAPAQ Linux: evento de red del host ($(qapaq.net.type) $(qapaq.net.direction)).</description>
+    <group>qapaq_netconn,</group>
+  </rule>
+
+  <!-- Escuchas nuevas -->
+  <rule id="101802" level="0">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^listen$</field>
+    <regex type="pcre2">type=listen .* dst=(?:127\.|::1(?:\s|$))</regex>
+    <description>QAPAQ Linux: nueva escucha solo en loopback ($(dstip):$(dstport), $(qapaq.net.process)).</description>
+    <group>qapaq_netconn,</group>
+  </rule>
+
+  <rule id="101803" level="12">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^listen$</field>
+    <field name="qapaq.net.process" type="pcre2">^(bash|sh|dash|zsh|ksh|nc|ncat|netcat|nc\.openbsd|nc\.traditional|socat|python[0-9.]*|perl|php[0-9.-]*|ruby|lua|telnet)$</field>
+    <description>QAPAQ Linux: shell, netcat o intérprete $(qapaq.net.process) escucha en $(dstip):$(dstport)/$(protocol) (posible bind shell o túnel).</description>
+    <mitre>
+      <id>T1059.004</id>
+      <id>T1571</id>
+    </mitre>
+    <group>qapaq_netconn,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101804" level="0">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^listen$</field>
+    <list field="dstport" lookup="match_key">etc/lists/qapaq-expected-listeners</list>
+    <description>QAPAQ Linux: escucha esperada $(dstip):$(dstport)/$(protocol) ($(qapaq.net.process)).</description>
+    <group>qapaq_netconn,</group>
+  </rule>
+
+  <rule id="101805" level="8">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^listen$</field>
+    <description>QAPAQ Linux: nuevo puerto en escucha no esperado $(dstip):$(dstport)/$(protocol) de $(qapaq.net.process) (uid $(qapaq.net.uid)).</description>
+    <mitre>
+      <id>T1571</id>
+    </mitre>
+    <group>qapaq_netconn,</group>
+  </rule>
+
+  <!-- Conexiones TCP nuevas -->
+  <rule id="101806" level="0">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^conn$</field>
+    <regex type="pcre2">dir=out .* dst=(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|::1 |fe80:|f[cd][0-9a-f]{2}:)|dir=in .* src=(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|::1 |fe80:|f[cd][0-9a-f]{2}:)</regex>
+    <description>QAPAQ Linux: conexión TCP interna $(qapaq.net.direction) $(srcip) → $(dstip):$(dstport) ($(qapaq.net.process)).</description>
+    <group>qapaq_netconn,</group>
+  </rule>
+
+  <rule id="101807" level="10">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^conn$</field>
+    <field name="qapaq.net.direction">^out$</field>
+    <field name="qapaq.net.process" type="pcre2">^(bash|sh|dash|zsh|ksh|nc|ncat|netcat|nc\.openbsd|nc\.traditional|socat|perl|php[0-9.-]*|ruby|lua|telnet)$</field>
+    <description>QAPAQ Linux: $(qapaq.net.process) abrió conexión saliente a $(dstip):$(dstport) (uid $(qapaq.net.uid)); patrón de reverse shell.</description>
+    <mitre>
+      <id>T1059.004</id>
+      <id>T1071</id>
+    </mitre>
+    <group>qapaq_netconn,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101808" level="5">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^conn$</field>
+    <field name="qapaq.net.direction">^out$</field>
+    <list field="dstip" lookup="not_address_match_key">etc/lists/qapaq-egress-known</list>
+    <description>QAPAQ Linux: conexión saliente a destino poco común $(dstip):$(dstport) desde $(qapaq.net.process) (uid $(qapaq.net.uid)).</description>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+    <group>qapaq_netconn,qapaq_rare_destination,</group>
+  </rule>
+
+  <rule id="101809" level="3">
+    <if_sid>101801</if_sid>
+    <field name="qapaq.net.type">^conn$</field>
+    <field name="qapaq.net.direction">^in$</field>
+    <description>QAPAQ Linux: conexión entrante desde $(srcip) al puerto $(dstport) ($(qapaq.net.process)).</description>
+    <mitre>
+      <id>T1133</id>
+    </mitre>
+    <group>qapaq_netconn,</group>
+  </rule>
+
+</group>

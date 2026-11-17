@@ -1,0 +1,132 @@
+// Compact, printable temporal clusters for SOC investigation.
+.qapaqActivityGroups {
+  margin-top: $ouiSize;
+  border-top: 1px solid $ouiBorderColor;
+  padding-top: $ouiSize;
+}
+
+.qapaqActivityGroups__header,
+.qapaqActivityGroups__header > div,
+.qapaqActivityGroups__list > li > details > summary,
+.qapaqActivityGroups__events > li {
+  display: flex;
+  align-items: flex-start;
+  gap: $ouiSizeS;
+}
+
+.qapaqActivityGroups__header {
+  justify-content: space-between;
+
+  h3 {
+    margin: 0;
+    font-size: $ouiFontSizeS;
+    font-weight: 700;
+  }
+
+  p {
+    max-width: 900px;
+    margin: 4px 0 0;
+    color: $ouiTextSubduedColor;
+    font-size: $ouiFontSizeXS;
+  }
+}
+
+.qapaqActivityGroups__count {
+  flex-shrink: 0;
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+  white-space: nowrap;
+}
+
+.qapaqActivityGroups__list,
+.qapaqActivityGroups__events {
+  display: grid;
+  gap: 6px;
+  margin: $ouiSizeS 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qapaqActivityGroups__list > li > details {
+  border: 1px solid $ouiBorderColor;
+  border-radius: 6px;
+  background: $ouiColorEmptyShade;
+
+  > summary {
+    align-items: center !important;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    cursor: pointer;
+    list-style-position: inside;
+  }
+}
+
+.qapaqActivityGroups__list > li.is-collapsed {
+  display: none;
+}
+
+.qapaqActivityGroups__entity {
+  min-width: 100px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.qapaqActivityGroups__range {
+  color: $ouiTextSubduedColor;
+  font-size: $ouiFontSizeXS;
+}
+
+.qapaqActivityGroups__events {
+  margin: 0;
+  padding: 0 8px 8px 24px;
+
+  > li {
+    flex-wrap: wrap;
+    border-top: 1px solid $ouiBorderColor;
+    padding: 6px 0;
+    font-size: $ouiFontSizeXS;
+  }
+}
+
+.qapaqActivityGroups__description {
+  flex: 1 1 220px;
+  overflow-wrap: anywhere;
+}
+
+.qapaqActivityGroups__rule,
+.qapaqActivityGroups__id {
+  color: $ouiTextSubduedColor;
+}
+
+.qapaqActivityGroups__toggle {
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  color: $ouiColorPrimary;
+  cursor: pointer;
+  font: inherit;
+  font-size: $ouiFontSizeXS;
+}
+
+@media print {
+  .qapaqActivityGroups__list > li.is-collapsed {
+    display: list-item !important;
+  }
+
+  .qapaqActivityGroups__toggle {
+    display: none !important;
+  }
+
+  .qapaqActivityGroups__list > li > details > summary {
+    font-weight: 700;
+  }
+
+  .qapaqActivityGroups__list > li > details:not([open]) > .qapaqActivityGroups__events {
+    display: block !important;
+  }
+
+  .qapaqActivityGroups__list > li,
+  .qapaqActivityGroups__events > li {
+    break-inside: avoid;
+  }
+}

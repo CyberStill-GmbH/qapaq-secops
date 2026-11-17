@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qapaq-cintel"
+dynamic = ["version"]
+description = "Qapaq Phishing Contra-inteligencia: análisis defensivo de correos sospechosos (Outlook, Gmail, Microsoft 365) con reportes PDF automáticos."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Propietario - Uso interno Qapaq" }
+authors = [{ name = "Cesar Guevara", email = "cguevara@qapaq.pe" }]
+keywords = ["phishing", "email", "forensics", "dmarc", "outlook", "microsoft-365", "gmail", "contrainteligencia"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Natural Language :: Spanish",
+  "Topic :: Security",
+  "Topic :: Communications :: Email",
+]
+dependencies = [
+  "dnspython>=2.6,<3",
+  "reportlab>=4.0",
+  "rich>=13.0",
+]
+
+[project.optional-dependencies]
+# Lectura de archivos .msg de Outlook de escritorio
+msg = ["extract-msg>=0.48"]
+# Lectura de códigos QR en imágenes (quishing)
+qr = ["opencv-python-headless>=4.8", "numpy"]
+completo = ["extract-msg>=0.48", "opencv-python-headless>=4.8", "numpy"]
+
+[project.scripts]
+cintel = "cintel.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "cintel.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["cintel*"]
+
+# ---------------------------------------------------------------- Calidad y SAST
+[tool.ruff]
+line-length = 140
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "I"]
+ignore = ["E501"]  # La longitud se controla con line-length; mensajes largos en español
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv", "build"]
+

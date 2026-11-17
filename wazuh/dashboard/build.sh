@@ -190,10 +190,11 @@ for plugin in "$PLUGINS_SRC"/plugins/*/; do
   build_plugin "$OSD/plugins/$name" "$PKG/app"
 done
 
-# Todos los plugins propios de QAPAQ (qapaq_ops, qapaq_i18n, …): fuera del código de Wazuh.
-for plugin in "$HERE"/plugins/*/; do
-  name="$(basename "$plugin")"
-  [ -f "$plugin/opensearch_dashboards.json" ] || continue
+# Solo se empaquetan los plugins QAPAQ explícitos (qapaq_ops, qapaq_i18n): cualquier otro directorio
+# bajo plugins/ no puede instalarse por accidente en el producto.
+for name in qapaq_ops qapaq_i18n; do
+  plugin="$HERE/plugins/$name"
+  [ -f "$plugin/opensearch_dashboards.json" ] || die "falta el plugin QAPAQ $name"
   rm -rf "$OSD/plugins/$name"
   mkdir -p "$OSD/plugins/$name"
   (cd "$plugin" && tar --exclude=node_modules --exclude=build --exclude=target -cf - .) | (cd "$OSD/plugins/$name" && tar -xf -)

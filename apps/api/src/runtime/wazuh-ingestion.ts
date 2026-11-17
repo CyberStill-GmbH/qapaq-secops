@@ -4,11 +4,10 @@
  * Es el único lugar del API que nombra a Wazuh para la ingesta (regla C-23): une el proveedor
  * de C-28, la normalización de C-12 y la pasada genérica de `ingestion-poller.ts`.
  *
- * Identidad estable de cada documento: la normalización deriva `recordId` de la huella del
- * crudo y de `receivedAt`. En la lectura directa se usa como `receivedAt` la hora del propio
- * documento (`timestamp`), que no cambia entre lecturas; así releer el solape produce el mismo
- * `recordId` y la promoción reconoce el duplicado. La huella es SHA-256 del JSON canónico
- * (claves ordenadas), independiente del orden en que el Indexer serialice los campos.
+ * Identidad estable de cada documento: la normalización deriva `recordId` del `_id` de origen,
+ * la huella SHA-256 del JSON canónico (claves ordenadas) y `occurredAt`. `receivedAt` y
+ * `collectedAt` pueden diferir entre push, pull y replay sin cambiar la identidad; la promoción
+ * reconoce el duplicado por el mismo documento del Indexer, independiente del orden serializado.
  *
  * `raw.ref` apunta al documento en el Indexer (`raw:wazuh/<dataset>/<id>`): en el demo no hay
  * custodia propia de crudos (C-04/MinIO), y Wazuh sigue siendo el dueño del dato.
@@ -20,6 +19,7 @@ import {
   createWazuhSecurityEventProvider,
   type ProviderRecord,
   type SecurityEventProvider,
+  type WazuhAlertHintLookupProvider,
 } from '@qapaq/connectors';
 import { normalizeWazuhAlert } from '@qapaq/telemetry/wazuh';
 
@@ -41,6 +41,15 @@ export const OFFICE365_SUBSCRIPTIONS = Object.freeze([
   'Audit.General',
   'Audit.SharePoint',
 ]);
+/**
+ * Proveedores integrados por los collectors QAPAQ (wazuh/provider-ingestion) y por el receptor
+ * de AWS: grupo de regla que los identifica en `wazuh-alerts-*`. Cada uno se mide como stream
+ * `provider.<grupo>` en la salud de la fuente, junto a las suscripciones de Office 365.
+ */
+export const PROVIDER_ACTIVITY_GROUPS = Object.freeze(['bitdefender', 'snyk', 'cloudflare', 'aws']);
+export const PROVIDER_STREAMS = Object.freeze(
+  PROVIDER_ACTIVITY_GROUPS.map((group) => `provider.${group}`),
+);
 const DATASET = WAZUH_DATASET;
 const CONNECTOR_VERSION = '1.0.0';
 /** Ventana de lectura (ver `IngestionWindowPolicy`). */
@@ -68,6 +77,7 @@ export function wazuhRecordToEvent(
   record: ProviderRecord,
   tenantId: string,
   instanceId: string,
+  receivedAt: Date = new Date(record.collectedAt),
 ): RecordConversion {
   const occurredAt = record.occurredAt ? new Date(record.occurredAt) : undefined;
   if (!occurredAt || Number.isNaN(occurredAt.getTime())) return { status: 'quarantined' };
@@ -92,7 +102,7 @@ export function wazuhRecordToEvent(
       instanceId,
       connector: 'wazuh',
       connectorVersion: CONNECTOR_VERSION,
-      receivedAt: occurredAt,
+      receivedAt,
     },
   );
   return outcome.status === 'normalized'
@@ -108,7 +118,12 @@ export function createWazuhEventProvider(options: {
   readonly sourceId: string;
   readonly gatewayBaseUrl: string;
   readonly accessToken: () => Promise<string>;
-}): SecurityEventProvider {
+  /**
+   * `true` con un token estático (no vence): solo HTTPS, o HTTP a loopback. Sin la excepción
+   * de HTTP hacia `*.qapaq.internal`, que solo vale para tokens de workload de vida corta.
+   */
+  readonly tlsOrLoopbackOnly?: boolean;
+}): SecurityEventProvider & WazuhAlertHintLookupProvider {
   return createWazuhSecurityEventProvider({
     sourceId: options.sourceId,
     gateway: {
@@ -123,10 +138,13 @@ export function createWazuhEventProvider(options: {
       cursorSigningKey: randomBytes(32).toString('hex'),
       cursorTtlMs: 10 * 60_000,
       maximumResponseBytes: 10 * 1024 * 1024,
-      allowPrivateServiceHttp: true,
+      ...(options.tlsOrLoopbackOnly === true
+        ? { allowPrivateServiceHttp: false, allowInsecureLocalhost: true }
+        : { allowPrivateServiceHttp: true }),
     },
     compileFilters: compileWazuhEventFilters,
     activityField: OFFICE365_SUBSCRIPTION_FIELD,
+    activityGroups: PROVIDER_ACTIVITY_GROUPS,
   });
 }
 
@@ -135,12 +153,14 @@ export function createWazuhEventsReader(options: {
   readonly provider: SecurityEventProvider;
   readonly tenantId: string;
   readonly sourceId: string;
+  readonly now?: () => Date;
 }): EventsReader {
   return createEventsReader({
     provider: options.provider,
     sourceId: options.sourceId,
     dataset: DATASET,
-    toEvent: (record) => wazuhRecordToEvent(record, options.tenantId, options.sourceId),
+    toEvent: (record) =>
+      wazuhRecordToEvent(record, options.tenantId, options.sourceId, options.now?.() ?? new Date()),
   });
 }
 
@@ -164,7 +184,8 @@ export function createWazuhIngestion(options: WazuhIngestionOptions): Notificati
     key: { tenantId: options.tenantId, sourceId: options.sourceId, dataset: DATASET },
     readPage: (query) => provider.readPage(query),
     state: options.runtime.soc.ingestion,
-    toEvent: (record) => wazuhRecordToEvent(record, options.tenantId, options.sourceId),
+    toEvent: (record) =>
+      wazuhRecordToEvent(record, options.tenantId, options.sourceId, options.runtime.now()),
     promote: (event) => options.runtime.promoteEvent(event),
     window: { ...WINDOW, initialLookbackMs: options.initialLookbackMs },
     pageSize: PAGE_SIZE,

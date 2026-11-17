@@ -1,0 +1,111 @@
+<!--
+  QAPAQ · Cloudflare (wazuh/provider-ingestion/cloudflare/security.py). IDs reservados: 101500-101549.
+  Auditoría de cuenta (qapaq.event_type=audit) y eventos de seguridad de zona (firewall). Monitor-only.
+-->
+<group name="qapaq_provider,cloudflare,">
+  <rule id="101500" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="qapaq.vendor">^cloudflare$</field>
+    <description>QAPAQ Cloudflare: evento del collector.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Auditoría de cuenta -->
+  <rule id="101501" level="3">
+    <if_sid>101500</if_sid>
+    <field name="qapaq.event_type">^audit$</field>
+    <description>QAPAQ Cloudflare: $(cloudflare.audit.action) sobre $(cloudflare.audit.resource_type) por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <group>qapaq_audit,</group>
+  </rule>
+
+  <rule id="101502" level="5">
+    <if_sid>101501</if_sid>
+    <field name="cloudflare.audit.result">^false$</field>
+    <description>QAPAQ Cloudflare: acción fallida $(cloudflare.audit.action) sobre $(cloudflare.audit.resource_type) por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <group>qapaq_audit,</group>
+  </rule>
+
+  <rule id="101503" level="5">
+    <if_sid>101501</if_sid>
+    <field name="cloudflare.audit.resource_type">^dns.record$</field>
+    <description>QAPAQ Cloudflare: cambio DNS ($(cloudflare.audit.action)) en $(cloudflare.audit.zone_name) por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1584.002</id></mitre>
+    <group>qapaq_audit,qapaq_dns_change,</group>
+  </rule>
+
+  <rule id="101504" level="8">
+    <if_sid>101501</if_sid>
+    <field name="cloudflare.audit.resource_type" type="pcre2">(?i)(firewall|waf|ruleset|rate.?limit|access|zero.?trust|security|page.?shield|bot)</field>
+    <description>QAPAQ Cloudflare: cambio de control de seguridad ($(cloudflare.audit.action) $(cloudflare.audit.resource_type)) por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562</id></mitre>
+    <group>qapaq_audit,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101505" level="10">
+    <if_sid>101504</if_sid>
+    <field name="cloudflare.audit.action" type="pcre2">(?i)^(delete|deleted|disable|disabled|remove|removed)$</field>
+    <description>QAPAQ Cloudflare: control de seguridad eliminado/deshabilitado ($(cloudflare.audit.resource_type)) por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1562.007</id></mitre>
+    <group>qapaq_audit,qapaq_defense_evasion,</group>
+  </rule>
+
+  <rule id="101506" level="10">
+    <if_sid>101501</if_sid>
+    <field name="cloudflare.audit.resource_type" type="pcre2">(?i)(token|member|api.?key|role|two.?factor|sso|organization|^user$|^account$)</field>
+    <description>QAPAQ Cloudflare: cambio de identidad/credenciales ($(cloudflare.audit.action) $(cloudflare.audit.resource_type)) por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1098</id></mitre>
+    <group>qapaq_audit,qapaq_persistence,</group>
+  </rule>
+
+  <rule id="101507" level="12">
+    <if_sid>101501</if_sid>
+    <field name="cloudflare.audit.resource_type">^zone$</field>
+    <field name="cloudflare.audit.action" type="pcre2">(?i)^(delete|deleted|purge)$</field>
+    <description>QAPAQ Cloudflare: zona $(cloudflare.audit.zone_name) eliminada por $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1485</id></mitre>
+    <group>qapaq_audit,qapaq_impact,</group>
+  </rule>
+
+  <!-- Eventos de seguridad de zona (WAF, reglas personalizadas, rate limiting, bots) -->
+  <rule id="101510" level="3">
+    <if_sid>101500</if_sid>
+    <field name="qapaq.event_type">^firewall$</field>
+    <field name="cloudflare.firewall.action" type="pcre2">(?i)^(block|drop|challenge|managed_challenge|jschallenge|js_challenge|challenge_failed|connection_close)$</field>
+    <description>QAPAQ Cloudflare: $(cloudflare.firewall.action) de $(cloudflare.firewall.client_ip) en $(cloudflare.firewall.host) ($(cloudflare.firewall.source)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_waf,</group>
+  </rule>
+
+  <rule id="101511" level="5">
+    <if_sid>101500</if_sid>
+    <field name="qapaq.event_type">^firewall$</field>
+    <field name="cloudflare.firewall.action">^log$</field>
+    <description>QAPAQ Cloudflare: regla $(cloudflare.firewall.rule_id) coincidió solo en modo log para $(cloudflare.firewall.client_ip) en $(cloudflare.firewall.host).</description>
+    <options>no_full_log</options>
+    <group>qapaq_waf,</group>
+  </rule>
+
+  <rule id="101512" level="2">
+    <if_sid>101500</if_sid>
+    <field name="qapaq.event_type">^firewall$</field>
+    <description>QAPAQ Cloudflare: evento de seguridad $(cloudflare.firewall.action) en $(cloudflare.firewall.host).</description>
+    <options>no_full_log</options>
+    <group>qapaq_waf,</group>
+  </rule>
+
+  <rule id="101513" level="10" frequency="20" timeframe="300">
+    <if_matched_sid>101510</if_matched_sid>
+    <same_field>cloudflare.firewall.client_ip</same_field>
+    <description>QAPAQ Cloudflare: 20+ bloqueos/desafíos para $(cloudflare.firewall.client_ip) en 5 min; ataque sostenido contra el perímetro.</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id><id>T1595</id></mitre>
+    <group>qapaq_waf,qapaq_attack,</group>
+  </rule>
+</group>

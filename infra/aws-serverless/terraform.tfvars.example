@@ -1,0 +1,32 @@
+# Copiar a terraform.tfvars (ignorado por git) o usar environments/<env>.tfvars.
+# Nunca poner secretos aquí: entra_client_secret va por TF_VAR_entra_client_secret.
+
+project     = "qapaq"
+environment = "dev"
+aws_region  = "us-east-1"
+
+# Acceso administrativo al dashboard Wazuh (VPN/oficina). /0 no se admite.
+allowed_admin_cidrs = ["203.0.113.10/32"]
+
+# IPs públicas de salida de endpoints fuera de AWS que enviarán eventos (1514/1515).
+agent_cidrs = []
+
+alert_email        = "soc-alerts@example.com"
+monthly_budget_usd = 300
+
+# Toggles de costo
+enable_interface_endpoints = true
+enable_flow_logs           = false
+enable_guardduty           = true
+enable_security_hub        = false
+enable_cloudtrail          = true
+enable_waf                 = true
+enable_qapaqzito               = false
+
+# Agentes
+agent_target_mode       = "tag"
+agent_default_group     = "default"
+hybrid_activation_limit = 0
+
+# Despliegue de código por OIDC (vacío = sin rol)
+github_repository = ""

@@ -1,0 +1,58 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-M365-001
+title: Ataques de credenciales contra Microsoft 365
+source: m365
+use_case: credential-attacks
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Un atacante adivina o rocía contraseñas contra cuentas de M365; el éxito tras los fallos indica cuenta
+  comprometida.
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: wazuh/office365/rules/qapaq_office365_rules.xml
+  ids:
+  - 100502
+  - 100503
+  - 100504
+  - 100505
+  - 100506
+  - 100530
+mitre:
+- technique: T1110.001
+  tactic: credential-access
+- technique: T1110.003
+  tactic: credential-access
+- technique: T1110
+  tactic: credential-access
+- technique: T1078.004
+  tactic: initial-access
+severity:
+  levels: 3 (marcas) · 10 fuerza bruta · 12 spray · 13 éxito tras fuerza bruta · 14 break-glass
+  priority_hint: P1 para 100505/100530; P2 para 100503/100504
+  rationale: Un éxito tras fuerza bruta o cualquier uso de break-glass es compromiso probable de identidad cloud;
+    los fallos solos son ruido de Internet.
+false_positives:
+- Usuarios con la contraseña caducada reintentando desde varios dispositivos (100503).
+- Salidas NAT compartidas (oficina, VPN) que suman fallos de muchas personas (100504).
+- 'Pruebas de break-glass planificadas: registrar el ensayo en el cambio antes de hacerlo.'
+tuning:
+- Umbrales 10/5 min y 15/10 min; revisar con 30 días de datos reales.
+- Excluir IPs de pruebas de penetración autorizadas por lista CDB, nunca por regla.
+tests:
+  runner: logtest
+  suite: office365
+  fixtures: wazuh/office365/tests/logtest-cases.jsonl
+  expected: wazuh/office365/tests/expected-rules.txt
+  script: wazuh/office365/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/credenciales.md
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'
+respond_playbook: ankay/playbooks/qapaq-triage-enriquecimiento.json

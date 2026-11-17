@@ -1,0 +1,41 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-AWS-002
+title: Acceso a la consola AWS tras fuerza bruta
+source: aws
+use_case: console-bruteforce-success
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Un ConsoleLogin exitoso desde la IP que acaba de fallar cinco o más veces es una contraseña adivinada.
+data_sources:
+- AWS Console Sign In vía EventBridge
+rules:
+  file: detections/aws/console-bruteforce-success/rule.xml
+  ids:
+  - 101713
+  installed_as: etc/rules/qapaq_soc_aws_console_bruteforce_success.xml
+mitre:
+- technique: T1110.001
+  tactic: credential-access
+- technique: T1078.004
+  tactic: initial-access
+severity:
+  levels: '13'
+  priority_hint: P1
+  rationale: Acceso válido de atacante a la consola de la cuenta productiva.
+false_positives:
+- Persona que se equivocó cinco veces y luego acertó (confirmar fuera de banda).
+tuning: []
+tests:
+  runner: logtest
+  fixtures: detections/aws/console-bruteforce-success/fixtures.jsonl
+  expected: detections/aws/console-bruteforce-success/expected.txt
+runbook: docs/detection-engineering/runbooks/credenciales.md#aws
+depends_on:
+- wazuh/aws-events/rules/qapaq_aws_rules.xml (grupo qapaq_aws_bruteforce, regla 101608)
+respond_playbook: ankay/playbooks/qapaq-contencion-identidad-aprobada.json

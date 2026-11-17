@@ -1,0 +1,59 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-007
+title: Conexiones e inicios de sesión con IPs de reputación pública
+source: network
+use_case: threat-intel
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Un login, una conexión entrante o un destino de salida en Spamhaus DROP, Feodo Tracker o la lista de
+  nodos Tor es una señal fuerte sin servicios pagos.
+data_sources:
+- listas CDB qapaq-ti-blocklist y qapaq-ti-tor (timer diario del host)
+- SSH, edge, command monitoring y auditd
+rules:
+  file: detections/network/threat-intel/rule.xml
+  ids:
+  - 101860
+  - 101861
+  - 101865
+  - 101868
+  - 101862
+  - 101863
+  - 101864
+  - 101867
+  - 101866
+  installed_as: etc/rules/qapaq_soc_network_threat_intel.xml
+mitre:
+- technique: T1078
+  tactic: defense-evasion
+- technique: T1090.003
+  tactic: command-and-control
+- technique: T1078.003
+  tactic: defense-evasion
+- technique: T1021.004
+  tactic: lateral-movement
+- technique: T1595
+  tactic: reconnaissance
+- technique: T1071
+  tactic: command-and-control
+- technique: T1133
+  tactic: persistence
+severity:
+  levels: 6 petición desde Tor · 8 petición desde IP listada · 10 conexión entrante listada · 12 login o conexión
+    saliente listada · 13 SSH desde IP listada o Tor
+  priority_hint: P1 para 12-13 con éxito; P3 el resto
+  rationale: 'Las listas elegidas tienen bajo falso positivo (DROP: redes secuestradas; Feodo: C2 activos).'
+false_positives:
+- 'Usuario legítimo detrás de Tor o de una red reasignada recientemente: confirmar con la persona.'
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/network/threat-intel/fixtures.jsonl
+  expected: detections/network/threat-intel/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#reputacion

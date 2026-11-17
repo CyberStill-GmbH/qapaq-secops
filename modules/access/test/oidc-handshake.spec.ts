@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   beginAuthorization,
+  HANDSHAKE_LIMITS,
   pkceChallenge,
   resolveCallback,
   type EntraEndpointConfig,
@@ -43,6 +44,7 @@ describe('C-18 · inicio del flujo OIDC', () => {
     expect(url.origin + url.pathname).toBe(config.authorizationEndpoint);
     expect(url.searchParams.get('client_id')).toBe(CLIENT_ID);
     expect(url.searchParams.get('response_type')).toBe('code');
+    expect(url.searchParams.get('response_mode')).toBe('form_post');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('state')).toBe(request.state);
     expect(url.searchParams.get('nonce')).toBe(request.nonce);
@@ -71,6 +73,17 @@ describe('C-18 · inicio del flujo OIDC', () => {
     expect(() =>
       beginAuthorization({ ...config, redirectUri: 'https://atacante.example/callback' }, NOW),
     ).toThrow(/REDIRECT_URI_NOT_ALLOWED/u);
+  });
+
+  it('mantiene query solo para el callback HTTP local de desarrollo', () => {
+    const localConfig = {
+      ...config,
+      redirectUri: 'http://127.0.0.1:3000/api/auth/callback',
+      allowedRedirectUris: ['http://127.0.0.1:3000/api/auth/callback'],
+    };
+    const request = beginAuthorization(localConfig, NOW);
+
+    expect(new URL(request.authorizationUrl).searchParams.get('response_mode')).toBe('query');
   });
 });
 
@@ -143,6 +156,38 @@ describe('C-18 · retorno del flujo OIDC', () => {
     ).toMatchObject({ ok: false, code: 'PROVIDER_ERROR', detail: 'access_denied' });
   });
 
+  it('conserva solo el código AADSTS de error_description y descarta datos personales', () => {
+    const result = resolveCallback(
+      {
+        state: 'state-1',
+        error: 'access_denied',
+        errorDescription: 'AADSTS50011: redirect mismatch for analyst@example.test',
+        browserBinding: 'binding-1',
+      },
+      pending(),
+      NOW,
+    );
+
+    expect(result).toMatchObject({ ok: false, code: 'PROVIDER_ERROR', detail: 'AADSTS50011' });
+    expect(JSON.stringify(result)).not.toContain('analyst@example.test');
+  });
+
+  it('no registra errores de proveedor desconocidos ni texto arbitrario', () => {
+    const result = resolveCallback(
+      {
+        state: 'state-1',
+        error: 'arbitrary-provider-text',
+        errorDescription: 'sensitive account data without a provider code',
+        browserBinding: 'binding-1',
+      },
+      pending(),
+      NOW,
+    );
+
+    expect(result).toMatchObject({ ok: false, code: 'PROVIDER_ERROR', detail: 'PROVIDER_ERROR' });
+    expect(JSON.stringify(result)).not.toContain('sensitive account data');
+  });
+
   it('solo deja consumir el handshake una vez en el store', async () => {
     const store = new InMemoryHandshakeStore();
     await store.save(pending());
@@ -167,5 +212,37 @@ describe('C-18 · retorno del flujo OIDC', () => {
       ok: false,
       code: 'STATE_REPLAYED',
     });
+  });
+});
+
+describe('C-18 · store de handshakes acotado (DoS de /api/auth/start)', () => {
+  it('purga los handshakes vencidos al guardar uno nuevo', async () => {
+    const store = new InMemoryHandshakeStore();
+    await store.save(pending({ state: 'viejo' }));
+    const later = new Date(NOW.getTime() + 600_001);
+    await store.save(
+      pending({
+        state: 'nuevo',
+        createdAt: later,
+        expiresAt: new Date(later.getTime() + 600_000),
+      }),
+    );
+    expect(store.size).toBe(1);
+    expect(await store.consume('viejo', 'binding-1', later)).toBeUndefined();
+    expect((await store.consume('nuevo', 'binding-1', later))?.state).toBe('nuevo');
+  });
+
+  it('no supera el tope y descarta el handshake más antiguo', async () => {
+    const store = new InMemoryHandshakeStore(3);
+    for (const state of ['a', 'b', 'c', 'd', 'e']) await store.save(pending({ state }));
+    expect(store.size).toBe(3);
+    expect(await store.consume('a', 'binding-1', NOW)).toBeUndefined();
+    expect(await store.consume('b', 'binding-1', NOW)).toBeUndefined();
+    expect((await store.consume('e', 'binding-1', NOW))?.state).toBe('e');
+  });
+
+  it('declara un tope por defecto finito', () => {
+    expect(HANDSHAKE_LIMITS.maxPending).toBeGreaterThan(0);
+    expect(Number.isFinite(HANDSHAKE_LIMITS.maxPending)).toBe(true);
   });
 });

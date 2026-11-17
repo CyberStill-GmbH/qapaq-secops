@@ -1,0 +1,49 @@
+# opensearch_dashboards.yml del dashboard LOCAL detrás del edge QAPAQ (infra/local/edge).
+# = wazuh/dashboard/opensearch_dashboards.qapaq.yml + conexión al indexer de wazuh-docker single-node.
+# Requiere la imagen con los plugins qapaq_ops y qapaq_i18n (las claves qapaq_* hacen fallar el
+# arranque sin ellos) y el dominio de proxy auth en el indexer (infra/local/edge/apply-indexer-security.sh).
+
+# Solo lo alcanza el edge nginx por la red Docker (sin puerto publicado en el host).
+server.host: 0.0.0.0
+server.port: 5601
+server.ssl.enabled: false
+
+# --- Indexer de wazuh-docker (TLS con su CA) ---
+opensearch.hosts: https://wazuh.indexer:9200
+opensearch.ssl.verificationMode: certificate
+opensearch.ssl.certificateAuthorities: ['/usr/share/wazuh-dashboard/certs/root-ca.pem']
+opensearch_security.readonly_mode.roles: ['kibana_read_only']
+opensearch_security.cookie.secure: true
+opensearch_security.cookie.ttl: 900000
+opensearch_security.session.ttl: 900000
+opensearch_security.session.keepalive: true
+
+# --- Identidad: la sesión QAPAQ por proxy auth ---
+opensearch_security.auth.type: 'proxy'
+opensearch_security.proxycache.user_header: 'x-proxy-user'
+opensearch_security.proxycache.roles_header: 'x-proxy-roles'
+opensearch_security.auth.logout_url: '/qapaq/logout'
+opensearch_security.multitenancy.enabled: false
+opensearch.requestHeadersAllowlist:
+  ['securitytenant', 'Authorization', 'x-forwarded-for', 'x-proxy-user', 'x-proxy-roles']
+
+# --- Plugin qapaq_ops: login QAPAQ (la API QAPAQ corre en el host, detrás del edge) ---
+qapaq_ops.enabled: true
+qapaq_ops.apiPrefix: '/api'
+qapaq_ops.login.enabled: true
+qapaq_ops.login.defaultNextUrl: '/app/qapaq-overview'
+qapaq_ops.qapaqzito.enabled: true
+qapaq_ops.login.passwordEnabled: true
+qapaq_ops.login.destinationLabel: 'QAPAQ'
+
+# --- Marca QAPAQ ---
+opensearchDashboards.branding:
+  applicationTitle: 'QAPAQ SecOps'
+  useExpandedHeader: false
+
+uiSettings:
+  overrides:
+    'theme:version': 'v7'
+    'theme:darkMode': true
+    defaultRoute: '/app/qapaq-overview'
+    'state:storeInSessionStorage': true

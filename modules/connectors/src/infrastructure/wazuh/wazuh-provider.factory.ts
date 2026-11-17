@@ -7,6 +7,7 @@ import { SecurityEventProviderError } from '../../application/security-event-pro
 import { WazuhGatewayClient, WazuhGatewayError } from './wazuh-gateway.client.js';
 import {
   WazuhSecurityEventProvider,
+  type WazuhAlertHintLookupProvider,
   type WazuhConnectorTelemetry,
 } from './wazuh-security-event.provider.js';
 
@@ -32,12 +33,14 @@ export interface WazuhProviderConfiguration {
   readonly compileFilters?: (filters: EventFilters) => readonly JsonObject[] | undefined;
   /** Campo de stream para la actividad (ver `WazuhSecurityEventProviderOptions`). */
   readonly activityField?: string;
+  /** Grupos de proveedor medidos como streams (ver `WazuhSecurityEventProviderOptions`). */
+  readonly activityGroups?: readonly string[];
 }
 
 /** Composition root helper; callers pass C-28 credentials already resolved through C-03. */
 export function createWazuhSecurityEventProvider(
   config: WazuhProviderConfiguration,
-): SecurityEventProvider {
+): SecurityEventProvider & WazuhAlertHintLookupProvider {
   let gateway: WazuhGatewayClient;
   try {
     gateway = new WazuhGatewayClient({
@@ -70,5 +73,6 @@ export function createWazuhSecurityEventProvider(
     ...(config.telemetry ? { telemetry: config.telemetry } : {}),
     ...(config.compileFilters ? { compileFilters: config.compileFilters } : {}),
     ...(config.activityField ? { activityField: config.activityField } : {}),
+    ...(config.activityGroups ? { activityGroups: config.activityGroups } : {}),
   });
 }

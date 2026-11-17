@@ -1,72 +1,85 @@
-# 12 · Llevar el backend QAPAQ dentro del SIEM QAPAQ
+# 12 · El backend QAPAQ y el SIEM QAPAQ
 
-**Decisión del dueño (2026-10-14):** QAPAQ SecOps no tendrá frontend ni backend propios separados.
-Todo vive en el **SIEM QAPAQ**, un Wazuh modificado según las reglas de la financiera. No se reinventa la
-rueda: se recibe Wazuh y se lo convierte en lo que la financiera necesita.
+> Leyenda: **[verificado]**, **[sin verificar]** (existe en el repo, no probado en AWS) y
+> **[propuesto]**. Este documento sustituye la decisión B del 2026-10-14 (núcleo QAPAQ dentro del host
+> del SIEM) por la arquitectura serverless de [02](02-arquitectura.md).
 
-- **Hecho:** `apps/web` eliminado (`4eab88f`). Su UI vive en el plugin `qapaq_ops`.
-- **Pendiente:** `apps/api` (NestJS en ECS) y `apps/worker` siguen siendo la fuente de datos del plugin:
-  login Entra con sesión única y revocación, casos (Ayni Qapaq), auditoría con cadena hash, avisos con
-  acuse y Valkey. **Se eliminan cuando el SIEM sirva lo mismo**, con las pruebas de paridad de abajo.
-  Borrarlos antes rompería el login y los casos.
+## Qué se conserva y qué cambia
 
-## Qué queda dentro de Wazuh
+**Se conserva** la decisión del dueño (2026-10-14): no hay frontend ni backend QAPAQ *separados* del
+SIEM. El usuario ve un solo producto, el SIEM QAPAQ (Wazuh con marca QAPAQ y plugin `qapaq_ops`), con un
+solo login Entra. RDS/Aurora y S3 se conservan: son la base de evidencia para ISO 27001 y SBS.
 
-| Capacidad QAPAQ | Destino dentro del SIEM QAPAQ |
+**Cambia** dónde corre el backend. Ya no es NestJS en ECS ni un servicio `qapaq-core` en el host del
+SIEM: es la **misma API** empaquetada en **Lambda** detrás de API Gateway HTTP, y el núcleo Wazuh
+(único servidor) queda libre de procesos QAPAQ.
+
+- **Hecho:** `apps/web` eliminado; su UI vive en el plugin `qapaq_ops`.
+- **Existe [sin verificar en AWS]:** `apps/api` (NestJS 12 sobre Fastify 5), con login Entra, sesión
+  única y revocación, casos (Ayni Qapaq), auditoría con cadena hash y avisos. `apps/worker` es un
+  cascarón sin consumidores ([11](11-cache-y-colas.md)).
+- **Existe y queda obsoleto [propuesto retirar]:** `wazuh/core/` (`build.sh`, `apply-core.sh`,
+  `systemd/qapaq-core-*.service`), que instalaba la API y el worker en el host del SIEM. El
+  `*-azure.sh` pertenece al camino archivado.
+
+## Qué queda dentro de Wazuh y qué va a Lambda
+
+| Capacidad QAPAQ | Destino |
 | --- | --- |
-| Detección, reglas M365, ML, retención y snapshots | **Ya está en Wazuh** (`wazuh/office365`, `wazuh/indexer/*`) |
-| UI completa, marca y español | **Ya está en Wazuh** (`wazuh/dashboard`, `qapaq_ops`, `qapaq_i18n`) |
-| Login Entra, passkey fuera de la red, sesión única y revocación ≤ 5 s | Lado servidor del plugin `qapaq_ops` (OIDC con el código framework-free de `modules/access`), con la sesión en Valkey |
-| Casos (Ayni Qapaq), tareas, notas append-only, timeline y correlación P1–P4 | Lado servidor de `qapaq_ops` reutilizando `modules/soc` y `modules/detection` (TS sin framework) |
-| Auditoría con cadena hash | Igual, con el almacenamiento elegido abajo |
-| Avisos Teams y push con acuse, ingesta y sync de Graph | Worker del SIEM: proceso del mismo paquete, colas en Valkey (docs/11) |
+| Detección, reglas M365, ML, retención y snapshots | **Wazuh** (`wazuh/office365`, `wazuh/indexer/*`) |
+| UI completa, marca y español | **Wazuh** (`wazuh/dashboard`, `qapaq_ops`, `qapaq_i18n`) |
+| Login Entra, sesión única y revocación ≤ 5 s | Cognito federado con Entra más la API en Lambda ([04](04-identidad-y-acceso.md)). El plugin `qapaq_ops` llama a `/api` por el mismo origen (CloudFront) |
+| Casos (Ayni Qapaq), tareas, notas append-only, timeline y correlación P1–P4 | Lambda (`modules/soc`, `modules/detection`) con Aurora |
+| Auditoría con cadena hash | Aurora (trigger append-only) y anclaje del hash en S3 Object Lock |
+| Avisos Teams y push con acuse, sincronización de Graph | Lambdas disparadas por SQS y EventBridge Scheduler ([11](11-cache-y-colas.md)) |
+| Respuesta con aprobación | Step Functions (Ankay, [07](07-deteccion-ml-y-soar.md)) |
 
-## La decisión que falta: dónde se guardan los casos y la auditoría
+## Decisión de almacenamiento (revisada)
 
-El dashboard de Wazuh 4.14.8 corre en **Node 18**. Prisma 7, que usa hoy `platform/database`, exige
-Node 20 o superior. Por eso el almacenamiento define el esfuerzo:
+El dashboard 4.14.8 corre en Node 18 y Prisma 7 exige Node 20+; por eso la opción B original
+colocaba el núcleo como proceso aparte. En serverless el problema desaparece: el backend corre en
+su propio runtime Lambda (Node 20+), no dentro del Dashboard.
 
-| Opción | Cómo | Ventajas | Costos y riesgos |
-| --- | --- | --- | --- |
-| **A. Todo en el Indexer de Wazuh** (event sourcing) | Cada cambio de un caso es **un único documento** append-only en `qapaq-ayni-events` (estado, auditoría y aviso juntos, así que un write es atómico). Las vistas se proyectan en `qapaq-ayni-cases`. La cadena hash va dentro de cada evento | Elimina RDS y la API de ECS: menos capas y menos costo. Es «todo en Wazuh» de verdad | Reescribir la persistencia de `modules/soc`. Sin transacciones multi-documento hay que rediseñar A3 (atomicidad) y las garantías append-only ante la SBS (rol write-only más ISM `read_only`). **Varias semanas** |
-| **B. Núcleo QAPAQ como componente del paquete SIEM** | El mismo código de dominio corre como servicio `qapaq-core` (Node 24) instalado junto al dashboard en el host o la imagen del SIEM, con Postgres. El plugin lo llama por localhost. Se elimina NestJS y ECS | Reutiliza casi todo el código y las pruebas. Conserva A3, la cadena hash y el trigger append-only tal como están. **Días** | Sigue existiendo Postgres. Un proceso más en el host del SIEM |
+| Opción | Estado |
+| --- | --- |
+| **B'. Lambda + Aurora Serverless v2 (PostgreSQL)** | **Propuesta como camino.** Reutiliza casi todo el código y las pruebas; conserva atomicidad mutación+auditoría+outbox, la cadena hash y el trigger append-only |
+| A. Todo en el Indexer de Wazuh (event sourcing) | Evolución opcional, como en la versión original: exige reescribir la persistencia de `modules/soc` y rediseñar la atomicidad. No se planea |
 
-**Decisión del dueño (2026-10-14): B.** RDS y S3 se conservan: eliminarlos supondría perder información
-vital, y serán la base de evidencia para las auditorías ISO 27001 y de ciberseguridad SBS. A queda solo
-como evolución opcional.
+Riesgos propios de B' a medir antes de comprometer: conexiones a Aurora desde Lambda (RDS Proxy),
+arranque en frío del monolito NestJS (tamaño del bundle, `esbuild`, posible SnapStart) y el
+tiempo de reanudación de Aurora Serverless v2 si se escala a cero ACU (la primera petición tras
+inactividad espera). Si la reanudación es inaceptable para el analista, se fija un mínimo de ACU.
 
-**Recomendación original: B ahora y A como evolución opcional.** B cumple la decisión (no hay web ni backend
-separados: todo viaja dentro del paquete del SIEM QAPAQ) sin poner en riesgo las garantías de auditoría
-que piden la SBS y Legal.
+## Empaquetado en Lambda [propuesto]
 
-## Pruebas de paridad antes de borrar `apps/api` y `apps/worker`
+| Pieza | Qué hace |
+| --- | --- |
+| Adaptador | Punto de entrada nuevo en `apps/api` que monta la app Fastify/Nest en un manejador Lambda para API Gateway HTTP. El dominio no cambia |
+| Procesos en segundo plano | Los loops en proceso (`ingestion-poller`, `directory-sync`, `notification-dispatcher`) salen de la API y se invocan desde SQS/Scheduler |
+| Red | Lambdas en VPC con acceso al Indexer y Aurora por ruta privada; sin NAT, con endpoints de VPC |
+| Secretos | Solo `secretRef` a Secrets Manager; el rol de cada función limita qué lee |
+| Release | Artefacto inmutable por commit (zip arm64) y despliegue con Terraform |
+| Reglas de borde | `bootstrap` y ciclo de vida de la API (`lifecycle.ts`, `composition-root.ts`) se revisan: asumen un proceso largo con apagado ordenado |
 
-1. Login Entra, passkey fuera de la red, sesión única y revocación ≤ 5 s en el dashboard.
+## Pruebas de paridad antes de retirar `apps/worker` y el despliegue en ECS/host
+
+1. Login Entra (Cognito), sesión única y revocación ≤ 5 s en el dashboard.
 2. Ciclo completo de alerta → incidente → tareas → notas → cierre, con la auditoría verificable.
-3. Aviso a Teams con acuse humano, sin duplicados tras un reinicio.
+3. Aviso a Teams con acuse humano, sin duplicados tras una repetición de mensaje SQS.
 4. Ingesta M365 → Wazuh → caso con prioridad correcta.
-5. Todo lo anterior con Valkey caído (degradado).
+5. Todo lo anterior con la caché vacía o caída (degradado, [11](11-cache-y-colas.md)).
+6. Arranque en frío y p95 de las rutas del dashboard dentro del presupuesto acordado.
 
-## Implementación de B (en curso)
+## Orden de corte [propuesto]
 
-| Pieza | Archivo | Qué hace |
-| --- | --- | --- |
-| Release del núcleo | `wazuh/core/build.sh` | Node 24.21.0 propio, verificado por SHA256, más la API y el worker (`pnpm deploy --prod`) y la CA de RDS. Mismos pasos que las imágenes de ECS |
-| Servicios del host | `wazuh/core/systemd/*.service` | API en 127.0.0.1:3000 y worker, endurecidos (`ProtectSystem=strict`, sin capabilities) y con `MemoryMax`/`CPUQuota` para no quitarle recursos al Indexer ni al Manager |
-| Instalación | `wazuh/core/apply-core.sh` | Release verificado en `/opt/qapaq-core/releases/<sha>` (conserva 3: histórico y rollback). El entorno sale del parámetro SSM y los secretos se **leen** con el rol de la instancia, sin crear ni rotar nada. Activación atómica con rollback si `/health/ready` falla |
-| Infraestructura | `infra/aws/core.tf` | Parámetro SSM con el entorno, lectura de secretos para la instancia y red del host a RDS, Valkey y KrakenD |
-| Corte de DNS | `siem_app_cutover` (Terraform) | `app.jappi.net.pe`, la URI de callback de Entra, pasa de Vercel al SIEM: **sin tocar el registro de la app en Entra** |
-| CI/CD | `.github/workflows/qapaq-dashboard.yml` («QAPAQ SIEM») | Build inmutable por commit y despliegue `security → core → dashboard → edge` |
+1. Terraform del plano serverless (Fase 2 de [09](09-plan-de-lanzamiento.md)): Aurora, Lambda, API
+   Gateway, Cognito, SQS, CloudFront.
+2. Migraciones con el migrador existente (`platform/database`) contra Aurora.
+3. El plugin `qapaq_ops` apunta a `/api` por CloudFront.
+4. Pruebas de paridad.
+5. Retirar `apps/worker`, `platform/gateway` y `wazuh/core` del despliegue.
 
-**Orden del corte:**
-1. Terraform: `core.tf` con el workflow `terraform-demo`.
-2. `step=core`: el núcleo en el host, que convive con ECS.
-3. `step=dashboard` y `step=edge` con `QAPAQ_API=127.0.0.1`.
-4. `siem_app_cutover=true` y `SOC_EXTRA_HOSTNAMES=app.jappi.net.pe`.
-5. Pruebas de paridad.
-6. Retirar los servicios ECS de la API y el worker. Retirar KrakenD cuando el núcleo lea el Indexer
-   directo.
-
-**Riesgo aceptado:** un solo host corre el SIEM y el núcleo, así que es un punto único de falla en la
-demo. La AMI histórica y los releases conservados permiten volver atrás. Para producción, la imagen del
-SIEM pasa a un ASG o a un segundo host (ADR-030).
+**Riesgo aceptado:** el nodo Wazuh es un punto único de falla (ASG `min=max=1`, restauración desde
+snapshots). Su RTO se mide en la Fase 1 y se registra en [06](06-operacion.md). A diferencia de
+la decisión anterior, una falla del SIEM ya **no** arrastra el login, los casos ni la auditoría,
+que viven en el plano serverless.

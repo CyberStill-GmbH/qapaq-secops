@@ -1,0 +1,59 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
+id: QAPAQ-DET-SP-004
+title: Política de uso compartido debilitada y administradores de colección de sitios
+source: sharepoint
+use_case: sharing-policy-and-admins
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-11'
+hypothesis: Antes de exfiltrar, un atacante con privilegios abre el uso compartido (Cualquier persona) o se hace administrador
+  del sitio o del OneDrive que le interesa.
+data_sources:
+- Office 365 Management Activity API, Audit.SharePoint (módulo office365 de Wazuh; ActivityFeed.Read)
+- Microsoft Graph Purview Audit Search /security/auditLog/queries (collector qapaq-sharepoint-audit; AuditLogsQuery-SharePoint.Read.All
+  / AuditLogsQuery-OneDrive.Read.All)
+rules:
+  file: detections/sharepoint/sharing-policy-and-admins/rule.xml
+  ids:
+  - 101935
+  - 101936
+  - 101937
+  - 101938
+  - 101939
+  - 101940
+  - 101941
+  installed_as: etc/rules/qapaq_soc_sharepoint_sharing_policy_and_admins.xml
+mitre:
+- technique: T1484
+  tactic: defense-evasion
+- technique: T1098
+  tactic: persistence
+- technique: T1078.004
+  tactic: initial-access
+- technique: T1530
+  tactic: collection
+severity:
+  levels: 3 alta por cuenta del sistema · 8 cambio de política · 10 administrador agregado · 11 sobre el OneDrive de otra
+    persona · 12 «Cualquier persona» habilitado o administrador invitado
+  priority_hint: P1 (12) / P2 (8–11)
+  rationale: Cambios poco frecuentes y de alto impacto.
+false_positives:
+- Cambio aprobado por TI (ticket).
+- 'Acceso al OneDrive de un empleado que se va (proceso de RR. HH.: documentarlo en el caso).'
+tuning:
+- app@sharepoint (aprovisionamiento de OneDrive) en qapaq-m365-service-accounts baja a 3 y no dispara 101940/101941.
+lists:
+- detections/lists/qapaq-m365-service-accounts
+tests:
+  runner: logtest
+  fixtures: detections/sharepoint/sharing-policy-and-admins/fixtures.jsonl
+  expected: detections/sharepoint/sharing-policy-and-admins/expected.txt
+  generator: wazuh/provider-ingestion/sharepoint/tests/make_fixtures.py
+runbook: docs/detection-engineering/runbooks/exfiltracion-sharepoint.md
+notes: Activa desde 2026-11-10 en AWS con datos reales (módulo office365, Audit.SharePoint, ActivityFeed.Read). Operaciones
+  sin registro real todavía siguen en el grupo qapaq_pending_provider_evidence (docs/23).

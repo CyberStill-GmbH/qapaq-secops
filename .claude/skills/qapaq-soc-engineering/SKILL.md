@@ -3,7 +3,7 @@ name: qapaq-soc-engineering
 description: Use for QAPAQ SecOps backend, detection/SOAR, identity, Wazuh integration, infrastructure, or release work in this repository.
 ---
 
-# QAPAQ SOC engineering for Claude Code
+# QAPAQ SecOps engineering for Claude Code
 
 At the start of each QAPAQ task, read `COORDINACION-CLAUDE-CODEX.md` and inspect its
 latest requests, decisions and file locks. Check `git status` before editing. Read the

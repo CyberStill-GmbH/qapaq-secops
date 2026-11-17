@@ -42,17 +42,26 @@ describe('C-18 · capabilities por rol y scope', () => {
     expect(administrator).toContain('secrets.write');
   });
 
-  it('concede el asistente solo a analista y administrador, y solo con scope de escritura', () => {
-    expect(capabilitiesForRoles(['qapaq.soc.analyst'])).toContain('assistant.use');
-    expect(capabilitiesForRoles(['qapaq.platform.admin'])).toContain('assistant.use');
-    expect(capabilitiesForRoles(['qapaq.auditor'])).not.toContain('assistant.use');
-    expect(capabilitiesForRoles(['qapaq.soc.lead'])).not.toContain('assistant.use');
-    // Enviar la conversación a un tercero es un efecto externo: `soc.read` no lo habilita.
-    expect([...effectiveCapabilities(['qapaq.soc.analyst'], ['soc.read'])]).not.toContain(
-      'assistant.use',
+  it('Analista IA: leer y pedir para el SOC; configurar solo la administración de plataforma', () => {
+    for (const role of ['qapaq.soc.analyst', 'qapaq.soc.lead', 'qapaq.platform.admin']) {
+      const granted = capabilitiesForRoles([role]);
+      expect(granted).toContain('investigations.read');
+      expect(granted).toContain('investigations.run');
+    }
+    expect(capabilitiesForRoles(['qapaq.platform.admin'])).toContain('investigations.configure');
+    for (const role of ['qapaq.soc.analyst', 'qapaq.soc.lead', 'qapaq.auditor']) {
+      expect(capabilitiesForRoles([role])).not.toContain('investigations.configure');
+    }
+    expect(capabilitiesForRoles(['qapaq.auditor'])).not.toContain('investigations.run');
+    // El scope de lectura no basta para configurar ni para pedir.
+    expect(effectiveCapabilities(['qapaq.platform.admin'], ['soc.read'])).toContain(
+      'investigations.read',
     );
-    expect([...effectiveCapabilities(['qapaq.soc.analyst'], ['soc.write'])]).toContain(
-      'assistant.use',
+    expect(effectiveCapabilities(['qapaq.platform.admin'], ['soc.read'])).not.toContain(
+      'investigations.configure',
+    );
+    expect(effectiveCapabilities(['qapaq.platform.admin'], ['soc.read', 'soc.write'])).toContain(
+      'investigations.configure',
     );
   });
 

@@ -1,0 +1,28 @@
+<!-- QAPAQ:policy:begin — bloque administrado por wazuh/manager/policy/apply-manager-policy.sh; no editar a mano.
+     Catálogo: docs/16-politicas.md. Además del bloque, el script fija en su sitio:
+       <alerts><log_alert_level>, <global><email_notification>no (el correo lo envía el notificador QAPAQ),
+       <vulnerability-detection> habilitado con <indexer>.
+     Integraciones (<integration>, syslog_output, wodles de proveedores) NO van aquí: son de
+     wazuh/manager/ossec.qapaq-integrations.xml.tmpl, wazuh/office365 y wazuh/provider-ingestion. -->
+<ossec_config>
+
+  <!-- Active Response QAPAQ (docs/07 y docs/13). Regla general: ninguna acción con efectos sin
+       aprobación humana del Líder SOC vía Ankay, que llama a la API del manager con un
+       comando de la allowlist. La ÚNICA respuesta automática prevista es la de abajo y está
+       APAGADA por defecto (QAPAQ_AR_AUTO_BLOCK=0). Encenderla exige una decisión registrada en
+       docs/10 como excepción a la regla de aprobación.
+       Alcance: firewall-drop solo existe en agentes Linux y las reglas 5712/5763 solo las producen
+       los decoders de sshd; los grupos Windows y DC no pueden ejecutarla. Bloqueo temporal
+       (${QAPAQ_AR_TIMEOUT} s), nunca permanente. -->
+${QAPAQ_AR_WHITELIST_BLOCK}
+${QAPAQ_AR_BLOCK_BEGIN}
+  <active-response>
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>5712,5763</rules_id>
+    <timeout>${QAPAQ_AR_TIMEOUT}</timeout>
+  </active-response>
+${QAPAQ_AR_BLOCK_END}
+
+</ossec_config>
+<!-- QAPAQ:policy:end -->

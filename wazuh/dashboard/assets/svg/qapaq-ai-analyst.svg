@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Analista IA QAPAQ">
+  <g fill="none" stroke="#f4f4f5" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.65">
+    <circle cx="10.6" cy="10.6" r="5.9"/>
+    <path d="m15 15 4.6 4.6"/>
+    <path d="M10.6 7.6v1.2M10.6 12.4v1.2M7.6 10.6h1.2M12.4 10.6h1.2" stroke="#c49a5a"/>
+  </g>
+  <circle cx="10.6" cy="10.6" r="1" fill="#c49a5a"/>
+</svg>

@@ -30,14 +30,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: qapaq-siem-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && 'qapaq-secops-demo-wazuh-host-mutations' || format('qapaq-siem-pr-{0}', github.ref) }}
+  cancel-in-progress: false
 
 env:
   AWS_REGION: us-east-1
-  ARTIFACTS_BUCKET: qapaq-secops-demo-artifacts-955200662475
-  SOC_HOSTNAME: ${{ vars.QAPAQ_SOC_HOSTNAME || 'wazuh.jappi.net.pe' }}
-  # Tras activar `siem_app_cutover` en Terraform: "app.jappi.net.pe" (URI de callback de Entra).
+  ARTIFACTS_BUCKET: qapaq-secops-demo-artifacts-123456789012
+  SOC_HOSTNAME: ${{ vars.QAPAQ_SOC_HOSTNAME || 'wazuh.qapaq.pe' }}
+  # Tras activar `siem_app_cutover` en Terraform: "app.qapaq.pe" (URI de callback de Entra).
   SOC_EXTRA_HOSTNAMES: ${{ vars.QAPAQ_SOC_EXTRA_HOSTNAMES || '' }}
 
 jobs:
@@ -107,10 +107,10 @@ jobs:
           dpkg-deb --field ./*.deb Package Version
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          role-to-assume: arn:aws:iam::123456789012:role/qapaq-secops-github-terraform-demo
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: qapaq-siem-dashboard-build
-          allowed-account-ids: 955200662475
+          allowed-account-ids: 123456789012
       - name: Publish to S3 (immutable, per commit)
         working-directory: ${{ runner.temp }}/out
         run: |
@@ -138,10 +138,10 @@ jobs:
         run: bash wazuh/core/build.sh "$RUNNER_TEMP/out"
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          role-to-assume: arn:aws:iam::123456789012:role/qapaq-secops-github-terraform-demo
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: qapaq-siem-core-build
-          allowed-account-ids: 955200662475
+          allowed-account-ids: 123456789012
       - name: Publish to S3 (immutable, per commit)
         working-directory: ${{ runner.temp }}/out
         run: |
@@ -164,10 +164,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: arn:aws:iam::955200662475:role/qapaq-secops-github-terraform-demo
+          role-to-assume: arn:aws:iam::123456789012:role/qapaq-secops-github-terraform-demo
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: qapaq-siem-deploy
-          allowed-account-ids: 955200662475
+          allowed-account-ids: 123456789012
 
       - name: Run on the SIEM host through SSM
         env:

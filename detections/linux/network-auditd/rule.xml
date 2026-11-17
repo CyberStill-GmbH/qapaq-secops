@@ -1,0 +1,107 @@
+<!--
+  QAPAQ SecOps · detección como código · detections/linux/network-auditd (metadata.yaml).
+  Llamadas de red auditadas por auditd (wazuh/manager/policy/shared/linux-servers/qapaq-audit-network.rules):
+  connect/bind/accept de sesiones interactivas (auid>=1000), connect de www-data y ejecución de
+  herramientas de red. La IP sale del registro SOCKADDR enriquecido (decoder hermano auditd-syscall en
+  infra/wazuh/network/decoders/qapaq_network_decoders.xml → dstip/dstport). Las claves qapaq_net_* no están en
+  la lista audit-keys oficial: ninguna regla 807xx las captura antes.
+  101811 (destino interno) es nivel 1 y no 0: analysisd evalúa antes las hijas de nivel 0 y taparía a
+  101812/101818 (bind en 0.0.0.0).
+  92600 (oficial, nivel 0, «Executed python script») captura todo evento de auditd con exe python antes que
+  las hijas de 80700: 101810 cuelga también de ella. Orden de hermanos = prioridad. Se instala como qapaq_soc_linux_network_auditd.xml.
+-->
+<group name="audit,qapaq_network,qapaq_linux,">
+
+  <rule id="101810" level="0">
+    <if_sid>80700, 92600</if_sid>
+    <field name="audit.key">^qapaq_net_</field>
+    <description>QAPAQ Linux: llamada de red auditada ($(audit.key)) de $(audit.exe).</description>
+    <group>qapaq_audit_net,</group>
+  </rule>
+
+  <rule id="101812" level="12">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_accept$|^qapaq_net_bind$</field>
+    <field name="audit.exe" type="pcre2">/(bash|sh|dash|zsh|ksh|nc|ncat|netcat|nc\.openbsd|nc\.traditional|socat|perl|php[0-9.-]*|ruby)$</field>
+    <description>QAPAQ Linux: $(audit.exe) de una sesión interactiva (auid $(audit.auid)) abrió o aceptó una escucha de red (posible bind shell).</description>
+    <mitre>
+      <id>T1059.004</id>
+      <id>T1571</id>
+    </mitre>
+    <group>qapaq_audit_net,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101813" level="10">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_tools$</field>
+    <description>QAPAQ Linux: ejecución de herramienta de red o captura $(audit.exe) por auid $(audit.auid) (uid $(audit.uid)).</description>
+    <mitre>
+      <id>T1046</id>
+      <id>T1040</id>
+    </mitre>
+    <group>qapaq_audit_net,</group>
+  </rule>
+
+  <rule id="101814" level="12">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_connect$</field>
+    <field name="audit.exe" type="pcre2">/(bash|sh|dash|zsh|ksh|nc|ncat|netcat|nc\.openbsd|nc\.traditional|socat|perl|php[0-9.-]*|ruby|telnet\.netkit|telnet)$</field>
+    <regex type="pcre2">SADDR=\{[^}]* laddr=(?!127\.|::1(?:\s|\}))</regex>
+    <description>QAPAQ Linux: $(audit.exe) (auid $(audit.auid)) se conectó a $(dstip):$(dstport); patrón de reverse shell.</description>
+    <mitre>
+      <id>T1059.004</id>
+      <id>T1071</id>
+    </mitre>
+    <group>qapaq_audit_net,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101815" level="10">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_connect$</field>
+    <field name="audit.exe" type="pcre2">/(nmap|masscan|zmap|rustscan|naabu)$</field>
+    <description>QAPAQ Linux: escáner de red $(audit.exe) (auid $(audit.auid)) conectando a $(dstip):$(dstport).</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>qapaq_audit_net,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101816" level="10">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_svc$</field>
+    <regex type="pcre2">SADDR=\{[^}]* laddr=(?!(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|::1(?:\s|\})|fe80:|f[cd][0-9a-f]{2}:))</regex>
+    <description>QAPAQ Linux: la cuenta de servicio web (uid $(audit.uid), $(audit.exe)) abrió conexión a $(dstip):$(dstport) (posible webshell o C2).</description>
+    <mitre>
+      <id>T1505.003</id>
+      <id>T1071</id>
+    </mitre>
+    <group>qapaq_audit_net,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101818" level="5">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_accept$|^qapaq_net_bind$</field>
+    <regex type="pcre2">SADDR=\{[^}]* laddr=(?!127\.|::1(?:\s|\}))</regex>
+    <description>QAPAQ Linux: proceso de sesión interactiva $(audit.exe) (auid $(audit.auid)) abrió o aceptó una escucha de red en $(dstip):$(dstport).</description>
+    <mitre>
+      <id>T1571</id>
+    </mitre>
+    <group>qapaq_audit_net,</group>
+  </rule>
+
+  <rule id="101811" level="1">
+    <if_sid>101810</if_sid>
+    <regex type="pcre2">SADDR=\{[^}]* laddr=(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|::1(?:\s|\})|fe80:|f[cd][0-9a-f]{2}:)</regex>
+    <description>QAPAQ Linux: llamada de red de sesión interactiva a destino interno $(dstip):$(dstport) ($(audit.exe)).</description>
+    <group>qapaq_audit_net,</group>
+  </rule>
+
+  <rule id="101817" level="3">
+    <if_sid>101810</if_sid>
+    <field name="audit.key">^qapaq_net_connect$</field>
+    <regex type="pcre2">SADDR=\{[^}]* laddr=(?!(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|::1(?:\s|\})|fe80:|f[cd][0-9a-f]{2}:))</regex>
+    <description>QAPAQ Linux: $(audit.exe) de una sesión interactiva (auid $(audit.auid)) se conectó a $(dstip):$(dstport).</description>
+    <group>qapaq_audit_net,</group>
+  </rule>
+
+</group>

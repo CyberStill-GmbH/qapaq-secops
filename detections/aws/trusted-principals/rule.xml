@@ -1,0 +1,40 @@
+<!--
+  QAPAQ SecOps · reducción de falsos positivos · detections/aws/trusted-principals (metadata.yaml, docs/17 §Ajuste).
+  Los cambios del propio SOC en el pipeline de monitoreo (rol SSO AWSReservedSSO_SOC-PowerUser de
+  soc@qapaq.pe, TagResource y similares) disparaban 101616 (nivel 6). Allowlist CDB por aws.principal
+  (detections/lists/qapaq-aws-trusted-principals) con DEGRADACIÓN, nunca supresión: el evento queda en
+  wazuh-alerts-* (nivel 3) y un principal desconocido conserva 101616/101615.
+  Rango QAPAQ AWS 101710–101719. Se instala como qapaq_soc_aws_trusted_principals.xml.
+-->
+<group name="qapaq_provider,aws,qapaq_tuning,">
+  <rule id="101714" level="3">
+    <if_sid>101616</if_sid>
+    <list field="aws.principal" lookup="match_key">etc/lists/qapaq-aws-trusted-principals</list>
+    <description>QAPAQ AWS: cambio en el pipeline de monitoreo QAPAQ por principal de confianza $(aws.principal) ($(aws.event_name)).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_api,qapaq_audit,qapaq_trusted_principal,</group>
+  </rule>
+
+  <!-- Manipulación destructiva (borrar regla/tema, desuscribir) sigue alertando aunque la haga el SOC:
+       baja de 12 a 9 (alta, correo QAPAQ), no a cero. -->
+  <rule id="101715" level="9">
+    <if_sid>101615</if_sid>
+    <list field="aws.principal" lookup="match_key">etc/lists/qapaq-aws-trusted-principals</list>
+    <description>QAPAQ AWS: principal de confianza $(aws.principal) modificó de forma destructiva el pipeline de monitoreo ($(aws.event_name)); confirmar el cambio.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562.008</id>
+    </mitre>
+    <group>qapaq_audit,qapaq_trusted_principal,</group>
+  </rule>
+
+  <!-- Security groups (101640, nivel 8) cambiados por el SOC: 5, visible en el índice. Abrir a Internet
+       (101641, nivel 10) es hermana de mayor nivel y NO se degrada. -->
+  <rule id="101716" level="5">
+    <if_sid>101640</if_sid>
+    <list field="aws.principal" lookup="match_key">etc/lists/qapaq-aws-trusted-principals</list>
+    <description>QAPAQ AWS: security group modificado ($(aws.event_name)) por principal de confianza $(aws.principal) en $(aws.region).</description>
+    <options>no_full_log</options>
+    <group>qapaq_aws_network,qapaq_audit,qapaq_trusted_principal,</group>
+  </rule>
+</group>

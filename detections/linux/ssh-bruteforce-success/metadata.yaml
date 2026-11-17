@@ -1,0 +1,44 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-LNX-001
+title: Acceso SSH exitoso tras fuerza bruta (30 min)
+source: linux
+use_case: ssh-bruteforce-success
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Una IP que falla SSH repetidamente y luego entra tiene una credencial válida; un atacante lento evade
+  la ventana de 4 min de la 40112.
+data_sources:
+- journald/sshd del agente (grupo linux-servers); datos reales en qapaq-soc-dev-node
+rules:
+  file: detections/linux/ssh-bruteforce-success/rule.xml
+  ids:
+  - 101750
+  installed_as: etc/rules/qapaq_soc_linux_ssh_bruteforce_success.xml
+mitre:
+- technique: T1110.001
+  tactic: credential-access
+- technique: T1078.003
+  tactic: initial-access
+- technique: T1021.004
+  tactic: lateral-movement
+severity:
+  levels: '13'
+  priority_hint: P1
+  rationale: Servidor expuesto a Internet con acceso interactivo de un origen hostil.
+false_positives:
+- Administrador que falla la llave y entra con la correcta desde su IP (los fallos de 5710/5712 son de usuarios
+  inexistentes; si la IP es de QAPAQ, confirmar).
+tuning:
+- Allowlist de IPs administrativas en lista CDB si el ruido lo justifica (no en la regla).
+tests:
+  runner: logtest
+  fixtures: detections/linux/ssh-bruteforce-success/fixtures.jsonl
+  expected: detections/linux/ssh-bruteforce-success/expected.txt
+runbook: docs/detection-engineering/runbooks/credenciales.md#ssh
+respond_playbook: ankay/playbooks/qapaq-contencion-endpoint-aprobada.json

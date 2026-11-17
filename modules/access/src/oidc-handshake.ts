@@ -20,6 +20,11 @@ export const HANDSHAKE_LIMITS = Object.freeze({
   stateBytes: 32,
   nonceBytes: 32,
   verifierBytes: 64,
+  /**
+   * Tope de handshakes pendientes por proceso. `/api/auth/start` es anónimo: sin tope, cada
+   * petición dejaría estado en memoria hasta agotarla. Al llenarse se descarta el más antiguo.
+   */
+  maxPending: 10_000,
 });
 
 export const HANDSHAKE_ERROR_CODES = [
@@ -72,6 +77,28 @@ export interface CallbackInput {
   readonly browserBinding?: string;
 }
 
+const PROVIDER_ERROR_CODES = new Set([
+  'access_denied',
+  'consent_required',
+  'interaction_required',
+  'invalid_client',
+  'invalid_request',
+  'login_required',
+  'server_error',
+  'temporarily_unavailable',
+  'unauthorized_client',
+  'unsupported_response_type',
+]);
+
+/** Conserva solo un código estable del proveedor; nunca registra `error_description` crudo. */
+function providerDiagnosticCode(input: CallbackInput): string {
+  const description = input.errorDescription?.slice(0, 4096);
+  const aadsts = description?.match(/AADSTS([0-9]{1,8})/iu);
+  if (aadsts) return `AADSTS${aadsts[1]}`;
+  const error = input.error?.toLowerCase();
+  return error && PROVIDER_ERROR_CODES.has(error) ? error : 'PROVIDER_ERROR';
+}
+
 export type CallbackResult =
   | { readonly ok: true; readonly handshake: PendingHandshake; readonly code: string }
   | {
@@ -111,7 +138,12 @@ export function beginAuthorization(
   const url = new URL(config.authorizationEndpoint);
   url.searchParams.set('client_id', config.clientId);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('response_mode', 'query');
+  // En producción el callback llega por POST: el código no termina en la URL ni en los
+  // access logs del ALB/nginx. HTTP queda reservado al emisor local de desarrollo.
+  url.searchParams.set(
+    'response_mode',
+    new URL(config.redirectUri).protocol === 'https:' ? 'form_post' : 'query',
+  );
   url.searchParams.set('redirect_uri', config.redirectUri);
   url.searchParams.set('scope', config.scopes.join(' '));
   url.searchParams.set('state', state);
@@ -144,7 +176,7 @@ export function resolveCallback(
     return { ok: false, code: 'STATE_MISMATCH' };
   }
   if (input.error) {
-    return { ok: false, code: 'PROVIDER_ERROR', detail: input.error };
+    return { ok: false, code: 'PROVIDER_ERROR', detail: providerDiagnosticCode(input) };
   }
   if (!input.code) return { ok: false, code: 'CODE_REQUIRED' };
   return { ok: true, handshake: stored, code: input.code };

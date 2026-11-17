@@ -1,0 +1,83 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-LAUNCH-001
+title: 'Paquete de lanzamiento: Sophos, Cato, Entra, AD, Windows y Linux normalizados'
+source: launch
+use_case: normalized-provider-pack
+status: experimental
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Las detecciones P0/P1 del catálogo de lanzamiento sobre eventos que QAPAQ normaliza (qapaq_vendor) antes
+  de Wazuh.
+data_sources:
+- Eventos JSON normalizados por QAPAQ (qapaq_vendor = sophos, cato, entra, active_directory, windows, linux)
+rules:
+  file: infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml
+  ids:
+  - 101201
+  - 101202
+  - 101203
+  - 101204
+  - 101205
+  - 101206
+  - 101207
+  - 101208
+  - 101209
+  - 101210
+  - 101211
+  - 101212
+  - 101213
+  - 101214
+  - 101215
+mitre:
+- technique: T1204
+  tactic: execution
+- technique: T1059
+  tactic: execution
+- technique: T1562
+  tactic: defense-evasion
+- technique: T1071
+  tactic: command-and-control
+- technique: T1078.004
+  tactic: initial-access
+- technique: T1098.003
+  tactic: privilege-escalation
+- technique: T1098.007
+  tactic: persistence
+- technique: T1070.001
+  tactic: defense-evasion
+- technique: T1562.001
+  tactic: defense-evasion
+- technique: T1059.001
+  tactic: execution
+- technique: T1027
+  tactic: defense-evasion
+- technique: T1053.005
+  tactic: persistence
+- technique: T1543.003
+  tactic: persistence
+- technique: T1547
+  tactic: persistence
+- technique: T1110.001
+  tactic: credential-access
+- technique: T1548.003
+  tactic: privilege-escalation
+severity:
+  levels: 3-15 según catálogo
+  priority_hint: P1 los marcados P0 en el catálogo de lanzamiento
+  rationale: Catálogo QPD (docs/security/launch-detection-catalog-2026-10-20.json).
+false_positives:
+- Ver el catálogo de lanzamiento por detección.
+tuning: []
+tests:
+  runner: logtest
+  suite: launch
+  fixtures: infra/wazuh/launch-detections/tests/provider-cases.jsonl
+  expected: infra/wazuh/launch-detections/tests/expected-rules.txt
+  script: infra/wazuh/launch-detections/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/README.md
+notes: Sophos y Cato no están conectados en QAPAQ; Entra/AD/Windows normalizados esperan sus fuentes.

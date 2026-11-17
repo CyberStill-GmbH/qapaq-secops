@@ -9,10 +9,13 @@
  *   node ankay/frontend/assets/tools/build-brand.mjs            # SVG en assets/svg (sin dependencias)
  *   node ankay/frontend/assets/tools/build-brand.mjs --raster   # además PNG y favicon.ico en assets/raster
  *
+ * `--raster` también escribe el fondo del login de Ankay y copia la insignia y Qapaqzito que genera
+ * wazuh/dashboard/assets/tools/build-brand.mjs (ejecutarlo antes).
+ *
  * `--raster` necesita `sharp` resoluble (p. ej. NODE_PATH a un `npm install sharp@0.33.5` temporal fuera
  * del repo). Los rasters se versionan, así que el build de la imagen no necesita sharp.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +82,24 @@ const appIcon = (size) =>
       ankayMark(size * 0.18, size * 0.14, size * 0.64, size * 0.72, INK),
   );
 
+/** Fondo del login de Ankay: negro, luz ámbar tenue y la marca de Ankay en línea, a la izquierda. */
+function loginBg(w, h) {
+  const s = Math.min((w * 0.5) / Q_BOX.w, (h * 1.1) / Q_BOX.h);
+  const tx = -w * 0.06;
+  const ty = (h - Q_BOX.h * s) / 2;
+  const t = `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${s.toFixed(5)}) translate(${-Q_BOX.x} ${-Q_BOX.y})`;
+  return svg(
+    w,
+    h,
+    '',
+    `<defs><radialGradient id="a" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="${AMBER}" stop-opacity=".16"/>` +
+      `<stop offset="1" stop-color="${AMBER}" stop-opacity="0"/></radialGradient></defs>` +
+      `<rect width="${w}" height="${h}" fill="${BLACK}"/><rect width="${w}" height="${h}" fill="url(#a)"/>` +
+      `<g transform="${t}" fill="none" stroke-width="${(2.5 / s).toFixed(1)}"><path stroke="#29292d" fill-rule="evenodd" d="${Q_PATH}"/>` +
+      `<path stroke="${AMBER}" stroke-opacity=".45" stroke-linejoin="round" d="${PLAY}"/></g>`,
+  );
+}
+
 function writeSvgs() {
   const dir = join(root, 'svg');
   mkdirSync(dir, { recursive: true });
@@ -120,6 +141,14 @@ async function raster(files) {
   const png = (size) => sharp(icon, { density: 300 }).resize(size, size).png().toBuffer();
   writeFileSync(join(dir, 'ankay_icon_540.png'), await png(540));
   writeFileSync(join(dir, 'ankay_icon_174.png'), await png(174));
+  writeFileSync(join(dir, 'ankay_icon_144.png'), await png(144));
+  const bg = (w, h) => sharp(Buffer.from(loginBg(w, h))).webp({ quality: 85 }).toBuffer();
+  writeFileSync(join(dir, 'ankay-login.webp'), await bg(1672, 941));
+  writeFileSync(join(dir, 'ankay-login-mobile.webp'), await bg(960, 540));
+  // Insignia de la Q y Qapaqzito: los mismos que sirve el dashboard.
+  const images = resolve(root, '../../../wazuh/dashboard/assets/images');
+  for (const name of ['qapaq-head-mark.webp', 'qapaq-qapaqzito.webp'])
+    writeFileSync(join(dir, name), readFileSync(join(images, name)));
   writeFileSync(
     join(dir, 'favicon.ico'),
     ico([

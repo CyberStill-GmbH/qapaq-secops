@@ -1,0 +1,71 @@
+# QAPAQ SecOps · ajuste de falsos positivos (docs/detection-engineering/07). Cada cambio: fixture TP + fixture FP.
+id: QAPAQ-TUNE-LNX-001
+title: Ruido de sesiones administrativas, SSH por contexto y rootcheck en overlay
+source: linux
+use_case: noise-tuning
+kind: tuning
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-08'
+updated: '2026-11-08'
+hypothesis: Las sesiones PAM de la cuenta admin y los SSH desde la IP del operador no son señales; un SSH desde
+  una IP desconocida sí, y más fuera de horario.
+data_sources:
+- journald del agente 001 (pam_unix, sshd)
+- rootcheck del agente
+rules:
+  file: detections/linux/noise-tuning/rule.xml
+  ids:
+  - 101761
+  - 101762
+  - 101763
+  - 101765
+  - 101766
+  - 101767
+  installed_as: etc/rules/qapaq_soc_linux_noise_tuning.xml
+mitre:
+- technique: T1078.003
+  tactic: initial-access
+- technique: T1021.004
+  tactic: lateral-movement
+severity:
+  levels: 0 sesiones PAM admin y 521 en overlay · 8 SSH desde IP no registrada · 11 lo mismo fuera de horario o
+    en fin de semana
+  priority_hint: 'P3 en horario; P2 fuera de horario (P1 si además hay fuerza bruta: 101750)'
+  rationale: Se degrada solo lo redundante (5402/5715 siguen auditando); lo desconocido sube con contexto.
+false_positives:
+- 'Operador que entra desde una IP nueva (red móvil, viaje): agregar el prefijo por PR a qapaq-admin-ips.'
+- 'La hora del manager es UTC: el horario QAPAQ se expresa como 01:00–13:00 UTC (20:00–08:00 Lima).'
+tuning:
+- '5501/5502 → 0 solo si dstuser y srcuser están en qapaq-admin-accounts (TP: cuenta no admin conserva 5501/5502).'
+- 5715 desde qapaq-admin-ips se conserva a nivel 3 (auditoría); desde otra IP → 101761/101762/101763.
+- 521 en /var/lib/docker o /var/lib/containerd → 0 (respaldo de la exclusión de rootcheck en linux-servers y linux-pilot);
+  un 521 en otra ruta sigue a 11.
+measurement:
+  window: 7 días hasta 2026-11-04
+  before:
+    '5501': 1083
+    '5502': 1082
+    '5715': 350
+    '521': 328
+  expected_after:
+    '5501': ≈0 (admin)
+    '5502': ≈0 (admin)
+    '5715': igual (nivel 3, auditoría)
+    '521': 0
+lists:
+- detections/lists/qapaq-admin-accounts
+- detections/lists/qapaq-admin-ips
+tests:
+  runner: logtest
+  fixtures: detections/linux/noise-tuning/fixtures.jsonl
+  expected: detections/linux/noise-tuning/expected.txt
+  live:
+  - rule: 101765
+    evidence: 'rootcheck no es reproducible en wazuh-logtest (decoder interno por cola); evidencia: 0 alertas 521
+      después de la exclusión del agente y analysisd -t'
+runbook: docs/detection-engineering/runbooks/credenciales.md#ssh
+tuning_log: docs/detection-engineering/07-ajuste-falsos-positivos.md

@@ -1,0 +1,22 @@
+# Motor QAPAQ LOCAL: gateway C-28 con token estático (platform/gateway/static-token, commit d30bd3d)
+# para que el API (en el host) lea wazuh-alerts-* sin Entra, con el usuario read-only qapaq_reader.
+# Secretos y certificados: infra/local/edge/gateway/ (gitignored), generados por
+# infra/local/edge/setup-ingestion.sh. Puerto solo en loopback (127.0.0.1:18443).
+services:
+  wazuh-gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    env_file:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/gateway/gateway.env
+    environment:
+      # Solo estas variables entran en la plantilla (no las de nginx como $http_authorization).
+      NGINX_ENVSUBST_FILTER: '^(QAPAQ_WAZUH_GATEWAY_ACCESS_TOKEN|WAZUH_INDEXER_BASIC_AUTH_B64|WAZUH_INDEXER_UPSTREAM|WAZUH_INDEXER_TLS_NAME)$$'
+    ports:
+      - '127.0.0.1:18443:8443'
+    volumes:
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/platform/gateway/static-token/wazuh-gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/gateway/cert.pem:/etc/qapaq-gateway/tls/cert.pem:ro
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/gateway/key.pem:/etc/qapaq-gateway/tls/key.pem:ro
+      - ${QAPAQ_REPO:-../../../../qapaq-secops}/infra/local/edge/gateway/indexer-ca.pem:/etc/qapaq-gateway/indexer-ca.pem:ro
+    depends_on:
+      - wazuh.indexer

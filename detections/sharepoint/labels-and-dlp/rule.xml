@@ -1,0 +1,94 @@
+<!--
+  QAPAQ SecOps · detección como código · detections/sharepoint/labels-and-dlp (metadata.yaml, docs/23).
+  Etiquetas de confidencialidad y DLP en SharePoint/OneDrive:
+  - Etiqueta quitada (FileSensitivityLabelRemoved / SensitivityLabelRemoved) o rebajada/quitada según
+    SensitivityLabelEventData.LabelEventType (2 = rebajada, 3 = quitada; registros MIP RecordType 83/84) = 8.
+  - 10 en 1 h del mismo usuario = 12 (preparación de exfiltración: quitar la etiqueta evita DLP y cifrado).
+  - Compartir con externos o con enlace anónimo el MISMO archivo (ObjectId) en la hora siguiente a quitarle la
+    etiqueta = 13. Hija de 100515, 101927 y 101928: este archivo se carga después de external_sharing.
+  - DLP (RecordType 11, DLPRuleMatch): coincidencia 7; regla de severidad alta 11; anulación del usuario 9.
+    Requiere ActivityFeed.ReadDlp (DLP.All) o AuditLogsQuery.Read.All (Purview).
+  Se instala como qapaq_soc_sharepoint_labels_and_dlp.xml.
+-->
+<group name="office365,sharepoint,qapaq_sharepoint,">
+  <rule id="101945" level="8">
+    <if_sid>91532</if_sid>
+    <field name="office365.Operation">^FileSensitivityLabelRemoved$|^SensitivityLabelRemoved$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) quitó la etiqueta de confidencialidad de $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_sensitivity_label,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101946" level="8">
+    <if_sid>91532</if_sid>
+    <field name="office365.SensitivityLabelEventData.LabelEventType">^2$|^3$</field>
+    <description>QAPAQ SharePoint: $(office365.UserId) rebajó o quitó la etiqueta de confidencialidad de $(office365.ObjectId) ($(office365.Operation)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_sensitivity_label,qapaq_pending_provider_evidence,</group>
+  </rule>
+
+  <rule id="101947" level="12" frequency="10" timeframe="3600">
+    <if_matched_sid>101945</if_matched_sid>
+    <same_field>office365.UserId</same_field>
+    <description>QAPAQ SharePoint: $(office365.UserId) quitó la etiqueta de confidencialidad de 10 archivos en 1 h.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562</id>
+    </mitre>
+    <group>qapaq_defense_evasion,qapaq_sensitivity_label,</group>
+  </rule>
+
+  <rule id="101948" level="13" timeframe="3600">
+    <if_sid>100515, 101927, 101928</if_sid>
+    <if_matched_sid>101945</if_matched_sid>
+    <same_field>office365.ObjectId</same_field>
+    <description>QAPAQ SharePoint: $(office365.UserId) compartió fuera de QAPAQ $(office365.ObjectId) después de quitarle la etiqueta de confidencialidad.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562</id>
+      <id>T1567</id>
+    </mitre>
+    <group>qapaq_exfiltration,qapaq_sensitivity_label,qapaq_attack_chain,</group>
+  </rule>
+
+  <!-- ================================================================ DLP -->
+  <rule id="101949" level="7">
+    <if_sid>91542</if_sid>
+    <field name="office365.Operation">^DLPRuleMatch$</field>
+    <description>QAPAQ SharePoint: DLP detectó información sensible en $(office365.ObjectId) ($(office365.UserId)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1213.002</id>
+    </mitre>
+    <group>qapaq_dlp,</group>
+  </rule>
+
+  <rule id="101950" level="11">
+    <if_sid>101949</if_sid>
+    <field name="office365.PolicyDetails" type="pcre2">"Severity"\s*:\s*"High"</field>
+    <description>QAPAQ SharePoint: DLP de severidad alta en $(office365.ObjectId) ($(office365.UserId)).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1213.002</id>
+    </mitre>
+    <group>qapaq_dlp,</group>
+  </rule>
+
+  <rule id="101951" level="9">
+    <if_sid>101949</if_sid>
+    <regex type="pcre2">"ExceptionInfo"\s*:\s*\{[^}]*Override</regex>
+    <description>QAPAQ SharePoint: $(office365.UserId) anuló la política DLP sobre $(office365.ObjectId).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1562</id>
+      <id>T1213.002</id>
+    </mitre>
+    <group>qapaq_dlp,qapaq_pending_provider_evidence,</group>
+  </rule>
+</group>

@@ -42,8 +42,8 @@ function siemHost(overrides = {}) {
     },
     core_environment: {
       QAPAQ_ENTRA_CLIENT_SECRET_REF: 'secret://keyvault/entra-client-secret',
-      QAPAQ_ENTRA_TENANT_ID: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
-      QAPAQ_ENTRA_CLIENT_ID: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+      QAPAQ_ENTRA_TENANT_ID: '11111111-1111-4111-8111-111111111111',
+      QAPAQ_ENTRA_CLIENT_ID: '22222222-2222-4222-8222-222222222222',
       QAPAQ_INGESTION_SOURCE: 'wazuh',
     },
     office365: {
@@ -61,9 +61,9 @@ function siemHost(overrides = {}) {
 function krakendGateway(overrides = {}) {
   return {
     image: registry + '/qapaq-secops-krakend@sha256:' + sha,
-    tenant_id: '45f2f938-dbe3-4a3e-8a54-930893f94ef8',
+    tenant_id: '11111111-1111-4111-8111-111111111111',
     client_scope: 'api://00000000-0000-4000-8000-000000000002/.default',
-    core_client_id: '336d44fe-b99d-4cfd-9c6e-0ed2d7e48998',
+    core_client_id: '22222222-2222-4222-8222-222222222222',
     indexer_reader_secret_name: 'wazuh-reader-b64',
     indexer_proxy_ca_secret_name: 'wazuh-proxy-ca',
     ...overrides,
@@ -512,8 +512,7 @@ test('runtime images must be complete and pinned to the configured ACR by SHA-25
 test('Key Vault references must be versioned IDs and may not contain values', () => {
   const ids = {
     api: {
-      QAPAQ_ENTRA_CLIENT_SECRET:
-        'https://qapaq.vault.azure.net/secrets/entra-client-secret/version123',
+      QAPAQ_ENTRA_CLIENT_SECRET: 'https://qapaq.vault.azure.net/secrets/entra-client-secret/version123',
     },
   };
   assert.doesNotThrow(() =>
@@ -570,7 +569,10 @@ test('Ankay requires SIEM, six registry digests, and Compose whose hash matches'
         validateDeploymentInputs(
           baseEnv({
             TF_VAR_siem_host: JSON.stringify(siemHost()),
-            TF_VAR_ankay_host: JSON.stringify({ ...ankay, private_ip_address: privateIpAddress }),
+            TF_VAR_ankay_host: JSON.stringify({
+              ...ankay,
+              private_ip_address: privateIpAddress,
+            }),
           }),
         ),
       /usable Azure host address in the reserved Ankay subnet/u,
@@ -619,7 +621,8 @@ test('Ankay cannot be enabled without SIEM and literal Compose credentials are r
     },
   };
   assert.throws(
-    () => validateDeploymentInputs(baseEnv({ TF_VAR_ankay_host: JSON.stringify(ankay) })),
+    () =>
+      validateDeploymentInputs(baseEnv({ TF_VAR_ankay_host: JSON.stringify(ankay) })),
     /requires a configured siem_host/u,
   );
   assert.throws(

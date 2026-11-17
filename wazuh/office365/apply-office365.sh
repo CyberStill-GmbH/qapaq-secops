@@ -175,6 +175,8 @@ if [[ -n "${QAPAQ_BREAK_GLASS_SOURCE:-}" ]]; then
 fi
 if [[ ! -s "${work}/break_glass" ]]; then
   echo 'QAPAQ office365: AVISO — lista break-glass vacía; la regla 100530 no se activará.' >&2
+  # Una lista CDB vacía rompe GET /lists de la API («Bad format in CDB list»): centinela .invalid.
+  echo 'qapaq-sin-cuentas-break-glass@qapaq.invalid:placeholder' >"${work}/break_glass"
 fi
 install -m 0660 -o root -g wazuh "${work}/break_glass" "${LIST_TARGET}"
 

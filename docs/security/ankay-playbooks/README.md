@@ -1,15 +1,21 @@
-# Ankay Qapaq: catálogo inicial de playbooks SOC
+# Ankay: catálogo inicial de playbooks SOC
 
-**Estado:** diseño versionado para revisión; no importado en una instancia Ankay ni
-conectado a tenants reales. Ankay es Shuffle v2.3.0 con overlay de frontend QAPAQ;
-los workflows, backend y apps de ejecución siguen el upstream fijado. Este catálogo
-separa enriquecimiento de solo lectura de acciones con efectos.
+**Estado:** diseño versionado para revisión; no importado en ninguna instancia ni
+conectado a tenants reales. **Destino:** cada playbook será una máquina de estados de AWS Step
+Functions (Ankay, ver [13](../../13-ankay-qapaq.md) y [14](../../14-ankay-conexion-qapaq.md)).
+El texto de este documento que habla de webhook, Shuffle, Orborus o Key Vault describe el **estado
+heredado basado en Shuffle v2.3.0**, que se reemplaza (fase M5). Este catálogo separa
+enriquecimiento de solo lectura de acciones con efectos; esa separación se conserva.
 
-## Webhook y fronteras de confianza
+**Equivalencias al migrar:** trigger webhook → `StartExecution` (`name = executionKey`); despachador
+con HMAC y callback → IAM entre la API y Step Functions; secretos en Key Vault → Secrets Manager
+(`secretRef`); aprobación humana → `waitForTaskToken`.
+
+## Webhook y fronteras de confianza (heredado, Shuffle)
 
 ### Ingreso de detecciones
 
-El adaptador existente `infra/wazuh/shuffle/custom-qapaq-shuffle` puede enviar al
+El adaptador heredado `infra/wazuh/shuffle/custom-qapaq-shuffle` puede enviar al
 trigger HTTPS de Ankay únicamente metadatos mínimos de alertas Wazuh nivel 12+:
 ID/fecha, regla, grupos allowlisted, agente y Manager. El payload no contiene
 `full_log`, URLs, correo, IP, usuario, contenido ni evidencia. Ese camino sirve
@@ -92,9 +98,9 @@ severidad por sí sola ni un resultado de VirusTotal autorizan contención autom
 ## Credenciales y límites de proveedor
 
 No hay valores ni URIs de credenciales versionados. Cuando los contratos se
-aprueben, consumir por identidades administradas/Key Vault, separados por
-conector y entorno: `M365_GRAPH_READ`, `SOPHOS_SIEM_READ`, `CATO_EVENTS_READ` y
-`VIRUSTOTAL_ENTERPRISE_LOOKUP`. No entregar a Shuffle credenciales de Indexer,
+aprueben, consumir desde Secrets Manager con roles IAM (en el diseño heredado,
+identidades administradas/Key Vault), separados por conector y entorno: `M365_GRAPH_READ`, `SOPHOS_SIEM_READ`, `CATO_EVENTS_READ` y
+`VIRUSTOTAL_ENTERPRISE_LOOKUP`. No entregar al motor de ejecución credenciales de Indexer,
 Manager, Azure admin, acciones de escritura o Teams; preferir referencias a datos
 y adaptadores QAPAQ de mínimo privilegio.
 
@@ -114,6 +120,10 @@ y adaptadores QAPAQ de mínimo privilegio.
   No subir archivos de correo a VirusTotal en la fase inicial.
 
 ## Secuencia de habilitación
+
+> Heredada, para el runtime Shuffle. En Step Functions el orden equivalente es: catálogo y máquinas de
+> estados de solo lectura, ejecución sintética en sandbox, conectores de lectura, aprobación con
+> `waitForTaskToken`, y acciones con efectos una a una (fases M1 a M3 de [13](../../13-ankay-qapaq.md)).
 
 El inventario de proyectos upstream, automatizaciones priorizadas y controles de
 falsos positivos está en [`opensource-roadmap.md`](opensource-roadmap.md). Los
@@ -142,5 +152,5 @@ workflows aún no se importaron en Ankay.
 - [VirusTotal: API v3 overview](https://docs.virustotal.com/reference/overview)
 - [VirusTotal: uso público frente a Enterprise](https://docs.virustotal.com/reference/public-vs-premium-api)
 - [VirusTotal: aviso de privacidad de IOCs](https://docs.virustotal.com/reference/rescan-ip)
-- ADR-028 de la rama `feature/ankay-qapaq`: Shuffle como motor SOAR; conservar ese
-  contrato al portar el documento a la rama de despliegue.
+- ADR-028 (heredado, [`decisiones/028`](../../reference/decisiones/028-shuffle-soar-webhook-adapter.md)):
+  contrato de gobierno (SoD, idempotencia, `UNKNOWN`) que se conserva sobre Step Functions.

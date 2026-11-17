@@ -10,7 +10,7 @@
  * técnico. El error viaja como código público del catálogo, nunca como motivo interno.
  */
 
-import { Controller, Get, Inject, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Query, Req, Res } from '@nestjs/common';
 import type { IncomingRequest, OutgoingReply } from '../http/http-contracts.js';
 
 import { ApiError, signInDenialCode } from '../http/api-error.js';
@@ -35,6 +35,21 @@ import type { SecOpsRuntime } from '../runtime/secops-runtime.js';
  */
 function proxyHeaderValue(value: string): string {
   return value.replace(/[^A-Za-z0-9._@+-]/gu, '');
+}
+
+/** Rechaza una petición que el navegador marca de otro sitio o cuyo `Origin` no es el propio. */
+function sameSiteRequest(request: IncomingRequest): boolean {
+  const single = (value: string | readonly string[] | undefined) =>
+    Array.isArray(value) ? value[0] : (value as string | undefined);
+  if (single(request.headers['sec-fetch-site']) === 'cross-site') return false;
+  const origin = single(request.headers.origin);
+  if (origin === undefined) return true;
+  const host = single(request.headers['x-forwarded-host']) ?? single(request.headers.host);
+  try {
+    return host !== undefined && new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
 
 @Controller('api/auth')
@@ -62,23 +77,77 @@ export class AuthController {
   }
 
   @Get('callback')
-  public async callback(
-    @Query() query: { state?: string; code?: string; error?: string },
+  public callbackGet(
+    @Query()
+    query: {
+      state?: string;
+      code?: string;
+      error?: string;
+      error_description?: string;
+    },
     @Req() request: IncomingRequest,
     @Res() reply: OutgoingReply,
   ) {
+    return this.completeCallback(query, undefined, request, reply);
+  }
+
+  @Post('callback')
+  public callbackPost(
+    @Body()
+    body:
+      | {
+          state?: string;
+          code?: string;
+          error?: string;
+          error_description?: string;
+        }
+      | undefined,
+    @Req() request: IncomingRequest,
+    @Res() reply: OutgoingReply,
+  ) {
+    return this.completeCallback({}, body, request, reply);
+  }
+
+  private async completeCallback(
+    query: {
+      state?: string;
+      code?: string;
+      error?: string;
+      error_description?: string;
+    },
+    body:
+      | {
+          state?: string;
+          code?: string;
+          error?: string;
+          error_description?: string;
+        }
+      | undefined,
+    request: IncomingRequest,
+    reply: OutgoingReply,
+  ) {
+    // GET conserva compatibilidad con el emisor local; POST solo confía en el formulario.
+    const callback = body ?? query;
     const correlationId = correlationIdOf(request);
-    const browserBinding = oidcFlowBindingOf(request, query.state);
-    const returnTo = this.runtime.takeReturnTo(query.state, browserBinding);
+    const browserBinding = oidcFlowBindingOf(request, callback.state);
+    const returnTo = this.runtime.takeReturnTo(callback.state, browserBinding);
     const result = await this.runtime.completeSignIn(
-      { ...query, ...(browserBinding ? { browserBinding } : {}) },
+      {
+        ...(callback.state === undefined ? {} : { state: callback.state }),
+        ...(callback.code === undefined ? {} : { code: callback.code }),
+        ...(callback.error === undefined ? {} : { error: callback.error }),
+        ...(callback.error_description === undefined
+          ? {}
+          : { errorDescription: callback.error_description }),
+        ...(browserBinding ? { browserBinding } : {}),
+      },
       originOf(request),
       correlationId,
     );
     if (!result.ok) {
       const code = signInDenialCode(result.failure.reason);
-      const expiredCookie = query.state
-        ? expiredOidcFlowCookie(query.state, this.runtime.secureCookies)
+      const expiredCookie = callback.state
+        ? expiredOidcFlowCookie(callback.state, this.runtime.secureCookies)
         : '';
       if (expiredCookie) reply.header('set-cookie', expiredCookie);
       await reply
@@ -96,8 +165,8 @@ export class AuthController {
       Math.floor(
         (result.value.session.absoluteExpiresAt.getTime() - this.runtime.now().getTime()) / 1000,
       ),
-      query.state
-        ? [expiredOidcFlowCookie(query.state, this.runtime.secureCookies)].filter(Boolean)
+      callback.state
+        ? [expiredOidcFlowCookie(callback.state, this.runtime.secureCookies)].filter(Boolean)
         : [],
     );
     await reply
@@ -105,6 +174,78 @@ export class AuthController {
       .header('cache-control', 'no-store')
       .header('referrer-policy', 'no-referrer')
       .header('location', withSupersededNotice(returnTo, result.value.supersededSessions.length))
+      .send();
+  }
+
+  /**
+   * Acceso con usuario y contraseña desde el formulario del login. Responde como el callback:
+   * 303 al destino con la cookie de sesión, o al mismo destino con el código público del
+   * catálogo. Funciona como `application/x-www-form-urlencoded` (sin JavaScript) y como JSON.
+   *
+   * Como todavía no hay sesión que lleve un token CSRF, el formulario se protege contra el
+   * *login CSRF* (que otro sitio inicie sesión a la víctima con la cuenta del atacante)
+   * rechazando peticiones de otro sitio por `Sec-Fetch-Site` y por `Origin`.
+   */
+  @Post('password')
+  public async password(
+    @Body() body: { username?: unknown; password?: unknown; returnTo?: unknown } | undefined,
+    @Req() request: IncomingRequest,
+    @Res() reply: OutgoingReply,
+  ) {
+    const correlationId = correlationIdOf(request);
+    const returnTo = safeReturnTo(body?.returnTo);
+    const fail = async (code: string) => {
+      await reply
+        .status(303)
+        .header('cache-control', 'no-store')
+        .header('referrer-policy', 'no-referrer')
+        .header('location', withAuthError(returnTo, code, correlationId))
+        .send();
+    };
+    if (!sameSiteRequest(request)) {
+      await fail('REQUEST_NOT_VERIFIED');
+      return;
+    }
+    const username = typeof body?.username === 'string' ? body.username : '';
+    const password = typeof body?.password === 'string' ? body.password : '';
+    if (username.length === 0 || password.length === 0) {
+      await fail('AUTH_FAILED');
+      return;
+    }
+    const result = await this.runtime.passwordSignIn(
+      { username, password, returnTo },
+      originOf(request),
+      correlationId,
+    );
+    const flowCookie = result.flow
+      ? expiredOidcFlowCookie(result.flow.state, this.runtime.secureCookies)
+      : '';
+    if (!result.ok) {
+      if (flowCookie) reply.header('set-cookie', flowCookie);
+      await fail(signInDenialCode(result.failure.reason));
+      return;
+    }
+    // La sesión de la excepción demo siempre viaja `Secure` y `SameSite=Strict`, sea cual sea el
+    // perfil: es la cuenta más privilegiada y entra solo con contraseña.
+    const demoAdmin = this.runtime.isDemoAdminSubject(result.value.session.subjectId);
+    setSessionCookie(
+      reply,
+      result.value.session.id,
+      demoAdmin || this.runtime.secureCookies,
+      Math.floor(
+        (result.value.session.absoluteExpiresAt.getTime() - this.runtime.now().getTime()) / 1000,
+      ),
+      [flowCookie].filter(Boolean),
+      demoAdmin ? 'Strict' : 'Lax',
+    );
+    await reply
+      .status(303)
+      .header('cache-control', 'no-store')
+      .header('referrer-policy', 'no-referrer')
+      .header(
+        'location',
+        withSupersededNotice(result.flow.returnTo, result.value.supersededSessions.length),
+      )
       .send();
   }
 

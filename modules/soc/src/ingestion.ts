@@ -19,10 +19,20 @@ export interface IngestionCursorKey {
   readonly dataset: string;
 }
 
+/** Punto de continuación de una ventana fija cuando una pasada agota su presupuesto de páginas. */
+export interface IngestionContinuation {
+  readonly from: Date;
+  readonly to: Date;
+  /** Cursor opaco del proveedor para continuar el orden total de una consulta. */
+  readonly cursor: string;
+}
+
 export interface ClaimedIngestionCursor {
   readonly key: IngestionCursorKey;
   /** Hora del evento más reciente ya procesado; `null` en la primera pasada. */
   readonly watermark: Date | null;
+  /** Continuación durable; `null` en una fila histórica o al terminar la ventana. */
+  readonly continuation: IngestionContinuation | null;
   /** Fencing token del claim: sin él no se avanza ni se libera. */
   readonly claimId: string;
 }
@@ -41,8 +51,18 @@ export interface SourcePollObservation {
   readonly outcome: PollOutcome;
   /** Documentos leídos; 0 en un poll exitoso vacío. */
   readonly recordsSeen: number;
+  /** Documents that converted to canonical SecurityEvent records. */
+  readonly normalized: number | null;
   readonly promoted: number;
   readonly quarantined: number;
+  /** Existing alert/event identity; null only for observations written before this metric existed. */
+  readonly duplicates: number | null;
+  /** Normalized events below the promotion threshold or otherwise suppressed by policy. */
+  readonly notPromoted: number | null;
+  /** Subset of `notPromoted` below the promotion score threshold; null for historic rows. */
+  readonly belowThreshold: number | null;
+  /** Subset of `notPromoted` suppressed by a benign rule or maintenance window. */
+  readonly suppressed: number | null;
   /** Hora del evento más reciente visto en esta pasada; `null` si no vio ninguno. */
   readonly newestEventAt: Date | null;
   /** Código neutral del catálogo de errores; nunca el mensaje del proveedor. */
@@ -74,6 +94,12 @@ export interface IngestionStateStore {
   ): Promise<ClaimedIngestionCursor | undefined>;
   /** Avanza la marca de agua; `false` si el claim ya no es el vigente. Nunca retrocede. */
   advanceCursor(claim: ClaimedIngestionCursor, watermark: Date, at: Date): Promise<boolean>;
+  /** Guarda o limpia el search-after solo con el claim vigente. */
+  saveContinuation(
+    claim: ClaimedIngestionCursor,
+    continuation: IngestionContinuation | null,
+    at: Date,
+  ): Promise<boolean>;
   /** Libera el lease al terminar la pasada para que la siguiente no espere el vencimiento. */
   releaseCursor(claim: ClaimedIngestionCursor): Promise<void>;
   recordObservation(observation: SourcePollObservation): Promise<void>;

@@ -1,0 +1,55 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-009
+title: Conexiones de red de endpoints Windows (Sysmon 3/22, WFP, firewall)
+source: windows
+use_case: network-connections
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: En endpoints, el proceso que se conecta (Sysmon 3), el nombre resuelto (22) y lo que el firewall bloquea
+  (5157/pfirewall) muestran C2, LOLBins y escaneos.
+data_sources:
+- 'grupo opt-in windows-telemetry-extended (gate de privacidad): Sysmon 3/22, Security 5156/5157 y pfirewall.log'
+- 'sin agentes Windows hoy: fixtures en el manager desechable'
+rules:
+  file: detections/windows/network-connections/rule.xml
+  ids:
+  - 101880
+  - 101881
+  - 101882
+  - 101883
+  - 101884
+  - 101885
+  - 101886
+  - 101887
+  - 101888
+  installed_as: etc/rules/qapaq_soc_windows_network_connections.xml
+mitre:
+- technique: T1046
+  tactic: discovery
+- technique: T1071
+  tactic: command-and-control
+- technique: T1595
+  tactic: reconnaissance
+- technique: T1105
+  tactic: command-and-control
+- technique: T1572
+  tactic: command-and-control
+severity:
+  levels: 0 WFP/firewall sin contexto · 6 DNS de túnel · 8 LOLBin saliente o escaneo · 10 escaneo WFP · 12 destino
+    listado
+  priority_hint: P2 para 10-12
+  rationale: 'Metadatos de red de estaciones son datos personales: solo con aprobación de privacidad.'
+false_positives:
+- Instaladores legítimos que usan msiexec/bitsadmin contra CDNs públicas.
+tests:
+  runner: network-logtest
+  manager_safe: false
+  fixtures: detections/windows/network-connections/fixtures.jsonl
+  expected: detections/windows/network-connections/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#windows

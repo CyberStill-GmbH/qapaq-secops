@@ -1,0 +1,194 @@
+diff --git a/frontend/src/views/LoginPage.qapaq.css b/frontend/src/views/LoginPage.qapaq.css
+new file mode 100644
+index 0000000..839f45c
+--- /dev/null
++++ b/frontend/src/views/LoginPage.qapaq.css
+@@ -0,0 +1,20 @@
++/* Ankay: centered login over the QAPAQ dark backdrop (Q outline + amber glow). */
++.ankayLogin {
++  position: fixed;
++  inset: 0;
++  z-index: 1000;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  padding: 32px 24px;
++  overflow: auto;
++  background: #080808 url('/images/ankay-login.webp') center 52% / cover no-repeat;
++}
++.ankayLogin, .ankayLogin * { box-sizing: border-box; }
++.ankayLogin > div { width: min(440px, 100%); margin-block: auto; flex-shrink: 0; }
++.ankayLogin__mark { display: block; object-fit: contain; margin: 0 auto 16px; }
++.ankayLogin__title { margin: 0 0 28px; text-align: center; font-size: clamp(26px, 5vw, 32px); font-weight: 700; line-height: 1.2; letter-spacing: -.5px; }
++.ankayLogin input { min-width: 0; font-size: 16px; }
++@media (max-width: 600px) {
++  .ankayLogin { padding: 60px 16px 24px; background-image: url('/images/ankay-login-mobile.webp'); background-position: 50% center; }
++}
+diff --git a/frontend/src/views/LoginPage.jsx b/frontend/src/views/LoginPage.jsx
+index 59fa3ce..70c716e 100644
+--- a/frontend/src/views/LoginPage.jsx
++++ b/frontend/src/views/LoginPage.jsx
+@@ -1,5 +1,6 @@
+ /* eslint-disable react/no-multi-comp */
+ import React, { useState, useEffect, } from 'react';
++import './LoginPage.qapaq.css';
+ import { makeStyles } from '@mui/styles';
+ import { useNavigate, Link, useParams } from "react-router-dom";
+ import { isMobile } from "react-device-detect";
+@@ -341,15 +342,15 @@ const LoginPage = props => {
+ 	if (document !== undefined) {
+ 		if (register) {
+ 			if (isCloud) { 
+-				document.title = "Login to Shuffle SaaS"
++				document.title = "Ankay"
+ 			} else {
+-				document.title = "Login to Shuffle"
++				document.title = "Ankay"
+ 			}
+ 		} else {
+ 			if (isCloud) {
+-				document.title = "Register to Shuffle SaaS"
++				document.title = "Ankay"
+ 			} else {
+-				document.title = "Register to Shuffle"
++				document.title = "Ankay"
+ 			}
+ 		}
+   }
+@@ -383,28 +384,24 @@ const LoginPage = props => {
+ 	}
+ 
+ 	const bodyDivStyle = {
+-		marginTop: embedded ? 0 : 100,
+-		width: isMobile ? "100%" : "100%",
+-		maxWidth: embedded ? "100%" : "1200px",
+-		background: embedded ? "transparent" : "#1A1A1A",
+-		margin: "auto",
+-		display: embedded ? "block" : (isMobile ? "block" : "flex"),
+-		padding: embedded ? 0 : "40px",
+-		gap: "40px",
+-		overflow: "hidden",
+-		alignItems: "center"
++		width: "100%",
++		minWidth: 0,
++		background: "transparent",
++		display: "flex",
++		justifyContent: "center",
+ 	};
+ 
+ 	const boxStyle = {
+-		color: "white",
+-		padding: embedded ? 0 : "40px",
+-		flex: 1,
+-		maxWidth: embedded ? "100%" : (isMobile ? "100%" : 410),
+-		minWidth: embedded ? "auto" : (isCloud ? 410 : 475),
+-		background: embedded ? "transparent" : "#212121",
+-		borderRadius: "12px",
+-		display: "flex",
+-		// flexDirection: "column",
++		color: "#f4f4f5",
++		width: "100%",
++		maxWidth: 440,
++		minWidth: 0,
++		padding: "clamp(24px, 5vw, 36px)",
++		background: "rgba(13, 13, 15, 0.94)",
++		border: "1px solid #29292d",
++		borderRadius: 12,
++		boxShadow: "0 24px 80px rgba(0, 0, 0, 0.5)",
++		backdropFilter: "blur(16px)",
+ 	};
+ 
+ 
+@@ -797,7 +794,6 @@ const LoginPage = props => {
+ 		setLoginWithSSO(true)
+ 	}
+ 
+-	var formtitle = register ? <div>Welcome Back!</div> : <div>Create your account</div>
+ 	var formButton = !isCloud ? "" : register ? <div style={{ display: "flex" }}> <div style={{ fontSize: "14px", paddingRight: "7px", textDecoration: "none", }}>Don’t have an account yet?</div> <Link style={hrefStyle} to={`/register${parsedsearch}`} onClick={() => {
+ 		if (isCloud) {
+ 			ReactGA.event({
+@@ -832,55 +828,12 @@ const LoginPage = props => {
+ 				<Paper
+ 					style={{
+ 						...boxStyle,
+-						width: "max-content",
++						width: "100%",
+ 					}}
+ 				>
+-					<form onSubmit={onSubmit} style={{ margin: 15, width: isMobile ? "100%" : "360px", width: "max-content", overflow: "hidden", textAlign: "center", }}>
+-						{!embedded && (
+-							<img
+-								style={{
+-									height: isMobile ? 44 : 60,
+-									width: isMobile ? 44 : 60,
+-									paddingBottom: isMobile ? null : 40
+-								}}
+-								src="images/logos/orange_logo.svg"
+-								alt="Shuffle Logo"
+-							/>
+-						)}
+-
+-						{!embedded && (
+-							<Typography
+-								color="textSecondary"
+-								style={{
+-									textAlign: isMobile ? "center" : null,
+-									marginTop: 10,
+-									marginBottom: 10
+-								}}
+-							>
+-								{message}
+-							</Typography>
+-						)}
+-
+-						<h2 style={{
+-							marginBottom: 2,
+-							textAlign: isMobile ? "center" : null
+-						}}>
+-							{formtitle}
+-						</h2>
+-
+-						<Typography
+-							color="textSecondary"
+-							style={{
+-								marginBottom: register ? 28 : 10,
+-								textAlign: isMobile ? "center" : null
+-							}}
+-							variant="body2"
+-						>
+-							{register
+-								? "Find new ways to automate by discovering usecases Shufflers"
+-								: "Please fill in the information to continue to discover the power of Shuffle"
+-							}
+-						</Typography>
++					<form onSubmit={onSubmit} style={{ margin: 0, width: "100%", minWidth: 0, textAlign: "left" }}>
++						<img className="ankayLogin__mark" src="/images/qapaq-head-mark.webp" width={72} height={72} alt="" />
++						<h1 className="ankayLogin__title">Ankay</h1>
+ 
+ 						<div style={{ marginBottom: 20, textAlign: "left", }}>
+ 							<div style={{ marginBottom: 5 }}>{isCloud ? "Email" : "Username"}</div>
+@@ -1127,15 +1080,6 @@ const LoginPage = props => {
+ 					</form>
+ 				</Paper>
+ 
+-				{/* Ankay: sin el panel «Self Host» de marketing de Shuffle */}
+-				{isMobile || embedded || !isCloud ? null : (
+-					<>
+-						<div className={classes.divider}>
+-							<span>OR</span>
+-						</div>
+-						<MarketplaceCard classes={classes} isCloud={isCloud} />
+-					</>
+-				)}
+ 			</div>
+ 		);
+ 
+@@ -1148,7 +1092,7 @@ const LoginPage = props => {
+ 		</div>
+ 
+ 	return (
+-		<div style={{zoom: embedded ? 1 : 0.8, minHeight: embedded ? "auto" : "75vh", paddingTop: embedded ? 0 : 75, paddingBottom: embedded ? 0 : 90 }}>
++		<div data-qapaq-login-version="qapaq-v2" className="ankayLogin">
+ 			{loadedCheck}
+ 		</div>
+ 	)

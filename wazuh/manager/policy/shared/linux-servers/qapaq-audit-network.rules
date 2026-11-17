@@ -1,0 +1,36 @@
+## QAPAQ SecOps · auditoría de red para Wazuh (docs/18-visibilidad-de-red-y-capacidades-wazuh.md).
+## Fuente: wazuh/manager/policy/shared/linux-servers/; se distribuye con el grupo linux-servers y la
+## instala qapaq-audit-sync (infra/wazuh/network/agent/install-linux-network-visibility.sh) en
+## /etc/audit/rules.d/60-qapaq-network.rules. El agente lee /var/log/audit/audit.log (log_format audit).
+##
+## Alcance acotado para que el volumen sea el de una sesión humana, no el del servidor:
+##  - auid>=1000 y auid!=unset: solo procesos que nacen de un login interactivo (SSH, consola, SSM).
+##    Los demonios y los contenedores (dockerd los lanza sin auid) quedan fuera.
+##  - connect/bind con addrlen 16 (AF_INET) o 28 (AF_INET6): descarta sockets UNIX (docker.sock, D-Bus).
+##  - www-data (uid 33): cuenta de servicio web típica; una conexión saliente suya es rara (webshell).
+## Requiere log_format = ENRICHED en auditd.conf (por defecto en auditd 3.x) para la IP en SOCKADDR.
+
+## Conexiones salientes de sesiones interactivas
+-a always,exit -F arch=b64 -S connect -F a2=16 -F auid>=1000 -F auid!=unset -k qapaq_net_connect
+-a always,exit -F arch=b64 -S connect -F a2=28 -F auid>=1000 -F auid!=unset -k qapaq_net_connect
+-a always,exit -F arch=b32 -S connect -F a2=16 -F auid>=1000 -F auid!=unset -k qapaq_net_connect
+
+## Escuchas abiertas desde sesiones interactivas (bind + accept: shells de enlace, túneles, servidores ad hoc)
+-a always,exit -F arch=b64 -S bind -F a2=16 -F auid>=1000 -F auid!=unset -k qapaq_net_bind
+-a always,exit -F arch=b64 -S bind -F a2=28 -F auid>=1000 -F auid!=unset -k qapaq_net_bind
+-a always,exit -F arch=b64 -S accept,accept4 -F auid>=1000 -F auid!=unset -k qapaq_net_accept
+
+## Cuenta de servicio web
+-a always,exit -F arch=b64 -S connect -F a2=16 -F euid=33 -k qapaq_net_svc
+-a always,exit -F arch=b64 -S connect -F a2=28 -F euid=33 -k qapaq_net_svc
+
+## Ejecución de herramientas de red y captura (solo si el binario existe en el host; ver qapaq-audit-sync)
+## QAPAQ_WATCH /usr/bin/nc.openbsd
+## QAPAQ_WATCH /usr/bin/nc.traditional
+## QAPAQ_WATCH /usr/bin/ncat
+## QAPAQ_WATCH /usr/bin/socat
+## QAPAQ_WATCH /usr/bin/nmap
+## QAPAQ_WATCH /usr/bin/masscan
+## QAPAQ_WATCH /usr/bin/telnet.netkit
+## QAPAQ_WATCH /usr/bin/tcpdump
+## QAPAQ_WATCH /usr/sbin/tcpdump

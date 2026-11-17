@@ -1,0 +1,50 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-AWS-001
+title: Manipulación de CloudTrail con contexto (IAM previo, root, cegamiento múltiple)
+source: aws
+use_case: cloudtrail-tampering
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Quien apaga CloudTrail después de tocar IAM, o apaga varios servicios de detección en una hora, está
+  borrando el rastro de una intrusión.
+data_sources:
+- CloudTrail management events vía EventBridge → SNS → receptor QAPAQ (wazuh/aws-events)
+rules:
+  file: detections/aws/cloudtrail-tampering/rule.xml
+  ids:
+  - 101710
+  - 101711
+  - 101712
+  installed_as: etc/rules/qapaq_soc_aws_cloudtrail_tampering.xml
+mitre:
+- technique: T1562.008
+  tactic: defense-evasion
+- technique: T1098.003
+  tactic: privilege-escalation
+- technique: T1078.004
+  tactic: initial-access
+- technique: T1562.001
+  tactic: defense-evasion
+severity:
+  levels: '15'
+  priority_hint: P1
+  rationale: CloudTrail es la evidencia regulatoria de AWS; apagarlo con contexto ofensivo es incidente mayor.
+false_positives:
+- Reconfiguración planificada del trail por Terraform (principal de CI con cambio aprobado).
+- Desmontaje de un entorno de pruebas (cuenta sandbox).
+tuning:
+- Se enlaza por grupos del paquete AWS (qapaq_aws_defense_disabled, qapaq_aws_iam, qapaq_aws_root), no por IDs.
+tests:
+  runner: logtest
+  fixtures: detections/aws/cloudtrail-tampering/fixtures.jsonl
+  expected: detections/aws/cloudtrail-tampering/expected.txt
+runbook: docs/detection-engineering/runbooks/cloudtrail-y-auditoria.md
+depends_on:
+- 'wazuh/aws-events/rules/qapaq_aws_rules.xml (grupos qapaq_aws_*; owner: monitoreo AWS)'
+respond_playbook: ankay/playbooks/qapaq-triage-enriquecimiento.json

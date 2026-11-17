@@ -8,11 +8,18 @@ import type { AppMountParameters, CoreStart } from '../../../src/core/public';
 import type { QapaqView } from '../common';
 import type { ChangeFeed } from './api/change_feed';
 import type { QapaqApiClient } from './api/client';
+import { ViewErrorBoundary } from './render_failure';
 import { AccessView } from './components/access_view';
+import { AiAnalystView } from './components/ai_analyst_view';
 import { AlertsView } from './components/alerts_view';
 import { AuditView } from './components/audit_view';
 import { ConsoleProvider } from './components/console_context';
 import { IncidentsView } from './components/incidents_view';
+import { IntegrationsView } from './components/integrations_view';
+import { InvestigationView } from './components/investigation_view';
+import { OverviewView } from './components/overview_view';
+import { PlatformHealthSection } from './components/platform_health_view';
+import { PoliciesView } from './components/policies_view';
 import { NotificationsView } from './components/notifications_view';
 import { OperationsView } from './components/operations_view';
 import { SessionView } from './components/session_view';
@@ -45,19 +52,52 @@ function Console({
   basePath: string;
 }) {
   const [selected, select] = useSelection(history);
-  const params = new URLSearchParams(history.location.search);
+  // Cualquier cambio de query (p. ej. investigación ⇄ cola) vuelve a renderizar la vista.
+  const [search, setSearch] = useState(history.location.search);
+  useEffect(() => history.listen((location) => setSearch(location.search)), [history]);
+  const params = new URLSearchParams(search);
   switch (view) {
+    case 'overview':
+      return <OverviewView basePath={basePath} />;
+    case 'integrations':
+      return <IntegrationsView basePath={basePath} />;
+    case 'policies':
+      return <PoliciesView basePath={basePath} />;
     case 'alerts':
+      // `?investigate=1` abre la investigación (alerta `id` o entidad `entity` + `at`).
+      if (params.get('investigate') === '1') {
+        return (
+          <InvestigationView
+            key={`${selected ?? ''}|${params.get('entity') ?? ''}|${params.get('at') ?? ''}`}
+            alertId={selected}
+            entity={params.get('entity')}
+            at={params.get('at')}
+            basePath={basePath}
+            onOpenTriage={(id) => history.push({ pathname: '/', search: `?id=${encodeURIComponent(id)}` })}
+          />
+        );
+      }
       return (
         <AlertsView
           selectedId={selected}
           onSelect={select}
           basePath={basePath}
           initialPriority={params.get('priority')}
+          initialQuery={params.get('q')}
         />
       );
     case 'incidents':
       return <IncidentsView selectedId={selected} onSelect={select} />;
+    case 'ai_analyst':
+      // `?id=` abre un expediente; `?alertId=` precarga «Investigar alerta».
+      return (
+        <AiAnalystView
+          selectedId={selected}
+          onSelect={select}
+          basePath={basePath}
+          initialAlertId={params.get('alertId')}
+        />
+      );
     case 'notifications':
       return <NotificationsView />;
     case 'sources':
@@ -65,6 +105,7 @@ function Console({
       return (
         <>
           <SourcesView />
+          <PlatformHealthSection basePath={basePath} />
           <OperationsView embedded />
         </>
       );
@@ -88,11 +129,18 @@ export function renderApp(
   const basePath = core.http.basePath.get();
   params.element.classList.add('qapaqApp');
   ReactDOM.render(
-    <core.i18n.Context>
-      <ConsoleProvider api={api} notifications={core.notifications} feed={feed} basePath={basePath}>
-        <Console view={view} history={params.history} basePath={basePath} />
-      </ConsoleProvider>
-    </core.i18n.Context>,
+    <ViewErrorBoundary>
+      <core.i18n.Context>
+        <ConsoleProvider
+          api={api}
+          notifications={core.notifications}
+          feed={feed}
+          basePath={basePath}
+        >
+          <Console view={view} history={params.history} basePath={basePath} />
+        </ConsoleProvider>
+      </core.i18n.Context>
+    </ViewErrorBoundary>,
     params.element,
   );
   return () => {

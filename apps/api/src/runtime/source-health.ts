@@ -26,9 +26,55 @@ import {
   type SourceHealthEvaluation,
   type SourceHealthPolicy,
 } from '@qapaq/soc';
+import type { SourcePollObservation } from '@qapaq/soc';
 
 /** Observaciones que alcanzan para decidir: cubren varias ventanas de falla. */
 export const SOURCE_HEALTH_OBSERVATION_WINDOW = 50;
+
+export interface SourceEventLagSummary {
+  readonly sampleWindow: number;
+  readonly sampleCount: number;
+  readonly clockSkewSamples: number;
+  readonly measuredAt: Date | null;
+  readonly p50Ms: number | null;
+  readonly p95Ms: number | null;
+  readonly p99Ms: number | null;
+}
+
+/**
+ * Estimates source-event timestamp to successful poll completion for recent non-empty polls.
+ * Negative values are counted as clock skew and excluded, never clamped to zero.
+ */
+export function sourceEventLagSummary(
+  observations: readonly SourcePollObservation[],
+): SourceEventLagSummary {
+  const candidates = observations.filter(
+    (item) => item.outcome === 'success' && item.newestEventAt !== null,
+  );
+  const lags: number[] = [];
+  let clockSkewSamples = 0;
+  for (const item of candidates) {
+    const lag = item.completedAt.getTime() - item.newestEventAt!.getTime();
+    if (lag < 0) clockSkewSamples += 1;
+    else lags.push(lag);
+  }
+  lags.sort((left, right) => left - right);
+  const percentile = (rank: number): number | null =>
+    lags.length === 0 ? null : lags[Math.max(0, Math.ceil(rank * lags.length) - 1)]!;
+  const measuredAt = candidates.reduce<Date | null>(
+    (latest, item) => (!latest || item.completedAt > latest ? item.completedAt : latest),
+    null,
+  );
+  return {
+    sampleWindow: SOURCE_HEALTH_OBSERVATION_WINDOW,
+    sampleCount: lags.length,
+    clockSkewSamples,
+    measuredAt,
+    p50Ms: percentile(0.5),
+    p95Ms: percentile(0.95),
+    p99Ms: percentile(0.99),
+  };
+}
 
 export interface SourceHealthMonitor {
   readonly key: IngestionCursorKey;

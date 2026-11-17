@@ -109,4 +109,42 @@ describe('NotificationDispatcher', () => {
     expect(dispatcher.started).toBe(false);
     expect(drain.mock.calls.length).toBe(callsAtStop);
   });
+
+  it('el carril urgente inicia mientras el normal espera un transporte P2 lento', async () => {
+    const slowP2 = deferred();
+    let urgentStarted = false;
+    let normalDrainCount = 0;
+    const urgent = new NotificationDispatcher({
+      drain: async () => {
+        urgentStarted = true;
+        return 0;
+      },
+      intervalMs: 60_000,
+      onError: () => {},
+    });
+    const normal = new NotificationDispatcher({
+      drain: async () => {
+        if (normalDrainCount++ === 0) await slowP2.promise;
+        return 0;
+      },
+      intervalMs: 60_000,
+      onError: () => {},
+      onKick: () => urgent.kick(),
+    });
+    dispatcher = normal;
+    urgent.start();
+    normal.start();
+    await settle();
+
+    // El P1 recién encolado activa el carril dedicado sin esperar el request P2 pendiente.
+    try {
+      normal.kick();
+      await settle();
+      expect(urgentStarted).toBe(true);
+    } finally {
+      slowP2.resolve();
+      await normal.stop();
+      await urgent.stop();
+    }
+  });
 });

@@ -1,0 +1,44 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-ENTRA-002
+title: Consentimiento OAuth y credenciales nuevas en aplicaciones
+source: entra
+use_case: app-consent-and-credentials
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: 'El atacante persiste vía una app: consentimiento ilícito o secreto/certificado nuevo en un service
+  principal.'
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: wazuh/office365/rules/qapaq_office365_rules.xml
+  ids:
+  - 100522
+  - 100523
+mitre:
+- technique: T1528
+  tactic: credential-access
+- technique: T1098.001
+  tactic: persistence
+severity:
+  levels: '10'
+  priority_hint: P2
+  rationale: La persistencia por app sobrevive al cambio de contraseña y al MFA del usuario.
+false_positives:
+- Rotación planificada de secretos de apps internas (ventana de mantenimiento).
+tuning: []
+tests:
+  runner: logtest
+  suite: office365
+  fixtures: wazuh/office365/tests/logtest-cases.jsonl
+  expected: wazuh/office365/tests/expected-rules.txt
+  script: wazuh/office365/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/escalada-de-privilegios.md#entra
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'

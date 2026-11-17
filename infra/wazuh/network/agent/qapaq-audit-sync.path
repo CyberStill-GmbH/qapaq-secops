@@ -1,0 +1,10 @@
+# QAPAQ SecOps · reaplica las reglas de auditoría de red cuando el manager distribuye una versión nueva.
+[Unit]
+Description=QAPAQ SecOps: vigila las reglas de auditoria de red distribuidas por Wazuh
+
+[Path]
+PathChanged=/var/ossec/etc/shared/qapaq-audit-network.rules
+Unit=qapaq-audit-sync.service
+
+[Install]
+WantedBy=multi-user.target

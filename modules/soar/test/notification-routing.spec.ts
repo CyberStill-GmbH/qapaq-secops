@@ -24,7 +24,7 @@ describe('política de ruteo por rol', () => {
 
   it('lo que no es crítico no se notifica', () => {
     expect(
-      rolesToNotify({ messageType: 'soc.alert.created', payload: { priority: 'P2' } }),
+      rolesToNotify({ messageType: 'soc.alert.created', payload: { priority: 'P3' } }),
     ).toEqual([]);
     expect(
       rolesToNotify({ messageType: 'soc.alert.triaged', payload: { priority: 'P1' } }),
@@ -44,7 +44,7 @@ describe('tarjeta con menciones', () => {
     title: 'Regla de reenvío externa',
     severity: 'P1',
     occurredAt: new Date('2026-10-13T01:00:00.000Z'),
-    consoleBaseUrl: 'https://app.jappi.net.pe',
+    consoleBaseUrl: 'https://app.qapaq.pe',
     clientRequestId: 'req-1',
   };
 

@@ -1,0 +1,44 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-M365-004
+title: Exfiltración por enlaces anónimos y eDiscovery
+source: m365
+use_case: data-exfiltration
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Los datos salen por enlaces anónimos de SharePoint/OneDrive o exportando búsquedas de eDiscovery.
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: wazuh/office365/rules/qapaq_office365_rules.xml
+  ids:
+  - 100515
+  - 100529
+mitre:
+- technique: T1567
+  tactic: exfiltration
+- technique: T1114
+  tactic: collection
+severity:
+  levels: 7 enlace anónimo · 12 exportación eDiscovery
+  priority_hint: P3 / P2
+  rationale: El enlace anónimo es frecuente y de bajo valor aislado; la exportación de eDiscovery es rara y masiva.
+false_positives:
+- Áreas que comparten material público con enlaces anónimos (marketing).
+- Casos legales en curso con exportación aprobada por Compliance.
+tuning: []
+tests:
+  runner: logtest
+  suite: office365
+  fixtures: wazuh/office365/tests/logtest-cases.jsonl
+  expected: wazuh/office365/tests/expected-rules.txt
+  script: wazuh/office365/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/credenciales.md#exfiltracion
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'

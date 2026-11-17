@@ -1,7 +1,7 @@
 # C-18 — Comprobación de conectividad real con Microsoft Entra ID
 
 Fecha: 2026-10-01 · Ambiente: estación de desarrollo Windows, red QAPAQ ·
-Tenant: `45f2f938-dbe3-4a3e-8a54-930893f94ef8`
+Tenant: `11111111-1111-4111-8111-111111111111`
 
 Esta comprobación responde a una sola pregunta: **¿Entra reacciona a lo que QAPAQ
 construye?** No sustituye la aceptación del flujo completo, que exige una persona real

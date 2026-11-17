@@ -6,9 +6,11 @@ import type {
   AlertStatus,
   AlertVerdict,
   ApiErrorCode,
+  CorrelatorFeedbackStatus,
   IncidentSeverity,
   IncidentStatus,
   NotificationChannel,
+  NotificationDeliveryChannel,
   NotificationStatus,
   OperationsStatus,
   Priority,
@@ -105,7 +107,7 @@ export const API_ERROR_MESSAGE: Record<ApiErrorCode, string> = {
   SESSION_EXPIRED: 'Su sesión terminó. Vuelva a iniciar sesión.',
   PASSKEY_REQUIRED: 'Fuera de la red QAPAQ se requiere una passkey registrada.',
   STEP_UP_REQUIRED:
-    'Esta acción requiere una verificación reciente de identidad que no está disponible.',
+    'Por seguridad, esta acción pide un inicio de sesión reciente: cierre sesión, vuelva a entrar y repítala.',
   NETWORK_NOT_ALLOWED: 'No fue posible verificar el origen de la conexión.',
   REQUEST_NOT_VERIFIED:
     'No fue posible verificar la solicitud. Recargue la página e intente de nuevo.',
@@ -114,7 +116,6 @@ export const API_ERROR_MESSAGE: Record<ApiErrorCode, string> = {
   STATE_CONFLICT: 'El elemento cambió mientras trabajaba en él. Vuelva a cargarlo.',
   VALIDATION_FAILED: 'Revise los datos ingresados y vuelva a enviarlos.',
   DEPENDENCY_DEGRADED: 'El servicio está degradado. Algunos datos pueden no estar actualizados.',
-  FEATURE_NOT_CONFIGURED: 'Esta función no está habilitada en este despliegue.',
   INTERNAL_ERROR: 'Ocurrió un problema inesperado. El equipo ya fue notificado.',
 };
 
@@ -169,6 +170,8 @@ export const NOTIFICATION_STATUS_LABEL: Record<NotificationStatus, string> = {
   failed: 'Fallida',
   fallback: 'Por canal alternativo',
   acknowledged: 'Reconocida',
+  suppressed: 'Agrupada o en resumen',
+  superseded: 'Sustituida',
 };
 
 export const NOTIFICATION_TONE: Record<NotificationStatus, HealthTone> = {
@@ -179,12 +182,17 @@ export const NOTIFICATION_TONE: Record<NotificationStatus, HealthTone> = {
   failed: 'fail',
   fallback: 'warn',
   acknowledged: 'ok',
+  suppressed: 'neutral',
+  superseded: 'neutral',
 };
 
-export const NOTIFICATION_CHANNEL_LABEL: Record<NotificationChannel, string> = {
+export const NOTIFICATION_CHANNEL_LABEL: Record<NotificationDeliveryChannel, string> = {
   teams: 'Microsoft Teams',
   fallback_email: 'Correo (alternativo)',
   manual_console: 'Consola',
+  email: 'Correo',
+  console: 'Consola',
+  push: 'Aviso push',
 };
 
 export const OPERATIONS_STATUS_LABEL: Record<OperationsStatus, string> = {
@@ -201,13 +209,38 @@ export const OPERATIONS_TONE: Record<OperationsStatus, HealthTone> = {
   DEGRADED: 'warn',
 };
 
+export const CORRELATOR_FEEDBACK_STATUS_LABEL: Record<CorrelatorFeedbackStatus, string> = {
+  ready: 'Listo',
+  pending: 'Inicializando',
+  failed: 'Refresh fallido',
+  stale: 'Atrasado',
+  unavailable: 'Sin respuesta',
+  unconfigured: 'No configurado',
+};
+
+export const CORRELATOR_FEEDBACK_STATUS_TONE: Record<CorrelatorFeedbackStatus, HealthTone> = {
+  ready: 'ok',
+  pending: 'info',
+  failed: 'fail',
+  stale: 'warn',
+  unavailable: 'neutral',
+  unconfigured: 'neutral',
+};
+
 export const DEGRADED_REASON_LABEL: Record<string, string> = {
   DISPATCHER_STOPPED: 'El despachador de notificaciones está detenido',
   OUTBOX_BACKLOG: 'Hay notificaciones pendientes desde hace más de 5 min',
+  OUTBOX_LEASE_EXPIRED: 'Hay mensajes del outbox con lease vencido',
+  WAZUH_PUSH_TERMINAL_FAILURES:
+    'El fast path de Wazuh terminó con eventos que requieren reconciliación',
+  WAZUH_PUSH_LEASE_EXPIRED: 'Hay trabajos del push Wazuh con lease vencido',
   PERSISTENCE_EPHEMERAL: 'La persistencia es en memoria (no durable)',
   NOTIFICATION_FAILED: 'Hubo notificaciones fallidas en la ventana',
   NOTIFICATION_INDETERMINATE: 'Hubo notificaciones con entrega incierta',
   NOTIFICATION_FALLBACK: 'Hubo notificaciones por el canal alternativo',
+  NOTIFICATION_TEAMS_NOT_CONFIGURED: 'Microsoft Teams no tiene un webhook configurado',
+  NOTIFICATION_NO_P1_CHANNEL:
+    'Ningún canal (Teams o correo) puede entregar un aviso P1; solo queda la bandeja',
   DATABASE_UNAVAILABLE: 'La base de datos no respondió',
   DATABASE_SLOW: 'La base de datos responde lento (> 1 s)',
 };

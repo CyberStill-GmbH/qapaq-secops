@@ -49,8 +49,8 @@ class InstallerOutputTests(unittest.TestCase):
                                 release,
                                 {
                                     "office365": {
-                                        "tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
-                                        "client_id": "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998",
+                                        "tenant_id": "11111111-1111-4111-8111-111111111111",
+                                        "client_id": "22222222-2222-4222-8222-222222222222",
                                         "api_type": "commercial",
                                         "enable_dlp": False,
                                     }
@@ -62,8 +62,8 @@ class InstallerOutputTests(unittest.TestCase):
             self.assertIn("código 17", captured_output.getvalue())
             self.assertIs(run_installer.call_args.kwargs["stdout"], BOOTSTRAP.subprocess.DEVNULL)
             self.assertIs(run_installer.call_args.kwargs["stderr"], BOOTSTRAP.subprocess.DEVNULL)
-            self.assertEqual(run_installer.call_args.kwargs["env"]["QAPAQ_O365_TENANT_ID"], "45f2f938-dbe3-4a3e-8a54-930893f94ef8")
-            self.assertEqual(run_installer.call_args.kwargs["env"]["QAPAQ_O365_CLIENT_ID"], "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998")
+            self.assertEqual(run_installer.call_args.kwargs["env"]["QAPAQ_O365_TENANT_ID"], "11111111-1111-4111-8111-111111111111")
+            self.assertEqual(run_installer.call_args.kwargs["env"]["QAPAQ_O365_CLIENT_ID"], "22222222-2222-4222-8222-222222222222")
             self.assertNotIn("QAPAQ_O365_CLIENT_SECRET", run_installer.call_args.kwargs["env"])
 
 
@@ -76,8 +76,8 @@ class ProviderIngestionValidationTests(unittest.TestCase):
             "identity_client_id": "managed-identity-client-id",
             "key_vault_uri": "https://kv-qapaq-test.vault.azure.net/",
             "office365": {
-                "tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
-                "client_id": "336d44fe-b99d-4cfd-9c6e-0ed2d7e48998",
+                "tenant_id": "11111111-1111-4111-8111-111111111111",
+                "client_id": "22222222-2222-4222-8222-222222222222",
                 "api_type": "commercial",
                 "enable_dlp": False,
             },
@@ -192,7 +192,7 @@ class ProviderIngestionValidationTests(unittest.TestCase):
         config = self._base_config()
         config["provider_ingestion"] = {
             "sophos_enabled": "true",
-            "sophos_tenant_id": "45f2f938-dbe3-4a3e-8a54-930893f94ef8",
+            "sophos_tenant_id": "11111111-1111-4111-8111-111111111111",
             "sophos_data_region": "eu01",
             "cato_enabled": "true",
             "cato_account_id": "12345",

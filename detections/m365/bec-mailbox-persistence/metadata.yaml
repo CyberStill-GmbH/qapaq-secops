@@ -1,0 +1,50 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Referencia: las reglas viven en su ruta canónica y no se mueven.
+id: QAPAQ-DET-M365-002
+title: 'Persistencia en buzón (BEC): reglas, reenvío y delegación'
+source: m365
+use_case: bec-mailbox-persistence
+status: pending-provider-evidence
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Tras tomar un buzón, el atacante crea reglas que reenvían u ocultan correo y se otorga delegación para
+  seguir leyendo.
+data_sources:
+- 'Office 365 Management Activity API (módulo office365 de Wazuh): Audit.AzureActiveDirectory, Audit.Exchange, Audit.SharePoint,
+  Audit.General'
+rules:
+  file: wazuh/office365/rules/qapaq_office365_rules.xml
+  ids:
+  - 100510
+  - 100511
+  - 100512
+  - 100513
+  - 100514
+mitre:
+- technique: T1564.008
+  tactic: defense-evasion
+- technique: T1114.003
+  tactic: collection
+- technique: T1098.002
+  tactic: persistence
+severity:
+  levels: 8 regla desde cliente · 10 SendAs · 11 transporte · 12 reenvío/ocultación
+  priority_hint: P2 (P1 si correlaciona con un acceso anómalo)
+  rationale: El reenvío externo es el mecanismo principal de fraude de pago en fintech; cada minuto filtra correo.
+false_positives:
+- Reglas legítimas de organización de correo (mover a carpeta) creadas desde Outlook (100511).
+- 'Reenvío aprobado a buzones compartidos internos: documentar excepción por destinatario.'
+tuning: []
+tests:
+  runner: logtest
+  suite: office365
+  fixtures: wazuh/office365/tests/logtest-cases.jsonl
+  expected: wazuh/office365/tests/expected-rules.txt
+  script: wazuh/office365/tests/run-logtest.sh
+runbook: docs/detection-engineering/runbooks/credenciales.md#bec
+notes: 'Bloqueada por datos: falta el permiso ActivityFeed.Read con consentimiento de administrador (docs/17 §backlog
+  BL-I01).'

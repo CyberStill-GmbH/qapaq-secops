@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly EXPECTED_ACCOUNT='955200662475'
+readonly EXPECTED_ACCOUNT='123456789012'
 readonly EXPECTED_REGION='us-east-1'
 readonly EXPECTED_CLUSTER='qapaq-secops-demo'
 readonly RDS_ID='qapaq-secops-demo-postgres'
 readonly EC2_NAME='qapaq-secops-demo-wazuh'
-readonly STATE_BUCKET='qapaq-secops-terraform-state-955200662475'
+readonly STATE_BUCKET='qapaq-secops-terraform-state-123456789012'
 readonly ECS_SERVICES=(worker api krakend)
 readonly ECS_ADDRESSES=(
   'module.runtime.aws_ecs_service.worker'

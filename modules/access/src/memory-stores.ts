@@ -9,7 +9,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { constantTimeEquals, type PendingHandshake } from './oidc-handshake.js';
+import { constantTimeEquals, HANDSHAKE_LIMITS, type PendingHandshake } from './oidc-handshake.js';
 import type { Session } from './session.js';
 import type { AttemptCounter, RateLimitState } from './lockout.js';
 import type { AttemptStore, HandshakeStore, RateLimitStore, SessionStore } from './ports.js';
@@ -17,9 +17,32 @@ import type { AttemptStore, HandshakeStore, RateLimitStore, SessionStore } from 
 export class InMemoryHandshakeStore implements HandshakeStore {
   private readonly entries = new Map<string, PendingHandshake>();
 
+  public constructor(private readonly maxPending: number = HANDSHAKE_LIMITS.maxPending) {}
+
+  /**
+   * Acotado: los vencidos se purgan al guardar y, sobre el tope, cae el más antiguo. Un vencido
+   * purgado responde `STATE_UNKNOWN` en vez de `STATE_EXPIRED`: sigue siendo un rechazo.
+   */
   public save(handshake: PendingHandshake): Promise<void> {
+    const now = handshake.createdAt.getTime();
+    // TTL fijo: el orden de inserción del Map es el de vencimiento; basta recorrer el frente.
+    for (const [state, stored] of this.entries) {
+      if (stored.expiresAt.getTime() > now) break;
+      this.entries.delete(state);
+    }
+    this.entries.delete(handshake.state);
+    while (this.entries.size >= this.maxPending) {
+      const oldest = this.entries.keys().next();
+      if (oldest.done) break;
+      this.entries.delete(oldest.value);
+    }
     this.entries.set(handshake.state, handshake);
     return Promise.resolve();
+  }
+
+  /** Handshakes retenidos (diagnóstico y pruebas). */
+  public get size(): number {
+    return this.entries.size;
   }
 
   public consume(

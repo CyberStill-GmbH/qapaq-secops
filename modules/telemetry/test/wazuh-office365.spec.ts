@@ -92,7 +92,7 @@ describe('C-12 · Office 365: lo que el analista necesita para triar', () => {
     expect(validateSecurityEvent(event).valid).toBe(true);
     expect(event.action).toBe('office365.new-inboxrule');
     expect(event.provenance.mappingVersion).toBe(WAZUH_MAPPING_VERSION);
-    expect(WAZUH_MAPPING_VERSION).toBe('1.1.0');
+    expect(WAZUH_MAPPING_VERSION).toBe('1.3.0');
   });
 
   it('identifica al usuario por UPN con dominio e identificador opaco', () => {
@@ -139,6 +139,56 @@ describe('C-12 · Office 365: lo que el analista necesita para triar', () => {
 
     expect(serialized).not.toContain('externo@dominio-ajeno.example');
     expect(serialized).not.toContain('Parameters');
+  });
+
+  it('proyecta metadata de correo opcional con destinatarios limitados y normalizados', () => {
+    const recipients = Array.from({ length: 60 }, (_, index) => ({
+      Address: `worker${index}@qapaq-lab.example`,
+      Name: `Worker ${index}`,
+    }));
+    recipients.push({ Address: 'WORKER0@QAPAQ-LAB.EXAMPLE', Name: 'duplicado' });
+    const event = normalized(
+      office365Alert({
+        Operation: 'Send',
+        Workload: 'Exchange',
+        UserId: 'sender@qapaq-lab.example',
+        MailboxOwnerUPN: 'MailboxOwner@QAPAQ-Lab.example',
+        InternetMessageId: '<synthetic-123@qapaq-lab.example>',
+        NetworkMessageId: 'ABCDEF01-2345-6789-ABCD-EF0123456789',
+        recipientCount: 61,
+        recipientList: recipients,
+        Parameters: [{ Name: 'Body', Value: 'must not be projected' }],
+      }),
+    );
+
+    expect(event.extensions?.[OFFICE365_EXTENSION_NAMESPACE]).toMatchObject({
+      operation: 'Send',
+      mailboxOwnerUpn: 'mailboxowner@qapaq-lab.example',
+      internetMessageId: '<synthetic-123@qapaq-lab.example>',
+      networkMessageId: 'abcdef01-2345-6789-abcd-ef0123456789',
+      recipientCount: 61,
+      recipients: Array.from({ length: 50 }, (_, index) => `worker${index}@qapaq-lab.example`),
+      recipientsTruncated: true,
+    });
+    const serialized = JSON.stringify(event);
+    expect(serialized).not.toContain('must not be projected');
+    expect(serialized).not.toContain('Name');
+  });
+
+  it('rechaza IDs o direcciones no válidos sin inferir datos de Parameters', () => {
+    const event = normalized(
+      office365Alert({
+        MailboxOwnerUPN: 'bad upn@example.test',
+        InternetMessageId: 'bad\r\nheader',
+        NetworkMessageId: 'not-a-guid',
+        recipientList: [{ Address: 'not an address' }, { Address: 'worker@example.test' }],
+        Parameters: [{ Name: 'InternetMessageId', Value: 'fake-id' }],
+      }),
+    );
+    expect(event.extensions?.[OFFICE365_EXTENSION_NAMESPACE]).toEqual({
+      recipients: ['worker@example.test'],
+    });
+    expect(JSON.stringify(event)).not.toContain('fake-id');
   });
 
   it('complementa la categoría del grupo con la del workload', () => {

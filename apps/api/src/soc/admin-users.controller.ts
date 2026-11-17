@@ -30,6 +30,8 @@ const SESSION_WINDOW_MS = 7 * 86_400_000;
 const SESSION_LIMIT = 2_000;
 /** Un padrón sin éxito durante tres intervalos se declara viejo. */
 const STALE_AFTER_INTERVALS = 3;
+/** El 403 Authorization_RequestDenied de Graph señala un app role/permiso no concedido. */
+const DIRECTORY_PERMISSION_MISSING = 'DIRECTORY_PERMISSION_MISSING';
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
 interface UserRow {
@@ -151,6 +153,22 @@ export class AdminUsersController {
 
   private async syncView() {
     const directory = this.runtime.directory;
+    // Graph configurado pero el grupo aún no se resolvió (p. ej. falta permiso de lectura del grupo):
+    // no es un error de la consola, es un permiso pendiente que se reintenta solo.
+    if (directory?.mode === 'pending') {
+      return {
+        mode: 'graph' as const,
+        status: directory.lastAttemptAt ? ('failed' as const) : ('never' as const),
+        lastAttemptAt: directory.lastAttemptAt?.toISOString() ?? null,
+        lastSuccessAt: null,
+        lastErrorClass: directory.lastErrorCode,
+        diagnostic: directory.diagnostic,
+        stale: true,
+        groupResolved: false,
+        permissionMissing: directory.lastErrorCode === DIRECTORY_PERMISSION_MISSING,
+        nextAttemptAt: directory.nextAttemptAt?.toISOString() ?? null,
+      };
+    }
     if (!directory || directory.mode !== 'graph') {
       return {
         mode: 'disabled' as const,
@@ -158,7 +176,11 @@ export class AdminUsersController {
         lastAttemptAt: null,
         lastSuccessAt: null,
         lastErrorClass: null,
+        diagnostic: null,
         stale: false,
+        groupResolved: false,
+        permissionMissing: false,
+        nextAttemptAt: null,
       };
     }
     const tenantId = this.runtime.tenantIdForDirectory;
@@ -174,7 +196,13 @@ export class AdminUsersController {
       lastAttemptAt: state?.lastAttemptAt?.toISOString() ?? null,
       lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
       lastErrorClass: state?.lastErrorClass ?? null,
+      diagnostic: null,
       stale,
+      groupResolved: true,
+      // Graph puede retirar el consentimiento después: la falta de permiso se nombra igual.
+      permissionMissing:
+        state?.status === 'failed' && state.lastErrorClass === DIRECTORY_PERMISSION_MISSING,
+      nextAttemptAt: null,
     };
   }
 

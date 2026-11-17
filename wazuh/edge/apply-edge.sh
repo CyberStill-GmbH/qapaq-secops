@@ -16,11 +16,11 @@
 # Requiere que el Security plugin ya tenga el dominio de proxy auth
 # (wazuh/indexer/security/apply-security.sh). Si no, el dashboard no reconoce a nadie.
 #
-# Variables: SOC_HOSTNAME (dominio público; p. ej. wazuh.jappi.net.pe)
+# Variables: SOC_HOSTNAME (dominio público; p. ej. wazuh.qapaq.pe)
 #            QAPAQ_API    (salida `qapaq_edge_api_origin` de Terraform; p. ej. http://api.demo.qapaq.internal:3000)
 #            ANKAY_UPSTREAM (opcional; host:puerto privado del frontend Ankay)
 #            CERT_NAME    (opcional; certificado de Let's Encrypt, por defecto qapaq-wazuh-dashboard)
-#            SOC_EXTRA_HOSTNAMES (opcional; p. ej. "app.jappi.net.pe": hostnames adicionales del mismo SIEM.
+#            SOC_EXTRA_HOSTNAMES (opcional; p. ej. "app.qapaq.pe": hostnames adicionales del mismo SIEM.
 #                         Expande el certificado con certbot (HTTP-01; el DNS ya debe apuntar a este host).
 set -euo pipefail
 umask 022
@@ -54,12 +54,8 @@ if [[ -n "${ANKAY_UPSTREAM:-}" ]]; then
     [[ "$ankay_host" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\.internal$ ]] ||
       fail 'ANKAY_UPSTREAM DNS debe usar el sufijo privado .internal'
   fi
-  # En Azure el SIEM se instala antes que el host Ankay: ANKAY_REQUIRE_READY=false deja la ruta
-  # configurada (responde 502 tras el login hasta que Ankay esté sano) sin exigirlo ahora.
-  if [[ "${ANKAY_REQUIRE_READY:-true}" != false ]]; then
-    ankay_code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://$ANKAY_UPSTREAM/" || true)"
-    [[ "$ankay_code" == 200 ]] || fail "Ankay privado no responde HTTP 200 en $ANKAY_UPSTREAM/ (HTTP $ankay_code); edge sin cambios"
-  fi
+  ankay_code="$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://$ANKAY_UPSTREAM/" || true)"
+  [[ "$ankay_code" == 200 ]] || fail "Ankay privado no responde HTTP 200 en $ANKAY_UPSTREAM/ (HTTP $ankay_code); edge sin cambios"
   ANKAY_LOCATION="$(envsubst '${ANKAY_UPSTREAM}' <"$here/qapaq-ankay.location.conf")"
 fi
 export ANKAY_LOCATION

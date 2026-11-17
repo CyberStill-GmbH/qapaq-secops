@@ -1,0 +1,110 @@
+<!--
+  QAPAQ SecOps · detección como código · detections/windows/network-connections (metadata.yaml).
+  Telemetría de red de endpoints Windows del grupo opt-in windows-telemetry-extended (gate de privacidad):
+  Sysmon 3 (conexión con proceso), Sysmon 22 (DNS), Windows Filtering Platform 5156/5157 y pfirewall.log
+  (decoder oficial windows-firewall). Sin agentes Windows en el entorno: se prueba con fixtures en el manager desechable.
+  Se instala como qapaq_soc_windows_network_connections.xml (carga después de qapaq_soc_network_*).
+-->
+<group name="windows,qapaq_network,qapaq_windows_net,">
+
+  <!-- WFP: sin regla oficial; la 60103/60104 genérica los dejaría en 0/5 sin contexto. -->
+  <rule id="101880" level="0">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^5156$</field>
+    <description>QAPAQ Windows: WFP permitió $(win.eventdata.application) → $(win.eventdata.destAddress):$(win.eventdata.destPort).</description>
+    <options>no_full_log</options>
+    <group>qapaq_wfp,</group>
+  </rule>
+
+  <rule id="101881" level="1">
+    <if_sid>60104</if_sid>
+    <field name="win.system.eventID">^5157$</field>
+    <description>QAPAQ Windows: WFP bloqueó $(win.eventdata.sourceAddress) → $(win.eventdata.destAddress):$(win.eventdata.destPort).</description>
+    <options>no_full_log</options>
+    <group>qapaq_wfp,</group>
+  </rule>
+
+  <rule id="101882" level="10" frequency="20" timeframe="120" ignore="600">
+    <if_matched_sid>101881</if_matched_sid>
+    <same_field>win.eventdata.sourceAddress</same_field>
+    <different_field>win.eventdata.destPort</different_field>
+    <description>QAPAQ Windows: 20+ conexiones bloqueadas desde $(win.eventdata.sourceAddress) a puertos distintos en 2 min (escaneo de puertos).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>qapaq_wfp,</group>
+  </rule>
+
+  <rule id="101883" level="12">
+    <if_sid>101880</if_sid>
+    <list field="win.eventdata.destAddress" lookup="address_match_key">etc/lists/qapaq-ti-blocklist</list>
+    <description>QAPAQ Windows: $(win.eventdata.application) se conectó a $(win.eventdata.destAddress):$(win.eventdata.destPort), IP en listas de reputación.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+    <group>qapaq_ti_hit,</group>
+  </rule>
+
+  <rule id="101884" level="6">
+    <if_sid>101881</if_sid>
+    <list field="win.eventdata.sourceAddress" lookup="address_match_key">etc/lists/qapaq-ti-blocklist</list>
+    <description>QAPAQ Windows: WFP bloqueó a $(win.eventdata.sourceAddress) (listas de reputación) hacia el puerto $(win.eventdata.destPort).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1595</id>
+    </mitre>
+    <group>qapaq_ti_hit,</group>
+  </rule>
+
+  <!-- Sysmon 3 -->
+  <rule id="101885" level="12">
+    <if_group>sysmon_event3</if_group>
+    <list field="win.eventdata.destinationIp" lookup="address_match_key">etc/lists/qapaq-ti-blocklist</list>
+    <description>QAPAQ Windows: $(win.eventdata.image) se conectó a $(win.eventdata.destinationIp):$(win.eventdata.destinationPort), IP en listas de reputación.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1071</id>
+    </mitre>
+    <group>qapaq_ti_hit,</group>
+  </rule>
+
+  <rule id="101886" level="8">
+    <if_group>sysmon_event3</if_group>
+    <field name="win.eventdata.image" type="pcre2">(?i)\\(mshta|rundll32|regsvr32|certutil|bitsadmin|wscript|cscript|msbuild|installutil|msiexec|regasm|regsvcs|odbcconf|hh)\.exe$</field>
+    <field name="win.eventdata.destinationIp" negate="yes" type="pcre2">^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)|^::1$|^fe80:</field>
+    <description>QAPAQ Windows: binario del sistema abusable $(win.eventdata.image) se conectó a $(win.eventdata.destinationIp):$(win.eventdata.destinationPort) (descarga o C2 con LOLBin).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+    <group>qapaq_attack,</group>
+  </rule>
+
+  <!-- Sysmon 22: DNS a servicios de túnel o DNS dinámico -->
+  <rule id="101887" level="6">
+    <if_group>sysmon_event_22</if_group>
+    <field name="win.eventdata.queryName" type="pcre2">(?i)(\.duckdns\.org|\.no-ip\.(com|org|biz)|\.ddns\.net|\.ngrok(-free)?\.(io|app|dev)|\.trycloudflare\.com|\.serveo\.net|\.localtunnel\.me|\.loca\.lt|\.portmap\.io|\.dynu\.com|\.hopto\.org|\.zapto\.org|\.onion)$</field>
+    <description>QAPAQ Windows: $(win.eventdata.image) resolvió $(win.eventdata.queryName) (DNS dinámico o túnel inverso).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1071</id>
+      <id>T1572</id>
+    </mitre>
+    <group>qapaq_dns,</group>
+  </rule>
+
+  <!-- pfirewall.log: el ruleset oficial ya lo decodifica (windows-firewall) y agrupa los descartes en 4101
+       (sin alerta propia: no_log) y 4151 (varios descartes del mismo origen). QAPAQ solo suma la reputación. -->
+  <rule id="101888" level="10">
+    <if_sid>4101</if_sid>
+    <list field="srcip" lookup="address_match_key">etc/lists/qapaq-ti-blocklist</list>
+    <description>QAPAQ Windows: el firewall descartó tráfico de $(srcip) (listas de reputación) hacia $(dstip):$(dstport).</description>
+    <mitre>
+      <id>T1595</id>
+    </mitre>
+    <group>qapaq_ti_hit,firewall_drop,</group>
+  </rule>
+
+</group>

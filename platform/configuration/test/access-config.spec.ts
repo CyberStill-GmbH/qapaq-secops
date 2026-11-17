@@ -38,6 +38,15 @@ describe('C-18 · configuración de acceso', () => {
     expect(config.identityMode).toBe('entra');
   });
 
+  it.each(['common', 'organizations', 'consumers', 'qapaq.pe', 'local-development'])(
+    'rechaza el tenant no GUID %s con identidad Entra (sin multi-tenant)',
+    (tenant) => {
+      expect(
+        rejectedPath(() => loadAccessConfig({ ...PRODUCTION, QAPAQ_ENTRA_TENANT_ID: tenant })),
+      ).toBe('QAPAQ_ENTRA_TENANT_ID');
+    },
+  );
+
   it('rechaza el emisor local en producción', () => {
     expect(() =>
       loadAccessConfig({ ...PRODUCTION, QAPAQ_ACCESS_IDENTITY_MODE: 'local-development' }),
@@ -47,9 +56,7 @@ describe('C-18 · configuración de acceso', () => {
   it('exige el secreto del cliente cuando la identidad es Entra', () => {
     const { QAPAQ_ENTRA_CLIENT_SECRET_REF: _omitted, ...withoutSecret } = PRODUCTION;
 
-    expect(rejectedPath(() => loadAccessConfig(withoutSecret))).toBe(
-      'QAPAQ_ENTRA_CLIENT_SECRET_REF',
-    );
+    expect(rejectedPath(() => loadAccessConfig(withoutSecret))).toBe('QAPAQ_ENTRA_CLIENT_SECRET_REF');
   });
 
   it('exige que el redirect configurado esté en la lista aprobada', () => {
@@ -82,9 +89,7 @@ describe('C-18 · configuración de acceso', () => {
 
   it('rechaza un modo de identidad desconocido', () => {
     expect(
-      rejectedPath(() =>
-        loadAccessConfig({ ...PRODUCTION, QAPAQ_ACCESS_IDENTITY_MODE: 'anonimo' }),
-      ),
+      rejectedPath(() => loadAccessConfig({ ...PRODUCTION, QAPAQ_ACCESS_IDENTITY_MODE: 'anonimo' })),
     ).toBe('QAPAQ_ACCESS_IDENTITY_MODE');
   });
 

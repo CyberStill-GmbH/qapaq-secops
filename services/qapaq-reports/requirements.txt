@@ -1,0 +1,6 @@
+# Versiones fijadas. WeasyPrint 66 requiere Pango >= 1.44 (Debian bookworm trae 1.50).
+weasyprint==66.0
+matplotlib==3.9.4
+xlsxwriter==3.2.5
+markdown-it-py==3.0.0
+tzdata==2025.2

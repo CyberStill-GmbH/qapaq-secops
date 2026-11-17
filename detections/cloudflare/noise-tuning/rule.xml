@@ -1,0 +1,50 @@
+<!--
+  QAPAQ SecOps · reducción de falsos positivos · detections/cloudflare/noise-tuning (metadata.yaml, docs/17 §Ajuste).
+  - Escáneres autorizados (detections/lists/qapaq-authorized-scanners): sus bloqueos bajan a nivel 2 y por eso
+    no cuentan para 101513 ni 101740 (dejan de ser 101510).
+  - Corroboración por activo: una IP insistente (101513, nivel 10 = correo) solo conserva nivel ≥ 10 si ataca
+    una zona crítica (detections/lists/qapaq-critical-zones); en otra zona el WAF ya la bloqueó → nivel 7.
+  - Automatización aprobada (detections/lists/qapaq-service-accounts): cambios DNS de qapaqservice@qapaq.pe bajan de
+    5 a 3 (siguen indexados). Los cambios de controles de seguridad o identidad NO se degradan.
+  Rango QAPAQ Cloudflare 101740–101749. Se instala como qapaq_soc_cloudflare_noise_tuning.xml.
+-->
+<group name="qapaq_provider,cloudflare,qapaq_tuning,">
+  <rule id="101743" level="2">
+    <if_sid>101510</if_sid>
+    <list field="cloudflare.firewall.client_ip" lookup="address_match_key">etc/lists/qapaq-authorized-scanners</list>
+    <description>QAPAQ Cloudflare: bloqueo a escáner autorizado $(cloudflare.firewall.client_ip) en $(cloudflare.firewall.host).</description>
+    <options>no_full_log</options>
+    <group>qapaq_waf,</group>
+  </rule>
+
+  <rule id="101741" level="11">
+    <if_sid>101513</if_sid>
+    <list field="cloudflare.zone_name" lookup="match_key">etc/lists/qapaq-critical-zones</list>
+    <description>QAPAQ Cloudflare: ataque sostenido de $(cloudflare.firewall.client_ip) contra la zona crítica $(cloudflare.zone_name).</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1190</id>
+      <id>T1595</id>
+    </mitre>
+    <group>qapaq_waf,qapaq_attack,</group>
+  </rule>
+
+  <rule id="101742" level="7">
+    <if_sid>101513</if_sid>
+    <list field="cloudflare.zone_name" lookup="not_match_key">etc/lists/qapaq-critical-zones</list>
+    <description>QAPAQ Cloudflare: 20+ bloqueos de $(cloudflare.firewall.client_ip) en la zona no crítica $(cloudflare.zone_name); el WAF contuvo el ataque.</description>
+    <options>no_full_log</options>
+    <mitre>
+      <id>T1595</id>
+    </mitre>
+    <group>qapaq_waf,</group>
+  </rule>
+
+  <rule id="101744" level="3">
+    <if_sid>101503</if_sid>
+    <list field="cloudflare.audit.actor_email" lookup="match_key">etc/lists/qapaq-service-accounts</list>
+    <description>QAPAQ Cloudflare: cambio DNS ($(cloudflare.audit.action)) en $(cloudflare.audit.zone_name) por la automatización aprobada $(cloudflare.audit.actor_email).</description>
+    <options>no_full_log</options>
+    <group>qapaq_audit,qapaq_dns_change,qapaq_trusted_principal,</group>
+  </rule>
+</group>

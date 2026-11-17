@@ -12,12 +12,17 @@ import {
 } from './configuration.types.js';
 import { selectProfile } from './profiles/index.js';
 import { rejectUnknownQapaqVariables } from './schema/environment.schema.js';
+import { validateAssistantEnvironment } from './schema/assistant.schema.js';
 import { parseAccess, type AccessConfig } from './schema/access.schema.js';
 import { parseDetectionContext, type DetectionContextConfig } from './schema/detection.schema.js';
 import { parseIngestionConfig, type IngestionConfig } from './schema/ingestion.schema.js';
 import { parseRoleGrants, type RoleGrantsConfig } from './schema/role-grants.schema.js';
 import { parseDirectoryConfig, type DirectoryConfig } from './schema/directory.schema.js';
 import { parseAlertMailSender, parseTeamsWorkflowUrl } from './schema/notifications.schema.js';
+import {
+  parseDemoAdminLogin,
+  type DemoAdminLoginConfig,
+} from './schema/demo-admin-login.schema.js';
 import {
   parseApi,
   parseControlPlaneSecretConfig,
@@ -43,7 +48,9 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
 
 function profileFrom(environment: EnvironmentInput) {
   rejectUnknownQapaqVariables(environment);
-  return selectProfile(environment['QAPAQ_PROFILE']);
+  const profile = selectProfile(environment['QAPAQ_PROFILE']);
+  validateAssistantEnvironment(environment, profile);
+  return profile;
 }
 
 function createResolver(provider: SecretProvider, profile: ReturnType<typeof selectProfile>) {
@@ -97,6 +104,19 @@ export function loadAccessConfig(environment: EnvironmentInput): AccessConfig {
 }
 
 /**
+ * Excepción demo de contraseña del administrador (temporal, apagada por defecto). `now` es el
+ * instante de arranque: el vencimiento no puede quedar a más de 30 días de él.
+ */
+export function loadDemoAdminLoginConfig(
+  environment: EnvironmentInput,
+  now: Date,
+): DemoAdminLoginConfig {
+  const profile = profileFrom(environment);
+  const access = parseAccess(environment, profile);
+  return deepFreeze(parseDemoAdminLogin(environment, profile, access, now));
+}
+
+/**
  * C-17 — persistencia del estado SOC del BFF. En modo `postgres` exige la contraseña
  * inyectada por el orquestador; nunca se acepta vacía ni se registra.
  */
@@ -134,15 +154,10 @@ const ENTITY_REF_KEY_MINIMUM_LENGTH = 32;
 export function loadEntityRefKey(environment: EnvironmentInput): SecretValue | undefined {
   const profile = profileFrom(environment);
   const value = environment['QAPAQ_ENTITY_REF_KEY'] ?? profile.defaults['QAPAQ_ENTITY_REF_KEY'];
-  const persistence =
-    environment['QAPAQ_SOC_PERSISTENCE'] ?? profile.defaults['QAPAQ_SOC_PERSISTENCE'];
+  const persistence = environment['QAPAQ_SOC_PERSISTENCE'] ?? profile.defaults['QAPAQ_SOC_PERSISTENCE'];
   if (value === undefined || value === '') {
     if (persistence === 'postgres') {
-      throw configurationError(
-        'CONFIG_REQUIRED_VALUE_MISSING',
-        'QAPAQ_ENTITY_REF_KEY',
-        profile.name,
-      );
+      throw configurationError('CONFIG_REQUIRED_VALUE_MISSING', 'QAPAQ_ENTITY_REF_KEY', profile.name);
     }
     return undefined;
   }
@@ -181,6 +196,54 @@ export function loadTeamsWorkflowUrl(environment: EnvironmentInput): string | un
   return parseTeamsWorkflowUrl(environment, profileFrom(environment));
 }
 
+/**
+ * Política de ruido de los avisos (`QAPAQ_NOTIFY_*`, minutos enteros). Todas opcionales: sin ellas
+ * rigen los valores por defecto de `@qapaq/soar` (P1 30 min, P2 120 min, atraso 60 min, 12/h,
+ * resumen P3/P4 cada 360 min). Un valor fuera de rango detiene el arranque con su ruta.
+ */
+export interface NotificationPolicyEnvironment {
+  readonly quietP1Minutes?: number;
+  readonly quietP2Minutes?: number;
+  readonly staleMinutes?: number;
+  readonly maxPerHour?: number;
+  readonly digestMinutes?: number;
+  readonly timeZone?: string;
+}
+
+const NOTIFY_INTEGERS: readonly (readonly [keyof NotificationPolicyEnvironment, string, number, number])[] = [
+  ['quietP1Minutes', 'QAPAQ_NOTIFY_QUIET_P1_MINUTES', 1, 1_440],
+  ['quietP2Minutes', 'QAPAQ_NOTIFY_QUIET_P2_MINUTES', 1, 1_440],
+  ['staleMinutes', 'QAPAQ_NOTIFY_STALE_MINUTES', 5, 10_080],
+  ['maxPerHour', 'QAPAQ_NOTIFY_MAX_PER_HOUR', 1, 120],
+  ['digestMinutes', 'QAPAQ_NOTIFY_DIGEST_MINUTES', 0, 10_080],
+];
+
+export function loadNotificationPolicy(environment: EnvironmentInput): NotificationPolicyEnvironment {
+  const profile = profileFrom(environment);
+  const result: Record<string, number | string> = {};
+  for (const [field, name, minimum, maximum] of NOTIFY_INTEGERS) {
+    const raw = environment[name];
+    if (raw === undefined || raw === '') continue;
+    const value = Number(raw);
+    if (!/^\d+$/u.test(raw) || value < minimum || value > maximum) {
+      throw configurationError('CONFIG_VALUE_INVALID', name, profile.name);
+    }
+    result[field] = value;
+  }
+  const timeZone = environment['QAPAQ_NOTIFY_TIME_ZONE'];
+  if (timeZone !== undefined && timeZone !== '') {
+    let valid = /^[A-Za-z_]+(?:\/[A-Za-z_+-]+){0,2}$/u.test(timeZone);
+    try {
+      new Intl.DateTimeFormat('es', { timeZone });
+    } catch {
+      valid = false;
+    }
+    if (!valid) throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_NOTIFY_TIME_ZONE', profile.name);
+    result['timeZone'] = timeZone;
+  }
+  return deepFreeze(result) as NotificationPolicyEnvironment;
+}
+
 /** Sprint 5 — buzón remitente del respaldo por correo; `undefined` = solo consola. */
 export function loadAlertMailSender(environment: EnvironmentInput): string | undefined {
   return parseAlertMailSender(environment, profileFrom(environment));
@@ -198,46 +261,6 @@ export function loadVapidPrivateKey(environment: EnvironmentInput): SecretValue 
     throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_VAPID_PRIVATE_KEY', profile.name);
   }
   return new SecretValue(value);
-}
-
-/** Modelo del asistente cuando el despliegue no declara `QAPAQ_ASSISTANT_MODEL`. */
-export const DEFAULT_ASSISTANT_MODEL = 'claude-sonnet-5-5';
-
-/**
- * Id de modelo de Anthropic tal como lo publica la API (`claude-…`): sin espacios ni rutas, para
- * que un valor mal pegado falle al arrancar y no en la primera conversación.
- */
-const ASSISTANT_MODEL_PATTERN = /^claude-[a-z0-9][a-z0-9.-]{1,62}$/u;
-/**
- * Forma de una API key de Anthropic: una sola línea, sin espacios. No se fija el prefijo para no
- * romper el arranque si el proveedor cambia el formato; sí se rechaza lo que claramente no es una
- * clave (un JSON, una URL o un valor con saltos de línea pegado en el secreto equivocado).
- */
-const ANTHROPIC_API_KEY_PATTERN = /^[A-Za-z0-9_-]{20,256}$/u;
-
-export interface AssistantConfig {
-  /** `undefined` = asistente sin configurar: el endpoint responde `FEATURE_NOT_CONFIGURED`. */
-  readonly apiKey: SecretValue | undefined;
-  readonly model: string;
-}
-
-/**
- * Asistente Claude embebido. La API key llega resuelta desde Key Vault (`QAPAQ_ANTHROPIC_API_KEY_REF`)
- * o, en desarrollo, del entorno. Es opcional: sin ella el resto del API arranca igual y el endpoint
- * del asistente responde un error del catálogo. Presente pero malformada, falla al arrancar.
- */
-export function loadAssistantConfig(environment: EnvironmentInput): AssistantConfig {
-  const profile = profileFrom(environment);
-  const model = environment['QAPAQ_ASSISTANT_MODEL'] || DEFAULT_ASSISTANT_MODEL;
-  if (!ASSISTANT_MODEL_PATTERN.test(model)) {
-    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ASSISTANT_MODEL', profile.name);
-  }
-  const value = environment['QAPAQ_ANTHROPIC_API_KEY'];
-  if (value === undefined || value === '') return deepFreeze({ apiKey: undefined, model });
-  if (!ANTHROPIC_API_KEY_PATTERN.test(value)) {
-    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ANTHROPIC_API_KEY', profile.name);
-  }
-  return { apiKey: new SecretValue(value), model };
 }
 
 /** El worker inactivo de C-02 no necesita resolver secretos de dependencias. */

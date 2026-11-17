@@ -30,6 +30,8 @@ function isSigningKey(value: unknown): value is JsonWebKey {
 }
 
 export const JWKS_CACHE_TTL_MS = 10 * 60 * 1000;
+/** Intervalo mínimo entre refrescos forzados por `kid` desconocido. */
+export const JWKS_FORCED_REFRESH_MIN_INTERVAL_MS = 60 * 1000;
 export const IDENTITY_REQUEST_TIMEOUT_MS = 10_000;
 
 export class EntraJwksProvider implements JwksProvider {
@@ -42,14 +44,18 @@ export class EntraJwksProvider implements JwksProvider {
     private readonly fetchImplementation: typeof fetch = fetch,
   ) {}
 
-  public async keys(): Promise<readonly JsonWebKey[]> {
-    if (this.cached.length > 0 && this.now() - this.fetchedAt < JWKS_CACHE_TTL_MS) {
-      return this.cached;
-    }
+  public async keys(options?: { readonly forceRefresh?: boolean }): Promise<readonly JsonWebKey[]> {
+    const age = this.now() - this.fetchedAt;
+    const fresh = this.cached.length > 0 && age < JWKS_CACHE_TTL_MS;
+    const forced = options?.forceRefresh === true && age >= JWKS_FORCED_REFRESH_MIN_INTERVAL_MS;
+    if (fresh && !forced) return this.cached;
     const controller = new AbortController();
     const deadline = setTimeout(() => controller.abort(), IDENTITY_REQUEST_TIMEOUT_MS);
     try {
-      const response = await this.fetchImplementation(this.jwksUri, { signal: controller.signal });
+      const response = await this.fetchImplementation(this.jwksUri, {
+        signal: controller.signal,
+        redirect: 'error',
+      });
       if (!response.ok) throw new Error(`JWKS_UNAVAILABLE_${response.status}`);
       const body: unknown = await response.json();
       if (!isRecord(body) || !Array.isArray(body.keys)) throw new Error('JWKS_INVALID_RESPONSE');

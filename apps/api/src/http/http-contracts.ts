@@ -16,6 +16,12 @@ export interface IncomingRequest {
 }
 
 export interface OutgoingReply {
+  /** Response del runtime HTTP, usada solo para detectar desconexiones del stream SSE. */
+  readonly raw?: {
+    on(event: 'close', listener: () => void): unknown;
+    off(event: 'close', listener: () => void): unknown;
+    readonly writableFinished?: boolean;
+  };
   status(code: number): OutgoingReply;
   header(name: string, value: string | readonly string[]): OutgoingReply;
   send(body?: unknown): unknown;

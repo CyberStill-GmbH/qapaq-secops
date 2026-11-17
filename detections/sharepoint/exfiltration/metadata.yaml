@@ -1,0 +1,75 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta. SharePoint/OneDrive: docs/23-sharepoint-onedrive.md.
+id: QAPAQ-DET-SP-001
+title: Exfiltración desde SharePoint/OneDrive (volumen, horario, red nueva, invitados, cuentas deshabilitadas, IP maliciosa)
+source: sharepoint
+use_case: exfiltration
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-11'
+hypothesis: Quien se lleva información de SharePoint/OneDrive descarga o sincroniza en volumen, a menudo fuera de horario,
+  desde una red nueva, con una cuenta de invitado o deshabilitada, o desde infraestructura conocida por abuso.
+data_sources:
+- Office 365 Management Activity API, Audit.SharePoint (módulo office365 de Wazuh; ActivityFeed.Read)
+- Microsoft Graph Purview Audit Search /security/auditLog/queries (collector qapaq-sharepoint-audit; AuditLogsQuery-SharePoint.Read.All
+  / AuditLogsQuery-OneDrive.Read.All)
+rules:
+  file: detections/sharepoint/exfiltration/rule.xml
+  ids:
+  - 101900
+  - 101901
+  - 101902
+  - 101903
+  - 101904
+  - 101905
+  - 101906
+  - 101907
+  - 101908
+  - 101909
+  - 101910
+  - 101911
+  - 101912
+  - 101913
+  - 101914
+  installed_as: etc/rules/qapaq_soc_sharepoint_exfiltration.xml
+mitre:
+- technique: T1530
+  tactic: collection
+- technique: T1213.002
+  tactic: collection
+- technique: T1078.004
+  tactic: initial-access
+- technique: T1090.003
+  tactic: command-and-control
+severity:
+  levels: 3 marcas · 2 cuenta de servicio aprobada · 7 sincronización masiva del cliente OneDrive (500/10 min; 11 desde
+    red nueva) · 10 descarga web/API masiva en horario (150/10 min), invitado (30/10 min), cuenta deshabilitada, enlaces
+    anónimos usados (50/10 min por IP) · 11 Tor · 12 fuera de horario (40/30 min), masiva desde red nueva, IP en Spamhaus/Feodo
+  priority_hint: P1 (12) / P2 (10–11) / P4 marcas
+  rationale: El volumen solo es P2; P1 exige una segunda señal (horario, red nueva, reputación).
+false_positives:
+- 'Sincronización del cliente OneDrive (FileSyncDownloadedFull): en datos reales fue el 97 % de las descargas y un equipo
+  resincronizó 6449 archivos en 25 h (41 alertas P2 con el umbral común). Ahora tiene marca y umbral propios (101912/101913,
+  500/10 min, P3).'
+- 'Migraciones o respaldos con cuenta de servicio: registrarla en qapaq-m365-service-accounts (baja a 2 y no cuenta).'
+- 'Viajes: red nueva legítima; confirmar con el usuario y con los inicios de sesión de Entra.'
+tuning:
+- Allowlist qapaq-m365-service-accounts (CDB versionada) para sincronización y servicios.
+- Umbrales por usuario (same_field office365.UserId); línea base de redes de 30 días con 7 de calentamiento.
+- Horario QAPAQ calculado en el collector (Lima, 08–20; fin de semana fuera de horario).
+lists:
+- detections/lists/qapaq-m365-service-accounts
+- infra/wazuh/network/lists/qapaq-ti-blocklist.example
+- infra/wazuh/network/lists/qapaq-ti-tor.example
+tests:
+  runner: logtest
+  fixtures: detections/sharepoint/exfiltration/fixtures.jsonl
+  expected: detections/sharepoint/exfiltration/expected.txt
+  generator: wazuh/provider-ingestion/sharepoint/tests/make_fixtures.py
+runbook: docs/detection-engineering/runbooks/exfiltracion-sharepoint.md
+notes: Activa desde 2026-11-10 en AWS con datos reales (módulo office365, Audit.SharePoint, ActivityFeed.Read). Operaciones
+  sin registro real todavía siguen en el grupo qapaq_pending_provider_evidence (docs/23).

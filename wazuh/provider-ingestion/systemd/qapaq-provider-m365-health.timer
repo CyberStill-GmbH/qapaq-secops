@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Microsoft 365 Management Activity API authorization for QAPAQ
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+RandomizedDelaySec=30s
+Unit=qapaq-provider-ingest@m365.service
+
+[Install]
+WantedBy=timers.target

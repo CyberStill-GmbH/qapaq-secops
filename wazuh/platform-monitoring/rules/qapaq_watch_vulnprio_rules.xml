@@ -1,0 +1,214 @@
+<!--
+  QAPAQ · Priorización de vulnerabilidades con CISA KEV + FIRST EPSS + exposición (docs/20).
+  IDs reservados: 101850-101879.
+  - 101850-101859: hijas de las reglas Snyk (qapaq_snyk_rules.xml). El collector Snyk agrega
+    qapaq.vuln.priority (P1-P4) al ingerir; si falta la caché KEV/EPSS el campo no existe y el
+    nivel original se mantiene (falla segura).
+  - 101860-101866: eventos qapaq-vulnprio (hallazgos P1/P2 que cambiaron, resumen diario, canario).
+  - 101870-101875: alertas nativas de detección de vulnerabilidades de Wazuh (0520, 23503-23506)
+    re-niveladas con las listas CDB etc/lists/qapaq-vuln-kev y qapaq-vuln-noise (se cargan al iniciar
+    analysisd; las regenera qapaq_vulnprio.py run).
+  P4 = EPSS < 0.1, sin fix CONFIRMADO por la fuente, no expuesta, sin KEV ni exploit maduro: queda
+  visible en nivel 5-6 (no llega al correo, que es desde 8). Fix desconocido = no se degrada.
+  Las reglas de calibración de detección (qapaq_soc_snyk_severity_calibration.xml, 101732-101734) cargan
+  antes y ganan el primer match bajo 101453/101455/101456: por eso las hijas KEV/EPSS declaran ambos
+  padres (if_sid múltiple) y la priorización KEV/EPSS se aplica en cualquiera de las dos ramas.
+-->
+<group name="qapaq_provider,snyk,qapaq_vulnerability,qapaq_vulnprio,">
+  <rule id="101850" level="14">
+    <if_sid>101456, 101734</if_sid>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <!-- Con exploit maduro sigue la cadena 101457/101458 (y 101730/101731 de exposición). -->
+    <field name="snyk.issue.exploit_maturity" negate="yes">^Mature$</field>
+    <description>QAPAQ Snyk: vulnerabilidad CRÍTICA priorizada P1 ($(qapaq.vuln.reason); KEV=$(qapaq.vuln.kev), EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101851" level="14">
+    <if_sid>101457</if_sid>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <description>QAPAQ Snyk: vulnerabilidad CRÍTICA con exploit maduro priorizada P1 ($(qapaq.vuln.reason)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101852" level="13">
+    <if_sid>101455, 101733</if_sid>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <!-- Con exploit maduro sigue la cadena 101457/101458 (y 101730/101731 de exposición). -->
+    <field name="snyk.issue.exploit_maturity" negate="yes">^Mature$</field>
+    <description>QAPAQ Snyk: vulnerabilidad ALTA priorizada P1 ($(qapaq.vuln.reason); KEV=$(qapaq.vuln.kev), EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101853" level="13">
+    <if_sid>101458, 101731</if_sid>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <description>QAPAQ Snyk: vulnerabilidad ALTA con exploit maduro priorizada P1 ($(qapaq.vuln.reason)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101854" level="12">
+    <if_sid>101454</if_sid>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <description>QAPAQ Snyk: vulnerabilidad media elevada a P1 ($(qapaq.vuln.reason); KEV=$(qapaq.vuln.kev), EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101855" level="12">
+    <if_sid>101453, 101732</if_sid>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <description>QAPAQ Snyk: vulnerabilidad baja elevada a P1 ($(qapaq.vuln.reason); KEV=$(qapaq.vuln.kev), EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101856" level="11">
+    <if_sid>101455, 101733</if_sid>
+    <field name="qapaq.vuln.priority">^P2$</field>
+    <description>QAPAQ Snyk: vulnerabilidad ALTA priorizada P2 ($(qapaq.vuln.reason); EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101857" level="10">
+    <if_sid>101454</if_sid>
+    <field name="qapaq.vuln.priority">^P2$</field>
+    <description>QAPAQ Snyk: vulnerabilidad media elevada a P2 ($(qapaq.vuln.reason); EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101867" level="12">
+    <if_sid>101734</if_sid>
+    <field name="qapaq.vuln.priority">^P2$</field>
+    <description>QAPAQ Snyk: vulnerabilidad CRÍTICA priorizada P2 ($(qapaq.vuln.reason); EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101858" level="6">
+    <if_sid>101456, 101734</if_sid>
+    <field name="qapaq.vuln.priority">^P4$</field>
+    <description>QAPAQ Snyk: vulnerabilidad crítica de baja prioridad P4 ($(qapaq.vuln.reason); EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <group>qapaq_deprioritized,</group>
+  </rule>
+
+  <rule id="101859" level="6">
+    <if_sid>101455, 101733</if_sid>
+    <field name="qapaq.vuln.priority">^P4$</field>
+    <description>QAPAQ Snyk: vulnerabilidad alta de baja prioridad P4 ($(qapaq.vuln.reason); EPSS=$(qapaq.vuln.epss)) $(qapaq.vuln.cve) en $(snyk.project.name).</description>
+    <options>no_full_log</options>
+    <group>qapaq_deprioritized,</group>
+  </rule>
+</group>
+
+<group name="qapaq_vulnerability,qapaq_vulnprio,">
+  <rule id="101860" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="qapaq.vendor">^qapaq-vulnprio$</field>
+    <description>QAPAQ Vulnerabilidad: evento del priorizador KEV/EPSS.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101861" level="14">
+    <if_sid>101860</if_sid>
+    <field name="qapaq.event_type">^finding$</field>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <field name="qapaq.vuln.exposed">^true$</field>
+    <description>QAPAQ Vulnerabilidad: P1 en activo expuesto a Internet $(qapaq.vuln.asset): $(qapaq.vuln.cve) ($(qapaq.vuln.reason); KEV=$(qapaq.vuln.kev), EPSS=$(qapaq.vuln.epss)).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101862" level="13">
+    <if_sid>101860</if_sid>
+    <field name="qapaq.event_type">^finding$</field>
+    <field name="qapaq.vuln.priority">^P1$</field>
+    <description>QAPAQ Vulnerabilidad: P1 en $(qapaq.vuln.asset): $(qapaq.vuln.cve) ($(qapaq.vuln.reason); KEV=$(qapaq.vuln.kev), EPSS=$(qapaq.vuln.epss)).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101863" level="10">
+    <if_sid>101860</if_sid>
+    <field name="qapaq.event_type">^finding$</field>
+    <field name="qapaq.vuln.priority">^P2$</field>
+    <description>QAPAQ Vulnerabilidad: P2 en $(qapaq.vuln.asset): $(qapaq.vuln.cve) ($(qapaq.vuln.reason); EPSS=$(qapaq.vuln.epss)).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101864" level="3">
+    <if_sid>101860</if_sid>
+    <field name="qapaq.event_type">^finding$</field>
+    <description>QAPAQ Vulnerabilidad: cambio de prioridad $(qapaq.vuln.previous_priority) a $(qapaq.vuln.priority) en $(qapaq.vuln.asset): $(qapaq.vuln.cve).</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101865" level="3">
+    <if_sid>101860</if_sid>
+    <field name="qapaq.event_type">^summary$</field>
+    <description>QAPAQ Vulnerabilidad: resumen diario de priorización: altas+críticas $(qapaq.vuln_summary.before_high_or_critical) antes, $(qapaq.vuln_summary.after_high_or_critical) después.</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="101866" level="3">
+    <if_sid>101860</if_sid>
+    <field name="qapaq.event_type">^canary$</field>
+    <description>QAPAQ Canario: evento sintético del priorizador de vulnerabilidades (sintético/canary, no requiere acción).</description>
+    <options>no_full_log</options>
+    <group>qapaq_canary,qapaq_synthetic,</group>
+  </rule>
+</group>
+
+<group name="vulnerability-detector,qapaq_vulnerability,qapaq_vulnprio,">
+  <rule id="101870" level="14">
+    <if_sid>23506</if_sid>
+    <list field="vulnerability.cve" lookup="match_key">etc/lists/qapaq-vuln-kev</list>
+    <description>QAPAQ Vulnerabilidad: $(vulnerability.cve) CRÍTICA en el catálogo CISA KEV afecta $(vulnerability.package.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101871" level="13">
+    <if_sid>23505</if_sid>
+    <list field="vulnerability.cve" lookup="match_key">etc/lists/qapaq-vuln-kev</list>
+    <description>QAPAQ Vulnerabilidad: $(vulnerability.cve) ALTA en el catálogo CISA KEV afecta $(vulnerability.package.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101872" level="12">
+    <if_sid>23504</if_sid>
+    <list field="vulnerability.cve" lookup="match_key">etc/lists/qapaq-vuln-kev</list>
+    <description>QAPAQ Vulnerabilidad: $(vulnerability.cve) media en el catálogo CISA KEV afecta $(vulnerability.package.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101873" level="12">
+    <if_sid>23503</if_sid>
+    <list field="vulnerability.cve" lookup="match_key">etc/lists/qapaq-vuln-kev</list>
+    <description>QAPAQ Vulnerabilidad: $(vulnerability.cve) baja en el catálogo CISA KEV afecta $(vulnerability.package.name).</description>
+    <options>no_full_log</options>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="101874" level="6">
+    <if_sid>23506</if_sid>
+    <list field="vulnerability.cve" lookup="match_key">etc/lists/qapaq-vuln-noise</list>
+    <description>QAPAQ Vulnerabilidad: $(vulnerability.cve) crítica de baja prioridad P4 (EPSS bajo, sin KEV, no expuesta) en $(vulnerability.package.name).</description>
+    <options>no_full_log</options>
+    <group>qapaq_deprioritized,</group>
+  </rule>
+
+  <rule id="101875" level="5">
+    <if_sid>23505</if_sid>
+    <list field="vulnerability.cve" lookup="match_key">etc/lists/qapaq-vuln-noise</list>
+    <description>QAPAQ Vulnerabilidad: $(vulnerability.cve) alta de baja prioridad P4 (EPSS bajo, sin KEV, no expuesta) en $(vulnerability.package.name).</description>
+    <options>no_full_log</options>
+    <group>qapaq_deprioritized,</group>
+  </rule>
+</group>

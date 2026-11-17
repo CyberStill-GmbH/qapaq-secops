@@ -1,0 +1,42 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Reglas nuevas del programa en rule.xml de esta carpeta.
+id: QAPAQ-DET-CF-002
+title: Oleada distribuida contra un host del WAF
+source: cloudflare
+use_case: waf-attack-surge
+status: testing
+version: 1.0.0
+owner: soc-detection-engineering
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-04'
+updated: '2026-11-04'
+hypothesis: Un ataque distribuido (botnet, escaneo masivo) reparte las peticiones entre muchas IPs para no activar
+  el umbral por IP.
+data_sources:
+- Cloudflare firewall events
+rules:
+  file: detections/cloudflare/waf-attack-surge/rule.xml
+  ids:
+  - 101740
+  installed_as: etc/rules/qapaq_soc_cloudflare_waf_attack_surge.xml
+mitre:
+- technique: T1595.002
+  tactic: reconnaissance
+- technique: T1190
+  tactic: initial-access
+severity:
+  levels: '12'
+  priority_hint: P2
+  rationale: El WAF bloquea, pero la oleada anticipa explotación de una vulnerabilidad recién publicada.
+false_positives:
+- Picos de tráfico legítimo que activan desafíos (campañas de marketing, bots verificados mal clasificados).
+tuning:
+- 50 eventos / 10 min por host; ignore=600 evita una alerta por minuto durante la oleada.
+tests:
+  runner: logtest
+  fixtures: detections/cloudflare/waf-attack-surge/fixtures.jsonl
+  expected: detections/cloudflare/waf-attack-surge/expected.txt
+runbook: docs/detection-engineering/runbooks/oleada-waf.md
+depends_on:
+- wazuh/provider-ingestion/rules/qapaq_cloudflare_rules.xml (101510)

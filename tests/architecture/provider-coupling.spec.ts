@@ -52,6 +52,31 @@ const PROVIDER_AWARE: Readonly<Record<string, string>> = {
   'platform/configuration/src/configuration-loader.ts': 'Carga de configuración.',
   'platform/configuration/src/profiles/': 'Valores por perfil.',
   'platform/testing/src/': 'Entorno de integración con servicios reales.',
+  'modules/soc/src/wazuh-push-inbox.ts':
+    'Contrato deliberadamente especifico para el receipt minimo del push de Wazuh.',
+  'modules/soc/src/index.ts':
+    'Superficie publica que expone el port y adapter de receipt push de Wazuh.',
+  'modules/soc/src/infrastructure/postgres-soc.ts':
+    'Adapter PostgreSQL del port de inbox de Wazuh; vocabulario confinado a infraestructura.',
+  'platform/database/src/wazuh-push-inbox-store.ts':
+    'Adapter Prisma/SQL para la tabla durable especifica de hints Wazuh.',
+  'platform/database/src/index.ts': 'Reexporta el adapter Prisma especifico de la inbox Wazuh.',
+  'modules/soar/src/notification-context.ts':
+    'Catalogo de contexto/etiquetas de proveedores usado al presentar notificaciones SOC.',
+  'modules/assistant/src/prompt.ts':
+    'Instrucciones del asistente que nombran fuentes admitidas por el SOC.',
+};
+
+/** Excepciones puntuales dentro del dominio; no convierten un modulo completo en provider-aware. */
+const DOMAIN_PROVIDER_AWARE: Readonly<Record<string, string>> = {
+  'modules/soc/src/wazuh-push-inbox.ts':
+    'Port de receipt Wazuh aprobado por B13; almacena solo manager, id y timestamp.',
+  'modules/soc/src/index.ts':
+    'Export del port especifico anterior para componer el endpoint de recepcion.',
+  'modules/soc/src/infrastructure/postgres-soc.ts':
+    'Infraestructura que adapta el contrato B13 a PostgreSQL.',
+  'modules/soar/src/notification-context.ts':
+    'Mapeo explicito de vocabulario de fuente a contexto de notificacion visible.',
 };
 
 /** Módulos que deben quedar completamente libres de vocabulario de proveedor. */
@@ -88,11 +113,23 @@ function isProviderAware(path: string): boolean {
   return Object.keys(PROVIDER_AWARE).some((allowed) => relativePath.startsWith(allowed));
 }
 
+function isDomainProviderAware(path: string): boolean {
+  const relativePath = relative(ROOT, path).replaceAll('\\', '/');
+  return Object.keys(DOMAIN_PROVIDER_AWARE).includes(relativePath);
+}
+
 describe('C-23 · acoplamiento a proveedor', () => {
+  it('cada excepción de proveedor conserva un motivo explícito', () => {
+    for (const [file, reason] of Object.entries({ ...PROVIDER_AWARE, ...DOMAIN_PROVIDER_AWARE })) {
+      expect(reason.trim().length, file).toBeGreaterThan(8);
+    }
+  });
+
   it('ningún módulo de dominio nombra al proveedor', async () => {
     const offenders: string[] = [];
     for (const area of PROVIDER_FREE_AREAS) {
       for (const file of await sourceFiles(resolve(ROOT, area))) {
+        if (isDomainProviderAware(file)) continue;
         const content = await readFile(file, 'utf8');
         for (const pattern of PROVIDER_VOCABULARY) {
           if (pattern.test(content)) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Copyright QAPAQ. Ankay Qapaq — codemod determinista del frontend de Shuffle (AGPL-3.0: las
+ * Copyright QAPAQ. Ankay — codemod determinista del frontend de Shuffle (AGPL-3.0: las
  * modificaciones se publican, ver ankay/README.md «Código fuente»).
  *
  *   node ankay/frontend/rebrand.mjs <frontend-dir>           aplica y reporta lo que queda
@@ -31,7 +31,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 // TypeScript del monorepo de qapaq-secops (devDependency raíz).
 const ts = createRequire(resolve(here, '../../package.json'))('typescript');
 
-export const BRAND = 'Ankay Qapaq';
+export const BRAND = 'Ankay';
 
 /** Naranja de Shuffle → ámbar QAPAQ (#c49a5a) y sus tonos, por luminosidad equivalente. */
 export const COLOR_MAP = {

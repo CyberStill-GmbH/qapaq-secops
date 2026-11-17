@@ -29,6 +29,73 @@ class CodeQLWorkflowTests(unittest.TestCase):
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_qapaq_ops_plugin_tests_are_in_the_required_entrypoints_job(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        entrypoints = workflow.split("  entrypoints:\n", 1)[1].split(
+            "\n  c04-postgres:", 1
+        )[0]
+
+        self.assertIn("pnpm run test:unit", entrypoints)
+        self.assertIn("pnpm --dir wazuh/dashboard/plugins/qapaq_ops test", entrypoints)
+
+    def test_aws_poweruser_terraform_applies_only_the_reviewed_short_lived_plan(self):
+        workflow = (WORKFLOWS / "terraform-aws-poweruser.yml").read_text(encoding="utf-8")
+
+        self.assertIn("  workflow_dispatch:\n", workflow)
+        self.assertNotRegex(workflow, r"(?m)^  (?:push|pull_request):")
+        self.assertIn("        default: plan\n        options:\n          - plan\n          - apply", workflow)
+        self.assertIn("      plan_run_id:", workflow)
+        self.assertIn("      plan_sha256:", workflow)
+        self.assertIn('group: qapaq-secops-aws-poweruser-terraform', workflow)
+        self.assertIn("cancel-in-progress: false", workflow)
+        self.assertIn("  actions: read", workflow)
+        self.assertIn("  id-token: write", workflow)
+        self.assertIn("working-directory: infra/aws-poweruser", workflow)
+        self.assertIn("AWS_POWERUSER_TERRAFORM_ROLE_ARN: ${{ vars.QAPAQ_AWS_POWERUSER_TERRAFORM_ROLE_ARN }}", workflow)
+        self.assertIn('allowed-account-ids: \'046372463234\'', workflow)
+        self.assertNotIn("123456789012", workflow)
+        self.assertNotIn("aws iam ", workflow)
+        self.assertIn('[[ "$GITHUB_REF" != "refs/heads/main" ]]', workflow)
+        self.assertLess(
+            workflow.index("Require main branch and PowerUser role variable"),
+            workflow.index("Configure AWS credentials via OIDC"),
+        )
+        self.assertIn("terraform init -input=false -backend-config=backend.hcl", workflow)
+        self.assertIn("-var-file=environments/dev.tfvars", workflow)
+        self.assertIn("uses: actions/download-artifact@", workflow)
+        backend = (Path(__file__).resolve().parents[2] / "infra/aws-poweruser/backend.hcl").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('bucket       = "qapaq-tfstate-046372463234-us-east-1"', backend)
+        self.assertIn('key          = "aws-poweruser/dev/terraform.tfstate"', backend)
+        self.assertIn("use_lockfile = true", backend)
+
+        plan_step = workflow.split("      - name: Terraform Plan\n", 1)[1].split(
+            "\n      - name: Upload short-lived reviewed plan", 1
+        )[0]
+        apply_step = workflow.split("      - name: Terraform Apply reviewed saved plan\n", 1)[1]
+        self.assertIn("-out=poweruser.tfplan", plan_step)
+        self.assertIn("if: inputs.action == 'plan'", plan_step)
+        self.assertIn("terraform show -no-color poweruser.tfplan > plan.txt", plan_step)
+        self.assertIn("commit_sha:$commit_sha", plan_step)
+        self.assertIn("plan_sha256:$plan_sha256", plan_step)
+        self.assertIn("review_sha256:$review_sha256", plan_step)
+        self.assertIn("retention-days: 1", workflow)
+        self.assertIn("poweruser-plan-${{ github.run_id }}", workflow)
+        self.assertIn("Verify plan run provenance", workflow)
+        self.assertIn(".head_sha == $commit", workflow)
+        self.assertIn(".head_repository.full_name == $repository", workflow)
+        self.assertIn("Verify reviewed plan hash and metadata", workflow)
+        self.assertIn('[[ "$actual_plan_sha" == "${PLAN_SHA256,,}" ]]', workflow)
+        self.assertIn("terraform apply -input=false -lock=true -lock-timeout=5m -auto-approve -no-color poweruser.tfplan", apply_step)
+        self.assertNotIn("terraform plan", apply_step)
+        self.assertIn(".status == \"completed\"", workflow)
+        self.assertIn(".conclusion == \"success\"", workflow)
+        self.assertIn(".backend_key == \"aws-poweruser/dev/terraform.tfstate\"", workflow)
+        self.assertIn(".root == \"infra/aws-poweruser\"", workflow)
+        self.assertLess(workflow.index("Verify reviewed plan hash and metadata"), workflow.index("Configure AWS credentials via OIDC"))
+        self.assertLess(workflow.index("terraform plan"), workflow.index("terraform apply"))
+
     def test_pr_workflow_uses_read_only_permissions_and_no_privileged_pr_event(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 

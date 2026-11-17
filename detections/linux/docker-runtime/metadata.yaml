@@ -1,0 +1,42 @@
+# QAPAQ SecOps · metadatos de detección (estándar: docs/detection-engineering/01-ciclo-de-vida.md#metadatos)
+# Visibilidad de red: docs/18. Pruebas: infra/wazuh/network/tests/run-network-tests.sh (decoders propios).
+id: QAPAQ-DET-NET-004
+title: Ejecución interactiva en contenedores críticos del SOC
+source: linux
+use_case: docker-runtime
+status: testing
+version: 1.0.0
+owner: network-visibility
+reviewers:
+- qapaq.soc.lead
+created: '2026-11-09'
+updated: '2026-11-09'
+hypothesis: Un exec en el manager, el indexer o Postgres da acceso directo a alertas y secretos; un contenedor de
+  herramientas en el nodo del SOC es preparación de un atacante.
+data_sources:
+- wodle docker-listener del grupo linux-docker-hosts (agente 001)
+rules:
+  file: detections/linux/docker-runtime/rule.xml
+  ids:
+  - 101850
+  - 101851
+  - 101852
+  installed_as: etc/rules/qapaq_soc_linux_docker_runtime.xml
+mitre:
+- technique: T1609
+  tactic: execution
+- technique: T1610
+  tactic: defense-evasion
+severity:
+  levels: 6 comando en contenedor crítico · 8 contenedor de herramientas · 10 shell en contenedor crítico
+  priority_hint: P3 (P2 fuera de una ventana de cambio)
+  rationale: 'Los scripts de despliegue QAPAQ usan docker exec: correlacionar con el cambio.'
+false_positives:
+- 'Scripts de despliegue y políticas QAPAQ (deploy-detections.sh, apply-*.sh) hacen docker exec en el manager: esperado
+  durante un despliegue.'
+tests:
+  runner: network-logtest
+  manager_safe: true
+  fixtures: detections/linux/docker-runtime/fixtures.jsonl
+  expected: detections/linux/docker-runtime/expected.txt
+runbook: docs/18-visibilidad-de-red-y-capacidades-wazuh.md#docker

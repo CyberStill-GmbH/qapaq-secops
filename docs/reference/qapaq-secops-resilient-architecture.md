@@ -1,8 +1,15 @@
-# Arquitectura objetivo resiliente de Qapaq SecOps
+# Arquitectura objetivo resiliente de QAPAQ SecOps
 
-**Estado:** diseño objetivo aprobado por [ADR-030](../adr/030-resilient-platform-architecture.md); topología física y gates de despliegue pendientes de evidencia por ambiente.
+> **Contexto heredado de la base de código original; vigente solo lo que recoge [docs/10-decisiones.md](../10-decisiones.md).**
+> Se conserva como historia; la arquitectura vigente es serverless sobre AWS ([02](../02-arquitectura.md)).
 
-Qapaq SecOps integra un núcleo SOC, capacidades de adquisición y detección, una
+> **Nota (legado):** los servicios ECS, RDS, ALB, NAT, Valkey y KrakenD de este documento son el diseño AWS anterior.
+> La arquitectura vigente reemplaza ECS por Lambda + API Gateway, RDS por Aurora Serverless v2 y quita NAT y
+> KrakenD ([02](../02-arquitectura.md)); su Terraform aún no existe en `infra/aws/`.
+
+**Estado:** diseño objetivo aprobado por [ADR-030](decisiones/030-resilient-platform-architecture.md); topología física y gates de despliegue pendientes de evidencia por ambiente.
+
+QAPAQ SecOps integra un núcleo SOC, capacidades de adquisición y detección, una
 experiencia de investigación compartida y ejecución de respuesta gobernada. El
 objetivo es sostener picos y fallas parciales sin perder señales ya aceptadas, sin
 trasladar carga descontrolada a las fuentes y sin bloquear el trabajo prioritario
@@ -32,9 +39,9 @@ flowchart LR
     Worker[Workers escalables<br/>normalizar, enriquecer, detectar]
   end
 
-  subgraph core[Qapaq SecOps Core]
+  subgraph core[QAPAQ SecOps Core]
     Alert[Alertas y priorización]
-    Ayni[Ayni Qapaq<br/>investigación colaborativa]
+    Ayni Qapaq[Ayni Qapaq<br/>investigación colaborativa]
     SOAR[Control SOAR QAPAQ]
   end
 
@@ -64,7 +71,7 @@ flowchart LR
   Worker --> PG
   Worker --> Search
   Worker --> Alert
-  Alert --> Ayni
+  Alert --> Ayni Qapaq
   Alert --> SOAR
   SOAR -->|acciones aprobadas| Shuffle
   Search --> Warm
@@ -74,7 +81,7 @@ flowchart LR
   Web --> API
   API --> PG
   API --> Search
-  API --> Ayni
+  API --> Ayni Qapaq
   API --> SOAR
   Entra --> API
 ```
@@ -92,7 +99,7 @@ tener menos nodos mientras conserve los contratos y los estados de degradación.
 | Polling | Programar fuentes con leases, jitter y presupuestos por proveedor/dataset. | Checkpoint durable en PostgreSQL. |
 | Admisión | Preservar raw/manifiesto, deduplicar, registrar origen y publicar outbox. | PostgreSQL + object storage de acuerdo con la política. |
 | Cola | Desacoplar adquisición, indexación, alertas y notificaciones. | Redis/BullMQ entrega trabajo; no es registro único. |
-| Qapaq SecOps Core | Normalizar, enriquecer, correlacionar, priorizar y coordinar alertas, casos y auditoría. | PostgreSQL para estado operacional y auditoría transaccional. |
+| QAPAQ SecOps Core | Normalizar, enriquecer, correlacionar, priorizar y coordinar alertas, casos y auditoría. | PostgreSQL para estado operacional y auditoría transaccional. |
 | Investigación | Ayni Qapaq enlaza alertas, tareas, notas, evidencia y decisiones con scopes. | Agregado SOC y audit trail de QAPAQ. |
 | Búsqueda | OpenSearch sirve proyecciones para consultas de seguridad acotadas. | Eventos fuente no se alteran; alertas y casos no dependen del índice para su existencia. |
 | Retención | HOT/WARM/COLD con catálogo, cifrado, holds, restore selectivo y expiración aprobada. | Manifiestos de archivo y políticas versionadas por dataset. |
@@ -114,7 +121,7 @@ de varias réplicas pueden exceder el presupuesto combinado del proveedor.
 
 Los workers escalan según presión de cola y latencia del trabajo, con límites por
 fuente y clase. Se separan presupuestos para ingestión crítica, indexación, tareas
-de Ayni, notificaciones, histórico y exports; una tarea masiva no debe consumir los
+de Ayni Qapaq, notificaciones, histórico y exports; una tarea masiva no debe consumir los
 recursos reservados a detección.
 
 ## Polling continuo sin oleadas
@@ -173,7 +180,7 @@ se descarta silenciosamente para sostener una métrica de latencia.
 ## Ayni Qapaq y acceso rápido a respuesta
 
 El analista parte de una alerta autorizada y abre su detalle en la consola QAPAQ.
-Desde allí puede relacionar el hallazgo con una investigación Ayni, revisar eventos
+Desde allí puede relacionar el hallazgo con una investigación Ayni Qapaq, revisar eventos
 y evidencia permitidos, asignar responsables, crear tareas, documentar hipótesis,
 registrar decisiones y seguir el timeline. La experiencia toma inspiración de TheHive
 para la coordinación, sin copiar su modelo ni convertirlo en otro origen de alertas.
@@ -229,7 +236,7 @@ de fallo y capacidad suficiente durante la actualización.
 
 ## Camino de implementación
 
-La secuencia y los gates por etapa viven en [ADR-030](../adr/030-resilient-platform-architecture.md).
+La secuencia y los gates por etapa viven en [ADR-030](decisiones/030-resilient-platform-architecture.md).
 Para estimar trabajo, separar al menos estos paquetes:
 
 1. **Inventario y consistencia:** mapear módulos implementados, contratos, rutas,

@@ -1,0 +1,174 @@
+# QAPAQ SecOps · reglas estándar de Wazuh 4.14.8 que generan alertas en QAPAQ, con guía de triage QAPAQ.
+#
+# No son reglas nuevas (vienen en /var/ossec/ruleset/rules del manager; aquí no se instalan):
+# este archivo solo da contexto al Analista IA y a Qapaqzito (apps/api/scripts/generate-qapaqzito-knowledge.py).
+# Se eligieron por volumen real en dev.security.qapaq.pe (30 días al 2026-11-15). Al ver una regla
+# estándar nueva con volumen, añadirla aquí con su caso de uso y regenerar el conocimiento.
+# Runbook: docs/detection-engineering/runbooks/reglas-estandar-wazuh.md
+
+ruleset: wazuh-4.14.8
+
+rules:
+  # 0755-office365_rules.xml
+  - { id: '91578', level: 5, description: 'Office 365: Events related to the MailItemsAccessed mailbox auditing action.', groups: [office365, ExchangeItemAggregated], mitre: [T1114.002], file: 0755-office365_rules.xml }
+  - { id: '91707', level: 4, description: 'Office 365: Sent message', groups: [office365, Exchange], mitre: [T1114.003], file: 0755-office365_rules.xml }
+  - { id: '91708', level: 6, description: 'Office 365: Sent message using different permissions', groups: [office365, Exchange], mitre: [T1114.003], file: 0755-office365_rules.xml }
+  - { id: '91702', level: 4, description: 'Office 365: User downloads a file.', groups: [office365, OneDrive, SharePoint], mitre: [T1530], file: 0755-office365_rules.xml }
+  - { id: '91703', level: 6, description: 'Office 365: A permission level was added to a site collection.', groups: [office365, OneDrive, SharePoint], mitre: [T1098], file: 0755-office365_rules.xml }
+  - { id: '91712', level: 6, description: 'Office 365: Added group', groups: [office365, AzureActiveDirectory], mitre: [T1098], file: 0755-office365_rules.xml }
+  - { id: '91713', level: 6, description: 'Office 365: Added member to group', groups: [office365, AzureActiveDirectory], mitre: [T1098.007], file: 0755-office365_rules.xml }
+  - { id: '91548', level: 5, description: 'Office 365: Admin actions from the Security and Compliance Center.', groups: [office365, SecurityComplianceCenterEOPCmdlet], mitre: [], file: 0755-office365_rules.xml }
+  - { id: '91533', level: 3, description: 'Office 365: Events from the Exchange admin audit log.', groups: [office365, ExchangeAdmin], mitre: [], file: 0755-office365_rules.xml }
+  # 0015-ossec_rules.xml
+  - { id: '550', level: 7, description: 'Integrity checksum changed.', groups: [ossec, syscheck, syscheck_entry_modified], mitre: [T1565.001], file: 0015-ossec_rules.xml }
+  - { id: '553', level: 7, description: 'File deleted.', groups: [ossec, syscheck, syscheck_entry_deleted], mitre: [T1070.004, T1485], file: 0015-ossec_rules.xml }
+  - { id: '554', level: 5, description: 'File added to the system.', groups: [ossec, syscheck, syscheck_entry_added], mitre: [], file: 0015-ossec_rules.xml }
+  - { id: '510', level: 7, description: 'Host-based anomaly detection event (rootcheck).', groups: [ossec, rootcheck], mitre: [], file: 0015-ossec_rules.xml }
+  - { id: '521', level: 11, description: 'Possible kernel level rootkit', groups: [ossec, rootcheck], mitre: [T1014], file: 0015-ossec_rules.xml }
+  # 0020-syslog_rules.xml
+  - { id: '2902', level: 7, description: 'New dpkg (Debian Package) installed.', groups: [syslog, dpkg, config_changed], mitre: [], file: 0020-syslog_rules.xml }
+  - { id: '2904', level: 7, description: 'Dpkg (Debian Package) half configured.', groups: [syslog, dpkg, config_changed], mitre: [], file: 0020-syslog_rules.xml }
+  # 0095-sshd_rules.xml
+  - { id: '5710', level: 5, description: 'sshd: Attempt to login using a non-existent user', groups: [syslog, sshd, authentication_failed, invalid_login], mitre: [T1110.001, T1021.004], file: 0095-sshd_rules.xml }
+  - { id: '5762', level: 4, description: 'sshd: connection reset', groups: [syslog, sshd], mitre: [], file: 0095-sshd_rules.xml }
+  # 0570-sca_rules.xml
+  - { id: '19003', level: 5, description: 'SCA summary: $(sca.policy): Score less than 80% ($(sca.score))', groups: [sca], mitre: [], file: 0570-sca_rules.xml }
+  - { id: '19007', level: 7, description: '$(sca.policy): $(sca.check.title)', groups: [sca], mitre: [], file: 0570-sca_rules.xml }
+  # 0016-wazuh_rules.xml
+  - { id: '220', level: 7, description: 'The agent could not restart due to a $(module) failure in the remote configuration', groups: [wazuh, agent_restarting, configuration_failure], mitre: [], file: 0016-wazuh_rules.xml }
+
+use_cases:
+  - id: QAPAQ-STOCK-M365-001
+    title: Acceso a buzones de Exchange Online (MailItemsAccessed, envíos y envío con otros permisos)
+    use_case: m365-mailbox-access
+    rule_ids: ['91578', '91707', '91708']
+    mitre: [T1114.002, T1114.003]
+    priority_hint: P4
+    data_sources: ['Office 365 Management Activity API: Audit.Exchange (MailItemsAccessed, Send, SendAs, SendOnBehalf)']
+    false_positives:
+      - 'El propio dueño sincronizando su buzón (Outlook escritorio, móvil o web): MailItemsAccessed de tipo Sync o Bind continuo, mismo usuario que el buzón y su IP habitual. Es el 99 % del volumen.'
+      - 'Buzones compartidos o delegados (asistentes, buzón de soporte): otro usuario con permiso FullAccess leyendo de forma habitual.'
+      - 'Aplicaciones de respaldo, archivado o eDiscovery con permiso de aplicación: AppId conocido y acceso masivo programado.'
+      - 'Envíos (91707) en el trabajo normal; envío con otros permisos (91708) de delegados configurados.'
+    escalate_when:
+      - 'Quien accede NO es el dueño del buzón ni un delegado conocido, o es una aplicación (ClientAppId) desconocida.'
+      - 'IP o país inusual para el usuario, o la misma IP aparece en alertas de autenticación fallida o de spray.'
+      - 'Bind sobre muchos elementos en minutos (lectura masiva), o IsThrottled=true (más de 1000 eventos en 24 h: Microsoft deja de registrar el detalle).'
+      - 'Envío con otros permisos (91708) sin delegación documentada, o justo después de una regla de bandeja o reenvío (100510).'
+
+  - id: QAPAQ-STOCK-M365-002
+    title: Archivos y permisos de SharePoint/OneDrive (descarga y nivel de permiso)
+    use_case: m365-sharepoint-files
+    rule_ids: ['91702', '91703']
+    mitre: [T1530, T1098]
+    priority_hint: P4
+    data_sources: ['Office 365 Management Activity API: Audit.SharePoint']
+    false_positives:
+      - 'Descargas del trabajo diario y del cliente de sincronización de OneDrive.'
+      - 'Niveles de permiso creados por el propietario del sitio o por TI al montar un sitio nuevo.'
+    escalate_when:
+      - 'Volumen anómalo de descargas de una persona (lo cubren las reglas QAPAQ 101902/101913 de exfiltración).'
+      - 'Descarga por un usuario invitado o anónimo, o desde IP/país inusual.'
+      - 'Nivel de permiso con control total añadido por alguien que no administra el sitio.'
+
+  - id: QAPAQ-STOCK-M365-003
+    title: Cambios administrativos en Entra ID, Exchange y el centro de cumplimiento
+    use_case: m365-directory-admin
+    rule_ids: ['91712', '91713', '91548', '91533']
+    mitre: [T1098, T1098.007]
+    priority_hint: P3
+    data_sources: ['Office 365 Management Activity API: Audit.AzureActiveDirectory, Audit.Exchange (admin), SecurityComplianceCenterEOPCmdlet']
+    false_positives:
+      - 'Altas de grupos y miembros hechas por TI o por el flujo de alta de personal.'
+      - 'Cmdlets de lectura (Get-*) del centro de cumplimiento y del registro de administración de Exchange.'
+    escalate_when:
+      - 'El grupo es privilegiado (administradores, Accesos_SOC, grupos con roles de Entra asignables) o da acceso a datos sensibles.'
+      - 'Quien hace el cambio no figura como administrador, o actúa fuera de horario o desde IP inusual.'
+      - 'Cmdlets que cambian protección o retención (Set-/Remove-/New- de políticas de antispam, antimalware, retención o auditoría).'
+
+  - id: QAPAQ-STOCK-HOST-001
+    title: Integridad de archivos en servidores (FIM de Wazuh)
+    use_case: host-integrity-fim
+    rule_ids: ['550', '553', '554']
+    mitre: [T1565.001, T1070.004, T1485]
+    priority_hint: P4
+    data_sources: ['Wazuh syscheck (FIM programado cada 12 h y en tiempo real en rutas de persistencia)']
+    false_positives:
+      - 'Actualizaciones de paquetes: cambios en /usr/bin, /usr/sbin, /etc o /boot en la misma ventana que 2902/2904 (dpkg) o unattended-upgrades.'
+      - 'Despliegues de QAPAQ (releases en /opt/qapaq) y rotación de configuración por el propio orquestador.'
+      - 'Archivos temporales o de estado que el ruido conocido aún no ignora.'
+    escalate_when:
+      - 'Cambio en /etc/ssh, sudoers, /etc/passwd|shadow, cron, systemd o authorized_keys sin despliegue ni actualización en la ventana.'
+      - 'Binario del sistema modificado sin paquete instalado o actualizado a la misma hora.'
+      - 'Borrado (553) de logs, de reglas de auditoría o de archivos de seguridad.'
+
+  - id: QAPAQ-STOCK-HOST-002
+    title: Instalación y configuración de paquetes Debian/Ubuntu
+    use_case: host-packages
+    rule_ids: ['2902', '2904']
+    mitre: []
+    priority_hint: P4
+    data_sources: ['syslog /var/log/dpkg.log (agente Wazuh)']
+    false_positives:
+      - 'unattended-upgrades y parches programados: muchos paquetes juntos, nombres del sistema base.'
+      - '«half configured» (2904) transitorio durante una actualización normal.'
+    escalate_when:
+      - 'Paquete de herramientas ofensivas o de red (nmap, netcat, socat, masscan, hydra, proxychains) o de acceso remoto.'
+      - 'Instalación manual fuera de una ventana de cambios, por una sesión SSH interactiva no esperada.'
+      - '2904 repetido para el mismo paquete: actualización rota que deja el host sin parches.'
+
+  - id: QAPAQ-STOCK-HOST-003
+    title: Rootcheck (anomalías del host y posible rootkit de kernel)
+    use_case: host-rootcheck
+    rule_ids: ['510', '521']
+    mitre: [T1014]
+    priority_hint: P3
+    data_sources: ['Wazuh rootcheck (cada 12 h)']
+    false_positives:
+      - 'Capas overlay de Docker/containerd (/var/lib/docker, /var/lib/containerd): cambian mientras check_sys las recorre y disparan 521. La política linux-servers ya las ignora; si aparecen, el agente no tiene la política al día.'
+      - 'Procesos o puertos efímeros de contenedores que existen en un chequeo y no en el siguiente.'
+    escalate_when:
+      - '521 en una ruta fuera de Docker/containerd, o repetido en el mismo archivo en pasadas distintas.'
+      - 'Proceso oculto o puerto oculto confirmado con ps/ss en el host.'
+      - 'Coincide con cambios FIM en binarios del sistema o módulos del kernel.'
+
+  - id: QAPAQ-STOCK-HOST-004
+    title: SSH expuesto (usuarios inexistentes y conexiones reiniciadas)
+    use_case: host-ssh
+    rule_ids: ['5710', '5762']
+    mitre: [T1110.001, T1021.004]
+    priority_hint: P4
+    data_sources: ['journald/sshd (agente Wazuh)']
+    false_positives:
+      - 'Escáneres de Internet contra un SSH expuesto: usuarios genéricos (admin, test, oracle) desde IPs de nube o de listas de reputación.'
+      - 'Conexiones reiniciadas (5762) por clientes que cortan el handshake o por balanceadores.'
+    escalate_when:
+      - 'La misma IP o rango consigue un login válido después (reglas QAPAQ de fuerza bruta con éxito).'
+      - 'Intentos contra usuarios reales del host o desde IPs internas.'
+      - 'SSH no debería estar expuesto a Internet (allowed_admin_cidrs): revisar el security group.'
+
+  - id: QAPAQ-STOCK-HOST-005
+    title: Configuración segura (SCA, benchmarks CIS)
+    use_case: host-hardening-sca
+    rule_ids: ['19003', '19007']
+    mitre: []
+    priority_hint: P4
+    data_sources: ['Wazuh SCA (cada 12 h)']
+    false_positives:
+      - 'Controles CIS que QAPAQ acepta por diseño (por ejemplo particiones separadas en instancias de nube): no son incidentes.'
+    escalate_when:
+      - 'Un control que antes pasaba ahora falla (regresión de hardening) en SSH, auditd, permisos de archivos sensibles o cuentas.'
+      - 'Puntaje que cae de golpe tras un cambio: posible manipulación o despliegue defectuoso.'
+
+  - id: QAPAQ-STOCK-WAZUH-001
+    title: Agente Wazuh no aplica la configuración remota
+    use_case: wazuh-agent-config
+    rule_ids: ['220']
+    mitre: []
+    priority_hint: P3
+    data_sources: ['Wazuh agentd (configuración centralizada agent.conf)']
+    false_positives:
+      - 'Política de grupo recién publicada con un bloque que el agente no admite (por ejemplo comandos remotos sin logcollector.remote_commands=1): el agente sigue con la configuración anterior.'
+    escalate_when:
+      - 'El agente queda sin FIM, rootcheck o logs tras el fallo: se pierde visibilidad del host.'
+      - 'Nadie publicó un cambio de política: alguien modificó agent.conf en el manager fuera del repositorio.'

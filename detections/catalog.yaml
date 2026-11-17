@@ -1,0 +1,196 @@
+# QAPAQ SecOps · catálogo de detección como código (docs/17-ingenieria-de-deteccion.md).
+#
+# Fuente única de: rangos de IDs por fuente, dueño de cada archivo de reglas y suites de prueba.
+# Los archivos de reglas que ya existían NO se mueven (los instalan scripts de otros owners y la CI
+# los monta por ruta): el árbol detections/<fuente>/<caso-de-uso>/ los referencia desde metadata.yaml.
+# Las reglas nuevas del programa viven en detections/<fuente>/<caso-de-uso>/rule.xml y se instalan
+# como etc/rules/qapaq_soc_<fuente>_<caso_de_uso>.xml (prefijo qapaq_soc_ = cargan después de todo QAPAQ).
+#
+# Validación: python3 detections/tools/qapaq_detections.py lint
+
+version: 1
+program: QAPAQ SecOps · Ingeniería de detección
+rule_prefix: "QAPAQ "          # toda descripción de regla QAPAQ empieza por "QAPAQ <Fuente>:"
+user_range: [100000, 120000]  # rango de usuario de Wazuh
+
+sources:
+  m365:        {name: "Microsoft 365", prefix: "QAPAQ M365:"}
+  entra:       {name: "Microsoft Entra ID", prefix: "QAPAQ Entra:"}
+  windows:     {name: "Windows (Sysmon y Security)", prefix: "QAPAQ Windows:"}
+  ad:          {name: "Active Directory", prefix: "QAPAQ AD:"}
+  linux:       {name: "Servidores Linux", prefix: "QAPAQ Linux:"}
+  aws:         {name: "AWS (CloudTrail vía EventBridge)", prefix: "QAPAQ AWS:"}
+  bitdefender: {name: "Bitdefender GravityZone", prefix: "QAPAQ Bitdefender:"}
+  snyk:        {name: "Snyk", prefix: "QAPAQ Snyk:"}
+  cloudflare:  {name: "Cloudflare", prefix: "QAPAQ Cloudflare:"}
+  sophos:      {name: "Sophos Central (normalizado)", prefix: "QAPAQ Sophos:"}
+  cato:        {name: "Cato Networks (normalizado)", prefix: "QAPAQ Cato:"}
+  platform:    {name: "Salud de integraciones QAPAQ", prefix: "QAPAQ Integración:"}
+  launch:      {name: "Paquete de lanzamiento (proveedores normalizados)", prefix: "QAPAQ <Fuente>:"}
+  edge:        {name: "Edge nginx de la consola del SOC", prefix: "QAPAQ Edge:"}
+  network:     {name: "Red: reputación de IP y correlación entre fuentes", prefix: "QAPAQ Red:"}
+  sharepoint:  {name: "SharePoint y OneDrive", prefix: "QAPAQ SharePoint:"}
+
+# Rangos reservados. Un ID no se reutiliza: una regla retirada deja su ID documentado en su metadata.
+id_ranges:
+  - {from: 100500, to: 100549, source: m365,        owner: soc-detection-engineering, note: "M365/Entra vía módulo office365"}
+  - {from: 101100, to: 101199, source: windows,     owner: soc-detection-engineering, note: "Endpoint Windows (Sysmon)"}
+  - {from: 101200, to: 101215, source: launch-pack, owner: soc-detection-engineering, note: "Paquete de lanzamiento de proveedores normalizados"}
+  - {from: 101216, to: 101299, source: platform,    owner: provider-monitoring,       note: "Servicio de proveedores (archivo de otro owner, en curso)"}
+  - {from: 101300, to: 101399, source: ad,          owner: soc-detection-engineering, note: "Active Directory (Security de DC)"}
+  - {from: 101400, to: 101449, source: bitdefender, owner: provider-ingestion,        note: "Collector GravityZone"}
+  - {from: 101450, to: 101499, source: snyk,        owner: provider-ingestion,        note: "Collector de issues"}
+  - {from: 101500, to: 101549, source: cloudflare,  owner: provider-ingestion,        note: "Collector de auditoría y WAF"}
+  - {from: 101550, to: 101599, source: reserved,    owner: soc-detection-engineering, note: "Reservado: Sophos/Cato directos"}
+  - {from: 101600, to: 101699, source: aws,         owner: aws-monitoring,            note: "Receptor EventBridge→SNS (archivo de otro owner)"}
+  - {from: 101700, to: 101709, source: m365,        owner: soc-detection-engineering, note: "Programa: cadenas M365/Entra"}
+  - {from: 101710, to: 101719, source: aws,         owner: soc-detection-engineering, note: "Programa: correlación AWS"}
+  - {from: 101720, to: 101729, source: bitdefender, owner: soc-detection-engineering, note: "Programa: malware + evasión"}
+  - {from: 101730, to: 101739, source: snyk,        owner: soc-detection-engineering, note: "Programa: exposición a Internet"}
+  - {from: 101740, to: 101749, source: cloudflare,  owner: soc-detection-engineering, note: "Programa: oleadas WAF"}
+  - {from: 101750, to: 101769, source: linux,       owner: soc-detection-engineering, note: "Programa: servidores Linux"}
+  - {from: 101770, to: 101799, source: reserved,    owner: soc-detection-engineering, note: "Reservado: correlación Windows/AD cuando haya agentes"}
+  - {from: 101800, to: 101899, source: network,     owner: network-visibility,        note: "Visibilidad de red (docs/18): conexiones Linux, auditd, SSH, Docker, edge, reputación, correlación y red Windows"}
+  - {from: 101900, to: 101979, source: sharepoint, owner: provider-ingestion,        note: "SharePoint y OneDrive: auditoría, postura y exfiltración"}
+
+# Archivos de reglas QAPAQ existentes (ruta canónica, no se mueven) y su suite de wazuh-logtest.
+rule_files:
+  - path: wazuh/office365/rules/qapaq_office365_rules.xml
+    owner: soc-detection-engineering
+    installer: wazuh/manager/policy/apply-manager-policy.sh
+    suite: {name: office365, fixtures: wazuh/office365/tests/logtest-cases.jsonl, expected: wazuh/office365/tests/expected-rules.txt}
+  - path: infra/wazuh/endpoint/rules/qapaq_endpoint_rules.xml
+    owner: soc-detection-engineering
+    installer: wazuh/manager/policy/apply-manager-policy.sh
+    suite: {name: endpoint, validator: infra/wazuh/endpoint/tests/validate-fixtures.py}
+  - path: infra/wazuh/launch-detections/rules/qapaq_launch_provider_rules.xml
+    owner: soc-detection-engineering
+    installer: wazuh/manager/policy/apply-manager-policy.sh
+    suite: {name: launch, fixtures: infra/wazuh/launch-detections/tests/provider-cases.jsonl, expected: infra/wazuh/launch-detections/tests/expected-rules.txt}
+  - path: infra/wazuh/active-directory/rules/qapaq_active_directory_rules.xml
+    owner: soc-detection-engineering
+    installer: wazuh/manager/policy/apply-manager-policy.sh
+    # La CI adapta la regla 60000 del contenedor desechable (decoded_as json) para leer los fixtures EventChannel;
+    # test-in-container.sh hace lo mismo. Producción no cambia.
+    suite: {name: active-directory, fixtures: infra/wazuh/active-directory/tests/ad-cases.jsonl, expected: infra/wazuh/active-directory/tests/expected-rules.txt}
+  - path: wazuh/provider-ingestion/rules/qapaq_bitdefender_rules.xml
+    owner: provider-ingestion
+    installer: wazuh/provider-ingestion/install-qapaq-collectors.sh
+    suite: {name: collectors, fixtures: wazuh/provider-ingestion/tests/collector-cases.jsonl, expected: wazuh/provider-ingestion/tests/collector-expected-rules.txt}
+  - path: wazuh/provider-ingestion/rules/qapaq_snyk_rules.xml
+    owner: provider-ingestion
+    installer: wazuh/provider-ingestion/install-qapaq-collectors.sh
+    suite: {name: collectors}
+  - path: wazuh/provider-ingestion/rules/qapaq_cloudflare_rules.xml
+    owner: provider-ingestion
+    installer: wazuh/provider-ingestion/install-qapaq-collectors.sh
+    suite: {name: collectors}
+  # Archivos de otros owners en curso (sin commitear al crear este catálogo). Se leen si existen.
+  - path: wazuh/aws-events/rules/qapaq_aws_rules.xml
+    owner: aws-monitoring
+    optional: true
+    installer: wazuh/aws-events/install-aws-events.sh
+    suite: {name: aws, fixtures: wazuh/aws-events/tests/aws-cases.jsonl, expected: wazuh/aws-events/tests/aws-expected-rules.txt}
+  - path: infra/wazuh/launch-detections/rules/qapaq_provider_service_rules.xml
+    owner: provider-monitoring
+    optional: true
+    installer: wazuh/manager/policy/apply-manager-policy.sh
+
+# Listas CDB. Dos clases:
+#  - versionadas (`source`: detections/lists/<nombre>): allowlists y contexto de reducción de falsos positivos.
+#    El repo es la fuente de verdad: deploy-detections.sh las instala si cambian. Se modifican por PR (el motor
+#    de correlación y riesgo propone altas a partir de los veredictos de los analistas; un humano aprueba).
+#  - de entorno (`example`): datos que no van a git (cuentas break-glass, inventario). El instalador las crea
+#    con un centinela .invalid si faltan y nunca pisa una con contenido.
+# Formato CDB: `clave:valor` (valor = motivo); claves IP admiten prefijo de octetos (`38.250.148.:`).
+lists:
+  # Visibilidad de red (docs/18). Las de reputación las regenera a diario qapaq-threat-intel.timer en el host.
+  - name: qapaq-ti-blocklist
+    path: etc/lists/qapaq-ti-blocklist
+    example: infra/wazuh/network/lists/qapaq-ti-blocklist.example
+    used_by: [101860, 101862, 101864, 101865, 101866, 101867, 101883, 101884, 101885, 101888]
+    purpose: "IPs/prefijos de Spamhaus DROP y abuse.ch Feodo Tracker (FireHOL level1 opcional); timer diario"
+  - name: qapaq-ti-tor
+    path: etc/lists/qapaq-ti-tor
+    example: infra/wazuh/network/lists/qapaq-ti-tor.example
+    used_by: [101861, 101863, 101868]
+    purpose: "Nodos de salida de Tor (Tor Project); timer diario"
+  - name: qapaq-cf-waf-attackers
+    path: etc/lists/qapaq-cf-waf-attackers
+    example: infra/wazuh/network/lists/qapaq-cf-waf-attackers.example
+    used_by: [101870, 101871, 101872]
+    purpose: "IPs con 5+ bloqueos/desafíos del WAF de Cloudflare en 7 días (consulta al indexer); timer diario"
+  - name: qapaq-egress-known
+    path: etc/lists/qapaq-egress-known
+    example: infra/wazuh/network/lists/qapaq-egress-known.example
+    used_by: [101808]
+    purpose: "Destinos de salida conocidos (rangos AWS de la región + infra/wazuh/network/lists/qapaq-egress-static); timer diario"
+  - name: qapaq-expected-listeners
+    path: etc/lists/qapaq-expected-listeners
+    source: infra/wazuh/network/lists/qapaq-expected-listeners
+    used_by: [101804]
+    purpose: "Puertos en escucha esperados en los servidores Linux (puerto:servicio)"
+  - name: qapaq-admin-ips
+    path: etc/lists/qapaq-admin-ips
+    source: detections/lists/qapaq-admin-ips
+    used_by: [101761]
+    purpose: "IPs/prefijos administrativos: SSH desde fuera de la lista se eleva (101761-101763)"
+  - name: qapaq-admin-accounts
+    path: etc/lists/qapaq-admin-accounts
+    source: detections/lists/qapaq-admin-accounts
+    used_by: [101766, 101767]
+    purpose: "Cuentas administrativas cuyas sesiones PAM son ruido redundante"
+  - name: qapaq-service-accounts
+    path: etc/lists/qapaq-service-accounts
+    source: detections/lists/qapaq-service-accounts
+    used_by: [101744]
+    purpose: "Automatizaciones aprobadas (cambios DNS de Cloudflare degradados, no suprimidos)"
+  - name: qapaq-authorized-scanners
+    path: etc/lists/qapaq-authorized-scanners
+    source: detections/lists/qapaq-authorized-scanners
+    used_by: [101743]
+    purpose: "Escáneres/pentest autorizados en el WAF (con vencimiento en el valor)"
+  - name: qapaq-critical-zones
+    path: etc/lists/qapaq-critical-zones
+    source: detections/lists/qapaq-critical-zones
+    used_by: [101741, 101742]
+    purpose: "Zonas de Cloudflare críticas: corroboran la severidad de 101513"
+  - name: qapaq-aws-trusted-principals
+    path: etc/lists/qapaq-aws-trusted-principals
+    source: detections/lists/qapaq-aws-trusted-principals
+    used_by: [101714, 101715, 101716]
+    purpose: "Principales AWS del SOC y automatización (degradación de 101616/101615, nunca supresión)"
+  - name: qapaq-break-glass
+    path: etc/lists/qapaq-break-glass
+    example: wazuh/office365/lists/qapaq-break-glass.example
+    used_by: [100530]
+  - name: qapaq-internet-facing-projects
+    path: etc/lists/qapaq-internet-facing-projects
+    example: detections/snyk/exposed-critical-exploit/lists/qapaq-internet-facing-projects.example
+    used_by: [101730, 101731]
+  # SharePoint/OneDrive (docs/23). Las listas de reputación qapaq-ti-blocklist / qapaq-ti-tor también las usan 101908/101909.
+  - name: qapaq-m365-service-accounts
+    path: etc/lists/qapaq-m365-service-accounts
+    source: detections/lists/qapaq-m365-service-accounts
+    used_by: [101901, 101916, 101939, 101940, 101941]
+    purpose: "Cuentas de servicio y sincronización de M365 (UserId exacto): descargas/borrados bajan a 2 y no cuentan; app@sharepoint no dispara altas de administrador"
+  - name: qapaq-m365-sharing-approved
+    path: etc/lists/qapaq-m365-sharing-approved
+    source: detections/lists/qapaq-m365-sharing-approved
+    used_by: [101925, 101929]
+    purpose: "Cuentas aprobadas para publicar con enlaces anónimos o compartir con socios (degradación, nunca supresión)"
+
+# Refinamientos esperados: con las reglas del programa cargadas, estos casos de suites existentes bajan
+# a una regla hija más específica. Es comportamiento buscado (más contexto), no una regresión.
+refinements:
+  - {suite: office365, case: 8,  from: 100520, to: 101704, reason: "Global Administrator es tier 0"}
+  - {suite: office365, case: 44, from: 100520, to: 101704, reason: "Global Administrator es tier 0"}
+  - {suite: collectors, case: 5, from: 101405, to: 101721, reason: "ep-0001 tuvo malware (casos 2-3) y luego antimalware deshabilitado"}
+  - {suite: collectors, case: 6, from: 101406, to: 101721, reason: "ep-0001 tuvo malware (casos 2-3) y luego ATC deshabilitado"}
+  - {suite: aws, case: 15, from: 101622, to: 101712, reason: "mismo principal ya detuvo CloudTrail (caso 13): cegamiento múltiple"}
+  - {suite: aws, case: 16, from: 101623, to: 101712, reason: "mismo principal: cegamiento múltiple"}
+  - {suite: aws, case: 17, from: 101624, to: 101712, reason: "mismo principal: cegamiento múltiple"}
+  - {suite: collectors, case: 13, from: 101453, to: 101732, reason: "calibración: baja sin exploit maduro sale del índice (101732)"}
+  - {suite: collectors, case: 15, from: 101455, to: 101733, reason: "calibración: alta no expuesta ni explotable baja a 7 (101733)"}
+  - {suite: collectors, case: 16, from: 101456, to: 101734, reason: "calibración: crítica no expuesta ni explotable baja a 10 (101734)"}
+  - {suite: collectors, case: 49, from: 101513, to: 101742, reason: "corroboración: example.test no es zona crítica (101742)"}

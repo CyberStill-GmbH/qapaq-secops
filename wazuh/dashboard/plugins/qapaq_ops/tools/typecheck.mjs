@@ -61,14 +61,20 @@ try {
       baseUrl: '.',
       typeRoots: [`${modules}/@types`],
       types: ['node', 'jest', 'react'],
-      paths: { '*': [`${modules}/*`, `${modules}/@types/*`] },
+      paths: {
+        '@opensearch-project/oui': [`${modules}/@elastic/eui`],
+        '*': [`${modules}/*`, `${modules}/@types/*`],
+      },
     },
-    files: [
-      'plugins/qapaq_ops/tools/shims/osd-modules.d.ts',
-      `${modules}/@opensearch-project/oui/oui.d.ts`,
-    ],
+    files: ['plugins/qapaq_ops/tools/shims/osd-modules.d.ts', `${modules}/@elastic/eui/oui.d.ts`],
     include: ['plugins/qapaq_ops/**/*.ts', 'plugins/qapaq_ops/**/*.tsx'],
-    exclude: ['plugins/qapaq_ops/tools/**'],
+    // Unit tests are executed with Vitest, whose matcher types are intentionally not part of
+    // the OSD production dependency tree used here. Keep this check scoped to plugin sources.
+    exclude: [
+      'plugins/qapaq_ops/tools/**',
+      'plugins/qapaq_ops/**/*.test.ts',
+      'plugins/qapaq_ops/**/*.test.tsx',
+    ],
   };
   writeFileSync(join(stage, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2));
   const tsc = join(tools, 'node_modules', 'typescript', 'bin', 'tsc');

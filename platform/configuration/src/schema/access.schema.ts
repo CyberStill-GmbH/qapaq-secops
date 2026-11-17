@@ -13,6 +13,8 @@ import type { ConfigurationProfile } from '../profiles/index.js';
 import type { EnvironmentInput } from '../configuration.types.js';
 import { optionalString, readValue, requireString } from './environment.schema.js';
 
+const ENTRA_TENANT_GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
 export const IDENTITY_MODES = ['entra', 'local-development'] as const;
 export type IdentityMode = (typeof IDENTITY_MODES)[number];
 
@@ -90,6 +92,12 @@ export function parseAccess(
     throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ACCESS_IDENTITY_MODE', profile.name);
   }
   const tenantId = requireString(environment, profile, 'QAPAQ_ENTRA_TENANT_ID');
+  // Con Entra real el tenant es un GUID: `common`, `organizations` o un dominio abrirían el
+  // flujo a otros tenants (aunque `iss`/`tid` lo rechacen después, la configuración debe fallar
+  // al arrancar, no en cada inicio de sesión).
+  if (mode === 'entra' && !ENTRA_TENANT_GUID.test(tenantId)) {
+    throw configurationError('CONFIG_VALUE_INVALID', 'QAPAQ_ENTRA_TENANT_ID', profile.name);
+  }
   const clientId = requireString(environment, profile, 'QAPAQ_ENTRA_CLIENT_ID');
   const authority = requireHttpsUrl(environment, profile, 'QAPAQ_ENTRA_AUTHORITY');
   const base = `${authority.replace(/\/+$/u, '')}/${tenantId}`;
@@ -108,11 +116,7 @@ export function parseAccess(
   }
   const bindingOid = optionalString(environment, profile, 'QAPAQ_MVP_ROLE_BINDING_OID');
   const bindingRole = optionalString(environment, profile, 'QAPAQ_MVP_ROLE_BINDING_ROLE');
-  const bindingExpiresAt = optionalString(
-    environment,
-    profile,
-    'QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT',
-  );
+  const bindingExpiresAt = optionalString(environment, profile, 'QAPAQ_MVP_ROLE_BINDING_EXPIRES_AT');
   const bindingParts = [bindingOid, bindingRole, bindingExpiresAt];
   const mvpRoleBinding = bindingParts.every((value) => value === undefined)
     ? undefined
@@ -124,12 +128,9 @@ export function parseAccess(
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
             bindingOid!,
           ) ||
-          ![
-            'qapaq.soc.analyst',
-            'qapaq.soc.lead',
-            'qapaq.auditor',
-            'qapaq.platform.admin',
-          ].includes(bindingRole!) ||
+          !['qapaq.soc.analyst', 'qapaq.soc.lead', 'qapaq.auditor', 'qapaq.platform.admin'].includes(
+            bindingRole!,
+          ) ||
           !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(bindingExpiresAt!) ||
           !Number.isFinite(Date.parse(bindingExpiresAt!))
         ) {
