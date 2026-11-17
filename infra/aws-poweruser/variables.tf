@@ -53,12 +53,12 @@ variable "ssh_public_key" {
 
 variable "route53_zone_id" {
   type    = string
-  default = "Z0907384VZU2UZOEYI7M"
+  default = "Z0865473RDUFXSD2G9KN"
 }
 
 variable "domain_name" {
   type    = string
-  default = "dev.security.qapaq.pe"
+  default = "app.jappi.net.pe"
 }
 
 variable "budget_email" {

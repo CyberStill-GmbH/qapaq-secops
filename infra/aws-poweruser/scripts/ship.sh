@@ -101,10 +101,11 @@ ssh_remote() {
 
 entra_client_secret=''
 if [[ -f $REPO/.env ]]; then
-  entra_client_secret="$(sed -n 's/^export[[:space:]]\+CLIENT_SECRET=//p; s/^CLIENT_SECRET=//p' "$REPO/.env" | head -n1 | tr -d '\r')"
+  # QAPAQ guarda el secreto como QAPAQ_MICROSOFT_ENTRA_CLIENT_SECRET; CLIENT_SECRET se mantiene por compatibilidad.
+  entra_client_secret="$(sed -n -E 's/^(export[[:space:]]+)?(QAPAQ_MICROSOFT_ENTRA_)?CLIENT_SECRET=//p' "$REPO/.env" | head -n1 | tr -d '\r')"
   entra_client_secret="${entra_client_secret%\"}"; entra_client_secret="${entra_client_secret#\"}"
   entra_client_secret="${entra_client_secret%\'}"; entra_client_secret="${entra_client_secret#\'}"
-  [[ -n $entra_client_secret ]] || { echo 'falta CLIENT_SECRET en .env' >&2; exit 1; }
+  [[ -n $entra_client_secret ]] || { echo 'falta QAPAQ_MICROSOFT_ENTRA_CLIENT_SECRET en .env' >&2; exit 1; }
 fi
 
 tar -C "$REPO" -czf - \

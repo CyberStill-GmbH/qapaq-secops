@@ -119,7 +119,7 @@ for key in ("pattern", "alerts.sample.prefix", "cron.prefix"):
 # Informes PDF de la app de Wazuh con identidad QAPAQ (claves customization.* de 4.14; cabecera
 # 3 líneas × 40, pie 2 × 50). El logo es el de assets/wazuh-app/logo_reports.png (targets.tsv).
 data["customization.enabled"] = True
-data["customization.reports.header"] = "QAPAQ SecOps · Operaciones de Seguridad\nsoc@qapaq.pe\nhttps://dev.security.qapaq.pe"
+data["customization.reports.header"] = "QAPAQ SecOps · Operaciones de Seguridad\nsoc@qapaq.pe\nhttps://app.jappi.net.pe"
 data["customization.reports.footer"] = "QAPAQ SecOps · Informe confidencial\nGenerado por QAPAQ SecOps (motor Wazuh)"
 yaml.safe_dump(data, open(path, "w"), sort_keys=False)
 PY

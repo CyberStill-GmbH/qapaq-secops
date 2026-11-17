@@ -52,7 +52,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertIn("  id-token: write", workflow)
         self.assertIn("working-directory: infra/aws-poweruser", workflow)
         self.assertIn("AWS_POWERUSER_TERRAFORM_ROLE_ARN: ${{ vars.QAPAQ_AWS_POWERUSER_TERRAFORM_ROLE_ARN }}", workflow)
-        self.assertIn('allowed-account-ids: \'061098277310\'', workflow)
+        self.assertIn('allowed-account-ids: \'046372463234\'', workflow)
         self.assertNotIn("123456789012", workflow)
         self.assertNotIn("aws iam ", workflow)
         self.assertIn('[[ "$GITHUB_REF" != "refs/heads/main" ]]', workflow)
@@ -66,7 +66,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         backend = (Path(__file__).resolve().parents[2] / "infra/aws-poweruser/backend.hcl").read_text(
             encoding="utf-8"
         )
-        self.assertIn('bucket       = "qapaq-tfstate-061098277310-us-east-1"', backend)
+        self.assertIn('bucket       = "qapaq-tfstate-046372463234-us-east-1"', backend)
         self.assertIn('key          = "aws-poweruser/dev/terraform.tfstate"', backend)
         self.assertIn("use_lockfile = true", backend)
 
