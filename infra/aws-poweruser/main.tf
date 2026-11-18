@@ -88,8 +88,8 @@ resource "aws_vpc_security_group_ingress_rule" "ssh" {
   cidr_ipv4         = each.value
 }
 
-# HTTPS al nodo: solo desde el ALB (public.tf). El puerto 80 ya no se abre: TLS público lo
-# termina ACM en el ALB.
+# HTTPS al nodo: solo desde el ALB (public.tf). El puerto 80 no se abre a Internet: TLS público lo
+# termina ACM en el ALB, y el desafío ACME del certificado del edge llega solo por el ALB.
 
 resource "aws_vpc_security_group_ingress_rule" "agents" {
   for_each          = toset(var.agent_cidrs)
