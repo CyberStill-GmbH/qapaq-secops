@@ -98,7 +98,7 @@ jobs:
             '.event == "workflow_dispatch" and
              .head_branch == "main" and
              .head_repository.full_name == $repository and
-             (.path | startswith(".github/workflows/terraform-aws-poweruser.yml@")) and
+             ((.path | split("@")[0]) == ".github/workflows/terraform-aws-poweruser.yml") and
              .status == "completed" and
              .conclusion == "success" and
              .head_sha == $commit' \
